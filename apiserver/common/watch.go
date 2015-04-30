@@ -4,8 +4,12 @@
 package common
 
 import (
+	"sync"
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -78,4 +82,109 @@ func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResu
 		result.Results[i].Error = ServerError(err)
 	}
 	return result, nil
+}
+
+// multiNotifyWatcher implements state.NotifyWatcher, combining
+// multiple NotifyWatchers.
+type multiNotifyWatcher struct {
+	tomb     tomb.Tomb
+	watchers []state.NotifyWatcher
+	changes  chan struct{}
+}
+
+// newMultiNotifyWatcher creates a NotifyWatcher that combines
+// each of the NotifyWatchers passed in. Each watcher's initial
+// event is consumed, and a single initial event is sent.
+// Subsequent events are not coalesced.
+func newMultiNotifyWatcher(w ...state.NotifyWatcher) *multiNotifyWatcher {
+	m := &multiNotifyWatcher{
+		watchers: w,
+		changes:  make(chan struct{}),
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(w))
+	staging := make(chan struct{})
+	for _, w := range w {
+		// Consume the first event of each watcher.
+		<-w.Changes()
+		go func(w state.NotifyWatcher) {
+			defer wg.Done()
+			m.tomb.Kill(w.Wait())
+		}(w)
+		// Copy events from the watcher to the staging channel.
+		go copyEvents(staging, w.Changes(), &m.tomb)
+	}
+	go func() {
+		defer m.tomb.Done()
+		m.loop(staging)
+		wg.Wait()
+	}()
+	return m
+}
+
+// loop copies events from the input channel to the output channel,
+// coalescing events by waiting a short time between receiving and
+// sending.
+func (w *multiNotifyWatcher) loop(in <-chan struct{}) {
+	defer close(w.changes)
+	// out is initialised to m.changes to send the inital event.
+	out := w.changes
+	var timer <-chan time.Time
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case <-in:
+			if timer == nil {
+				timer = time.After(10 * time.Millisecond)
+			}
+		case <-timer:
+			timer = nil
+			out = w.changes
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
+// copyEvents copies channel events from "in" to "out", coalescing.
+func copyEvents(out chan<- struct{}, in <-chan struct{}, tomb *tomb.Tomb) {
+	var outC chan<- struct{}
+	for {
+		select {
+		case <-tomb.Dying():
+			return
+		case _, ok := <-in:
+			if !ok {
+				return
+			}
+			outC = out
+		case outC <- struct{}{}:
+			outC = nil
+		}
+	}
+}
+
+func (w *multiNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+	for _, w := range w.watchers {
+		w.Kill()
+	}
+}
+
+func (w *multiNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *multiNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *multiNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *multiNotifyWatcher) Changes() <-chan struct{} {
+	return w.changes
 }

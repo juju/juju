@@ -37,10 +37,6 @@ type StorageAccessor interface {
 	// attachments for the unit with the specified tag.
 	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachment, error)
 
-	// EnsureStorageAttachmentDead ensures that the storage attachment
-	// with the specified unit and storage tags is Dead.
-	EnsureStorageAttachmentDead(names.StorageTag, names.UnitTag) error
-
 	// RemoveStorageAttachment removes that the storage attachment
 	// with the specified unit and storage tags. This method is only
 	// expected to succeed if the storage attachment is Dead.
@@ -172,35 +168,17 @@ func (a *Attachments) updateOneStorage(storageTag names.StorageTag) error {
 	case params.Dying:
 		if stateFile.state.attached {
 			// Previously ran storage-attached, so we'll
-			// need to run a storage-detaching hook.
+			// leave the storager to handle the lifecycle
+			// state change.
 			if storager == nil {
 				panic("missing storager for attached storage")
 			}
-			// TODO(axw) have storager watch both storage
-			// attachment and volume/filesystem attachment,
-			// else we need to force updates from here.
 			return nil
 		}
-		// Storage was not previously seen as Dying, so we can
-		// short-circuit the storage's death and removal.
-		if err := a.st.EnsureStorageAttachmentDead(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "ensuring storage is dead")
-		}
-		fallthrough
-	case params.Dead:
-		if storager != nil {
-			// Stopping the storager guarantees that no hooks will
-			// be delivered, which is a crucial requirement for
-			// short-circuiting.
-			if err := storager.Stop(); err != nil {
-				return errors.Trace(err)
-			}
-			delete(a.storagers, storageTag)
-		}
-		if err := a.st.RemoveStorageAttachment(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "removing storage")
-		}
-		return nil
+		// Storage attachment hasn't previously been observed,
+		// so we can short-circuit the removal.
+		err := a.removeStorageAttachment(storageTag, storager)
+		return errors.Trace(err)
 	}
 
 	if storager == nil {
@@ -218,6 +196,11 @@ func (a *Attachments) add(storageTag names.StorageTag, stateFile *stateFile) err
 	a.storagers[storageTag] = s
 	logger.Debugf("watching storage %q", storageTag.Id())
 	return nil
+}
+
+// Empty reports whether or not there are any active storage attachments.
+func (a *Attachments) Empty() bool {
+	return len(a.storagers) == 0
 }
 
 // Storage returns the ContextStorage with the supplied tag if it was
@@ -249,12 +232,25 @@ func (a *Attachments) CommitHook(hi hook.Info) error {
 		return err
 	}
 	if hi.Kind == hooks.StorageDetached {
-		// Progress storage attachment to Dead.
 		storageTag := names.NewStorageTag(hi.StorageId)
-		if err := a.st.EnsureStorageAttachmentDead(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "ensuring storage is dead")
+		if err := a.removeStorageAttachment(storageTag, storager); err != nil {
+			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+func (a *Attachments) removeStorageAttachment(tag names.StorageTag, s *storager) error {
+	if err := a.st.RemoveStorageAttachment(tag, a.unitTag); err != nil {
+		return errors.Annotate(err, "removing storage attachment")
+	}
+	if s == nil {
+		return nil
+	}
+	if err := s.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	delete(a.storagers, tag)
 	return nil
 }
 

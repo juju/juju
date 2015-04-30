@@ -21,7 +21,6 @@ type mockStorageAccessor struct {
 	watchStorageAttachment func(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	storageAttachment      func(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	unitStorageAttachments func(names.UnitTag) ([]params.StorageAttachment, error)
-	ensureDead             func(names.StorageTag, names.UnitTag) error
 	remove                 func(names.StorageTag, names.UnitTag) error
 }
 
@@ -35,10 +34,6 @@ func (m *mockStorageAccessor) StorageAttachment(s names.StorageTag, u names.Unit
 
 func (m *mockStorageAccessor) UnitStorageAttachments(u names.UnitTag) ([]params.StorageAttachment, error) {
 	return m.unitStorageAttachments(u)
-}
-
-func (m *mockStorageAccessor) EnsureStorageAttachmentDead(s names.StorageTag, u names.UnitTag) error {
-	return m.ensureDead(s, u)
 }
 
 func (m *mockStorageAccessor) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
