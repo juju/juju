@@ -589,7 +589,6 @@ func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int6
 	if err == mgo.ErrNotFound {
 		return -1, false, nil
 	}
-	fmt.Printf("KEEP: %+v\n", result)
 	if err != nil {
 		return -1, false, errors.Trace(err)
 	}

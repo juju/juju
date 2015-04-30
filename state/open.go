@@ -182,6 +182,7 @@ var indexes = []struct {
 	{volumesC, []string{"env-uuid", "storageid"}, false, false},
 	{filesystemsC, []string{"env-uuid", "storageid"}, false, false},
 	{statusesHistoryC, []string{"env-uuid", "entityid"}, false, false},
+	{statusesHistoryC, []string{"env-uuid", "created"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.

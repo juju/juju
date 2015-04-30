@@ -182,7 +182,12 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 			info.StatusInfo = unitStatus.Message
 			info.StatusData = unitStatus.Data
 		} else {
-			legacyStatus, _ := TranslateToLegacyAgentState(agentStatus.Status, unitStatus.Status, unitStatus.Message)
+			legacyStatus, ok := TranslateToLegacyAgentState(agentStatus.Status, unitStatus.Status, unitStatus.Message)
+			if !ok {
+				logger.Warningf(
+					"translate to legacy status encounted unexpected workload status %q and agent status %q",
+					unitStatus.Status, agentStatus.Status)
+			}
 			info.Status = multiwatcher.Status(legacyStatus)
 			info.StatusInfo = agentStatus.Message
 			info.StatusData = agentStatus.Data
@@ -502,11 +507,16 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	}
 
 	// Legacy status info - it is an aggregated value between workload and agent statuses.
-	legacyStatus, _ := TranslateToLegacyAgentState(
+	legacyStatus, ok := TranslateToLegacyAgentState(
 		Status(newInfo.AgentStatus.Current),
 		Status(newInfo.WorkloadStatus.Current),
 		newInfo.WorkloadStatus.Message,
 	)
+	if !ok {
+		logger.Warningf(
+			"translate to legacy status encounted unexpected workload status %q and agent status %q",
+			newInfo.WorkloadStatus.Current, newInfo.AgentStatus.Current)
+	}
 	newInfo.Status = multiwatcher.Status(legacyStatus)
 	if newInfo.Status == multiwatcher.Status(StatusError) {
 		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
