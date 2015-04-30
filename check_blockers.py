@@ -23,16 +23,19 @@ def get_json(uri):
     request = urllib2.Request(uri, headers={
         "Cache-Control": "max-age=0, must-revalidate",
     })
-    data = urllib2.urlopen(request).read()
-    if data:
+    response = urllib2.urlopen(request)
+    data = response.read()
+    if response.getcode() == 200 and data:
         return json.loads(data)
     return None
 
 
 def parse_args(args=None):
     parser = ArgumentParser('Check if a branch is blocked from landing')
-    parser.add_argument('branch', help='The branch to merge into.')
-    parser.add_argument('pull_request', help='The pull request to be merged')
+    parser.add_argument('branch', default='master', nargs='?',
+        help='The branch to merge into.')
+    parser.add_argument('pull_request', default=None, nargs='?',
+        help='The pull request to be merged')
     return parser.parse_args(args)
 
 
@@ -72,9 +75,11 @@ def get_reason(bugs, args):
     if not bugs:
         return 0, 'No blocking bugs'
     fixes_ids = ['fixes-{}'.format(bug_id) for bug_id in bugs]
+    if args.pull_request is None:
+        return 1, 'Blocked waiting on {}'.format(fixes_ids)
     uri = GH_COMMENTS.format(args.pull_request)
     comments = get_json(uri)
-    if comments:
+    if comments is not None:
         for comment in comments:
             user = comment['user']
             if user['login'] == 'jujubot' or 'Juju bot' in comment['body']:
