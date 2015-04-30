@@ -151,9 +151,9 @@ type MachineStorageIds struct {
 
 // Volume describes a storage volume in the environment.
 type Volume struct {
-	VolumeTag string `json:"volumetag"`
-	VolumeId  string `json:"volumeid"`
-	Serial    string `json:"serial"`
+	VolumeTag  string `json:"volumetag"`
+	VolumeId   string `json:"volumeid"`
+	HardwareId string `json:"hardwareid,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -448,8 +448,8 @@ type VolumeInstance struct {
 	// VolumeId is a unique provider-supplied ID for the volume.
 	VolumeId string `json:"volumeid"`
 
-	// Serial is the volume's serial number.
-	Serial string `json:"serial,omitempty"`
+	// HardwareId is the volume's hardware ID.
+	HardwareId string `json:"hardwareid,omitempty"`
 
 	// Size is the size of the volume in MiB.
 	Size uint64 `json:"size"`

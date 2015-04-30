@@ -15,9 +15,9 @@ type Volume struct {
 	// volume, but may be reused.
 	VolumeId string
 
-	// Serial is the volume's serial number. Not all volumes have a serial
-	// number, so this may be left blank.
-	Serial string
+	// HardwareId is the volume's hardware ID. Not all volumes have
+	// a hardware ID, so this may be left blank.
+	HardwareId string
 
 	// Size is the size of the volume, in MiB.
 	Size uint64

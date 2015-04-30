@@ -23,11 +23,12 @@ type BlockDevice struct {
 	// differ in format to the standard v4 UUIDs.
 	UUID string `yaml:"uuid,omitempty"`
 
-	// Serial is the block device's serial number. Not all block devices
-	// have a serial number. This is used to identify a block device if
-	// it is available, in preference to UUID or device name, as the serial
-	// is immutable.
-	Serial string `yaml:"serial,omitempty"`
+	// HardwareId is the block device's hardware ID, which is composed of
+	// a serial number, vendor and model name. Not all block devices have
+	// these properties, so HardwareId may be empty. This is used to identify
+	// a block device if it is available, in preference to UUID or device
+	// name, as the hardware ID is immutable.
+	HardwareId string `yaml:"hardwareid,omitempty"`
 
 	// Size is the size of the block device, in MiB.
 	Size uint64 `yaml:"size"`

@@ -98,7 +98,7 @@ func (s *managedFilesystemSource) devicePath(dev storage.BlockDevice) string {
 	if dev.DeviceName != "" {
 		return path.Join("/dev", dev.DeviceName)
 	}
-	return path.Join("/dev/disk/by-id", dev.Serial)
+	return path.Join("/dev/disk/by-id", dev.HardwareId)
 }
 
 // AttachFilesystems is defined on storage.FilesystemSource.
