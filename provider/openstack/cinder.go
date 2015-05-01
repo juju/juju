@@ -63,6 +63,8 @@ func (s *cinderProvider) Scope() storage.Scope {
 
 // ValidateConfig implements storage.Provider.
 func (p *cinderProvider) ValidateConfig(cfg *storage.Config) error {
+	// TODO(axw) 2015-05-01 #1450737
+	// Reject attempts to create non-persistent volumes.
 	return nil
 }
 
@@ -141,6 +143,12 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 	if err != nil {
 		return storage.Volume{}, errors.Trace(err)
 	}
+	// TODO(axw) 2015-05-01 #1450740
+	//
+	// Cinder responds with a zero size initially; we should
+	// wait until the volume has been allocated so we can
+	// report its actual size.
+	logger.Debugf("created volume: %+v", cinderVolume)
 	return cinderToJujuVolume(arg.Tag, cinderVolume), nil
 }
 
@@ -332,6 +340,7 @@ type novaClient struct {
 	*nova.Client
 }
 
+// CreateVolume is part of the openstackStorage interface.
 func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 	resp, err := ga.cinderClient.CreateVolume(args)
 	if err != nil {
@@ -340,6 +349,7 @@ func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumePa
 	return &resp.Volume, nil
 }
 
+// GetVolumesSimple is part of the openstackStorage interface.
 func (ga *openstackStorageAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
 	resp, err := ga.cinderClient.GetVolumesSimple()
 	if err != nil {
