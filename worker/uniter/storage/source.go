@@ -210,7 +210,6 @@ func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 	if attachment.Life == params.Alive {
 		s.hookInfo.Kind = hooks.StorageAttached
 	} else {
-		// TODO(axw) this should be Detaching, not Detached.
 		s.hookInfo.Kind = hooks.StorageDetaching
 	}
 	logger.Debugf("queued hook: %v", s.hookInfo)
