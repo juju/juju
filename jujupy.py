@@ -202,6 +202,9 @@ class EnvJujuClient:
             constraints = 'mem=2G'
         elif self.env.maas:
             constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
         args = ('--constraints', constraints)
@@ -692,10 +695,13 @@ class SimpleEnvironment:
             self.hpcloud = bool(
                 'hpcloudsvc' in self.config.get('auth-url', ''))
             self.maas = bool(self.config.get('type') == 'maas')
+            self.joyent = bool(self.config.get('type') == 'joyent')
         else:
             self.local = False
+            self.kvm = False
             self.hpcloud = False
             self.maas = False
+            self.joyent = False
 
     def __eq__(self, other):
         if type(self) != type(other):
