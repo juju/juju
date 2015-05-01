@@ -49,6 +49,18 @@ class CheckBlockers(TestCase):
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)
 
+    def test_parse_args_check_pr_optional(self):
+        args = check_blockers.parse_args(['check', 'master'])
+        self.assertEqual('check', args.command)
+        self.assertEqual('master', args.branch)
+        self.assertEqual(None, args.pull_request)
+
+    def test_parse_args_check_branch_optional(self):
+        args = check_blockers.parse_args(['check'])
+        self.assertEqual('check', args.command)
+        self.assertEqual('master', args.branch)
+        self.assertEqual(None, args.pull_request)
+
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
             ['-c', './foo.cred', 'update', 'master', '1234'])
@@ -153,7 +165,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual('Could not get 17 comments from github', reason)
+            self.assertEqual("Does not match ['fixes-98765']", reason)
             gj.assert_called_with((check_blockers.GH_COMMENTS.format('17')))
 
     def test_get_reason_with_blockers_no_match(self):
@@ -211,6 +223,7 @@ class CheckBlockers(TestCase):
 
     def test_get_json(self):
         response = Mock()
+        response.getcode.return_value = 200
         response.read.side_effect = ['{"result": []}']
         with patch('check_blockers.urllib2.urlopen') as urlopen:
             urlopen.return_value = response
