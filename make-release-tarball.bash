@@ -92,6 +92,18 @@ if [[ ! -f $GODEPS ]]; then
 fi
 GOPATH=$WORK $GODEPS -u "$WORKPACKAGE/dependencies.tsv"
 
+# Remove godeps, and non-free data
+rm -r $WORK/src/launchpad.net/godeps
+rm -rf $WORK/src/github.com/kisielk
+rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
+rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
+rm -rf $WORK/src/golang.org/x/go.net/html/charset/testdata/
+rm -f $WORK/src/golang.org/x/go.net/html/charset/*test.go
+
+# Validate the go src tree against dependencies.tsv
+$SCRIPT_DIR/check_dependencies.py --delete-unknown --ignore $PACKAGE \
+    "$WORKPACKAGE/dependencies.tsv" "$WORK/src"
+
 # Run juju's fmt and vet script on the source after finding the right version
 if [[ $(lsb_release -sc) == "trusty" ]]; then
     CHECKSCRIPT=./scripts/verify.bash
@@ -101,27 +113,14 @@ if [[ $(lsb_release -sc) == "trusty" ]]; then
     (cd $WORKPACKAGE && GOPATH=$WORK $CHECKSCRIPT)
 fi
 
-VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
-    $WORKPACKAGE/version/version.go)
-
-# Remove godeps, non-free data, and any binaries.
-grep "golang.org/x/crypto" $WORKPACKAGE/dependencies.tsv || \
-    rm -rf $WORK/src/golang.org/x/crypto
-rm -rf $WORK/src/gopkg.in/juju/charm.v6-unstable
-rm -r $WORK/src/launchpad.net/godeps
-rm -rf $WORK/src/github.com/kisielk
-rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
-rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
-rm -rf $WORK/src/golang.org/x/go.net/html/charset/testdata/
-rm -f $WORK/src/golang.org/x/go.net/html/charset/*test.go
+# Remove binaries and build artefacts
 rm -r $WORK/bin
 if [[ -d $WORK/pkg ]]; then
     rm -r $WORK/pkg
 fi
 
-# Validate the go src tree against dependencies.tsv
-$SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
-    "$WORKPACKAGE/dependencies.tsv" "$WORK/src"
+VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
+    $WORKPACKAGE/version/version.go)
 
 # Change the generic release to the proper juju-core version.
 mv $WORK $TMP_DIR/juju-core_${VERSION}/

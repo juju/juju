@@ -125,7 +125,7 @@ class MakeReleaseNotes(TestCase):
             save_notes('bar', None)
             self.assertEqual('bar\n', so_mock.getvalue())
 
-    def test_parge_args(self):
+    def test_parse_args(self):
         # Only the milestone is required.
         args = parse_args(['foo'])
         self.assertEqual('foo', args.milestone)

@@ -3,8 +3,9 @@
 
 from __future__ import print_function
 
-import argparse
+from argparse import ArgumentParser
 import os
+import shutil
 import sys
 
 
@@ -30,13 +31,15 @@ def compare_dependencies(deps, srcdir):
         elif fs:
             unknown.append(path)
             del ds[:]
+        else:
+            ds.sort()
     return present, unknown
 
 
-def main():
+def main(argv):
     """Execute the commands from the command line."""
     exitcode = 0
-    args = get_arg_parser().parse_args()
+    args = get_arg_parser().parse_args(argv[1:])
     deps = get_dependencies(args.depfile)
     known = deps.union(args.ignore)
     present, unknown = compare_dependencies(known, args.srcdir)
@@ -46,15 +49,23 @@ def main():
         exitcode = 1
     if unknown:
         print("Extant directories unknown:\n {}".format("\n ".join(unknown)))
-        exitcode = 1
+        if args.delete_unknown:
+            print("...deleting")
+            for d in unknown:
+                shutil.rmtree(os.path.join(args.srcdir, d))
+        else:
+            exitcode = 1
     return exitcode
 
 
 def get_arg_parser():
     """Return the argument parser for this program."""
-    parser = argparse.ArgumentParser("Compare dependencies with src tree")
+    parser = ArgumentParser("Compare dependencies with src tree")
     parser.add_argument(
-        "-i", "--ignore", action="append",
+        "--delete-unknown", action="store_true", default=False,
+        help="Delete unknown directories rather than fail")
+    parser.add_argument(
+        "-i", "--ignore", action="append", default=[],
         help="The dependencies.tsv file to check")
     parser.add_argument("depfile", help="The dependencies.tsv file to check")
     parser.add_argument("srcdir", help="The go src dir to compare")
@@ -62,4 +73,4 @@ def get_arg_parser():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv))
