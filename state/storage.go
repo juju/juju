@@ -679,7 +679,7 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 }
 
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	err := validateStorageConstraintsAgainstCharmStorage(st, allCons, charmMeta)
+	err := validateStorageConstraintsAgainstCharm(st, allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -693,7 +693,7 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-func validateStorageConstraintsAgainstCharmStorage(
+func validateStorageConstraintsAgainstCharm(
 	st *State,
 	allCons map[string]StorageConstraints,
 	charmMeta *charm.Meta,
@@ -963,7 +963,7 @@ func (st *State) validateUnitStorage(
 	}
 	cons.Count = cons.Count + currentCount
 
-	err = validateStorageConstraintsAgainstCharmStorage(
+	err = validateStorageConstraintsAgainstCharm(
 		st,
 		map[string]StorageConstraints{name: cons},
 		charmMeta)
