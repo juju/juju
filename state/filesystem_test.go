@@ -35,7 +35,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPool(c *gc.C) {
 	}
 	_, err := s.State.AddService("storage-filesystem", s.Owner.String(), ch, nil, storage)
 	// TODO(axw) implement support for default filesystem pool.
-	c.Assert(err, gc.ErrorMatches, `cannot add service "storage-filesystem": finding default stoage pool: no storage pool specifed and no default available`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "storage-filesystem": finding default pool for "data" storage: no storage pool specifed and no default available`)
 }
 
 func (s *FilesystemStateSuite) TestAddFilesystemWithoutBackingVolume(c *gc.C) {
