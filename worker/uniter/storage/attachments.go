@@ -231,7 +231,7 @@ func (a *Attachments) CommitHook(hi hook.Info) error {
 	if err := storager.CommitHook(hi); err != nil {
 		return err
 	}
-	if hi.Kind == hooks.StorageDetached {
+	if hi.Kind == hooks.StorageDetaching {
 		storageTag := names.NewStorageTag(hi.StorageId)
 		if err := a.removeStorageAttachment(storageTag, storager); err != nil {
 			return errors.Trace(err)

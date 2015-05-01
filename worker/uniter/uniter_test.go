@@ -2024,7 +2024,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			// storage-attached should come before install.
 			waitHooks{"wp-content-storage-attached"},
 		), ut(
-			"test that storage-detached is called before stop",
+			"test that storage-detaching is called before stop",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
@@ -2039,11 +2039,11 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			// "stop" hook is not called until storage is detached
 			waitHooks{},
 			destroyStorageAttachment{},
-			waitHooks{"wp-content-storage-detached", "stop"},
+			waitHooks{"wp-content-storage-detaching", "stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
 		), ut(
-			"test that storage-detached is called only if previously attached",
+			"test that storage-detaching is called only if previously attached",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
@@ -2055,7 +2055,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			startUniter{},
 			waitHooks(startupHooks(false)),
 			unitDying,
-			// storage-detached is not called because it was never attached
+			// storage-detaching is not called because it was never attached
 			waitHooks{"stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
