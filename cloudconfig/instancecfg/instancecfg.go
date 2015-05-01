@@ -383,7 +383,7 @@ var DataDir = agent.DefaultDataDir
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
-// DefaultBridgeName is the network bridge device namme used for LXC and KVM
+// DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
 const DefaultBridgeName = "juju-br0"
 
