@@ -82,6 +82,18 @@ func (s *StorageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	s.assertStorageCount(c, 1)
 }
 
+func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
+	service, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
+	s.assertStorageCount(c, 1)
+
+	ch, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.AddStorageForUnit(ch.Meta(), u, "allecto", makeStorageCons("loop-pool", 1024, 1))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageCount(c, 2)
+}
+
 func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
