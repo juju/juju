@@ -137,7 +137,8 @@ func (s *StorageAddSuite) TestAddStorageWrongName(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 	addStorage := func() {
-		s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{})
+		err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{})
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
 	addStorage()
@@ -149,7 +150,8 @@ func (s *StorageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 
 	count := 6
 	addStorage := func() {
-		s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+		err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
 	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})

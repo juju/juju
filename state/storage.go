@@ -970,7 +970,6 @@ func (st *State) validateUnitStorage(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cons.Count = cons.Count - currentCount
 	return nil
 }
 
@@ -1012,7 +1011,7 @@ func (st *State) countEntityStorageInstancesForName(
 	criteria := bson.D{{
 		"$and", []bson.D{
 			bson.D{{"owner", tag.String()}},
-			bson.D{{"storagename", bson.RegEx{name, ""}}},
+			bson.D{{"storagename", name}},
 		},
 	}}
 	result, err := storageCollection.Find(criteria).Count()
