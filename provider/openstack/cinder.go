@@ -267,14 +267,6 @@ func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volu
 	}
 }
 
-func novaToJujuVolumeAttachment(attachment *nova.VolumeAttachment) storage.VolumeAttachment {
-	return storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag(attachment.VolumeId),
-		Machine:    names.NewMachineTag(attachment.ServerId),
-		DeviceName: attachment.Device[len("/dev/"):],
-	}
-}
-
 func detachVolume(instanceId, volumeId string, attachments []nova.VolumeAttachment, storageAdapter openstackStorage) error {
 	// TODO(axw) verify whether we need to do this find step. From looking at the example
 	// responses in the OpenStack docs, the "attachment ID" is always the same as the
