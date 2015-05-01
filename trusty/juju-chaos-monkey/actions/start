@@ -19,6 +19,7 @@ fi
 
 # Run the Chaos Monkey
 cmd="python ${target_dir}/juju-chaos-monkey/runner.py"
+cmd+=" --lock-file ${target_dir}/juju-chaos-monkey.run"
 if [[ -n ${total_timeout:-} ]]; then
     cmd+=" --total-timeout ${total_timeout}"
 fi
@@ -28,8 +29,9 @@ fi
 action-set action-info.runner-cmd="${cmd}"
 action-set action-info.runner-log="${target_dir}/log/results.log"
 if [[ ${dry_run-} != True ]]; then
-    nohup ${cmd} >> ${target_dir}/log/resutls.log 2>&1
-    if [ $? != 0 ]; then
-        action-fail "ERROR:Non-zero exit code from: ${cmd}"
-    fi
+    # Start the Chaos runner in a subprocess with nohup and in the background.
+    # In this way it's PPID becomes init and further juju actions are not
+    # blocked.
+    touch ${target_dir}/juju-chaos-monkey.run
+    (nohup ${cmd} >> ${target_dir}/log/resutls.log 2>&1 &)
 fi
