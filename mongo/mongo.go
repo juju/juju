@@ -184,8 +184,13 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := aptGetInstallMongod(args.SetNumaControlPolicy); err != nil {
-		return fmt.Errorf("cannot install mongod: %v", err)
+	err := aptGetInstallMongod(args.SetNumaControlPolicy)
+	if err != nil {
+		// This isn't treated as fatal because the Juju MongoDB
+		// package is likely to be already installed anyway. There
+		// could just be a temporary issue with apt-get and we don't
+		// want this to stop jujud from starting(LP #1441904).
+		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
 	mongoPath, err := Path()
 	if err != nil {
