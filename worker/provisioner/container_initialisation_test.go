@@ -493,8 +493,8 @@ func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		ctype    instance.ContainerType
 		packages [][]string
 	}{
-		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}}},
-		{instance.KVM, [][]string{{"uvtool-libvirt", "uvtool"}}},
+		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc"}, {"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{{"uvtool-libvirt"}, {"uvtool"}}},
 	} {
 		s.enableFeatureFlag()
 		s.assertContainerInitialised(c, test.ctype, test.packages, true)
