@@ -3,8 +3,8 @@ juju and Forward Porting Bug Fixes
 
 When fixing a bug that affects more than a single branch the prefered
 process for fixing the bug is to perform the work against the oldest
-branch and then forward port that backup to each release branch and
-finally in to master.
+branch and then forward port that bug back up to each release branch
+and finally in to master.
 
 For example, if a bug is reported to impact R1, R2, and master. You
 would perform the work against a branch of R1. When your fix is ready
