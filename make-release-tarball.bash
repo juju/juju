@@ -107,6 +107,7 @@ VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
 # Remove godeps, non-free data, and any binaries.
 grep "golang.org/x/crypto" $WORKPACKAGE/dependencies.tsv || \
     rm -rf $WORK/src/golang.org/x/crypto
+rm -rf $WORK/src/gopkg.in/juju/charm.v6-unstable
 rm -r $WORK/src/launchpad.net/godeps
 rm -rf $WORK/src/github.com/kisielk
 rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
