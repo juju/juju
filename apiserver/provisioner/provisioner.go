@@ -222,6 +222,23 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	cfg := make(map[string]string)
 	cfg[container.ConfigName] = container.DefaultNamespace
 
+	switch args.Type {
+	case instance.LXC:
+		if useLxcClone, ok := config.LXCUseClone(); ok {
+			cfg["use-clone"] = fmt.Sprint(useLxcClone)
+		}
+		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
+			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
+		}
+	}
+
+	if !environs.AddressAllocationEnabled() {
+		// No need to even try checking the environ for support.
+		logger.Debugf("address allocation feature flag not enabled")
+		result.ManagerConfig = cfg
+		return result, nil
+	}
+
 	// Create an environment to verify networking support.
 	env, err := environs.New(config)
 	if err != nil {
@@ -240,15 +257,6 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		}
 	}
 
-	switch args.Type {
-	case instance.LXC:
-		if useLxcClone, ok := config.LXCUseClone(); ok {
-			cfg["use-clone"] = fmt.Sprint(useLxcClone)
-		}
-		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
-			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
-		}
-	}
 	result.ManagerConfig = cfg
 	return result, nil
 }
@@ -767,12 +775,17 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-// ReleaseContainerAddresses finds addresses allocated to a container and marks
-// them as Dead, to be released and removed. It accepts container tags as
-// arguments.
+// ReleaseContainerAddresses finds addresses allocated to a container
+// and marks them as Dead, to be released and removed. It accepts
+// container tags as arguments. If address allocation feature flag is
+// not enabled, it will return a NotSupported error.
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	if !environs.AddressAllocationEnabled() {
+		return result, errors.NotSupportedf("address allocation")
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -831,11 +844,17 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information for configuring networking on a container. It accepts
-// container tags as arguments.
+// container tags as arguments. If the address allocation feature flag
+// is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
 	result := params.MachineNetworkConfigResults{
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
+
+	if !environs.AddressAllocationEnabled() {
+		return result, errors.NotSupportedf("address allocation")
+	}
+
 	// Some preparations first.
 	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
