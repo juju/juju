@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -254,6 +255,11 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 			// We log the error, but it's safe to ignore as it's not
 			// critical.
 			logger.Debugf("address allocation not supported (%v)", err)
+		}
+		// AWS requires NAT in place in order for hosted containers to
+		// reach outside.
+		if config.Type() == provider.EC2 {
+			cfg[container.ConfigEnableNAT] = "true"
 		}
 	}
 
