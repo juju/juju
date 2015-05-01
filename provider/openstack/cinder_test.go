@@ -1,6 +1,7 @@
 package openstack_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -30,7 +32,9 @@ var (
 
 var _ = gc.Suite(&cinderVolumeSourceSuite{})
 
-type cinderVolumeSourceSuite struct{}
+type cinderVolumeSourceSuite struct {
+	testing.BaseSuite
+}
 
 func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	mockAdapter := &mockAdapter{
@@ -73,12 +77,11 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	mockAdapter := &mockAdapter{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
-				Name: "volume-123",
 				Size: requestedSize / 1024,
+				Name: "volume-123",
 			})
 			return &cinder.Volume{
 				ID:   mockVolId,
-				Name: "volume-123",
 				Size: providedSize / 1024,
 			}, nil
 		},
@@ -122,17 +125,14 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
-
 	mockAdapter := &mockAdapter{
 		getVolumesSimple: func() ([]cinder.Volume, error) {
 			return []cinder.Volume{{
 				ID:   mockVolId,
-				Name: "volume-123",
 				Size: mockVolSize / 1024,
 			}}, nil
 		},
 	}
-
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumes, err := volSource.DescribeVolumes([]string{mockVolId})
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,6 +208,103 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
+	var numCreateCalls, numAttachCalls, numDetachCalls, numDestroyCalls int
+	mockAdapter := &mockAdapter{
+		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+			numCreateCalls++
+			if numCreateCalls == 3 {
+				return nil, errors.New("no volume for you")
+			}
+			return &cinder.Volume{
+				ID:   fmt.Sprint(numCreateCalls),
+				Size: mockVolSize / 1024,
+			}, nil
+		},
+		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
+			numAttachCalls++
+			if numAttachCalls == 2 {
+				return nil, errors.New("no attach for you")
+			}
+			return &nova.VolumeAttachment{
+				Id:       volId,
+				VolumeId: volId,
+				ServerId: serverId,
+				Device:   "/dev/sda" + volId,
+			}, nil
+		},
+		detachVolume: func(serverId, volId string) error {
+			numDetachCalls++
+			return errors.New("detach fails")
+		},
+		deleteVolume: func(volId string) error {
+			numDestroyCalls++
+			return errors.New("destroy fails")
+		},
+		listVolumeAttachments: func(serverId string) ([]nova.VolumeAttachment, error) {
+			return []nova.VolumeAttachment{{
+				Id:       "4",
+				VolumeId: "4",
+				ServerId: serverId,
+				Device:   "/dev/sda",
+			}}, nil
+		},
+	}
+
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	volumeParams := []storage.VolumeParams{{
+		Provider: openstack.CinderProviderType,
+		Tag:      names.NewVolumeTag("0"),
+		Size:     mockVolSize,
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   openstack.CinderProviderType,
+				Machine:    mockMachineTag,
+				InstanceId: instance.Id(mockServerId),
+			},
+		},
+	}, {
+		Provider: openstack.CinderProviderType,
+		Tag:      names.NewVolumeTag("1"),
+		Size:     mockVolSize,
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   openstack.CinderProviderType,
+				Machine:    mockMachineTag,
+				InstanceId: instance.Id(mockServerId),
+			},
+		},
+	}, {
+		Provider: openstack.CinderProviderType,
+		Tag:      names.NewVolumeTag("2"),
+		Size:     mockVolSize,
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   openstack.CinderProviderType,
+				Machine:    mockMachineTag,
+				InstanceId: instance.Id(mockServerId),
+			},
+		},
+	}}
+	volumes, attachments, err := volSource.CreateVolumes(volumeParams)
+	c.Assert(err, gc.ErrorMatches, "no volume for you")
+	c.Assert(volumes, gc.IsNil)
+	c.Assert(attachments, gc.IsNil)
+	c.Assert(numCreateCalls, gc.Equals, 3)
+	c.Assert(numDestroyCalls, gc.Equals, 2)
+
+	// Second time around, the create calls should all succeed
+	// but the second attach should fail. This will cause the
+	// volumes to be detached and destroyed. One of the detachments
+	// fails, so we should only see two destroy calls.
+	_, _, err = volSource.CreateVolumes(volumeParams)
+	c.Assert(err, gc.ErrorMatches, "no attach for you")
+	c.Assert(numCreateCalls, gc.Equals, 6)
+	c.Assert(numAttachCalls, gc.Equals, 2)
+	c.Assert(numDetachCalls, gc.Equals, 1)
+	c.Assert(numDestroyCalls, gc.Equals, 4)
+}
+
 type mockAdapter struct {
 	getVolumesSimple      func() ([]cinder.Volume, error)
 	deleteVolume          func(string) error
@@ -261,140 +358,10 @@ func (ma *mockAdapter) DetachVolume(serverId, attachmentId string) error {
 	}
 	return nil
 }
+
 func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error) {
 	if ma.listVolumeAttachments != nil {
 		return ma.listVolumeAttachments(serverId)
 	}
 	return nil, nil
 }
-
-//var _ = gc.Suite(&gooseAdapterSuite{})
-//
-//type gooseAdapterSuite struct{}
-//
-//func (s *gooseAdapterSuite) TestCreateVolume(c *gc.C) {
-//
-//	numCalls := 0
-//	cinderHandler := func(req *http.Request) (*http.Response, error) {
-//		numCalls++
-//
-//		bodyBytes, err := ioutil.ReadAll(req.Body)
-//		c.Assert(err, jc.ErrorIsNil)
-//		body := string(bodyBytes)
-//
-//		c.Check(body, gc.Equals, `{"volume":{"size":1,"name":"`+names.NewVolumeTag(mockVolId).String()+`"}}`)
-//
-//		return &http.Response{
-//			StatusCode: 202,
-//			Body:       ioutil.NopCloser(bytes.NewBufferString(mockVolJson)),
-//		}, nil
-//	}
-//
-//	gooseAdapter := newTestGooseAdapter(cinderHandler, nil)
-//
-//	vol, err := gooseAdapter.CreateVolume(1024, names.NewVolumeTag(mockVolId))
-//	c.Assert(numCalls, gc.Equals, 1)
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(vol, gc.NotNil)
-//}
-//
-//func (s *gooseAdapterSuite) TestDeleteVolume(c *gc.C) {
-//
-//	numCalls := 0
-//	cinderHandler := func(req *http.Request) (*http.Response, error) {
-//		numCalls++
-//
-//		c.Check(req.URL.String(), gc.Matches, ".*/volumes/"+mockVolId+"$")
-//
-//		return &http.Response{
-//			StatusCode: 202,
-//			Body:       ioutil.NopCloser(bytes.NewBufferString(mockVolJson)),
-//		}, nil
-//	}
-//
-//	gooseAdapter := newTestGooseAdapter(cinderHandler, nil)
-//
-//	err := gooseAdapter.DeleteVolume(mockVolId)
-//	c.Assert(numCalls, gc.Equals, 1)
-//	c.Assert(err, jc.ErrorIsNil)
-//}
-//
-//func (s *gooseAdapterSuite) TestGetVolumesSimple(c *gc.C) {
-//
-//	numCalls := 0
-//	cinderHandler := func(req *http.Request) (*http.Response, error) {
-//		numCalls++
-//
-//		resp := `{"volumes":[{"id": "` + mockVolId + `","name": "` + mockVolName + `"}]}`
-//
-//		return &http.Response{
-//			StatusCode: 200,
-//			Body:       ioutil.NopCloser(bytes.NewBufferString(resp)),
-//		}, nil
-//	}
-//
-//	gooseAdapter := newTestGooseAdapter(cinderHandler, nil)
-//
-//	vols, err := gooseAdapter.GetVolumesSimple()
-//	c.Assert(numCalls, gc.Equals, 1)
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(vols, gc.HasLen, 1)
-//}
-//
-//func (s *gooseAdapterSuite) TestAttachVolume(c *gc.C) {
-//
-//	numCalls := 0
-//	novaHandler := &mockNovaClient{
-//		sendRequest: func(method, svcType, apiCall string, reqData *goosehttp.RequestData) error {
-//			numCalls++
-//
-//			c.Check(apiCall, gc.Equals, "servers/"+mockServerId+"/os-volume_attachments")
-//
-//			attachment := reqData.RespValue.(*nova.VolumeAttachment)
-//			attachment.ServerId = mockServerId
-//			attachment.VolumeId = mockVolId
-//
-//			reqData.RespValue = attachment
-//			return nil
-//		},
-//	}
-//
-//	gooseAdapter := newTestGooseAdapter(nil, novaHandler)
-//
-//	attachment, err := gooseAdapter.AttachVolume(mockServerId, mockVolId, "/dev/sda")
-//	c.Assert(numCalls, gc.Equals, 1)
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(attachment, gc.NotNil)
-//
-//	c.Check(attachment.Volume, gc.Equals, names.NewVolumeTag(mockVolId))
-//	c.Check(attachment.Machine, gc.Equals, names.NewMachineTag(mockServerId))
-//}
-//
-//type mockNovaClient struct {
-//	sendRequest    func(string, string, string, *goosehttp.RequestData) error
-//	makeServiceUrl func(string, []string) (string, error)
-//}
-//
-//func (c *mockNovaClient) SendRequest(method, svcType, apiCall string, requestData *goosehttp.RequestData) (err error) {
-//	if c.sendRequest != nil {
-//		return c.sendRequest(method, svcType, apiCall, requestData)
-//	}
-//	return nil
-//}
-//
-//func (c *mockNovaClient) MakeServiceURL(serviceType string, parts []string) (string, error) {
-//	if c.makeServiceUrl != nil {
-//		return c.makeServiceUrl(serviceType, parts)
-//	}
-//	return "", nil
-//}
-//
-//func newTestGooseAdapter(
-//	cinderHandler cinder.RequestHandlerFn,
-//	novaHandler client.Client,
-//) *gooseAdapter {
-//	return &gooseAdapter{
-//		cinder: cinder.NewClient("mock-tenant-id", cinderHandler),
-//		nova:   nova.New(novaHandler),
-//	}
-//}
