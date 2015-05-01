@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -54,6 +55,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional state server machine.
@@ -1308,6 +1313,16 @@ func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 	})
 }
 
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForwarding(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+		// ConfigIPForwarding should be missing.
+	})
+}
+
 func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
 	// Break dummy provider's SupportsAddressAllocation method to
 	// ensure ConfigIPForwarding is not set below.
@@ -1343,18 +1358,13 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
-	args := params.MachineContainersParams{
-		Params: []params.MachineContainers{
-			{
-				MachineTag:     "machine-0",
-				ContainerTypes: []instance.ContainerType{instance.LXC},
-			},
-			{
-				MachineTag:     "machine-1",
-				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
-			},
-		},
-	}
+	args := params.MachineContainersParams{Params: []params.MachineContainers{{
+		MachineTag:     "machine-0",
+		ContainerTypes: []instance.ContainerType{instance.LXC},
+	}, {
+		MachineTag:     "machine-1",
+		ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+	}}}
 	results, err := s.provisioner.SetSupportedContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
