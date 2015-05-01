@@ -252,7 +252,6 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 // loop goroutine; waits for worker completion; and communicates any error encountered
 // back to the loop goroutine. It must not be run on the loop goroutine.
 func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, getResource GetResourceFunc) {
-
 	startWorkerAndWait := func() error {
 		logger.Infof("starting %q manifold worker in %s...", name, delay)
 		select {
