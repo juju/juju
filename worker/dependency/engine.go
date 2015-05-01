@@ -135,13 +135,6 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	if _, found := engine.manifolds[name]; found {
 		return errors.Errorf("%q manifold already installed", name)
 	}
-	for _, input := range manifold.Inputs {
-		if _, found := engine.manifolds[input]; !found {
-			// This is not considered to be a problem: manifolds can be installed
-			// in any order.
-			logger.Debugf("%q manifold depends on unknown %q manifold", name, input)
-		}
-	}
 	engine.manifolds[name] = manifold
 	for _, input := range manifold.Inputs {
 		engine.dependents[input] = append(engine.dependents[input], name)
@@ -259,8 +252,8 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 // loop goroutine; waits for worker completion; and communicates any error encountered
 // back to the loop goroutine. It must not be run on the loop goroutine.
 func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, getResource GetResourceFunc) {
-	// We may or may not send on started, but we *must* send on stopped.
-	engine.stopped <- stoppedTicket{name, func() error {
+
+	startWorkerAndWait := func() error {
 		logger.Infof("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-time.After(delay):
@@ -285,7 +278,10 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 			logger.Debugf("registered %q manifold worker", name)
 		}
 		return worker.Wait()
-	}()}
+	}
+
+	// We may or may not send on started, but we *must* send on stopped.
+	engine.stopped <- stoppedTicket{name, startWorkerAndWait()}
 }
 
 // gotStarted updates the engine to reflect the creation of a worker. It must

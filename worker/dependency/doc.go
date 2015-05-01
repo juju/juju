@@ -98,11 +98,11 @@ only reliable approach to writing resilient services that compose sanely into a
 comprehensible system. Consider:
 
   * Juju agents' lifetimes must be assumed to exceed the MTBR of the systems
-    they're deployed on; hard reboots may be "rare": but, no. They are just a
-    feature of the terrain we have to traverse. Therefore every worker *always*
-    has to be capable of picking itself back up from scratch and continuing
-    sanely. That is, we're not imposing a new expectation: we're just working
-    within the existing constraints.
+    they're deployed on; you might naively think that hard reboots are "rare"...
+    but they're not. They really are just a feature of the terrain we have to
+    traverse. Therefore every worker *always* has to be capable of picking itself
+    back up from scratch and continuing sanely. That is, we're not imposing a new
+    expectation: we're just working within the existing constraints.
   * While some workers are simple, some are decidedly not; when a worker has any
     more complexity than "none" it is a Bad Idea to mix dependency-management
     concerns into their core logic: it creates the sort of morass in which subtle
@@ -166,6 +166,10 @@ In each worker package, write a `manifold.go` containing the following:
 your dependencies *must* be declared in your ManifoldConfig, and *must* be
 accessed via those names. Don't hardcode anything, please.
 
+If you find yourself using the same manifold configuration in several places,
+consider adding helpers to worker/util, which includes mechanisms for simple
+definition of manifolds that depend on an API caller; on an agent; or on both.
+
 
 Concerns and mitigations thereof
 --------------------------------
@@ -177,7 +181,7 @@ The dependency package will *not* provide the following features:
     dependencies and we get to see the inevitable bugs sooner.
     TODO(fwereade): we should add fuzz to the bounce and restart durations to
     more vigorously shake out the bugs...
-  * Hand-holding for developers writing OutputFuncs; the onus is on you to
+  * Hand-holding for developers writing Output funcs; the onus is on you to
     document what you expose; produce useful error messages when they supplied
     with unexpected types via the interface{} param; and NOT to panic. The onus
     on your clients is only to read your docs and handle the errors you might

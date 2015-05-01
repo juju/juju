@@ -41,7 +41,7 @@ func (ews *manifoldHarness) start(getResource dependency.GetResourceFunc) (worke
 			return nil, err
 		}
 	}
-	w := &degenerateWorker{}
+	w := &minimalWorker{}
 	go func() {
 		defer w.tomb.Done()
 		ews.starts <- struct{}{}
@@ -83,20 +83,20 @@ func (ews *manifoldHarness) InjectError(c *gc.C, err error) {
 	}
 }
 
-type degenerateWorker struct {
+type minimalWorker struct {
 	tomb tomb.Tomb
 }
 
-func (w *degenerateWorker) Kill() {
+func (w *minimalWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
-func (w *degenerateWorker) Wait() error {
+func (w *minimalWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func degenerateStart(_ dependency.GetResourceFunc) (worker.Worker, error) {
-	w := &degenerateWorker{}
+func startMinimalWorker(_ dependency.GetResourceFunc) (worker.Worker, error) {
+	w := &minimalWorker{}
 	go func() {
 		<-w.tomb.Dying()
 		w.tomb.Done()

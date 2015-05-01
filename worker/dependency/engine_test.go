@@ -130,8 +130,8 @@ func (s *EngineSuite) TestStartGetResourceExistenceOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mh1.AssertOneStart(c)
 
-	// Start another task that depends on it, ourselves depennding on the
-	// implementation of errorWorkerStarter, which calls getResource(foo, nil).
+	// Start another task that depends on it, ourselves depending on the
+	// implementation of manifoldHarness, which calls getResource(foo, nil).
 	mh2 := newManifoldHarness("some-task")
 	err = s.engine.Install("other-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 			c.Check(err, gc.Equals, dependency.ErrMissing)
 			close(done)
 			// Return a real worker so we don't keep restarting and potentially double-closing.
-			return degenerateStart(getResource)
+			return startMinimalWorker(getResource)
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +194,7 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, outErr error) {
 			c.Check(err, gc.Equals, outErr)
 			close(done)
 			// Return a real worker so we don't keep restarting and potentially double-closing.
-			return degenerateStart(getResource)
+			return startMinimalWorker(getResource)
 		},
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -392,8 +392,8 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 		}
 	}
 	c.Logf("saw %d starts", startCount)
-	c.Assert(startCount > 0, jc.IsTrue)
-	c.Assert(startCount < 3, jc.IsTrue)
+	c.Assert(startCount, jc.GreaterThan, 0)
+	c.Assert(startCount, jc.LessThan, 3)
 
 	// Stop the dependency for good; check the dependent is restarted just once.
 	mh1.InjectError(c, nil)
