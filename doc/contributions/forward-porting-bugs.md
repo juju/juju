@@ -25,7 +25,7 @@ Copy the SHA since we will use it to cherry-pick the fix in to master.
 
     git checkout master
     git checkout -b <fixed-branch-name>
-    git cherry-pick -m <merge-commit-sha>
+    git cherry-pick -m 1 <merge-commit-sha>
 
 You may have some minor merge conflicts with the cherry-pick that need
 to be fixed, this is rare when forwarding porting, but occasionally it
