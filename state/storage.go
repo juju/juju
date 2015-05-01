@@ -908,6 +908,8 @@ func (st *State) AddStorageForUnit(
 	if err != nil {
 		return errors.Annotatef(err, "getting existing storage directives for %s", u.Tag().Id())
 	}
+
+	// Check storage name was declared.
 	_, exists := all[name]
 	if !exists {
 		return errors.NotFoundf("charm storage %q", name)
@@ -928,7 +930,11 @@ func (st *State) AddStorageForUnit(
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := st.validateUnitStorage(charmMeta, u, name, completeCons)
+		err := u.Refresh()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		err = st.validateUnitStorage(charmMeta, u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

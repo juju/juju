@@ -141,8 +141,7 @@ func (s *StorageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
 	addStorage()
-	// Only 1 should have been added
-	s.assertStorageCount(c, s.originalStorageCount+1)
+	s.assertStorageCount(c, s.originalStorageCount+2)
 }
 
 func (s *StorageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
@@ -153,7 +152,9 @@ func (s *StorageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 		s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
-	addStorage()
+	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi1to10": at most 10 instances supported, 15 specified.*`)
+
 	// Only "count" number of instances should have been added.
 	s.assertStorageCount(c, s.originalStorageCount+count)
 }
