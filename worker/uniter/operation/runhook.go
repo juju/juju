@@ -109,17 +109,19 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		return nil, ErrHookFailed
 	}
 
-	var hasRunStatusSet bool
-	var afterHookErr error
 	if ranHook {
 		logger.Infof("ran %q hook", rh.name)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
-		if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
-			return nil, afterHookErr
-		}
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}
+
+	var hasRunStatusSet bool
+	var afterHookErr error
+	if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
+		return nil, afterHookErr
+	}
+
 	return stateChange{
 		Kind:            RunHook,
 		Step:            step,

@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"errors"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -97,4 +98,10 @@ func (s *statusSuite) TestTranslateLegacyAgentState(c *gc.C) {
 		c.Check(ok, jc.IsTrue)
 		c.Check(legacy, gc.Equals, test.expected)
 	}
+}
+
+func (s *statusSuite) TestStatusNotFoundError(c *gc.C) {
+	err := state.NewStatusNotFound("foo")
+	c.Assert(state.IsStatusNotFound(err), jc.IsTrue)
+	c.Assert(errors.New("foo"), jc.IsFalse)
 }
