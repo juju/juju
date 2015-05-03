@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -97,4 +98,12 @@ func (s *statusSuite) TestTranslateLegacyAgentState(c *gc.C) {
 		c.Check(ok, jc.IsTrue)
 		c.Check(legacy, gc.Equals, test.expected)
 	}
+}
+
+func (s *statusSuite) TestStatusNotFoundError(c *gc.C) {
+	err := state.NewStatusNotFound("foo")
+	c.Assert(state.IsStatusNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err.Error(), gc.Equals, `status for key "foo" not found`)
+	c.Assert(state.IsStatusNotFound(errors.New("foo")), jc.IsFalse)
 }

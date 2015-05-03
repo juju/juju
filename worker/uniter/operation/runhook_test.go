@@ -204,22 +204,29 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks
 
 func (s *RunHookSuite) testExecuteMissingHookError(c *gc.C, newHook newHook) {
 	runErr := runner.NewMissingHookError("blah-blah")
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
-	_, err := op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
+	for _, kind := range hooks.UnitHooks() {
+		c.Logf("hook %v", kind)
+		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
+		_, err := op.Prepare(operation.State{})
+		c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Execute(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.DeepEquals, &operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Done,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
-	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
+		newState, err := op.Execute(operation.State{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(newState, gc.DeepEquals, &operation.State{
+			Kind: operation.RunHook,
+			Step: operation.Done,
+			Hook: &hook.Info{Kind: kind},
+		})
+		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
+		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
+		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
+		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
+
+		status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		testAfterHookStatus(c, kind, status, false)
+	}
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError_Run(c *gc.C) {
