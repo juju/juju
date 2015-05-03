@@ -121,16 +121,27 @@ const (
 	StatusActive Status = "active"
 )
 
-type statusNotFoundError error
+type statusNotFoundError struct {
+	error
+}
+
+// Cause implements errors.causer
+func (e *statusNotFoundError) Cause() error {
+	return e.error
+}
 
 func newStatusNotFound(key string) error {
-	return statusNotFoundError(errors.NotFoundf("status for key %q", key))
+	return &statusNotFoundError{errors.NotFoundf("status for key %q", key)}
 }
 
 // IsStatusNotFound returns true if the provided error is
 // statusNotFoundError
-func IsStatusNotFound(e error) bool {
-	_, ok := e.(statusNotFoundError)
+func IsStatusNotFound(err error) bool {
+	if _, ok := err.(*statusNotFoundError); ok {
+		return true
+	}
+	err = errors.Cause(err)
+	_, ok := err.(*statusNotFoundError)
 	return ok
 }
 

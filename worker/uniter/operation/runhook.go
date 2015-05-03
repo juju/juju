@@ -151,6 +151,9 @@ func (rh *runHook) beforeHook() error {
 	return nil
 }
 
+// afterHook runs after a hook completes, or after a hook that is
+// not implemented by the charm is expected to have run if it were
+// implemented.
 func (rh *runHook) afterHook(state State) (bool, error) {
 	ctx := rh.runner.Context()
 	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
