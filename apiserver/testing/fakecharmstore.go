@@ -9,6 +9,7 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/charmstore.v4"
 	"gopkg.in/juju/charmstore.v4/charmstoretesting"
@@ -16,7 +17,8 @@ import (
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/service"
+	"github.com/juju/juju/testcharms"
 )
 
 type CharmStoreSuite struct {
@@ -48,7 +50,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 		PublicKeyLocator: s.discharger,
 	})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
 		p.URL = s.Srv.URL()
 		return charmrepo.NewCharmStore(p)
 	})
@@ -58,4 +60,17 @@ func (s *CharmStoreSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
 	s.Srv.Close()
 	s.CleanupSuite.TearDownTest(c)
+}
+
+func (s *CharmStoreSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
+	id := charm.MustParseReference(url)
+	promulgated := false
+	if id.User == "" {
+		id.User = "who"
+		promulgated = true
+	}
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	id = s.Srv.UploadCharm(c, ch, id, promulgated)
+	curl := (*charm.URL)(id)
+	return curl, ch
 }

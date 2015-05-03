@@ -5,7 +5,10 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -13,6 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
+)
+
+var (
+	logger = loggo.GetLogger("juju.apiserver.service")
+
+	newStateStorage = statestorage.NewStorage
 )
 
 func init() {
@@ -108,7 +118,22 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 
 	// Try to find the charm URL in state first.
 	ch, err := st.Charm(curl)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		// Clients written to expect 1.16 compatibility require this next block.
+		if curl.Schema != "cs" {
+			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+		}
+		err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
+			URL: args.CharmUrl,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ch, err = st.Charm(curl)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
