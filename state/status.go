@@ -121,12 +121,28 @@ const (
 	StatusActive Status = "active"
 )
 
-var errStatusNotFound = errors.NotFoundf("status")
+type statusNotFoundError struct {
+	error
+}
+
+// Cause implements errors.causer
+func (e *statusNotFoundError) Cause() error {
+	return e.error
+}
+
+func newStatusNotFound(key string) error {
+	return &statusNotFoundError{errors.NotFoundf("status for key %q", key)}
+}
 
 // IsStatusNotFound returns true if the provided error is
-// errStatusNotFound
-func IsStatusNotFound(e error) bool {
-	return e == errStatusNotFound
+// statusNotFoundError
+func IsStatusNotFound(err error) bool {
+	if _, ok := err.(*statusNotFoundError); ok {
+		return true
+	}
+	err = errors.Cause(err)
+	_, ok := err.(*statusNotFoundError)
+	return ok
 }
 
 // ValidAgentStatus returns true if status has a known value for an agent.
@@ -515,7 +531,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 	var doc statusDoc
 	err := statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return statusDoc{}, errStatusNotFound
+		return statusDoc{}, newStatusNotFound(globalKey)
 	}
 	if err != nil {
 		return statusDoc{}, errors.Annotatef(err, "cannot get status %q", globalKey)
