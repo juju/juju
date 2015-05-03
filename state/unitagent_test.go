@@ -81,14 +81,14 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, err = agent.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, err = agent.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {

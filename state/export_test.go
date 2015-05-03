@@ -49,6 +49,7 @@ var (
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
 	CombineMeterStatus     = combineMeterStatus
+	NewStatusNotFound      = newStatusNotFound
 )
 
 type (
