@@ -1604,7 +1604,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	_, err = s.machine.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "m#1" not found`)
 }
 
 func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
