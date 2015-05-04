@@ -25,9 +25,9 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/apiserver/client"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
@@ -359,7 +359,7 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
 	// Store the charm archive in environment storage.
-	return client.StoreCharmArchive(
+	return service.StoreCharmArchive(
 		st,
 		curl,
 		archive,
