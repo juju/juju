@@ -292,6 +292,10 @@ func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for name, flag := range provisionalProviders {
+		// vsphere is disabled for gccgo. See lp:1440940.
+		if name == "vsphere" && runtime.Compiler == "gccgo" {
+			continue
+		}
 		c.Logf(" - trying %q -", name)
 		err := checkProviderType(name)
 		c.Check(err, gc.ErrorMatches, ".* provider is provisional .* set JUJU_DEV_FEATURE_FLAGS=.*")
