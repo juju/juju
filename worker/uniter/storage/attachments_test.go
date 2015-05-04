@@ -104,7 +104,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	withAttachments(func(att *storage.Attachments) {
 		called++
 		err := att.ValidateHook(hook.Info{
-			Kind:      hooks.StorageDetaching,
+			Kind:      hooks.StorageDetached,
 			StorageId: storageTag.Id(),
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -277,7 +277,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	c.Assert(removed, jc.IsFalse)
 	err = att.CommitHook(hook.Info{
-		Kind:      hooks.StorageDetaching,
+		Kind:      hooks.StorageDetached,
 		StorageId: storageTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

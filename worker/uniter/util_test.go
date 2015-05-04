@@ -297,7 +297,7 @@ var (
 		"leader-elected", "leader-deposed", "leader-settings-changed",
 	}
 	storageCharmHooks = []string{
-		"wp-content-storage-attached", "wp-content-storage-detaching",
+		"wp-content-storage-attached", "wp-content-storage-detached",
 	}
 )
 
