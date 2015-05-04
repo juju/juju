@@ -23,6 +23,7 @@ func NewKvmBroker(
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
+	enableNAT bool,
 ) (environs.InstanceBroker, error) {
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
@@ -32,6 +33,7 @@ func NewKvmBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
 	}, nil
 }
 
@@ -39,6 +41,7 @@ type kvmBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
 }
 
 // StartInstance is specified in the Broker interface.
@@ -68,7 +71,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 		allocatedInfo, err := maybeAllocateStaticIP(
 			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo,
+			args.NetworkInfo, broker.enableNAT,
 		)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the

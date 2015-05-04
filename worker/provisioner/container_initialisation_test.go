@@ -254,7 +254,7 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 	brokerCalled := false
 	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
-		imageURLGetter container.ImageURLGetter) (environs.InstanceBroker, error) {
+		imageURLGetter container.ImageURLGetter, enableNAT bool) (environs.InstanceBroker, error) {
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(imageURL, gc.Equals, "imageURL")
