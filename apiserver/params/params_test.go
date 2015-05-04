@@ -67,9 +67,13 @@ var marshalTestCases = []struct {
 				"hello": "goodbye",
 				"foo":   false,
 			},
+			Status: multiwatcher.StatusInfo{
+				Current: multiwatcher.Status("active"),
+				Message: "all good",
+			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false,"Status":{"Current":"active", "Message":"all good", "Version": "", "Err": null, "Data": null, "Since": null}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{
@@ -92,9 +96,16 @@ var marshalTestCases = []struct {
 			MachineId:      "1",
 			Status:         "error",
 			StatusInfo:     "foo",
+			WorkloadStatus: multiwatcher.StatusInfo{
+				Current: multiwatcher.Status("active"),
+				Message: "all good",
+			},
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: multiwatcher.Status("idle"),
+			},
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "PortRanges": [{"FromPort": 80, "ToPort": 80, "Protocol": "http"}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "PortRanges": [{"FromPort": 80, "ToPort": 80, "Protocol": "http"}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "WorkloadStatus":{"Current":"active", "Message":"all good", "Version": "", "Err": null, "Data": null, "Since": null}, "AgentStatus":{"Current":"idle", "Message":"", "Version": "", "Err": null, "Data": null, "Since": null}, "Subordinate": false}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{
@@ -144,7 +155,7 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
+		c.Check(unmarshalledOutput, jc.DeepEquals, expected)
 	}
 }
 

@@ -16,14 +16,14 @@ import (
 )
 
 var (
-	MergeEnvironment  = mergeEnvironment
-	SearchHook        = searchHook
-	HookCommand       = hookCommand
-	LookPath          = lookPath
-	ValidatePortRange = validatePortRange
-	TryOpenPorts      = tryOpenPorts
-	TryClosePorts     = tryClosePorts
-	LockTimeout       = lockTimeout
+	MergeWindowsEnvironment = mergeWindowsEnvironment
+	SearchHook              = searchHook
+	HookCommand             = hookCommand
+	LookPath                = lookPath
+	ValidatePortRange       = validatePortRange
+	TryOpenPorts            = tryOpenPorts
+	TryClosePorts           = tryClosePorts
+	LockTimeout             = lockTimeout
 )
 
 func RunnerPaths(rnr Runner) Paths {

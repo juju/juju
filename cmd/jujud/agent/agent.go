@@ -56,8 +56,6 @@ type AgentConf struct {
 	_config agent.ConfigSetterWriter
 }
 
-type AgentConfigMutator func(agent.ConfigSetter) error
-
 // AddFlags injects common agent flags into f.
 func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// TODO(dimitern) 2014-02-19 bug 1282025
@@ -89,7 +87,7 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	return nil
 }
 
-func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
+func (ch *AgentConf) ChangeConfig(change agent.ConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	if err := change(ch._config); err != nil {
@@ -125,7 +123,7 @@ func (a *AgentConf) SetStateServingInfo(info params.StateServingInfo) error {
 
 type Agent interface {
 	Tag() names.Tag
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 }
 
 // The AgentState interface is implemented by state types

@@ -66,7 +66,8 @@ iface lo inet loopback{{define "static"}}
 {{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
 iface {{.InterfaceName}} inet manual{{if gt (len .DNSServers) 0}}
-    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}
+    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}{{if gt (len .DNSSearch) 0}}
+    dns-search {{.DNSSearch}}{{end}}
     pre-up ip address add {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
     up ip route replace {{.GatewayAddress.Value}} dev {{.InterfaceName}}
     up ip route replace default via {{.GatewayAddress.Value}}
@@ -140,6 +141,10 @@ func cloudInitUserData(
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
+
+	if instanceConfig.MachineContainerHostname != "" {
+		cloudConfig.SetAttr("hostname", instanceConfig.MachineContainerHostname)
+	}
 
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {

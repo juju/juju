@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -27,15 +24,17 @@ import (
 
 type AddMachineSuite struct {
 	testing.FakeJujuHomeSuite
-	fake *fakeAddMachineAPI
+	fakeAddMachine     *fakeAddMachineAPI
+	fakeMachineManager *fakeMachineManagerAPI
 }
 
 var _ = gc.Suite(&AddMachineSuite{})
 
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.fake = &fakeAddMachineAPI{}
-	s.fake.agentVersion = "1.21.0"
+	s.fakeAddMachine = &fakeAddMachineAPI{}
+	s.fakeAddMachine.agentVersion = "1.21.0"
+	s.fakeMachineManager = &fakeMachineManagerAPI{}
 }
 
 func (s *AddMachineSuite) TestInit(c *gc.C) {
@@ -116,7 +115,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add := machine.NewAddCommand(s.fake)
+	add := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
 	return testing.RunCommand(c, envcmd.Wrap(add), args...)
 }
 
@@ -125,8 +124,8 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 
-	c.Assert(s.fake.args, gc.HasLen, 1)
-	param := s.fake.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
@@ -154,8 +153,8 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--series=special", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.args, gc.HasLen, 1)
-	param := s.fake.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Series, gc.Equals, "special")
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
@@ -164,16 +163,16 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=special")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.args, gc.HasLen, 3)
-	param := s.fake.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Series, gc.Equals, "special")
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
-	c.Assert(s.fake.args[0], jc.DeepEquals, s.fake.args[1])
-	c.Assert(s.fake.args[0], jc.DeepEquals, s.fake.args[2])
+	c.Assert(s.fakeAddMachine.args[0], jc.DeepEquals, s.fakeAddMachine.args[1])
+	c.Assert(s.fakeAddMachine.args[0], jc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
-	s.fake.successOrder = []bool{true, false, false}
+	s.fakeAddMachine.successOrder = []bool{true, false, false}
 	expectedOutput := `created machine 0
 failed to create 2 machines
 `
@@ -183,7 +182,7 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.addError = common.ErrOperationBlocked("TestBlockedError")
+	s.fakeAddMachine.addError = common.ErrOperationBlocked("TestBlockedError")
 	_, err := s.run(c)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
@@ -192,33 +191,33 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
-	s.fake.agentVersion = "1.18.1"
+	s.fakeAddMachine.agentVersion = "1.18.1"
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fake.args, gc.HasLen, 1)
-	param := s.fake.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
 	})
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
-	// --disks is not defined unless the "storage" feature flag is enabled.
+	s.fakeMachineManager.apiVersion = 1
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --disks")
-
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	_, err = s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.args, gc.HasLen, 1)
-	param := s.fake.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 0)
+	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
+	param := s.fakeMachineManager.args[0]
 	c.Assert(param.Disks, gc.DeepEquals, []storage.Constraints{
 		{Size: 1024, Count: 2},
 		{Size: 2048, Count: 1},
 	})
+}
+
+func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
+	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
+	c.Assert(err, gc.ErrorMatches, "cannot add machines with disks: not supported by the API server")
 }
 
 type fakeAddMachineAPI struct {
@@ -274,4 +273,13 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 
 func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
 	return map[string]interface{}{"agent-version": f.agentVersion}, nil
+}
+
+type fakeMachineManagerAPI struct {
+	apiVersion int
+	fakeAddMachineAPI
+}
+
+func (f *fakeMachineManagerAPI) BestAPIVersion() int {
+	return f.apiVersion
 }

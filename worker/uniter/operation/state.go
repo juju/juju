@@ -56,7 +56,7 @@ const (
 // state.
 type State struct {
 
-	// Leader indicates whether a leader-elected hook has started to run, and
+	// Leader indicates whether a leader-elected hook has been queued to run, and
 	// no more recent leader-deposed hook has completed.
 	Leader bool `yaml:"leader"`
 

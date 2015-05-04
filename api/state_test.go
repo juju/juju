@@ -105,7 +105,7 @@ func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	// Now that we've logged in, AllFacadeVersions should be updated.
 	allVersions := apistate.AllFacadeVersions()
 	c.Check(allVersions, gc.Not(gc.HasLen), 0)
-	// For sanity checking, ensure that we have a v0 of the Client facade
+	// For sanity checking, ensure that we have a v2 of the Client facade
 	c.Assert(allVersions["Client"], gc.Not(gc.HasLen), 0)
 	c.Check(allVersions["Client"][0], gc.Equals, 0)
 }

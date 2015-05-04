@@ -5,12 +5,9 @@ package hook_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/hooks"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -56,8 +53,6 @@ var validateTests = []struct {
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	for i, t := range validateTests {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
@@ -67,11 +62,4 @@ func (s *InfoSuite) TestValidate(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
-}
-
-func (s *InfoSuite) TestStorageHooksRequireFeatureFlag(c *gc.C) {
-	err := hook.Info{Kind: hooks.StorageAttached}.Validate()
-	c.Assert(err, gc.ErrorMatches, `unknown hook kind "storage-attached"`)
-	err = hook.Info{Kind: hooks.StorageDetached}.Validate()
-	c.Assert(err, gc.ErrorMatches, `unknown hook kind "storage-detached"`)
 }

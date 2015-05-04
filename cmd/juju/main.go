@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
@@ -132,6 +131,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
+	r.Register(wrapEnvCommand(&StatusHistoryCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -206,9 +206,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 
 	// Manage storage
-	if featureflag.Enabled(feature.Storage) {
-		r.Register(storage.NewSuperCommand())
-	}
+	r.Register(storage.NewSuperCommand())
 
 	// Manage systems
 	if featureflag.Enabled(feature.JES) {

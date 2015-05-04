@@ -20,6 +20,7 @@ func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 	expected := []string{
 		// Environment UUID related migrations should come first as
 		// other upgrade steps may rely on them.
+		"prepend the environment UUID to the ID of all charm docs",
 		"prepend the environment UUID to the ID of all settings docs",
 		"prepend the environment UUID to the ID of all settingsRefs docs",
 		"prepend the environment UUID to the ID of all networks docs",

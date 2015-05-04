@@ -11,6 +11,13 @@ import (
 func stateStepsFor122() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all charm docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToCharms(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "prepend the environment UUID to the ID of all settings docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

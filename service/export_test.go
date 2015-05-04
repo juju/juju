@@ -4,6 +4,7 @@
 package service
 
 var (
-	DiscoverInitSystem    = discoverInitSystem
-	NewShellSelectCommand = newShellSelectCommand
+	DiscoverInitSystem      = discoverInitSystem
+	DiscoverLocalInitSystem = discoverLocalInitSystem
+	NewShellSelectCommand   = newShellSelectCommand
 )
