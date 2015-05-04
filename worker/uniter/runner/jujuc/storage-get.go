@@ -66,9 +66,9 @@ func storageKindString(k params.StorageKind) string {
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storage, ok := c.ctx.Storage(c.storageTag)
-	if !ok {
-		return nil
+	storage, err := c.ctx.Storage(c.storageTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	values := map[string]interface{}{
 		"kind":     storage.Kind().String(),

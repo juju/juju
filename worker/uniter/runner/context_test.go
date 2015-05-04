@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
@@ -36,40 +37,58 @@ func (s *InterfaceSuite) GetContext(
 	)
 }
 
-func (s *InterfaceSuite) TestUtils(c *gc.C) {
+func (s *InterfaceSuite) TestUnitName(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	r, found := ctx.HookRelation()
-	c.Assert(found, jc.IsFalse)
+}
+
+func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	r, ok := ctx.HookRelation()
+	c.Assert(ok, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
-	name, found := ctx.RemoteUnitName()
-	c.Assert(found, jc.IsFalse)
+}
+
+func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	name, err := ctx.RemoteUnitName()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(name, gc.Equals, "")
-	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
-	r, found = ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
+}
+
+func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	relIds, err := ctx.RelationIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relIds, gc.HasLen, 2)
+	r, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
-	r, found = ctx.Relation(123)
-	c.Assert(found, jc.IsFalse)
+	r, err = ctx.Relation(123)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(r, gc.IsNil)
+}
 
-	ctx = s.GetContext(c, 1, "")
-	r, found = ctx.HookRelation()
-	c.Assert(found, jc.IsTrue)
+func (s *InterfaceSuite) TestRelationContext(c *gc.C) {
+	ctx := s.GetContext(c, 1, "")
+	r, ok := ctx.HookRelation()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
+}
 
-	ctx = s.GetContext(c, 1, "u/123")
-	name, found = ctx.RemoteUnitName()
-	c.Assert(found, jc.IsTrue)
+func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
+	ctx := s.GetContext(c, 1, "u/123")
+	name, err := ctx.RemoteUnitName()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	zone, ok := ctx.AvailabilityZone()
-	c.Check(ok, jc.IsTrue)
+	zone, err := ctx.AvailabilityZone()
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
@@ -130,27 +149,27 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	pr, ok := ctx.PrivateAddress()
-	c.Assert(ok, jc.IsTrue)
+	pr, err := ctx.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
-	pa, ok := ctx.PublicAddress()
-	c.Assert(ok, jc.IsTrue)
+	pa, err := ctx.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
 	// Initially the public address is the same as the private address since
 	// the "most public" address is chosen.
 	c.Assert(pr, gc.Equals, pa)
 
 	// Change remote state.
-	err := s.machine.SetAddresses(
+	err = s.machine.SetAddresses(
 		network.NewScopedAddress("blah.testing.invalid", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.
-	pr, ok = ctx.PrivateAddress()
-	c.Assert(ok, jc.IsTrue)
+	pr, err = ctx.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
-	pa, ok = ctx.PublicAddress()
-	c.Assert(ok, jc.IsTrue)
+	pa, err = ctx.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pr, gc.Equals, pa)
 }
 

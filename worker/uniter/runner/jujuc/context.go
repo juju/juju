@@ -29,6 +29,9 @@ const (
 	RebootNow
 )
 
+// ErrIsolatedContext is used to indicate a context without an API connection.
+var ErrIsolatedContext = errors.New("isolated context")
+
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
 type Context interface {
@@ -43,13 +46,13 @@ type Context interface {
 	SetUnitStatus(StatusInfo) error
 
 	// PublicAddress returns the executing unit's public address.
-	PublicAddress() (string, bool)
+	PublicAddress() (string, error)
 
 	// PrivateAddress returns the executing unit's private address.
-	PrivateAddress() (string, bool)
+	PrivateAddress() (string, error)
 
 	// AvailabilityZone returns the executing unit's availablilty zone.
-	AvailabilityZone() (string, bool)
+	AvailabilityZone() (string, error)
 
 	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
@@ -63,7 +66,7 @@ type Context interface {
 	// OpenedPorts returns all port ranges currently opened by this
 	// unit on its assigned machine. The result is sorted first by
 	// protocol, then by number.
-	OpenedPorts() []network.PortRange
+	OpenedPorts() ([]network.PortRange, error)
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
@@ -101,19 +104,19 @@ type Context interface {
 
 	// RemoteUnitName returns the name of the remote unit the hook execution
 	// is associated with if it was found, and whether it was found.
-	RemoteUnitName() (string, bool)
+	RemoteUnitName() (string, error)
 
 	// Relation returns the relation with the supplied id if it was found, and
 	// whether it was found.
-	Relation(id int) (ContextRelation, bool)
+	Relation(id int) (ContextRelation, error)
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
-	RelationIds() []int
+	RelationIds() ([]int, error)
 
 	// OwnerTag returns the user tag of the service the executing
 	// units belongs to.
-	OwnerTag() string
+	OwnerTag() (string, error)
 
 	// AddMetric records a metric to return after hook execution.
 	AddMetric(string, string, time.Time) error
@@ -123,11 +126,11 @@ type Context interface {
 
 	// Storage returns the ContextStorage with the supplied tag if it was
 	// found, and whether it was found.
-	Storage(names.StorageTag) (ContextStorage, bool)
+	Storage(names.StorageTag) (ContextStorage, error)
 
 	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook if it was found, and whether it was found.
-	HookStorage() (ContextStorage, bool)
+	HookStorage() (ContextStorage, error)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -184,7 +187,7 @@ type Settings interface {
 func newRelationIdValue(ctx Context, result *int) *relationIdValue {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
-	if r, found := ctx.HookRelation(); found {
+	if r, ok := ctx.HookRelation(); ok {
 		id = r.Id()
 		v.value = r.FakeId()
 	}
@@ -216,8 +219,10 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if _, found := v.ctx.Relation(id); !found {
+	if _, err := v.ctx.Relation(id); errors.IsNotFound(err) {
 		return fmt.Errorf("unknown relation id")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	*v.result = id
 	v.value = value
@@ -228,7 +233,7 @@ func (v *relationIdValue) Set(value string) error {
 // ids in ctx.
 func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
 	v := &storageIdValue{result: result, ctx: ctx}
-	if s, found := ctx.HookStorage(); found {
+	if s, err := ctx.HookStorage(); err == nil {
 		*v.result = s.Tag()
 	}
 	return v
@@ -256,8 +261,10 @@ func (v *storageIdValue) Set(value string) error {
 		return errors.Errorf("invalid storage ID %q", value)
 	}
 	tag := names.NewStorageTag(value)
-	if _, found := v.ctx.Storage(tag); !found {
+	if _, err := v.ctx.Storage(tag); errors.IsNotFound(err) {
 		return fmt.Errorf("unknown storage ID")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	*v.result = tag
 	return nil

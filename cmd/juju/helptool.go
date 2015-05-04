@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
@@ -15,6 +17,8 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+var NotFound = errors.NotFoundf("")
 
 // dummyHookContext implements jujuc.Context,
 // as expected by jujuc.NewCommand.
@@ -26,14 +30,14 @@ func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (dummyHookContext) PublicAddress() (string, bool) {
-	return "", false
+func (dummyHookContext) PublicAddress() (string, error) {
+	return "", errors.New("this is a dummy method")
 }
-func (dummyHookContext) PrivateAddress() (string, bool) {
-	return "", false
+func (dummyHookContext) PrivateAddress() (string, error) {
+	return "", errors.New("this is a dummy method")
 }
-func (dummyHookContext) AvailabilityZone() (string, bool) {
-	return "", false
+func (dummyHookContext) AvailabilityZone() (string, error) {
+	return "", errors.New("this is a dummy method")
 }
 func (dummyHookContext) OpenPort(protocol string, port int) error {
 	return nil
@@ -41,8 +45,8 @@ func (dummyHookContext) OpenPort(protocol string, port int) error {
 func (dummyHookContext) ClosePort(protocol string, port int) error {
 	return nil
 }
-func (dummyHookContext) OpenedPorts() []network.PortRange {
-	return nil
+func (dummyHookContext) OpenedPorts() ([]network.PortRange, error) {
+	return nil, nil
 }
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
@@ -50,30 +54,34 @@ func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }
-func (dummyHookContext) RemoteUnitName() (string, bool) {
-	return "", false
+func (dummyHookContext) RemoteUnitName() (string, error) {
+	return "", errors.New("this is a dummy method")
 }
-func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, bool) {
-	return nil, false
+func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, error) {
+	return nil, errors.New("this is a dummy method")
 }
-func (dummyHookContext) RelationIds() []int {
-	return []int{}
+func (dummyHookContext) RelationIds() ([]int, error) {
+	return []int{}, nil
 }
 
 func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
 	return nil
 }
 
-func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
-	return nil, false
+func (dummyHookContext) HookStorage() (jujuc.ContextStorage, error) {
+	return dummyStorage{}, nil
 }
 
-func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, bool) {
-	return nil, false
+func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, error) {
+	return nil, errors.New("this is a dummy method")
 }
 
-func (dummyHookContext) OwnerTag() string {
-	return ""
+func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, error) {
+	return nil, errors.New("this is a dummy method")
+}
+
+func (dummyHookContext) OwnerTag() (string, error) {
+	return "", nil
 }
 
 func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
@@ -88,6 +96,15 @@ type HelpToolCommand struct {
 	cmd.CommandBase
 	tool string
 }
+
+// dummyStorage implements jujuc.ContextStorage.
+type dummyStorage struct{}
+
+func (dummyStorage) Tag() names.StorageTag { return names.NewStorageTag("") }
+
+func (dummyStorage) Kind() storage.StorageKind { return storage.StorageKindUnknown }
+
+func (dummyStorage) Location() string { return "" }
 
 func (t *HelpToolCommand) Info() *cmd.Info {
 	return &cmd.Info{

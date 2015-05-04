@@ -243,23 +243,32 @@ func (ctx *HookContext) ResetExecutionSetUnitStatus() {
 	ctx.hasRunStatusSet = false
 }
 
-func (ctx *HookContext) PublicAddress() (string, bool) {
-	return ctx.publicAddress, ctx.publicAddress != ""
+func (ctx *HookContext) PublicAddress() (string, error) {
+	if ctx.publicAddress == "" {
+		return "", errors.NotFoundf("public address")
+	}
+	return ctx.publicAddress, nil
 }
 
-func (ctx *HookContext) PrivateAddress() (string, bool) {
-	return ctx.privateAddress, ctx.privateAddress != ""
+func (ctx *HookContext) PrivateAddress() (string, error) {
+	if ctx.privateAddress == "" {
+		return "", errors.NotFoundf("private address")
+	}
+	return ctx.privateAddress, nil
 }
 
-func (ctx *HookContext) AvailabilityZone() (string, bool) {
-	return ctx.availabilityzone, ctx.availabilityzone != ""
+func (ctx *HookContext) AvailabilityZone() (string, error) {
+	if ctx.availabilityzone == "" {
+		return "", errors.NotFoundf("availability zone")
+	}
+	return ctx.availabilityzone, nil
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, error) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, error) {
 	return ctx.storage.Storage(tag)
 }
 
@@ -279,7 +288,7 @@ func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error 
 	)
 }
 
-func (ctx *HookContext) OpenedPorts() []network.PortRange {
+func (ctx *HookContext) OpenedPorts() ([]network.PortRange, error) {
 	var unitRanges []network.PortRange
 	for portRange, relUnit := range ctx.machinePorts {
 		if relUnit.Unit == ctx.unit.Tag().String() {
@@ -287,11 +296,11 @@ func (ctx *HookContext) OpenedPorts() []network.PortRange {
 		}
 	}
 	network.SortPortRanges(unitRanges)
-	return unitRanges
+	return unitRanges, nil
 }
 
-func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner.String()
+func (ctx *HookContext) OwnerTag() (string, error) {
+	return ctx.serviceOwner.String(), nil
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -356,24 +365,31 @@ func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
-	return ctx.Relation(ctx.relationId)
+	r, err := ctx.Relation(ctx.relationId)
+	return r, err == nil
 }
 
-func (ctx *HookContext) RemoteUnitName() (string, bool) {
-	return ctx.remoteUnitName, ctx.remoteUnitName != ""
+func (ctx *HookContext) RemoteUnitName() (string, error) {
+	if ctx.remoteUnitName == "" {
+		return "", errors.NotFoundf("remote unit name")
+	}
+	return ctx.remoteUnitName, nil
 }
 
-func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, bool) {
+func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	r, found := ctx.relations[id]
-	return r, found
+	if !found {
+		return r, errors.NotFoundf("relation")
+	}
+	return r, nil
 }
 
-func (ctx *HookContext) RelationIds() []int {
+func (ctx *HookContext) RelationIds() ([]int, error) {
 	ids := []int{}
 	for id := range ctx.relations {
 		ids = append(ids, id)
 	}
-	return ids
+	return ids, nil
 }
 
 // AddMetrics adds metrics to the hook context.
@@ -423,13 +439,14 @@ func (context *HookContext) HookVars(paths Paths) []string {
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
-	if r, found := context.HookRelation(); found {
+	if r, ok := context.HookRelation(); ok {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),
 			"JUJU_RELATION_ID="+r.FakeId(),
 			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
 		)
 	}
+
 	if context.actionData != nil {
 		vars = append(vars,
 			"JUJU_ACTION_NAME="+context.actionData.ActionName,

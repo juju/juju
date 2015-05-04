@@ -145,9 +145,11 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
+	r, err := c.ctx.Relation(c.RelationId)
+	if errors.IsNotFound(err) {
 		return fmt.Errorf("unknown relation id")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	settings, err := r.Settings()
 	if err != nil {

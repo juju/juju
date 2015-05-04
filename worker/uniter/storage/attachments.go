@@ -222,11 +222,13 @@ func (a *Attachments) add(storageTag names.StorageTag, stateFile *stateFile) err
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.
-func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
-	if s, ok := a.storagers[tag]; ok {
-		return s.Context()
+func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, error) {
+	s, ok := a.storagers[tag]
+	if !ok {
+		return nil, errors.NotFoundf("storage")
 	}
-	return nil, false
+	return s.Context()
+
 }
 
 // ValidateHook validates the hook against the current state.
