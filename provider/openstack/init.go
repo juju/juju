@@ -18,5 +18,13 @@ func init() {
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 
-	registry.RegisterEnvironStorageProviders(providerType)
+	// Register the Openstack specific providers.
+	registry.RegisterProvider(
+		CinderProviderType,
+		&OpenstackProvider{NewGooseAdapter},
+	)
+
+	// Register the Cinder provider with the Openstack provider.
+	registry.RegisterEnvironStorageProviders(providerType, CinderProviderType)
+
 }
