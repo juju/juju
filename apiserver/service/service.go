@@ -1,11 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package service contains api calls for accessing service functionality.
+// Package service contains api calls for functionality
+// related to deploying and managing services and their
+// related charms.
 package service
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -13,8 +16,15 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
+)
+
+var (
+	logger = loggo.GetLogger("juju.apiserver.service")
+
+	newStateStorage = statestorage.NewStorage
 )
 
 func init() {
@@ -110,6 +120,17 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 
 	// Try to find the charm URL in state first.
 	ch, err := st.Charm(curl)
+	if errors.IsNotFound(err) {
+		// Clients written to expect 1.16 compatibility require this next block.
+		if curl.Schema != "cs" {
+			return errors.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+		}
+		if err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
+			URL: args.CharmUrl,
+		}); err == nil {
+			ch, err = st.Charm(curl)
+		}
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
