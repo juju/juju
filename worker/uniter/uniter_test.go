@@ -2021,8 +2021,6 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			waitAddresses{},
 			waitHooks{"wp-content-storage-attached"},
 			waitHooks(startupHooks(false)),
-			// TODO(axw) 2015-04-28 #1449390
-			// storage-attached should come before install.
 		), ut(
 			"test that storage-detaching is called before stop",
 			createCharm{customize: appendStorageMetadata},
@@ -2058,6 +2056,25 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			// storage-detaching is not called because it was never attached
 			waitHooks{"stop"},
 			verifyStorageDetached{},
+			waitUniterDead{},
+		), ut(
+			"test that unprovisioned storage does not block unit termination",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			// destroy the storage before the uniter starts,
+			// to ensure it does not block the uniter from
+			// terminating.
+			destroyStorageAttachment{},
+			startUniter{},
+			// no hooks should be run, as storage isn't provisioned
+			waitHooks{},
+			unitDying,
+			// TODO(axw) should we really be running startup hooks
+			// when the unit is dying?
+			waitHooks(startupHooks(false)),
+			waitHooks{"stop"},
 			waitUniterDead{},
 		),
 		// TODO(axw) test that storage-attached is run for new
