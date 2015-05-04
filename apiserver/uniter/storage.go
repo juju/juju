@@ -67,10 +67,7 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 	var result []params.StorageAttachment
 	for _, stateStorageAttachment := range stateStorageAttachments {
 		storageAttachment, err := s.fromStateStorageAttachment(stateStorageAttachment)
-		if errors.IsNotProvisioned(err) {
-			// don't return unprovisioned storage attachments
-			continue
-		} else if err != nil {
+		if err != nil {
 			return nil, err
 		}
 		result = append(result, storageAttachment)
@@ -83,8 +80,11 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
+	var location string
 	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
-	if err != nil {
+	if err == nil {
+		location = info.Location
+	} else if !errors.IsNotProvisioned(err) {
 		return params.StorageAttachment{}, err
 	}
 	stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
@@ -96,7 +96,7 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 		stateStorageInstance.Owner().String(),
 		stateStorageAttachment.Unit().String(),
 		params.StorageKind(stateStorageInstance.Kind()),
-		info.Location,
+		location,
 		params.Life(stateStorageAttachment.Life().String()),
 	}, nil
 }
@@ -130,7 +130,7 @@ func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id param
 		return params.StorageAttachment{}, err
 	}
 	stateStorageAttachment, err := s.st.StorageAttachment(storageTag, unitTag)
-	if errors.IsNotFound(err) {
+	if err != nil {
 		return params.StorageAttachment{}, err
 	}
 	return s.fromStateStorageAttachment(stateStorageAttachment)
