@@ -635,6 +635,14 @@ func machineIdLessThan(id1, id2 string) bool {
 
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
+	mdoc, err := st.getMachineDoc(id)
+	if err != nil {
+		return nil, err
+	}
+	return newMachine(st, mdoc), nil
+}
+
+func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 	machinesCollection, closer := st.getRawCollection(machinesC)
 	defer closer()
 
@@ -655,7 +663,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
-		return newMachine(st, mdoc), nil
+		return mdoc, nil
 	case mgo.ErrNotFound:
 		return nil, errors.NotFoundf("machine %s", id)
 	default:
