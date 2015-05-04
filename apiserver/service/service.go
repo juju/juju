@@ -1,12 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package service contains api calls for accessing service functionality.
+// Package service contains api calls for functionality
+// related to deploying and managing services and their
+// related charms.
 package service
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -121,19 +121,15 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 	if errors.IsNotFound(err) {
 		// Clients written to expect 1.16 compatibility require this next block.
 		if curl.Schema != "cs" {
-			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+			return errors.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
-		err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
+		if err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
 			URL: args.CharmUrl,
-		})
-		if err != nil {
-			return errors.Trace(err)
+		}); err == nil {
+			ch, err = st.Charm(curl)
 		}
-		ch, err = st.Charm(curl)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
 
