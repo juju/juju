@@ -51,7 +51,7 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")
-	case hooks.StorageAttached, hooks.StorageDetaching:
+	case hooks.StorageAttached, hooks.StorageDetached:
 		if !names.IsValidStorage(hi.StorageId) {
 			return fmt.Errorf("invalid storage ID %q", hi.StorageId)
 		}
