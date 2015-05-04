@@ -567,3 +567,42 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 	}
 	return group
 }
+
+func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
+	// Check if changes are allowed and the operation may proceed.
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	if len(args.Storages) == 0 {
+		return params.ErrorResults{}, nil
+	}
+
+	u, err := a.storage.Unit(args.Unit)
+	if err != nil {
+		return params.ErrorResults{},
+			errors.Annotatef(err, "getting unit for name %v", args.Unit)
+	}
+
+	result := []params.ErrorResult{}
+	for _, directive := range args.Storages {
+		cons := state.StorageConstraints{Pool: directive.Pool}
+		if directive.Size != nil {
+			cons.Size = *directive.Size
+		}
+		if directive.Count != nil {
+			cons.Count = *directive.Count
+		}
+
+		err := a.storage.AddStorageForUnit(u, directive.Store, cons)
+		if err != nil {
+			result = append(result,
+				params.ErrorResult{
+					Error: common.ServerError(
+						errors.Annotatef(err,
+							"adding storage for  %v", directive.Store))})
+		}
+	}
+	return params.ErrorResults{Results: result}, nil
+}

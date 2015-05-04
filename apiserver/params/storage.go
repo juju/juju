@@ -484,3 +484,27 @@ type VolumeItem struct {
 type VolumeItemsResult struct {
 	Results []VolumeItem `json:"results,omitempty"`
 }
+
+// StorageDirective contains the user-specified constraints for provisioning
+// storage instance.
+type StorageDirective struct {
+	// Store is the name of storage store as specified in the charm.
+	Store string `bson:"name"`
+
+	// Pool is the name of the storage pool from which to provision the
+	// storage instance.
+	Pool string `bson:"pool,omitempty"`
+
+	// Size is the required size of the storage instance, in MiB.
+	Size *uint64 `bson:"size,omitempty"`
+
+	// Count is the required number of storage instances.
+	Count *uint64 `bson:"count,omitempty"`
+}
+
+// StorageAddParams holds storage directives for a given unit.
+type StorageAddParams struct {
+	// Unit is unit name.
+	Unit     string             `json:"unit"`
+	Storages []StorageDirective `json:"storage"`
+}
