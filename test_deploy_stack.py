@@ -43,6 +43,7 @@ from deploy_stack import (
     assess_upgrade,
     safe_print_status,
     retain_jenv,
+    update_env,
 )
 from jujupy import (
     EnvJujuClient,
@@ -747,6 +748,25 @@ class TestBootContext(TestCase):
             pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
+            '--constraints', 'mem=2G'), 0)
+
+    def test_update_env(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                        return_value='foo'))
+        self.addContext(patch('subprocess.call'))
+        ue_mock = self.addContext(
+            patch('deploy_stack.update_env', wraps=update_env))
+        with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
+                           None, keep_env=False, upload_tools=False):
+            pass
+        ue_mock.assert_called_with(
+            client.env, 'bar', series='wacky', bootstrap_host=None,
+            agent_url='url', agent_stream='devel')
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
 
