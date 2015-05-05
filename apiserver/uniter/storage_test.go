@@ -208,20 +208,41 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	})
 }
 
+func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
+	resources := common.NewResources()
+	getCanAccess := func() (common.AuthFunc, error) {
+		return func(names.Tag) bool {
+			return true
+		}, nil
+	}
+	unitTag := names.NewUnitTag("mysql/0")
+	var calls []string
+	state := &mockStorageState{
+		destroyUnitStorageAttachments: func(u names.UnitTag) error {
+			calls = append(calls, "DestroyUnitStorageAttachments")
+			c.Assert(u, gc.DeepEquals, unitTag)
+			return nil
+		},
+	}
+
+	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	errors, err := storage.DestroyUnitStorageAttachments(params.Entities{
+		Entities: []params.Entity{{
+			Tag: unitTag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(calls, jc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
+	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+		[]params.ErrorResult{{}},
+	})
+}
+
 func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	setMock := func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error) {
 		st.remove = f
 	}
-	s.testEnsureDeadOrRemoveStorageAttachments(
-		c, setMock, (*uniter.StorageAPI).RemoveStorageAttachments,
-	)
-}
-
-func (s *storageSuite) testEnsureDeadOrRemoveStorageAttachments(
-	c *gc.C,
-	setMock func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error),
-	stateMethod func(*uniter.StorageAPI, params.StorageAttachmentIds) (params.ErrorResults, error),
-) {
 
 	unitTag0 := names.NewUnitTag("mysql/0")
 	unitTag1 := names.NewUnitTag("mysql/1")
@@ -246,7 +267,7 @@ func (s *storageSuite) testEnsureDeadOrRemoveStorageAttachments(
 
 	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := stateMethod(storage, params.StorageAttachmentIds{
+	errors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
 			UnitTag:    unitTag0.String(),
@@ -278,15 +299,20 @@ func (s *storageSuite) testEnsureDeadOrRemoveStorageAttachments(
 
 type mockStorageState struct {
 	uniter.StorageStateInterface
-	remove                    func(names.StorageTag, names.UnitTag) error
-	storageInstance           func(names.StorageTag) (state.StorageInstance, error)
-	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
-	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
-	unitAssignedMachine       func(names.UnitTag) (names.MachineTag, error)
-	watchStorageAttachments   func(names.UnitTag) state.StringsWatcher
-	watchStorageAttachment    func(names.StorageTag, names.UnitTag) state.NotifyWatcher
-	watchFilesystemAttachment func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-	watchVolumeAttachment     func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	destroyUnitStorageAttachments func(names.UnitTag) error
+	remove                        func(names.StorageTag, names.UnitTag) error
+	storageInstance               func(names.StorageTag) (state.StorageInstance, error)
+	storageInstanceFilesystem     func(names.StorageTag) (state.Filesystem, error)
+	storageInstanceVolume         func(names.StorageTag) (state.Volume, error)
+	unitAssignedMachine           func(names.UnitTag) (names.MachineTag, error)
+	watchStorageAttachments       func(names.UnitTag) state.StringsWatcher
+	watchStorageAttachment        func(names.StorageTag, names.UnitTag) state.NotifyWatcher
+	watchFilesystemAttachment     func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+}
+
+func (m *mockStorageState) DestroyUnitStorageAttachments(u names.UnitTag) error {
+	return m.destroyUnitStorageAttachments(u)
 }
 
 func (m *mockStorageState) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {

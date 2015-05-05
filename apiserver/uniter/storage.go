@@ -34,26 +34,28 @@ func newStorageAPI(
 	}, nil
 }
 
-// UnitStorageAttachments returns the storage attachments for a collection of units.
-func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.StorageAttachmentsResults, error) {
+// UnitStorageAttachments returns the IDs of storage attachments for a collection of units.
+func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.StorageAttachmentIdsResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
-		return params.StorageAttachmentsResults{}, err
+		return params.StorageAttachmentIdsResults{}, err
 	}
-	result := params.StorageAttachmentsResults{
-		Results: make([]params.StorageAttachmentsResult, len(args.Entities)),
+	result := params.StorageAttachmentIdsResults{
+		Results: make([]params.StorageAttachmentIdsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		storageAttachments, err := s.getOneUnitStorageAttachments(canAccess, entity.Tag)
+		storageAttachmentIds, err := s.getOneUnitStorageAttachmentIds(canAccess, entity.Tag)
 		if err == nil {
-			result.Results[i].Result = storageAttachments
+			result.Results[i].Result = params.StorageAttachmentIds{
+				storageAttachmentIds,
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, unitTag string) ([]params.StorageAttachment, error) {
+func (s *StorageAPI) getOneUnitStorageAttachmentIds(canAccess common.AuthFunc, unitTag string) ([]params.StorageAttachmentId, error) {
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil || !canAccess(tag) {
 		return nil, common.ErrPerm
@@ -64,41 +66,41 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 	} else if err != nil {
 		return nil, err
 	}
-	var result []params.StorageAttachment
-	for _, stateStorageAttachment := range stateStorageAttachments {
-		storageAttachment, err := s.fromStateStorageAttachment(stateStorageAttachment)
-		if err != nil {
-			return nil, err
+	result := make([]params.StorageAttachmentId, len(stateStorageAttachments))
+	for i, stateStorageAttachment := range stateStorageAttachments {
+		result[i] = params.StorageAttachmentId{
+			UnitTag:    unitTag,
+			StorageTag: stateStorageAttachment.StorageInstance().String(),
 		}
-		result = append(result, storageAttachment)
 	}
 	return result, nil
 }
 
-func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
-	machineTag, err := s.st.UnitAssignedMachine(stateStorageAttachment.Unit())
+// DestroyUnitStorageAttachments marks each storage attachment of the
+// specified units as Dying.
+func (s *StorageAPI) DestroyUnitStorageAttachments(args params.Entities) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit()
 	if err != nil {
-		return params.StorageAttachment{}, err
+		return params.ErrorResults{}, err
 	}
-	var location string
-	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
-	if err == nil {
-		location = info.Location
-	} else if !errors.IsNotProvisioned(err) {
-		return params.StorageAttachment{}, err
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
-	if err != nil {
-		return params.StorageAttachment{}, err
+	one := func(tag string) error {
+		unitTag, err := names.ParseUnitTag(tag)
+		if err != nil {
+			return err
+		}
+		if !canAccess(unitTag) {
+			return common.ErrPerm
+		}
+		return s.st.DestroyUnitStorageAttachments(unitTag)
 	}
-	return params.StorageAttachment{
-		stateStorageAttachment.StorageInstance().String(),
-		stateStorageInstance.Owner().String(),
-		stateStorageAttachment.Unit().String(),
-		params.StorageKind(stateStorageInstance.Kind()),
-		location,
-		params.Life(stateStorageAttachment.Life().String()),
-	}, nil
+	for i, entity := range args.Entities {
+		err := one(entity.Tag)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }
 
 // StorageAttachments returns the storage attachments with the specified tags.
@@ -134,6 +136,29 @@ func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id param
 		return params.StorageAttachment{}, err
 	}
 	return s.fromStateStorageAttachment(stateStorageAttachment)
+}
+
+func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
+	machineTag, err := s.st.UnitAssignedMachine(stateStorageAttachment.Unit())
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	return params.StorageAttachment{
+		stateStorageAttachment.StorageInstance().String(),
+		stateStorageInstance.Owner().String(),
+		stateStorageAttachment.Unit().String(),
+		params.StorageKind(stateStorageInstance.Kind()),
+		info.Location,
+		params.Life(stateStorageAttachment.Life().String()),
+	}, nil
 }
 
 // WatchUnitStorageAttachments creates watchers for a collection of units,
