@@ -568,6 +568,14 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 	return group
 }
 
+// Add validates and creates additional storage instances for a unit.
+// Storage instances are defined in collection of storage directives.
+// If no directives were specified, we do not try to add any instances.
+// Any failed operations are reported as errors.
+// Failures on individual storage directive do not block remaining
+// directives being processed. Individual errors are only returned if they occur.
+// This is a blockable operation.
+// It is blocked if "Change" block is switched on for this juju environment.
 func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)

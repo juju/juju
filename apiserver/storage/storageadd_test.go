@@ -18,16 +18,12 @@ type storageAddSuite struct {
 	baseStorageSuite
 }
 
-func (s *storageAddSuite) SetUpTest(c *gc.C) {
-	s.baseStorageSuite.SetUpTest(c)
-}
-
 var _ = gc.Suite(&storageAddSuite{})
 
 func (s *storageAddSuite) assertStorageAddedNoErrors(c *gc.C, args params.StorageAddParams) {
-	found, err := s.api.Add(args)
+	failures, err := s.api.Add(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(failures.Results, gc.HasLen, 0)
 }
 
 func (s *storageAddSuite) TestStorageAddEmpty(c *gc.C) {
@@ -75,9 +71,9 @@ func (s *storageAddSuite) TestStorageAddUnitError(c *gc.C) {
 		return nil, errors.Errorf(msg)
 	}
 
-	found, err := s.api.Add(tstParams)
+	failures, err := s.api.Add(tstParams)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(failures.Results, gc.HasLen, 0)
 
 	expectedCalls := []string{getBlockForTypeCall, unitCall}
 	s.assertCalls(c, expectedCalls)
@@ -90,10 +86,10 @@ func (s *storageAddSuite) TestStorageAddUnitDirectiveError(c *gc.C) {
 		return errors.Errorf(msg)
 	}
 
-	found, err := s.api.Add(tstParams)
+	failures, err := s.api.Add(tstParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
+	c.Assert(failures.Results, gc.HasLen, 1)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
 
 	s.assertCalls(c, []string{getBlockForTypeCall, unitCall, addStorageForUnitCall})
 }
