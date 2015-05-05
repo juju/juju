@@ -329,6 +329,17 @@ class DeployStackTestCase(TestCase):
             safe_print_status(client)
         mock.assert_called_once_with('status', ())
 
+    def test_update_env(self):
+        env = SimpleEnvironment('foo', {'type': 'paas'})
+        update_env(
+            env, 'bar', series='wacky', bootstrap_host='baz',
+            agent_url='url', agent_stream='devel')
+        self.assertEqual('bar', env.environment)
+        self.assertEqual('wacky', env.config['default-series'])
+        self.assertEqual('baz', env.config['bootstrap-host'])
+        self.assertEqual('url', env.config['tools-metadata-url'])
+        self.assertEqual('devel', env.config['agent-stream'])
+
 
 class DumpEnvLogsTestCase(TestCase):
 
