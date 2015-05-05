@@ -23,6 +23,11 @@ var (
 )
 
 var (
+	// Used in TestLeadership
+	leadershipScript = `
+if [ $(is-leader) != "False" ]; then exit -1; fi
+`[1:]
+
 	// Different hook file contents. These are used in util_test
 	goodHook = `
 #!/bin/bash --norc

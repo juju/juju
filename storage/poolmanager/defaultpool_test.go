@@ -5,11 +5,8 @@ package poolmanager_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -23,9 +20,6 @@ type defaultStoragePoolsSuite struct {
 var _ = gc.Suite(&defaultStoragePoolsSuite{})
 
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	p1, err := storage.NewConfig("pool1", storage.ProviderType("loop"), map[string]interface{}{"1": "2"})
 	p2, err := storage.NewConfig("pool2", storage.ProviderType("tmpfs"), map[string]interface{}{"3": "4"})
 	c.Assert(err, jc.ErrorIsNil)

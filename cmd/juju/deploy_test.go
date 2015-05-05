@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -27,9 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
@@ -218,14 +215,9 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
 }
 
-func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
-	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --storage")
-}
-
+// TODO(wallyworld) - add another test that deploy with storage fails for older environments
+// (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,6 +234,11 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		"data": {
 			Pool:  "loop-pool",
 			Count: 1,
+			Size:  1024,
+		},
+		"allecto": {
+			Pool:  "loop",
+			Count: 0,
 			Size:  1024,
 		},
 	})

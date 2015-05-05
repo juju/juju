@@ -81,14 +81,14 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, err = agent.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, err = agent.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
@@ -140,6 +140,65 @@ func (s *UnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	statusInfo, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+}
+
+func (s *UnitAgentSuite) TestSetUnitAgentStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agent := s.unit.Agent().(*state.UnitAgent)
+	globalKey := state.UnitAgentGlobalKey(agent)
+	err = agent.SetStatus(state.StatusIdle, "to push something to history", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+
+	h, err := state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 1)
+	c.Assert(h[0].Status, gc.Equals, state.StatusAllocating)
+	c.Assert(h[0].Message, gc.Equals, "")
+
+	err = agent.SetStatus(state.StatusExecuting, "executing first thing", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+
+	err = agent.SetStatus(state.StatusExecuting, "wow executing again", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+
+	h, err = state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 3)
+	var message string
+	for i := 0; i < 3; i++ {
+		c.Logf("checking status %q", h[i].Status)
+		switch h[i].Status {
+		case state.StatusAllocating:
+			message = ""
+		case state.StatusExecuting:
+			message = "executing first thing"
+		case state.StatusIdle:
+			message = "to push something to history"
+		}
+		c.Assert(h[i].Message, gc.Equals, message)
+	}
+}
+
+func (s *UnitAgentSuite) TestGetUnitAgentStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+	agent := s.unit.Agent().(*state.UnitAgent)
+	globalKey := state.UnitAgentGlobalKey(agent)
+	history := func(i int) ([]state.StatusInfo, error) {
+		return agent.StatusHistory(i)
+	}
+	testGetUnitStatusHistory(c, history, s.State, globalKey)
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {

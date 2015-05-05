@@ -6,13 +6,10 @@ package state_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -61,10 +58,6 @@ func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	// This suite is all about storage, so enable the feature by default.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
@@ -110,20 +103,6 @@ func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag)
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
-}
-
-func (s *StorageStateSuite) TestAddServiceStorageConstraintsWithoutFeature(c *gc.C) {
-	// Disable the storage feature, and ensure we can deploy a service from
-	// a charm that defines storage, without specifying the storage constraints.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	ch := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddService("storage-block2", "user-test-admin@local", ch, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	storageConstraints, err := service.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageConstraints, gc.HasLen, 0)
 }
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
@@ -175,7 +154,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultPool(c *gc.C)
 		"data": makeStorageCons("", 2048, 1),
 	}
 	expectedCons := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop-pool", 2048, 1),
+		"data":    makeStorageCons("loop-pool", 2048, 1),
+		"allecto": makeStorageCons("loop-pool", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
 }
@@ -185,7 +165,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsNoUserDefaultPool(c 
 		"data": makeStorageCons("", 2048, 1),
 	}
 	expectedCons := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop", 2048, 1),
+		"data":    makeStorageCons("loop", 2048, 1),
+		"allecto": makeStorageCons("loop", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "", storageCons, expectedCons)
 }
@@ -195,7 +176,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFallback(
 		"data": makeStorageCons("loop-pool", 0, 1),
 	}
 	expectedCons := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop-pool", 1024, 1),
+		"data":    makeStorageCons("loop-pool", 1024, 1),
+		"allecto": makeStorageCons("loop-pool", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
 }

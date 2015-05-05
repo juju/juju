@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -436,11 +435,7 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	coretesting.SkipIfI386(c, "lp:1444576")
 	coretesting.SkipIfPPC64EL(c, "lp:1444576")
-
-	//TODO(bogdanteleaga): Fix this to behave properly
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: this fails half of the time on windows because files are not closed properly")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
@@ -456,6 +451,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1444576")
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
@@ -570,9 +566,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: doesn't work on windows because of symlink issue")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//
@@ -817,10 +811,8 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
 	// used to create the directory which partially works on windows 8 but
 	// doesn't work on windows server.
-	if runtime.GOOS != "windows" {
-		lockdir := filepath.Join(s.DataDir(), "locks")
-		c.Assert(lockdir, jc.IsDirectory)
-	}
+	lockdir := filepath.Join(s.DataDir(), "locks")
+	c.Assert(lockdir, jc.IsDirectory)
 	// SSH key file should not be generated for hosts.
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -1002,7 +994,7 @@ func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
 }
 

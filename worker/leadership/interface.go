@@ -44,6 +44,10 @@ type Tracker interface {
 	// WaitLeader will return a Ticket which, when Wait()ed for, will block
 	// until the tracker attains leadership.
 	WaitLeader() Ticket
+
+	// WaitMinion will return a Ticket which, when Wait()ed for, will block
+	// until the tracker's future leadership can no longer be guaranteed.
+	WaitMinion() Ticket
 }
 
 // TrackerWorker embeds the Tracker and worker.Worker interfaces.

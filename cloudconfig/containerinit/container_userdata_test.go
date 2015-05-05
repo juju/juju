@@ -48,6 +48,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:    false,
 		Address:        network.NewAddress("0.1.2.3"),
 		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearch:      "foo.bar",
 		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}, {
 		InterfaceName: "eth1",
@@ -63,6 +64,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet manual
     dns-nameservers ns1.invalid ns2.invalid
+    dns-search foo.bar
     pre-up ip address add 0.1.2.3/32 dev eth0 &> /dev/null || true
     up ip route replace 0.1.2.1 dev eth0
     up ip route replace default via 0.1.2.1

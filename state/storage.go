@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
@@ -18,7 +17,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -681,10 +679,25 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 }
 
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if !featureflag.Enabled(feature.Storage) {
-		return nil
+	err := validateStorageConstraintsAgainstCharm(st, allCons, charmMeta)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	// Ensure all stores have constraints specified. Defaults should have
+	// been set by this point, if the user didn't specify constraints.
+	for name, charmStorage := range charmMeta.Storage {
+		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
+			return errors.Errorf("no constraints specified for store %q", name)
+		}
+	}
+	return nil
+}
+
+func validateStorageConstraintsAgainstCharm(
+	st *State,
+	allCons map[string]StorageConstraints,
+	charmMeta *charm.Meta,
+) error {
 	for name, cons := range allCons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
@@ -712,19 +725,14 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
 			return errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
-				charmMeta.Name, name, humanize.Bytes(charmStorage.MinimumSize*humanize.MByte), humanize.Bytes(cons.Size*humanize.MByte),
+				charmMeta.Name, name,
+				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
+				humanize.Bytes(cons.Size*humanize.MByte),
 			)
 		}
 		kind := storageKind(charmStorage.Type)
 		if err := validateStoragePool(st, cons.Pool, kind, nil); err != nil {
 			return err
-		}
-	}
-	// Ensure all stores have constraints specified. Defaults should have
-	// been set by this point, if the user didn't specify constraints.
-	for name, charmStorage := range charmMeta.Storage {
-		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
-			return errors.Errorf("no constraints specified for store %q", name)
 		}
 	}
 	return nil
@@ -827,10 +835,6 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no defaul
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if !featureflag.Enabled(feature.Storage) {
-		return nil
-	}
 	conf, err := st.EnvironConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -840,15 +844,9 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		allCons = make(map[string]StorageConstraints)
 	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons := allCons[name]
-		kind := storageKind(charmStorage.Type)
-		var err error
-		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
+		cons, err := storageConstraintsWithDefaults(conf, charmStorage, name, allCons[name])
 		if err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
-			}
-			return err
+			return errors.Trace(err)
 		}
 		// Replace in case pool or size were updated.
 		allCons[name] = cons
@@ -856,15 +854,20 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 	return nil
 }
 
-// storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
-func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
-	charmStorage charm.Storage, cons StorageConstraints,
+// storageConstraintsWithDefaults returns a constraints
+// derived from cons, with any defaults filled in.
+func storageConstraintsWithDefaults(
+	cfg *config.Config,
+	charmStorage charm.Storage,
+	name string,
+	cons StorageConstraints,
 ) (StorageConstraints, error) {
 	withDefaults := cons
 	if cons.Pool == "" {
+		kind := storageKind(charmStorage.Type)
 		poolName, err := defaultStoragePool(cfg, kind)
 		if err != nil {
-			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", name)
 		}
 		withDefaults.Pool = poolName
 	}
@@ -893,4 +896,127 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 		return defaultPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
+}
+
+// AddStorage adds StorageConstraints to
+// given entity dynamically, one storage directive at a time.
+func (st *State) AddStorageForUnit(
+	charmMeta *charm.Meta, u *Unit,
+	name string, cons StorageConstraints,
+) error {
+	all, err := u.StorageConstraints()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing storage directives for %s", u.Tag().Id())
+	}
+
+	// Check storage name was declared.
+	_, exists := all[name]
+	if !exists {
+		return errors.NotFoundf("charm storage %q", name)
+	}
+
+	// Populate missing configuration parameters with default values.
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	completeCons, err := storageConstraintsWithDefaults(
+		conf,
+		charmMeta.Storage[name],
+		name, cons,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		err := u.Refresh()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		err = st.validateUnitStorage(charmMeta, u, name, completeCons)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotate(err, "while creating storage")
+	}
+	return nil
+}
+
+func (st *State) validateUnitStorage(
+	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+) error {
+	// Storage directive may provide storage instance count
+	// which combined with existing storage instance may exceed
+	// number of storage instances specified by charm.
+	// We must take it into account when validating.
+	currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cons.Count = cons.Count + currentCount
+
+	err = validateStorageConstraintsAgainstCharm(
+		st,
+		map[string]StorageConstraints{name: cons},
+		charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) constructAddUnitStorageOps(
+	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+) ([]txn.Op, error) {
+	// Create storage db operations
+	storageOps, _, err := createStorageOps(
+		st,
+		u.Tag(),
+		charmMeta,
+		map[string]StorageConstraints{name: cons})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Update storage attachment count.
+	priorCount := u.doc.StorageAttachmentCount
+	newCount := priorCount + int(cons.Count)
+	ops := []txn.Op{
+		{
+			C:  unitsC,
+			Id: u.doc.DocID,
+			// Count validation ensures transactionality.
+			Assert: bson.D{{"storageattachmentcount", priorCount}},
+			Update: bson.D{{"$set",
+				bson.D{{"storageattachmentcount", newCount}}}},
+		},
+	}
+	return append(ops, storageOps...), nil
+}
+
+func (st *State) countEntityStorageInstancesForName(
+	tag names.Tag,
+	name string,
+) (uint64, error) {
+	storageCollection, closer := st.getCollection(storageInstancesC)
+	defer closer()
+	criteria := bson.D{{
+		"$and", []bson.D{
+			bson.D{{"owner", tag.String()}},
+			bson.D{{"storagename", name}},
+		},
+	}}
+	result, err := storageCollection.Find(criteria).Count()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(result), err
 }
