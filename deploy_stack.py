@@ -613,6 +613,9 @@ def run_deployer():
         client.deployer(args.bundle_path)
     except BaseException as e:
         logging.exception(e)
+        if host is not None:
+            dump_env_logs(
+                client, host, args.logs, host_id=None, jenv_path=None)
         sys.exit(1)
     finally:
         safe_print_status(client)
