@@ -15,6 +15,7 @@ var importResponses = map[string]string{
 	"lp:multi":        sshtesting.ValidKeyMulti,
 	"lp:multipartial": sshtesting.PartValidKeyMulti,
 	"lp:multiempty":   sshtesting.EmptyKeyMulti,
+	"lp:multiinvalid": sshtesting.MultiInvalid,
 }
 
 var FakeImport = func(keyId string) (string, error) {

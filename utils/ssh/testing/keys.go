@@ -66,5 +66,8 @@ var (
 		`ZLi3sPUmw6PJCJ0SgATd` + "\n" +
 		`ssh-rsa bad key`
 
+	MultiInvalid = `ssh-rsa bad key` + "\n" +
+		`ssh-rsa also bad`
+
 	EmptyKeyMulti = ""
 )
