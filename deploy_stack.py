@@ -461,7 +461,8 @@ def deploy_job():
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        args.series, args.logs, args.debug, juju_path,
-                       args.agent_url, args.keep_env, args.upload_tools)
+                       args.agent_url, args.agent_stream,
+                       args.keep_env, args.upload_tools)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
