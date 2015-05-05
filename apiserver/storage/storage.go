@@ -595,13 +595,13 @@ func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
 			cons.Count = *directive.Count
 		}
 
-		err := a.storage.AddStorageForUnit(u, directive.Store, cons)
+		err := a.storage.AddStorageForUnit(u, directive.Name, cons)
 		if err != nil {
 			result = append(result,
 				params.ErrorResult{
 					Error: common.ServerError(
 						errors.Annotatef(err,
-							"adding storage for  %v", directive.Store))})
+							"adding storage for  %v", directive.Name))})
 		}
 	}
 	return params.ErrorResults{Results: result}, nil

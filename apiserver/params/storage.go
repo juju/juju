@@ -488,8 +488,8 @@ type VolumeItemsResult struct {
 // StorageDirective contains the user-specified constraints for provisioning
 // storage instance.
 type StorageDirective struct {
-	// Store is the name of storage store as specified in the charm.
-	Store string `bson:"name"`
+	// Name is the name of storage store as specified in the charm.
+	Name string `bson:"name"`
 
 	// Pool is the name of the storage pool from which to provision the
 	// storage instance.

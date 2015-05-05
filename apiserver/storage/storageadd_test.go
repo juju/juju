@@ -38,7 +38,7 @@ func (s *storageAddSuite) TestStorageAddEmpty(c *gc.C) {
 func (s *storageAddSuite) TestStorageAddUnit(c *gc.C) {
 	args := params.StorageAddParams{
 		Unit:     "fluffy",
-		Storages: []params.StorageDirective{{Store: "data"}}}
+		Storages: []params.StorageDirective{{Name: "data"}}}
 	s.assertStorageAddedNoErrors(c, args)
 	s.assertCalls(c, []string{getBlockForTypeCall, unitCall, addStorageForUnitCall})
 }
@@ -48,7 +48,7 @@ func (s *storageAddSuite) TestStorageAddUnitBlocked(c *gc.C) {
 
 	args := params.StorageAddParams{
 		Unit:     "fluffy",
-		Storages: []params.StorageDirective{{Store: "data"}}}
+		Storages: []params.StorageDirective{{Name: "data"}}}
 	_, err := s.api.Add(args)
 	s.assertBlocked(c, err, "TestStorageAddUnitBlocked")
 }
@@ -59,14 +59,14 @@ func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *gc.C) {
 
 	args := params.StorageAddParams{
 		Unit:     "fluffy",
-		Storages: []params.StorageDirective{{Store: "data"}}}
+		Storages: []params.StorageDirective{{Name: "data"}}}
 	s.assertStorageAddedNoErrors(c, args)
 	s.assertCalls(c, []string{getBlockForTypeCall, unitCall, addStorageForUnitCall})
 }
 
 var tstParams = params.StorageAddParams{
 	Unit:     "fluffy",
-	Storages: []params.StorageDirective{{Store: "data"}}}
+	Storages: []params.StorageDirective{{Name: "data"}}}
 
 func (s *storageAddSuite) TestStorageAddUnitError(c *gc.C) {
 	msg := "add test error"
