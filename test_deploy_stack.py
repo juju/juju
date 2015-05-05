@@ -100,10 +100,14 @@ class ArgParserTestCase(TestCase):
     def test_add_juju_args(self):
         parser = ArgumentParser('proc')
         add_juju_args(parser)
-        cmd_line = ['proc', '--agent-url', 'some_url', '--series', 'vivid']
+        cmd_line = [
+            'proc', '--agent-stream', 'devel', '--agent-url', 'some_url',
+            '--series', 'vivid']
         with patch('sys.argv', cmd_line):
             args_dict = parser.parse_args().__dict__
-        expected = {'agent_url': 'some_url', 'series': 'vivid'}
+        expected = {
+            'agent_stream': 'devel', 'agent_url': 'some_url',
+            'series': 'vivid'}
         self.assertEqual(args_dict, expected)
 
     def test_get_juju_path_new_juju_bin(self):
@@ -751,6 +755,7 @@ class TestDeployJobParseArgs(TestCase):
     def test_deploy_job_parse_args(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz'])
         self.assertEqual(args, Namespace(
+            agent_stream=None,
             agent_url=None,
             bootstrap_host=None,
             debug=False,

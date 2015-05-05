@@ -393,6 +393,8 @@ def add_output_args(parser):
 def add_juju_args(parser):
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')
+    parser.add_argument('--agent-stream', default=None,
+                        help='stream name for retrieving agent binaries.')
     parser.add_argument('--series',
                         help='Name of the Ubuntu series to use.')
 
