@@ -17,10 +17,11 @@ github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T1
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
+github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/jujusvg	git	28683402583926ce903491c14a07cdc5cb371adb	2015-04-10T08:55:05Z
 github.com/juju/loggo	git	6d22922ff98aac6608b8a58191bd6b2e1dac3fca	2015-03-30T01:06:43Z
-github.com/juju/names	git	2b65d264b29346482c291c854168295f350cf323	2015-03-30T01:03:07Z
+github.com/juju/names	git	a597dd52044cc5a702844642b5cb6e09870422db	2015-04-28T12:56:57Z
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	a5137dd3d7a1495ef2dd32cfbac616654913cf49	2015-04-02T14:41:36Z

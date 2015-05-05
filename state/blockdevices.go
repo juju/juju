@@ -78,9 +78,6 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		if !blockDevicesChanged(oldInfo, newInfo) {
 			return nil, jujutxn.ErrNoOperations
 		}
-		// TODO(axw) before the storage feature can come off,
-		// we need to add an upgrade step to add a block
-		// devices doc to existing machines.
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     machineId,
@@ -101,6 +98,7 @@ func createMachineBlockDevicesOp(machineId string) txn.Op {
 		C:      blockDevicesC,
 		Id:     machineId,
 		Insert: &blockDevicesDoc{Machine: machineId},
+		Assert: txn.DocMissing,
 	}
 }
 

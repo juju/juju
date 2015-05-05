@@ -86,6 +86,7 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
@@ -708,21 +709,19 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
-	if featureflag.Enabled(feature.Storage) {
-		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-			api, err := st.DiskManager()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-		})
-		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			scope := agentConfig.Tag()
-			api := st.StorageProvisioner(scope)
-			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(scope, storageDir, api, api, api, api), nil
-		})
-	}
+	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
+	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+		scope := agentConfig.Tag()
+		api := st.StorageProvisioner(scope)
+		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+		return newStorageWorker(scope, storageDir, api, api, api, api), nil
+	})
 
 	// Check if the network management is disabled.
 	envConfig, err := st.Environment().EnvironConfig()
@@ -978,6 +977,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
 			}
+			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
+				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
+			})
+
 			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
@@ -1068,13 +1071,11 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
-	if featureflag.Enabled(feature.Storage) {
-		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-			scope := agentConfig.Environment()
-			api := apiSt.StorageProvisioner(scope)
-			return newStorageWorker(scope, "", api, api, api, api), nil
-		})
-	}
+	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+		scope := agentConfig.Environment()
+		api := apiSt.StorageProvisioner(scope)
+		return newStorageWorker(scope, "", api, api, api, api), nil
+	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})

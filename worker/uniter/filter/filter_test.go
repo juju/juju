@@ -604,7 +604,7 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-block2")
 	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
 		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
-		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 2048, Count: 2},
 	})
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)

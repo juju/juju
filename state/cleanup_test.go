@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type CleanupSuite struct {
@@ -354,8 +356,9 @@ func (s *CleanupSuite) TestCleanupStorage(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	ch := s.AddTestingCharm(c, "storage-block")
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("block", 1024, 1),
+		"data": makeStorageCons("loop", 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	u, err := service.AddUnit()

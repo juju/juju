@@ -872,6 +872,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1448308")
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: currently does not work on windows")

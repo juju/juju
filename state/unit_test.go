@@ -4,7 +4,9 @@
 package state_test
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +24,46 @@ import (
 const (
 	contentionErr = ".*: state changing too quickly; try again soon"
 )
+
+type statusHistoryFunc func(int) ([]state.StatusInfo, error)
+
+func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *state.State, globalKey string) {
+	begin := state.NowToTheSecond()
+	c.Logf("will use %q as base time", begin)
+	for i := 0; i < 100; i++ {
+		message := fmt.Sprintf("bogus message number %d", i)
+		c.Logf("fill status history, attempt: %d", i)
+		updated := begin.Add(time.Duration(i) + time.Second)
+		statusDoc := state.StatusDoc{Status: state.StatusActive,
+			StatusInfo: message,
+			Updated:    &updated}
+		sdoc := state.NewStatusDoc(statusDoc)
+		err := state.UpdateStatusHistory(sdoc, globalKey, st)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	h, err := statusHistory(100)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
+	h, err = statusHistory(200)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
+	h, err = statusHistory(50)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 50)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 50")
+
+}
 
 type UnitSuite struct {
 	ConnSuite
@@ -581,7 +623,7 @@ func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
 	})
 }
 
-func (s *UnitAgentSuite) TestSetUnitStatusSince(c *gc.C) {
+func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
 	now := state.NowToTheSecond()
 	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -597,6 +639,64 @@ func (s *UnitAgentSuite) TestSetUnitStatusSince(c *gc.C) {
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+}
+
+func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+	globalKey := state.UnitGlobalKey(s.unit)
+
+	err = s.unit.SetStatus(state.StatusMaintenance, "to push something to history", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusMaintenance)
+
+	h, err := state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 1)
+	c.Assert(h[0].Status, gc.Equals, state.StatusUnknown)
+	c.Assert(h[0].Message, gc.Equals, "Waiting for agent initialization to finish")
+
+	err = s.unit.SetStatus(state.StatusActive, "active message", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+
+	err = s.unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
+
+	h, err = state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(h, gc.HasLen, 3)
+	var message string
+	for i := 0; i < 3; i++ {
+		c.Logf("checking status %q", h[i].Status)
+		switch h[i].Status {
+		case state.StatusUnknown:
+			message = "Waiting for agent initialization to finish"
+		case state.StatusActive:
+			message = "active message"
+		case state.StatusMaintenance:
+			message = "to push something to history"
+		}
+		c.Assert(h[i].Message, gc.Equals, message)
+	}
+}
+
+func (s *UnitSuite) TestGetUnitStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+	globalKey := state.UnitGlobalKey(s.unit)
+	history := func(i int) ([]state.StatusInfo, error) {
+		return s.unit.StatusHistory(i)
+	}
+	testGetUnitStatusHistory(c, history, s.State, globalKey)
 }
 
 func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {

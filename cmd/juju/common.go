@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -254,4 +255,18 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
+}
+
+// formatStatusTime returns a string with the local time
+// formatted in an arbitrary format used for status or
+// and localized tz or in utc timezone and format RFC3339
+// if u is specified.
+func formatStatusTime(t *time.Time, formatISO bool) string {
+	if formatISO {
+		// If requested, use ISO time format
+		return t.Format(time.RFC3339)
+	} else {
+		// Otherwise use local time.
+		return t.Local().Format("02 Jan 2006 15:04:05 MST")
+	}
 }

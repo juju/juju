@@ -345,6 +345,21 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
+type HistoryKind string
+
+const (
+	KindCombined HistoryKind = "combined"
+	KindAgent    HistoryKind = "agent"
+	KindWorkload HistoryKind = "workload"
+)
+
+// StatusHistory holds the parameters to filter a status history query.
+type StatusHistory struct {
+	Kind HistoryKind
+	Size int
+	Name string
+}
+
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {

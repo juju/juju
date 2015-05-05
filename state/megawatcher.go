@@ -86,20 +86,6 @@ func (m *backingMachine) mongoId() interface{} {
 
 type backingUnit unitDoc
 
-// translateLegacyUnitAgentStatus returns the status value the current GUI expects to see.
-// This is a short term requirement until the GUI is updated to be able to handle
-// the new values.
-// We use string literals here to avoid import loops and lots of messy refactoring.
-func translateLegacyUnitAgentStatus(in multiwatcher.Status) multiwatcher.Status {
-	switch in {
-	case multiwatcher.Status("failed"):
-		return multiwatcher.Status("down")
-	case multiwatcher.Status("active"):
-		return multiwatcher.Status("started")
-	}
-	return in
-}
-
 func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
 	// Get opened port ranges for the unit and convert them to ports,
 	// as older clients/servers do not know about ranges). See bug
@@ -196,8 +182,13 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 			info.StatusInfo = unitStatus.Message
 			info.StatusData = unitStatus.Data
 		} else {
-			info.Status = multiwatcher.Status(agentStatus.Status)
-			info.Status = translateLegacyUnitAgentStatus(info.Status)
+			legacyStatus, ok := TranslateToLegacyAgentState(agentStatus.Status, unitStatus.Status, unitStatus.Message)
+			if !ok {
+				logger.Warningf(
+					"translate to legacy status encounted unexpected workload status %q and agent status %q",
+					unitStatus.Status, agentStatus.Status)
+			}
+			info.Status = multiwatcher.Status(legacyStatus)
 			info.StatusInfo = agentStatus.Message
 			info.StatusData = agentStatus.Data
 		}
@@ -502,14 +493,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 }
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, newInfo *multiwatcher.UnitInfo) error {
-	// Legacy status info - display the agent status or any error.
-	if !strings.HasSuffix(id, "#charm") || s.Status == StatusError {
-		newInfo.Status = multiwatcher.Status(s.Status)
-		newInfo.Status = translateLegacyUnitAgentStatus(newInfo.Status)
-		newInfo.StatusInfo = s.StatusInfo
-		newInfo.StatusData = s.StatusData
-	}
-	// Unit or workload status.
+	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.WorkloadStatus.Message = s.StatusInfo
@@ -520,6 +504,26 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
 		newInfo.AgentStatus.Since = s.Updated
+	}
+
+	// Legacy status info - it is an aggregated value between workload and agent statuses.
+	legacyStatus, ok := TranslateToLegacyAgentState(
+		Status(newInfo.AgentStatus.Current),
+		Status(newInfo.WorkloadStatus.Current),
+		newInfo.WorkloadStatus.Message,
+	)
+	if !ok {
+		logger.Warningf(
+			"translate to legacy status encounted unexpected workload status %q and agent status %q",
+			newInfo.WorkloadStatus.Current, newInfo.AgentStatus.Current)
+	}
+	newInfo.Status = multiwatcher.Status(legacyStatus)
+	if newInfo.Status == multiwatcher.Status(StatusError) {
+		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
+		newInfo.StatusData = newInfo.WorkloadStatus.Data
+	} else {
+		newInfo.StatusInfo = newInfo.AgentStatus.Message
+		newInfo.StatusData = newInfo.AgentStatus.Data
 	}
 
 	// A change in a unit's status might also affect it's service.

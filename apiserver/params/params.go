@@ -131,8 +131,6 @@ type AddMachineParams struct {
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
-	//
-	// NOTE: this is ignored unless the "storage" feature flag is enabled.
 	Disks []storage.Constraints `json:"Disks"`
 
 	// If Placement is non-nil, it contains a placement directive
@@ -186,6 +184,11 @@ type AddMachinesResult struct {
 type DestroyMachines struct {
 	MachineNames []string
 	Force        bool
+}
+
+// ServicesDeploy holds the parameters for deploying one or more services.
+type ServicesDeploy struct {
+	Services []ServiceDeploy
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
@@ -755,40 +758,6 @@ const (
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
-
-// TranslateLegacyAgentStatus returns the status value clients expect to see for
-// agent-state in versions prior to 1.24
-func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
-	// Originally AgentState (a member of api.UnitStatus) could hold one of:
-	// StatusPending
-	// StatusInstalled
-	// StatusStarted
-	// StatusStopped
-	// StatusError
-	// StatusDown
-	// For compatibility reasons we convert modern states (from V2 uniter) into
-	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
-	switch agentStatus {
-	case StatusAllocating:
-		return StatusPending, true
-	case StatusError:
-		return StatusError, true
-	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
-		switch workloadStatus {
-		case StatusError:
-			return StatusError, true
-		case StatusTerminated:
-			return StatusStopped, true
-		case StatusMaintenance:
-			// TODO(wallyworld): until we can query status history, returning Started
-			// is a resonable approximation.
-			return StatusStarted, true
-		default:
-			return StatusStarted, true
-		}
-	}
-	return "", false
-}
 
 const (
 	// Status values common to machine and unit agents.
