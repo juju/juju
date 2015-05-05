@@ -71,7 +71,7 @@ class GenerateMirrors(TestCase):
             self.assertEqual(
                 'https://juju-dist.s3.amazonaws.com/tools',
                 purposeful_mirrors[0]['mirror'])
-            self.assertEqual(9, len(purposeful_mirrors[0]['clouds']))
+            self.assertEqual(10, len(purposeful_mirrors[0]['clouds']))
             self.assertEqual(
                 'https://jujutools.blob.core.windows.net/juju-tools/tools',
                 purposeful_mirrors[1]['mirror'])
@@ -107,7 +107,7 @@ class GenerateMirrors(TestCase):
         self.assertEqual(
             'https://juju-dist.s3.amazonaws.com/devel/tools',
             purposeful_mirror[0]['mirror'])
-        self.assertEqual(9, len(purposeful_mirror[0]['clouds']))
+        self.assertEqual(10, len(purposeful_mirror[0]['clouds']))
         self.assertEqual(
             'https://jujutools.blob.core.windows.net'
             '/juju-tools/devel/tools',
