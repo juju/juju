@@ -2035,8 +2035,6 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			unitDying,
 			waitHooks{"leader-settings-changed"},
 			// "stop" hook is not called until storage is detached
-			waitHooks{},
-			destroyStorageAttachment{},
 			waitHooks{"wp-content-storage-detaching", "stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
@@ -2063,17 +2061,13 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			serveCharm{},
 			ensureStateWorker{},
 			createServiceAndUnit{},
-			// destroy the storage before the uniter starts,
-			// to ensure it does not block the uniter from
-			// terminating.
-			destroyStorageAttachment{},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
 			unitDying,
 			// TODO(axw) should we really be running startup hooks
 			// when the unit is dying?
-			waitHooks(startupHooks(false)),
+			waitHooks(startupHooks(true)),
 			waitHooks{"stop"},
 			waitUniterDead{},
 		),

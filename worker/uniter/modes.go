@@ -362,6 +362,9 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		// and leader-set hook tools from acting in a correct but misleading way
 		// (ie continuing to act as though leader after leader-deposed has run).
 	}
+	if err := u.storage.SetDying(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	for {
 		if len(u.relations.GetInfo()) == 0 && u.storage.Empty() {
 			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))

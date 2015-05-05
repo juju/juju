@@ -31,7 +31,7 @@ func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
@@ -53,14 +53,14 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	abort := make(chan struct{})
 
 	// Simulate remote state returning a single Alive storage attachment.
-	attachments := []params.StorageAttachment{{
+	attachmentIds := []params.StorageAttachmentId{{
 		StorageTag: "storage-data-0",
-		Life:       params.Alive,
+		UnitTag:    unitTag.String(),
 	}}
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
-			return attachments, nil
+			return attachmentIds, nil
 		},
 		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
 			return newMockNotifyWatcher(), nil
@@ -134,7 +134,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 		Life:       params.Dying,
 	}
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
@@ -179,7 +179,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	}
 
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
@@ -236,7 +236,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		Location:   "/dev/sdb",
 	}
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
@@ -289,14 +289,69 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(removed, jc.IsTrue)
 }
 
+func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
+	stateDir := c.MkDir()
+	unitTag := names.NewUnitTag("mysql/0")
+	storageTag := names.NewStorageTag("data/0")
+	abort := make(chan struct{})
+
+	var destroyed, removed bool
+	st := &mockStorageAccessor{
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
+			c.Assert(u, gc.Equals, unitTag)
+			return []params.StorageAttachmentId{{
+				StorageTag: storageTag.String(),
+				UnitTag:    unitTag.String(),
+			}}, nil
+		},
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			w := newMockNotifyWatcher()
+			w.changes <- struct{}{}
+			return w, nil
+		},
+		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(u, gc.Equals, unitTag)
+			return params.StorageAttachment{}, &params.Error{
+				Code: params.CodeNotProvisioned,
+			}
+		},
+		destroyUnitStorageAttachments: func(u names.UnitTag) error {
+			c.Assert(u, gc.Equals, unitTag)
+			destroyed = true
+			return nil
+		},
+		remove: func(s names.StorageTag, u names.UnitTag) error {
+			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(u, gc.Equals, unitTag)
+			removed = true
+			return nil
+		},
+	}
+
+	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := att.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+	c.Assert(att.Pending(), gc.Equals, 1)
+
+	err = att.SetDying()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(att.Pending(), gc.Equals, 0)
+	c.Assert(destroyed, jc.IsTrue)
+	c.Assert(removed, jc.IsTrue)
+}
+
 type attachmentsUpdateSuite struct {
 	testing.BaseSuite
-	unitTag          names.UnitTag
-	storageTag0      names.StorageTag
-	storageTag1      names.StorageTag
-	attachmentsByTag map[names.StorageTag]*params.StorageAttachment
-	unitAttachments  map[names.UnitTag][]params.StorageAttachment
-	att              *storage.Attachments
+	unitTag           names.UnitTag
+	storageTag0       names.StorageTag
+	storageTag1       names.StorageTag
+	attachmentsByTag  map[names.StorageTag]*params.StorageAttachment
+	unitAttachmentIds map[names.UnitTag][]params.StorageAttachmentId
+	att               *storage.Attachments
 }
 
 var _ = gc.Suite(&attachmentsUpdateSuite{})
@@ -321,12 +376,12 @@ func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
 			Location:   "/dev/sdb",
 		},
 	}
-	s.unitAttachments = nil
+	s.unitAttachmentIds = nil
 
 	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, s.unitTag)
-			return s.unitAttachments[u], nil
+			return s.unitAttachmentIds[u], nil
 		},
 		watchStorageAttachment: func(storageTag names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
 			w := newMockNotifyWatcher()
@@ -384,11 +439,14 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedDying(c *gc.C) {
 
 func (s *attachmentsUpdateSuite) TestAttachmentsRefresh(c *gc.C) {
 	// This test combines the above two.
-	s.unitAttachments = map[names.UnitTag][]params.StorageAttachment{
-		s.unitTag: []params.StorageAttachment{
-			*s.attachmentsByTag[s.storageTag0],
-			*s.attachmentsByTag[s.storageTag1],
-		},
+	s.unitAttachmentIds = map[names.UnitTag][]params.StorageAttachmentId{
+		s.unitTag: []params.StorageAttachmentId{{
+			StorageTag: s.storageTag0.String(),
+			UnitTag:    s.unitTag.String(),
+		}, {
+			StorageTag: s.storageTag1.String(),
+			UnitTag:    s.unitTag.String(),
+		}},
 	}
 	for i := 0; i < 2; i++ {
 		// Refresh twice, to ensure idempotency.
