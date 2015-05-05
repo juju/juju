@@ -77,6 +77,8 @@ for attempt in $(seq 10); do
   fi
   sleep 10
 done
+sudo sed s,//.*ec2.archive.ubuntu.com,//archive.ubuntu.com, \
+    /etc/apt/sources.list -i
 if [[ $SERIES == "precise" ]]; then
     sudo add-apt-repository cloud-archive:tools
 fi
