@@ -22,12 +22,9 @@ type storageSuite struct {
 }
 
 func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
-	storageAttachments := []params.StorageAttachment{{
+	storageAttachmentIds := []params.StorageAttachmentId{{
 		StorageTag: "storage-whatever-0",
-		OwnerTag:   "service-mysql",
 		UnitTag:    "unit-mysql-0",
-		Kind:       params.StorageKindBlock,
-		Location:   "/dev/sda",
 	}}
 
 	var called bool
@@ -39,10 +36,10 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StorageAttachmentsResults{})
-		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
-			Results: []params.StorageAttachmentsResult{{
-				Result: storageAttachments,
+		c.Assert(result, gc.FitsTypeOf, &params.StorageAttachmentIdsResults{})
+		*(result.(*params.StorageAttachmentIdsResults)) = params.StorageAttachmentIdsResults{
+			Results: []params.StorageAttachmentIdsResult{{
+				Result: params.StorageAttachmentIds{storageAttachmentIds},
 			}},
 		}
 		called = true
@@ -50,10 +47,10 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	attachments, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
+	attachmentIds, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
-	c.Assert(attachments, gc.DeepEquals, storageAttachments)
+	c.Assert(attachmentIds, gc.DeepEquals, storageAttachmentIds)
 }
 
 func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
@@ -82,8 +79,8 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 
 func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
-			[]params.StorageAttachmentsResult{{}, {}},
+		*(result.(*params.StorageAttachmentIdsResults)) = params.StorageAttachmentIdsResults{
+			[]params.StorageAttachmentIdsResult{{}, {}},
 		}
 		return nil
 	})
