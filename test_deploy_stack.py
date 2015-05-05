@@ -43,6 +43,7 @@ from deploy_stack import (
     assess_upgrade,
     safe_print_status,
     retain_jenv,
+    update_env,
 )
 from jujupy import (
     EnvJujuClient,
@@ -100,10 +101,14 @@ class ArgParserTestCase(TestCase):
     def test_add_juju_args(self):
         parser = ArgumentParser('proc')
         add_juju_args(parser)
-        cmd_line = ['proc', '--agent-url', 'some_url', '--series', 'vivid']
+        cmd_line = [
+            'proc', '--agent-stream', 'devel', '--agent-url', 'some_url',
+            '--series', 'vivid']
         with patch('sys.argv', cmd_line):
             args_dict = parser.parse_args().__dict__
-        expected = {'agent_url': 'some_url', 'series': 'vivid'}
+        expected = {
+            'agent_stream': 'devel', 'agent_url': 'some_url',
+            'series': 'vivid'}
         self.assertEqual(args_dict, expected)
 
     def test_get_juju_path_new_juju_bin(self):
@@ -323,6 +328,17 @@ class DeployStackTestCase(TestCase):
         ) as mock:
             safe_print_status(client)
         mock.assert_called_once_with('status', ())
+
+    def test_update_env(self):
+        env = SimpleEnvironment('foo', {'type': 'paas'})
+        update_env(
+            env, 'bar', series='wacky', bootstrap_host='baz',
+            agent_url='url', agent_stream='devel')
+        self.assertEqual('bar', env.environment)
+        self.assertEqual('wacky', env.config['default-series'])
+        self.assertEqual('baz', env.config['bootstrap-host'])
+        self.assertEqual('url', env.config['tools-metadata-url'])
+        self.assertEqual('devel', env.config['agent-stream'])
 
 
 class DumpEnvLogsTestCase(TestCase):
@@ -702,7 +718,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
@@ -721,7 +737,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=True, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
@@ -738,11 +754,30 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=True):
             pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
+            '--constraints', 'mem=2G'), 0)
+
+    def test_calls_update_env(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                        return_value='foo'))
+        self.addContext(patch('subprocess.call'))
+        ue_mock = self.addContext(
+            patch('deploy_stack.update_env', wraps=update_env))
+        with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
+                           None, keep_env=False, upload_tools=False):
+            pass
+        ue_mock.assert_called_with(
+            client.env, 'bar', series='wacky', bootstrap_host=None,
+            agent_url='url', agent_stream='devel')
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
 
@@ -751,6 +786,7 @@ class TestDeployJobParseArgs(TestCase):
     def test_deploy_job_parse_args(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz'])
         self.assertEqual(args, Namespace(
+            agent_stream=None,
             agent_url=None,
             bootstrap_host=None,
             debug=False,
@@ -770,3 +806,8 @@ class TestDeployJobParseArgs(TestCase):
     def test_upload_tools(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz', '--upload-tools'])
         self.assertEqual(args.upload_tools, True)
+
+    def test_agent_stream(self):
+        args = deploy_job_parse_args(
+            ['foo', 'bar', 'baz', '--agent-stream', 'wacky'])
+        self.assertEqual('wacky', args.agent_stream)

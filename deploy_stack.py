@@ -393,6 +393,8 @@ def add_output_args(parser):
 def add_juju_args(parser):
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')
+    parser.add_argument('--agent-stream', default=None,
+                        help='stream name for retrieving agent binaries.')
     parser.add_argument('--series',
                         help='Name of the Ubuntu series to use.')
 
@@ -459,11 +461,12 @@ def deploy_job():
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        args.series, args.logs, args.debug, juju_path,
-                       args.agent_url, args.keep_env, args.upload_tools)
+                       args.agent_url, args.agent_stream,
+                       args.keep_env, args.upload_tools)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
-               agent_url=None):
+               agent_url=None, agent_stream=None):
     # Rename to the new name.
     env.environment = new_env_name
     if series is not None:
@@ -472,11 +475,13 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['bootstrap-host'] = bootstrap_host
     if agent_url is not None:
         env.config['tools-metadata-url'] = agent_url
+    if agent_stream is not None:
+        env.config['agent-stream'] = agent_stream
 
 
 @contextmanager
 def boot_context(job_name, client, bootstrap_host, machines, series,
-                 agent_url, log_dir, keep_env, upload_tools):
+                 agent_url, agent_stream, log_dir, keep_env, upload_tools):
     created_machines = False
     bootstrap_id = None
     running_domains = dict()
@@ -504,7 +509,8 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             machines = []
 
         update_env(client.env, job_name, series=series,
-                   bootstrap_host=bootstrap_host, agent_url=agent_url)
+                   bootstrap_host=bootstrap_host, agent_url=agent_url,
+                   agent_stream=agent_stream)
         try:
             host = bootstrap_host
             ssh_machines = [] + machines
@@ -561,7 +567,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                keep_env, upload_tools):
+                agent_stream, keep_env, upload_tools):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -569,7 +575,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     with boot_context(job_name, client, bootstrap_host, machines,
-                      series, agent_url, log_dir, keep_env, upload_tools):
+                      series, agent_url, agent_stream, log_dir, keep_env,
+                      upload_tools):
         prepare_environment(
             client, already_bootstrapped=True, machines=machines)
         if sys.platform in ('win32', 'darwin'):
@@ -600,7 +607,7 @@ def run_deployer():
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
     update_env(env, args.job_name, series=args.series,
-               agent_url=args.agent_url)
+               agent_url=args.agent_url, agent_stream=args.agent_stream)
     client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
     juju_home = get_juju_home()
     with temp_bootstrap_env(
