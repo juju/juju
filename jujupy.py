@@ -354,65 +354,68 @@ class EnvJujuClient:
 
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
-        reporter = GroupReporter(sys.stdout, 'started')
         status = None
-        for ignored in chain([None], until_timeout(timeout, start=start)):
-            try:
-                status = self.get_status()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            states = status.check_agents_started()
-            if states is None:
-                reporter.finish()
-                break
-            reporter.update(states)
-        else:
+        reporter = GroupReporter(sys.stdout, 'started')
+        try:
+            for ignored in chain([None], until_timeout(timeout, start=start)):
+                try:
+                    status = self.get_status()
+                except CannotConnectEnv:
+                    print('Supressing "Unable to connect to environment"')
+                    continue
+                states = status.check_agents_started()
+                if states is None:
+                    break
+                reporter.update(states)
+            else:
+                logging.error(status.status_text)
+                raise AgentsNotStarted(self.env.environment, status)
+        finally:
             reporter.finish()
-            logging.error(status.status_text)
-            raise AgentsNotStarted(self.env.environment, status)
         return status
 
     def wait_for_version(self, version, timeout=300):
         reporter = GroupReporter(sys.stdout, version)
-        for ignored in until_timeout(timeout):
-            try:
-                versions = self.get_status(300).get_agent_versions()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            if versions.keys() == [version]:
-                reporter.finish()
-                break
-            reporter.update(versions)
-        else:
+        try:
+            for ignored in until_timeout(timeout):
+                try:
+                    versions = self.get_status(300).get_agent_versions()
+                except CannotConnectEnv:
+                    print('Supressing "Unable to connect to environment"')
+                    continue
+                if versions.keys() == [version]:
+                    break
+                reporter.update(versions)
+            else:
+                raise Exception('Some versions did not update.')
+        finally:
             reporter.finish()
-            raise Exception('Some versions did not update.')
 
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
-        for remaining in until_timeout(timeout):
-            status = self.get_status()
-            states = {}
-            for machine, info in status.iter_machines():
-                status = info.get('state-server-member-status')
-                if status is None:
-                    continue
-                states.setdefault(status, []).append(machine)
-            if states.keys() == [desired_state]:
-                if len(states.get(desired_state, [])) >= 3:
-                    # XXX sinzui 2014-12-04: bug 1399277 happens because
-                    # juju claims HA is ready when the monogo replica sets
-                    # are not. Juju is not fully usable. The replica set
-                    # lag might be 5 minutes.
-                    pause(300)
-                    reporter.finish()
-                    return
-            reporter.update(states)
-        else:
+        try:
+            for remaining in until_timeout(timeout):
+                status = self.get_status()
+                states = {}
+                for machine, info in status.iter_machines():
+                    status = info.get('state-server-member-status')
+                    if status is None:
+                        continue
+                    states.setdefault(status, []).append(machine)
+                if states.keys() == [desired_state]:
+                    if len(states.get(desired_state, [])) >= 3:
+                        # XXX sinzui 2014-12-04: bug 1399277 happens because
+                        # juju claims HA is ready when the monogo replica sets
+                        # are not. Juju is not fully usable. The replica set
+                        # lag might be 5 minutes.
+                        pause(300)
+                        return
+                reporter.update(states)
+            else:
+                raise Exception('Timed out waiting for voting to be enabled.')
+        finally:
             reporter.finish()
-            raise Exception('Timed out waiting for voting to be enabled.')
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.
