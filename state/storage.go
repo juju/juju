@@ -456,6 +456,32 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	return &s, nil
 }
 
+// DestroyStorageAttachment ensures that the existing storage attachments of
+// the specified unit are removed at some point.
+func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		attachments, err := st.UnitStorageAttachments(unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := make([]txn.Op, 0, len(attachments))
+		for _, attachment := range attachments {
+			if attachment.Life() != Alive {
+				continue
+			}
+			ops = append(ops, destroyStorageAttachmentOps(
+				attachment.StorageInstance(), unit,
+			)...)
+		}
+		if len(ops) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
 // DestroyStorageAttachment ensures that the storage attachment will be
 // removed at some point.
 func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
@@ -470,15 +496,15 @@ func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.U
 		if s.doc.Life == Dying {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyStorageAttachmentOps(s), nil
+		return destroyStorageAttachmentOps(storage, unit), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
+func destroyStorageAttachmentOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Id:     storageAttachmentId(unit.Id(), storage.Id()),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
