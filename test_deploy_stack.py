@@ -706,7 +706,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
@@ -725,7 +725,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=True, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
@@ -742,7 +742,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
         self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None,
+        with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=True):
             pass
         assert_juju_call(self, cc_mock, client, (
