@@ -926,7 +926,7 @@ func (st *State) AddStorageForUnit(
 }
 
 // addStorage adds storage instances to given unit as specified.
-// Missing storage constraints - either pool, size or count - are populated
+// Missing storage constraints are populated
 // based on environment defaults. Storage store name is used to retrieve
 // existing storage instances for this store.
 // Combination of existing storage instances and
