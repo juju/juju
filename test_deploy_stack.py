@@ -761,7 +761,7 @@ class TestBootContext(TestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
             '--constraints', 'mem=2G'), 0)
 
-    def test_update_env(self):
+    def test_calls_update_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
@@ -806,3 +806,8 @@ class TestDeployJobParseArgs(TestCase):
     def test_upload_tools(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz', '--upload-tools'])
         self.assertEqual(args.upload_tools, True)
+
+    def test_agent_stream(self):
+        args = deploy_job_parse_args(
+            ['foo', 'bar', 'baz', '--agent-stream', 'wacky'])
+        self.assertEqual('wacky', args.agent_stream)
