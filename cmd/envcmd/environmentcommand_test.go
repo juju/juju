@@ -27,6 +27,11 @@ type EnvironmentCommandSuite struct {
 	coretesting.FakeJujuHomeSuite
 }
 
+func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.PatchEnvironment("JUJU_CLI_VERSION", "")
+}
+
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 func Test(t *testing.T) { gc.TestingT(t) }

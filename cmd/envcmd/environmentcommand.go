@@ -247,11 +247,15 @@ func (c *EnvCommandBase) CompatVersion() int {
 	if c.compatVerson != nil {
 		return *c.compatVerson
 	}
+	compatVerson := 1
 	val := os.Getenv(osenv.JujuCLIVersion)
-	compatVerson, err := strconv.Atoi(val)
-	if err != nil {
-		logger.Warningf("invalid %s value: %v", osenv.JujuCLIVersion, val)
-		return 1
+	if val != "" {
+		vers, err := strconv.Atoi(val)
+		if err != nil {
+			logger.Warningf("invalid %s value: %v", osenv.JujuCLIVersion, val)
+		} else {
+			compatVerson = vers
+		}
 	}
 	c.compatVerson = &compatVerson
 	return *c.compatVerson
