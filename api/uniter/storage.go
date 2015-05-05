@@ -22,18 +22,15 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 	return &StorageAccessor{facade}
 }
 
-// UnitStorageAttachments returns the storage instances attached to a unit.
-func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachment, error) {
+// UnitStorageAttachments returns the IDs of a unit's storage attachments.
+func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// UnitStorageAttachments() was introduced in UniterAPIV2.
 		return nil, errors.NotImplementedf("UnitStorageAttachments() (need V2+)")
 	}
 	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: unitTag.String()},
-		},
+		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
-	var results params.StorageAttachmentsResults
+	var results params.StorageAttachmentIdsResults
 	err := sa.facade.FacadeCall("UnitStorageAttachments", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,7 +42,31 @@ func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]para
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return result.Result, nil
+	return result.Result.Ids, nil
+}
+
+// DestroyUnitStorageAttachments ensures that the specified unit's storage
+// attachments will be removed at some point in the future.
+func (sa *StorageAccessor) DestroyUnitStorageAttachments(unitTag names.UnitTag) error {
+	if sa.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("DestroyUnitStorageAttachments() (need V2+)")
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	}
+	var results params.ErrorResults
+	err := sa.facade.FacadeCall("DestroyUnitStorageAttachments", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
 
 // WatchUnitStorageAttachments starts a watcher for changes to storage
