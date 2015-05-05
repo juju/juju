@@ -292,7 +292,8 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	stateDir := c.MkDir()
 	unitTag := names.NewUnitTag("mysql/0")
-	storageTag := names.NewStorageTag("data/0")
+	storageTag0 := names.NewStorageTag("data/0")
+	storageTag1 := names.NewStorageTag("data/1")
 	abort := make(chan struct{})
 
 	var destroyed, removed bool
@@ -300,7 +301,10 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return []params.StorageAttachmentId{{
-				StorageTag: storageTag.String(),
+				StorageTag: storageTag0.String(),
+				UnitTag:    unitTag.String(),
+			}, {
+				StorageTag: storageTag1.String(),
 				UnitTag:    unitTag.String(),
 			}}, nil
 		},
@@ -310,11 +314,20 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 			return w, nil
 		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
-			c.Assert(s, gc.Equals, storageTag)
 			c.Assert(u, gc.Equals, unitTag)
-			return params.StorageAttachment{}, &params.Error{
-				Code: params.CodeNotProvisioned,
+			if s == storageTag0 {
+				return params.StorageAttachment{}, &params.Error{
+					Code: params.CodeNotProvisioned,
+				}
 			}
+			c.Assert(s, gc.Equals, storageTag1)
+			return params.StorageAttachment{
+				StorageTag: storageTag1.String(),
+				UnitTag:    unitTag.String(),
+				Life:       params.Dying,
+				Kind:       params.StorageKindBlock,
+				Location:   "/dev/sdb",
+			}, nil
 		},
 		destroyUnitStorageAttachments: func(u names.UnitTag) error {
 			c.Assert(u, gc.Equals, unitTag)
@@ -322,12 +335,18 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 			return nil
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
-			c.Assert(s, gc.Equals, storageTag)
+			c.Assert(removed, jc.IsFalse)
+			c.Assert(s, gc.Equals, storageTag0)
 			c.Assert(u, gc.Equals, unitTag)
 			removed = true
 			return nil
 		},
 	}
+
+	state1, err := storage.ReadStateFile(stateDir, storageTag1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = state1.CommitHook(hook.Info{Kind: hooks.StorageAttached, StorageId: storageTag1.Id()})
+	c.Assert(err, jc.ErrorIsNil)
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
