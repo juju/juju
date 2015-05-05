@@ -3,9 +3,5 @@
 
 package osenv
 
-var (
-	JujuHomeWin   = jujuHomeWin
-	JujuHomeLinux = jujuHomeLinux
-	MergeEnvUnix  = mergeEnvUnix
-	MergeEnvWin   = mergeEnvWin
-)
+var JujuHomeWin = jujuHomeWin
+var JujuHomeLinux = jujuHomeLinux

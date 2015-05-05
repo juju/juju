@@ -6,7 +6,6 @@ package client
 var (
 	RemoteParamsForMachine = remoteParamsForMachine
 	GetAllUnitNames        = getAllUnitNames
-	NewStateStorage        = &newStateStorage
 )
 
 // Filtering exports

@@ -129,6 +129,10 @@ type InterfaceInfo struct {
 	// interface.
 	DNSServers []Address
 
+	// DNSSearch contains the default DNS domain to use for
+	// non-FQDN lookups.
+	DNSSearch string
+
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).

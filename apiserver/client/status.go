@@ -793,10 +793,13 @@ func canBeLost(status *api.UnitStatus) bool {
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
-	return true
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != "installing charm software"
+	return isInstalled
 }
 
 // processUnitLost determines whether the given unit should be marked as lost.
+// TODO(wallyworld) - move this to state and the canBeLost() code can be simplified.
 func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
 	if !canBeLost(status) {
 		// The status is allocating or installing - there's no point

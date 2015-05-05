@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
@@ -66,7 +67,8 @@ iface lo inet loopback{{define "static"}}
 {{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
 iface {{.InterfaceName}} inet manual{{if gt (len .DNSServers) 0}}
-    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}
+    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}{{if gt (len .DNSSearch) 0}}
+    dns-search {{.DNSSearch}}{{end}}
     pre-up ip address add {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
     up ip route replace {{.GatewayAddress.Value}} dev {{.InterfaceName}}
     up ip route replace default via {{.GatewayAddress.Value}}
@@ -269,11 +271,19 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 	shutdownCmd := "/sbin/shutdown -h now"
 	name := "juju-template-restart"
 	desc := "juju shutdown job"
+
+	execStart := shutdownCmd
+	if environs.AddressAllocationEnabled() {
+		// Only do the cleanup and replacement of /e/n/i when address
+		// allocation feature flag is enabled.
+		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
+	}
+
 	conf := common.Conf{
 		Desc:         desc,
 		Transient:    true,
 		AfterStopped: "cloud-final",
-		ExecStart:    replaceNetConfCmd + removeCmd + shutdownCmd,
+		ExecStart:    execStart,
 	}
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {

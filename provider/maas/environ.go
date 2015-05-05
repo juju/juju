@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,6 +23,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -115,6 +118,23 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	if !environs.AddressAllocationEnabled() {
+		// When address allocation is not enabled, we should use the
+		// default bridge for both LXC and KVM containers. The bridge
+		// is created as part of the userdata for every node during
+		// StartInstance.
+		logger.Infof(
+			"address allocation feature disabled; using %q bridge for all containers",
+			instancecfg.DefaultBridgeName,
+		)
+		args.ContainerBridgeName = instancecfg.DefaultBridgeName
+	} else {
+		logger.Debugf(
+			"address allocation feature enabled; using static IPs for containers: %q",
+			instancecfg.DefaultBridgeName,
+		)
+	}
+
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
 		return "", "", nil, err
@@ -213,6 +233,10 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
+	}
+
 	caps, err := env.getCapabilities()
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
@@ -867,6 +891,15 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
+	// Override the network bridge to use for both LXC and KVM
+	// containers on the new instance, if address allocation feature
+	// flag is not enabled.
+	if !environs.AddressAllocationEnabled() {
+		if args.InstanceConfig.AgentEnvironment == nil {
+			args.InstanceConfig.AgentEnvironment = make(map[string]string)
+		}
+		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
+	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
 	}
@@ -998,6 +1031,56 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
+const bridgeConfigTemplate = `
+# In case we already created the bridge, don't do it again.
+grep -q "iface {{.Bridge}} inet dhcp" && exit 0
+
+# Discover primary interface at run-time using the default route (if set)
+PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+
+# If $PRIMARY_IFACE is empty, there's nothing to do.
+[ -z "$PRIMARY_IFACE" ] && exit 0
+
+# Change the config to make $PRIMARY_IFACE manual instead of DHCP,
+# then create the bridge and enslave $PRIMARY_IFACE into it.
+grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}} && \
+sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}} && \
+cat >> {{.Config}} << EOF
+
+# Primary interface (defining the default route)
+iface ${PRIMARY_IFACE} inet manual
+
+# Bridge to use for LXC/KVM containers
+auto {{.Bridge}}
+iface {{.Bridge}} inet dhcp
+    bridge_ports ${PRIMARY_IFACE}
+EOF
+
+# Make the primary interface not auto-starting.
+grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
+sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+
+# Finally, stop $PRIMARY_IFACE and start the bridge instead.
+ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
+`
+
+// setupJujuNetworking returns a string representing the script to run
+// in order to prepare the Juju-specific networking config on a node.
+func setupJujuNetworking() (string, error) {
+	parsedTemplate := template.Must(
+		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+	)
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config": "/etc/network/interfaces",
+		"Bridge": instancecfg.DefaultBridgeName,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "bridge config template error")
+	}
+	return buf.String(), nil
+}
+
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
 func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (cloudinit.CloudConfig, error) {
@@ -1022,6 +1105,26 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 	case version.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
+		// Only create the default bridge if we're not using static
+		// address allocation for containers.
+		if !environs.AddressAllocationEnabled() {
+			// Address allocated feature flag might be disabled, but
+			// DisableNetworkManagement can still disable the bridge
+			// creation.
+			if on, set := environ.Config().DisableNetworkManagement(); on && set {
+				logger.Infof(
+					"network management disabled - not using %q bridge for containers",
+					instancecfg.DefaultBridgeName,
+				)
+				break
+			}
+			bridgeScript, err := setupJujuNetworking()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cloudcfg.AddPackage("bridge-utils")
+			cloudcfg.AddRunCmd(bridgeScript)
+		}
 	}
 	return cloudcfg, nil
 }
@@ -1163,6 +1266,10 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 	var subnets []network.SubnetInfo
 
@@ -1210,6 +1317,10 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released

@@ -1037,6 +1037,10 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
+	}
+
 	if err := env.checkBroken("SupportsAddressAllocation"); err != nil {
 		return false, err
 	}
@@ -1051,6 +1055,10 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
 func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	if err := env.checkBroken("AllocateAddress"); err != nil {
 		return err
 	}
@@ -1074,6 +1082,10 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}

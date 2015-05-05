@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
@@ -16,11 +17,21 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
+
+// provisionalProviders is the names of providers that are hidden behind
+// feature flags.
+var provisionalProviders = map[string]string{
+	"cloudsigma": feature.CloudSigma,
+	"vsphere":    feature.VSphereProvider,
+}
 
 const bootstrapDoc = `
 bootstrap starts a new environment of the current type (it will return an error
@@ -163,6 +174,10 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
+var getEnvName = func(c *BootstrapCommand) string {
+	return c.ConnectionName()
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -176,13 +191,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
-	if c.ConnectionName() == "" {
-		return fmt.Errorf("the name of the environment must be specified")
+	envName := getEnvName(c)
+	if envName == "" {
+		return errors.Errorf("the name of the environment must be specified")
+	}
+	if err := checkProviderType(envName); errors.IsNotFound(err) {
+		// This error will get handled later.
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 
 	environ, cleanup, err := environFromName(
 		ctx,
-		c.ConnectionName(),
+		envName,
 		"Bootstrap",
 		bootstrapFuncs.EnsureNotBootstrapped,
 	)
@@ -253,6 +274,35 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
 	return c.SetBootstrapEndpointAddress(environ)
+}
+
+var environType = func(envName string) (string, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	cfg, _, err := environs.ConfigForName(envName, store)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.Type(), nil
+}
+
+// checkProviderType ensures the provider type is okay.
+func checkProviderType(envName string) error {
+	envType, err := environType(envName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	flag, ok := provisionalProviders[envType]
+	if ok && !featureflag.Enabled(flag) {
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+		return errors.Errorf(msg, envType, flag)
+	}
+
+	return nil
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.

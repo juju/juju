@@ -3,4 +3,7 @@
 
 package service
 
-var ParseSettingsCompatible = parseSettingsCompatible
+var (
+	ParseSettingsCompatible = parseSettingsCompatible
+	NewStateStorage         = &newStateStorage
+)
