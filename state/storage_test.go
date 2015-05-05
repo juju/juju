@@ -496,6 +496,27 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc.AssertOneChange()
 }
 
+func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "block")
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DestroyUnitStorageAttachments(u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(attachments, gc.HasLen, 3)
+		for _, a := range attachments {
+			c.Assert(a.Life(), gc.Equals, state.Dying)
+			err := s.State.RemoveStorageAttachment(a.StorageInstance(), u.UnitTag())
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}).Check()
+
+	err = s.State.DestroyUnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance
 // TODO(axw) StorageInstance without attachments is removed by Destroy
 // TODO(axw) StorageInstance becomes Dying when Unit becomes Dying

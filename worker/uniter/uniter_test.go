@@ -2019,10 +2019,8 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
-			waitHooks(startupHooks(false)),
-			// TODO(axw) 2015-04-28 #1449390
-			// storage-attached should come before install.
 			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
 		), ut(
 			"test that storage-detaching is called before stop",
 			createCharm{customize: appendStorageMetadata},
@@ -2032,13 +2030,11 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
-			waitHooks(startupHooks(false)),
 			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
 			unitDying,
 			waitHooks{"leader-settings-changed"},
 			// "stop" hook is not called until storage is detached
-			waitHooks{},
-			destroyStorageAttachment{},
 			waitHooks{"wp-content-storage-detaching", "stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
@@ -2059,6 +2055,25 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			waitHooks{"stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
+		), ut(
+			"test that unprovisioned storage does not block unit termination",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			startUniter{},
+			// no hooks should be run, as storage isn't provisioned
+			waitHooks{},
+			unitDying,
+			// TODO(axw) should we really be running startup hooks
+			// when the unit is dying?
+			waitHooks(startupHooks(true)),
+			waitHooks{"stop"},
+			waitUniterDead{},
 		),
+		// TODO(axw) test that storage-attached is run for new
+		// storage attachments before upgrade-charm is run. This
+		// requires additions to state to add storage when a charm
+		// is upgraded.
 	})
 }

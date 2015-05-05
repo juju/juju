@@ -108,6 +108,19 @@ type StorageAttachmentIds struct {
 	Ids []StorageAttachmentId `json:"ids"`
 }
 
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of a unit's attached storage instances.
+type StorageAttachmentIdsResult struct {
+	Result StorageAttachmentIds `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of multiple units attached storage instances.
+type StorageAttachmentIdsResults struct {
+	Results []StorageAttachmentIdsResult `json:"results,omitempty"`
+}
+
 // StorageAttachmentsResult holds the result of an API call to retrieve details
 // of a unit's attached storage instances.
 type StorageAttachmentsResult struct {
