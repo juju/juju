@@ -298,8 +298,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 				continue
 			}
 			if currentFingerprints.Contains(keyInfo.fingerprint) {
-				errMsg := fmt.Sprintf("%v\n", errors.Errorf("duplicate ssh key: %s", keyInfo.key))
-				compoundErr += errMsg
+				compoundErr += fmt.Sprintf("%v\n", errors.Errorf("duplicate ssh key: %s", keyInfo.key))
 				continue
 			}
 			sshKeys = append(sshKeys, keyInfo.key)
