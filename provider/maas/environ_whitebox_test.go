@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -27,13 +28,14 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -305,7 +307,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -323,7 +325,7 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -344,7 +346,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, err := env.acquireNode("", "", constraints, nil, nil)
+	_, err := env.acquireNode("", "", constraints, nil, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -412,7 +414,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -428,7 +430,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 	_, err := env.acquireNode(
 		"", "",
 		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
-		nil, nil,
+		nil, nil, nil,
 	)
 
 	c.Check(err, jc.ErrorIsNil)
@@ -437,6 +439,48 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
 	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
+}
+
+func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
+	for i, test := range []struct {
+		volumes []volumeInfo
+		expcted string
+	}{
+		{
+			nil,
+			"",
+		},
+		{
+			[]volumeInfo{{"volume-1", 1234, nil}},
+			"volume-1:1234",
+		},
+		{
+			[]volumeInfo{{"", 1234, []string{"tag1", "tag2"}}},
+			"1234(tag1,tag2)",
+		},
+		{
+			[]volumeInfo{{"volume-1", 1234, []string{"tag1", "tag2"}}},
+			"volume-1:1234(tag1,tag2)",
+		},
+		{
+			[]volumeInfo{
+				{"volume-1", 1234, []string{"tag1", "tag2"}},
+				{"volume-2", 4567, []string{"tag1", "tag3"}},
+			},
+			"volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
+		},
+	} {
+		c.Logf("test %d", i)
+		env := suite.makeEnviron()
+		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, test.volumes)
+		c.Check(err, jc.ErrorIsNil)
+		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		nodeRequestValues, found := requestValues["node0"]
+		c.Check(found, jc.IsTrue)
+		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expcted)
+		suite.testMAASObject.TestServer.Clear()
+	}
 }
 
 var testValues = []struct {
@@ -635,7 +679,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	c.Check(operations, gc.DeepEquals, []string{"release"})
 	c.Check(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
 	// Files have been cleaned up.
-	listing, err := storage.List(stor, "")
+	listing, err := envstorage.List(stor, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
@@ -1356,6 +1400,55 @@ func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
+}
+
+var nodeStorageAttrs = []map[string]interface{}{
+	{
+		"name":       "sdb",
+		"id":         1,
+		"id_path":    "/dev/disk/by-id/id_for_sda",
+		"path":       "/dev/sdb",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "S21NNSAFC38075L",
+		"size":       250059350016,
+	},
+	{
+		"name":       "sda",
+		"id":         2,
+		"path":       "/dev/sda",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "XXXX",
+		"size":       250059350016,
+	},
+}
+
+var storageConstraintAttrs = map[string]interface{}{
+	"1": "volume-1",
+	"2": "root",
+}
+
+func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{
+		"memory":                  8192,
+		"physicalblockdevice_set": nodeStorageAttrs,
+		"constraint_map":          storageConstraintAttrs,
+	})
+	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
+		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+	}}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Volumes, jc.DeepEquals, []storage.Volume{
+		{
+			Tag:        names.NewVolumeTag("1"),
+			Size:       238475,
+			VolumeId:   "/dev/disk/by-id/id_for_sda",
+			HardwareId: "S21NNSAFC38075L",
+		},
+	})
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {

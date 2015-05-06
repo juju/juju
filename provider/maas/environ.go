@@ -646,10 +646,39 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 	}
 }
 
+// addVolumes converts volume information into
+// url.Values object suitable to pass to MAAS when acquiring a node.
+func addVolumes(params url.Values, volumes []volumeInfo) {
+	if len(volumes) == 0 {
+		return
+	}
+	makeVolumeParams := func(v volumeInfo) string {
+		var parts []string
+		if v.name != "" {
+			parts = []string{v.name + ":"}
+		}
+		parts = append(parts, strconv.FormatUint(v.sizeInGiB, 10))
+		if len(v.tags) > 0 {
+			parts = append(parts, fmt.Sprintf("(%s)", strings.Join(v.tags, ",")))
+		}
+		return strings.Join(parts, "")
+	}
+	var volParms []string
+	for _, v := range volumes {
+		params := makeVolumeParams(v)
+		volParms = append(volParms, params)
+	}
+	params.Add("storage", strings.Join(volParms, ","))
+}
+
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
+func (environ *maasEnviron) acquireNode(
+	nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string, volumes []volumeInfo,
+) (gomaasapi.MAASObject, error) {
+
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
+	addVolumes(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	if zoneName != "" {
 		acquireParams.Add("zone", zoneName)
@@ -843,9 +872,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZones = []string{""}
 	}
 
+	// Networking.
 	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
+
+	// Storage.
+	volumes, err := buildMAASVolumeParameters(args.Volumes)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid volume parameters")
+	}
 
 	snArgs := selectNodeArgs{
 		Constraints:       args.Constraints,
@@ -853,6 +889,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		NodeName:          nodeName,
 		IncludeNetworks:   includeNetworks,
 		ExcludeNetworks:   excludeNetworks,
+		Volumes:           volumes,
 	}
 	node, err := environ.selectNode(snArgs)
 	if err != nil {
@@ -927,10 +964,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 
+	resultVolumes, err := inst.volumes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hc,
 		NetworkInfo: networkInfo,
+		Volumes:     resultVolumes,
 	}, nil
 }
 
@@ -1000,6 +1043,7 @@ type selectNodeArgs struct {
 	Constraints       constraints.Value
 	IncludeNetworks   []string
 	ExcludeNetworks   []string
+	Volumes           []volumeInfo
 }
 
 func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
@@ -1013,6 +1057,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.Constraints,
 			args.IncludeNetworks,
 			args.ExcludeNetworks,
+			args.Volumes,
 		)
 
 		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
