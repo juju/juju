@@ -318,7 +318,7 @@ func (info *environInfo) Write() error {
 	// If the source was the cache file, then always write there to
 	// avoid stale data in the cache file.
 	if info.source == sourceCache ||
-		(featureflag.Enabled(feature.EnvironmentsCacheFile) && info.serverUUID != "") {
+		(featureflag.Enabled(feature.JES) && info.serverUUID != "") {
 		if err := info.ensureNoJENV(); info.source == sourceCreated && err != nil {
 			return errors.Trace(err)
 		}
