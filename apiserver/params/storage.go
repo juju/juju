@@ -505,6 +505,6 @@ type StorageDirective struct {
 // StorageAddParams holds storage directives for a given unit.
 type StorageAddParams struct {
 	// Unit is unit name.
-	Unit     string             `json:"unit"`
+	UnitTag  string             `json:"unit"`
 	Storages []StorageDirective `json:"storage"`
 }

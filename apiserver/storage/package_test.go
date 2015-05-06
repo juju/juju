@@ -80,7 +80,6 @@ const (
 	machineVolumeAttachmentsCall            = "machineVolumeAttachments"
 	volumeAttachmentsCall                   = "volumeAttachments"
 	allVolumesCall                          = "allVolumes"
-	unitCall                                = "unit"
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 )
@@ -165,11 +164,7 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 			return []state.Volume{s.volume}, nil
 		},
 		envName: "storagetest",
-		unit: func(name string) (*state.Unit, error) {
-			s.calls = append(s.calls, unitCall)
-			return nil, nil
-		},
-		addStorageForUnit: func(u *state.Unit, name string, cons state.StorageConstraints) error {
+		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 			s.calls = append(s.calls, addStorageForUnitCall)
 			return nil
 		},
@@ -270,8 +265,7 @@ type mockState struct {
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
 	allVolumes                          func() ([]state.Volume, error)
-	unit                                func(name string) (*state.Unit, error)
-	addStorageForUnit                   func(u *state.Unit, name string, cons state.StorageConstraints) error
+	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 }
 
@@ -335,11 +329,7 @@ func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
 	return st.volume(tag)
 }
 
-func (st *mockState) Unit(name string) (*state.Unit, error) {
-	return st.unit(name)
-}
-
-func (st *mockState) AddStorageForUnit(u *state.Unit, name string, cons state.StorageConstraints) error {
+func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) error {
 	return st.addStorageForUnit(u, name, cons)
 }
 

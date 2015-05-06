@@ -587,10 +587,9 @@ func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
 		return params.ErrorResults{}, nil
 	}
 
-	u, err := a.storage.Unit(args.Unit)
+	u, err := names.ParseUnitTag(args.UnitTag)
 	if err != nil {
-		return params.ErrorResults{},
-			errors.Annotatef(err, "getting unit for name %v", args.Unit)
+		return params.ErrorResults{}, errors.Annotatef(err, "parsing unit tag %v", args.UnitTag)
 	}
 
 	result := []params.ErrorResult{}

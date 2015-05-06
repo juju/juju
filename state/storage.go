@@ -917,17 +917,28 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 // anticipated additional storage instances is validated against storage
 // store as specified in the charm.
 func (st *State) AddStorageForUnit(
-	ch *Charm, u *Unit,
-	name string, cons StorageConstraints,
+	tag names.UnitTag, name string, cons StorageConstraints,
 ) error {
+
+	entity, err := st.FindEntity(tag)
+	if err != nil {
+		return errors.Annotatef(err, "getting entity with tag %q", tag)
+	}
+
+	u, ok := entity.(*Unit)
+	if !ok {
+		return errors.NotSupportedf("expected Unit but got %T", u)
+	}
+
 	s, err := u.Service()
 	if err != nil {
-		return errors.Annotatef(err, "getting service for unit %v", u.Tag())
+		return errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
 	}
 	ch, _, err := s.Charm()
 	if err != nil {
-		return errors.Annotatef(err, "getting charm for unit %v", u.Tag())
+		return errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
 	}
+
 	return st.addStorageForUnit(ch, u, name, cons)
 }
 
