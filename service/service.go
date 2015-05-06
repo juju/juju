@@ -175,6 +175,63 @@ func listServicesCommand(initSystem string) (string, bool) {
 	}
 }
 
+// InstallServicesCommand composes the list of shell commands that install
+// and start the given service.
+func InstallServiceCommands(name string, conf common.Conf, os string) ([]string, error) {
+	start := true
+
+	if os == "windows" {
+		cmds, err := installCommands(name, conf, InitSystemWindows, start)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return cmds, nil
+	}
+
+	candidates := make(map[string]string)
+	for _, initSystem := range linuxInitSystems {
+		cmds, err := installCommands(name, conf, initSystem, start)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		candidates[initSystem] = "\n  " + strings.Join(cmds, "\n  ")
+	}
+
+	handler := func(initSystem string) (string, bool) {
+		if cmds, ok := candidates[initSystem]; ok {
+			return cmds, true
+		}
+		return "", false
+	}
+	script := newShellSelectCommand("init_system", "exit 1", handler)
+	cmds := []string{
+		"init_system=$(" + DiscoverInitSystemScript() + ")",
+		script,
+	}
+	return cmds, nil
+}
+
+func installCommands(name string, conf common.Conf, initSystem string, start bool) ([]string, error) {
+	svc, err := NewService(name, conf, initSystem)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !start {
+		return cmds, nil
+	}
+
+	startCmds, err := svc.StartCommands()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(cmds, startCmds...), nil
+}
+
 // installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
 var installStartRetryAttempts = utils.AttemptStrategy{
