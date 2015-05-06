@@ -9,6 +9,7 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -182,6 +183,19 @@ func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
 
 func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
+}
+
+// MachineAgentCommands returns the list of commands to install and
+// start the machine agent service for the instance.
+func (cfg *InstanceConfig) MachineAgentCommands(renderer shell.Renderer) ([]string, error) {
+	name := cfg.MachineAgentServiceName
+	conf := service.AgentConf(cfg.agentInfo(), renderer)
+	osName := strings.ToLower(cfg.Tools.Version.OS.String())
+	cmds, err := service.InstallServiceCommands(name, conf, osName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	return cmds, nil
 }
 
 func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
