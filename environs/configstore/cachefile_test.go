@@ -25,7 +25,7 @@ type cacheFileInterfaceSuite struct {
 
 func (s *cacheFileInterfaceSuite) SetUpTest(c *gc.C) {
 	s.interfaceSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.EnvironmentsCacheFile)
+	s.SetFeatureFlags(feature.JES)
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
@@ -78,6 +78,45 @@ func (s *cacheFileInterfaceSuite) TestServerEnvNameExists(c *gc.C) {
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		EnvironUUID: envUUID,
 		ServerUUID:  envUUID,
+	})
+	err := info.Write()
+	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+}
+
+func (s *cacheFileInterfaceSuite) TestWriteServerOnly(c *gc.C) {
+	envUUID := testing.EnvironmentTag.Id()
+	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	cache := s.readCacheFile(c)
+	c.Assert(cache.Server, gc.HasLen, 1)
+	c.Assert(cache.ServerData, gc.HasLen, 1)
+	c.Assert(cache.Environment, gc.HasLen, 0)
+}
+
+func (s *cacheFileInterfaceSuite) TestWriteEnvAfterServer(c *gc.C) {
+	envUUID := testing.EnvironmentTag.Id()
+	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	info := s.store.CreateInfo("testing")
+
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		EnvironUUID: envUUID,
+		ServerUUID:  envUUID,
+	})
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	cache := s.readCacheFile(c)
+	c.Assert(cache.Server, gc.HasLen, 1)
+	c.Assert(cache.ServerData, gc.HasLen, 1)
+	c.Assert(cache.Environment, gc.HasLen, 1)
+}
+
+func (s *cacheFileInterfaceSuite) TestWriteDupEnvAfterServer(c *gc.C) {
+	envUUID := testing.EnvironmentTag.Id()
+	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	info := s.store.CreateInfo("testing")
+
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		EnvironUUID: "fake-uuid",
+		ServerUUID:  "fake-uuid",
 	})
 	err := info.Write()
 	c.Assert(err, gc.ErrorMatches, "environment info already exists")

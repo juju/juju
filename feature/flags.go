@@ -12,6 +12,11 @@ package feature
 
 // JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
+// It also guards the writing of the new
+// $JUJU_HOME/environments/cache.yaml file.  If this flag is
+// set, new environments will be written to the cache file
+// rather than a JENV file. As JENV files are updated, they
+// are migrated to the cache file and the JENV file removed.
 const JES = "jes"
 
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
@@ -21,13 +26,6 @@ const JES = "jes"
 // failure.  This means that the developers with this flag set will see the
 // stack trace in the log output, but normal deployments never will.
 const LogErrorStack = "log-error-stack"
-
-// EnvironmentsCacheFile is the feature flag that guards the writing of the
-// new $JUJU_HOME/environments/cache.yaml file.  If this flag is set, new
-// environments will be written to the cache file rather than a JENV file.
-// As JENV files are updated, they are migrated to the cache file and the
-// JENV file removed.
-const EnvironmentsCacheFile = "env-cache"
 
 // LegacyUpstart is used to indicate that the version-based init system
 // discovery code (service.VersionInitSystem) should return upstart

@@ -63,7 +63,7 @@ func (s *interfaceSuite) TestList(c *gc.C) {
 	s.createInitialisedEnvironment(c, store, "enva", "")
 	s.createInitialisedEnvironment(c, store, "envb", "")
 
-	s.SetFeatureFlags(feature.EnvironmentsCacheFile)
+	s.SetFeatureFlags(feature.JES)
 	s.createInitialisedEnvironment(c, store, "envc", "envc")
 
 	environs, err := store.List()
@@ -76,7 +76,7 @@ func (s *interfaceSuite) TestListSystems(c *gc.C) {
 	s.createInitialisedEnvironment(c, store, "enva", "")
 	s.createInitialisedEnvironment(c, store, "envb", "")
 
-	s.SetFeatureFlags(feature.EnvironmentsCacheFile)
+	s.SetFeatureFlags(feature.JES)
 	s.createInitialisedEnvironment(c, store, "envc", "envc")
 	s.createInitialisedEnvironment(c, store, "envd", "envc")
 

@@ -105,7 +105,6 @@ func (cache CacheFile) readInfo(envName string) (*environInfo, error) {
 			return nil, errors.Errorf("missing server data for environment %q", envName)
 		}
 		info.user = srvUser.User
-		info.environmentUUID = srvUser.ServerUUID
 		info.serverUUID = srvUser.ServerUUID
 	}
 
@@ -125,25 +124,34 @@ func (cache *CacheFile) updateInfo(info *environInfo) error {
 		if _, found := cache.Environment[info.name]; found {
 			return ErrEnvironInfoAlreadyExists
 		}
-		if _, found := cache.Server[info.name]; found {
-			return ErrEnvironInfoAlreadyExists
+		if server, found := cache.Server[info.name]; found {
+			// Error if we are not trying to add
+			// in the initial environment for this
+			// server.
+			if info.environmentUUID != server.ServerUUID {
+				return ErrEnvironInfoAlreadyExists
+			}
 		}
 	}
 
-	// If the serverUUID and environmentUUID are the same, then
-	// add a name entry under the server.
+	// If the serverUUID and environmentUUID are the same, or the
+	// environmentUUID is not specified, then add a name entry
+	// under the server.
 	serverUser := ServerUser{
 		User:       info.user,
 		ServerUUID: info.serverUUID,
 	}
-	if info.environmentUUID == info.serverUUID {
+	if info.environmentUUID == "" || info.environmentUUID == info.serverUUID {
 		cache.Server[info.name] = serverUser
 	}
 
-	cache.Environment[info.name] = EnvironmentData{
-		User:            info.user,
-		EnvironmentUUID: info.environmentUUID,
-		ServerUUID:      info.serverUUID,
+	// Only add environment entries if the environmentUUID was specified
+	if info.environmentUUID != "" {
+		cache.Environment[info.name] = EnvironmentData{
+			User:            info.user,
+			EnvironmentUUID: info.environmentUUID,
+			ServerUUID:      info.serverUUID,
+		}
 	}
 
 	// Check to see if the cache file has some info for the server already.
