@@ -4,14 +4,35 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from collections import namedtuple
+import os
 import sys
 
 
-def parse_dsc(dsc_path):
-    return []
+SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
+
+
+def parse_dsc(dsc_path, verbose=False):
+    files = []
+    with open(dsc_path) as f:
+        content = f.read()
+    there = os.path.dirname(dsc_path)
+    found = False
+    for line in content.splitlines():
+        if found and line.startswith(' '):
+            data = line.split()
+            data.append(os.path.join(there, data[2]))
+            files.append(SourceFile(*data))
+        elif found:
+            # All files were found.
+            break
+        if not found and line.startswith('Checksums-Sha256:'):
+            found = True
+    return files
+
 
 def build_binary(dsc_path, location, verbose=False):
-    source_files = parse_dsc(dsc_path)
+    source_files = parse_dsc(dsc_path, verbose=verbose)
     return 0
 
 
