@@ -100,51 +100,6 @@ func (s *serviceSuite) TestInstallServiceCommandsLinux(c *gc.C) {
 	c.Check(cmds[1], jc.Contains, "\nupstart)\n")
 	c.Check(cmds[1], jc.Contains, "start juju-agent-machine-0")
 	c.Check(cmds[1], gc.Not(jc.Contains), "windows")
-	// TODO(ericsnow) This is too specific...
-	c.Check(cmds[1], jc.DeepEquals, `
-if [[ $init_system == "systemd" ]]; then 
-  mkdir -p /var/lib/juju/init/juju-agent-machine-0
-  cat > /var/lib/juju/init/juju-agent-machine-0/juju-agent-machine-0.service << 'EOF'
-[Unit]
-Description=some service
-After=syslog.target
-After=network.target
-After=systemd-user-sessions.service
-
-[Service]
-ExecStart=/bin/jujud machine 0
-RemainAfterExit=yes
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-
-
-EOF
-  /bin/systemctl link /var/lib/juju/init/juju-agent-machine-0/juju-agent-machine-0.service
-  /bin/systemctl daemon-reload
-  /bin/systemctl enable /var/lib/juju/init/juju-agent-machine-0/juju-agent-machine-0.service
-  /bin/systemctl start juju-agent-machine-0.service
-elif [[ $init_system == "upstart" ]]; then 
-  cat >> /etc/init/juju-agent-machine-0.conf << 'EOF'
-description "some service"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on runlevel [2345]
-stop on runlevel [!2345]
-respawn
-normal exit 0
-
-
-script
-
-
-  exec /bin/jujud machine 0
-end script
-EOF
-
-  start juju-agent-machine-0
-else exit 1
-fi`[1:])
 }
 
 func (s *serviceSuite) TestInstallServiceCommandsWindows(c *gc.C) {
