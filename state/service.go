@@ -39,7 +39,6 @@ type serviceDoc struct {
 	CharmURL          *charm.URL `bson:"charmurl"`
 	ForceCharm        bool       `bson:forcecharm"`
 	Life              Life       `bson:"life"`
-	UnitSeq           int        `bson:"unitseq"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
 	Exposed           bool       `bson:"exposed"`
@@ -558,14 +557,16 @@ func (s *Service) newUnitName() (string, error) {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
-	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
-	result := serviceDoc{}
-	if _, err := services.Find(bson.D{{"_id", s.doc.DocID}}).Apply(change, &result); err == mgo.ErrNotFound {
+	result := &serviceDoc{}
+	if err := services.FindId(s.doc.DocID).One(&result); err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("service %q", s)
-	} else if err != nil {
-		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
-	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
+
+	unitSeq, err := s.st.sequence(s.Tag().String())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	name := s.doc.Name + "/" + strconv.Itoa(unitSeq)
 	return name, nil
 }
 
