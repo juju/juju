@@ -238,7 +238,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"
 	c.Check(service, jc.DeepEquals, &systemd.Service{
@@ -350,7 +350,7 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
@@ -891,7 +891,7 @@ cat > /tmp/init/jujud-machine-0/exec-start.sh << 'EOF'
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 /var/lib/juju/bin/jujud machine-0
 EOF`[1:], "\n"))
