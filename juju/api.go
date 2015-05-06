@@ -69,7 +69,7 @@ func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.Dial
 // the named environment. If envName is "", the default environment
 // will be used.
 func NewAPIClientFromName(envName string) (*api.Client, error) {
-	st, err := newAPIClient(envName)
+	st, err := newAPIClient(envName, false)
 	if err != nil {
 		return nil, err
 	}
@@ -80,19 +80,23 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 // the named environment. If envName is "", the default environment will
 // be used.
 func NewAPIFromName(envName string) (*api.State, error) {
-	return newAPIClient(envName)
+	return newAPIClient(envName, false)
+}
+
+func NewSystemAPIFromName(envName string) (*api.State, error) {
+	return newAPIClient(envName, true)
 }
 
 func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
 	return api.Open(info, opts)
 }
 
-func newAPIClient(envName string) (*api.State, error) {
+func newAPIClient(envName string, systemOnly bool) (*api.State, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
+	st, err := newAPIFromStore(envName, store, defaultAPIOpen, systemOnly)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -111,7 +115,7 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 
 // newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenFunc) (apiState, error) {
+func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenFunc, systemOnly bool) (apiState, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -167,7 +171,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 			info.APIEndpoint().Addresses,
 		)
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(store, info, apiOpen, stop)
+			return apiInfoConnect(store, info, apiOpen, stop, systemOnly)
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -180,7 +184,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		if err != nil {
 			return nil, err
 		}
-		return apiConfigConnect(cfg, apiOpen, stop, delay, environInfoUserTag(info))
+		return apiConfigConnect(cfg, apiOpen, stop, delay, environInfoUserTag(info), systemOnly)
 	})
 	try.Close()
 	val0, err := try.Result()
@@ -272,7 +276,7 @@ func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}) (apiState, error) {
+func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}, systemOnly bool) (apiState, error) {
 	endpoint := info.APIEndpoint()
 	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
@@ -286,6 +290,11 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		// with an empty UUID. Login will work for the same reasons.
 		logger.Warningf("ignoring invalid API endpoint environment UUID %v", endpoint.EnvironUUID)
 	}
+
+	if systemOnly {
+		environTag = names.NewEnvironTag("")
+	}
+
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
@@ -305,7 +314,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag) (apiState, error) {
+func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag, systemOnly bool) (apiState, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -319,6 +328,11 @@ func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struc
 	if err != nil {
 		return nil, err
 	}
+
+	if systemOnly {
+		apiInfo.EnvironTag = names.NewEnvironTag("")
+	}
+
 	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
 	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
