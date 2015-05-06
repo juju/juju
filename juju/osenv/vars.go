@@ -3,7 +3,12 @@
 
 package osenv
 
-import "github.com/juju/utils/featureflag"
+import (
+	"runtime"
+	"strings"
+
+	"github.com/juju/utils/featureflag"
+)
 
 const (
 	JujuEnvEnvKey           = "JUJU_ENV"
@@ -37,8 +42,44 @@ func MergeEnvironment(current, newValues map[string]string) map[string]string {
 	if current == nil {
 		current = make(map[string]string)
 	}
+	if runtime.GOOS == "windows" {
+		return mergeEnvWin(current, newValues)
+	}
+	return mergeEnvUnix(current, newValues)
+}
+
+// mergeEnvUnix merges the two evironment variable lists in a case sensitive way.
+func mergeEnvUnix(current, newValues map[string]string) map[string]string {
 	for key, value := range newValues {
 		current[key] = value
+	}
+	return current
+}
+
+// mergeEnvWin merges the two environment variable lists in a case insensitive,
+// but case preserving way.  Thus, if FOO=bar is set, and newValues has foo=baz,
+// then the resultant map will contain FOO=baz.
+func mergeEnvWin(current, newValues map[string]string) map[string]string {
+	uppers := make(map[string]string, len(current))
+	news := map[string]string{}
+	for k, v := range current {
+		uppers[strings.ToUpper(k)] = v
+	}
+
+	for k, v := range newValues {
+		up := strings.ToUpper(k)
+		if _, ok := uppers[up]; ok {
+			uppers[up] = v
+		} else {
+			news[k] = v
+		}
+	}
+
+	for k := range current {
+		current[k] = uppers[strings.ToUpper(k)]
+	}
+	for k, v := range news {
+		current[k] = v
 	}
 	return current
 }
