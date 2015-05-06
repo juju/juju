@@ -39,7 +39,7 @@ const logAll = `
 touch %[1]s
 chown syslog:syslog %[1]s
 chmod 0600 %[1]s
-exec > %[1]s
+exec >> %[1]s
 exec 2>&1
 %[2]s`
 
