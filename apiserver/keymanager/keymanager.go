@@ -232,7 +232,7 @@ func runSSHImportId(keyId string) (string, error) {
 
 // runSSHKeyImport uses ssh-import-id to find the ssh keys for the specified key ids.
 func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
-	importResults := map[string][]importedSSHKey{}
+	importResults := make(map[string][]importedSSHKey, len(keyIds))
 	for _, keyId := range keyIds {
 		keyInfo := []importedSSHKey{}
 		output, err := RunSSHImportId(keyId)
@@ -265,8 +265,6 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 	return importResults
 }
 
-const compoundErrTemplate string = "%v\n"
-
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -289,18 +287,18 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
-	importedKeyInfos := runSSHKeyImport(arg.Keys)
+	importedKeyInfo := runSSHKeyImport(arg.Keys)
 	// Ensure we are not going to add invalid or duplicate keys.
-	result.Results = make([]params.ErrorResult, len(importedKeyInfos))
+	result.Results = make([]params.ErrorResult, len(importedKeyInfo))
 	for i, key := range arg.Keys {
 		compoundErr := ""
-		for _, keyInfo := range importedKeyInfos[key] {
+		for _, keyInfo := range importedKeyInfo[key] {
 			if keyInfo.err != nil {
-				compoundErr += fmt.Sprintf(compoundErrTemplate, keyInfo.err)
+				compoundErr += fmt.Sprintf("%v\n", keyInfo.err)
 				continue
 			}
 			if currentFingerprints.Contains(keyInfo.fingerprint) {
-				errMsg := fmt.Sprintf(compoundErrTemplate, errors.Errorf("duplicate ssh key: %s", keyInfo.key))
+				errMsg := fmt.Sprintf("%v\n", errors.Errorf("duplicate ssh key: %s", keyInfo.key))
 				compoundErr += errMsg
 				continue
 			}
