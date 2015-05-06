@@ -910,6 +910,12 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 }
 
 // AddStorage adds storage instances to given unit as specified.
+// Missing storage constraints are populated
+// based on environment defaults. Storage store name is used to retrieve
+// existing storage instances for this store.
+// Combination of existing storage instances and
+// anticipated additional storage instances is validated against storage
+// store as specified in the charm.
 func (st *State) AddStorageForUnit(
 	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
@@ -926,12 +932,6 @@ func (st *State) AddStorageForUnit(
 }
 
 // addStorage adds storage instances to given unit as specified.
-// Missing storage constraints are populated
-// based on environment defaults. Storage store name is used to retrieve
-// existing storage instances for this store.
-// Combination of existing storage instances and
-// anticipated additional storage instances is validated against storage
-// store as specified in the charm.
 func (st *State) addStorageForUnit(
 	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
