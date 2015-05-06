@@ -27,6 +27,7 @@ func NewSuperCommand() cmd.Command {
 	})
 
 	systemCmd.Register(&ListCommand{})
+	systemCmd.Register(&LoginCommand{})
 	systemCmd.Register(syscmd.Wrap(&EnvironmentsCommand{}))
 
 	return systemCmd

@@ -21,6 +21,7 @@ var expectedCommmandNames = []string{
 	"environments",
 	"help",
 	"list",
+	"login",
 }
 
 func (s *SystemCommandSuite) TestHelp(c *gc.C) {
