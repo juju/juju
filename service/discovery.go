@@ -108,7 +108,7 @@ func discoverLocalInitSystem() (string, error) {
 	for _, check := range discoveryFuncs {
 		local, err := check.isRunning()
 		if err != nil {
-			logger.Errorf("failed to find init system %q: %v", check.name, err)
+			logger.Debugf("failed to find init system %q: %v", check.name, err)
 		}
 		// We expect that in error cases "local" will be false.
 		if local {
