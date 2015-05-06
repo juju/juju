@@ -270,6 +270,23 @@ func AddAptCommands(
 	}
 }
 
+func (cfg *MachineConfig) machineAgentCommands() ([]string, string, error) {
+	osName := strings.ToLower(cfg.Tools.Version.OS.String())
+	conf, toolsDir := service.MachineAgentConf(
+		cfg.MachineId,
+		cfg.DataDir,
+		cfg.LogDir,
+		osName,
+	)
+
+	name := cfg.MachineAgentServiceName
+	cmds, err := service.InstallServiceCommands(name, conf, osName)
+	if err != nil {
+		return nil, "", errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	return cmds, toolsDir, nil
+}
+
 func (cfg *MachineConfig) initService() (service.Service, string, error) {
 	conf, toolsDir := service.MachineAgentConf(
 		cfg.MachineId,
