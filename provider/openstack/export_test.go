@@ -9,10 +9,10 @@ import (
 	"strings"
 	"text/template"
 
-	"launchpad.net/goose/errors"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/swift"
+	"gopkg.in/goose.v1/errors"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/swift"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -306,10 +306,6 @@ func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.Securi
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	return e.(*environ).ensureGroup(name, rules)
-}
-
-func CollectInstances(e environs.Environ, ids []instance.Id, out map[string]instance.Instance) []instance.Id {
-	return e.(*environ).collectInstances(ids, out)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose

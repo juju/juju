@@ -39,6 +39,7 @@ google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T
 gopkg.in/amz.v3	git	f5c958d2b012da23a4600bad441f20b13ec262c4	2015-04-03T18:23:57Z
 gopkg.in/check.v1	git	64131543e7896d5bcc6bd5a76287eb75ea96c673	2014-10-24T13:38:53Z
 gopkg.in/errgo.v1	git	81357a83344ddd9f7772884874e5622c2a3da21c	2014-10-13T17:33:38Z
+gopkg.in/goose.v1	git	719ac401976ed29ed23ca348021553161b184afe	2015-04-28T15:30:43Z
 gopkg.in/juju/charm.v5	git	6b74a2771545912f8a91a544b0f28405b9938624	2015-04-14T14:33:47Z
 gopkg.in/juju/charmstore.v4	git	ab64d50370f9c167a7cd55be8ea22c3842aae46d	2015-04-10T09:44:12Z
 gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04-10T07:46:55Z
@@ -50,6 +51,5 @@ gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:0
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
 launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20150113032002-n7hj4l5a9j9dzaa0	61
-launchpad.net/goose	bzr	tarmac-20140908075634-5iinsru19k3d8w55	128
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141203072923-27pcp2hckqyezbfe	242
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
