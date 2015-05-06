@@ -336,10 +336,10 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 					`generating key fingerprint: `+
 					`invalid authorized_key "%s"`, keymp[1]))},
 			{Error: apiservertesting.ServerError(fmt.Sprintf(
-				`key "lp:multiinvalid" failed with: invalid ssh key for lp:multiinvalid: `+
+				`invalid ssh key for lp:multiinvalid: `+
 					`generating key fingerprint: `+
 					`invalid authorized_key "%s"`+"\n"+
-					`key "lp:multiinvalid" failed with: invalid ssh key for lp:multiinvalid: `+
+					`invalid ssh key for lp:multiinvalid: `+
 					`generating key fingerprint: `+
 					`invalid authorized_key "%s"`, keymi[0], keymi[1]))},
 		},
