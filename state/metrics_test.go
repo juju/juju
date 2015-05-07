@@ -394,5 +394,35 @@ func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.AddMetrics(mUUID, now, "", []state.Metric{{"pings", "10", now}})
-	c.Assert(err, gc.ErrorMatches, "metrics batch .* already exists")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{{"pings", "42", now}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	saved, err := s.State.MetricBatches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(saved, gc.HasLen, 2)
+	c.Assert(saved[0].Unit(), gc.Equals, "metered/0")
+	c.Assert(saved[0].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(saved[0].Sent(), jc.IsFalse)
+	c.Assert(saved[0].Metrics(), gc.HasLen, 1)
+	c.Assert(saved[1].Unit(), gc.Equals, "metered/0")
+	c.Assert(saved[1].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(saved[1].Sent(), jc.IsFalse)
+	c.Assert(saved[1].Metrics(), gc.HasLen, 1)
+
+	metric1 := saved[0].Metrics()[0]
+	metric2 := saved[1].Metrics()[0]
+	if metric1.Value == "42" {
+		m := metric1
+		metric1 = metric2
+		metric2 = m
+	}
+
+	c.Assert(metric1.Key, gc.Equals, "pings")
+	c.Assert(metric1.Value, gc.Equals, "5")
+	c.Assert(metric1.Time.Equal(now), jc.IsTrue)
+	c.Assert(metric2.Key, gc.Equals, "pings")
+	c.Assert(metric2.Value, gc.Equals, "42")
+	c.Assert(metric2.Time.Equal(now), jc.IsTrue)
 }

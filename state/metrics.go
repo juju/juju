@@ -111,7 +111,8 @@ func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBat
 			}
 			exists, err := st.MetricBatch(batch.UUID)
 			if exists != nil && err == nil {
-				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
+				metricsLogger.Tracef("metrics batch UUID %q already exists: ignoring", batch.UUID)
+				return nil, nil
 			}
 			if !errors.IsNotFound(err) {
 				return nil, errors.Trace(err)
