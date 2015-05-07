@@ -36,7 +36,6 @@ After=systemd-user-sessions.service
 
 [Service]
 ExecStart=%s
-RemainAfterExit=yes
 Restart=always
 
 [Install]
