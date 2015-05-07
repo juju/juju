@@ -406,7 +406,12 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	if err != nil {
 		return FilesystemParams{}, errors.Trace(err)
 	}
-	poolName, err := defaultStoragePool(envConfig, storage.StorageKindFilesystem)
+	cons := StorageConstraints{
+		Pool:  params.Pool,
+		Size:  params.Size,
+		Count: 1,
+	}
+	poolName, err := defaultStoragePool(envConfig, storage.StorageKindFilesystem, cons)
 	if err != nil {
 		return FilesystemParams{}, errors.Annotate(err, "getting default filesystem storage pool")
 	}

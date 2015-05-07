@@ -361,7 +361,12 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}
-	poolName, err := defaultStoragePool(envConfig, storage.StorageKindBlock)
+	cons := StorageConstraints{
+		Pool:  params.Pool,
+		Size:  params.Size,
+		Count: 1,
+	}
+	poolName, err := defaultStoragePool(envConfig, storage.StorageKindBlock, cons)
 	if err != nil {
 		return VolumeParams{}, errors.Annotate(err, "getting default block storage pool")
 	}
