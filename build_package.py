@@ -31,8 +31,18 @@ def parse_dsc(dsc_path, verbose=False):
     return files
 
 
+def setup_local(location, source_files, verbose=False):
+    pass
+
+
 def build_binary(dsc_path, location, verbose=False):
+    # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
+    build_dir = setup_local(location, source_files, verbose=verbose)
+    # make juju-build in location.
+    # cp files to location.
+    # make lxc with location as a mount
+    # start lxc and run build.
     return 0
 
 
