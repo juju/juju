@@ -256,33 +256,99 @@ func (api *API) isPersistent(si state.StorageInstance) (bool, error) {
 // Pools can be filtered on names and provider types.
 // If both names and types are provided as filter,
 // pools that match either are returned.
+// This method lists union of pools and environment provider types.
 // If no filter is provided, all pools are returned.
 func (a *API) ListPools(
 	filter params.StoragePoolFilter,
 ) (params.StoragePoolsResult, error) {
 
-	all, err := a.poolManager.List()
-	if err != nil {
-		return params.StoragePoolsResult{}, err
-	}
-	results := []params.StoragePool{}
 	if ok, err := a.isValidPoolListFilter(filter); !ok {
 		return params.StoragePoolsResult{}, err
 	}
-	// Convert to sets as easier to deal with
+
+	pools, err := a.poolManager.List()
+	if err != nil {
+		return params.StoragePoolsResult{}, err
+	}
+	providers, err := a.allProviders()
+	if err != nil {
+		return params.StoragePoolsResult{}, err
+	}
+	matches := buildFilter(filter)
+	results := append(
+		filterPools(pools, matches),
+		filterProviders(providers, matches)...,
+	)
+	return params.StoragePoolsResult{results}, nil
+}
+
+func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
+	// Convert filters to sets as easier to deal with
 	providerSet := set.NewStrings(filter.Providers...)
 	nameSet := set.NewStrings(filter.Names...)
-	for _, apool := range all {
-		if poolMatchesFilters(apool, providerSet, nameSet) {
-			results = append(results,
-				params.StoragePool{
-					Name:     apool.Name(),
-					Provider: string(apool.Provider()),
-					Attrs:    apool.Attrs(),
-				})
+
+	matches := func(n, p string) bool {
+		// no filters supplied = pool matches criteria
+		if providerSet.IsEmpty() && nameSet.IsEmpty() {
+			return true
+		}
+
+		// if at least 1 name and type are supplied, use AND to match
+		if !providerSet.IsEmpty() && !nameSet.IsEmpty() {
+			return nameSet.Contains(n) &&
+				providerSet.Contains(string(p))
+		}
+		// Otherwise, if only names or types are supplied, use OR to match
+		return nameSet.Contains(n) ||
+			providerSet.Contains(string(p))
+	}
+	return matches
+}
+
+func filterProviders(providers []storage.ProviderType, matches func(n, p string) bool) []params.StoragePool {
+	if len(providers) == 0 {
+		return nil
+	}
+	results := make([]params.StoragePool, len(providers))
+	i := 0
+	for _, p := range providers {
+		ps := string(p)
+		if matches(ps, ps) {
+			results[i] = params.StoragePool{Name: ps, Provider: ps}
+			i++
 		}
 	}
-	return params.StoragePoolsResult{Results: results}, nil
+	return results[0:i]
+}
+
+func filterPools(pools []*storage.Config, matches func(n, p string) bool) []params.StoragePool {
+	if len(pools) == 0 {
+		return nil
+	}
+	results := make([]params.StoragePool, len(pools))
+	i := 0
+	for _, p := range pools {
+		if matches(p.Name(), string(p.Provider())) {
+			results[i] = params.StoragePool{
+				Name:     p.Name(),
+				Provider: string(p.Provider()),
+				Attrs:    p.Attrs(),
+			}
+			i++
+		}
+	}
+	return results[0:i]
+}
+
+func (a *API) allProviders() ([]storage.ProviderType, error) {
+	envName, err := a.storage.EnvName()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting env name")
+	}
+	if providers, ok := registry.ListEnvProvider(envName); ok {
+		return providers, nil
+	}
+	return nil, nil
 }
 
 func (a *API) isValidPoolListFilter(
@@ -321,26 +387,6 @@ func (a *API) isValidProviderCriteria(providers []string) (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-func poolMatchesFilters(
-	apool *storage.Config,
-	providerFilter,
-	nameFilter set.Strings,
-) bool {
-	// no filters supplied = pool matches criteria
-	if providerFilter.IsEmpty() && nameFilter.IsEmpty() {
-		return true
-	}
-
-	// if at least 1 name and type are supplied, use AND to match
-	if !providerFilter.IsEmpty() && !nameFilter.IsEmpty() {
-		return nameFilter.Contains(apool.Name()) &&
-			providerFilter.Contains(string(apool.Provider()))
-	}
-	// Otherwise, if only names or types are supplied, use OR to match
-	return nameFilter.Contains(apool.Name()) ||
-		providerFilter.Contains(string(apool.Provider()))
 }
 
 // CreatePool creates a new pool with specified parameters.

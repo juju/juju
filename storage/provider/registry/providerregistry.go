@@ -77,7 +77,7 @@ func RegisterEnvironStorageProviders(envType string, providers ...storage.Provid
 
 // Returns true is provider is supported for the environment.
 func IsProviderSupported(envType string, providerType storage.ProviderType) bool {
-	providerTypes, ok := supportedEnvironProviders[envType]
+	providerTypes, ok := ListEnvProvider(envType)
 	if !ok {
 		return false
 	}
@@ -87,4 +87,13 @@ func IsProviderSupported(envType string, providerType storage.ProviderType) bool
 		}
 	}
 	return false
+}
+
+// ListEnvProvider returna provider types for the environment.
+func ListEnvProvider(envType string) ([]storage.ProviderType, bool) {
+	providerTypes, ok := supportedEnvironProviders[envType]
+	if !ok {
+		return nil, false
+	}
+	return providerTypes, true
 }

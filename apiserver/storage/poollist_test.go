@@ -51,7 +51,15 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	s.createPools(c, 2)
 	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 2)
+
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "testpool0", Provider: "loop"},
+		params.StoragePool{Name: "testpool1", Provider: "loop"},
+		params.StoragePool{Name: "dummy", Provider: "dummy"},
+		params.StoragePool{Name: "loop", Provider: "loop"},
+		params.StoragePool{Name: "rootfs", Provider: "rootfs"},
+		params.StoragePool{Name: "tmpfs", Provider: "tmpfs"}}
+	c.Assert(pools.Results, gc.DeepEquals, expected)
 }
 
 func (s *poolSuite) TestListByName(c *gc.C) {
@@ -74,12 +82,16 @@ func (s *poolSuite) TestListByType(c *gc.C) {
 	s.baseStorageSuite.pools[poolName], err =
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Provider, gc.DeepEquals, tstType)
-	c.Assert(pools.Results[0].Name, gc.DeepEquals, poolName)
+	c.Assert(pools.Results, gc.HasLen, 2)
+
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "rayofsunshine", Provider: "tmpfs"},
+		params.StoragePool{Name: "tmpfs", Provider: "tmpfs"}}
+	c.Assert(pools.Results, gc.DeepEquals, expected)
 }
 
 func (s *poolSuite) TestListByNameAndTypeAnd(c *gc.C) {
@@ -114,7 +126,12 @@ func (s *poolSuite) TestListByNamesOr(c *gc.C) {
 			fmt.Sprintf("%v%v", tstName, 0),
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pools.Results) < len(s.pools), jc.IsTrue)
+
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "testpool0", Provider: "loop"},
+		params.StoragePool{Name: "testpool1", Provider: "loop"},
+	}
+	c.Assert(pools.Results, gc.DeepEquals, expected)
 }
 
 func (s *poolSuite) TestListByTypesOr(c *gc.C) {
@@ -129,13 +146,27 @@ func (s *poolSuite) TestListByTypesOr(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType, string(provider.LoopProviderType)}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pools.Results) <= len(s.pools), jc.IsTrue)
+
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "testpool0", Provider: "loop"},
+		params.StoragePool{Name: "testpool1", Provider: "loop"},
+		params.StoragePool{Name: "rayofsunshine", Provider: "tmpfs"},
+		params.StoragePool{Name: "loop", Provider: "loop"},
+		params.StoragePool{Name: "tmpfs", Provider: "tmpfs"},
+	}
+	c.Assert(pools.Results, gc.DeepEquals, expected)
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 0)
+
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "dummy", Provider: "dummy"},
+		params.StoragePool{Name: "loop", Provider: "loop"},
+		params.StoragePool{Name: "rootfs", Provider: "rootfs"},
+		params.StoragePool{Name: "tmpfs", Provider: "tmpfs"}}
+	c.Assert(pools.Results, gc.DeepEquals, expected)
 }
 
 func (s *poolSuite) TestListFilterEmpty(c *gc.C) {
