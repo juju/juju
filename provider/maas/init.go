@@ -15,5 +15,8 @@ const (
 func init() {
 	environs.RegisterProvider(providerType, maasEnvironProvider{})
 
-	registry.RegisterEnvironStorageProviders(providerType)
+	//Register the MAAS specific storage providers.
+	registry.RegisterProvider(MAAS_ProviderType, &maasStorageProvider{})
+
+	registry.RegisterEnvironStorageProviders(providerType, MAAS_ProviderType)
 }

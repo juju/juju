@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type volumeSuite struct {
@@ -132,3 +133,30 @@ var validVolumeJson = `
     }
 } 
 `[1:]
+
+type storageProviderSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&storageProviderSuite{})
+
+func (*storageProviderSuite) TestValidateConfigInvalidConfig(c *gc.C) {
+	p := maasStorageProvider{}
+	cfg, err := storage.NewConfig("foo", MAAS_ProviderType, map[string]interface{}{
+		"invalid": "config",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.ValidateConfig(cfg)
+	c.Assert(err, gc.ErrorMatches, `unknown provider config option "invalid"`)
+}
+
+func (s *storageProviderSuite) TestSupports(c *gc.C) {
+	p := maasStorageProvider{}
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+}
+
+func (s *storageProviderSuite) TestScope(c *gc.C) {
+	p := maasStorageProvider{}
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+}
