@@ -122,20 +122,48 @@ func (s *StorageAPI) StorageAttachments(args params.StorageAttachmentIds) (param
 	return result, nil
 }
 
-func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id params.StorageAttachmentId) (params.StorageAttachment, error) {
-	unitTag, err := names.ParseUnitTag(id.UnitTag)
-	if err != nil || !canAccess(unitTag) {
-		return params.StorageAttachment{}, common.ErrPerm
-	}
-	storageTag, err := names.ParseStorageTag(id.StorageTag)
+// StorageAttachmentLife returns the lifecycle state of the storage attachments
+// with the specified tags.
+func (s *StorageAPI) StorageAttachmentLife(args params.StorageAttachmentIds) (params.LifeResults, error) {
+	canAccess, err := s.accessUnit()
 	if err != nil {
-		return params.StorageAttachment{}, err
+		return params.LifeResults{}, err
 	}
-	stateStorageAttachment, err := s.st.StorageAttachment(storageTag, unitTag)
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Ids)),
+	}
+	for i, id := range args.Ids {
+		stateStorageAttachment, err := s.getOneStateStorageAttachment(canAccess, id)
+		if err == nil {
+			life := stateStorageAttachment.Life()
+			result.Results[i].Life = params.Life(life.String())
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id params.StorageAttachmentId) (params.StorageAttachment, error) {
+	stateStorageAttachment, err := s.getOneStateStorageAttachment(canAccess, id)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
 	return s.fromStateStorageAttachment(stateStorageAttachment)
+}
+
+func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id params.StorageAttachmentId) (state.StorageAttachment, error) {
+	unitTag, err := names.ParseUnitTag(id.UnitTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccess(unitTag) {
+		return nil, common.ErrPerm
+	}
+	storageTag, err := names.ParseStorageTag(id.StorageTag)
+	if err != nil {
+		return nil, err
+	}
+	return s.st.StorageAttachment(storageTag, unitTag)
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {

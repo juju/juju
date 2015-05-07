@@ -192,6 +192,36 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(attachment, gc.DeepEquals, storageAttachment)
 }
 
+func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Uniter")
+		c.Check(version, gc.Equals, 2)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "StorageAttachmentLife")
+		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
+			Ids: []params.StorageAttachmentId{{
+				StorageTag: "storage-data-0",
+				UnitTag:    "unit-mysql-0",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: params.Dying,
+			}},
+		}
+		return nil
+	})
+
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	results, err := st.StorageAttachmentLife([]params.StorageAttachmentId{{
+		StorageTag: "storage-data-0",
+		UnitTag:    "unit-mysql-0",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []params.LifeResult{{Life: params.Dying}})
+}
+
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
