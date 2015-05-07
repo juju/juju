@@ -902,7 +902,8 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	case storage.StorageKindBlock:
 		loopPool := string(provider.LoopProviderType)
 		// No constraints at all
-		if cons.Size == 0 && cons.Count == 0 {
+		emptyConstraints := StorageConstraints{}
+		if cons == emptyConstraints {
 			return loopPool, nil
 		}
 		// Either size or count specified, use env default.
