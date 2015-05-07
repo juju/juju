@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/storage"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"gopkg.in/juju/charm.v5"
 )
 
 func TestAll(t *stdtesting.T) {
