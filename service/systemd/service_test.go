@@ -34,7 +34,7 @@ After=systemd-user-sessions.service
 
 [Service]
 ExecStart=%s
-Restart=always
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
