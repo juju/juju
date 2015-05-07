@@ -343,7 +343,7 @@ func (a *API) allProviders() ([]storage.ProviderType, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting env name")
 	}
-	if providers, ok := registry.ListEnvProvider(envName); ok {
+	if providers, ok := registry.EnvironStorageProviders(envName); ok {
 		return providers, nil
 	}
 	return nil, nil

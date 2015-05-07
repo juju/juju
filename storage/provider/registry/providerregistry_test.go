@@ -94,7 +94,7 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 }
 
 func (s *providerRegistrySuite) TestListEnvProviderUnknownEnv(c *gc.C) {
-	all, exists := registry.ListEnvProvider("fluffy")
+	all, exists := registry.EnvironStorageProviders("fluffy")
 	c.Assert(exists, jc.IsFalse)
 	c.Assert(all, gc.IsNil)
 }
@@ -102,7 +102,7 @@ func (s *providerRegistrySuite) TestListEnvProviderUnknownEnv(c *gc.C) {
 func (s *providerRegistrySuite) TestListEnvProviderKnownEnv(c *gc.C) {
 	ptypeFoo := storage.ProviderType("foo")
 	registry.RegisterEnvironStorageProviders("ec2", ptypeFoo)
-	all, exists := registry.ListEnvProvider("ec2")
+	all, exists := registry.EnvironStorageProviders("ec2")
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(len(all) > 0, jc.IsTrue)
 
