@@ -22,3 +22,11 @@ func NewEnvironmentsCommand(api EnvMgrAPI, userCreds *configstore.APICredentials
 		userCreds: userCreds,
 	}
 }
+
+// NewLoginCommand returns a LoginCommand with the function used to open
+// the API connection mocked out.
+func NewLoginCommand(apiOpen APIOpenFunc) *LoginCommand {
+	return &LoginCommand{
+		apiOpen: apiOpen,
+	}
+}

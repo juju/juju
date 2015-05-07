@@ -26,10 +26,15 @@ type ServerFile struct {
 	Password  string   `yaml:"password"`
 }
 
+// APIOpenFunc defines a function that opens the api connection
+// and returns the defined interface.
+type APIOpenFunc func(*api.Info, api.DialOpts) (APIConnection, error)
+
 // LoginCommand logs in to a Juju system and caches the connection
 // information.
 type LoginCommand struct {
 	cmd.CommandBase
+	apiOpen APIOpenFunc
 	// TODO (thumper): when we support local cert definitions
 	// allow the use to specify the user and server address.
 	// user      string
@@ -59,6 +64,9 @@ func (c *LoginCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // SetFlags implements Command.Init.
 func (c *LoginCommand) Init(args []string) error {
+	if c.apiOpen == nil {
+		c.apiOpen = apiOpen
+	}
 	if len(args) == 0 {
 		return errors.New("no name specified")
 	}
@@ -82,7 +90,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 
 	var serverDetails ServerFile
 	if err := goyaml.Unmarshal(serverYAML, &serverDetails); err != nil {
-		return errors.Annotate(err, "unexpected YAML content")
+		return errors.Trace(err)
 	}
 
 	// Construct the api.Info struct from the provided values
@@ -97,7 +105,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	info.Tag = names.NewUserTag(serverDetails.Username)
 	info.Password = serverDetails.Password
 
-	apiState, err := api.Open(&info, api.DefaultDialOpts())
+	apiState, err := c.apiOpen(&info, api.DefaultDialOpts())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -110,6 +118,11 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	serverInfo := store.CreateInfo(c.Name)
+
+	serverTag, err := apiState.ServerTag()
+	if err != nil {
+		return errors.Wrap(err, errors.New("juju system too old to support login"))
+	}
 
 	connectedAddresses, err := network.ParseHostPorts(apiState.Addr())
 	if err != nil {
@@ -130,10 +143,6 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 			User:     serverDetails.Username,
 			Password: serverDetails.Password,
 		})
-	serverTag, err := apiState.ServerTag()
-	if err != nil {
-		return errors.Wrap(err, errors.New("juju system too old to support login"))
-	}
 
 	serverInfo.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  addrs,
@@ -145,4 +154,15 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	return serverInfo.Write()
 
 	// TODO: write out the current-system file.
+}
+
+type APIConnection interface {
+	Close() error
+	Addr() string
+	APIHostPorts() [][]network.HostPort
+	ServerTag() (names.EnvironTag, error)
+}
+
+func apiOpen(info *api.Info, opts api.DialOpts) (APIConnection, error) {
+	return api.Open(info, opts)
 }
