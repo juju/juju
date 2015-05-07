@@ -251,6 +251,7 @@ func (cfg *ubuntuCloudConfig) updatePackages() {
 		"rsyslog-gnutls",
 		"cloud-utils",
 		"cloud-image-utils",
+		"tmux",
 	}
 
 	// The required packages need to come from the correct repo.
