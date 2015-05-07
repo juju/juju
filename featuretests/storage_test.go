@@ -212,6 +212,14 @@ block-persistent:
   provider: ebs
   attrs:
     persistent: true
+ebs:
+  provider: ebs
+loop:
+  provider: loop
+rootfs:
+  provider: rootfs
+tmpfs:
+  provider: tmpfs
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -222,6 +230,10 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 NAME              PROVIDER  ATTRS
 block             loop      it=works
 block-persistent  ebs       persistent=true
+ebs               ebs       
+loop              loop      
+rootfs            rootfs    
+tmpfs             tmpfs     
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -255,6 +267,8 @@ block-persistent:
   provider: ebs
   attrs:
     persistent: true
+ebs:
+  provider: ebs
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -268,7 +282,11 @@ func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
 	s.registerTmpProviderType(c)
 	context := runPoolList(c, "--provider", string(provider.TmpfsProviderType))
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	expected := `
+tmpfs:
+  provider: tmpfs
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
