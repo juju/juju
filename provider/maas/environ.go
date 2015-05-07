@@ -971,7 +971,14 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 
-	resultVolumes, resultAttachments, err := inst.volumes(names.NewMachineTag(args.InstanceConfig.MachineId))
+	requestedVolumes := make([]names.VolumeTag, len(args.Volumes))
+	for i, v := range args.Volumes {
+		requestedVolumes[i] = v.Tag
+	}
+	resultVolumes, resultAttachments, err := inst.volumes(
+		names.NewMachineTag(args.InstanceConfig.MachineId),
+		requestedVolumes,
+	)
 	if err != nil {
 		return nil, err
 	}

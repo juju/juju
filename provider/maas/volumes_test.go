@@ -50,7 +50,10 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
 	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	mTag := names.NewMachineTag("1")
-	volumes, attachments, err := instance.volumes(mTag)
+	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
+		names.NewVolumeTag("1"),
+		names.NewVolumeTag("2"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Expect 2 volumes - root volume is ignored.
 	c.Assert(volumes, gc.HasLen, 2)
@@ -92,7 +95,10 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"))
+	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"), []names.VolumeTag{
+		names.NewVolumeTag("1"),
+		names.NewVolumeTag("2"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes, gc.HasLen, 0)
 	c.Assert(attachments, gc.HasLen, 0)
@@ -142,12 +148,27 @@ var validVolumeJson = `
             "block_size": 4096, 
             "serial": "S21NNSAFC38999L", 
             "size": 250362438230
+        },
+        {
+            "name": "sdd", 
+            "tags": [
+                "ssd", 
+                "sata"
+            ], 
+            "id": 4, 
+            "id_path": "/dev/disk/by-id/id_for_sdd",
+            "path": "/dev/sdc", 
+            "model": "Samsung_SSD_850_EVO_250GB", 
+            "block_size": 4096, 
+            "serial": "S21NNSAFC386666L", 
+            "size": 250362438230
         }
     ], 
     "constraint_map": {
         "1": "root",
         "2": "volume-1",
-        "3": "volume-2"
+        "3": "volume-2",
+        "4": "volume-3"
     }
 } 
 `[1:]
