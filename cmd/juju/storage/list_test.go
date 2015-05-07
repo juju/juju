@@ -43,12 +43,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-UNIT         ID          LOCATION STATUS  PERSISTENT 
-postgresql/0 db-dir/1100          pending false      
-transcode/0  db-dir/1000          pending true       
-transcode/0  db-dir/1100          pending false      
-transcode/0  shared-fs/0          pending false      
-transcode/1  shared-fs/0          pending false      
+UNIT         ID          LOCATION STATUS  PERSISTENT CHARM             
+postgresql/0 db-dir/1100          pending false      local:series/name 
+transcode/0  db-dir/1000          pending true       local:series/name 
+transcode/0  db-dir/1100          pending false      local:series/name 
+transcode/0  shared-fs/0          pending false      local:series/name 
+transcode/1  shared-fs/0          pending false      local:series/name 
 
 `[1:],
 		"",
@@ -66,28 +66,33 @@ postgresql/0:
     kind: filesystem
     status: pending
     persistent: false
+    charm: local:series/name
 transcode/0:
   db-dir/1000:
     storage: db-dir
     kind: block
     status: pending
     persistent: true
+    charm: local:series/name
   db-dir/1100:
     storage: db-dir
     kind: filesystem
     status: pending
     persistent: false
+    charm: local:series/name
   shared-fs/0:
     storage: shared-fs
     kind: unknown
     status: pending
     persistent: false
+    charm: local:series/name
 transcode/1:
   shared-fs/0:
     storage: shared-fs
     kind: unknown
     status: pending
     persistent: false
+    charm: local:series/name
 `[1:],
 		"",
 	)
@@ -101,14 +106,14 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-UNIT         ID          LOCATION STATUS  PERSISTENT 
-postgresql/0 db-dir/1100          pending false      
-transcode/0  db-dir/1000          pending true       
-transcode/0  db-dir/1100          pending false      
-transcode/0  shared-fs/0          pending false      
-transcode/0  shared-fs/5          pending false      
-transcode/1  db-dir/1000          pending true       
-transcode/1  shared-fs/0          pending false      
+UNIT         ID          LOCATION STATUS  PERSISTENT CHARM             
+postgresql/0 db-dir/1100          pending false      local:series/name 
+transcode/0  db-dir/1000          pending true       local:series/name 
+transcode/0  db-dir/1100          pending false      local:series/name 
+transcode/0  shared-fs/0          pending false      local:series/name 
+transcode/0  shared-fs/5          pending false      local:series/name 
+transcode/1  db-dir/1000          pending true       local:series/name 
+transcode/1  shared-fs/0          pending false      local:series/name 
 
 `[1:],
 		`
@@ -153,6 +158,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			Kind:       params.StorageKindBlock,
 			Location:   "here",
 			Status:     "attached",
+			CharmURL:   "local:series/name",
 		}, nil}, {
 		params.StorageDetails{
 			StorageTag: "storage-db-dir-1000",
@@ -162,6 +168,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			Location:   "there",
 			Status:     "provisioned",
 			Persistent: true,
+			CharmURL:   "local:series/name",
 		}, nil}}
 
 	if chaos {
@@ -173,6 +180,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindUnknown,
 				Location:   "nowhere",
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
@@ -182,6 +190,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindBlock,
 				Location:   "",
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, &params.Error{Message: "error for storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
@@ -191,6 +200,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindFilesystem,
 				Status:     "attached",
 				Persistent: true,
+				CharmURL:   "local:series/name",
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)
@@ -209,6 +219,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -217,6 +228,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindUnknown,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -224,6 +236,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -231,6 +244,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -240,6 +254,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindBlock,
 				Status:     "pending",
 				Persistent: true,
+				CharmURL:   "local:series/name",
 			}, nil}}
 
 	if chaos {
@@ -250,6 +265,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
@@ -257,6 +273,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
@@ -265,6 +282,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
 				Persistent: true,
+				CharmURL:   "local:series/name",
 			}, nil}
 		zero := params.StorageInfo{
 			params.StorageDetails{
@@ -272,6 +290,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
+				CharmURL:   "local:series/name",
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)

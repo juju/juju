@@ -384,6 +384,9 @@ type StorageDetails struct {
 
 	// Persistent indicates whether the storage is persistent or not.
 	Persistent bool `json:"persistent"`
+
+	// CharmURL is the url of the charm storage instance was created for.
+	CharmURL string `json:"charmurl"`
 }
 
 // StorageDetailsResult holds information about a storage instance

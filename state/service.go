@@ -673,9 +673,10 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 		return nil, -1, err
 	}
 	meta := charm.Meta()
+	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
+	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, url, cons)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}

@@ -69,6 +69,7 @@ type StorageInfo struct {
 	Status      string `yaml:"status,omitempty" json:"status,omitempty"`
 	Persistent  bool   `yaml:"persistent" json:"persistent"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
+	CharmURL    string `yaml:"charm,omitempty" json:"charm,omitempty"`
 }
 
 // formatStorageDetails takes a set of StorageDetail and creates a
@@ -98,6 +99,7 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 			Status:      one.Status,
 			Location:    one.Location,
 			Persistent:  one.Persistent,
+			CharmURL:    one.CharmURL,
 		}
 		unit := unitTag.Id()
 		unitColl, ok := output[unit]

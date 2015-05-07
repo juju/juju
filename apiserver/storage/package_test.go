@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/storage"
@@ -33,6 +34,7 @@ type baseStorageSuite struct {
 	state *mockState
 
 	storageTag      names.StorageTag
+	charmURL        *charm.URL
 	storageInstance *mockStorageInstance
 	unitTag         names.UnitTag
 	machineTag      names.MachineTag
@@ -63,11 +65,13 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
 	s.storageTag = names.NewStorageTag("data/0")
+	s.charmURL = charm.MustParseURL("local:series/name")
 
 	s.storageInstance = &mockStorageInstance{
 		kind:       state.StorageKindFilesystem,
 		owner:      s.unitTag,
 		storageTag: s.storageTag,
+		charmURL:   s.charmURL,
 	}
 
 	storageInstanceAttachment := &mockStorageAttachment{storage: s.storageInstance}
@@ -342,6 +346,7 @@ type mockStorageInstance struct {
 	kind       state.StorageKind
 	owner      names.Tag
 	storageTag names.Tag
+	charmURL   *charm.URL
 }
 
 func (m *mockStorageInstance) Kind() state.StorageKind {
@@ -358,6 +363,10 @@ func (m *mockStorageInstance) Tag() names.Tag {
 
 func (m *mockStorageInstance) StorageTag() names.StorageTag {
 	return m.storageTag.(names.StorageTag)
+}
+
+func (m *mockStorageInstance) CharmURL() *charm.URL {
+	return m.charmURL
 }
 
 type mockStorageAttachment struct {

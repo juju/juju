@@ -236,6 +236,7 @@ func (s *storageSuite) createTestStorageInfo() params.StorageInfo {
 			OwnerTag:   s.unitTag.String(),
 			Kind:       params.StorageKindFilesystem,
 			Status:     "pending",
+			CharmURL:   s.charmURL.String(),
 		},
 		nil,
 	}
@@ -284,6 +285,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		Kind:       params.StorageKindFilesystem,
 		UnitTag:    s.unitTag.String(),
 		Status:     "pending",
+		CharmURL:   s.charmURL.String(),
 	}
 	c.Assert(one.Result, gc.DeepEquals, expected)
 }
