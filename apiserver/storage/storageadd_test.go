@@ -22,20 +22,27 @@ type storageAddSuite struct {
 var _ = gc.Suite(&storageAddSuite{})
 
 func (s *storageAddSuite) assertStorageAddedNoErrors(c *gc.C, args params.StorageAddParams) {
+	s.assertStoragesAddedNoErrors(c,
+		params.StoragesAddParams{[]params.StorageAddParams{args}},
+	)
+}
+
+func (s *storageAddSuite) assertStoragesAddedNoErrors(c *gc.C, args params.StoragesAddParams) {
 	failures, err := s.api.Add(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(failures.Results, gc.HasLen, 0)
+	c.Assert(failures.Results, gc.HasLen, len(args.Storages))
 }
 
 func (s *storageAddSuite) TestStorageAddEmpty(c *gc.C) {
-	s.assertStorageAddedNoErrors(c, params.StorageAddParams{Storages: nil})
-	s.assertStorageAddedNoErrors(c, params.StorageAddParams{Storages: []params.StorageDirective{}})
+	s.assertStoragesAddedNoErrors(c, params.StoragesAddParams{Storages: nil})
+	s.assertStoragesAddedNoErrors(c, params.StoragesAddParams{Storages: []params.StorageAddParams{}})
 }
 
 func (s *storageAddSuite) TestStorageAddUnit(c *gc.C) {
 	args := params.StorageAddParams{
-		UnitTag:  s.unitTag.String(),
-		Storages: []params.StorageDirective{{Name: "data"}}}
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
 	s.assertStorageAddedNoErrors(c, args)
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
@@ -44,9 +51,10 @@ func (s *storageAddSuite) TestStorageAddUnitBlocked(c *gc.C) {
 	s.blockAllChanges(c, "TestStorageAddUnitBlocked")
 
 	args := params.StorageAddParams{
-		UnitTag:  s.unitTag.String(),
-		Storages: []params.StorageDirective{{Name: "data"}}}
-	_, err := s.api.Add(args)
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	_, err := s.api.Add(params.StoragesAddParams{[]params.StorageAddParams{args}})
 	s.assertBlocked(c, err, "TestStorageAddUnitBlocked")
 }
 
@@ -55,37 +63,74 @@ func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *gc.C) {
 	s.blockRemoveObject(c, "TestStorageAddUnitDestroyIgnored")
 
 	args := params.StorageAddParams{
-		UnitTag:  s.unitTag.String(),
-		Storages: []params.StorageDirective{{Name: "data"}}}
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
 	s.assertStorageAddedNoErrors(c, args)
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
 
 func (s *storageAddSuite) TestStorageAddUnitError(c *gc.C) {
 	args := params.StorageAddParams{
-		Storages: []params.StorageDirective{{Name: "data"}}}
-	failures, err := s.api.Add(args)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*is not a valid tag.*")
-	c.Assert(failures.Results, gc.HasLen, 0)
+		StorageName: "data",
+	}
+	failures, err := s.api.Add(params.StoragesAddParams{[]params.StorageAddParams{args}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(failures.Results, gc.HasLen, 1)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*is not a valid tag.*")
 
 	expectedCalls := []string{getBlockForTypeCall}
 	s.assertCalls(c, expectedCalls)
 }
 
-func (s *storageAddSuite) TestStorageAddUnitDirectiveError(c *gc.C) {
+func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	msg := "add test directive error"
-	args := params.StorageAddParams{
-		UnitTag:  s.unitTag.String(),
-		Storages: []params.StorageDirective{{Name: "data"}}}
 	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 		s.calls = append(s.calls, addStorageForUnitCall)
 		return errors.Errorf(msg)
 	}
 
-	failures, err := s.api.Add(args)
+	args := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	failures, err := s.api.Add(params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
 
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
+}
+
+func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
+	wrong0 := params.StorageAddParams{
+		StorageName: "data",
+	}
+	right := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	wrong1 := params.StorageAddParams{
+		UnitTag: s.unitTag.String(),
+	}
+	msg := "storage name missing error"
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		s.calls = append(s.calls, addStorageForUnitCall)
+		if name == "" {
+			return errors.Errorf(msg)
+		}
+		return nil
+	}
+	failures, err := s.api.Add(params.StoragesAddParams{
+		[]params.StorageAddParams{
+			wrong0,
+			right,
+			wrong1}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(failures.Results, gc.HasLen, 3)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*is not a valid tag.*")
+	c.Assert(failures.Results[1].Error, gc.IsNil)
+	c.Assert(failures.Results[2].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
+
+	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall, addStorageForUnitCall})
 }

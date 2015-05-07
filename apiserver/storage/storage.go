@@ -568,15 +568,15 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 	return group
 }
 
-// Add validates and creates additional storage instances for a unit.
-// Storage instances are defined in collection of storage directives.
+// Add validates and creates additional storage instances for units.
+// Storage instances are defined in collection of storages.
 // If no directives were specified, we do not try to add any instances.
 // Any failed operations are reported as errors.
-// Failures on individual storage directive do not block remaining
-// directives being processed. Individual errors are only returned if they occur.
-// This is a blockable operation.
-// It is blocked if "Change" block is switched on for this juju environment.
-func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
+// Failures on an individual storage instance do not block remaining
+// instances being processed.
+// This method handles bulk add operations.
+// A "CHANGE" block can block this operation.
+func (a *API) Add(args params.StoragesAddParams) (params.ErrorResults, error) {
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
@@ -587,28 +587,36 @@ func (a *API) Add(args params.StorageAddParams) (params.ErrorResults, error) {
 		return params.ErrorResults{}, nil
 	}
 
-	u, err := names.ParseUnitTag(args.UnitTag)
-	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "parsing unit tag %v", args.UnitTag)
+	serverErr := func(err error) params.ErrorResult {
+		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
-	result := []params.ErrorResult{}
-	for _, directive := range args.Storages {
-		cons := state.StorageConstraints{Pool: directive.Pool}
-		if directive.Size != nil {
-			cons.Size = *directive.Size
+	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
+		s := state.StorageConstraints{Pool: p.Pool}
+		if p.Size != nil {
+			s.Size = *p.Size
 		}
-		if directive.Count != nil {
-			cons.Count = *directive.Count
+		if p.Count != nil {
+			s.Count = *p.Count
+		}
+		return s
+	}
+
+	result := make([]params.ErrorResult, len(args.Storages))
+	for i, one := range args.Storages {
+		u, err := names.ParseUnitTag(one.UnitTag)
+		if err != nil {
+			result[i] = serverErr(
+				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			continue
 		}
 
-		err := a.storage.AddStorageForUnit(u, directive.Name, cons)
+		err = a.storage.AddStorageForUnit(u,
+			one.StorageName,
+			paramsToState(one.Constraints))
 		if err != nil {
-			result = append(result,
-				params.ErrorResult{
-					Error: common.ServerError(
-						errors.Annotatef(err,
-							"adding storage for  %v", directive.Name))})
+			result[i] = serverErr(
+				errors.Annotatef(err, "adding storage for  %v", one.StorageName))
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
