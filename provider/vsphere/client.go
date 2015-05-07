@@ -7,7 +7,9 @@ package vsphere
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,7 +18,9 @@ import (
 	"github.com/juju/govmomi/list"
 	"github.com/juju/govmomi/object"
 	"github.com/juju/govmomi/property"
+	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/mo"
+	"github.com/juju/govmomi/vim25/types"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
@@ -67,7 +71,7 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 // CreateInstance create new vm in vsphere and run it
-func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
+func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool, apiPort int) (*mo.VirtualMachine, error) {
 	manager := &ovfImportManager{client: c}
 	vm, err := manager.importOvf(ecfg, machineID, zone, hwc, img, userData, sshKey, isState)
 	if err != nil {
@@ -82,6 +86,21 @@ func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmw
 		return nil, errors.Trace(err)
 	}
 	var res mo.VirtualMachine
+	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ecfg.externalNetwork() != "" {
+		ip, err := vm.WaitForIP(context.TODO())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		client := newSshClient(ip)
+		err = client.ConfigureExternalIpAddress(apiPort)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -240,17 +259,18 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 	}
 
 	res := make([]network.SubnetInfo, 0)
-	for _, ref := range vm.Network {
-		var net mo.Network
-		err = c.connection.RetrieveOne(context.TODO(), ref, nil, &net)
-
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+	req := &types.QueryIpPools{
+		This: *c.connection.ServiceContent.IpPoolManager,
+		Dc:   c.datacenter.Reference(),
+	}
+	ipPools, err := methods.QueryIpPools(context.TODO(), c.connection.Client, req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, vmNet := range vm.Guest.Net {
 		existId := false
 		for _, id := range ids {
-			if string(id) == net.Name {
+			if string(id) == vmNet.Network {
 				existId = true
 				break
 			}
@@ -258,9 +278,43 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 		if !existId {
 			continue
 		}
-		res = append(res, network.SubnetInfo{
-			ProviderId: network.Id(net.Name),
-		})
+		var netPool *types.IpPool
+		for _, pool := range ipPools.Returnval {
+			for _, association := range pool.NetworkAssociation {
+				if association.NetworkName == vmNet.Network {
+					netPool = &pool
+					break
+				}
+			}
+		}
+		subnet := network.SubnetInfo{
+			ProviderId: network.Id(vmNet.Network),
+		}
+		if netPool != nil && netPool.Ipv4Config != nil {
+			//netPool.Range is specified as a set of ranges separated with commas. One range is given by a start address, a hash (#), and the length of the range.
+			//For example:
+			//192.0.2.235 # 20 is the IPv4 range from 192.0.2.235 to 192.0.2.254
+			ranges := strings.Split(netPool.Ipv4Config.Range, ",")
+			if len(ranges) > 0 {
+				rangeSplit := strings.Split(ranges[0], "#")
+				if len(rangeSplit) == 2 {
+					if rangeLen, err := strconv.ParseInt(rangeSplit[1], 10, 8); err == nil {
+						ipSplit := strings.Split(rangeSplit[0], ".")
+						if len(ipSplit) == 4 {
+							if lastSegment, err := strconv.ParseInt(ipSplit[3], 10, 8); err != nil {
+								lastSegment += rangeLen - 1
+								if lastSegment > 254 {
+									lastSegment = 254
+								}
+								subnet.AllocatableIPLow = net.ParseIP(rangeSplit[0])
+								subnet.AllocatableIPHigh = net.ParseIP(fmt.Sprintf("%d.%d.%d.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment))
+							}
+						}
+					}
+				}
+			}
+		}
+		res = append(res)
 	}
 	return res, nil
 }

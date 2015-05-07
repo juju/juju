@@ -77,25 +77,49 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return inst.ChangePorts("ACCEPT", ports)
+	return inst.ChangePorts(true, ports, true)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return inst.ChangePorts("REJECT", ports)
+	return inst.ChangePorts(false, ports, false)
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotImplementedf("Ports"))
+	_, sshClient, err := inst.GetSshClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sshClient.FindOpenPorts()
 }
 
-func (inst *environInstance) ChangePorts(target string, ports []network.PortRange) error {
-	addresses, err := inst.Addresses()
+func (inst *environInstance) ChangePorts(insert bool, ports []network.PortRange, createNic bool) error {
+	if inst.env.ecfg.externalNetwork() == "" {
+		return errors.New("Can't close/open ports without external network")
+	}
+	addresses, sshClient, err := inst.GetSshClient()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	for _, addr := range addresses {
+		if addr.Scope == network.ScopePublic {
+			err = sshClient.ChangePorts(addr.Value, insert, ports)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (inst *environInstance) GetSshClient() ([]network.Address, *sshClient, error) {
+	addresses, err := inst.Addresses()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	var localAddr string
@@ -106,22 +130,6 @@ func (inst *environInstance) ChangePorts(target string, ports []network.PortRang
 		}
 	}
 
-	sshClient, err := newSshClient(localAddr, inst.env.ecfg.AuthorizedKeys())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, addr := range addresses {
-		if addr.Scope == network.ScopePublic {
-			nicName, err := sshClient.GetNicNameByAddress(addr.Value)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			err = sshClient.ChangePorts(nicName, target, ports)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
+	client := newSshClient(localAddr)
+	return addresses, client, err
 }
