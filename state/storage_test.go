@@ -176,6 +176,16 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 	// TODO(wallyworld) - test pool name stored in data model
 }
 
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsNoPoolOrSize(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 0, 1),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+}
+
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultPool(c *gc.C) {
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 2048, 1),

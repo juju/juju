@@ -870,13 +870,23 @@ func storageConstraintsWithDefaults(
 	storageName string,
 ) (StorageConstraints, error) {
 	withDefaults := cons
-	if cons.Pool == "" {
+
+	// If no pool or size are specified, we default to the loop provider.
+	if cons.Pool == "" && cons.Size == 0 {
+		withDefaults.Pool = string(provider.LoopProviderType)
+	}
+
+	// If just size is specified, we use the default storage for the environment.
+	if withDefaults.Pool == "" {
 		poolName, err := defaultStoragePool(cfg, kind)
 		if err != nil {
 			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", storageName)
 		}
 		withDefaults.Pool = poolName
 	}
+
+	// If no size is specified, we default to the min size specified by the
+	// charm, or 1GiB.
 	if cons.Size == 0 {
 		if charmStorage.MinimumSize > 0 {
 			withDefaults.Size = charmStorage.MinimumSize
