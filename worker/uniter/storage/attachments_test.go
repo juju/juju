@@ -128,11 +128,6 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	var removed bool
 	storageTag := names.NewStorageTag("data/0")
-	attachment := params.StorageAttachment{
-		StorageTag: storageTag.String(),
-		UnitTag:    unitTag.String(),
-		Life:       params.Dying,
-	}
 	st := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
@@ -142,8 +137,8 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 			w := newMockNotifyWatcher()
 			return w, nil
 		},
-		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
-			return attachment, nil
+		storageAttachmentLife: func(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
+			return []params.LifeResult{{Life: params.Dying}}, nil
 		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
 			removed = true
@@ -317,7 +312,8 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 			c.Assert(u, gc.Equals, unitTag)
 			if s == storageTag0 {
 				return params.StorageAttachment{}, &params.Error{
-					Code: params.CodeNotProvisioned,
+					Message: "not provisioned",
+					Code:    params.CodeNotProvisioned,
 				}
 			}
 			c.Assert(s, gc.Equals, storageTag1)
@@ -328,6 +324,13 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 				Kind:       params.StorageKindBlock,
 				Location:   "/dev/sdb",
 			}, nil
+		},
+		storageAttachmentLife: func(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
+			results := make([]params.LifeResult, len(ids))
+			for i := range ids {
+				results[i].Life = params.Dying
+			}
+			return results, nil
 		},
 		destroyUnitStorageAttachments: func(u names.UnitTag) error {
 			c.Assert(u, gc.Equals, unitTag)
