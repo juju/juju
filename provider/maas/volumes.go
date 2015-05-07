@@ -179,7 +179,8 @@ func (mi *maasInstance) volumes(
 		// Device Label.
 		deviceLabelValue, ok := deviceLabels[idKey]
 		if !ok {
-			return nil, nil, errors.Errorf("missing volume label for id %q", idKey)
+			logger.Debugf("acquire maas node: missing volume label for id %q", idKey)
+			continue
 		}
 		deviceLabel, err := deviceLabelValue.GetString()
 		if err != nil {

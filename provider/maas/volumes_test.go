@@ -157,10 +157,24 @@ var validVolumeJson = `
             ], 
             "id": 4, 
             "id_path": "/dev/disk/by-id/id_for_sdd",
-            "path": "/dev/sdc", 
+            "path": "/dev/sdd", 
             "model": "Samsung_SSD_850_EVO_250GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC386666L", 
+            "size": 250362438230
+        },
+        {
+            "name": "sde", 
+            "tags": [
+                "ssd", 
+                "sata"
+            ], 
+            "id": 666, 
+            "id_path": "/dev/disk/by-id/id_for_sde",
+            "path": "/dev/sde", 
+            "model": "Samsung_SSD_850_EVO_250GB", 
+            "block_size": 4096, 
+            "serial": "S21NNSAFC388888L", 
             "size": 250362438230
         }
     ], 
