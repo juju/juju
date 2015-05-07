@@ -20,9 +20,9 @@ type APIState apiState
 
 type APIOpenFunc func(*api.Info, api.DialOpts) (APIState, error)
 
-func NewAPIFromStore(envName string, store configstore.Storage, f APIOpenFunc, systemOnly bool) (APIState, error) {
+func NewAPIFromStore(envName string, store configstore.Storage, f APIOpenFunc) (APIState, error) {
 	apiOpen := func(info *api.Info, opts api.DialOpts) (apiState, error) {
 		return f(info, opts)
 	}
-	return newAPIFromStore(envName, store, apiOpen, systemOnly)
+	return newAPIFromStore(envName, store, apiOpen)
 }

@@ -4,6 +4,9 @@
 package system_test
 
 import (
+	"fmt"
+
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +44,11 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]params.Environmen
 	f.user = user
 	results := make([]params.Environment, len(f.envs))
 	for i, envname := range f.envs {
-		results[i] = params.Environment{Name: envname}
+		results[i] = params.Environment{
+			Name:     envname,
+			OwnerTag: "user-admin@local",
+			UUID:     fmt.Sprintf("%s-UUID", envname),
+		}
 	}
 	return results, nil
 }
@@ -52,30 +59,54 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.creds = &configstore.APICredentials{User: "admin@local", Password: "password"}
 }
 
-func (s *EnvironmentsSuite) TestEnvironments(c *gc.C) {
+func (s *EnvironmentsSuite) newCommand() cmd.Command {
 	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	context, err := testing.RunCommand(c, syscmd.Wrap(command))
+	return syscmd.Wrap(command)
+}
+
+func (s *EnvironmentsSuite) TestEnvironments(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "test-env1\ntest-env2\ntest-env3\n")
+	c.Assert(s.api.user, gc.Equals, "admin@local")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER\n"+
+		"test-env1  user-admin@local\n"+
+		"test-env2  user-admin@local\n"+
+		"test-env3  user-admin@local\n"+
+		"\n")
+}
+
+func (s *EnvironmentsSuite) TestEnvironmentsUUID(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin@local")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER             ENVIRONMENT UUID\n"+
+		"test-env1  user-admin@local  test-env1-UUID\n"+
+		"test-env2  user-admin@local  test-env2-UUID\n"+
+		"test-env3  user-admin@local  test-env3-UUID\n"+
+		"\n")
 }
 
 func (s *EnvironmentsSuite) TestEnvironmentsForUser(c *gc.C) {
-	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	context, err := testing.RunCommand(c, syscmd.Wrap(command), "--user", "bob")
+	context, err := testing.RunCommand(c, s.newCommand(), "--user", "bob")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "test-env1\ntest-env2\ntest-env3\n")
 	c.Assert(s.api.user, gc.Equals, "bob")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER\n"+
+		"test-env1  user-admin@local\n"+
+		"test-env2  user-admin@local\n"+
+		"test-env3  user-admin@local\n"+
+		"\n")
 }
 
 func (s *EnvironmentsSuite) TestUnrecognizedArg(c *gc.C) {
-	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	_, err := testing.RunCommand(c, syscmd.Wrap(command), "whoops")
+	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *EnvironmentsSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
-	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	_, err := testing.RunCommand(c, syscmd.Wrap(command))
+	_, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "cannot list environments: permission denied")
 }
