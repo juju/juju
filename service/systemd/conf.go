@@ -42,6 +42,12 @@ type confRenderer interface {
 	shell.ScriptRenderer
 }
 
+func redirectOutput(cr confRenderer, filename string) []string {
+	// TODO(ericsnow) This should be fixed in utils/shell.
+	cmd := cr.RedirectOutput(filename)[0]
+	return []string{strings.Replace(cmd, ">", ">>", -1)}
+}
+
 func syslogUserGroup() (string, string) {
 	var user, group string
 	switch version.Current.OS {
@@ -70,7 +76,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		user, group := syslogUserGroup()
 		cmds = append(cmds, renderer.Chown(filename, user, group)...)
 		cmds = append(cmds, renderer.Chmod(filename, 0600)...)
-		cmds = append(cmds, renderer.RedirectOutput(filename)...)
+		cmds = append(cmds, redirectOutput(renderer, filename)...)
 		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
 		cmds = append(cmds,
 			"",

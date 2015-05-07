@@ -243,7 +243,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 touch '/var/log/juju/machine-0.log'
 chown syslog:syslog '/var/log/juju/machine-0.log'
 chmod 0600 '/var/log/juju/machine-0.log'
-exec > '/var/log/juju/machine-0.log'
+exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
@@ -810,7 +810,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 touch '/var/log/juju/machine-0.log'
 chown syslog:syslog '/var/log/juju/machine-0.log'
 chmod 0600 '/var/log/juju/machine-0.log'
-exec > '/var/log/juju/machine-0.log'
+exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
