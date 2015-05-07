@@ -43,6 +43,7 @@ type UnitAgent struct {
 	runner       worker.Runner
 	setupLogging func(agent.Config) error
 	logToStdErr  bool
+	ctx          *cmd.Context
 }
 
 // Info returns usage information for the command.
@@ -71,6 +72,20 @@ func (a *UnitAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+
+	if !a.logToStdErr {
+		agentConfig := a.CurrentConfig()
+		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
+
+		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
+		a.ctx.Stderr = &lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    300, // megabytes
+			MaxBackups: 2,
+		}
+
+	}
+
 	return nil
 }
 
@@ -88,19 +103,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	}
 	agentConfig := a.CurrentConfig()
 
-	if !a.logToStdErr {
-		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
-
-		log := &lumberjack.Logger{
-			Filename:   filename,
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
-		}
-
-		if err := cmdutil.SwitchProcessToRollingLogs(log); err != nil {
-			return err
-		}
-	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)

@@ -123,9 +123,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// AgentConf should be split up to follow suite.
 	var agentConf agentcmd.AgentConf
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
-	jujud.Register(agentcmd.NewMachineAgentCmd(machineAgentFactory, &agentConf, &agentConf))
+	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, &agentConf, &agentConf))
 
-	jujud.Register(&UnitAgent{})
+	jujud.Register(&UnitAgent{ctx: ctx})
+
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -81,7 +82,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const bootstrapMachineId = "0"
@@ -148,11 +148,13 @@ type AgentConfigWriter interface {
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCmd(
+	ctx *cmd.Context,
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
+		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
@@ -166,6 +168,7 @@ type machineAgentCmd struct {
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
+	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
 	logToStdErr bool
@@ -200,15 +203,17 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
+
 	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
+	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+	a.ctx.Stderr = &lumberjack.Logger{
 		Filename:   filename,
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
 
-	return cmdutil.SwitchProcessToRollingLogs(log)
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
