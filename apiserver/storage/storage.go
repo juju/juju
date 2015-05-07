@@ -283,7 +283,6 @@ func (a *API) ListPools(
 }
 
 func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
-	// Convert filters to sets as easier to deal with
 	providerSet := set.NewStrings(filter.Providers...)
 	nameSet := set.NewStrings(filter.Names...)
 
@@ -292,52 +291,51 @@ func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
 		if providerSet.IsEmpty() && nameSet.IsEmpty() {
 			return true
 		}
-
 		// if at least 1 name and type are supplied, use AND to match
 		if !providerSet.IsEmpty() && !nameSet.IsEmpty() {
-			return nameSet.Contains(n) &&
-				providerSet.Contains(string(p))
+			return nameSet.Contains(n) && providerSet.Contains(string(p))
 		}
 		// Otherwise, if only names or types are supplied, use OR to match
-		return nameSet.Contains(n) ||
-			providerSet.Contains(string(p))
+		return nameSet.Contains(n) || providerSet.Contains(string(p))
 	}
 	return matches
 }
 
-func filterProviders(providers []storage.ProviderType, matches func(n, p string) bool) []params.StoragePool {
+func filterProviders(
+	providers []storage.ProviderType,
+	matches func(n, p string) bool,
+) []params.StoragePool {
 	if len(providers) == 0 {
 		return nil
 	}
-	results := make([]params.StoragePool, len(providers))
-	i := 0
+	all := make([]params.StoragePool, 0, len(providers))
 	for _, p := range providers {
 		ps := string(p)
 		if matches(ps, ps) {
-			results[i] = params.StoragePool{Name: ps, Provider: ps}
-			i++
+			all = append(all, params.StoragePool{Name: ps, Provider: ps})
 		}
 	}
-	return results[0:i]
+	return all
 }
 
-func filterPools(pools []*storage.Config, matches func(n, p string) bool) []params.StoragePool {
+func filterPools(
+	pools []*storage.Config,
+	matches func(n, p string) bool,
+) []params.StoragePool {
 	if len(pools) == 0 {
 		return nil
 	}
-	results := make([]params.StoragePool, len(pools))
-	i := 0
+	all := make([]params.StoragePool, 0, len(pools))
 	for _, p := range pools {
 		if matches(p.Name(), string(p.Provider())) {
-			results[i] = params.StoragePool{
+			all = append(all, params.StoragePool{
 				Name:     p.Name(),
 				Provider: string(p.Provider()),
 				Attrs:    p.Attrs(),
-			}
-			i++
+			})
 		}
 	}
-	return results[0:i]
+	return all
 }
 
 func (a *API) allProviders() ([]storage.ProviderType, error) {
