@@ -102,6 +102,25 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
 
+func (s *storageAddSuite) TestStorageAddUnitPermError(c *gc.C) {
+	msg := "add test directive error"
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		s.calls = append(s.calls, addStorageForUnitCall)
+		return errors.NotFoundf(msg)
+	}
+
+	args := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	failures, err := s.api.Add(params.StoragesAddParams{[]params.StorageAddParams{args}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(failures.Results, gc.HasLen, 1)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*permission denied.*")
+
+	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
+}
+
 func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	wrong0 := params.StorageAddParams{
 		StorageName: "data",

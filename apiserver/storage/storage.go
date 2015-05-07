@@ -588,6 +588,9 @@ func (a *API) Add(args params.StoragesAddParams) (params.ErrorResults, error) {
 	}
 
 	serverErr := func(err error) params.ErrorResult {
+		if errors.IsNotFound(err) {
+			err = common.ErrPerm
+		}
 		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
