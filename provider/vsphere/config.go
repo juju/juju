@@ -39,6 +39,9 @@ vmware:
 
   # Vsphere datacenter
   datacenter:
+
+  #
+  extenal-network:
 `[1:]
 
 // configFields is the spec for each vmware config value's type.
