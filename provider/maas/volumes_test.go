@@ -49,15 +49,17 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
 	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	volumes, err := instance.volumes()
+	mTag := names.NewMachineTag("1")
+	volumes, attachments, err := instance.volumes(mTag)
 	c.Assert(err, jc.ErrorIsNil)
 	// Expect 2 volumes - root volume is ignored.
 	c.Assert(volumes, gc.HasLen, 2)
-	c.Assert(volumes, jc.DeepEquals, []storage.Volume{
+	c.Assert(attachments, gc.HasLen, 2)
+	c.Check(volumes, jc.DeepEquals, []storage.Volume{
 		{
-			// This volume has no id_path, so we default to path.
+			// This volume has no id_path.
 			Tag:        names.NewVolumeTag("1"),
-			HardwareId: "sdb",
+			HardwareId: "",
 			VolumeId:   "volume-1",
 			Size:       476893,
 			Persistent: false,
@@ -70,14 +72,30 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 			Persistent: false,
 		},
 	})
+	c.Assert(attachments, jc.DeepEquals, []storage.VolumeAttachment{
+		{
+			Volume:     names.NewVolumeTag("1"),
+			DeviceName: "sdb",
+			Machine:    mTag,
+			ReadOnly:   false,
+		},
+		// Device name not set because there's a hardware id in the volume.
+		{
+			Volume:     names.NewVolumeTag("2"),
+			DeviceName: "",
+			Machine:    mTag,
+			ReadOnly:   false,
+		},
+	})
 }
 
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	volumes, err := instance.volumes()
+	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes, gc.HasLen, 0)
+	c.Assert(attachments, gc.HasLen, 0)
 }
 
 var validVolumeJson = `

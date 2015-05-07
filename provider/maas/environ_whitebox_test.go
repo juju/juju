@@ -1452,7 +1452,7 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 	}}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Volumes, jc.DeepEquals, []storage.Volume{
+	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
 		{
 			Tag:        names.NewVolumeTag("1"),
 			Size:       238475,
@@ -1463,7 +1463,21 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 			Tag:        names.NewVolumeTag("3"),
 			Size:       238475,
 			VolumeId:   "volume-3",
-			HardwareId: "sdc",
+			HardwareId: "",
+		},
+	})
+	c.Assert(result.VolumeAttachments, jc.DeepEquals, []storage.VolumeAttachment{
+		{
+			Volume:     names.NewVolumeTag("1"),
+			DeviceName: "",
+			Machine:    names.NewMachineTag("1"),
+			ReadOnly:   false,
+		},
+		{
+			Volume:     names.NewVolumeTag("3"),
+			DeviceName: "sdc",
+			Machine:    names.NewMachineTag("1"),
+			ReadOnly:   false,
 		},
 	})
 }

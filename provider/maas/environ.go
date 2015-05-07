@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/names"
 )
 
 const (
@@ -970,16 +971,17 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 
-	resultVolumes, err := inst.volumes()
+	resultVolumes, resultAttachments, err := inst.volumes(names.NewMachineTag(args.InstanceConfig.MachineId))
 	if err != nil {
 		return nil, err
 	}
 
 	return &environs.StartInstanceResult{
-		Instance:    inst,
-		Hardware:    hc,
-		NetworkInfo: networkInfo,
-		Volumes:     resultVolumes,
+		Instance:          inst,
+		Hardware:          hc,
+		NetworkInfo:       networkInfo,
+		Volumes:           resultVolumes,
+		VolumeAttachments: resultAttachments,
 	}, nil
 }
 
