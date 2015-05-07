@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -196,27 +195,6 @@ func (cfg *InstanceConfig) MachineAgentCommands(renderer shell.Renderer) ([]stri
 		return nil, errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
 	}
 	return cmds, nil
-}
-
-func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
-	conf := service.AgentConf(cfg.agentInfo(), renderer)
-
-	name := cfg.MachineAgentServiceName
-	initSystem, ok := cfg.initSystem()
-	if !ok {
-		return nil, errors.New("could not identify init system")
-	}
-	logger.Debugf("using init system %q for machine agent script", initSystem)
-	svc, err := newService(name, conf, initSystem)
-	return svc, errors.Trace(err)
-}
-
-func (cfg *InstanceConfig) initSystem() (string, bool) {
-	return service.VersionInitSystem(cfg.Tools.Version)
-}
-
-var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
-	return service.NewService(name, conf, initSystem)
 }
 
 func (cfg *InstanceConfig) AgentConfig(
