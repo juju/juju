@@ -234,7 +234,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "Restart",
-			Value:   "always",
+			Value:   "on-failure",
 		})
 	}
 
