@@ -224,6 +224,8 @@ type SyslogConfig struct {
 	LogDir string
 	// namespace is used when there are multiple environments on one machine
 	Namespace string
+	// directory where juju stores its config files
+	JujuConfigDir string
 }
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
@@ -272,29 +274,29 @@ func (slConfig *SyslogConfig) ConfigFilePath() string {
 
 func (slConfig *SyslogConfig) CACertPath() string {
 	filename := either(slConfig.CACertFileName, defaultCACertFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 func (slConfig *SyslogConfig) ServerCertPath() string {
 	filename := either(slConfig.ServerCertFileName, defaultServerCertFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 func (slConfig *SyslogConfig) ServerKeyPath() string {
 	filename := either(slConfig.ServerCertFileName, defaultServerKeyFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateConfPath returns the the the entire logrotate.conf path including filename.
 func (slConfig *SyslogConfig) LogrotateConfPath() string {
 	filename := either(slConfig.LogrotateConfFileName, defaultLogrotateConfFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateHelperPath returns the entire logrotate.helper path including filename.
 func (slConfig *SyslogConfig) LogrotateHelperPath() string {
 	filename := either(slConfig.LogrotateHelperFileName, defaultLogrotateHelperFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateConfFile returns a ready to write to disk byte array of the logrotate.conf file.

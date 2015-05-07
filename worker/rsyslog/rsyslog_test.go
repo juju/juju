@@ -43,7 +43,7 @@ func assertPathExists(c *gc.C, path string) {
 
 func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"}, s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -51,7 +51,7 @@ func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 
 func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"}, s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 	confFile := filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf")
 	// On worker teardown, the rsyslog config file should be removed.
@@ -69,13 +69,13 @@ func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 	err := s.machine.SetProviderAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"}, s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	waitForFile(c, filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
+	waitForFile(c, filepath.Join(s.DataDir(), "rsyslog-cert.pem"))
 
-	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
+	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "rsyslog-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cert, err := cert.ParseCert(string(rsyslogCertPEM))
@@ -94,18 +94,18 @@ func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil, s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
+	waitForFile(c, filepath.Join(s.DataDir(), "ca-cert.pem"))
 
 	// We should have ca-cert.pem, rsyslog-cert.pem, and rsyslog-key.pem.
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "ca-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
-	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
+	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "rsyslog-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
-	rsyslogKeyPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-key.pem"))
+	rsyslogKeyPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "rsyslog-key.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = cert.ParseCertAndKey(string(rsyslogCertPEM), string(rsyslogKeyPEM))
@@ -121,20 +121,22 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", []string{})
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
+	syslogConfig.JujuConfigDir = s.DataDir()
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
 
 	// Verify logrotate files
-	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.conf"))
-	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.run"))
+	assertPathExists(c, filepath.Join(s.DataDir(), "logrotate.conf"))
+	assertPathExists(c, filepath.Join(s.DataDir(), "logrotate.run"))
 
 }
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 	m := s.machine
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, 6541, "", []string{"192.168.1", "127.0.0.1"})
+	syslogConfig.JujuConfigDir = s.DataDir()
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -171,9 +173,11 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, name
 		return nil
 	})
 
+	jujuConfigDir := s.AgentConfigForTag(c, tag).DataDir()
+
 	err := os.MkdirAll(expectedLogDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, tag, namespace, []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, tag, namespace, []string{"0.1.2.3"}, jujuConfigDir)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -188,7 +192,7 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, name
 	waitForRestart(c, restarted)
 
 	// Ensure that ca-cert.pem gets written to the expected log dir.
-	waitForFile(c, filepath.Join(expectedLogDir, "ca-cert.pem"))
+	waitForFile(c, filepath.Join(jujuConfigDir, "ca-cert.pem"))
 
 	dir, err := os.Open(*rsyslog.RsyslogConfDir)
 	c.Assert(err, jc.ErrorIsNil)
