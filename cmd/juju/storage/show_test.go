@@ -62,7 +62,6 @@ postgresql/0:
     kind: block
     status: pending
     persistent: false
-    charm: local:series/name
 transcode/0:
   shared-fs/0:
     storage: shared-fs
@@ -70,7 +69,6 @@ transcode/0:
     status: attached
     persistent: false
     location: a location
-    charm: local:series/name
 `[1:],
 	)
 }
@@ -84,7 +82,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending","persistent":false,"charm":"local:series/name"}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","persistent":false,"location":"a location","charm":"local:series/name"}}}
+		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending","persistent":false}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","persistent":false,"location":"a location"}}}
 `,
 	)
 }
@@ -100,13 +98,11 @@ postgresql/0:
     kind: block
     status: pending
     persistent: true
-    charm: local:series/name
   shared-fs/0:
     storage: shared-fs
     kind: block
     status: pending
     persistent: false
-    charm: local:series/name
 transcode/0:
   shared-fs/0:
     storage: shared-fs
@@ -114,7 +110,6 @@ transcode/0:
     status: attached
     persistent: false
     location: a location
-    charm: local:series/name
 `[1:],
 	)
 }
@@ -146,7 +141,6 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 			UnitTag:    "unit-postgresql-0",
 			Kind:       params.StorageKindBlock,
 			Status:     "pending",
-			CharmURL:   "local:series/name",
 		}
 		if i == 1 {
 			all[i].Persistent = true
@@ -161,7 +155,6 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 				Kind:       params.StorageKindFilesystem,
 				Location:   "a location",
 				Status:     "attached",
-				CharmURL:   "local:series/name",
 			})
 		}
 	}

@@ -97,7 +97,6 @@ storage-block/0:
     kind: block
     status: pending
     persistent: false
-    charm: local:quantal/storage-block-1
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -113,7 +112,6 @@ storage-block/0:
     kind: block
     status: pending
     persistent: false
-    charm: local:quantal/storage-block-1
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -141,8 +139,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS  PERSISTENT CHARM                         
-storage-block/0 data/0          pending false      local:quantal/storage-block-1 
+UNIT            ID     LOCATION STATUS  PERSISTENT 
+storage-block/0 data/0          pending false      
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -154,8 +152,8 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS  PERSISTENT CHARM                         
-storage-block/0 data/0          pending true       local:quantal/storage-block-1 
+UNIT            ID     LOCATION STATUS  PERSISTENT 
+storage-block/0 data/0          pending true       
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -178,7 +176,6 @@ storage-block/0:
     kind: block
     status: pending
     persistent: true
-    charm: local:quantal/storage-block-1
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -194,7 +191,6 @@ storage-block/0:
     kind: block
     status: pending
     persistent: true
-    charm: local:quantal/storage-block-1
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }

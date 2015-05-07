@@ -171,7 +171,6 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	result.Persistent = si.Persistent
 	// TODO(axw) set status according to whether storage has been provisioned.
 
-	result.CharmURL = si.CharmURL
 	// This is only for provisioned attachments
 	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
 	if err != nil {
@@ -218,7 +217,6 @@ func createParamsStorageInstance(si state.StorageInstance, persistent bool) para
 		Kind:       params.StorageKind(si.Kind()),
 		Status:     "pending",
 		Persistent: persistent,
-		CharmURL:   si.CharmURL().String(),
 	}
 	return result
 }
