@@ -871,14 +871,9 @@ func storageConstraintsWithDefaults(
 ) (StorageConstraints, error) {
 	withDefaults := cons
 
-	// If no pool or size are specified, we default to the loop provider.
-	if cons.Pool == "" && cons.Size == 0 {
-		withDefaults.Pool = string(provider.LoopProviderType)
-	}
-
-	// If just size is specified, we use the default storage for the environment.
-	if withDefaults.Pool == "" {
-		poolName, err := defaultStoragePool(cfg, kind)
+	// If no pool is specified, determine the pool from the env config and other constraints.
+	if cons.Pool == "" {
+		poolName, err := defaultStoragePool(cfg, kind, cons)
 		if err != nil {
 			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", storageName)
 		}
@@ -902,12 +897,18 @@ func storageConstraintsWithDefaults(
 
 // defaultStoragePool returns the default storage pool for the environment.
 // The default pool is either user specified, or one that is registered by the provider itself.
-func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, error) {
+func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons StorageConstraints) (string, error) {
 	switch kind {
 	case storage.StorageKindBlock:
+		loopPool := string(provider.LoopProviderType)
+		// No constraints at all
+		if cons.Size == 0 && cons.Count == 0 {
+			return loopPool, nil
+		}
+		// Either size or count specified, use env default.
 		defaultPool, ok := cfg.StorageDefaultBlockSource()
 		if !ok {
-			defaultPool = string(provider.LoopProviderType)
+			defaultPool = loopPool
 		}
 		return defaultPool, nil
 	}
