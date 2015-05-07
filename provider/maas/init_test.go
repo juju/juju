@@ -20,14 +20,14 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (*providerSuite) TestMAASProviderRegistered(c *gc.C) {
-	p, err := registry.StorageProvider(maas.MAAS_ProviderType)
+	p, err := registry.StorageProvider(maas.MaasStorageProviderType)
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := p.(storage.Provider)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (*providerSuite) TestSupportedProviders(c *gc.C) {
-	supported := []storage.ProviderType{maas.MAAS_ProviderType}
+	supported := []storage.ProviderType{maas.MaasStorageProviderType}
 	for _, providerType := range supported {
 		ok := registry.IsProviderSupported("maas", providerType)
 		c.Assert(ok, jc.IsTrue)

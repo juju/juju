@@ -652,16 +652,22 @@ func addVolumes(params url.Values, volumes []volumeInfo) {
 	if len(volumes) == 0 {
 		return
 	}
+	// Requests for specific values are passed to the acquire URL
+	// as a storage URL parameter of the form:
+	// [volume-name:]sizeinGB[tag,...]
+	// See http://maas.ubuntu.com/docs/api.html#nodes
+
+	// eg storage=root:0(ssd),data:20(magnetic,5400rpm),45
 	makeVolumeParams := func(v volumeInfo) string {
-		var parts []string
+		var params string
 		if v.name != "" {
-			parts = []string{v.name + ":"}
+			params = v.name + ":"
 		}
-		parts = append(parts, strconv.FormatUint(v.sizeInGiB, 10))
+		params += fmt.Sprintf("%d", v.sizeInGB)
 		if len(v.tags) > 0 {
-			parts = append(parts, fmt.Sprintf("(%s)", strings.Join(v.tags, ",")))
+			params += fmt.Sprintf("(%s)", strings.Join(v.tags, ","))
 		}
-		return strings.Join(parts, "")
+		return params
 	}
 	var volParms []string
 	for _, v := range volumes {

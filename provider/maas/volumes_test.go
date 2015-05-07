@@ -30,7 +30,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{sizeInGiB: 0}, //root disk
+		{sizeInGB: 0}, //root disk
 		{"volume-1", 1954, nil},
 	})
 }
@@ -41,7 +41,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{sizeInGiB: 0}, //root disk
+		{sizeInGB: 0}, //root disk
 		{"volume-1", 1954, []string{"tag1", "tag2"}},
 	})
 }
@@ -57,15 +57,15 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 		{
 			// This volume has no id_path, so we default to path.
 			Tag:        names.NewVolumeTag("1"),
-			HardwareId: "S21NNSAFC38076L",
-			VolumeId:   "/dev/sdb",
+			HardwareId: "sdb",
+			VolumeId:   "volume-1",
 			Size:       476893,
 			Persistent: false,
 		},
 		{
 			Tag:        names.NewVolumeTag("2"),
-			HardwareId: "S21NNSAFC38999L",
-			VolumeId:   "/dev/disk/by-id/id_for_sdc",
+			HardwareId: "id_for_sdc",
+			VolumeId:   "volume-2",
 			Size:       238764,
 			Persistent: false,
 		},
@@ -142,7 +142,7 @@ var _ = gc.Suite(&storageProviderSuite{})
 
 func (*storageProviderSuite) TestValidateConfigInvalidConfig(c *gc.C) {
 	p := maasStorageProvider{}
-	cfg, err := storage.NewConfig("foo", MAAS_ProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("foo", maasStorageProviderType, map[string]interface{}{
 		"invalid": "config",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,5 +158,5 @@ func (s *storageProviderSuite) TestSupports(c *gc.C) {
 
 func (s *storageProviderSuite) TestScope(c *gc.C) {
 	p := maasStorageProvider{}
-	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeEnviron)
 }

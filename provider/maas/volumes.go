@@ -18,19 +18,17 @@ import (
 )
 
 const (
-	// MAAS_ProviderType is the name of the storage provider
+	// maasStorageProviderType is the name of the storage provider
 	// used to specify storage when acquiring MAAS nodes.
-	// There's no actual implementation of this provider - all
-	// volumes are allocated by passing parameters to StartInstance.
-	MAAS_ProviderType = storage.ProviderType("maas")
+	maasStorageProviderType = storage.ProviderType("maas")
 
-	// RootDiskTag is the tag recognised by MAAS as being for
+	// rootDiskLabel is the label recognised by MAAS as being for
 	// the root disk.
-	RootDiskTag = "root"
+	rootDiskLabel = "root"
 
-	// TagsAttribute is the name of the pool attribute used
+	// tagsAttribute is the name of the pool attribute used
 	// to specify tag values for requested volumes.
-	TagsAttribute = "tags"
+	tagsAttribute = "tags"
 )
 
 // maasStorageProvider allows volumes to be specified when a node is acquired.
@@ -39,7 +37,7 @@ type maasStorageProvider struct{}
 var _ storage.Provider = (*maasStorageProvider)(nil)
 
 var validConfigOptions = set.NewStrings(
-	TagsAttribute,
+	tagsAttribute,
 )
 
 // ValidateConfig is defined on the Provider interface.
@@ -60,7 +58,7 @@ func (e *maasStorageProvider) Supports(k storage.StorageKind) bool {
 
 // Scope is defined on the Provider interface.
 func (e *maasStorageProvider) Scope() storage.Scope {
-	return storage.ScopeMachine
+	return storage.ScopeEnviron
 }
 
 // Dynamic is defined on the Provider interface.
@@ -80,9 +78,9 @@ func (e *maasStorageProvider) FilesystemSource(environConfig *config.Config, pro
 }
 
 type volumeInfo struct {
-	name      string
-	sizeInGiB uint64
-	tags      []string
+	name     string
+	sizeInGB uint64
+	tags     []string
 }
 
 // buildMAASVolumeParameters creates the MAAS volume information to include
@@ -98,11 +96,11 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 		info := volumeInfo{
 			name: v.Tag.String(),
 			// MAAS expects GB, Juju works in GiB.
-			sizeInGiB: common.MiBToGiB(uint64(v.Size)) * (humanize.GiByte / humanize.GByte),
+			sizeInGB: common.MiBToGiB(uint64(v.Size)) * (humanize.GiByte / humanize.GByte),
 		}
 		var tags string
 		if len(v.Attributes) > 0 {
-			tags = v.Attributes[TagsAttribute].(string)
+			tags = v.Attributes[tagsAttribute].(string)
 		}
 		if len(tags) > 0 {
 			// We don't want any spaces in the tags;
@@ -113,10 +111,10 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 		volumes[i] = info
 	}
 	if rootVolume == nil {
-		rootVolume = &volumeInfo{sizeInGiB: 0}
+		rootVolume = &volumeInfo{sizeInGB: 0}
 	}
 	// For now, the root disk size can't be specified.
-	if rootVolume.sizeInGiB > 0 {
+	if rootVolume.sizeInGB > 0 {
 		return nil, errors.New("root volume size cannot be specified")
 	}
 	// Root disk always goes first.
@@ -136,8 +134,8 @@ func (mi *maasInstance) volumes() ([]storage.Volume, error) {
 		return result, nil
 	}
 
-	tagsMap, ok := mi.getMaasObject().GetMap()["constraint_map"]
-	if !ok || tagsMap.IsNil() {
+	labelsMap, ok := mi.getMaasObject().GetMap()["constraint_map"]
+	if !ok || labelsMap.IsNil() {
 		return nil, errors.NotFoundf("constraint map field")
 	}
 
@@ -145,6 +143,14 @@ func (mi *maasInstance) volumes() ([]storage.Volume, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// deviceLabel is the volume label passed
+	// into the acquire node call as part
+	// of the storage constraints parameter.
+	deviceLabels, err := labelsMap.GetMap()
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid constraint map value")
+	}
+
 	for _, d := range devices {
 		deviceAttrs, err := d.GetMap()
 		if err != nil {
@@ -157,62 +163,55 @@ func (mi *maasInstance) volumes() ([]storage.Volume, error) {
 		}
 		// id in constraint_map field is a string
 		idKey := strconv.Itoa(int(id))
-		// deviceTag is the volume tag passed
-		// into the acquire node call as part
-		// of the storage constraints parameter.
-		deviceTags, err := tagsMap.GetMap()
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid constraint map value")
-		}
 
-		// Device Tag.
-		deviceTagValue, ok := deviceTags[idKey]
+		// Device Label.
+		deviceLabelValue, ok := deviceLabels[idKey]
 		if !ok {
-			return nil, errors.Errorf("missing volume tag for id %q", idKey)
+			return nil, errors.Errorf("missing volume label for id %q", idKey)
 		}
-		deviceTag, err := deviceTagValue.GetString()
+		deviceLabel, err := deviceLabelValue.GetString()
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid device tag")
+			return nil, errors.Annotate(err, "invalid device label")
 		}
 		// We don't explicitly allow the root volume to be specified yet.
-		if deviceTag == RootDiskTag {
+		if deviceLabel == rootDiskLabel {
 			continue
 		}
 
 		// Volume Tag.
-		volumeTag, err := names.ParseVolumeTag(deviceTag)
+		volumeTag, err := names.ParseVolumeTag(deviceLabel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		// HardwareId.
-		hardwareId, err := deviceAttrs["serial"].GetString()
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid device serial")
-		}
-
-		// VolumeId.
 		// First try for id_path.
+		idPathPrefix := "/dev/disk/by-id/"
 		deviceId, err := deviceAttrs["id_path"].GetString()
-		if err != nil {
+		if err == nil {
+			if !strings.HasPrefix(deviceId, idPathPrefix) {
+				return nil, errors.Errorf("invalid device id %q", deviceId)
+			}
+			deviceId = deviceId[len(idPathPrefix):]
+		} else {
 			// On VMAAS, id_path not available so try for path instead.
-			deviceId, err = deviceAttrs["path"].GetString()
+			deviceId, err = deviceAttrs["name"].GetString()
 			if err != nil {
-				return nil, errors.Annotate(err, "invalid device path")
+				return nil, errors.Annotate(err, "invalid device name")
 			}
 		}
 
 		// Size.
-		sizeinGB, err := deviceAttrs["size"].GetFloat64()
+		sizeinBytes, err := deviceAttrs["size"].GetFloat64()
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid device size")
 		}
 
 		vol := storage.Volume{
 			Tag:        volumeTag,
-			VolumeId:   deviceId,
-			HardwareId: hardwareId,
-			Size:       uint64(sizeinGB / humanize.MiByte),
+			VolumeId:   deviceLabel,
+			HardwareId: deviceId,
+			Size:       uint64(sizeinBytes / humanize.MiByte),
 			Persistent: false,
 		}
 		result = append(result, vol)

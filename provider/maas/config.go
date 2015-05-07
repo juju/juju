@@ -79,7 +79,7 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 
 	// Storage.
 	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = MAAS_ProviderType
+		providerDefaults[config.StorageDefaultBlockSourceKey] = maasStorageProviderType
 	}
 	if len(providerDefaults) > 0 {
 		if cfg, err = cfg.Apply(providerDefaults); err != nil {

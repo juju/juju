@@ -443,8 +443,8 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 	for i, test := range []struct {
-		volumes []volumeInfo
-		expcted string
+		volumes  []volumeInfo
+		expected string
 	}{
 		{
 			nil,
@@ -478,7 +478,7 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
 		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expcted)
+		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
 		suite.testMAASObject.TestServer.Clear()
 	}
 }
@@ -1422,11 +1422,21 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"serial":     "XXXX",
 		"size":       250059350016,
 	},
+	{
+		"name":       "sdc",
+		"id":         3,
+		"path":       "/dev/sdc",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "YYYYYYY",
+		"size":       250059350016,
+	},
 }
 
 var storageConstraintAttrs = map[string]interface{}{
 	"1": "volume-1",
 	"2": "root",
+	"3": "volume-3",
 }
 
 func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
@@ -1438,6 +1448,7 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 	})
 	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+		{Tag: names.NewVolumeTag("3"), Size: 2000000},
 	}}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1445,8 +1456,14 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 		{
 			Tag:        names.NewVolumeTag("1"),
 			Size:       238475,
-			VolumeId:   "/dev/disk/by-id/id_for_sda",
-			HardwareId: "S21NNSAFC38075L",
+			VolumeId:   "volume-1",
+			HardwareId: "id_for_sda",
+		},
+		{
+			Tag:        names.NewVolumeTag("3"),
+			Size:       238475,
+			VolumeId:   "volume-3",
+			HardwareId: "sdc",
 		},
 	})
 }
