@@ -20,14 +20,14 @@ if [[ -n ${revision_build:-} ]]; then
     PACKAGES_JOB="publish-revision"
     JUJU_LOCAL_DEB="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
     JUJU_CORE_DEB="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-    rev=${REVNO-$(echo $REVISION_ID | head -c8)}
+    rev=${REVNO-$(echo $REVISION_ID | head -c7)}
     echo "Testing $BRANCH $rev on $ENV"
 elif [[ -n ${VERSION:-} ]]; then
     PACKAGES_JOB="certify-ubuntu-packages"
-#    JUJU_LOCAL_DEB="juju-local_$VERSION.$RELEASE.1_all.deb"
-#    JUJU_CORE_DEB="juju-core_$VERSION.$RELEASE.1_$ARCH.deb"
-    JUJU_LOCAL_DEB="juju-local_$VERSION_all.deb"
-    JUJU_CORE_DEB="juju-core_$VERSION_$ARCH.deb"
+    JUJU_LOCAL_DEB=$(
+        $SCRIPTS/jujuci.py list $PACKAGES_JOB "juju-local_*_all.deb")
+    JUJU_CORE_DEB=$(
+        $SCRIPTS/jujuci.py list $PACKAGES_JOB "juju-core_*_$ARCH.deb")
     echo "Testing $VERSION on $ENV"
 else
     echo "Job didn't define revision_build or VERSION"
