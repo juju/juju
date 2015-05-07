@@ -2053,6 +2053,18 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			verifyStorageDetached{},
 			waitUniterDead{},
 		), ut(
+			"test that delay-provisioned storage does not block forever",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			startUniter{},
+			// no hooks should be run, as storage isn't provisioned
+			waitHooks{},
+			provisionStorage{},
+			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
+		), ut(
 			"test that unprovisioned storage does not block unit termination",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},

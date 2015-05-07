@@ -96,7 +96,6 @@ func (sa *StorageAccessor) WatchUnitStorageAttachments(unitTag names.UnitTag) (w
 // unit and storage tags.
 func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// StorageAttachment() was introduced in UniterAPIV2.
 		return params.StorageAttachment{}, errors.NotImplementedf("StorageAttachment() (need V2+)")
 	}
 	args := params.StorageAttachmentIds{
@@ -118,6 +117,24 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 		return params.StorageAttachment{}, result.Error
 	}
 	return result.Result, nil
+}
+
+// StorageAttachmentLife returns the lifecycle state of the storage attachments
+// with the specified IDs.
+func (sa *StorageAccessor) StorageAttachmentLife(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
+	if sa.facade.BestAPIVersion() < 2 {
+		return nil, errors.NotImplementedf("StorageAttachmentLife() (need V2+)")
+	}
+	args := params.StorageAttachmentIds{ids}
+	var results params.LifeResults
+	err := sa.facade.FacadeCall("StorageAttachmentLife", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(ids) {
+		panic(errors.Errorf("expected %d results, got %d", len(ids), len(results.Results)))
+	}
+	return results.Results, nil
 }
 
 // WatchStorageAttachments starts a watcher for changes to the info
