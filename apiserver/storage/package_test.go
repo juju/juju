@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/storage"
@@ -358,6 +359,10 @@ func (m *mockStorageInstance) Tag() names.Tag {
 
 func (m *mockStorageInstance) StorageTag() names.StorageTag {
 	return m.storageTag.(names.StorageTag)
+}
+
+func (m *mockStorageInstance) CharmURL() *charm.URL {
+	panic("not implemented for test")
 }
 
 type mockStorageAttachment struct {

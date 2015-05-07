@@ -50,6 +50,9 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
+
+	// CharmURL returns the charm URL that this storage instance was created with.
+	CharmURL() *charm.URL
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -113,6 +116,11 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
+// CharmURL returns the charm URL that this storage instance was created with.
+func (s *storageInstance) CharmURL() *charm.URL {
+	return s.doc.CharmURL
+}
+
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
@@ -124,6 +132,7 @@ type storageInstanceDoc struct {
 	Owner           string      `bson:"owner"`
 	StorageName     string      `bson:"storagename"`
 	AttachmentCount int         `bson:"attachmentcount"`
+	CharmURL        *charm.URL  `bson:"charmurl"`
 }
 
 type storageAttachment struct {
@@ -291,6 +300,7 @@ func createStorageOps(
 	st *State,
 	entity names.Tag,
 	charmMeta *charm.Meta,
+	curl *charm.URL,
 	cons map[string]StorageConstraints,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
@@ -357,6 +367,7 @@ func createStorageOps(
 				Kind:        kind,
 				Owner:       owner,
 				StorageName: t.storageName,
+				CharmURL:    curl,
 			}
 			if unit, ok := entity.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
