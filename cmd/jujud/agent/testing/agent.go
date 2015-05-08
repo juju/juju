@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/replicaset"
 	jujureplicaset "github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -33,7 +35,24 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
-type FakeEnsure struct {
+type patchingSuite interface {
+	PatchValue(interface{}, interface{})
+}
+
+// InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
+// out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
+func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
+	f := &FakeEnsureMongo{
+		ReplicasetInitiated: true,
+	}
+	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
+	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
+	return f
+}
+
+// FakeEnsureMongo provides test fakes for the functions used to
+// initialise MongoDB.
+type FakeEnsureMongo struct {
 	EnsureCount         int
 	InitiateCount       int
 	DataDir             string
@@ -45,7 +64,7 @@ type FakeEnsure struct {
 	ReplicasetInitiated bool
 }
 
-func (f *FakeEnsure) FakeCurrentConfig(*mgo.Session) (*jujureplicaset.Config, error) {
+func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*jujureplicaset.Config, error) {
 	if f.ReplicasetInitiated {
 		// Return a dummy replicaset config that's good enough to
 		// indicate that the replicaset is initiated.
@@ -56,7 +75,7 @@ func (f *FakeEnsure) FakeCurrentConfig(*mgo.Session) (*jujureplicaset.Config, er
 	return nil, errors.NotFoundf("replicaset")
 }
 
-func (f *FakeEnsure) FakeEnsureMongo(args mongo.EnsureServerParams) error {
+func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	f.EnsureCount++
 	f.DataDir, f.Namespace, f.OplogSize = args.DataDir, args.Namespace, args.OplogSize
 	f.Info = state.StateServingInfo{
@@ -71,7 +90,7 @@ func (f *FakeEnsure) FakeEnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
-func (f *FakeEnsure) FakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
+func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
 	f.InitiateCount++
 	f.InitiateParams = p
 	return nil
