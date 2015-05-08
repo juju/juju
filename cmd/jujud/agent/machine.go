@@ -103,7 +103,6 @@ var (
 	// intercept calls to the functions.
 	useMultipleCPUs          = utils.UseMultipleCPUs
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	replicasetCurrentConfig  = replicaset.CurrentConfig
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
@@ -118,21 +117,20 @@ var (
 )
 
 // Variable to override in tests, default is true
-var EnableJournaling = true
+var ProductionMongoWriteConcern = true
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{
-			// Wait for group commit if journaling is enabled,
-			// which is always true in production.
-			J: EnableJournaling,
-		}
-		_, err := replicaset.CurrentConfig(session)
-		if err == nil {
-			// set mongo to write-majority (writes only returned after
-			// replicated to a majority of replica-set members).
-			safe.WMode = "majority"
+		safe := mgo.Safe{}
+		if ProductionMongoWriteConcern {
+			safe.J = true
+			_, err := replicaset.CurrentConfig(session)
+			if err == nil {
+				// set mongo to write-majority (writes only returned after
+				// replicated to a majority of replica-set members).
+				safe.WMode = "majority"
+			}
 		}
 		session.SetSafe(&safe)
 		return nil
@@ -1394,7 +1392,7 @@ func isReplicasetConfigured(mongoInfo *mongo.MongoInfo) (bool, error) {
 	}
 	defer session.Close()
 
-	cfg, err := replicasetCurrentConfig(session)
+	cfg, err := replicaset.CurrentConfig(session)
 	if err != nil {
 		logger.Debugf("couldn't retrieve replicaset config (not fatal): %v", err)
 		return false, nil
