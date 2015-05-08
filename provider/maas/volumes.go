@@ -84,6 +84,12 @@ type volumeInfo struct {
 	tags     []string
 }
 
+// mibToGB converts the value in MiB to GB.
+// Juju works in MiB, MAAS expects GB.
+func mibToGb(m uint64) uint64 {
+	return common.MiBToGiB(m) * (humanize.GiByte / humanize.GByte)
+}
+
 // buildMAASVolumeParameters creates the MAAS volume information to include
 // in a request to acquire a MAAS node, based on the supplied storage parameters.
 func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Value) ([]volumeInfo, error) {
@@ -93,14 +99,13 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 	volumes := make([]volumeInfo, len(args)+1)
 	rootVolume := volumeInfo{name: rootDiskLabel}
 	if cons.RootDisk != nil {
-		rootVolume.sizeInGB = common.MiBToGiB(*cons.RootDisk) * (humanize.GiByte / humanize.GByte)
+		rootVolume.sizeInGB = mibToGb(*cons.RootDisk)
 	}
 	volumes[0] = rootVolume
 	for i, v := range args {
 		info := volumeInfo{
-			name: v.Tag.Id(),
-			// MAAS expects GB, Juju works in GiB.
-			sizeInGB: common.MiBToGiB(uint64(v.Size)) * (humanize.GiByte / humanize.GByte),
+			name:     v.Tag.Id(),
+			sizeInGB: mibToGb(v.Size),
 		}
 		var tags string
 		if len(v.Attributes) > 0 {
