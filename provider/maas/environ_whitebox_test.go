@@ -1482,6 +1482,23 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 	})
 }
 
+func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{
+		"memory": 8192,
+	})
+	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
+		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+		{Tag: names.NewVolumeTag("3"), Size: 2000000},
+	}}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "the version of MAAS being used does not support Juju storage")
+	operations := s.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"acquire", "acquire", "release"})
+	c.Assert(s.testMAASObject.TestServer.OwnedNodes()["node0"], jc.IsTrue)
+	c.Assert(s.testMAASObject.TestServer.OwnedNodes()["thenode1"], jc.IsFalse)
+}
+
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	env := s.makeEnviron()
 
