@@ -979,11 +979,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		errToReturn := errors.New("the version of MAAS being used does not support Juju storage")
-		if err := environ.StopInstances(inst.Id()); err != nil {
-			logger.Warningf("error stopping instance %q after aborted deployment: %v", inst.Id(), err)
-		}
-		return nil, errToReturn
+		err = errors.New("the version of MAAS being used does not support Juju storage")
+		return nil, err
 	}
 
 	return &environs.StartInstanceResult{
