@@ -31,7 +31,7 @@ func newSshClient(host string) *sshClient {
 	}
 }
 
-func (c *sshClient) ConfigureExternalIpAddress(apiPort int) error {
+func (c *sshClient) configureExternalIpAddress(apiPort int) error {
 	cmd := `printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg
 sudo ifup eth1
 sudo iptables -i eth1 -I INPUT -j DROP`
@@ -50,7 +50,7 @@ sudo iptables -i eth1 -I INPUT -j DROP`
 	return nil
 }
 
-func (c *sshClient) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+func (c *sshClient) changePorts(ipAddress string, insert bool, ports []network.PortRange) error {
 	cmd := ""
 	insertArg := "-I"
 	if !insert {
@@ -75,7 +75,7 @@ func (c *sshClient) ChangePorts(ipAddress string, insert bool, ports []network.P
 	return nil
 }
 
-func (c *sshClient) FindOpenPorts() ([]network.PortRange, error) {
+func (c *sshClient) findOpenPorts() ([]network.PortRange, error) {
 	cmd := "sudo iptables -L INPUT -n"
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -144,7 +144,7 @@ func (c *sshClient) FindOpenPorts() ([]network.PortRange, error) {
 	return res, nil
 }
 
-func (c *sshClient) AddIpAddress(nic string, addr string) error {
+func (c *sshClient) addIpAddress(nic string, addr string) error {
 	cmd := fmt.Sprintf("ls /etc/network/interfaces.d | grep %s: | sed 's/%s://' | sed 's/.cfg//' | tail -1", nic, nic)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -169,7 +169,7 @@ func (c *sshClient) AddIpAddress(nic string, addr string) error {
 	return nil
 }
 
-func (c *sshClient) ReleaseIpAddress(_ string, addr string) error {
+func (c *sshClient) releaseIpAddress(_ string, addr string) error {
 	cmd := fmt.Sprintf("ip addr show | grep %s | awk '{print $7}'", addr)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
