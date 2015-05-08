@@ -1411,7 +1411,7 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "S21NNSAFC38075L",
-		"size":       250059350016,
+		"size":       uint64(250059350016),
 	},
 	{
 		"name":       "sda",
@@ -1420,7 +1420,7 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "XXXX",
-		"size":       250059350016,
+		"size":       uint64(250059350016),
 	},
 	{
 		"name":       "sdc",
@@ -1429,14 +1429,14 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "YYYYYYY",
-		"size":       250059350016,
+		"size":       uint64(250059350016),
 	},
 }
 
 var storageConstraintAttrs = map[string]interface{}{
-	"1": "volume-1",
+	"1": "1",
 	"2": "root",
-	"3": "volume-3",
+	"3": "3",
 }
 
 func (s *environSuite) TestStartInstanceStorage(c *gc.C) {

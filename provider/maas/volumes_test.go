@@ -30,8 +30,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{sizeInGB: 0}, //root disk
-		{"volume-1", 1954, nil},
+		{"root", 0, nil}, //root disk
+		{"1", 1954, nil},
 	})
 }
 
@@ -41,8 +41,8 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{sizeInGB: 0}, //root disk
-		{"volume-1", 1954, []string{"tag1", "tag2"}},
+		{"root", 0, nil}, //root disk
+		{"1", 1954, []string{"tag1", "tag2"}},
 	})
 }
 
@@ -180,9 +180,9 @@ var validVolumeJson = `
     ], 
     "constraint_map": {
         "1": "root",
-        "2": "volume-1",
-        "3": "volume-2",
-        "4": "volume-3"
+        "2": "1",
+        "3": "2",
+        "4": "3"
     }
 } 
 `[1:]
