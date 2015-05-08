@@ -885,7 +885,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
 	// Storage.
-	volumes, err := buildMAASVolumeParameters(args.Volumes)
+	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid volume parameters")
 	}

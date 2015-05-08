@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
@@ -85,13 +86,16 @@ type volumeInfo struct {
 
 // buildMAASVolumeParameters creates the MAAS volume information to include
 // in a request to acquire a MAAS node, based on the supplied storage parameters.
-func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error) {
-	if len(args) == 0 {
+func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Value) ([]volumeInfo, error) {
+	if len(args) == 0 && cons.RootDisk == nil {
 		return nil, nil
 	}
-	volumes := make([]volumeInfo, len(args))
-	// TODO(wallyworld) - allow root volume to be specified in volume args.
-	var rootVolume *volumeInfo
+	volumes := make([]volumeInfo, len(args)+1)
+	rootVolume := volumeInfo{name: rootDiskLabel}
+	if cons.RootDisk != nil {
+		rootVolume.sizeInGB = common.MiBToGiB(*cons.RootDisk) * (humanize.GiByte / humanize.GByte)
+	}
+	volumes[0] = rootVolume
 	for i, v := range args {
 		info := volumeInfo{
 			name: v.Tag.Id(),
@@ -109,19 +113,9 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 			tags = strings.Replace(tags, " ", "", -1)
 			info.tags = strings.Split(tags, ",")
 		}
-		volumes[i] = info
+		volumes[i+1] = info
 	}
-	if rootVolume == nil {
-		rootVolume = &volumeInfo{name: rootDiskLabel, sizeInGB: 0}
-	}
-	// For now, the root disk size can't be specified.
-	if rootVolume.sizeInGB > 0 {
-		return nil, errors.New("root volume size cannot be specified")
-	}
-	// Root disk always goes first.
-	volumesResult := []volumeInfo{*rootVolume}
-	volumesResult = append(volumesResult, volumes...)
-	return volumesResult, nil
+	return volumes, nil
 }
 
 // volumes creates the storage volumes and attachments

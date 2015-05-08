@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -19,15 +20,26 @@ type volumeSuite struct {
 var _ = gc.Suite(&volumeSuite{})
 
 func (s *volumeSuite) TestBuildMAASVolumeParametersNoVolumes(c *gc.C) {
-	vInfo, err := buildMAASVolumeParameters(nil)
+	vInfo, err := buildMAASVolumeParameters(nil, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, gc.HasLen, 0)
+}
+
+func (s *volumeSuite) TestBuildMAASVolumeParametersJustRootDisk(c *gc.C) {
+	var cons constraints.Value
+	rootSize := uint64(20000)
+	cons.RootDisk = &rootSize
+	vInfo, err := buildMAASVolumeParameters(nil, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+		{"root", 20, nil},
+	})
 }
 
 func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *gc.C) {
 	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
-	})
+	}, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
 		{"root", 0, nil}, //root disk
@@ -35,10 +47,24 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *gc.C) {
 	})
 }
 
+func (s *volumeSuite) TestBuildMAASVolumeParametersWithRootDisk(c *gc.C) {
+	var cons constraints.Value
+	rootSize := uint64(20000)
+	cons.RootDisk = &rootSize
+	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
+		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+	}, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
+		{"root", 20, nil}, //root disk
+		{"1", 1954, nil},
+	})
+}
+
 func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 	vInfo, err := buildMAASVolumeParameters([]storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000, Attributes: map[string]interface{}{"tags": "tag1,tag2"}},
-	})
+	}, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
 		{"root", 0, nil}, //root disk
