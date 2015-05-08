@@ -145,6 +145,26 @@ func (s *EnvironmentCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
 }
 
+func (s *EnvironmentCommandSuite) TestCompatVersion(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
+}
+
+func (s *EnvironmentCommandSuite) TestCompatVersionDefault(c *gc.C) {
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+}
+
+func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuCLIVersion, "invalid")
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+}
+
 type testCommand struct {
 	envcmd.EnvCommandBase
 }
