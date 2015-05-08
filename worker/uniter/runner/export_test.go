@@ -98,6 +98,17 @@ func PatchCachedStatus(ctx Context, status, info string, data map[string]interfa
 	}
 }
 
+// PatchMetricsReader patches the metrics reader used by the context with a new
+// object.
+func PatchMetricsReader(ctx Context, reader MetricsReader) func() {
+	hctx := ctx.(*HookContext)
+	oldReader := hctx.metricsReader
+	hctx.metricsReader = reader
+	return func() {
+		hctx.metricsReader = oldReader
+	}
+}
+
 func NewHookContext(
 	unit *uniter.Unit,
 	state *uniter.State,
