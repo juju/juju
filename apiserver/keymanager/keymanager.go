@@ -231,10 +231,10 @@ func runSSHImportId(keyId string) (string, error) {
 }
 
 // runSSHKeyImport uses ssh-import-id to find the ssh keys for the specified key ids.
-func runSSHKeyImport(keyIds []string) []importedSSHKey {
-	// zero-length slice to force append to overwrite from the start
-	keyInfo := make([]importedSSHKey, len(keyIds))[:0]
+func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
+	importResults := make(map[string][]importedSSHKey, len(keyIds))
 	for _, keyId := range keyIds {
+		keyInfo := []importedSSHKey{}
 		output, err := RunSSHImportId(keyId)
 		if err != nil {
 			keyInfo = append(keyInfo, importedSSHKey{err: err})
@@ -257,11 +257,12 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 		}
 		if !hasKey {
 			keyInfo = append(keyInfo, importedSSHKey{
-				err: fmt.Errorf("invalid ssh key id: %s", keyId),
+				err: errors.Errorf("invalid ssh key id: %s", keyId),
 			})
 		}
+		importResults[keyId] = keyInfo
 	}
-	return keyInfo
+	return importResults
 }
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
@@ -289,16 +290,23 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	importedKeyInfo := runSSHKeyImport(arg.Keys)
 	// Ensure we are not going to add invalid or duplicate keys.
 	result.Results = make([]params.ErrorResult, len(importedKeyInfo))
-	for i, keyInfo := range importedKeyInfo {
-		if keyInfo.err != nil {
-			result.Results[i].Error = common.ServerError(keyInfo.err)
-			continue
+	for i, key := range arg.Keys {
+		compoundErr := ""
+		for _, keyInfo := range importedKeyInfo[key] {
+			if keyInfo.err != nil {
+				compoundErr += fmt.Sprintf("%v\n", keyInfo.err)
+				continue
+			}
+			if currentFingerprints.Contains(keyInfo.fingerprint) {
+				compoundErr += fmt.Sprintf("%v\n", errors.Errorf("duplicate ssh key: %s", keyInfo.key))
+				continue
+			}
+			sshKeys = append(sshKeys, keyInfo.key)
 		}
-		if currentFingerprints.Contains(keyInfo.fingerprint) {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("duplicate ssh key: %s", keyInfo.key))
-			continue
+		if compoundErr != "" {
+			result.Results[i].Error = common.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))
 		}
-		sshKeys = append(sshKeys, keyInfo.key)
+
 	}
 	err = api.writeSSHKeys(sshKeys)
 	if err != nil {
