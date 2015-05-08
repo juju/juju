@@ -55,6 +55,13 @@ var configFields = schema.Fields{
 	cfgExternalNetwork: schema.String(),
 }
 
+var requiredFields = []string{
+	cfgHost,
+	cfgUser,
+	cfgPassword,
+	cfgDatacenter,
+}
+
 var configDefaults = schema.Defaults{
 	cfgExternalNetwork: "",
 }
@@ -147,7 +154,7 @@ func (c *environConfig) secret() map[string]string {
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
-	for field := range configFields {
+	for _, field := range requiredFields {
 		if c.attrs[field].(string) == "" {
 			return errors.Errorf("%s: must not be empty", field)
 		}
