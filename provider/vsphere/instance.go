@@ -77,37 +77,37 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return inst.ChangePorts(true, ports, true)
+	return inst.changePorts(true, ports)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return inst.ChangePorts(false, ports, false)
+	return inst.changePorts(false, ports)
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	_, sshClient, err := inst.GetSshClient()
+	_, sshClient, err := inst.getSshClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return sshClient.FindOpenPorts()
+	return sshClient.findOpenPorts()
 }
 
-func (inst *environInstance) ChangePorts(insert bool, ports []network.PortRange, createNic bool) error {
+func (inst *environInstance) changePorts(insert bool, ports []network.PortRange) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
-	addresses, sshClient, err := inst.GetSshClient()
+	addresses, sshClient, err := inst.getSshClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			err = sshClient.ChangePorts(addr.Value, insert, ports)
+			err = sshClient.changePorts(addr.Value, insert, ports)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -116,7 +116,7 @@ func (inst *environInstance) ChangePorts(insert bool, ports []network.PortRange,
 	return nil
 }
 
-func (inst *environInstance) GetSshClient() ([]network.Address, *sshClient, error) {
+func (inst *environInstance) getSshClient() ([]network.Address, *sshClient, error) {
 	addresses, err := inst.Addresses()
 	if err != nil {
 		return nil, nil, errors.Trace(err)

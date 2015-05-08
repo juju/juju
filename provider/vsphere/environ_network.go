@@ -12,23 +12,23 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// AllocateAddress implements environs.Environ, but is not implmemented.
+// AllocateAddress implements environs.Environ.
 func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
-	return env.ChangeAddress(instID, netID, addr, true)
+	return env.changeAddress(instID, netID, addr, true)
 }
 
-// ReleaseAddress implements environs.Environ, but is not implmemented.
+// ReleaseAddress implements environs.Environ:w.
 func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
-	return env.ChangeAddress(instID, netID, addr, true)
+	return env.changeAddress(instID, netID, addr, false)
 }
 
-func (env *environ) ChangeAddress(instID instance.Id, netID network.Id, addr network.Address, add bool) error {
+func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr network.Address, add bool) error {
 	instances, err := env.Instances([]instance.Id{instID})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	inst := instances[0].(*environInstance)
-	_, client, err := inst.GetSshClient()
+	_, client, err := inst.getSshClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -37,12 +37,17 @@ func (env *environ) ChangeAddress(instID instance.Id, netID network.Id, addr net
 		interfaceName = "eth1"
 	}
 	if add {
-		err = client.AddIpAddress(interfaceName, addr.Value)
+		err = client.addIpAddress(interfaceName, addr.Value)
 	} else {
-		err = client.ReleaseIpAddress(interfaceName, addr.Value)
+		err = client.releaseIpAddress(interfaceName, addr.Value)
 	}
 
 	return errors.Trace(err)
+}
+
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
+	return true, nil
 }
 
 // Subnets implements environs.Environ.

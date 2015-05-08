@@ -30,17 +30,19 @@ var boilerplateConfig = `
 vmware:
   type: vsphere
 
-  # Vsphere API host or DNS name
+  # IP address or DNS name of vsphere API host.
   host:
 
-  # Vsphere API user credentials
+  # Vsphere API user credentials.
   user:
   password:
 
-  # Vsphere datacenter
+  # Name of vsphere datacenter.
   datacenter:
 
-  #
+  # Name of the network, that all created vms will use ot obtain public ip address. 
+  # This network should have ip pool configured or DHCP server connected to it.
+  # This parameter is optional. 
   extenal-network:
 `[1:]
 

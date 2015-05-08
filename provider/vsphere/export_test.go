@@ -13,10 +13,6 @@ var (
 	Provider environs.EnvironProvider = providerInstance
 )
 
-func init() {
-	environs.RegisterProvider(providerType, providerInstance)
-}
-
 func ExposeEnvFakeClient(env *environ) *fakeClient {
 	return env.client.connection.RoundTripper.(*fakeClient)
 }

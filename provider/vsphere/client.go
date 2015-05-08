@@ -85,22 +85,18 @@ func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmw
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var res mo.VirtualMachine
-	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if ecfg.externalNetwork() != "" {
 		ip, err := vm.WaitForIP(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		client := newSshClient(ip)
-		err = client.ConfigureExternalIpAddress(apiPort)
+		err = client.configureExternalIpAddress(apiPort)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
+	var res mo.VirtualMachine
 	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -291,30 +287,40 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 			ProviderId: network.Id(vmNet.Network),
 		}
 		if netPool != nil && netPool.Ipv4Config != nil {
-			//netPool.Range is specified as a set of ranges separated with commas. One range is given by a start address, a hash (#), and the length of the range.
-			//For example:
-			//192.0.2.235 # 20 is the IPv4 range from 192.0.2.235 to 192.0.2.254
-			ranges := strings.Split(netPool.Ipv4Config.Range, ",")
-			if len(ranges) > 0 {
-				rangeSplit := strings.Split(ranges[0], "#")
-				if len(rangeSplit) == 2 {
-					if rangeLen, err := strconv.ParseInt(rangeSplit[1], 10, 8); err == nil {
-						ipSplit := strings.Split(rangeSplit[0], ".")
-						if len(ipSplit) == 4 {
-							if lastSegment, err := strconv.ParseInt(ipSplit[3], 10, 8); err != nil {
-								lastSegment += rangeLen - 1
-								if lastSegment > 254 {
-									lastSegment = 254
-								}
-								subnet.AllocatableIPLow = net.ParseIP(rangeSplit[0])
-								subnet.AllocatableIPHigh = net.ParseIP(fmt.Sprintf("%d.%d.%d.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment))
-							}
-						}
-					}
-				}
+			low, high, err := c.ParseNetworkRange(netPool.Ipv4Config.Range)
+			if err != nil {
+				logger.Warningf(err.Error())
+			} else {
+				subnet.AllocatableIPLow = low
+				subnet.AllocatableIPHigh = high
 			}
 		}
 		res = append(res)
 	}
 	return res, nil
+}
+
+func (c *client) ParseNetworkRange(netRange string) (net.IP, net.IP, error) {
+	//netPool.Range is specified as a set of ranges separated with commas. One range is given by a start address, a hash (#), and the length of the range.
+	//For example:
+	//192.0.2.235 # 20 is the IPv4 range from 192.0.2.235 to 192.0.2.254
+	ranges := strings.Split(netRange, ",")
+	if len(ranges) > 0 {
+		rangeSplit := strings.Split(ranges[0], "#")
+		if len(rangeSplit) == 2 {
+			if rangeLen, err := strconv.ParseInt(rangeSplit[1], 10, 8); err == nil {
+				ipSplit := strings.Split(rangeSplit[0], ".")
+				if len(ipSplit) == 4 {
+					if lastSegment, err := strconv.ParseInt(ipSplit[3], 10, 8); err != nil {
+						lastSegment += rangeLen - 1
+						if lastSegment > 254 {
+							lastSegment = 254
+						}
+						return net.ParseIP(rangeSplit[0]), net.ParseIP(fmt.Sprintf("%d.%d.%d.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment)), nil
+					}
+				}
+			}
+		}
+	}
+	return nil, nil, errors.Errorf("can't parse netRange: %s", netRange)
 }
