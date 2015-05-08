@@ -869,8 +869,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
 			return nil
 		})
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -893,8 +895,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.ErrorMatches, "permission denied")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -925,9 +929,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 }
 
 func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
@@ -941,8 +947,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 
 	batches, err := s.State.MetricBatches()
 	c.Assert(err, gc.IsNil)
