@@ -133,12 +133,6 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Trace(err)
 	}
 
-	// Validate the storage parameters against the charm metadata,
-	// and ensure there are no conflicting parameters.
-	if err := validateCharmStorage(args, ch); err != nil {
-		return err
-	}
-
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
@@ -184,20 +178,6 @@ func ServiceSetSettingsStrings(service *state.Service, settings map[string]strin
 		return err
 	}
 	return service.UpdateConfigSettings(changes)
-}
-
-func validateCharmStorage(args params.ServiceDeploy, ch *state.Charm) error {
-	if len(args.Storage) == 0 {
-		return nil
-	}
-	if len(args.ToMachineSpec) != 0 {
-		// TODO(axw) when we support dynamic disk provisioning, we can
-		// relax this. We will need to consult the storage provider to
-		// decide whether or not this is allowable.
-		return errors.New("cannot specify storage and machine placement")
-	}
-	// Remaining validation is done in state.AddService.
-	return nil
 }
 
 func networkTagsToNames(tags []string) ([]string, error) {
