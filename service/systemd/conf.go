@@ -173,7 +173,8 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	// TODO(ericsnow) Support "Type" (e.g. "forking")?
+	// TODO(ericsnow) Support "Type" (e.g. "forking")? For now we just
+	// use the default, "simple".
 
 	for k, v := range conf.Env {
 		unitOptions = append(unitOptions, &unit.UnitOption{
@@ -199,21 +200,12 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
-	// TODO(ericsnow) This should key off Conf.RemainAfterExit, once added.
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "RemainAfterExit",
-			Value:   "yes",
-		})
-	}
-
 	// TODO(ericsnow) This should key off Conf.Restart, once added.
 	if !conf.Transient {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "Restart",
-			Value:   "always",
+			Value:   "on-failure",
 		})
 	}
 
