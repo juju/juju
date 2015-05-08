@@ -94,7 +94,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 	var rootVolume *volumeInfo
 	for i, v := range args {
 		info := volumeInfo{
-			name: v.Tag.String(),
+			name: v.Tag.Id(),
 			// MAAS expects GB, Juju works in GiB.
 			sizeInGB: common.MiBToGiB(uint64(v.Size)) * (humanize.GiByte / humanize.GByte),
 		}
@@ -105,13 +105,13 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 		if len(tags) > 0 {
 			// We don't want any spaces in the tags;
 			// strip out any just in case.
-			tags = strings.Replace(tags, " ", "", 0)
+			tags = strings.Replace(tags, " ", "", -1)
 			info.tags = strings.Split(tags, ",")
 		}
 		volumes[i] = info
 	}
 	if rootVolume == nil {
-		rootVolume = &volumeInfo{sizeInGB: 0}
+		rootVolume = &volumeInfo{name: rootDiskLabel, sizeInGB: 0}
 	}
 	// For now, the root disk size can't be specified.
 	if rootVolume.sizeInGB > 0 {
@@ -160,7 +160,7 @@ func (mi *maasInstance) volumes(
 	// we specifically asked for when the node was acquired.
 	validVolumes := set.NewStrings()
 	for _, v := range requestedVolumes {
-		validVolumes.Add(v.String())
+		validVolumes.Add(v.Id())
 	}
 
 	for _, d := range devices {
@@ -195,12 +195,6 @@ func (mi *maasInstance) volumes(
 			continue
 		}
 
-		// Volume Tag.
-		volumeTag, err := names.ParseVolumeTag(deviceLabel)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
 		// HardwareId and DeviceName.
 		// First try for id_path.
 		idPathPrefix := "/dev/disk/by-id/"
@@ -225,9 +219,10 @@ func (mi *maasInstance) volumes(
 			return nil, nil, errors.Annotate(err, "invalid device size")
 		}
 
+		volumeTag := names.NewVolumeTag(deviceLabel)
 		vol := storage.Volume{
 			Tag:        volumeTag,
-			VolumeId:   deviceLabel,
+			VolumeId:   volumeTag.String(),
 			HardwareId: hardwareId,
 			Size:       uint64(sizeinBytes / humanize.MiByte),
 			Persistent: false,

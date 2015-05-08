@@ -227,7 +227,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Debugf("[WORKLOAD-STATUS] %s %s", status.Status, status.Info)
+	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
