@@ -23,6 +23,13 @@ import (
 
 var logger = loggo.GetLogger("juju.testing")
 
+// Suite registers the provided suite with the test runner, but only
+// if the base test tags was passed at the commandline, which it is
+// by default.
+func Suite(suite interface{}) {
+	SuiteTagged(suite, TagBase)
+}
+
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
 // BaseSuite and in FakeJujuHomeSuite. Eventually the tests relying on
