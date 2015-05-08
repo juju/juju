@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
+	"github.com/juju/juju/apiserver/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/lease"
@@ -1231,7 +1232,7 @@ func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatus
 			var unit *state.Unit
 			unit, err = u.getUnit(unitTag)
 			if err == nil {
-				status, err = unit.GetMeterStatus()
+				status, err = meterstatus.MeterStatusWrapper(unit.GetMeterStatus)
 			}
 			result.Results[i].Code = status.Code.String()
 			result.Results[i].Info = status.Info
