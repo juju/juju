@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -59,7 +58,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.setUpHttpProxy(c)
 	s.FakeMetadataServer()
-	osenv.SetJujuHome(os.TempDir())
+	osenv.SetJujuHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
