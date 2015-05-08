@@ -602,10 +602,6 @@ func convertConstraints(cons constraints.Value) url.Values {
 			params.Add("not_tags", strings.Join(notTags, ","))
 		}
 	}
-	// TODO(bug 1212689): ignore root-disk constraint for now.
-	if cons.RootDisk != nil {
-		logger.Warningf("ignoring unsupported constraint 'root-disk'")
-	}
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
@@ -885,7 +881,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
 	// Storage.
-	volumes, err := buildMAASVolumeParameters(args.Volumes)
+	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid volume parameters")
 	}
