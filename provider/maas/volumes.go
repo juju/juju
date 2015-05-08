@@ -105,6 +105,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams) ([]volumeInfo, error
 		if len(tags) > 0 {
 			// We don't want any spaces in the tags;
 			// strip out any just in case.
+			// TODO(wallyworld) reject pool configuration if tags have spaces
 			tags = strings.Replace(tags, " ", "", -1)
 			info.tags = strings.Split(tags, ",")
 		}

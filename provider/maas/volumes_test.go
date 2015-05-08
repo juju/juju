@@ -64,14 +64,14 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 			Tag:        names.NewVolumeTag("1"),
 			HardwareId: "",
 			VolumeId:   "volume-1",
-			Size:       47,
+			Size:       476893,
 			Persistent: false,
 		},
 		{
 			Tag:        names.NewVolumeTag("2"),
 			HardwareId: "id_for_sdc",
 			VolumeId:   "volume-2",
-			Size:       23,
+			Size:       238764,
 			Persistent: false,
 		},
 	})
@@ -120,7 +120,7 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_250GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC38075L", 
-            "size": 25005935
+            "size": 250059350016
         }, 
         {
             "name": "sdb", 
@@ -133,7 +133,7 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_500GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC38076L", 
-            "size": 50005935
+            "size": 500059350016
         },
         {
             "name": "sdb", 
@@ -147,7 +147,7 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_250GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC38999L", 
-            "size": 25036243
+            "size": 250362438230
         },
         {
             "name": "sdd", 
@@ -161,7 +161,7 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_250GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC386666L", 
-            "size": 25036243
+            "size": 250362438230
         },
         {
             "name": "sde", 
@@ -175,7 +175,7 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_250GB", 
             "block_size": 4096, 
             "serial": "S21NNSAFC388888L", 
-            "size": 25036243
+            "size": 250362438230
         }
     ], 
     "constraint_map": {

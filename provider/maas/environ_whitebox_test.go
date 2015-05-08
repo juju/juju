@@ -1411,7 +1411,7 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "S21NNSAFC38075L",
-		"size":       25005935,
+		"size":       uint64(250059350016),
 	},
 	{
 		"name":       "sda",
@@ -1420,7 +1420,7 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "XXXX",
-		"size":       25005935,
+		"size":       uint64(250059350016),
 	},
 	{
 		"name":       "sdc",
@@ -1429,7 +1429,7 @@ var nodeStorageAttrs = []map[string]interface{}{
 		"model":      "Samsung_SSD_850_EVO_250GB",
 		"block_size": 4096,
 		"serial":     "YYYYYYY",
-		"size":       25005935,
+		"size":       uint64(250059350016),
 	},
 }
 
@@ -1455,13 +1455,13 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
 		{
 			Tag:        names.NewVolumeTag("1"),
-			Size:       23,
+			Size:       238475,
 			VolumeId:   "volume-1",
 			HardwareId: "id_for_sda",
 		},
 		{
 			Tag:        names.NewVolumeTag("3"),
-			Size:       23,
+			Size:       238475,
 			VolumeId:   "volume-3",
 			HardwareId: "",
 		},
