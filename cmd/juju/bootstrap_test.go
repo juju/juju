@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -266,6 +267,46 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `unrecognized args: \["anything" "else"\]`,
 }}
 
+func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
+	s.PatchValue(&getEnvName, func(*BootstrapCommand) string { return "" })
+
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
+
+	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
+}
+
+const provisionalEnvs = `
+environments:
+    devenv:
+        type: dummy
+    cloudsigma:
+        type: cloudsigma
+    vsphere:
+        type: vsphere
+`
+
+func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
+	coretesting.WriteEnvironments(c, provisionalEnvs)
+
+	err := checkProviderType("devenv")
+	c.Assert(err, jc.ErrorIsNil)
+
+	for name, flag := range provisionalProviders {
+		// vsphere is disabled for gccgo. See lp:1440940.
+		if name == "vsphere" && runtime.Compiler == "gccgo" {
+			continue
+		}
+		c.Logf(" - trying %q -", name)
+		err := checkProviderType(name)
+		c.Check(err, gc.ErrorMatches, ".* provider is provisional .* set JUJU_DEV_FEATURE_FLAGS=.*")
+
+		err = os.Setenv(osenv.JujuFeatureFlagEnvKey, flag)
+		c.Assert(err, jc.ErrorIsNil)
+		err = checkProviderType(name)
+		c.Check(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env := resetJujuHome(c, "devenv")
 	defaultSeriesVersion := version.Current
@@ -336,6 +377,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,6 +397,7 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 
 	cleanupRan := false
 
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 	s.PatchValue(
 		&environFromName,
 		func(
@@ -427,6 +470,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	// Simulation: prepare should fail and we should only clean up the
 	// jenv file. Any existing environment should not be destroyed.
 	s.PatchValue(&destroyPreparedEnviron, mockDestroyPreparedEnviron)
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 	s.PatchValue(&environFromName, mockEnvironFromName)
 	s.PatchValue(&environs.PrepareFromName, mockPrepare)
 	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)

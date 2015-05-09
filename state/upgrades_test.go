@@ -2704,3 +2704,141 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
 
 	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
 }
+
+func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
+	// This tests a DB migration regression triggered by Go 1.3+'s
+	// randomised map iteration feature. See LP #1451674.
+	//
+	// Here we ensure that the addEnvUUIDToEntityCollection helper
+	// doesn't change the order of document fields. This is important
+	// because MongoDB comparisons and txn assertions will not work as
+	// expected if document field orders don't match.
+	//
+	// Several documents, each containing other documents in an array,
+	// are inserted and then read back out to ensure that field
+	// ordering hasn't changed.
+
+	type address struct {
+		Value       string `bson:"value"`
+		AddressType string `bson:"addresstype"`
+		NetworkName string `bson:"networkname"`
+		Scope       string `bson:"networkscope"`
+	}
+
+	type fakeMachineDoc struct {
+		DocID     string    `bson:"_id"`
+		Series    string    `bson:"series"`
+		Addresses []address `bson:"addresses"`
+	}
+
+	mdoc := fakeMachineDoc{
+		Series: "foo",
+		Addresses: []address{
+			{
+				Value:       "1.2.3.4",
+				AddressType: "local",
+				NetworkName: "foo",
+				Scope:       "bar",
+			},
+			{
+				Value:       "5.4.3.2",
+				AddressType: "meta",
+				NetworkName: "brie",
+				Scope:       "cheese",
+			},
+		},
+	}
+
+	machines, close := s.state.getRawCollection(machinesC)
+	defer close()
+	for i := 0; i < 20; i++ {
+		mdoc.DocID = fmt.Sprintf("%d", i)
+		err := machines.Insert(mdoc)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err := addEnvUUIDToEntityCollection(s.state, machinesC, setOldID("machineid"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var outDocs []bson.D
+	err = machines.Find(nil).All(&outDocs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedMachineFields := []string{"_id", "series", "addresses", "machineid", "env-uuid"}
+	expectedAddressFields := []string{"value", "addresstype", "networkname", "networkscope"}
+	for _, doc := range outDocs {
+		for i, fieldName := range expectedMachineFields {
+			c.Assert(doc[i].Name, gc.Equals, fieldName)
+		}
+
+		addresses := doc[2].Value.([]interface{})
+		c.Assert(addresses, gc.HasLen, 2)
+		for _, addressElem := range addresses {
+			address := addressElem.(bson.D)
+			for i, fieldName := range expectedAddressFields {
+				c.Assert(address[i].Name, gc.Equals, fieldName)
+			}
+		}
+	}
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequence(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"_id", s.state.docID("my-service")},
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
+
+	var result map[string]interface{}
+	err = svcC.Find(nil).Select(bson.M{"unitseq": 1}).One(&result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result["unitseq"], gc.Equals, nil)
+}
+
+func (s *upgradesSuite) TestMoveServiceNotUnitSeq(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequenceWithPreExistingSequence(c *gc.C) {
+	_, err := s.state.sequence("service-my-service")
+
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err = svcC.Insert(
+		bson.D{
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
+}

@@ -365,7 +365,11 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	// A "raw" transaction is used here because this code has to work
+	// before the machine env UUID DB migration has run. In this case
+	// we don't want the automatic env UUID prefixing to the doc _id
+	// to occur.
+	if err := m.st.runRawTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.PasswordHash = passwordHash
@@ -683,18 +687,14 @@ func (m *Machine) Remove() (err error) {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // machine has been removed.
 func (m *Machine) Refresh() error {
-	machines, closer := m.st.getCollection(machinesC)
-	defer closer()
-
-	var doc machineDoc
-	err := machines.FindId(m.doc.DocID).One(&doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("machine %v", m)
-	}
+	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return err
+		}
 		return errors.Annotatef(err, "cannot refresh machine %v", m)
 	}
-	m.doc = doc
+	m.doc = *mdoc
 	return nil
 }
 

@@ -42,6 +42,12 @@ type confRenderer interface {
 	shell.ScriptRenderer
 }
 
+func redirectOutput(cr confRenderer, filename string) []string {
+	// TODO(ericsnow) This should be fixed in utils/shell.
+	cmd := cr.RedirectOutput(filename)[0]
+	return []string{strings.Replace(cmd, ">", ">>", -1)}
+}
+
 func syslogUserGroup() (string, string) {
 	var user, group string
 	switch version.Current.OS {
@@ -70,7 +76,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		user, group := syslogUserGroup()
 		cmds = append(cmds, renderer.Chown(filename, user, group)...)
 		cmds = append(cmds, renderer.Chmod(filename, 0600)...)
-		cmds = append(cmds, renderer.RedirectOutput(filename)...)
+		cmds = append(cmds, redirectOutput(renderer, filename)...)
 		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
 		cmds = append(cmds,
 			"",
@@ -196,13 +202,14 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	// TODO(ericsnow) Support "Type" (e.g. "forking")?
+	// TODO(ericsnow) Support "Type" (e.g. "forking")? For now we just
+	// use the default, "simple".
 
 	for k, v := range conf.Env {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "Environment",
-			Value:   fmt.Sprintf(`"%q=%q"`, k, v),
+			Value:   fmt.Sprintf(`"%s=%s"`, k, v),
 		})
 	}
 
@@ -222,21 +229,12 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
-	// TODO(ericsnow) This should key off Conf.RemainAfterExit, once added.
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "RemainAfterExit",
-			Value:   "yes",
-		})
-	}
-
 	// TODO(ericsnow) This should key off Conf.Restart, once added.
 	if !conf.Transient {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "Restart",
-			Value:   "always",
+			Value:   "on-failure",
 		})
 	}
 

@@ -212,6 +212,12 @@ func (info *environInfo) APICredentials() APICredentials {
 	}
 }
 
+// work around golang.org/issue/10628
+
+func (info *memInfo) APIEndpoint() APIEndpoint {
+	return info.environInfo.APIEndpoint()
+}
+
 // APIEndpoint implements EnvironInfo.APIEndpoint.
 func (info *environInfo) APIEndpoint() APIEndpoint {
 	info.mu.Lock()

@@ -528,6 +528,30 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) TestSetPasswordPreEnvUUID(c *gc.C) {
+	// Ensure that SetPassword works for machines even when the env
+	// UUID upgrade migrations haven't run yet.
+	type oldMachineDoc struct {
+		Id     string `bson:"_id"`
+		Series string
+	}
+	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
+
+	m, err := s.State.Machine("99")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set the password and make sure it sticks.
+	c.Assert(m.PasswordValid(goodPassword), jc.IsFalse)
+	err = m.SetPassword(goodPassword)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
+
+	// Check a newly-fetched entity has the same password.
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
+}
+
 func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 	e, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1604,7 +1628,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	_, err = s.machine.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "m#1" not found`)
 }
 
 func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {

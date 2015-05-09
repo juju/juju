@@ -816,14 +816,24 @@ func AddEnvUUIDToMachines(st *State) error {
 // AddEnvUUIDToOpenPorts prepends the environment UUID to the ID of
 // all openPorts docs and adds new "env-uuid" field.
 func AddEnvUUIDToOpenPorts(st *State) error {
-	setNewFields := func(b bson.M) error {
-		parts, err := extractPortsIdParts(b["_id"].(string))
+	setNewFields := func(d bson.D) (bson.D, error) {
+		id, err := readBsonDField(d, "_id")
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		b["machine-id"] = parts[machineIdPart]
-		b["network-name"] = parts[networkNamePart]
-		return nil
+		parts, err := extractPortsIdParts(id.(string))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		d, err = addBsonDField(d, "machine-id", parts[machineIdPart])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		d, err = addBsonDField(d, "network-name", parts[networkNamePart])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return d, nil
 	}
 	return addEnvUUIDToEntityCollection(st, openedPortsC, setNewFields)
 }
@@ -971,19 +981,30 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	ops := []txn.Op{}
-	var doc bson.M
+	var doc bson.D
 	for iter.Next(&doc) {
-		oldID := doc["_id"]
-		id := st.docID(fmt.Sprint(oldID))
+		oldID, err := readBsonDField(doc, "_id")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		newID := st.docID(fmt.Sprint(oldID))
 
-		// collection specific updates
+		// Collection specific updates.
 		for _, update := range updates {
-			if err := update(doc); err != nil {
+			var err error
+			doc, err = update(doc)
+			if err != nil {
 				return errors.Trace(err)
 			}
 		}
-		doc["_id"] = id
-		doc["env-uuid"] = uuid
+
+		doc, err = addBsonDField(doc, "env-uuid", uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Note: there's no need to update _id on the document. Id
+		// from the txn.Op takes precedence.
 
 		ops = append(ops,
 			[]txn.Op{{
@@ -993,11 +1014,11 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 				Remove: true,
 			}, {
 				C:      collName,
-				Id:     id,
+				Id:     newID,
 				Assert: txn.DocMissing,
 				Insert: doc,
 			}}...)
-		doc = nil // Force creation of new map for the next iteration
+		doc = nil // Force creation of new doc for the next iteration
 	}
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
@@ -1005,14 +1026,42 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	return st.runRawTransaction(ops)
 }
 
-type updateFunc func(bson.M) error
+// readBsonDField returns the value of a given field in a bson.D.
+func readBsonDField(d bson.D, name string) (interface{}, error) {
+	for i := range d {
+		field := &d[i]
+		if field.Name == name {
+			return field.Value, nil
+		}
+	}
+	return nil, errors.NotFoundf("field %q", name)
+}
+
+// addBsonDField adds a new field to the end of a bson.D, returning
+// the updated bson.D.
+func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
+	for i := range d {
+		if d[i].Name == name {
+			return nil, errors.AlreadyExistsf("field %q", name)
+		}
+	}
+	return append(d, bson.DocElem{
+		Name:  name,
+		Value: value,
+	}), nil
+}
+
+type updateFunc func(bson.D) (bson.D, error)
 
 // setOldID returns an updateFunc which populates the doc's original ID
 // in the named field.
 func setOldID(name string) updateFunc {
-	return func(b bson.M) error {
-		b[name] = b["_id"]
-		return nil
+	return func(d bson.D) (bson.D, error) {
+		oldID, err := readBsonDField(d, "_id")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return addBsonDField(d, name, oldID)
 	}
 }
 
@@ -1145,6 +1194,67 @@ func FixSequenceFields(st *State) error {
 	if err := iter.Err(); err != nil {
 		return err
 	}
+	return st.runRawTransaction(ops)
+}
+
+// MoveServiceUnitSeqToSequence moves information from unitSeq value
+// in the services documents and puts it into a new document in the
+// sequence collection.
+// The move happens in 3 stages:
+// Insert: We insert the new sequence documents based on the values
+// in the service collection. Any existing documents with the id we ignore
+// Update: We update all the sequence documents with the correct UnitSeq.
+// this phase overwrites any existing sequence documents that existed and
+// were ignored during the install phase
+// Unset: The last phase is to remove the unitseq from the service collection.
+func MoveServiceUnitSeqToSequence(st *State) error {
+	unitSeqDocs := []struct {
+		Name    string `bson:"name"`
+		UnitSeq int    `bson:"unitseq"`
+	}{}
+	servicesCollection, closer := st.getCollection(servicesC)
+	defer closer()
+
+	err := servicesCollection.Find(nil).All(&unitSeqDocs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	insertOps := make([]txn.Op, len(unitSeqDocs))
+	updateOps := make([]txn.Op, len(unitSeqDocs))
+	unsetOps := make([]txn.Op, len(unitSeqDocs))
+	for i, svc := range unitSeqDocs {
+		tag := names.NewServiceTag(svc.Name)
+		insertOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Insert: sequenceDoc{
+				Name:    tag.String(),
+				EnvUUID: st.EnvironUUID(),
+				Counter: svc.UnitSeq,
+			},
+		}
+		updateOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Update: bson.M{
+				"$set": bson.M{
+					"name":     tag.String(),
+					"env-uuid": st.EnvironUUID(),
+					"counter":  svc.UnitSeq,
+				},
+			},
+		}
+		unsetOps[i] = txn.Op{
+			C:  servicesC,
+			Id: st.docID(svc.Name),
+			Update: bson.M{
+				"$unset": bson.M{
+					"unitseq": 0},
+			},
+		}
+	}
+	ops := append(insertOps, updateOps...)
+	ops = append(ops, unsetOps...)
 	return st.runRawTransaction(ops)
 }
 

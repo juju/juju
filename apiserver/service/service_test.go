@@ -4,9 +4,18 @@
 package service_test
 
 import (
+	"fmt"
+	"io"
+	"sync"
+
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon.v1"
+	"gopkg.in/mgo.v2"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -15,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -180,24 +190,9 @@ func setupStoragePool(c *gc.C, st *state.State) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	id := charm.MustParseReference(url)
-	promulgated := false
-	if id.User == "" {
-		id.User = "who"
-		promulgated = true
-	}
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	id = s.Srv.UploadCharm(c, ch, id, promulgated)
-	curl := (*charm.URL)(id)
-	err := s.APIState.Client().AddCharmWithAuthorization(curl, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl, ch
-}
-
 func (s *serviceSuite) TestClientServiceDeployWithStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
-	curl, ch := s.uploadCharm(c, "utopic/storage-block-10", "storage-block")
+	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
 			Count: 1,
@@ -230,12 +225,17 @@ func (s *serviceSuite) TestClientServiceDeployWithStorage(c *gc.C) {
 			Size:  1024,
 			Pool:  "loop-pool",
 		},
+		"allecto": {
+			Count: 0,
+			Size:  1024,
+			Pool:  "loop-pool",
+		},
 	})
 }
 
 func (s *serviceSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 	setupStoragePool(c, s.State)
-	curl, _ := s.uploadCharm(c, "utopic/storage-block-0", "storage-block")
+	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "foo",
@@ -266,7 +266,7 @@ func (s *serviceSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C
 	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, _ := s.uploadCharm(c, "utopic/storage-block-0", "storage-block")
+	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "host-loop-pool",
@@ -294,7 +294,7 @@ func (s *serviceSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C
 
 func (s *serviceSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
-	curl, ch := s.uploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
+	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName: "service",
@@ -321,6 +321,177 @@ func (s *serviceSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) 
 	})
 }
 
+// TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
+// package in order to use the fake charm store testing infrastructure. They are legacy tests
+// written to use the api client instead of the apiserver logic. They need to be rewritten and
+// feature tests added.
+
+func (s *serviceSuite) TestAddCharm(c *gc.C) {
+	var blobs blobs
+	s.PatchValue(service.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
+		return &recordingStorage{Storage: storage, blobs: &blobs}
+	})
+
+	client := s.APIState.Client()
+	// First test the sanity checks.
+	err := client.AddCharm(&charm.URL{Name: "nonsense"})
+	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":nonsense-0"`)
+	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
+	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
+	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
+	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
+
+	// Add a charm, without uploading it to storage, to
+	// check that AddCharm does not try to do it.
+	charmDir := testcharms.Repo.CharmDir("dummy")
+	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
+	curl := charm.MustParseURL("cs:quantal/" + ident)
+	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// AddCharm should see the charm in state and not upload it.
+	err = client.AddCharm(sch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(blobs.m, gc.HasLen, 0)
+
+	// Now try adding another charm completely.
+	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err = client.AddCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify it's in state and it got uploaded.
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	sch, err = s.State.Charm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
+}
+
+func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
+	// Upload a new charm to the charm store.
+	curl, _ := s.UploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
+
+	// Change permissions on the new charm such that only bob
+	// can read from it.
+	s.DischargeUser = "restricted"
+	err := s.Srv.NewClient().Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to add a charm to the environment without authorization.
+	s.DischargeUser = ""
+	err = s.APIState.Client().AddCharm(curl)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied`)
+
+	tryAs := func(user string) error {
+		client := csclient.New(csclient.Params{
+			URL: s.Srv.URL(),
+		})
+		s.DischargeUser = user
+		var m *macaroon.Macaroon
+		err = client.Get("/delegatable-macaroon", &m)
+		c.Assert(err, gc.IsNil)
+
+		return service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	}
+	// Try again with authorization for the wrong user.
+	err = tryAs("joe")
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+
+	// Try again with the correct authorization this time.
+	err = tryAs("bob")
+	c.Assert(err, gc.IsNil)
+
+	// Verify that it has actually been uploaded.
+	_, err = s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
+	var putBarrier sync.WaitGroup
+	var blobs blobs
+	s.PatchValue(service.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
+		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
+	})
+
+	client := s.APIState.Client()
+	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
+
+	// Try adding the same charm concurrently from multiple goroutines
+	// to test no "duplicate key errors" are reported (see lp bug
+	// #1067979) and also at the end only one charm document is
+	// created.
+
+	var wg sync.WaitGroup
+	// We don't add them 1-by-1 because that would allow each goroutine to
+	// finish separately without actually synchronizing between them
+	putBarrier.Add(10)
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
+			sch, err := s.State.Charm(curl)
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+		}(i)
+	}
+	wg.Wait()
+
+	blobs.Lock()
+
+	c.Assert(blobs.m, gc.HasLen, 10)
+
+	// Verify there is only a single uploaded charm remains and it
+	// contains the correct data.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	storagePath := sch.StoragePath()
+	c.Assert(blobs.m[storagePath], jc.IsTrue)
+	for path, exists := range blobs.m {
+		if path != storagePath {
+			c.Assert(exists, jc.IsFalse)
+		}
+	}
+
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
+}
+
+func (s *serviceSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
+	reader, _, err := storage.Get(storagePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+	client := s.APIState.Client()
+	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
+
+	// Add a placeholder with the same charm URL.
+	err := s.State.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Now try to add the charm, which will convert the placeholder to
+	// a pending charm.
+	err = client.AddCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the document's flags were reset as expected.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), jc.DeepEquals, curl)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
 type mockStorageProvider struct {
 	storage.Provider
 	kind storage.StorageKind
@@ -335,5 +506,60 @@ func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
 }
 
 func (m *mockStorageProvider) ValidateConfig(*storage.Config) error {
+	return nil
+}
+
+type blobs struct {
+	sync.Mutex
+	m map[string]bool // maps path to added (true), or deleted (false)
+}
+
+// Add adds a path to the list of known paths.
+func (b *blobs) Add(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = true
+}
+
+// Remove marks a path as deleted, even if it was not previously Added.
+func (b *blobs) Remove(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = false
+}
+
+func (b *blobs) check() {
+	if b.m == nil {
+		b.m = make(map[string]bool)
+	}
+}
+
+type recordingStorage struct {
+	statestorage.Storage
+	putBarrier *sync.WaitGroup
+	blobs      *blobs
+}
+
+func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
+	if s.putBarrier != nil {
+		// This goroutine has gotten to Put() so mark it Done() and
+		// wait for the other goroutines to get to this point.
+		s.putBarrier.Done()
+		s.putBarrier.Wait()
+	}
+	if err := s.Storage.Put(path, r, size); err != nil {
+		return errors.Trace(err)
+	}
+	s.blobs.Add(path)
+	return nil
+}
+
+func (s *recordingStorage) Remove(path string) error {
+	if err := s.Storage.Remove(path); err != nil {
+		return errors.Trace(err)
+	}
+	s.blobs.Remove(path)
 	return nil
 }
