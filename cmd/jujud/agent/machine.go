@@ -204,11 +204,9 @@ func (a *machineAgentCmd) Init(args []string) error {
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
 
-	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
-
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   filename,
+		Filename:   agent.LogFilename(agentConfig),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}

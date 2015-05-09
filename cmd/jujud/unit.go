@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -46,6 +45,13 @@ type UnitAgent struct {
 	ctx          *cmd.Context
 }
 
+// NewUnitAgent creates a new UnitAgent value properly initialized.
+func NewUnitAgent() *UnitAgent {
+	return &UnitAgent{
+		AgentConf: agentcmd.NewAgentConf(""),
+	}
+}
+
 // Info returns usage information for the command.
 func (a *UnitAgent) Info() *cmd.Info {
 	return &cmd.Info{
@@ -74,12 +80,14 @@ func (a *UnitAgent) Init(args []string) error {
 	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 
 	if !a.logToStdErr {
+		if err := a.ReadConfig(a.Tag().String()); err != nil {
+			return err
+		}
 		agentConfig := a.CurrentConfig()
-		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
 		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
 		a.ctx.Stderr = &lumberjack.Logger{
-			Filename:   filename,
+			Filename:   agent.LogFilename(agentConfig),
 			MaxSize:    300, // megabytes
 			MaxBackups: 2,
 		}

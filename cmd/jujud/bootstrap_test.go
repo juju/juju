@@ -179,7 +179,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	err = machineConf.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd = &BootstrapCommand{}
+	cmd = NewBootstrapCommand()
 
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err

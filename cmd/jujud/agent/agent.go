@@ -36,9 +36,31 @@ var (
 	}
 )
 
-// AgentConf handles command-line flags shared by all agents.
-type AgentConf struct {
-	DataDir string
+type AgentConf interface {
+	// AddFlags injects common agent flags into f.
+	AddFlags(f *gnuflag.FlagSet)
+	CheckArgs(args []string) error
+	ReadConfig(tag string) error
+	ChangeConfig(change AgentConfigMutator) error
+	CurrentConfig() agent.Config
+
+	// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
+	SetAPIHostPorts(servers [][]network.HostPort) error
+
+	// SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
+	SetStateServingInfo(info params.StateServingInfo) error
+
+	DataDir() string
+}
+
+// NewAgentConf returns a new value that satisfies AgentConf
+func NewAgentConf(dataDir string) AgentConf {
+	return &agentConf{dataDir: dataDir}
+}
+
+// agentConf handles command-line flags shared by all agents.
+type agentConf struct {
+	dataDir string
 	mu      sync.Mutex
 	_config agent.ConfigSetterWriter
 }
@@ -46,29 +68,33 @@ type AgentConf struct {
 type AgentConfigMutator func(agent.ConfigSetter) error
 
 // AddFlags injects common agent flags into f.
-func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
+func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 	// TODO(dimitern) 2014-02-19 bug 1282025
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.DataDir, "data-dir", util.DataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
 }
 
-func (c *AgentConf) CheckArgs(args []string) error {
-	if c.DataDir == "" {
+func (c *agentConf) CheckArgs(args []string) error {
+	if c.dataDir == "" {
 		return util.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) ReadConfig(tag string) error {
+func (c *agentConf) DataDir() string {
+	return c.dataDir
+}
+
+func (c *agentConf) ReadConfig(tag string) error {
 	t, err := names.ParseTag(tag)
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conf, err := agent.ReadConfig(agent.ConfigPath(c.DataDir, t))
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
 		return err
 	}
@@ -76,7 +102,7 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	return nil
 }
 
-func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
+func (ch *agentConf) ChangeConfig(change AgentConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	if err := change(ch._config); err != nil {
@@ -88,14 +114,14 @@ func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
 	return nil
 }
 
-func (ch *AgentConf) CurrentConfig() agent.Config {
+func (ch *agentConf) CurrentConfig() agent.Config {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	return ch._config.Clone()
 }
 
 // SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
-func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
+func (a *agentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetAPIHostPorts(servers)
 		return nil
@@ -103,7 +129,7 @@ func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 }
 
 // SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
-func (a *AgentConf) SetStateServingInfo(info params.StateServingInfo) error {
+func (a *agentConf) SetStateServingInfo(info params.StateServingInfo) error {
 	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetStateServingInfo(info)
 		return nil
