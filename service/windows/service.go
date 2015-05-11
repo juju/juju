@@ -79,23 +79,23 @@ type ServiceManagerInterface interface {
 	Exists(name string, conf common.Conf) (bool, error)
 }
 
-func newService(name string, conf common.Conf) (*Service, error) {
-	m, err := newServiceManager()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func newService(name string, conf common.Conf, manager ServiceManagerInterface) *Service {
 	return &Service{
 		Service: common.Service{
 			Name: name,
 			Conf: conf,
 		},
-		manager: m,
-	}, nil
+		manager: manager,
+	}
 }
 
 // NewService returns a new Service type
 func NewService(name string, conf common.Conf) (*Service, error) {
-	return newService(name, conf)
+	m, err := newServiceManager()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newService(name, conf, m), nil
 }
 
 // IsRunning returns whether or not windows is the local init system.
@@ -153,7 +153,7 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 	if installed {
-		return errors.New(fmt.Sprintf("Service %s already installed", s.Service.Name))
+		return errors.Errorf("Service %s already installed", s.Service.Name)
 	}
 
 	logger.Infof("Installing Service %v", s.Name)
@@ -161,7 +161,7 @@ func (s *Service) Install() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return s.Start()
+	return nil
 }
 
 // Remove deletes the service.
@@ -195,10 +195,8 @@ func (s *Service) Conf() common.Conf {
 func (s *Service) Running() (bool, error) {
 	if ok, err := s.Installed(); err != nil {
 		return false, errors.Trace(err)
-	} else {
-		if !ok {
-			return false, nil
-		}
+	} else if !ok {
+		return false, nil
 	}
 	return s.manager.Running(s.Name())
 }

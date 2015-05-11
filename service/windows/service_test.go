@@ -61,7 +61,7 @@ func (s *serviceSuite) TestInstall(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsTrue)
 
-	s.stub.CheckCallNames(c, "listServices", "Create", "listServices", "Running", "Start")
+	s.stub.CheckCallNames(c, "listServices", "Create")
 }
 
 func (s *serviceSuite) TestInstallAlreadyExists(c *gc.C) {
@@ -75,7 +75,7 @@ func (s *serviceSuite) TestInstallAlreadyExists(c *gc.C) {
 	err = s.mgr.Install()
 	c.Assert(err.Error(), gc.Equals, s.svcExistsErr.Error())
 
-	s.stub.CheckCallNames(c, "listServices", "Create", "listServices", "Running", "Start", "listServices")
+	s.stub.CheckCallNames(c, "listServices", "Create", "listServices")
 }
 
 func (s *serviceSuite) TestStop(c *gc.C) {
@@ -83,6 +83,13 @@ func (s *serviceSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	running, err := s.mgr.Running()
+	c.Assert(err, gc.IsNil)
+	c.Assert(running, jc.IsFalse)
+
+	err = s.mgr.Start()
+	c.Assert(err, gc.IsNil)
+
+	running, err = s.mgr.Running()
 	c.Assert(err, gc.IsNil)
 	c.Assert(running, jc.IsTrue)
 
@@ -99,6 +106,13 @@ func (s *serviceSuite) TestStopStart(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	running, err := s.mgr.Running()
+	c.Assert(err, gc.IsNil)
+	c.Assert(running, jc.IsFalse)
+
+	err = s.mgr.Start()
+	c.Assert(err, gc.IsNil)
+
+	running, err = s.mgr.Running()
 	c.Assert(err, gc.IsNil)
 	c.Assert(running, jc.IsTrue)
 
@@ -132,6 +146,27 @@ func (s *serviceSuite) TestRemove(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsFalse)
 
+	s.stub.CheckCallNames(c, "listServices", "Create", "listServices", "listServices", "Running", "Delete")
+}
+
+func (s *serviceSuite) TestRemoveRunningService(c *gc.C) {
+	err := s.mgr.Install()
+	c.Assert(err, gc.IsNil)
+
+	exists, err := s.stubMgr.Exists(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(exists, jc.IsTrue)
+
+	err = s.mgr.Start()
+	c.Assert(err, gc.IsNil)
+
+	err = s.mgr.Remove()
+	c.Assert(err, gc.IsNil)
+
+	exists, err = s.stubMgr.Exists(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(exists, jc.IsFalse)
+
 	s.stub.CheckCallNames(c, "listServices", "Create", "listServices", "Running", "Start", "listServices", "listServices", "Running", "Stop", "Delete")
 }
 
@@ -154,7 +189,7 @@ func (s *serviceSuite) TestInstalled(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsTrue)
 
-	s.stub.CheckCallNames(c, "listServices", "Create", "listServices", "Running", "Start", "listServices")
+	s.stub.CheckCallNames(c, "listServices", "Create", "listServices")
 }
 
 func (s *serviceSuite) TestInstalledListError(c *gc.C) {
