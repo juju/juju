@@ -81,8 +81,14 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 				Name: "volume-123",
 			})
 			return &cinder.Volume{
-				ID:   mockVolId,
-				Size: providedSize / 1024,
+				ID: mockVolId,
+			}, nil
+		},
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Size:   providedSize / 1024,
+				Status: "available",
 			}, nil
 		},
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
@@ -306,6 +312,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 }
 
 type mockAdapter struct {
+	getVolume             func(string) (*cinder.Volume, error)
 	getVolumesSimple      func() ([]cinder.Volume, error)
 	deleteVolume          func(string) error
 	createVolume          func(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
@@ -313,6 +320,16 @@ type mockAdapter struct {
 	volumeStatusNotifier  func(string, string, int, time.Duration) <-chan error
 	detachVolume          func(string, string) error
 	listVolumeAttachments func(string) ([]nova.VolumeAttachment, error)
+}
+
+func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
+	if ma.getVolume != nil {
+		return ma.getVolume(volumeId)
+	}
+	return &cinder.Volume{
+		ID:     volumeId,
+		Status: "available",
+	}, nil
 }
 
 func (ma *mockAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
@@ -341,15 +358,6 @@ func (ma *mockAdapter) AttachVolume(serverId, volumeId, mountPoint string) (*nov
 		return ma.attachVolume(serverId, volumeId, mountPoint)
 	}
 	return nil, errors.NotImplementedf("AttachVolume")
-}
-
-func (ma *mockAdapter) VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error {
-	if ma.volumeStatusNotifier != nil {
-		return ma.volumeStatusNotifier(volId, status, numAttempts, waitDur)
-	}
-	emptyChan := make(chan error)
-	close(emptyChan)
-	return emptyChan
 }
 
 func (ma *mockAdapter) DetachVolume(serverId, attachmentId string) error {

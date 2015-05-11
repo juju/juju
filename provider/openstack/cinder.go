@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/nova"
 
@@ -143,11 +144,19 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 	if err != nil {
 		return storage.Volume{}, errors.Trace(err)
 	}
-	// TODO(axw) 2015-05-01 #1450740
-	//
-	// Cinder responds with a zero size initially; we should
-	// wait until the volume has been allocated so we can
-	// report its actual size.
+
+	// The response may (will?) come back before the volume transitions to,
+	// "creating", in which case it will not have a size or status. Wait for
+	// the volume to transition, so we can record its actual size.
+	cinderVolume, err = s.waitVolume(cinderVolume.ID, func(v *cinder.Volume) (bool, error) {
+		return v.Status != "", nil
+	})
+	if err != nil {
+		if err := s.DestroyVolumes([]string{cinderVolume.ID}); err != nil {
+			logger.Warningf("destroying volume %s: %s", cinderVolume.ID, err)
+		}
+		return storage.Volume{}, errors.Errorf("waiting for volume to be provisioned: %s", err)
+	}
 	logger.Debugf("created volume: %+v", cinderVolume)
 	return cinderToJujuVolume(arg.Tag, cinderVolume), nil
 }
@@ -217,17 +226,11 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 	novaAttachment := findAttachment(arg.VolumeId, existingAttachments)
 	if novaAttachment == nil {
 		// A volume must be "available" before it can be attached.
-		const numAttempts = 10
-		const retryInterval = 5 * time.Second
-		if err := <-s.storageAdapter.VolumeStatusNotifier(
-			arg.VolumeId,
-			"available",
-			numAttempts,
-			retryInterval,
-		); err != nil {
-			return storage.VolumeAttachment{}, err
+		if _, err := s.waitVolume(arg.VolumeId, func(v *cinder.Volume) (bool, error) {
+			return v.Status == "available", nil
+		}); err != nil {
+			return storage.VolumeAttachment{}, errors.Annotate(err, "waiting for volume to become available")
 		}
-
 		novaAttachment, err = s.storageAdapter.AttachVolume(
 			string(arg.InstanceId),
 			arg.VolumeId,
@@ -242,6 +245,30 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		Volume:     arg.Volume,
 		DeviceName: novaAttachment.Device[len("/dev/"):],
 	}, nil
+}
+
+func (s *cinderVolumeSource) waitVolume(
+	volumeId string,
+	pred func(*cinder.Volume) (bool, error),
+) (*cinder.Volume, error) {
+	attempt := utils.AttemptStrategy{
+		Total: 1 * time.Minute,
+		Delay: 5 * time.Second,
+	}
+	for a := attempt.Start(); a.Next(); {
+		volume, err := s.storageAdapter.GetVolume(volumeId)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting volume")
+		}
+		ok, err := pred(volume)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ok {
+			return volume, nil
+		}
+	}
+	return nil, errors.New("timed out")
 }
 
 // DetachVolumes implements storage.VolumeSource.
@@ -296,11 +323,11 @@ func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.Vol
 }
 
 type openstackStorage interface {
+	GetVolume(volumeId string) (*cinder.Volume, error)
 	GetVolumesSimple() ([]cinder.Volume, error)
 	DeleteVolume(volumeId string) error
 	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
-	VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error
 	DetachVolume(serverId, attachmentId string) error
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 }
@@ -356,4 +383,13 @@ func (ga *openstackStorageAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
 		return nil, err
 	}
 	return resp.Volumes, nil
+}
+
+// GetVolume is part of the openstackStorage interface.
+func (ga *openstackStorageAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
+	resp, err := ga.cinderClient.GetVolume(volumeId)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Volume, nil
 }
