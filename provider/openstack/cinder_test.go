@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/nova"
@@ -74,6 +75,9 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 		providedSize  = 3 * 1024
 	)
 
+	s.PatchValue(openstack.CinderAttempt, utils.AttemptStrategy{Min: 3})
+
+	var getVolumeCalls int
 	mockAdapter := &mockAdapter{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
@@ -85,10 +89,15 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 			}, nil
 		},
 		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			var status string
+			getVolumeCalls++
+			if getVolumeCalls > 1 {
+				status = "available"
+			}
 			return &cinder.Volume{
 				ID:     volumeId,
 				Size:   providedSize / 1024,
-				Status: "available",
+				Status: status,
 			}, nil
 		},
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
@@ -128,6 +137,11 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 		Machine:    mockMachineTag,
 		DeviceName: "sda",
 	}})
+
+	// should have been 3 calls to GetVolume: twice initially
+	// to wait until the volume became available, and then
+	// again to check if it was available before attaching.
+	c.Check(getVolumeCalls, gc.Equals, 3)
 }
 
 func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {

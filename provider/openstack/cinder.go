@@ -31,6 +31,11 @@ type cinderProvider struct {
 
 var _ storage.Provider = (*cinderProvider)(nil)
 
+var cinderAttempt = utils.AttemptStrategy{
+	Total: 1 * time.Minute,
+	Delay: 5 * time.Second,
+}
+
 // VolumeSource implements storage.Provider.
 func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	if err := p.ValidateConfig(providerConfig); err != nil {
@@ -251,11 +256,7 @@ func (s *cinderVolumeSource) waitVolume(
 	volumeId string,
 	pred func(*cinder.Volume) (bool, error),
 ) (*cinder.Volume, error) {
-	attempt := utils.AttemptStrategy{
-		Total: 1 * time.Minute,
-		Delay: 5 * time.Second,
-	}
-	for a := attempt.Start(); a.Next(); {
+	for a := cinderAttempt.Start(); a.Next(); {
 		volume, err := s.storageAdapter.GetVolume(volumeId)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting volume")
