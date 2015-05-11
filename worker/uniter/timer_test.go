@@ -13,19 +13,18 @@ import (
 )
 
 type TimerSuite struct{}
-type signal func(time.Time, time.Time, time.Duration) <-chan time.Time
 
 var _ = gc.Suite(&TimerSuite{})
 
 func (s *TimerSuite) TestCollectMetricsTimer(c *gc.C) {
-	s.testTimer(c, *uniter.ActiveMetricsTimer)
+	s.testTimer(c, uniter.ActiveMetricsSignal)
 }
 
 func (s *TimerSuite) TestUpdateStatusTimer(c *gc.C) {
-	s.testTimer(c, *uniter.UpdateStatusTimer)
+	s.testTimer(c, uniter.UpdateStatusSignal)
 }
 
-func (*TimerSuite) testTimer(c *gc.C, s signal) {
+func (*TimerSuite) testTimer(c *gc.C, s uniter.TimedSignal) {
 	now := time.Now()
 	defaultInterval := coretesting.ShortWait / 5
 	testCases := []struct {

@@ -85,7 +85,11 @@ type Uniter struct {
 
 	// collectMetricsAt defines a function that will be used to generate signals
 	// for the collect-metrics hook.
-	collectMetricsAt CollectMetricsSignal
+	collectMetricsAt TimedSignal
+
+	// updateStatusAt defines a function that will be used to generate signals for
+	// the update-status hook
+	updateStatusAt TimedSignal
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -104,6 +108,7 @@ func NewUniter(
 		hookLock:          hookLock,
 		leadershipManager: leadershipManager,
 		collectMetricsAt:  inactiveMetricsTimer,
+		updateStatusAt:    updateStatusSignal,
 	}
 	go func() {
 		defer u.tomb.Done()

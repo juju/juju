@@ -12,13 +12,8 @@ const (
 	statusPollInterval = 5 * time.Minute
 )
 
-// updateStatusSignal will fire every statusPollInterval
-func (u *Uniter) updateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
-	return updateStatusTimer(now, lastSignal, interval)
-}
-
-// updateStatusTimer is a separate function to ease testing
-var updateStatusTimer = func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+// updateStatusSignal returns a time channel that fires after a given interval.
+func updateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
 	waitDuration := interval - now.Sub(lastSignal)
 	return time.After(waitDuration)
 }

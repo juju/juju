@@ -14,7 +14,6 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 
 var (
 	ActiveMetricsTimer  = &activeMetricsTimer
-	UpdateStatusTimer   = &updateStatusTimer
 	IdleWaitTime        = &idleWaitTime
 	LeadershipGuarantee = &leadershipGuarantee
 )
@@ -44,4 +43,12 @@ func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
 		c: make(chan time.Time, 1),
 	}
+}
+
+func UpdateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	return updateStatusSignal(now, lastSignal, interval)
+}
+
+func ActiveMetricsSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	return activeMetricsTimer(now, lastSignal, interval)
 }
