@@ -10,6 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -87,8 +88,8 @@ func (i *IPAddress) MachineId() string {
 // InstanceId returns the provider ID of the instance the IP address is
 // associated with. For a container this will be the ID of the host. If
 // the address is not associated with an instance this returns "".
-func (i *IPAddress) InstanceId() string {
-	return i.doc.MachineId
+func (i *IPAddress) InstanceId() instance.Id {
+	return instance.Id(i.doc.InstanceId)
 }
 
 // InterfaceId returns the ID of the network interface the IP address is
@@ -240,9 +241,21 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 // AllocateTo sets the machine ID and interface ID of the IP address.
 // It will fail if the state is not AddressStateUnknown. On success,
 // the address state will also change to AddressStateAllocated.
-func (i *IPAddress) AllocateTo(machineId, instanceId, interfaceId string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, instance %q, interface %q", i, machineId, instanceId, interfaceId)
+func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
+	var instId instance.Id
+	machine, err := i.st.Machine(machineId)
+	if errors.IsNotFound(err) {
+		instId = instance.UnknownId
+	} else if err != nil {
+		return errors.Annotatef(err, "cannot get allocated machine %q", machineId)
+	} else {
+		instId, err = machine.InstanceId()
+		if err != nil {
+			return errors.Annotatef(err, "cannot get machine %q instance ID", machineId)
+		}
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := i.Refresh(); errors.IsNotFound(err) {
@@ -262,7 +275,7 @@ func (i *IPAddress) AllocateTo(machineId, instanceId, interfaceId string) (err e
 			Update: bson.D{{"$set", bson.D{
 				{"machineid", machineId},
 				{"interfaceid", interfaceId},
-				{"instanceid", instanceId},
+				{"instanceid", instId},
 				{"state", string(AddressStateAllocated)},
 			}}},
 		}}, nil
