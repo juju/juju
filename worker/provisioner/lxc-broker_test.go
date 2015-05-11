@@ -105,7 +105,8 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{c, s}, s.agentConfig, managerConfig, nil)
+	api := NewFakeAPI(c)
+	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -139,9 +140,42 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []stor
 	return result.Instance
 }
 
+func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) {
+	instanceConfig := s.instanceConfig(c, machineId)
+	cons := constraints.Value{}
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	err := s.broker.MaintainInstance(environs.StartInstanceParams{
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		Volumes:        volumes,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, nil)
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
+	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.maintainInstance(c, machineId, nil)
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
@@ -739,13 +773,31 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// When ifaceInfo is not empty it shouldn't do anything and both
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
-	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &fakeAPI{c, nil}, ifaceInfo, false)
+	// First call as if we are configuring the container for the first time
+	api := NewFakeAPI(c)
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
+	c.Assert(api.calls, gc.DeepEquals, []string{})
+
+	// Next call as if the container has already been configured.
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.IsNil)
+	c.Assert(api.calls, gc.DeepEquals, []string{})
+
+	// Call as if the container already has a network configuration, but doesn't.
+	api = NewFakeAPI(c)
+	ifaceInfo = []network.InterfaceInfo{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
+	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 
 	// When it's not empty, result should be populated as expected.
-	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &fakeAPI{c, nil}, ifaceInfo, false)
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -757,6 +809,22 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}})
+	c.Assert(api.calls, gc.DeepEquals, []string{"PrepareContainerInterfaceInfo"})
+
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     provisioner.MACAddressTemplate,
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+	}})
+	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 }
 
 type lxcProvisionerSuite struct {
@@ -921,11 +989,21 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 }
 
 type fakeAPI struct {
-	c     *gc.C
-	suite *lxcBrokerSuite
+	c            *gc.C
+	suite        *lxcBrokerSuite
+	calls        []string
+	machineReady bool
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
+
+func NewFakeAPI(c *gc.C) (f fakeAPI) {
+	f.c = c
+	f.suite = nil
+	f.calls = []string{}
+	f.machineReady = false
+	return
+}
 
 func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	p := params.ContainerConfig{
@@ -940,9 +1018,30 @@ func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return p, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag, provisionContainer bool) ([]network.InterfaceInfo, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	if f.c != nil {
 		f.c.Assert(tag.String(), gc.Equals, "machine-42")
+	}
+	f.calls = append(f.calls, "PrepareContainerInterfaceInfo")
+	f.machineReady = true
+	return []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		CIDR:           "0.1.2.0/24",
+		InterfaceName:  "dummy0",
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+	}}, nil
+}
+
+func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+	if f.c != nil {
+		f.c.Assert(tag.String(), gc.Equals, "machine-42")
+	}
+	f.calls = append(f.calls, "GetContainerInterfaceInfo")
+	if f.machineReady == false {
+		return []network.InterfaceInfo{},
+			errors.NotProvisionedf("machine-42 has no network provisioning info")
 	}
 	return []network.InterfaceInfo{{
 		DeviceIndex:    0,
