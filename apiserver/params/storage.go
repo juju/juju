@@ -484,3 +484,33 @@ type VolumeItem struct {
 type VolumeItemsResult struct {
 	Results []VolumeItem `json:"results,omitempty"`
 }
+
+// StorageConstraints contains constraints for storage instance.
+type StorageConstraints struct {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instance.
+	Pool string `bson:"pool,omitempty"`
+
+	// Size is the required size of the storage instance, in MiB.
+	Size *uint64 `bson:"size,omitempty"`
+
+	// Count is the required number of storage instances.
+	Count *uint64 `bson:"count,omitempty"`
+}
+
+// StorageAddParams holds storage details to add to a unit dynamically.
+type StorageAddParams struct {
+	// UnitTag  is unit name.
+	UnitTag string `json:"unit"`
+
+	// StorageName is the name of the storage as specified in the charm.
+	StorageName string `bson:"name"`
+
+	// Constraints are specified storage constraints.
+	Constraints StorageConstraints `json:"storage"`
+}
+
+// StoragesAddParams holds storage details to add to units dynamically.
+type StoragesAddParams struct {
+	Storages []StorageAddParams `json:"storages"`
+}

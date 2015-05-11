@@ -909,9 +909,35 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 	return "", ErrNoDefaultStoragePool
 }
 
-// AddStorage adds StorageConstraints to
-// given entity dynamically, one storage directive at a time.
+// AddStorage adds storage instances to given unit as specified.
+// Missing storage constraints are populated
+// based on environment defaults. Storage store name is used to retrieve
+// existing storage instances for this store.
+// Combination of existing storage instances and
+// anticipated additional storage instances is validated against storage
+// store as specified in the charm.
 func (st *State) AddStorageForUnit(
+	tag names.UnitTag, name string, cons StorageConstraints,
+) error {
+	u, err := st.Unit(tag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	s, err := u.Service()
+	if err != nil {
+		return errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+	}
+	ch, _, err := s.Charm()
+	if err != nil {
+		return errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+	}
+
+	return st.addStorageForUnit(ch, u, name, cons)
+}
+
+// addStorage adds storage instances to given unit as specified.
+func (st *State) addStorageForUnit(
 	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
 ) error {
@@ -949,7 +975,7 @@ func (st *State) AddStorageForUnit(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := st.constructAddUnitStorageOps(ch.Meta(), u, name, ch.URL(), completeCons)
+		ops, err := st.constructAddUnitStorageOps(ch, u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -985,14 +1011,14 @@ func (st *State) validateUnitStorage(
 }
 
 func (st *State) constructAddUnitStorageOps(
-	charmMeta *charm.Meta, u *Unit, name string, curl *charm.URL, cons StorageConstraints,
+	ch *Charm, u *Unit, name string, cons StorageConstraints,
 ) ([]txn.Op, error) {
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
-		charmMeta,
-		curl,
+		ch.Meta(),
+		ch.URL(),
 		map[string]StorageConstraints{name: cons})
 	if err != nil {
 		return nil, errors.Trace(err)

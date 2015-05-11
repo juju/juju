@@ -55,6 +55,12 @@ type storageAccess interface {
 
 	// Volume is required for volume functionality.
 	Volume(tag names.VolumeTag) (state.Volume, error)
+
+	// AddStorageForUnit is required for storage add functionality.
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
+
+	// GetBlockForType is required to block operations.
+	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 }
 
 var getState = func(st *state.State) storageAccess {
