@@ -118,7 +118,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, machineID string, zone
 		s.DeviceChange = append(s.DeviceChange, &types.VirtualDeviceConfigSpec{
 			Operation: types.VirtualDeviceConfigSpecOperationAdd,
 			Device: &types.VirtualE1000{
-				types.VirtualEthernetCard{
+				VirtualEthernetCard: types.VirtualEthernetCard{
 					VirtualDevice: types.VirtualDevice{
 						Backing: &types.VirtualEthernetCardNetworkBackingInfo{
 							VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{

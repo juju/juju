@@ -316,7 +316,7 @@ func (c *client) ParseNetworkRange(netRange string) (net.IP, net.IP, error) {
 						if lastSegment > 254 {
 							lastSegment = 254
 						}
-						return net.ParseIP(rangeSplit[0]), net.ParseIP(fmt.Sprintf("%d.%d.%d.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment)), nil
+						return net.ParseIP(rangeSplit[0]), net.ParseIP(fmt.Sprintf("%s.%s.%s.%d", ipSplit[0], ipSplit[1], ipSplit[2], lastSegment)), nil
 					}
 				}
 			}
