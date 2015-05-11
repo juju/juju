@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiaddressupdater_test
@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -19,10 +18,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type APIAddressUpdaterSuite struct {
 	jujutesting.JujuConnSuite
