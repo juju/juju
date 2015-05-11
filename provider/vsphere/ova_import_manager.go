@@ -163,7 +163,7 @@ func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ova file from url: %s, status: %d", url, resp.StatusCode)
 	}
 
 	ovfFilePath, err := m.extractOva(basePath, resp.Body)
