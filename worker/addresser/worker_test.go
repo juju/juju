@@ -200,13 +200,14 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr.AllocateTo(machine.Id(), "really-really-fake")
+	err = addr.AllocateTo(machine.Id(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = addr.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Life(), gc.Equals, state.Dead)
