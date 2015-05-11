@@ -129,7 +129,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	} else {
 		logger.Debugf(
 			"address allocation feature enabled; using static IPs for containers",
-			environs.DefaultBridgeName,
 		)
 	}
 
