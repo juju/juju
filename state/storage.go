@@ -912,7 +912,7 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 // AddStorage adds StorageConstraints to
 // given entity dynamically, one storage directive at a time.
 func (st *State) AddStorageForUnit(
-	charmMeta *charm.Meta, u *Unit,
+	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
 ) error {
 	all, err := u.StorageConstraints()
@@ -933,7 +933,7 @@ func (st *State) AddStorageForUnit(
 	}
 	completeCons, err := storageConstraintsWithDefaults(
 		conf,
-		charmMeta.Storage[name],
+		ch.Meta().Storage[name],
 		name, cons,
 	)
 	if err != nil {
@@ -945,11 +945,11 @@ func (st *State) AddStorageForUnit(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		err = st.validateUnitStorage(charmMeta, u, name, completeCons)
+		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
+		ops, err := st.constructAddUnitStorageOps(ch.Meta(), u, name, ch.URL(), completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -985,13 +985,14 @@ func (st *State) validateUnitStorage(
 }
 
 func (st *State) constructAddUnitStorageOps(
-	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+	charmMeta *charm.Meta, u *Unit, name string, curl *charm.URL, cons StorageConstraints,
 ) ([]txn.Op, error) {
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
+		curl,
 		map[string]StorageConstraints{name: cons})
 	if err != nil {
 		return nil, errors.Trace(err)
