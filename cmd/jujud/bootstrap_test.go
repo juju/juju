@@ -66,7 +66,7 @@ type BootstrapSuite struct {
 	dataDir         string
 	logDir          string
 	mongoOplogSize  string
-	fakeEnsureMongo agenttesting.FakeEnsure
+	fakeEnsureMongo *agenttesting.FakeEnsureMongo
 	bootstrapName   string
 
 	toolsStorage storage.Storage
@@ -75,9 +75,6 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
-
 	storageDir := c.MkDir()
 	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	s.AddSuiteCleanup(func(*gc.C) {
@@ -108,7 +105,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
+	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, version.Current))

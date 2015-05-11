@@ -345,7 +345,9 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 
 // CurrentConfig returns the Config for the given session's replica set.  If
 // there is no current config, the error returned will be mgo.ErrNotFound.
-func CurrentConfig(session *mgo.Session) (*Config, error) {
+var CurrentConfig = currentConfig // To support patching out in tests.
+
+func currentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
 	monotonicSession := session.Clone()
 	defer monotonicSession.Close()
