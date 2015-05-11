@@ -919,15 +919,9 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 func (st *State) AddStorageForUnit(
 	tag names.UnitTag, name string, cons StorageConstraints,
 ) error {
-
-	entity, err := st.FindEntity(tag)
+	u, err := st.Unit(tag.Id())
 	if err != nil {
-		return errors.Annotatef(err, "getting entity with tag %q", tag)
-	}
-
-	u, ok := entity.(*Unit)
-	if !ok {
-		return errors.NotSupportedf("expected Unit but got %T", u)
+		return errors.Trace(err)
 	}
 
 	s, err := u.Service()

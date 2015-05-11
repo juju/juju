@@ -619,7 +619,7 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 			paramsToState(one.Constraints))
 		if err != nil {
 			result[i] = serverErr(
-				errors.Annotatef(err, "adding storage %v for  %v", one.StorageName, one.UnitTag))
+				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
 	return params.ErrorResults{Results: result}, nil

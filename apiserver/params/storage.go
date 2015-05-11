@@ -503,7 +503,7 @@ type StorageAddParams struct {
 	// UnitTag  is unit name.
 	UnitTag string `json:"unit"`
 
-	// StorageName is the name of storage store as specified in the charm.
+	// StorageName is the name of the storage as specified in the charm.
 	StorageName string `bson:"name"`
 
 	// Constraints are specified storage constraints.
