@@ -116,20 +116,21 @@ var (
 )
 
 // Variable to override in tests, default is true
-var ProductionMongoWriteConcern = true
+var EnableJournaling = true
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{}
-		if ProductionMongoWriteConcern {
-			safe.J = true
-			_, err := replicaset.CurrentConfig(session)
-			if err == nil {
-				// set mongo to write-majority (writes only returned after
-				// replicated to a majority of replica-set members).
-				safe.WMode = "majority"
-			}
+		safe := mgo.Safe{
+			// Wait for group commit if journaling is enabled,
+			// which is always true in production.
+			J: EnableJournaling,
+		}
+		_, err := replicaset.CurrentConfig(session)
+		if err == nil {
+			// set mongo to write-majority (writes only returned after
+			// replicated to a majority of replica-set members).
+			safe.WMode = "majority"
 		}
 		session.SetSafe(&safe)
 		return nil
@@ -1223,8 +1224,6 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 	}
 }
 
-var stateWorkerServingConfigErr = errors.New("state worker started with no state serving info")
-
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
 func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
@@ -1240,47 +1239,55 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	// Many of the steps here, such as adding the state server to the
-	// admin DB and initiating the replicaset, are once-only actions,
-	// required when upgrading from a pre-HA-capable
-	// environment. These calls won't do anything if the thing they
-	// need to set up has already been done.
-
-	if _, err := a.ensureMongoAdminUser(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := a.ensureMongoSharedSecret(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-	agentConfig = a.CurrentConfig() // ensureMongoSharedSecret may have updated the config
-
-	mongoInfo, ok := agentConfig.MongoInfo()
+	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
-		return errors.New("unable to retrieve mongo info to check replicaset")
+		return fmt.Errorf("state worker was started with no state serving info")
 	}
 
-	haveReplicaset, err := isReplicasetConfigured(mongoInfo)
-	if err != nil {
-		return errors.Annotate(err, "error while checking replicaset")
-	}
-
-	// If the replicaset is to be initialised the machine addresses
-	// need to be retrieved *before* MongoDB is restarted with the
-	// --replset option (in EnsureMongoServer). Once MongoDB is
-	// started with --replset it won't respond to queries until the
-	// replicaset is initiated.
-	var machineAddrs []network.Address
-	if !haveReplicaset {
-		logger.Infof("replicaset not yet configured")
-
-		machineAddrs, err = getMachineAddresses(agentConfig)
+	// When upgrading from a pre-HA-capable environment,
+	// we must add machine-0 to the admin database and
+	// initiate its replicaset.
+	//
+	// TODO(axw) remove this when we no longer need
+	// to upgrade from pre-HA-capable environments.
+	var shouldInitiateMongoServer bool
+	var addrs []network.Address
+	if isPreHAVersion(a.previousAgentVersion) {
+		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
+		if servingInfo.SharedSecret == "" {
+			servingInfo.SharedSecret, err = mongo.GenerateSharedSecret()
+			if err != nil {
+				return err
+			}
+			if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
+				config.SetStateServingInfo(servingInfo)
+				return nil
+			}); err != nil {
+				return err
+			}
+			agentConfig = a.CurrentConfig()
+		}
+		// Note: we set Direct=true in the mongo options because it's
+		// possible that we've previously upgraded the mongo server's
+		// configuration to form a replicaset, but failed to initiate it.
+		st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+		if err != nil {
+			return err
+		}
+		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(servingInfo)
+		if err := st.SetStateServingInfo(ssi); err != nil {
+			st.Close()
+			return fmt.Errorf("cannot set state serving info: %v", err)
+		}
+		st.Close()
+		addrs = m.Addresses()
+		shouldInitiateMongoServer = true
 	}
 
-	// EnsureMongoServer installs/upgrades the init config as necessary.
+	// ensureMongoServer installs/upgrades the init config as necessary.
 	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
 		return err
@@ -1288,30 +1295,45 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
-
-	// Create the replicaset it hasn't been set up yet.
-	if !haveReplicaset {
-		servingInfo, ok := agentConfig.StateServingInfo()
-		if !ok {
-			return stateWorkerServingConfigErr
-		}
-		if err := initiateReplicaSet(mongoInfo, servingInfo.StatePort, machineAddrs); err != nil {
-			return err
-		}
+	if !shouldInitiateMongoServer {
+		return nil
 	}
 
+	// Initiate the replicaset for upgraded environments.
+	//
+	// TODO(axw) remove this when we no longer need
+	// to upgrade from pre-HA-capable environments.
+	stateInfo, ok := agentConfig.MongoInfo()
+	if !ok {
+		return fmt.Errorf("state worker was started with no state serving info")
+	}
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	peerAddr := mongo.SelectPeerAddress(addrs)
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
+		// TODO(dfc) InitiateMongoParams should take a Tag
+		User:     stateInfo.Tag.String(),
+		Password: stateInfo.Password,
+	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
+		return err
+	}
 	return nil
 }
 
-// ensureMongoAdminUser ensures that the machine's mongo user is in
-// the admin DB.
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	mongoInfo, ok1 := agentConfig.MongoInfo()
+	stateInfo, ok1 := agentConfig.MongoInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
-		return false, stateWorkerServingConfigErr
+		return false, fmt.Errorf("no state serving info configuration")
 	}
-	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return false, err
 	}
@@ -1324,118 +1346,13 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
 		Port:      servingInfo.StatePort,
-		User:      mongoInfo.Tag.String(),
-		Password:  mongoInfo.Password,
+		User:      stateInfo.Tag.String(),
+		Password:  stateInfo.Password,
 	})
 }
 
-// ensureMongoSharedSecret generates a MongoDB shared secret if
-// required, updating the agent's config and state.
-func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
-	servingInfo, ok := agentConfig.StateServingInfo()
-	if !ok {
-		return stateWorkerServingConfigErr
-	}
-
-	if servingInfo.SharedSecret != "" {
-		return nil // Already done
-	}
-
-	logger.Infof("state serving info has no shared secret - generating")
-
-	var err error
-	servingInfo.SharedSecret, err = mongo.GenerateSharedSecret()
-	if err != nil {
-		return err
-	}
-	logger.Debugf("updating state serving info in agent config")
-	if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetStateServingInfo(servingInfo)
-		return nil
-	}); err != nil {
-		return err
-	}
-	agentConfig = a.CurrentConfig()
-
-	logger.Debugf("updating state serving info in state")
-
-	// Note: we set Direct=true in the mongo options because it's
-	// possible that we've previously upgraded the mongo server's
-	// configuration to form a replicaset, but failed to initiate it.
-	st, _, err := openState(agentConfig, mongo.DialOpts{Direct: true})
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-
-	ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(servingInfo)
-	if err := st.SetStateServingInfo(ssi); err != nil {
-		return errors.Errorf("cannot set state serving info: %v", err)
-	}
-
-	logger.Infof("shared secret updated in state serving info")
-	return nil
-}
-
-// isReplicasetConfigured returns true if the replicaset has been
-// successfully initiated.
-func isReplicasetConfigured(mongoInfo *mongo.MongoInfo) (bool, error) {
-	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
-	if err != nil {
-		return false, errors.Annotate(err, "cannot generate dial info to check replicaset")
-	}
-	dialInfo.Username = mongoInfo.Tag.String()
-	dialInfo.Password = mongoInfo.Password
-
-	session, err := mgo.DialWithInfo(dialInfo)
-	if err != nil {
-		return false, errors.Annotate(err, "cannot dial mongo to check replicaset")
-	}
-	defer session.Close()
-
-	cfg, err := replicaset.CurrentConfig(session)
-	if err != nil {
-		logger.Debugf("couldn't retrieve replicaset config (not fatal): %v", err)
-		return false, nil
-	}
-	numMembers := len(cfg.Members)
-	logger.Debugf("replicaset member count: %d", numMembers)
-	return numMembers > 0, nil
-}
-
-// getMachineAddresses connects to state to determine the machine's
-// network addresses.
-func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
-	logger.Debugf("opening state to get machine addresses")
-	st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
-	}
-	defer st.Close()
-	return m.Addresses(), nil
-}
-
-// initiateReplicaSet connects to MongoDB and sets up the replicaset.
-func initiateReplicaSet(mongoInfo *mongo.MongoInfo, statePort int, machineAddrs []network.Address) error {
-	peerAddr := mongo.SelectPeerAddress(machineAddrs)
-	if peerAddr == "" {
-		return errors.Errorf("no appropriate peer address found in %q", machineAddrs)
-	}
-
-	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
-	if err != nil {
-		return errors.Annotate(err, "cannot generate dial info to initiate replicaset")
-	}
-
-	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo:       dialInfo,
-		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(statePort)),
-		User:           mongoInfo.Tag.String(), // TODO(dfc) InitiateMongoParams should take a Tag
-		Password:       mongoInfo.Password,
-	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
-		return err
-	}
-	return nil
+func isPreHAVersion(v version.Number) bool {
+	return v.Compare(version.MustParse("1.19.0")) < 0
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
