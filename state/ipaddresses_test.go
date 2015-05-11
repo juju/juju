@@ -135,7 +135,7 @@ func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
 	err = copyIPAddr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	msg := fmt.Sprintf(`cannot allocate IP address %q to machine "foobar", instance "frogger", interface "wibble": address is dead`, ipAddr.String())
+	msg := fmt.Sprintf(`cannot allocate IP address %q to machine "foobar", interface "frogger": address is dead`, ipAddr.String())
 	err = ipAddr.AllocateTo("foobar", "frogger")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
