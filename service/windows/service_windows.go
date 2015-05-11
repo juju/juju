@@ -54,6 +54,7 @@ type enumService struct {
 	Status      winapi.SERVICE_STATUS
 }
 
+// Name returns the name of the service stored in enumService.
 func (s *enumService) Name() string {
 	if s.name != nil {
 		name := make([]uint16, 0, 256)
@@ -88,10 +89,13 @@ type manager struct {
 	m *mgr.Mgr
 }
 
+// CreateService wraps Mgr.CreateService method.
 func (m *manager) CreateService(name, exepath string, c mgr.Config) (svcInterface, error) {
 	return m.m.CreateService(name, exepath, c)
 }
 
+// CreateService wraps Mgr.OpenService method. It returns a svcInterface object.
+// This allows us to stub out this module for testing.
 func (m *manager) OpenService(name string) (svcInterface, error) {
 	return m.m.OpenService(name)
 }
@@ -104,9 +108,7 @@ func newManagerConn() (mgrInterface, error) {
 	return &manager{m: s}, nil
 }
 
-var newConn = func() (mgrInterface, error) {
-	return newManagerConn()
-}
+var newConn = newManagerConn
 
 // enumServicesStatus queries the windows services database and returns a pointer
 // to a buffer that contains an array of enumService.
@@ -128,6 +130,8 @@ func enumServicesStatus(h syscall.Handle, dwServiceType uint32,
 	return
 }
 
+// enumServices casts the bytes returned by enumServicesStatus into an array of
+// enumService with all the services on the current system
 func enumServices(h syscall.Handle) ([]enumService, error) {
 	var needed uint32
 	var returned uint32
@@ -152,22 +156,8 @@ func enumServices(h syscall.Handle) ([]enumService, error) {
 	return enum, nil
 }
 
-var logonUser = func(username *uint16, domain *uint16,
-	password *uint16, logonType uint32,
-	logonProvider uint32) (handle syscall.Handle, err error) {
-
-	r0, _, e1 := procLogonUserW.Call(
-		uintptr(unsafe.Pointer(username)),
-		uintptr(unsafe.Pointer(domain)),
-		uintptr(unsafe.Pointer(password)),
-		uintptr(logonType),
-		uintptr(logonProvider), uintptr(unsafe.Pointer(&handle)))
-	if int(r0) == 0 {
-		return syscall.InvalidHandle, e1
-	}
-	return
-}
-
+// getPassword attempts to read the password for the jujud user. We define it as
+// a variable to allow us to mock it out for testing
 var getPassword = func() (string, error) {
 	f, err := ioutil.ReadFile(jujuPasswdFile)
 	if err != nil {
@@ -181,6 +171,9 @@ var getPassword = func() (string, error) {
 	return passwd, nil
 }
 
+// listServices returns an array of strings containing all the services on
+// the current system. It is defined as a variable to allow us to mock it out
+// for testing
 var listServices = func() ([]string, error) {
 	services := []string{}
 	host := syscall.StringToUTF16Ptr(".")
@@ -199,8 +192,8 @@ var listServices = func() ([]string, error) {
 	return services, nil
 }
 
+// SvcManager implements ServiceManagerInterface interface
 type SvcManager struct {
-	name        string
 	svc         svcInterface
 	mgr         mgrInterface
 	serviceConf common.Conf
@@ -237,6 +230,7 @@ func (s *SvcManager) exists(name string) (bool, error) {
 	return true, nil
 }
 
+// Start starts a service.
 func (s *SvcManager) Start(name string) error {
 	running, err := s.Running(name)
 	if err != nil {
@@ -252,6 +246,8 @@ func (s *SvcManager) Start(name string) error {
 	return nil
 }
 
+// Exists checks whether the config of the installed service matches the
+// config supplied to this function
 func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	passwd, err := getPassword()
 	if err != nil {
@@ -259,7 +255,7 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	}
 	execStart := strings.Replace(conf.ExecStart, `'`, `"`, -1)
 	cfg := mgr.Config{
-		Dependencies:     []string{"Winmgmt"},
+		Dependencies:     []string{"Winmgmt"}, // make this service dependent on WMI service
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
 		ServiceStartName: jujudUser,
@@ -277,6 +273,7 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	return false, nil
 }
 
+// Stop stops a service.
 func (s *SvcManager) Stop(name string) error {
 	running, err := s.Running(name)
 	if err != nil {
@@ -292,6 +289,7 @@ func (s *SvcManager) Stop(name string) error {
 	return nil
 }
 
+// Delete deletes a service.
 func (s *SvcManager) Delete(name string) error {
 	exists, err := s.exists(name)
 	if err != nil {
@@ -309,6 +307,7 @@ func (s *SvcManager) Delete(name string) error {
 	return nil
 }
 
+// Create creates a service with the given config.
 func (s *SvcManager) Create(name string, conf common.Conf) error {
 	passwd, err := getPassword()
 	if err != nil {
@@ -332,18 +331,21 @@ func (s *SvcManager) Create(name string, conf common.Conf) error {
 	return nil
 }
 
+// Running returns the status of a service.
 func (s *SvcManager) Running(name string) (bool, error) {
 	status, err := s.status(name)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	logger.Infof("Service %q Status %v", s.name, status)
+	logger.Infof("Service %q Status %v", name, status)
 	if status == svc.Running {
 		return true, nil
 	}
 	return false, nil
 }
 
+// Config returns the mgr.Config of the service. This config reflects the actual
+// service configuration in Windows.
 func (s *SvcManager) Config(name string) (mgr.Config, error) {
 	exists, err := s.exists(name)
 	if err != nil {

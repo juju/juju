@@ -4,12 +4,9 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 
-	// "github.com/juju/errors"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	// "code.google.com/p/winsvc/svc"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows"

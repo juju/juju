@@ -53,14 +53,14 @@ var (
 	procLocalFree = kerneldll.NewProc("LocalFree")
 )
 
-// this is the struct type we shall be making the syscalls on, it contains a
+// blob is the struct type we shall be making the syscalls on, it contains a
 // pointer to the start of the actual data and its respective length in bytes
 type blob struct {
 	length uint32
 	data   *byte
 }
 
-// this method fetches all the data pointed to by blob.data
+// getData fetches all the data pointed to by blob.data
 func (b *blob) getData() []byte {
 	fetched := make([]byte, b.length)
 	// the in-built will copy the proper amount of data pointed to by blob.data
@@ -71,7 +71,7 @@ func (b *blob) getData() []byte {
 	return fetched
 }
 
-// this function encrypts a string provided as input into a hexadecimal string
+// Encrypt encrypts a string provided as input into a hexadecimal string
 // the output corresponds to the output of ConvertFrom-SecureString:
 func Encrypt(input string) (string, error) {
 	data := []byte(input)
@@ -105,7 +105,7 @@ func Encrypt(input string) (string, error) {
 	return hex.EncodeToString(output), nil
 }
 
-// this function converts the output from a call to ConvertFrom-SecureString
+// Decrypt converts the output from a call to ConvertFrom-SecureString
 // back to the original input string and returns it
 func Decrypt(input string) (string, error) {
 	// first we decode the hexadecimal string into a raw slice of bytes

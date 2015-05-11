@@ -10,28 +10,36 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+// SvcManager implements ServiceManagerInterface interface
 type SvcManager struct{}
 
+// Start starts a service.
 func (s *SvcManager) Start(name string) error {
 	return nil
 }
 
+// Stop stops a service.
 func (s *SvcManager) Stop(name string) error {
 	return nil
 }
 
+// Delete deletes a service.
 func (s *SvcManager) Delete(name string) error {
 	return nil
 }
 
+// Create creates a service with the given config.
 func (s *SvcManager) Create(name string, conf common.Conf) error {
 	return nil
 }
 
+// Running returns the status of a service.
 func (s *SvcManager) Running(name string) (bool, error) {
 	return false, nil
 }
 
+// Exists checks whether the config of the installed service matches the
+// config supplied to this function
 func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	return false, nil
 }

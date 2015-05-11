@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	// "github.com/juju/utils/exec"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
@@ -63,12 +62,20 @@ type Service struct {
 	manager ServiceManagerInterface
 }
 
+// ServiceManagerInterface exposes methods needed to manage a windows service
 type ServiceManagerInterface interface {
+	// Start starts a service.
 	Start(name string) error
+	// Stop stops a service.
 	Stop(name string) error
+	// Delete deletes a service.
 	Delete(name string) error
+	// Create creates a service with the given config.
 	Create(name string, conf common.Conf) error
+	// Running returns the status of a service.
 	Running(name string) (bool, error)
+	// Exists checks whether the config of the installed service matches the
+	// config supplied to this function
 	Exists(name string, conf common.Conf) (bool, error)
 }
 

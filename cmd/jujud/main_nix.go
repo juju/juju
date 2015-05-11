@@ -5,7 +5,10 @@
 
 package main
 
-func serviceWrapper(f func() int) (int, error) {
-	code := f()
-	return code, nil
+import (
+	"os"
+)
+
+func main() {
+	Main(os.Args)
 }
