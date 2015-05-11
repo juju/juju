@@ -37,7 +37,7 @@ func findImageMetadata(env *environ, args environs.StartInstanceParams) (*OvaFil
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	ic := &imagemetadata.ImageConstraint{
-		simplestreams.LookupParams{
+		LookupParams: simplestreams.LookupParams{
 			Series: []string{series},
 			Arches: arches,
 		},
