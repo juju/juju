@@ -7,12 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -31,26 +28,14 @@ import (
 )
 
 type FakeEnsure struct {
-	EnsureCount         int
-	InitiateCount       int
-	DataDir             string
-	Namespace           string
-	OplogSize           int
-	Info                state.StateServingInfo
-	InitiateParams      peergrouper.InitiateMongoParams
-	Err                 error
-	ReplicasetInitiated bool
-}
-
-func (f *FakeEnsure) FakeCurrentConfig(*mgo.Session) (*replicaset.Config, error) {
-	if f.ReplicasetInitiated {
-		// Return a dummy replicaset config that's good enough to
-		// indicate that the replicaset is initiated.
-		return &replicaset.Config{
-			Members: []replicaset.Member{{}},
-		}, nil
-	}
-	return nil, errors.NotFoundf("replicaset")
+	EnsureCount    int
+	InitiateCount  int
+	DataDir        string
+	Namespace      string
+	OplogSize      int
+	Info           state.StateServingInfo
+	InitiateParams peergrouper.InitiateMongoParams
+	Err            error
 }
 
 func (f *FakeEnsure) FakeEnsureMongo(args mongo.EnsureServerParams) error {
