@@ -331,8 +331,9 @@ def assess_juju_run(client):
                              machine.get('MachineId'),
                              machine.get('ReturnCode'),
                              machine.get('Stderr')))
-    logging.info("juju run succeeded on machines: %r",
-        [str(machine.get("MachineId")) for machine in responses)])
+    logging.info(
+        "juju run succeeded on machines: %r",
+        [str(machine.get("MachineId")) for machine in responses])
     return responses
 
 
