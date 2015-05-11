@@ -138,7 +138,17 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
-		inst, err = env.client.CreateInstance(env.ecfg, machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig), apiPort)
+		spec := &instanceSpec{
+			machineID: machineID,
+			zone:      availZone,
+			hwc:       hwc,
+			img:       img,
+			userData:  userData,
+			sshKey:    args.InstanceConfig.AuthorizedKeys,
+			isState:   isStateServer(args.InstanceConfig),
+			apiPort:   apiPort,
+		}
+		inst, err = env.client.CreateInstance(env.ecfg, spec)
 		if err != nil {
 			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
 			continue

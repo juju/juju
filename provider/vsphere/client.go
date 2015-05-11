@@ -70,10 +70,21 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 	return govmomi.NewClient(context.TODO(), url, true)
 }
 
+type instanceSpec struct {
+	machineID string
+	zone      *vmwareAvailZone
+	hwc       *instance.HardwareCharacteristics
+	img       *OvfFileMetadata
+	userData  []byte
+	sshKey    string
+	isState   bool
+	apiPort   int
+}
+
 // CreateInstance create new vm in vsphere and run it
-func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool, apiPort int) (*mo.VirtualMachine, error) {
-	manager := &ovaImportManager{client: c}
-	vm, err := manager.importOva(ecfg, machineID, zone, hwc, img, userData, sshKey, isState)
+func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.VirtualMachine, error) {
+	manager := &ovfImportManager{client: c}
+	vm, err := manager.importOvf(ecfg, spec)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Failed to import OVA file")
 	}
@@ -91,7 +102,7 @@ func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmw
 			return nil, errors.Trace(err)
 		}
 		client := newSshClient(ip)
-		err = client.configureExternalIpAddress(apiPort)
+		err = client.configureExternalIpAddress(spec.apiPort)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
