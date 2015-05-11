@@ -66,7 +66,7 @@ var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvfFileMetadata) error {
+func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvaFileMetadata) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
