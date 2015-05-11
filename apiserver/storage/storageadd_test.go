@@ -31,6 +31,9 @@ func (s *storageAddSuite) assertStoragesAddedNoErrors(c *gc.C, args params.Stora
 	failures, err := s.api.AddToUnit(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, len(args.Storages))
+	for _, one := range failures.Results {
+		c.Assert(one.Error, gc.IsNil)
+	}
 }
 
 func (s *storageAddSuite) TestStorageAddEmpty(c *gc.C) {
