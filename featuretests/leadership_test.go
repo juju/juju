@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -48,8 +49,12 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
 
-	agenttesting.InstallFakeEnsureMongo(s)
-	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
+
+	fakeEnsureMongo := agenttesting.FakeEnsure{}
+	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
 	// Create a machine to manage the environment.
 	stateServer, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -289,8 +294,13 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
-	agenttesting.InstallFakeEnsureMongo(s)
-	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
+
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
+
+	fakeEnsureMongo := agenttesting.FakeEnsure{}
+	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
 	s.factory = factory.NewFactory(s.State)
 
