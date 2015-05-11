@@ -95,7 +95,7 @@ func TestPackage(t *testing.T) {
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
-	fakeEnsureMongo *agenttesting.FakeEnsureMongo
+	fakeEnsureMongo agenttesting.FakeEnsure
 	AgentSuite
 }
 
@@ -133,8 +133,11 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 		return newDummyWorker(), nil
 	})
 
-	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
+	s.fakeEnsureMongo.ReplicasetInitiated = true
+	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
+	s.AgentSuite.PatchValue(&replicasetCurrentConfig, s.fakeEnsureMongo.FakeCurrentConfig)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
 }
 
 func fakeCmd(path string) {

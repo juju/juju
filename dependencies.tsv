@@ -24,7 +24,7 @@ github.com/juju/loggo	git	6d22922ff98aac6608b8a58191bd6b2e1dac3fca	2015-03-30T01
 github.com/juju/names	git	a597dd52044cc5a702844642b5cb6e09870422db	2015-04-28T12:56:57Z
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
-github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-04-08T04:21:43Z
+github.com/juju/replicaset	git	a5137dd3d7a1495ef2dd32cfbac616654913cf49	2015-04-02T14:41:36Z
 github.com/juju/schema	git	1c4e902df91bd058b84029533bf4ce92e6ef87ab	2015-03-30T01:12:23Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	a3720f880a5787622a21fbf718a3ac9d551dbe9c	2015-04-10T20:58:11Z
