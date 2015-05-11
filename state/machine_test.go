@@ -387,6 +387,9 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
+	err := s.machine.SetProvisioned("fake", "totally-fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1", network.ScopeUnknown), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr1.AllocateTo(s.machine.Id(), "bar")

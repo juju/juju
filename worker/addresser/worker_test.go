@@ -193,14 +193,19 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr.AllocateTo(s.machine.Id(), "wobble")
+	err = machine.SetProvisioned("fake", "really-fake", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.EnsureDead()
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = addr.AllocateTo(machine.Id(), "really-really-fake")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
