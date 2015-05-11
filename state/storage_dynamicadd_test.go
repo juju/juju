@@ -44,14 +44,14 @@ func (s *StorageAddSuite) assertStorageCount(c *gc.C, expected int) {
 func (s *StorageAddSuite) TestAddStorageToUnit(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
 
 func (s *StorageAddSuite) TestAddStorageWithCount(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+2)
 }
@@ -59,13 +59,13 @@ func (s *StorageAddSuite) TestAddStorageWithCount(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+2)
 
 	// Should not succeed as the number of storages after
 	// this call would be 11 whereas our upper limit is 10 here.
-	err = s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 6))
+	err = s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", makeStorageCons("loop-pool", 1024, 6))
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified.*`)
 	s.assertStorageCount(c, s.originalStorageCount+2)
 }
@@ -77,7 +77,7 @@ func (s *StorageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.AddStorageForUnit(ch.Meta(), u, "data", makeStorageCons("loop-pool", 1024, 1))
+	err = s.State.AddStorageForUnit(ch, u, "data", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block" store "data": at most 1 instances supported, 2 specified.*`)
 	s.assertStorageCount(c, 1)
 }
@@ -89,7 +89,7 @@ func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.AddStorageForUnit(ch.Meta(), u, "allecto", makeStorageCons("loop-pool", 1024, 1))
+	err = s.State.AddStorageForUnit(ch, u, "allecto", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, 2)
 }
@@ -97,7 +97,7 @@ func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -105,7 +105,7 @@ func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Pool: "loop-pool"})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{Pool: "loop-pool"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -113,7 +113,7 @@ func (s *StorageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Size: 2048})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{Size: 2048})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -121,7 +121,7 @@ func (s *StorageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi2up", state.StorageConstraints{Size: 2})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi2up", state.StorageConstraints{Size: 2})
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 2.0MB specified.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 }
@@ -129,7 +129,7 @@ func (s *StorageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageWrongName(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "furball", state.StorageConstraints{Size: 2})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "furball", state.StorageConstraints{Size: 2})
 	c.Assert(err, gc.ErrorMatches, `.*charm storage "furball" not found.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 }
@@ -137,7 +137,7 @@ func (s *StorageAddSuite) TestAddStorageWrongName(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 	addStorage := func() {
-		err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{})
+		err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
@@ -150,11 +150,11 @@ func (s *StorageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 
 	count := 6
 	addStorage := func() {
-		err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+		err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
-	err := s.State.AddStorageForUnit(s.charm.Meta(), s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+	err := s.State.AddStorageForUnit(s.charm, s.unit, "multi1to10", state.StorageConstraints{Count: uint64(count)})
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi1to10": at most 10 instances supported, 15 specified.*`)
 
 	// Only "count" number of instances should have been added.

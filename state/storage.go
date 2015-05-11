@@ -50,6 +50,9 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
+
+	// CharmURL returns the charm URL that this storage instance was created with.
+	CharmURL() *charm.URL
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -113,6 +116,11 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
+// CharmURL returns the charm URL that this storage instance was created with.
+func (s *storageInstance) CharmURL() *charm.URL {
+	return s.doc.CharmURL
+}
+
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
@@ -124,6 +132,7 @@ type storageInstanceDoc struct {
 	Owner           string      `bson:"owner"`
 	StorageName     string      `bson:"storagename"`
 	AttachmentCount int         `bson:"attachmentcount"`
+	CharmURL        *charm.URL  `bson:"charmurl"`
 }
 
 type storageAttachment struct {
@@ -291,6 +300,7 @@ func createStorageOps(
 	st *State,
 	entity names.Tag,
 	charmMeta *charm.Meta,
+	curl *charm.URL,
 	cons map[string]StorageConstraints,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
@@ -357,6 +367,7 @@ func createStorageOps(
 				Kind:        kind,
 				Owner:       owner,
 				StorageName: t.storageName,
+				CharmURL:    curl,
 			}
 			if unit, ok := entity.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
@@ -901,7 +912,7 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 // AddStorage adds StorageConstraints to
 // given entity dynamically, one storage directive at a time.
 func (st *State) AddStorageForUnit(
-	charmMeta *charm.Meta, u *Unit,
+	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
 ) error {
 	all, err := u.StorageConstraints()
@@ -922,7 +933,7 @@ func (st *State) AddStorageForUnit(
 	}
 	completeCons, err := storageConstraintsWithDefaults(
 		conf,
-		charmMeta.Storage[name],
+		ch.Meta().Storage[name],
 		name, cons,
 	)
 	if err != nil {
@@ -934,11 +945,11 @@ func (st *State) AddStorageForUnit(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		err = st.validateUnitStorage(charmMeta, u, name, completeCons)
+		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
+		ops, err := st.constructAddUnitStorageOps(ch.Meta(), u, name, ch.URL(), completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -974,13 +985,14 @@ func (st *State) validateUnitStorage(
 }
 
 func (st *State) constructAddUnitStorageOps(
-	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+	charmMeta *charm.Meta, u *Unit, name string, curl *charm.URL, cons StorageConstraints,
 ) ([]txn.Op, error) {
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
+		curl,
 		map[string]StorageConstraints{name: cons})
 	if err != nil {
 		return nil, errors.Trace(err)
