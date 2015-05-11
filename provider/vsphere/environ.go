@@ -9,12 +9,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -100,12 +97,7 @@ var Bootstrap = common.Bootstrap
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju state server.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	if featureflag.Enabled(feature.VSphereProvider) {
-
-		return Bootstrap(ctx, env, params)
-	}
-	return "", "", nil, errors.Errorf("Vsphere provider is currently in beta in this version of Juju. To enable anyway use JUJU_DEV_FEATURE_FLAGS=\"vsphere-provider\"")
+	return Bootstrap(ctx, env, params)
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
