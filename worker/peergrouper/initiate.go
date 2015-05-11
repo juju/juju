@@ -62,17 +62,20 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	}
 
 	// Initiate may fail while mongo is initialising, so we retry until
-	// we successfully populate the replicaset config.
+	// we succssfully populate the replicaset config.
 	var err error
 	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
 		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort, force)
-		if err == nil || err == ErrReplicaSetAlreadyInitiated {
+		if err == nil {
 			logger.Infof("replica set initiated")
-			return err
+			return nil
 		}
 		if attempt.HasNext() {
 			logger.Debugf("replica set initiation failed, will retry: %v", err)
 		}
+	}
+	if err == ErrReplicaSetAlreadyInitiated {
+		return err
 	}
 	return errors.Annotatef(err, "cannot initiate replica set")
 }
