@@ -568,7 +568,7 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 	return group
 }
 
-// Add validates and creates additional storage instances for units.
+// AddToUnit validates and creates additional storage instances for units.
 // Storage instances are defined in collection of storages.
 // If no directives were specified, we do not try to add any instances.
 // Any failed operations are reported as errors.
@@ -576,7 +576,7 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 // instances being processed.
 // This method handles bulk add operations.
 // A "CHANGE" block can block this operation.
-func (a *API) Add(args params.StoragesAddParams) (params.ErrorResults, error) {
+func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
