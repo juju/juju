@@ -1380,6 +1380,14 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"agent-version": "1.9.27"},
 	err:   `cannot clear agent-version`,
 }, {
+	about: "Can change previous agent version",
+	old:   testing.Attrs{"previous-agent-version": "1.9.13"},
+	new:   testing.Attrs{"previous-agent-version": "1.9.27"},
+}, {
+	about: "Can't clear previous agent version",
+	old:   testing.Attrs{"previous-agent-version": "1.9.27"},
+	err:   `cannot clear previous-agent-version`,
+}, {
 	about: "Can't change the firewall-mode (global->instance)",
 	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
 	new:   testing.Attrs{"firewall-mode": config.FwInstance},
