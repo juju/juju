@@ -14,9 +14,14 @@ func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, e
 	backups, closer := newBackups(a.st)
 	defer closer.Close()
 
-	meta, _, err := backups.Get(args.ID) // Ignore the archive file.
+	meta, file, err := backups.Get(args.ID)
 	if err != nil {
 		return params.BackupsMetadataResult{}, errors.Trace(err)
+	}
+	if file != nil {
+		// We don't use the archive file but need to close it
+		// nonetheless or else we'll leak sockets.
+		defer file.Close()
 	}
 
 	return ResultFromMetadata(meta), nil
