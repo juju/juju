@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -31,6 +32,7 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 

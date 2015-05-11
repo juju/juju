@@ -303,8 +303,10 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
 	key3 := sshtesting.ValidKeyThree.Key
+	key4 := sshtesting.ValidKeyFour.Key
 	keymv := strings.Split(sshtesting.ValidKeyMulti, "\n")
 	keymp := strings.Split(sshtesting.PartValidKeyMulti, "\n")
+	keymi := strings.Split(sshtesting.MultiInvalid, "\n")
 	initialKeys := []string{key1, key2, "bad key"}
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
@@ -317,26 +319,35 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 			"lp:multi",
 			"lp:multiempty",
 			"lp:multipartial",
+			"lp:multiinvalid",
+			"lp:multionedup",
 		},
 	}
 	results, err := s.keymanager.ImportKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 8)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 			{Error: nil},
 			{Error: apiservertesting.ServerError("invalid ssh key id: invalid-key")},
 			{Error: nil},
-			{Error: nil},
 			{Error: apiservertesting.ServerError("invalid ssh key id: lp:multiempty")},
-			{Error: nil},
 			{Error: apiservertesting.ServerError(fmt.Sprintf(
 				`invalid ssh key for lp:multipartial: `+
 					`generating key fingerprint: `+
 					`invalid authorized_key "%s"`, keymp[1]))},
+			{Error: apiservertesting.ServerError(fmt.Sprintf(
+				`invalid ssh key for lp:multiinvalid: `+
+					`generating key fingerprint: `+
+					`invalid authorized_key "%s"`+"\n"+
+					`invalid ssh key for lp:multiinvalid: `+
+					`generating key fingerprint: `+
+					`invalid authorized_key "%s"`, keymi[0], keymi[1]))},
+			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 		},
 	})
-	s.assertEnvironKeys(c, append(initialKeys, key3, keymv[0], keymv[1], keymp[0]))
+	s.assertEnvironKeys(c, append(initialKeys, key3, keymv[0], keymv[1], keymp[0], key4))
 }
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {

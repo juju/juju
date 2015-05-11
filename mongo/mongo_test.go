@@ -16,6 +16,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -293,6 +294,43 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	}
 }
 
+func (s *MongoSuite) TestMongoAptGetFails(c *gc.C) {
+	s.PatchValue(&version.Current.Series, "trusty")
+
+	// Any exit code from apt-get that isn't 0 or 100 will be treated
+	// as unexpected, skipping the normal retry loop. failCmd causes
+	// the command to exit with 1.
+	binDir := c.MkDir()
+	s.PatchEnvPathPrepend(binDir)
+	failCmd(filepath.Join(binDir, "apt-get"))
+
+	// Set the mongodb service as installed but not running.
+	namespace := "namespace"
+	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
+
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	defer loggo.RemoveWriter("test-writer")
+
+	dataDir := c.MkDir()
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+
+	// Even though apt-get failed, EnsureServer should continue and
+	// not return the error - even though apt-get failed, the Juju
+	// mongodb package is most likely already installed.
+	// The error should be logged however.
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, `apt-get command failed: .+`},
+		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): apt-get failed`},
+	})
+
+	// Verify that EnsureServer continued and started the mongodb service.
+	c.Check(s.data.Installed, gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+}
+
 func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := c.MkDir()
@@ -374,11 +412,19 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	failCmd(filepath.Join(dir, "add-apt-repository"))
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	defer loggo.RemoveWriter("test-writer")
+
 	// test that we call add-apt-repository only for quantal (and that if it
-	// fails, we return the error)
+	// fails, we log the error)
 	s.PatchValue(&version.Current.Series, "quantal")
 	err := mongo.EnsureServer(makeEnsureServerParams(dir, ""))
-	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): cannot add apt repository`},
+	})
 
 	s.PatchValue(&version.Current.Series, "trusty")
 	failCmd(filepath.Join(dir, "mongod"))

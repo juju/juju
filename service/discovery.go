@@ -93,21 +93,27 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
-var discoveryFuncs = map[string]func() (bool, error){
-	InitSystemSystemd: systemd.IsRunning,
-	InitSystemUpstart: upstart.IsRunning,
-	InitSystemWindows: windows.IsRunning,
+type discoveryCheck struct {
+	name      string
+	isRunning func() (bool, error)
+}
+
+var discoveryFuncs = []discoveryCheck{
+	{InitSystemUpstart, upstart.IsRunning},
+	{InitSystemSystemd, systemd.IsRunning},
+	{InitSystemWindows, windows.IsRunning},
 }
 
 func discoverLocalInitSystem() (string, error) {
-	for initName, isLocal := range discoveryFuncs {
-		local, err := isLocal()
+	for _, check := range discoveryFuncs {
+		local, err := check.isRunning()
 		if err != nil {
-			return "", errors.Trace(err)
+			logger.Debugf("failed to find init system %q: %v", check.name, err)
 		}
+		// We expect that in error cases "local" will be false.
 		if local {
-			logger.Debugf("discovered init system %q from local host", initName)
-			return initName, nil
+			logger.Debugf("discovered init system %q from local host", check.name)
+			return check.name, nil
 		}
 	}
 	return "", errors.NotFoundf("init system (based on local host)")

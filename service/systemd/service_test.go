@@ -34,29 +34,12 @@ After=systemd-user-sessions.service
 
 [Service]
 ExecStart=%s
-RemainAfterExit=yes
-Restart=always
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 
 `
-
-type confStruct struct {
-	Unit struct {
-		Description string
-		After       []string
-	}
-	Service struct {
-		Type            string
-		ExecStart       string
-		RemainAfterExit bool
-		Restart         string
-	}
-	Install struct {
-		WantedBy string
-	}
-}
 
 const jujud = "/var/lib/juju/bin/jujud"
 
@@ -113,12 +96,27 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.stub.Calls = nil
 }
 
-func (s *initSystemSuite) newConfStr(name, cmd string) string {
+func (s *initSystemSuite) newConfStr(name string) string {
+	return s.newConfStrCmd(name, "")
+}
+
+func (s *initSystemSuite) newConfStrCmd(name, cmd string) string {
 	tag := name[len("jujud-"):]
 	if cmd == "" {
 		cmd = jujud + " " + tag
 	}
 	return fmt.Sprintf(confStr[1:], tag, cmd)
+}
+
+func (s *initSystemSuite) newConfStrEnv(name, env string) string {
+	const replace = "[Service]\n"
+	result := s.newConfStr(name)
+	result = strings.Replace(
+		result, replace,
+		fmt.Sprintf("%sEnvironment=%s\n", replace, env),
+		1,
+	)
+	return result
 }
 
 func (s *initSystemSuite) addService(name, status string) {
@@ -154,7 +152,7 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 	if content == "" {
 		name := filename
 		filename = fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, name, name)
-		content = s.newConfStr(name, "")
+		content = s.newConfStr(name)
 	}
 
 	call := s.stub.Calls[index]
@@ -239,7 +237,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"
 	c.Check(service, jc.DeepEquals, &systemd.Service{
@@ -351,7 +349,7 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
@@ -697,7 +695,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}})
-	s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name, ""), 0644)
+	s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name), 0644)
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
@@ -718,17 +716,21 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addListResponse()
 	// We force the systemd API to return a slightly different conf.
-	// In this case we simply set Conf.Env, which s.conf does not set.
-	// This causes Service.Exists to return false.
-	s.setConf(c, common.Conf{
+	// In this case we simply set a different Env value between the
+	// conf we are installing and the conf returned by the systemd API.
+	conf := common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
 		Env:       map[string]string{"a": "b"},
-	})
+	}
+	s.setConf(c, conf)
 	s.addListResponse()
 	s.ch <- "done"
 
-	err := s.service.Install()
+	conf.Env["a"] = "c"
+	service, err := systemd.NewService(s.name, conf)
+	c.Assert(err, jc.ErrorIsNil)
+	err = service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -750,7 +752,9 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 12, s.name, "", 0644)
+	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
+	content := s.newConfStrEnv(s.name, `"a=c"`)
+	s.checkCreateFileCall(c, 12, filename, content, 0644)
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
@@ -774,7 +778,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	)
 	s.checkCreateFileCall(c, 2, scriptPath, cmd, 0755)
 	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
-	content := s.newConfStr(s.name, scriptPath)
+	content := s.newConfStrCmd(s.name, scriptPath)
 	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
 
@@ -796,7 +800,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the write-conf command.
-	expected := s.newConfStr(name, "")
+	expected := s.newConfStr(name)
 	s.checkWriteConf(c, name, commands[1], expected)
 
 	// Check the remaining commands.
@@ -871,7 +875,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 
 	// Check the write-conf command.
 	expected := strings.Replace(
-		s.newConfStr(name, ""),
+		s.newConfStr(name),
 		"ExecStart=/var/lib/juju/bin/jujud machine-0",
 		"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
 		-1)
@@ -886,7 +890,7 @@ cat > /tmp/init/jujud-machine-0/exec-start.sh << 'EOF'
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+exec >> /var/log/juju/machine-0.log
 exec 2>&1
 /var/lib/juju/bin/jujud machine-0
 EOF`[1:], "\n"))
