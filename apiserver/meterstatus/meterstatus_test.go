@@ -22,33 +22,39 @@ func (s *meterStatusSuite) TestError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "an error")
 }
 
-func (s *meterStatusSuite) TestNotAvailable(c *gc.C) {
-	status, err := meterstatus.MeterStatusWrapper(NotAvailableGetter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterRed)
-	c.Assert(status.Info, gc.Equals, "not available")
-}
-
-func (s *meterStatusSuite) TestNotSet(c *gc.C) {
-	status, err := meterstatus.MeterStatusWrapper(NotSetGetter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterAmber)
-	c.Assert(status.Info, gc.Equals, "not set")
-}
-
-func (s *meterStatusSuite) TestColour(c *gc.C) {
-	status, err := meterstatus.MeterStatusWrapper(RedGetter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterRed)
-	c.Assert(status.Info, gc.Equals, "info")
-	status, err = meterstatus.MeterStatusWrapper(GreenGetter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterGreen)
-	c.Assert(status.Info, gc.Equals, "info")
-	status, err = meterstatus.MeterStatusWrapper(AmberGetter)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterAmber)
-	c.Assert(status.Info, gc.Equals, "info")
+func (s *meterStatusSuite) TestWrapper(c *gc.C) {
+	tests := []struct {
+		about          string
+		input          func() (state.MeterStatus, error)
+		expectedOutput state.MeterStatus
+	}{{
+		about:          "notset in, amber out",
+		input:          NotSetGetter,
+		expectedOutput: state.MeterStatus{state.MeterAmber, "not set"},
+	}, {
+		about:          "notavailable in, red out",
+		input:          NotAvailableGetter,
+		expectedOutput: state.MeterStatus{state.MeterRed, "not available"},
+	}, {
+		about:          "red in, red out",
+		input:          RedGetter,
+		expectedOutput: state.MeterStatus{state.MeterRed, "info"},
+	}, {
+		about:          "green in, green out",
+		input:          GreenGetter,
+		expectedOutput: state.MeterStatus{state.MeterGreen, "info"},
+	}, {
+		about:          "amber in, amber out",
+		input:          AmberGetter,
+		expectedOutput: state.MeterStatus{state.MeterAmber, "info"},
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.about)
+		status, err := meterstatus.MeterStatusWrapper(test.input)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(status.Code, gc.Equals, test.expectedOutput.Code)
+		c.Assert(status.Info, gc.Equals, test.expectedOutput.Info)
+	}
 }
 
 func ErrorGetter() (state.MeterStatus, error) {
