@@ -37,6 +37,7 @@ func init() {
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
+	CinderAttempt  = &cinderAttempt
 )
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
