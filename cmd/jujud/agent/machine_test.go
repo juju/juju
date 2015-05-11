@@ -95,7 +95,7 @@ func TestPackage(t *testing.T) {
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
-	fakeEnsureMongo agenttesting.FakeEnsure
+	fakeEnsureMongo *agenttesting.FakeEnsureMongo
 	AgentSuite
 }
 
@@ -133,9 +133,8 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 		return newDummyWorker(), nil
 	})
 
-	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
-	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
+	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -1483,6 +1482,8 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.fakeEnsureMongo.ReplicasetInitiated = false
+
 	s.AgentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
 		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1593,6 +1594,42 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	r1 := s.singularRecord.nextRunner(c)
 	workers = r1.waitForWorker(c, "firewaller")
 	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+}
+
+func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("state servers on windows aren't supported")
+	}
+
+	s.fakeEnsureMongo.ReplicasetInitiated = false
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
+}
+
+func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("state servers on windows aren't supported")
+	}
+
+	s.fakeEnsureMongo.ReplicasetInitiated = true
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
