@@ -569,3 +569,60 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 	}
 	return group
 }
+
+// AddToUnit validates and creates additional storage instances for units.
+// Storage instances are defined in collection of storages.
+// If no directives were specified, we do not try to add any instances.
+// Any failed operations are reported as errors.
+// Failures on an individual storage instance do not block remaining
+// instances being processed.
+// This method handles bulk add operations.
+// A "CHANGE" block can block this operation.
+func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
+	// Check if changes are allowed and the operation may proceed.
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	if len(args.Storages) == 0 {
+		return params.ErrorResults{}, nil
+	}
+
+	serverErr := func(err error) params.ErrorResult {
+		if errors.IsNotFound(err) {
+			err = common.ErrPerm
+		}
+		return params.ErrorResult{Error: common.ServerError(err)}
+	}
+
+	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
+		s := state.StorageConstraints{Pool: p.Pool}
+		if p.Size != nil {
+			s.Size = *p.Size
+		}
+		if p.Count != nil {
+			s.Count = *p.Count
+		}
+		return s
+	}
+
+	result := make([]params.ErrorResult, len(args.Storages))
+	for i, one := range args.Storages {
+		u, err := names.ParseUnitTag(one.UnitTag)
+		if err != nil {
+			result[i] = serverErr(
+				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			continue
+		}
+
+		err = a.storage.AddStorageForUnit(u,
+			one.StorageName,
+			paramsToState(one.Constraints))
+		if err != nil {
+			result[i] = serverErr(
+				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+		}
+	}
+	return params.ErrorResults{Results: result}, nil
+}

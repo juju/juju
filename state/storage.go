@@ -467,32 +467,6 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	return &s, nil
 }
 
-// DestroyStorageAttachment ensures that the existing storage attachments of
-// the specified unit are removed at some point.
-func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		attachments, err := st.UnitStorageAttachments(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops := make([]txn.Op, 0, len(attachments))
-		for _, attachment := range attachments {
-			if attachment.Life() != Alive {
-				continue
-			}
-			ops = append(ops, destroyStorageAttachmentOps(
-				attachment.StorageInstance(), unit,
-			)...)
-		}
-		if len(ops) == 0 {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return ops, nil
-	}
-	return st.run(buildTxn)
-}
-
 // DestroyStorageAttachment ensures that the storage attachment will be
 // removed at some point.
 func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
@@ -507,17 +481,46 @@ func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.U
 		if s.doc.Life == Dying {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyStorageAttachmentOps(storage, unit), nil
+		return destroyStorageAttachmentOps(s), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyStorageAttachmentOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
+func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(unit.Id(), storage.Id()),
+		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+	return ops
+}
+
+// EnsureStorageAttachmentDead ensures that the storage attachment is Dead
+// if it exists at all, doing nothing if it does not exist.
+func (st *State) EnsureStorageAttachmentDead(storage names.StorageTag, unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot ensure death of storage attachment %s:%s", storage.Id(), unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s, err := st.storageAttachment(storage, unit)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if s.doc.Life == Dead {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ensureStorageAttachmentDeadOps(s), nil
+	}
+	return st.run(buildTxn)
+}
+
+func ensureStorageAttachmentDeadOps(s *storageAttachment) []txn.Op {
+	ops := []txn.Op{{
+		C:      storageAttachmentsC,
+		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return ops
 }
@@ -881,6 +884,7 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		if err != nil {
 			return errors.Trace(err)
 		}
+		// Replace in case pool or size were updated.
 		allCons[name] = cons
 	}
 	return nil
@@ -942,10 +946,36 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	return "", ErrNoDefaultStoragePool
 }
 
-// AddStorage adds StorageConstraints to
-// given entity dynamically, one storage directive at a time.
+// AddStorage adds storage instances to given unit as specified.
+// Missing storage constraints are populated
+// based on environment defaults. Storage store name is used to retrieve
+// existing storage instances for this store.
+// Combination of existing storage instances and
+// anticipated additional storage instances is validated against storage
+// store as specified in the charm.
 func (st *State) AddStorageForUnit(
-	charmMeta *charm.Meta, u *Unit,
+	tag names.UnitTag, name string, cons StorageConstraints,
+) error {
+	u, err := st.Unit(tag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	s, err := u.Service()
+	if err != nil {
+		return errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+	}
+	ch, _, err := s.Charm()
+	if err != nil {
+		return errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+	}
+
+	return st.addStorageForUnit(ch, u, name, cons)
+}
+
+// addStorage adds storage instances to given unit as specified.
+func (st *State) addStorageForUnit(
+	ch *Charm, u *Unit,
 	name string, cons StorageConstraints,
 ) error {
 	all, err := u.StorageConstraints()
@@ -966,7 +996,7 @@ func (st *State) AddStorageForUnit(
 	}
 	completeCons, err := storageConstraintsWithDefaults(
 		conf,
-		charmMeta.Storage[name],
+		ch.Meta().Storage[name],
 		name, cons,
 	)
 	if err != nil {
@@ -978,11 +1008,11 @@ func (st *State) AddStorageForUnit(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		err = st.validateUnitStorage(charmMeta, u, name, completeCons)
+		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
+		ops, err := st.constructAddUnitStorageOps(ch, u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1018,13 +1048,14 @@ func (st *State) validateUnitStorage(
 }
 
 func (st *State) constructAddUnitStorageOps(
-	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+	ch *Charm, u *Unit, name string, cons StorageConstraints,
 ) ([]txn.Op, error) {
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
-		charmMeta,
+		ch.Meta(),
+		ch.URL(),
 		map[string]StorageConstraints{name: cons})
 	if err != nil {
 		return nil, errors.Trace(err)
