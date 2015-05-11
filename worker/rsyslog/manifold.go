@@ -24,8 +24,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker exists to wrap NewRsyslogConfigWorker in a format convenient for an
-// AgentApiManifold. Eventually, the method should replace it as the exposed
-// package factory function, and all tests should be routed through it.
+// AgentApiManifold.
+// TODO(fwereade) 2015-05-11 Eventually, the method should be the sole accessible
+// package factory function -- as part of the manifold -- and all tests should
+// thus be routed through it.
 var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	agentConfig := agent.CurrentConfig()
 	tag := agentConfig.Tag()
