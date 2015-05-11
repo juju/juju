@@ -57,7 +57,7 @@ trap cleanup_on_exit EXIT
 
 # Lock the juju-<unit>-debug lockfile.
 flock -n 8 || (
-	echo "Failed to acquire {entry_flock}: unit is already being debugged - trying to attach to any existing debug sessions" 2>&1
+	echo "Found existing debug sessions, attempting to reconnect" 2>&1
 	exec tmux attach-session -t {unit_name}
 	exit $?
 	)

@@ -96,7 +96,7 @@ cat > $JUJU_DEBUG/welcome.msg <<END
 This is a Juju debug-hooks tmux session. Remember:
 1. You need to execute hooks manually if you want them to run for trapped events.
 2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue running.
-3. For tmux use prefix CTRL+a
+3. CTRL+a is tmux prefix.
 
 More help and info is available in the online documentation:
 https://juju.ubuntu.com/docs/authors-hook-debug.html
