@@ -96,5 +96,5 @@ type InstanceBroker interface {
 	AllInstances() ([]instance.Instance, error)
 
 	// MaintainInstance
-	MaintainInstance(args StartInstanceParams) (error)
+	MaintainInstance(args StartInstanceParams) error
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
+	"regexp"
+
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -28,7 +30,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"regexp"
 )
 
 type ProvisionerTask interface {
