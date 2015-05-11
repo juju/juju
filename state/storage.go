@@ -1024,7 +1024,7 @@ func (st *State) constructAddUnitStorageOps(
 		st,
 		u.Tag(),
 		ch.Meta(),
-    ch.URL(),
+		ch.URL(),
 		map[string]StorageConstraints{name: cons})
 	if err != nil {
 		return nil, errors.Trace(err)

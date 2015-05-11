@@ -75,7 +75,7 @@ func (s *StorageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	s.assertStorageCount(c, 1)
 
-	err := s.State.AddStorageForUnit(u, "data", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "data", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block" store "data": at most 1 instances supported, 2 specified.*`)
 	s.assertStorageCount(c, 1)
 }
@@ -84,7 +84,7 @@ func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	s.assertStorageCount(c, 1)
 
-	err := s.State.AddStorageForUnit(u, "allecto", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "allecto", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, 2)
 }
