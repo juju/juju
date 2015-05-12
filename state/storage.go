@@ -467,6 +467,32 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	return &s, nil
 }
 
+// DestroyStorageAttachment ensures that the existing storage attachments of
+// the specified unit are removed at some point.
+func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		attachments, err := st.UnitStorageAttachments(unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := make([]txn.Op, 0, len(attachments))
+		for _, attachment := range attachments {
+			if attachment.Life() != Alive {
+				continue
+			}
+			ops = append(ops, destroyStorageAttachmentOps(
+				attachment.StorageInstance(), unit,
+			)...)
+		}
+		if len(ops) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
 // DestroyStorageAttachment ensures that the storage attachment will be
 // removed at some point.
 func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
@@ -481,46 +507,17 @@ func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.U
 		if s.doc.Life == Dying {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyStorageAttachmentOps(s), nil
+		return destroyStorageAttachmentOps(storage, unit), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
+func destroyStorageAttachmentOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Id:     storageAttachmentId(unit.Id(), storage.Id()),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}}
-	return ops
-}
-
-// EnsureStorageAttachmentDead ensures that the storage attachment is Dead
-// if it exists at all, doing nothing if it does not exist.
-func (st *State) EnsureStorageAttachmentDead(storage names.StorageTag, unit names.UnitTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot ensure death of storage attachment %s:%s", storage.Id(), unit.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if s.doc.Life == Dead {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return ensureStorageAttachmentDeadOps(s), nil
-	}
-	return st.run(buildTxn)
-}
-
-func ensureStorageAttachmentDeadOps(s *storageAttachment) []txn.Op {
-	ops := []txn.Op{{
-		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return ops
 }
@@ -555,13 +552,13 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 }
 
 func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
-	if s.doc.Life != Dead {
-		return nil, errors.New("storage attachment is not dead")
+	if s.doc.Life != Dying {
+		return nil, errors.New("storage attachment is not dying")
 	}
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
 		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: isDeadDoc,
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}, {
 		C:      unitsC,
@@ -851,11 +848,33 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		return errors.Trace(err)
 	}
 
-	if allCons == nil {
-		allCons = make(map[string]StorageConstraints)
-	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons, err := storageConstraintsWithDefaults(conf, charmStorage, name, allCons[name])
+		kind := storageKind(charmStorage.Type)
+		cons, ok := allCons[name]
+		if !ok {
+			if charmStorage.Shared {
+				// TODO(axw) get the environment's default shared storage
+				// pool, and create constraints here.
+				return errors.Errorf(
+					"no constraints specified for shared charm storage %q",
+					name,
+				)
+			}
+			var pool storage.ProviderType
+			switch kind {
+			case storage.StorageKindBlock:
+				pool = provider.LoopProviderType
+			case storage.StorageKindFilesystem:
+				pool = provider.RootfsProviderType
+			default:
+				return errors.Errorf("unhandled storage kind %v", kind)
+			}
+			cons = StorageConstraints{
+				Pool:  string(pool),
+				Count: uint64(charmStorage.CountMin),
+			}
+		}
+		cons, err := storageConstraintsWithDefaults(conf, charmStorage, name, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -874,14 +893,19 @@ func storageConstraintsWithDefaults(
 	cons StorageConstraints,
 ) (StorageConstraints, error) {
 	withDefaults := cons
+
+	// If no pool is specified, determine the pool from the env config and other constraints.
 	if cons.Pool == "" {
 		kind := storageKind(charmStorage.Type)
-		poolName, err := defaultStoragePool(cfg, kind)
+		poolName, err := defaultStoragePool(cfg, kind, cons)
 		if err != nil {
 			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", name)
 		}
 		withDefaults.Pool = poolName
 	}
+
+	// If no size is specified, we default to the min size specified by the
+	// charm, or 1GiB.
 	if cons.Size == 0 {
 		if charmStorage.MinimumSize > 0 {
 			withDefaults.Size = charmStorage.MinimumSize
@@ -897,12 +921,19 @@ func storageConstraintsWithDefaults(
 
 // defaultStoragePool returns the default storage pool for the environment.
 // The default pool is either user specified, or one that is registered by the provider itself.
-func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, error) {
+func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons StorageConstraints) (string, error) {
 	switch kind {
 	case storage.StorageKindBlock:
+		loopPool := string(provider.LoopProviderType)
+		// No constraints at all
+		emptyConstraints := StorageConstraints{}
+		if cons == emptyConstraints {
+			return loopPool, nil
+		}
+		// Either size or count specified, use env default.
 		defaultPool, ok := cfg.StorageDefaultBlockSource()
 		if !ok {
-			defaultPool = string(provider.LoopProviderType)
+			defaultPool = loopPool
 		}
 		return defaultPool, nil
 	}

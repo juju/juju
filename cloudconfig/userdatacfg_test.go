@@ -601,7 +601,9 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.cfg.Config != nil {
 			checkEnvConfig(c, test.cfg.Config, configKeyValues, scripts)
 		}
-		checkPackage(c, configKeyValues, "curl", test.cfg.EnableOSRefreshUpdate)
+
+		// curl should always be installed, since it's required by jujud.
+		checkPackage(c, configKeyValues, "curl", true)
 
 		tag := names.NewMachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)

@@ -695,7 +695,7 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 		result[i] = params.Volume{
 			v.Tag.String(),
 			v.VolumeId,
-			v.Serial,
+			v.HardwareId,
 			v.Size,
 			v.Persistent,
 		}

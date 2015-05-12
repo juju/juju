@@ -15,13 +15,11 @@ const (
 )
 
 // BlockDevicePath returns the path to a block device, or an error if a path
-// cannot be determined. The path is based on the serial, if available,
+// cannot be determined. The path is based on the hardware ID, if available,
 // otherwise the device name.
 func BlockDevicePath(device BlockDevice) (string, error) {
-	if device.Serial != "" {
-		// TODO(axw) rename Serial; by-id is a combination of vendor,
-		// model and serial.
-		return filepath.Join(diskByID, device.Serial), nil
+	if device.HardwareId != "" {
+		return filepath.Join(diskByID, device.HardwareId), nil
 	}
 	if device.DeviceName != "" {
 		return filepath.Join(diskByDeviceName, device.DeviceName), nil

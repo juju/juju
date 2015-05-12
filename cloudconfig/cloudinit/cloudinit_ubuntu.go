@@ -239,8 +239,8 @@ done`
 	}
 }
 
-// updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *ubuntuCloudConfig) updatePackages() {
+// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
+func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",

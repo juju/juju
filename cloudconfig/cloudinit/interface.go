@@ -360,9 +360,9 @@ type AdvancedPackagingConfig interface {
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig.
 	getPackagingConfigurer() config.PackagingConfigurer
 
-	// This is a helper to add the proper packages that we want to update per
-	// distribution.
-	updatePackages()
+	// addRequiredPackages is a helper to add packages that juju requires in
+	// order to operate.
+	addRequiredPackages()
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used

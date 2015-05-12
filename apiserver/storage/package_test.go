@@ -258,6 +258,7 @@ type mockState struct {
 	storageInstanceVolumeAttachment     func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
+	watchStorageAttachment              func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	envName                             string
@@ -299,6 +300,10 @@ func (st *mockState) StorageInstanceVolume(s names.StorageTag) (state.Volume, er
 
 func (st *mockState) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	return st.storageInstanceVolumeAttachment(m, v)
+}
+
+func (st *mockState) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+	return st.watchStorageAttachment(s, u)
 }
 
 func (st *mockState) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {

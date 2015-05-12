@@ -485,7 +485,7 @@ func (a *API) convertStateVolumeToParams(st state.Volume) (params.VolumeInstance
 		}
 	}
 	if info, err := st.Info(); err == nil {
-		volume.Serial = info.Serial
+		volume.HardwareId = info.HardwareId
 		volume.Size = info.Size
 		volume.Persistent = info.Persistent
 		volume.VolumeId = info.VolumeId
