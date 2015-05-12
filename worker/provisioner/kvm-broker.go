@@ -136,6 +136,8 @@ func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) 
 	return broker.manager.ListContainers()
 }
 
-func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
+// MaintainInstance is only called for LXC hosts.
+// Stub to fulfill the environs.InstanceBroker interface.
+func (*kvmBroker) MaintainInstance(environs.StartInstanceParams) error {
 	return nil
 }

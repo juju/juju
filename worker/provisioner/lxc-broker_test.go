@@ -960,6 +960,15 @@ type fakeAPI struct {
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
 
+var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
+	DeviceIndex:    0,
+	MACAddress:     "aa:bb:cc:dd:ee:ff",
+	CIDR:           "0.1.2.0/24",
+	InterfaceName:  "dummy0",
+	Address:        network.NewAddress("0.1.2.3"),
+	GatewayAddress: network.NewAddress("0.1.2.1"),
+}
+
 func NewFakeAPI(c *gc.C) (f fakeAPI) {
 	f.c = c
 	f.suite = nil
@@ -968,7 +977,7 @@ func NewFakeAPI(c *gc.C) (f fakeAPI) {
 	return
 }
 
-func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
 		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
@@ -982,14 +991,7 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network
 	}
 	f.calls = append(f.calls, "PrepareContainerInterfaceInfo")
 	f.machineReady = true
-	return []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "dummy0",
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-	}}, nil
+	return []network.InterfaceInfo{fakeInterfaceInfo}, nil
 }
 
 func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
@@ -1001,12 +1003,5 @@ func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.Int
 		return []network.InterfaceInfo{},
 			errors.NotProvisionedf("machine-42 has no network provisioning info")
 	}
-	return []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "dummy0",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
-	}}, nil
+	return []network.InterfaceInfo{fakeInterfaceInfo}, nil
 }
