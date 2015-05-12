@@ -34,6 +34,7 @@ var (
 	vTypeSmartmachine   = "smartmachine"
 	vTypeVirtualmachine = "kvm"
 	signedImageDataOnly = false
+	defaultCpuCores     = uint64(1)
 )
 
 type joyentCompute struct {
@@ -324,6 +325,14 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 	}
 	allInstanceTypes := []instances.InstanceType{}
 	for _, pkg := range packages {
+		// ListPackages does not include the virt type of the package.
+		// However, Joyent says the smart packages have zero VCPUs.
+		var virtType *string
+		if pkg.VCPUs > 0 {
+			virtType = &vTypeVirtualmachine
+		} else {
+			virtType = &vTypeSmartmachine
+		}
 		instanceType := instances.InstanceType{
 			Id:       pkg.Id,
 			Name:     pkg.Name,
@@ -331,7 +340,7 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
-			VirtType: &vTypeVirtualmachine,
+			VirtType: virtType,
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
@@ -340,6 +349,10 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	// Require at least one VCPU so we get KVM rather than smart package.
+	if ic.Constraints.CpuCores == nil {
+		ic.Constraints.CpuCores = &defaultCpuCores
+	}
 	allInstanceTypes, err := env.listInstanceTypes()
 	if err != nil {
 		return nil, err
