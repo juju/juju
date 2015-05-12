@@ -306,7 +306,8 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 				Since:   serviceStatus.Since,
 			}
 		} else {
-			// TODO(wallyworld) - return an error here once we figure out what's happening
+			// TODO(wallyworld) - bug http://pad.lv/1451283
+			// return an error here once we figure out what's happening
 			// Not sure how status can even return NotFound as it is created
 			// with the service initially. For now, we'll log the error as per
 			// the above and return Unknown.
