@@ -39,8 +39,10 @@ type patchingSuite interface {
 // out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
 func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
 	f := &FakeEnsureMongo{
+		ServiceInstalled:    true,
 		ReplicasetInitiated: true,
 	}
+	suite.PatchValue(&mongo.IsServiceInstalled, f.IsServiceInstalled)
 	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
 	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
 	return f
@@ -57,7 +59,12 @@ type FakeEnsureMongo struct {
 	Info                state.StateServingInfo
 	InitiateParams      peergrouper.InitiateMongoParams
 	Err                 error
+	ServiceInstalled    bool
 	ReplicasetInitiated bool
+}
+
+func (f *FakeEnsureMongo) IsServiceInstalled(string) (bool, error) {
+	return f.ServiceInstalled, nil
 }
 
 func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error) {
