@@ -929,16 +929,19 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 }
 
 // PrepareContainerInterfaceInfo allocates an address and returns
-// information for configuring networking on a container. It accepts
+// information to configure networking for a container. It accepts
 // container tags as arguments. If the address allocation feature flag
 // is not enabled, it returns a NotSupported error.
-func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
+	params.MachineNetworkConfigResults, error) {
 	return p.prepareContainerInterfaceInfo(args, true)
 }
 
-// PrepareContainerInterfaceInfo returns information
-// for configuring networking on a container. It accepts container tags as arguments.
-func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+// GetContainerInterfaceInfo returns information to configure networking
+// for a container. It accepts container tags as arguments. If the address
+// allocation feature flag is not enabled, it returns a NotSupported error.
+func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
+	params.MachineNetworkConfigResults, error) {
 	return p.prepareContainerInterfaceInfo(args, false)
 }
 
