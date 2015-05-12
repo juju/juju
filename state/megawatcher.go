@@ -154,11 +154,12 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
+		logger.Debugf("new unit %q added to backing state", u.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
 		unitStatus, agentStatus, err := unitAndAgentStatus(st, u.Name)
 		if err != nil {
-			return err
+			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.StatusInfo{
@@ -274,6 +275,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
 	if oldInfo == nil {
+		logger.Debugf("new service %q added to backing state", svc.Name)
 		key := serviceGlobalKey(svc.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
@@ -290,7 +292,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "reading service status for key %s", key)
 		}
 		info.Status = multiwatcher.StatusInfo{
 			Current: multiwatcher.Status(serviceStatus.Status),
