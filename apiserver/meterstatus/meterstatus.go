@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// MeterStatusWrapper takes a MeterStatus and converts it into an 'api friendly' where
+// MeterStatusWrapper takes a MeterStatus and converts it into an 'api friendly' form where
 // Not Set and Not Available (which are important distinctions in state) are converted
 // into Amber and Red respecitvely in the api.
 func MeterStatusWrapper(getter func() (state.MeterStatus, error)) (state.MeterStatus, error) {
