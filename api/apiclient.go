@@ -217,12 +217,10 @@ func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*w
 		return nil, errors.New(`path tail must start with "/"`)
 	}
 
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(info.CACert)
+	pool, err := CreateCertPool(info.CACert)
 	if err != nil {
 		return nil, errors.Annotate(err, "cert pool creation failed")
 	}
-	pool.AddCert(xcert)
 
 	// If they exist, only use localhost addresses.
 	var addrs []string
