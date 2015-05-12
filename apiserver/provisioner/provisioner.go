@@ -797,53 +797,6 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 	return result, nil
 }
 
-func (p *ProvisionerAPI) GetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	setInstanceInfo := func(arg params.InstanceInfo) error {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			return common.ErrPerm
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err != nil {
-			return err
-		}
-		networks, interfaces, err := networkParamsToStateParams(arg.Networks, arg.Interfaces)
-		if err != nil {
-			return err
-		}
-		volumes, err := common.VolumesToState(arg.Volumes)
-		if err != nil {
-			return err
-		}
-		volumeAttachments, err := common.VolumeAttachmentsToState(arg.VolumeAttachments)
-		if err != nil {
-			return err
-		}
-		if err = machine.SetInstanceInfo(
-			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			networks, interfaces, volumes, volumeAttachments); err != nil {
-			return errors.Annotatef(
-				err,
-				"cannot record provisioning info for %q",
-				arg.InstanceId,
-			)
-		}
-		return nil
-	}
-	for i, arg := range args.Machines {
-		err := setInstanceInfo(arg)
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // WatchMachineErrorRetry returns a NotifyWatcher that notifies when
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
