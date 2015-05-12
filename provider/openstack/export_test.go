@@ -315,10 +315,6 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 	return e.(*environ).ensureGroup(name, rules)
 }
 
-func CollectInstances(e environs.Environ, ids []instance.Id, out map[string]instance.Instance) []instance.Id {
-	return e.(*environ).collectInstances(ids, out)
-}
-
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
 func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
