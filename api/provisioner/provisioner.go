@@ -164,22 +164,31 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
+// PrepareContainerInterfaceInfo allocates an address and returns
+// information to configure networking for a container. It accepts
+// container tags as arguments. If the address allocation feature flag
+// is not enabled, it returns a NotSupported error.
 func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
-	return st.prepareContainerInterfaceInfo(containerTag, true)
+	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
+// GetContainerInterfaceInfo returns information to configure networking
+// for a container. It accepts container tags as arguments. If the address
+// allocation feature flag is not enabled, it returns a NotSupported error.
 func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
-	return st.prepareContainerInterfaceInfo(containerTag, false)
+	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }
 
-// PrepareContainerInterfaceInfo returns the necessary information to
+// prepareOrGetContainerInterfaceInfo returns the necessary information to
 // configure network interfaces of a container with allocated static
 // IP addresses.
 //
 // TODO(dimitern): Before we start using this, we need to rename both
 // the method and the network.InterfaceInfo type to be called
 // InterfaceConfig.
-func (st *State) prepareContainerInterfaceInfo(containerTag names.MachineTag, allocateNewAddress bool) ([]network.InterfaceInfo, error) {
+func (st *State) prepareOrGetContainerInterfaceInfo(
+	containerTag names.MachineTag, allocateNewAddress bool) (
+	[]network.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},

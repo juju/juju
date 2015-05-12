@@ -548,6 +548,8 @@ func configureContainerNetwork(
 	return finalIfaceInfo, nil
 }
 
+// MaintainInstance checks that the container's host has the required iptables and routing
+// rules to make the container visible to both the host and other machines on the same subnet.
 func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineId := args.InstanceConfig.MachineId
 	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
