@@ -6,18 +6,21 @@
 package vsphere
 
 import (
+	"archive/tar"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/govmomi/object"
 	"github.com/juju/govmomi/vim25/progress"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
+	"github.com/juju/juju/juju/osenv"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
@@ -25,37 +28,47 @@ import (
 
 /*
 This file contains implementation of the process of importing OVF template using vsphere API.  This process can be splitted in the following steps
-1. Download OVF template
-2. Call CreateImportSpec method from vsphere API https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method validates the OVF descriptor against the hardware supported by the host system. If the validation succeeds, return a result containing:
+1. Download OVA template
+2. Extract it to a temp folder and load ovf file from it.
+3. Call CreateImportSpec method from vsphere API https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method validates the OVF descriptor against the hardware supported by the host system. If the validation succeeds, return a result containing:
   * An ImportSpec to use when importing the entity.
   * A list of items to upload (for example disk backing files, ISO images etc.)
-3. Prepare all necessary parameters (CPU, mem, etc.) and call ImportVApp method https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method is responsible for actually creating VM. This method return HttpNfcLease (https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/vim.HttpNfcLease.html) object, that is used to monitor status of the process.
-4. Upload virtual disk contents (that usually consist of a single vmdk file)
-5. Call HttpNfcLeaseComplete https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/ and indicate that the process of uploading is finished - this step finishes the process.
+4. Prepare all necessary parameters (CPU, mem, etc.) and call ImportVApp method https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method is responsible for actually creating VM. This method return HttpNfcLease (https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/vim.HttpNfcLease.html) object, that is used to monitor status of the process.
+5. Upload virtual disk contents (that usually consist of a single vmdk file)
+6. Call HttpNfcLeaseComplete https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/ and indicate that the process of uploading is finished - this step finishes the process.
 */
 
 //this type implements progress.Sinker interface, that is requred to obtain the status of uploading an item to vspehere
-type ovfFileItem struct {
+type ovaFileItem struct {
 	url  *url.URL
 	item types.OvfFileItem
 	ch   chan progress.Report
 }
 
-func (o ovfFileItem) Sink() chan<- progress.Report {
+func (o ovaFileItem) Sink() chan<- progress.Report {
 	return o.ch
 }
 
-type ovfImportManager struct {
+type ovaImportManager struct {
 	client *client
 }
 
-func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ovf, err := m.downloadOvf(img.Url)
+	basePath, err := ioutil.TempDir(osenv.JujuHome(), "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(basePath); err != nil {
+			logger.Errorf("can't remove temp directory, error: %s", err.Error())
+		}
+	}()
+	ovf, err := m.downloadOva(basePath, img.Url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,13 +104,14 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
-		}
-		//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
-		//but 0 causes an error for some devices
-		n := &d.GetVirtualDeviceConfigSpec().Device.GetVirtualDevice().UnitNumber
-		if *n == 0 {
-			*n = -1
+			if disk.CapacityInKB < int64(*hwc.RootDisk*1024) {
+				disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
+			}
+			//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
+			//but 0 causes an error for disk devices
+			if disk.UnitNumber == 0 {
+				disk.UnitNumber = -1
+			}
 		}
 	}
 	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
@@ -110,7 +124,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	items := []ovfFileItem{}
+	items := []ovaFileItem{}
 	for _, device := range info.DeviceUrl {
 		for _, item := range spec.FileItem {
 			if device.ImportKey != item.DeviceId {
@@ -122,7 +136,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 				return nil, errors.Trace(err)
 			}
 
-			i := ovfFileItem{
+			i := ovaFileItem{
 				url:  u,
 				item: item,
 				ch:   make(chan progress.Report),
@@ -132,8 +146,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 
 	for _, i := range items {
-		ind := strings.LastIndex(img.Url, "/")
-		err = m.uploadImage(i, img.Url[:ind])
+		err = m.uploadImage(i, basePath)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -142,27 +155,81 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	return object.NewVirtualMachine(m.client.connection.Client, info.Entity), nil
 }
 
-func (m *ovfImportManager) downloadOvf(url string) (string, error) {
-	logger.Debugf("Downloading ovf file from url: %s", url)
+func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
+	logger.Debugf("Downloading ova file from url: %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("can't download ovf file from url: %s status: %d", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
 	}
-	bytes, err := ioutil.ReadAll(resp.Body)
+
+	ovfFilePath, err := m.extractOva(basePath, resp.Body)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	file, err := os.Open(ovfFilePath)
+	defer file.Close()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	bytes, err := ioutil.ReadAll(file)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return string(bytes), nil
 }
 
-func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
-	f, err := m.downloadFileItem(strings.Join([]string{baseUrl, ofi.item.Path}, "/"))
+func (m *ovaImportManager) extractOva(basePath string, body io.Reader) (string, error) {
+	logger.Debugf("Extracting ova to path: %s", basePath)
+	tarBallReader := tar.NewReader(body)
+	var ovfFileName string
+
+	for {
+		header, err := tarBallReader.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", errors.Trace(err)
+		}
+		filename := header.Name
+		if filepath.Ext(filename) == ".ovf" {
+			ovfFileName = filename
+		}
+		logger.Debugf("Writing file %s", filename)
+		err = func() error {
+			writer, err := os.Create(filepath.Join(basePath, filename))
+			defer writer.Close()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			_, err = io.Copy(writer, tarBallReader)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		}()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	if ovfFileName == "" {
+		return "", errors.Errorf("no ovf file found in the archive")
+	}
+	logger.Debugf("Ova extracted successfully")
+	return filepath.Join(basePath, ovfFileName), nil
+}
+
+func (m *ovaImportManager) uploadImage(ofi ovaFileItem, basePath string) error {
+	filepath := filepath.Join(basePath, ofi.item.Path)
+	logger.Debugf("Uploading item from path: %s", filepath)
+	f, err := os.Open(filepath)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	defer f.Close()
@@ -181,31 +248,13 @@ func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
 			curPercent := int(pr.Percentage())
 			if curPercent-lastPercent >= 10 {
 				lastPercent = curPercent
-				logger.Debugf("Progress: %d%%", lastPercent)
+				logger.Debugf("Progress: %d%", lastPercent)
 			}
 		}
 	}()
 	err = m.client.connection.Client.Upload(f, ofi.url, &opts)
 	if err == nil {
 		logger.Debugf("Image uploaded")
-	} else {
-		err = errors.Trace(err)
 	}
-
-	return err
-}
-
-func (m *ovfImportManager) downloadFileItem(url string) (io.ReadCloser, error) {
-	logger.Debugf("Downloading file from url %s", url)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if resp.StatusCode != 200 {
-		resp.Body.Close()
-		return nil, errors.Errorf("can't download file from url: %s status: %d", url, resp.StatusCode)
-	}
-
-	return resp.Body, nil
+	return errors.Trace(err)
 }

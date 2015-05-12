@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
@@ -57,6 +58,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.setUpHttpProxy(c)
 	s.FakeMetadataServer()
+	osenv.SetJujuHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
@@ -74,7 +76,6 @@ func (s *BaseSuite) setConfig(c *gc.C, cfg *config.Config) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	s.Env.ecfg = s.EnvConfig
-	//s.Prefix = "juju-" + uuid + "-"
 }
 
 func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
