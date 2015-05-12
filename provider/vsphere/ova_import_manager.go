@@ -22,8 +22,6 @@ import (
 	"github.com/juju/govmomi/vim25/types"
 	"github.com/juju/juju/juju/osenv"
 	"golang.org/x/net/context"
-
-	"github.com/juju/juju/instance"
 )
 
 /*
@@ -53,7 +51,7 @@ type ovaImportManager struct {
 	client *client
 }
 
-func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,22 +66,22 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 			logger.Errorf("can't remove temp directory, error: %s", err.Error())
 		}
 	}()
-	ovf, err := m.downloadOva(basePath, img.Url)
+	ovf, err := m.downloadOva(basePath, instSpec.img.Url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	cisp := types.OvfCreateImportSpecParams{
-		EntityName: machineID,
+		EntityName: instSpec.machineID,
 		PropertyMapping: []types.KeyValue{
-			types.KeyValue{Key: "public-keys", Value: sshKey},
-			types.KeyValue{Key: "user-data", Value: base64.StdEncoding.EncodeToString(userData)},
+			types.KeyValue{Key: "public-keys", Value: instSpec.sshKey},
+			types.KeyValue{Key: "user-data", Value: base64.StdEncoding.EncodeToString(instSpec.userData)},
 		},
 	}
 
 	ovfManager := object.NewOvfManager(m.client.connection.Client)
-	resourcePool := object.NewReference(m.client.connection.Client, *zone.r.ResourcePool)
-	datastore := object.NewReference(m.client.connection.Client, zone.r.Datastore[0])
+	resourcePool := object.NewReference(m.client.connection.Client, *instSpec.zone.r.ResourcePool)
+	datastore := object.NewReference(m.client.connection.Client, instSpec.zone.r.Datastore[0])
 	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -93,19 +91,19 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
 	}
 	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
-	s.NumCPUs = int(*hwc.CpuCores)
-	s.MemoryMB = int64(*hwc.Mem)
+	s.NumCPUs = int(*instSpec.hwc.CpuCores)
+	s.MemoryMB = int64(*instSpec.hwc.Mem)
 	s.CpuAllocation = &types.ResourceAllocationInfo{
-		Limit:       int64(*hwc.CpuPower),
-		Reservation: int64(*hwc.CpuPower),
+		Limit:       int64(*instSpec.hwc.CpuPower),
+		Reservation: int64(*instSpec.hwc.CpuPower),
 	}
-	if isState {
+	if instSpec.isState {
 		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: metadataKeyIsState, Value: metadataValueIsState})
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			if disk.CapacityInKB < int64(*hwc.RootDisk*1024) {
-				disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
+			if disk.CapacityInKB < int64(*instSpec.hwc.RootDisk*1024) {
+				disk.CapacityInKB = int64(*instSpec.hwc.RootDisk * 1024)
 			}
 			//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
 			//but 0 causes an error for disk devices
@@ -114,7 +112,27 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 			}
 		}
 	}
-	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
+	if ecfg.externalNetwork() != "" {
+		s.DeviceChange = append(s.DeviceChange, &types.VirtualDeviceConfigSpec{
+			Operation: types.VirtualDeviceConfigSpecOperationAdd,
+			Device: &types.VirtualE1000{
+				VirtualEthernetCard: types.VirtualEthernetCard{
+					VirtualDevice: types.VirtualDevice{
+						Backing: &types.VirtualEthernetCardNetworkBackingInfo{
+							VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+								DeviceName: ecfg.externalNetwork(),
+							},
+						},
+						Connectable: &types.VirtualDeviceConnectInfo{
+							StartConnected:    true,
+							AllowGuestControl: true,
+						},
+					},
+				},
+			},
+		})
+	}
+	rp := object.NewResourcePool(m.client.connection.Client, *instSpec.zone.r.ResourcePool)
 	lease, err := rp.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to import vapp")
@@ -163,7 +181,7 @@ func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ova file from url: %s, status: %d", url, resp.StatusCode)
 	}
 
 	ovfFilePath, err := m.extractOva(basePath, resp.Body)

@@ -87,6 +87,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 		return nil, nil, errors.Trace(err)
 	}
 	cloudcfg.AddPackage("open-vm-tools")
+	cloudcfg.AddPackage("iptables-persistent")
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
@@ -133,7 +134,21 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
 			continue
 		}
-		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
+		apiPort := 0
+		if isStateServer(args.InstanceConfig) {
+			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		}
+		spec := &instanceSpec{
+			machineID: machineID,
+			zone:      availZone,
+			hwc:       hwc,
+			img:       img,
+			userData:  userData,
+			sshKey:    args.InstanceConfig.AuthorizedKeys,
+			isState:   isStateServer(args.InstanceConfig),
+			apiPort:   apiPort,
+		}
+		inst, err = env.client.CreateInstance(env.ecfg, spec)
 		if err != nil {
 			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
 			continue
