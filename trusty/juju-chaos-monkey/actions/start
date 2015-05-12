@@ -17,6 +17,7 @@ if [[ -d ${CHARM_DIR}/juju-chaos-monkey ]]; then
     cp -a ${CHARM_DIR}/juju-chaos-monkey ${target_dir}
 fi
 
+action-set action-info.run-log="${target_dir}/log/results.log"
 # Run the Chaos Monkey
 cmd="python ${target_dir}/juju-chaos-monkey/runner.py"
 cmd+=" ${target_dir}"
