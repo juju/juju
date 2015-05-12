@@ -21,26 +21,18 @@ var (
 	logger   = loggo.GetLogger("juju.worker.deployer.service")
 	renderer = &shell.PowershellRenderer{}
 
-	// ERROR_SERVICE_DOES_NOT_EXIST is returned by the OS when trying to open
+	// c_ERROR_SERVICE_DOES_NOT_EXIST is returned by the OS when trying to open
 	// an inexistent service
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms684330%28v=vs.85%29.aspx
-	ERROR_SERVICE_DOES_NOT_EXIST syscall.Errno = 0x424
+	c_ERROR_SERVICE_DOES_NOT_EXIST syscall.Errno = 0x424
 
-	// ERROR_LOGON_NOT_GRANTED is returned, if the user is not allowed to
-	// login as a service
-	ERROR_LOGON_NOT_GRANTED syscall.Errno = 0x564
-
-	// ERROR_LOGON_FAILURE is returned when username and/or password is
-	// incorrect
-	ERROR_LOGON_FAILURE syscall.Errno = 0x52E
-
-	// ERROR_SERVICE_EXISTS is returned by the operating system if the service
+	// c_ERROR_SERVICE_EXISTS is returned by the operating system if the service
 	// we are trying to create, already exists
-	ERROR_SERVICE_EXISTS syscall.Errno = 0x431
+	c_ERROR_SERVICE_EXISTS syscall.Errno = 0x431
 
 	// The syscall package in go 1.2.1 does not have this error defined. Remove this
 	// when we update the go version we use to build juju
-	ERROR_MORE_DATA syscall.Errno = 0xEA
+	c_ERROR_MORE_DATA syscall.Errno = 0xEA
 
 	// This is the user under which juju services start. We chose to use a
 	// normal user for this purpose because some installers require a normal

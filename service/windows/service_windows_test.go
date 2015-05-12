@@ -7,17 +7,15 @@
 package windows_test
 
 import (
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
-
+	"code.google.com/p/winsvc/svc"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"code.google.com/p/winsvc/svc"
-
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type serviceManagerSuite struct {

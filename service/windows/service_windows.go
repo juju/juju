@@ -17,7 +17,6 @@ import (
 	"code.google.com/p/winsvc/mgr"
 	"code.google.com/p/winsvc/svc"
 	"code.google.com/p/winsvc/winapi"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
@@ -27,19 +26,19 @@ import (
 const (
 	// logonProvider constants
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/aa378184%28v=vs.85%29.aspx
-	LOGON32_PROVIDER_DEFAULT = 0
-	LOGON32_PROVIDER_WINNT35 = 1
-	LOGON32_PROVIDER_WINNT40 = 2
-	LOGON32_PROVIDER_WINNT50 = 3
+	c_LOGON32_PROVIDER_DEFAULT = 0
+	c_LOGON32_PROVIDER_WINNT35 = 1
+	c_LOGON32_PROVIDER_WINNT40 = 2
+	c_LOGON32_PROVIDER_WINNT50 = 3
 
 	// logonType constants
-	LOGON32_LOGON_INTERACTIVE       = 2
-	LOGON32_LOGON_NETWORK           = 3
-	LOGON32_LOGON_BATCH             = 4
-	LOGON32_LOGON_SERVICE           = 5
-	LOGON32_LOGON_UNLOCK            = 7
-	LOGON32_LOGON_NETWORK_CLEARTEXT = 8
-	LOGON32_LOGON_NEW_CREDENTIALS   = 9
+	c_LOGON32_LOGON_INTERACTIVE       = 2
+	c_LOGON32_LOGON_NETWORK           = 3
+	c_LOGON32_LOGON_BATCH             = 4
+	c_LOGON32_LOGON_SERVICE           = 5
+	c_LOGON32_LOGON_UNLOCK            = 7
+	c_LOGON32_LOGON_NETWORK_CLEARTEXT = 8
+	c_LOGON32_LOGON_NEW_CREDENTIALS   = 9
 )
 
 var (
@@ -141,7 +140,7 @@ func enumServices(h syscall.Handle) ([]enumService, error) {
 	err := enumServicesStatus(h, winapi.SERVICE_WIN32,
 		winapi.SERVICE_STATE_ALL, nil, 0, &needed, &returned, &resume)
 	if err != nil {
-		if err.(syscall.Errno) != ERROR_MORE_DATA {
+		if err.(syscall.Errno) != c_ERROR_MORE_DATA {
 			return []enumService{}, err
 		}
 		e = make([]byte, needed)
@@ -222,7 +221,7 @@ func (s *SvcManager) status(name string) (svc.State, error) {
 
 func (s *SvcManager) exists(name string) (bool, error) {
 	_, err := s.query(name)
-	if err == ERROR_SERVICE_DOES_NOT_EXIST {
+	if err == c_ERROR_SERVICE_DOES_NOT_EXIST {
 		return false, nil
 	} else if err != nil {
 		return false, err
@@ -255,7 +254,11 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	}
 	execStart := strings.Replace(conf.ExecStart, `'`, `"`, -1)
 	cfg := mgr.Config{
-		Dependencies:     []string{"Winmgmt"}, // make this service dependent on WMI service
+		// make this service dependent on WMI service. WMI is needed for almost
+		// all installers to work properly, and is needed for all of the advanced windows
+		// instrumentation bits (powershell included). Juju agents must start after this
+		// service to ensure hooks run properly.
+		Dependencies:     []string{"Winmgmt"},
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
 		ServiceStartName: jujudUser,
@@ -299,7 +302,7 @@ func (s *SvcManager) Delete(name string) error {
 		return nil
 	}
 	err = s.svc.Delete()
-	if err == ERROR_SERVICE_DOES_NOT_EXIST {
+	if err == c_ERROR_SERVICE_DOES_NOT_EXIST {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -352,7 +355,7 @@ func (s *SvcManager) Config(name string) (mgr.Config, error) {
 		return mgr.Config{}, err
 	}
 	if !exists {
-		return mgr.Config{}, ERROR_SERVICE_DOES_NOT_EXIST
+		return mgr.Config{}, c_ERROR_SERVICE_DOES_NOT_EXIST
 	}
 	return s.svc.Config()
 }

@@ -7,8 +7,9 @@
 package windows
 
 import (
-	"code.google.com/p/winsvc/svc"
 	"os"
+
+	"code.google.com/p/winsvc/svc"
 )
 
 type systemService struct {
@@ -22,9 +23,7 @@ func (s *systemService) Execute(args []string, r <-chan svc.ChangeRequest, chang
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
-	go func() {
-		s.cmd(s.args)
-	}()
+	go s.cmd(s.args)
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
@@ -35,6 +34,7 @@ func (s *systemService) Execute(args []string, r <-chan svc.ChangeRequest, chang
 			case svc.Interrogate:
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
+				// TODO (gabriel-samfira): Add more robust handling of service termination
 				changes <- svc.Status{State: svc.StopPending}
 				os.Exit(0)
 			default:

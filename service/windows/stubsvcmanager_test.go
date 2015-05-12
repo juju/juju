@@ -22,7 +22,7 @@ func (s *StubSvcManager) Start(name string) error {
 	s.Stub.AddCall("Start", name)
 
 	if svc, ok := MgrServices[name]; !ok {
-		return ERROR_SERVICE_DOES_NOT_EXIST
+		return c_ERROR_SERVICE_DOES_NOT_EXIST
 	} else {
 		svc.running = true
 	}
@@ -33,7 +33,7 @@ func (s *StubSvcManager) Stop(name string) error {
 	s.Stub.AddCall("Stop", name)
 
 	if svc, ok := MgrServices[name]; !ok {
-		return ERROR_SERVICE_DOES_NOT_EXIST
+		return c_ERROR_SERVICE_DOES_NOT_EXIST
 	} else {
 		svc.running = false
 	}
@@ -44,7 +44,7 @@ func (s *StubSvcManager) Delete(name string) error {
 	s.Stub.AddCall("Delete", name)
 
 	if _, ok := MgrServices[name]; !ok {
-		return ERROR_SERVICE_DOES_NOT_EXIST
+		return c_ERROR_SERVICE_DOES_NOT_EXIST
 	}
 	delete(MgrServices, name)
 	return nil
@@ -54,7 +54,7 @@ func (s *StubSvcManager) Create(name string, conf common.Conf) error {
 	s.Stub.AddCall("Create", name, conf)
 
 	if _, ok := MgrServices[name]; ok {
-		return ERROR_SERVICE_EXISTS
+		return c_ERROR_SERVICE_EXISTS
 	}
 
 	MgrServices[name] = &service{
@@ -70,7 +70,7 @@ func (s *StubSvcManager) Running(name string) (bool, error) {
 	if svc, ok := MgrServices[name]; ok {
 		return svc.running, nil
 	}
-	return false, ERROR_SERVICE_DOES_NOT_EXIST
+	return false, c_ERROR_SERVICE_DOES_NOT_EXIST
 }
 
 func (s *StubSvcManager) Exists(name string, conf common.Conf) (bool, error) {

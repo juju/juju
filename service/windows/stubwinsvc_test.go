@@ -73,7 +73,7 @@ func (s *StubService) Delete() error {
 		delete(Services, s.Name)
 		return s.NextErr()
 	}
-	return ERROR_SERVICE_DOES_NOT_EXIST
+	return c_ERROR_SERVICE_DOES_NOT_EXIST
 }
 
 func (s *StubService) Query() (svc.Status, error) {
@@ -97,7 +97,7 @@ func (m *StubMgr) CreateService(name, exepath string, c mgr.Config) (svcInterfac
 	m.Stub.AddCall("CreateService", name, exepath, c)
 
 	if _, ok := Services[name]; ok {
-		return nil, ERROR_SERVICE_EXISTS
+		return nil, c_ERROR_SERVICE_EXISTS
 	}
 	stubSvc := &StubService{
 		Name:      name,
@@ -120,7 +120,7 @@ func (m *StubMgr) OpenService(name string) (svcInterface, error) {
 	if stubSvc, ok := Services[name]; ok {
 		return stubSvc, m.NextErr()
 	}
-	return nil, ERROR_SERVICE_DOES_NOT_EXIST
+	return nil, c_ERROR_SERVICE_DOES_NOT_EXIST
 }
 
 func (m *StubMgr) Exists(name string) bool {

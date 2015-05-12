@@ -2,7 +2,7 @@
 // Copyright 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 //
-// +build windows !linux
+// +build windows
 
 package securestring_test
 
@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -26,12 +25,6 @@ func Test(t *testing.T) {
 type SecureStringSuite struct{}
 
 var _ = gc.Suite(&SecureStringSuite{})
-
-func (s *SecureStringSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS != "windows" {
-		c.Skip("Package go-securestring requires running on Windows.")
-	}
-}
 
 var testInputs []string = []string{
 	"Simple",
