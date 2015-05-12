@@ -536,8 +536,8 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 	for _, m := range machines {
 		logger.Infof("maintainMachines: %v", m)
 		startInstanceParams := environs.StartInstanceParams{}
-		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
-		startInstanceParams.InstanceConfig.MachineId = m.Id()
+		startInstanceParams.MachineConfig = &cloudinit.MachineConfig{}
+		startInstanceParams.MachineConfig.MachineId = m.Id()
 		if err := task.broker.MaintainInstance(startInstanceParams); err != nil {
 			return errors.Annotatef(err, "cannot maintain machine %v", m)
 		}
