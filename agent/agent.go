@@ -191,6 +191,11 @@ type ConfigSetterOnly interface {
 	SetStateServingInfo(info params.StateServingInfo)
 }
 
+// LogFileName returns the filename for the Agent's log file.
+func LogFilename(c Config) string {
+	return filepath.Join(c.LogDir(), c.Tag().String()+".log")
+}
+
 type ConfigMutator func(ConfigSetter) error
 
 type ConfigWriter interface {
