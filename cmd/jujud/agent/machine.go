@@ -159,11 +159,13 @@ type AgentConfigWriter interface {
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCmd(
+	ctx *cmd.Context,
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
+		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
@@ -177,6 +179,7 @@ type machineAgentCmd struct {
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
+	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
 	logToStdErr bool
@@ -211,15 +214,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
-	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
-		Filename:   filename,
+	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+	a.ctx.Stderr = &lumberjack.Logger{
+		Filename:   agent.LogFilename(agentConfig),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
 
-	return cmdutil.SwitchProcessToRollingLogs(log)
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
