@@ -138,3 +138,7 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
 }
+
+func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}

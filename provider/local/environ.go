@@ -355,6 +355,11 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*localEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.MachineConfig.HasNetworks() {

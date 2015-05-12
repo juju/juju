@@ -36,6 +36,7 @@ var _ environs.InstanceBroker = (*lxcBroker)(nil)
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
@@ -559,4 +560,76 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 	return finalIfaceInfo, nil
+}
+
+func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineId := args.InstanceConfig.MachineId
+	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+	return fixUpNetworking(machineId, bridgeDevice, broker.api, args.NetworkInfo)
+}
+
+func fixUpNetworking(
+containerId, bridgeDevice string,
+apiFacade APICalls,
+ifaceInfo []network.InterfaceInfo,
+) (err error) {
+	defer func() {
+		if err != nil {
+			logger.Warningf(
+				"fixUpNetworking failed for container %q: %v",
+				containerId, err,
+			)
+		}
+	}()
+
+	if len(ifaceInfo) != 0 {
+		// When we already have interface info, don't overwrite it.
+		return nil
+	}
+	logger.Debugf("trying to allocate a static IP for container %q", containerId)
+
+	var primaryNIC string
+	var primaryAddr network.Address
+	primaryNIC, primaryAddr, err = discoverPrimaryNIC()
+	if err != nil {
+		logger.Debugf("discoverPrimaryNIC failed")
+		return errors.Trace(err)
+	}
+
+	finalIfaceInfo, err := apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("GetContainerInterfaceInfo returned %#v", finalIfaceInfo)
+
+	// Populate ConfigType and DNSServers as needed.
+	var dnsServers []network.Address
+	dnsServers, err = localDNSServers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Generate the final configuration for each container interface.
+	for i, _ := range finalIfaceInfo {
+		// Always start at the first device index and generate the
+		// interface name based on that. We need to do this otherwise
+		// the container will inherit the host's device index and
+		// interface name.
+		finalIfaceInfo[i].DeviceIndex = i
+		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
+		finalIfaceInfo[i].MACAddress = MACAddressTemplate
+		finalIfaceInfo[i].ConfigType = network.ConfigStatic
+		finalIfaceInfo[i].DNSServers = dnsServers
+		finalIfaceInfo[i].GatewayAddress = primaryAddr
+	}
+	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

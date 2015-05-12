@@ -164,6 +164,14 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+	return st.prepareContainerInterfaceInfo(containerTag, true)
+}
+
+func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+	return st.prepareContainerInterfaceInfo(containerTag, false)
+}
+
 // PrepareContainerInterfaceInfo returns the necessary information to
 // configure network interfaces of a container with allocated static
 // IP addresses.
@@ -171,12 +179,18 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 // TODO(dimitern): Before we start using this, we need to rename both
 // the method and the network.InterfaceInfo type to be called
 // InterfaceConfig.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) prepareContainerInterfaceInfo(containerTag names.MachineTag, allocateNewAddress bool) ([]network.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	if err := st.facade.FacadeCall("PrepareContainerInterfaceInfo", args, &result); err != nil {
+	facadeName := ""
+	if allocateNewAddress {
+		facadeName = "PrepareContainerInterfaceInfo"
+	} else {
+		facadeName = "GetContainerInterfaceInfo"
+	}
+	if err := st.facade.FacadeCall(facadeName, args, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != 1 {

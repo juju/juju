@@ -829,6 +829,11 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
