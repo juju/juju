@@ -39,17 +39,19 @@ var (
 type AgentConf interface {
 	// AddFlags injects common agent flags into f.
 	AddFlags(f *gnuflag.FlagSet)
+	// CheckArgs reports whether the given args are valid for this agent.
 	CheckArgs(args []string) error
+	// ReadConfig reads the agent's config from its config file.
 	ReadConfig(tag string) error
+	// ChangeConfig modifies this configuration using the given mutator.
 	ChangeConfig(change AgentConfigMutator) error
+	// CurrentConfig returns the agent config for this agent.
 	CurrentConfig() agent.Config
-
 	// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
 	SetAPIHostPorts(servers [][]network.HostPort) error
-
 	// SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
 	SetStateServingInfo(info params.StateServingInfo) error
-
+	// DataDir returns the directory where this agent should store its data.
 	DataDir() string
 }
 
@@ -76,6 +78,7 @@ func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
 }
 
+// CheckArgs reports whether the given args are valid for this agent.
 func (c *agentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
 		return util.RequiredError("data-dir")
@@ -83,10 +86,12 @@ func (c *agentConf) CheckArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// DataDir returns the directory where this agent should store its data.
 func (c *agentConf) DataDir() string {
 	return c.dataDir
 }
 
+// ReadConfig reads the agent's config from its config file.
 func (c *agentConf) ReadConfig(tag string) error {
 	t, err := names.ParseTag(tag)
 	if err != nil {
@@ -102,6 +107,7 @@ func (c *agentConf) ReadConfig(tag string) error {
 	return nil
 }
 
+// ChangeConfig modifies this configuration using the given mutator.
 func (ch *agentConf) ChangeConfig(change AgentConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
@@ -114,6 +120,7 @@ func (ch *agentConf) ChangeConfig(change AgentConfigMutator) error {
 	return nil
 }
 
+// CurrentConfig returns the agent config for this agent.
 func (ch *agentConf) CurrentConfig() agent.Config {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
