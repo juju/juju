@@ -67,6 +67,18 @@ var discoverService = func(name string) (mongoService, error) {
 	return service.DiscoverService(name, common.Conf{})
 }
 
+// IsServiceInstalled returns whether the MongoDB init service
+// configuration is present.
+var IsServiceInstalled = isServiceInstalled
+
+func isServiceInstalled(namespace string) (bool, error) {
+	svc, err := discoverService(ServiceName(namespace))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return svc.Installed()
+}
+
 // RemoveService removes the mongoDB init service from this machine.
 func RemoveService(namespace string) error {
 	svc, err := discoverService(ServiceName(namespace))
