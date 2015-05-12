@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"time"
 )
 
 // allWatcherStateBacking implements allWatcherBacking by
@@ -292,13 +293,28 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
+			logger.Warningf("reading service status for key %s: %v", key, err)
+		}
+		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "reading service status for key %s", key)
 		}
-		info.Status = multiwatcher.StatusInfo{
-			Current: multiwatcher.Status(serviceStatus.Status),
-			Message: serviceStatus.Message,
-			Data:    serviceStatus.Data,
-			Since:   serviceStatus.Since,
+		if err == nil {
+			info.Status = multiwatcher.StatusInfo{
+				Current: multiwatcher.Status(serviceStatus.Status),
+				Message: serviceStatus.Message,
+				Data:    serviceStatus.Data,
+				Since:   serviceStatus.Since,
+			}
+		} else {
+			// TODO(wallyworld) - return an error here once we figure out what's happening
+			// Not sure how status can even return NotFound as it is created
+			// with the service initially. For now, we'll log the error as per
+			// the above and return Unknown.
+			now := time.Now()
+			info.Status = multiwatcher.StatusInfo{
+				Current: multiwatcher.Status(StatusUnknown),
+				Since:   &now,
+			}
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
