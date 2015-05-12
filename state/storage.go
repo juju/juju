@@ -849,7 +849,6 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 	}
 
 	for name, charmStorage := range charmMeta.Storage {
-		kind := storageKind(charmStorage.Type)
 		cons, ok := allCons[name]
 		if !ok {
 			if charmStorage.Shared {
@@ -859,19 +858,6 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 					"no constraints specified for shared charm storage %q",
 					name,
 				)
-			}
-			var pool storage.ProviderType
-			switch kind {
-			case storage.StorageKindBlock:
-				pool = provider.LoopProviderType
-			case storage.StorageKindFilesystem:
-				pool = provider.RootfsProviderType
-			default:
-				return errors.Errorf("unhandled storage kind %v", kind)
-			}
-			cons = StorageConstraints{
-				Pool:  string(pool),
-				Count: uint64(charmStorage.CountMin),
 			}
 		}
 		cons, err := storageConstraintsWithDefaults(conf, charmStorage, name, cons)
@@ -936,6 +922,8 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 			defaultPool = loopPool
 		}
 		return defaultPool, nil
+	case storage.StorageKindFilesystem:
+		return string(provider.RootfsProviderType), nil
 	}
 	return "", ErrNoDefaultStoragePool
 }
