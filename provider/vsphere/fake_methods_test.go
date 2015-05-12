@@ -6,6 +6,8 @@
 package vsphere
 
 import (
+	"archive/tar"
+	"bytes"
 	"io/ioutil"
 	"net/http"
 
@@ -48,10 +50,10 @@ func (s *BaseSuite) FakeMetadataServer() {
       "versions": {
         "20150305": {
           "items": {
-            "ovf": {
+            "ova": {
               "size": 7196, 
-              "path": "server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ovf", 
-              "ftype": "ovf", 
+              "path": "server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova", 
+              "ftype": "ova", 
               "sha256": "d6cade98b50e2e27f4508b01fea99d5b26a2f2a184c83e5fb597ca7b142ec01c", 
               "md5": "00662c59ca52558e7a3bb9a67d194730"
             }
@@ -62,12 +64,33 @@ func (s *BaseSuite) FakeMetadataServer() {
   }
 }`))
 	})
-	s.ServeMux.HandleFunc("/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ovf", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("FakeOvfContent"))
+	s.ServeMux.HandleFunc("/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova", func(w http.ResponseWriter, req *http.Request) {
+		w.Write(s.createFakeOva())
 	})
-	s.ServeMux.HandleFunc("/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.vmdk", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("FakeVmdkContent"))
-	})
+}
+
+func (s *BaseSuite) createFakeOva() []byte {
+	buf := new(bytes.Buffer)
+
+	tw := tar.NewWriter(buf)
+
+	var files = []struct {
+		Name, Body string
+	}{
+		{"ubuntu-14.04-server-cloudimg-amd64.ovf", "FakeOvfContent"},
+		{"ubuntu-14.04-server-cloudimg-amd64.vmdk", "FakeVmdkContent"},
+	}
+	for _, file := range files {
+		hdr := &tar.Header{
+			Name: file.Name,
+			Size: int64(len(file.Body)),
+		}
+		tw.WriteHeader(hdr)
+		tw.Write([]byte(file.Body))
+	}
+	tw.Close()
+	return buf.Bytes()
+
 }
 
 func (s *BaseSuite) FakeInstances(c *fakeClient, instName ...string) {
