@@ -84,16 +84,23 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
+
 	if !environs.AddressAllocationEnabled() {
 		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
 			machineId,
 		)
+	allocatedInfo, err := configureContainerNetwork(
+		machineId, bridgeDevice, broker.api, args.NetworkInfo, true,
+	)
+	if err != nil {
+		// It's fine, just ignore it. The effect will be that the
+		// container won't have a static address configured.
+		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
 	} else {
 		logger.Debugf("trying to allocate static IP for container %q", machineId)
-		allocatedInfo, err := maybeAllocateStaticIP(
-			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo, broker.enableNAT,
+		allocatedInfo, err := configureContainerNetwork(
+			machineId, bridgeDevice, broker.api, args.NetworkInfo,
 		)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
@@ -490,15 +497,16 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 // while the rest is kept as-is.
 const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
-// maybeAllocateStaticIP tries to allocate a static IP address for the
+// configureContainerNetworking tries to allocate a static IP address for the
 // given containerId using the provisioner API. If it fails, it's not
 // critical - just a warning, and it won't cause StartInstance to
 // fail.
-func maybeAllocateStaticIP(
+func configureContainerNetwork(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
 	enableNAT bool,
+    allocateAddress bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
@@ -522,7 +530,11 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 
-	finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	if allocateAddress {
+		finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	} else {
+		finalIfaceInfo, err = apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -571,65 +583,6 @@ func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) err
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	return fixUpNetworking(machineId, bridgeDevice, broker.api, args.NetworkInfo)
-}
-
-func fixUpNetworking(
-containerId, bridgeDevice string,
-apiFacade APICalls,
-ifaceInfo []network.InterfaceInfo,
-) (err error) {
-	defer func() {
-		if err != nil {
-			logger.Warningf(
-				"fixUpNetworking failed for container %q: %v",
-				containerId, err,
-			)
-		}
-	}()
-
-	if len(ifaceInfo) != 0 {
-		// When we already have interface info, don't overwrite it.
-		return nil
-	}
-	logger.Debugf("trying to allocate a static IP for container %q", containerId)
-
-	var primaryNIC string
-	var primaryAddr network.Address
-	primaryNIC, primaryAddr, err = discoverPrimaryNIC()
-	if err != nil {
-		logger.Debugf("discoverPrimaryNIC failed")
-		return errors.Trace(err)
-	}
-
-	finalIfaceInfo, err := apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Debugf("GetContainerInterfaceInfo returned %#v", finalIfaceInfo)
-
-	// Populate ConfigType and DNSServers as needed.
-	var dnsServers []network.Address
-	dnsServers, err = localDNSServers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Generate the final configuration for each container interface.
-	for i, _ := range finalIfaceInfo {
-		// Always start at the first device index and generate the
-		// interface name based on that. We need to do this otherwise
-		// the container will inherit the host's device index and
-		// interface name.
-		finalIfaceInfo[i].DeviceIndex = i
-		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
-		finalIfaceInfo[i].MACAddress = MACAddressTemplate
-		finalIfaceInfo[i].ConfigType = network.ConfigStatic
-		finalIfaceInfo[i].DNSServers = dnsServers
-		finalIfaceInfo[i].GatewayAddress = primaryAddr
-	}
-	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	_, err := configureContainerNetwork(machineId, bridgeDevice, broker.api, args.NetworkInfo, false)
+	return err
 }

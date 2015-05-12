@@ -702,13 +702,13 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// When ifaceInfo is not empty it shouldn't do anything and both
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
-	result, err := provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo, false)
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &fakeAPI{c, nil}, ifaceInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 
 	// When it's not empty, result should be populated as expected.
 	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo, false)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &fakeAPI{c, nil}, ifaceInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -897,7 +897,7 @@ func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 		SSLHostnameVerification: true}, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag, provisionContainer bool) ([]network.InterfaceInfo, error) {
 	if f.c != nil {
 		f.c.Assert(tag.String(), gc.Equals, "machine-42")
 	}
