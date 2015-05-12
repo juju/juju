@@ -24,6 +24,7 @@ import (
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -56,6 +57,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -209,16 +211,17 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	agentConf := AgentConf{DataDir: s.DataDir()}
+	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf)
 	return machineAgentFactory(m.Id())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, *AgentConf) {
-		agentConf := AgentConf{DataDir: s.DataDir()}
+	create := func() (cmd.Command, AgentConf) {
+		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
+			nil,
 			MachineAgentFactoryFn(&agentConf, &agentConf),
 			&agentConf,
 			&agentConf,
@@ -257,14 +260,14 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 		{},
 		{"--machine-id", "-4004"},
 	} {
-		var agentConf AgentConf
+		var agentConf agentConf
 		err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, args)
 		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
 	}
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	var agentConf AgentConf
+	var agentConf agentConf
 	a := &machineAgentCmd{agentInitializer: &agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
@@ -275,6 +278,83 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+type FakeConfig struct {
+	agent.Config
+}
+
+func (FakeConfig) LogDir() string {
+	return "/var/log/juju/"
+}
+
+func (FakeConfig) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+type FakeAgentConfig struct {
+	AgentConfigWriter
+	apiaddressupdater.APIAddressSetter
+	AgentInitializer
+}
+
+func (FakeAgentConfig) ReadConfig(string) error { return nil }
+
+func (FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{}
+}
+
+func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	agentConf := FakeAgentConfig{}
+
+	a := NewMachineAgentCmd(
+		ctx,
+		MachineAgentFactoryFn(agentConf, agentConf),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	l, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(l.MaxAge, gc.Equals, 0)
+	c.Check(l.MaxBackups, gc.Equals, 2)
+	c.Check(l.Filename, gc.Equals, "/var/log/juju/machine-42.log")
+	c.Check(l.MaxSize, gc.Equals, 300)
+}
+
+func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	agentConf := FakeAgentConfig{}
+
+	a := NewMachineAgentCmd(
+		ctx,
+		MachineAgentFactoryFn(agentConf, agentConf),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	// set the value that normally gets set by the flag parsing
+	a.(*machineAgentCmd).logToStdErr = true
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	_, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *MachineSuite) TestRunStop(c *gc.C) {

@@ -103,7 +103,7 @@ func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
 	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min+1)
 }
 
-type acCreator func() (cmd.Command, *AgentConf)
+type acCreator func() (cmd.Command, AgentConf)
 
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
@@ -111,7 +111,7 @@ type acCreator func() (cmd.Command, *AgentConf)
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	err := coretesting.InitCommand(com, args)
-	c.Assert(conf.DataDir, gc.Equals, "/var/lib/juju")
+	c.Assert(conf.DataDir(), gc.Equals, "/var/lib/juju")
 	badArgs := append(args, "--data-dir", "")
 	com, _ = create()
 	err = coretesting.InitCommand(com, badArgs)
@@ -120,7 +120,7 @@ func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	args = append(args, "--data-dir", "jd")
 	com, conf = create()
 	c.Assert(coretesting.InitCommand(com, args), gc.IsNil)
-	c.Assert(conf.DataDir, gc.Equals, "jd")
+	c.Assert(conf.DataDir(), gc.Equals, "jd")
 	return com
 }
 
