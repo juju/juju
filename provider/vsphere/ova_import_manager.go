@@ -51,7 +51,7 @@ type ovaImportManager struct {
 	client *client
 }
 
-func (m *ovaImportManager) importOvf(ecfg *environConfig, instSpec *instanceSpec) (*object.VirtualMachine, error) {
+func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)

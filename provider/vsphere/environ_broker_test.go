@@ -233,5 +233,5 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 	})
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	_, err := s.Env.StartInstance(startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import ovf file: Error zone 2")
+	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import OVA file: Error zone 2")
 }

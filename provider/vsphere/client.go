@@ -74,7 +74,7 @@ type instanceSpec struct {
 	machineID string
 	zone      *vmwareAvailZone
 	hwc       *instance.HardwareCharacteristics
-	img       *OvfFileMetadata
+	img       *OvaFileMetadata
 	userData  []byte
 	sshKey    string
 	isState   bool
@@ -83,8 +83,8 @@ type instanceSpec struct {
 
 // CreateInstance create new vm in vsphere and run it
 func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.VirtualMachine, error) {
-	manager := &ovfImportManager{client: c}
-	vm, err := manager.importOvf(ecfg, spec)
+	manager := &ovaImportManager{client: c}
+	vm, err := manager.importOva(ecfg, spec)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Failed to import OVA file")
 	}
