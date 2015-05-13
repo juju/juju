@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	//	"github.com/juju/juju/lease"
 )
 
 // Service represents the state of a service.
@@ -1136,6 +1137,62 @@ func (s *Service) Status() (StatusInfo, error) {
 		Data:    doc.StatusData,
 		Since:   doc.Updated,
 	}, nil
+}
+
+func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
+	oldDoc, err := getStatus(s.st, s.globalKey())
+	insert := false
+	if IsStatusNotFound(err) {
+		insert = true
+		logger.Debugf("there is no state for %q yet", s.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", s.globalKey())
+	}
+
+	doc, err := newServiceStatusDoc(status, info, data)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	if insert {
+		doc.statusDoc.EnvUUID = s.st.EnvironUUID()
+		ops = []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}
+	} else {
+		ops = []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}
+	}
+
+	err = s.st.runTransaction(ops)
+	if err != nil {
+		return errors.Errorf("cannot set status of service %q: %v", s, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) MembersStatus() ([]NamedStatusInfo, error) {
+	units, err := s.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	results := make([]NamedStatusInfo, len(units))
+	for i, unit := range units {
+		unitStatus, err := unit.Status()
+		if err != nil {
+			return nil, err
+		}
+		results[i] = NamedStatusInfo{
+			Tag:        unit.Name(),
+			StatusInfo: unitStatus,
+		}
+	}
+	return results, nil
+
 }
 
 func (s *Service) deriveStatus() (StatusInfo, error) {

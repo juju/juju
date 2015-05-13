@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -156,4 +157,50 @@ func (s *Service) ownerTag() (names.UserTag, error) {
 		return invalidTag, result.Error
 	}
 	return names.ParseUserTag(result.Result)
+}
+
+// SetServiceStatus sets the status of the unit.
+func (s *Service) SetServiceStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
+	//TODO(perrto666) bump api version for this?
+	if s.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("SetServiceStatus")
+	}
+	var result params.ErrorResults
+	args := params.SetServiceStatus{
+		Services: []params.ServiceStatus{
+			{
+				UnitName: unitName,
+				Status:   status,
+				Info:     info,
+				Data:     data},
+		},
+	}
+	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
+
+func (s *Service) ServiceStatus(unitName string) (params.ServiceStatusResult, error) {
+	var results params.ServiceStatusResults
+	args := params.ServiceUnits{
+		ServiceUnits: []params.ServiceUnit{
+			{
+				UnitName: unitName,
+			},
+		},
+	}
+	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")
+		}
+		return params.ServiceStatusResult{}, errors.Trace(err)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.ServiceStatusResult{}, result.Error
+	}
+	return result, nil
 }

@@ -13,6 +13,58 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ServiceStatusSetter implements a SetServiceStatus method to be
+// used by facades that can change a service status.
+type ServiceStatusSetter struct {
+	st           *state.State
+	getCanModify GetAuthFunc
+}
+
+func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ServiceStatusSetter {
+	return &ServiceStatusSetter{
+		st:           st,
+		getCanModify: getCanModify,
+	}
+}
+
+func (s *ServiceStatusSetter) SetStatus(args params.SetServiceStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Services)),
+	}
+	if len(args.Services) == 0 {
+		return result, nil
+	}
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.Services {
+		// TODO(perrito666) Check IsLeader for unitTag.
+		unit, err := s.st.Unit(arg.UnitName)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		service, err := unit.Service()
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+
+		if !canModify(unit.Tag()) {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+
+		if err := service.SetStatus(state.Status(arg.Status), arg.Info, arg.Data); err != nil {
+			result.Results[i].Error = ServerError(err)
+		}
+
+	}
+	return result, nil
+
+}
+
 // StatusSetter implements a common SetStatus method for use by
 // various facades.
 type StatusSetter struct {
