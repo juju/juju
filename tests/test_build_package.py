@@ -11,6 +11,7 @@ from build_package import (
     main,
     parse_dsc,
     setup_local,
+    setup_lxc,
     SourceFile,
 )
 from utils import temp_dir
@@ -115,3 +116,18 @@ class BuildPackageTestCase(unittest.TestCase):
                 os.path.join(workspace, 'juju-build-trusty-i386'),
                 build_dir)
             self.assertTrue(os.path.isdir(build_dir))
+
+    def test_setup_lxc(self):
+        with patch('subprocess.check_output') as co_mock:
+            container = setup_lxc(
+                'trusty', 'i386', '/build-dir', verbose=False)
+        self.assertEqual('trusty-i386', container)
+        co_mock.assert_any_call([
+            'sudo', 'lxc-create', '-t', 'download', '-n', 'trusty-i386',
+            '--', '-d', 'ubuntu', '-r', 'trusty', '-a', 'i386'])
+        co_mock.assert_any_call([
+            'sudo', 'mkdir', '/var/lib/lxc/trusty-i386/rootfs/workspace'])
+        co_mock.assert_any_call([
+            'bash', '-c',
+            'echo "lxc.mount.entry = /build-dir workspace none bind 0 0" | '
+            'sudo tee -a /var/lib/lxc/trusty-i386/config'])

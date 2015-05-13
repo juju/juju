@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 import os
 import shutil
+import subprocess
 import sys
 
 
@@ -35,7 +36,8 @@ def parse_dsc(dsc_path, verbose=False):
 
 
 def setup_local(location, series, arch, source_files, verbose=False):
-    build_dir = os.path.join(location, 'juju-build-{}-{}'.format(series, arch))
+    build_dir = os.path.abspath(
+        os.path.join(location, 'juju-build-{}-{}'.format(series, arch)))
     os.makedirs(build_dir)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
@@ -44,7 +46,27 @@ def setup_local(location, series, arch, source_files, verbose=False):
 
 
 def setup_lxc(series, arch, build_dir, verbose=False):
-    pass
+    container = '{}-{}'.format(series, arch)
+    lxc_cmd = [
+        'sudo', 'lxc-create', '-t', 'download', '-n', container,
+        '--', '-d', 'ubuntu', '-r', series, '-a', arch]
+    output = subprocess.check_output(lxc_cmd)
+    if verbose:
+        print(output)
+    workspace_cmd = [
+        'sudo', 'mkdir', '/var/lib/lxc/{}/rootfs/workspace'.format(
+            container)]
+    output = subprocess.check_output(workspace_cmd)
+    if verbose:
+        print(output)
+    entry = 'lxc.mount.entry = {} workspace none bind 0 0'.format(build_dir)
+    bash_script = 'echo "{}" | sudo tee -a /var/lib/lxc/{}/config'.format(
+        entry, container)
+    entry_cmd = ['bash', '-c', bash_script]
+    output = subprocess.check_output(entry_cmd)
+    if verbose:
+        print(output)
+    return container
 
 
 def build_binary(dsc_path, location, series, arch, verbose=False):
@@ -53,8 +75,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
     build_dir = setup_local(
         location, series, arch, source_files, verbose=verbose)
     setup_lxc(series, arch, build_dir, verbose=verbose)
-    # make lxc with location as a mount
-    # start lxc and run build.
+    # cp $THERE/juju-build/*.deb ./
     return 0
 
 
