@@ -172,11 +172,11 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	}
 	err = checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	err = checkLocalPort(cfg.APIPort(), "API port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return p.Open(cfg)
@@ -255,13 +255,24 @@ var checkLocalPort = func(port int, description string) error {
 	// TODO(mue) Add a timeout?
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
-		if nerr, ok := err.(*net.OpError); ok {
-			if nerr.Err == syscall.ECONNREFUSED {
+		switch err := err.(type) {
+		case *net.OpError:
+			// go 1.4 and earlier
+			if err.Err == syscall.ECONNREFUSED {
 				// No connection, so everything is fine.
 				return nil
 			}
+			// go 1.5 and later
+			if err, ok := err.Err.(*os.SyscallError); ok {
+				if err.Err == syscall.ECONNREFUSED {
+					// No connection, so everything is fine.
+					return nil
+				}
+			}
+			return errors.Trace(err)
+		default:
+			return errors.Trace(err)
 		}
-		return err
 	}
 	// Connected, so port is in use.
 	err = conn.Close()
