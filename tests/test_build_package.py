@@ -7,6 +7,7 @@ import unittest
 
 from build_package import (
     build_binary,
+    CREATE_LXC_TEMPLATE,
     get_args,
     main,
     parse_dsc,
@@ -122,12 +123,7 @@ class BuildPackageTestCase(unittest.TestCase):
             container = setup_lxc(
                 'trusty', 'i386', '/build-dir', verbose=False)
         self.assertEqual('trusty-i386', container)
-        co_mock.assert_any_call([
-            'sudo', 'lxc-create', '-t', 'download', '-n', 'trusty-i386',
-            '--', '-d', 'ubuntu', '-r', 'trusty', '-a', 'i386'])
-        co_mock.assert_any_call([
-            'sudo', 'mkdir', '/var/lib/lxc/trusty-i386/rootfs/workspace'])
-        co_mock.assert_any_call([
-            'bash', '-c',
-            'echo "lxc.mount.entry = /build-dir workspace none bind 0 0" | '
-            'sudo tee -a /var/lib/lxc/trusty-i386/config'])
+        lxc_script = CREATE_LXC_TEMPLATE.format(
+            container='trusty-i386', series='trusty', arch='i386',
+            build_dir='/build-dir')
+        co_mock.assert_called_with(['bash', '-c', lxc_script])

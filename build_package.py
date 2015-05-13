@@ -13,6 +13,14 @@ import sys
 
 SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
 
+CREATE_LXC_TEMPLATE = """\
+set -eu
+sudo lxc-create -t download -n {container} -- -d ubuntu -r {series} -a {arch}
+sudo mkdir /var/lib/lxc/{container}/rootfs/workspace
+echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
+    sudo tee -a /var/lib/lxc/{container}/config
+"""
+
 
 def parse_dsc(dsc_path, verbose=False):
     there = os.path.dirname(dsc_path)
@@ -53,22 +61,9 @@ def setup_local(location, series, arch, source_files, verbose=False):
 
 def setup_lxc(series, arch, build_dir, verbose=False):
     container = '{}-{}'.format(series, arch)
-    lxc_cmd = [
-        'sudo', 'lxc-create', '-t', 'download', '-n', container,
-        '--', '-d', 'ubuntu', '-r', series, '-a', arch]
-    output = subprocess.check_output(lxc_cmd)
-    if verbose:
-        print(output)
-    workspace_cmd = [
-        'sudo', 'mkdir', '/var/lib/lxc/{}/rootfs/workspace'.format(
-            container)]
-    output = subprocess.check_output(workspace_cmd)
-    if verbose:
-        print(output)
-    entry = 'lxc.mount.entry = {} workspace none bind 0 0'.format(build_dir)
-    bash_script = 'echo "{}" | sudo tee -a /var/lib/lxc/{}/config'.format(
-        entry, container)
-    entry_cmd = ['bash', '-c', bash_script]
+    lxc_script = CREATE_LXC_TEMPLATE.format(
+        container=container, series=series, arch=arch, build_dir=build_dir)
+    entry_cmd = ['bash', '-c', lxc_script]
     output = subprocess.check_output(entry_cmd)
     if verbose:
         print(output)
