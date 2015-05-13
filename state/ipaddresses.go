@@ -252,7 +252,12 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 		return errors.Annotatef(err, "cannot get allocated machine %q", machineId)
 	} else {
 		instId, err = machine.InstanceId()
-		if err != nil {
+
+		if errors.IsNotProvisioned(err) {
+			// The machine is not yet provisioned. The instance ID will be
+			// set on provisioning.
+			instId = instance.UnknownId
+		} else if err != nil {
 			return errors.Annotatef(err, "cannot get machine %q instance ID", machineId)
 		}
 	}
