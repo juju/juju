@@ -619,15 +619,15 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
+		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      unitsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -736,16 +736,17 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
-	ops = append(ops, txn.Op{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: append(observedFieldsMatch, asserts...),
-		Remove: true,
-	},
-		removeConstraintsOp(s.st, u.globalAgentKey()),
+	ops = append(ops,
+		txn.Op{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: append(observedFieldsMatch, asserts...),
+			Remove: true,
+		},
+		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
 		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
-		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
