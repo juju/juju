@@ -89,12 +89,15 @@ class BuildPackageTestCase(unittest.TestCase):
                    return_value=['orig', 'debian']) as pd_mock:
             with patch('build_package.setup_local', autospec=True,
                        return_value='build_dir') as sl_mock:
-                code = build_binary(
-                    'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
+                with patch('build_package.setup_lxc', autospec=True) as l_mock:
+                    code = build_binary(
+                        'my.dsc', '~/workspace', 'trusty', 'i386',
+                        verbose=False)
         self.assertEqual(0, code)
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
             '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
+        l_mock.assert_called_with('trusty', 'i386', 'build_dir', verbose=False)
 
     def test_parse_dsc(self):
         with temp_dir() as workspace:

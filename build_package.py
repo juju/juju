@@ -43,12 +43,16 @@ def setup_local(location, series, arch, source_files, verbose=False):
     return build_dir
 
 
+def setup_lxc(series, arch, build_dir, verbose=False):
+    pass
+
+
 def build_binary(dsc_path, location, series, arch, verbose=False):
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
     build_dir = setup_local(
         location, series, arch, source_files, verbose=verbose)
-
+    setup_lxc(series, arch, build_dir, verbose=verbose)
     # make lxc with location as a mount
     # start lxc and run build.
     return 0
