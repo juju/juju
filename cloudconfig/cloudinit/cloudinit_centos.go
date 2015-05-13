@@ -209,6 +209,7 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 		"rsyslog-gnutls",
 		"cloud-utils",
 		"nmap-ncat",
+		"tmux",
 	}
 
 	// The required packages need to come from the correct repo.
