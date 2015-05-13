@@ -13,10 +13,12 @@ SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
 
 
 def parse_dsc(dsc_path, verbose=False):
-    files = []
+    there = os.path.dirname(dsc_path)
+    dsc_name = os.path.basename(dsc_path)
+    dcs_source_file = SourceFile(None, None, dsc_name, dsc_path)
+    files = [dcs_source_file]
     with open(dsc_path) as f:
         content = f.read()
-    there = os.path.dirname(dsc_path)
     found = False
     for line in content.splitlines():
         if found and line.startswith(' '):

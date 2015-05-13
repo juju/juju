@@ -81,6 +81,7 @@ class BuildPackageTestCase(unittest.TestCase):
             with open(dsc_path, 'w') as f:
                 f.write(DSC_CONTENT)
             source_files = parse_dsc(dsc_path, verbose=False)
+        dsc_file = SourceFile(None, None, 'my.dsc', dsc_path)
         orig_file = SourceFile(
             '3456', '9876', 'juju-core_1.24-beta1.orig.tar.gz',
             '%s/juju-core_1.24-beta1.orig.tar.gz' % workspace)
@@ -89,7 +90,7 @@ class BuildPackageTestCase(unittest.TestCase):
             'juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz',
             '%s/juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz' %
             workspace)
-        self.assertEqual([orig_file, deb_file], source_files)
+        self.assertEqual([dsc_file, orig_file, deb_file], source_files)
 
     def test_setup_local(self):
         with temp_dir() as workspace:
