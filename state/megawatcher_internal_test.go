@@ -1820,13 +1820,6 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 			},
 		},
 	})
-	// Try closing and updating with an invalid unit.
-	c.Assert(func() {
-		b.Changed(all, watcher.Change{
-			C:  openedPortsC,
-			Id: s.state.docID("unknown/42"),
-		})
-	}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
 }
 
 // TestSettings tests the correct reporting of unset service settings.
