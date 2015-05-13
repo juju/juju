@@ -204,13 +204,12 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	err = addr.AllocateTo(machine.Id(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("foo"))
-
 	s.State.StartSync()
+
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 
 	err = addr.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
