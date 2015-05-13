@@ -336,6 +336,17 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(sources, gc.HasLen, 0)
 }
 
+func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
+	env := s.Prepare(c)
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Check(spec.Image.Arch, gc.Equals, "amd64")
+	c.Check(spec.Image.VirtType, gc.Equals, "kvm")
+	c.Check(*spec.InstanceType.VirtType, gc.Equals, "kvm")
+	c.Check(spec.InstanceType.CpuCores, gc.Equals, uint64(4))
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
