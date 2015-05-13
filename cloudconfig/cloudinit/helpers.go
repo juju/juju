@@ -35,11 +35,9 @@ func addPackageCommandsCommon(
 	cfg.SetSystemUpdate(addUpdateScripts)
 	cfg.SetSystemUpgrade(addUpgradeScripts)
 
-	// If we're not doing an update, adding these packages is
-	// meaningless.
-	if addUpdateScripts {
-		cfg.updatePackages()
-	}
+	// Always run this step - this is where we install packages that juju
+	// requires.
+	cfg.addRequiredPackages()
 
 	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
 	cfg.updateProxySettings(packageProxySettings)
