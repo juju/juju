@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/fslock"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -141,14 +140,6 @@ var ConnectionIsDead = func(logger loggo.Logger, conn Pinger) bool {
 		return true
 	}
 	return false
-}
-
-// SwitchProcessToRollingLogs switches the processes's logging to
-// rolling logs provided by the given logger.
-func SwitchProcessToRollingLogs(logger *lumberjack.Logger) error {
-	writer := loggo.NewSimpleWriter(logger, &loggo.DefaultFormatter{})
-	_, err := loggo.ReplaceDefaultWriter(writer)
-	return err
 }
 
 // NewEnsureServerParams creates an EnsureServerParams from an agent
