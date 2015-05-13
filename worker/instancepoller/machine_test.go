@@ -342,7 +342,7 @@ func (m *testMachine) Id() string {
 	return m.id
 }
 
-func (m *testMachine) Addresses() []network.Address {
+func (m *testMachine) ProviderAddresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.addresses
@@ -381,7 +381,7 @@ func (m *testMachine) SetInstanceStatus(status string) error {
 	return nil
 }
 
-func (m *testMachine) SetAddresses(addrs ...network.Address) error {
+func (m *testMachine) SetProviderAddresses(addrs ...network.Address) error {
 	if m.setAddressesErr != nil {
 		return m.setAddressesErr
 	}

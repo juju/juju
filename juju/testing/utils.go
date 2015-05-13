@@ -21,7 +21,7 @@ import (
 func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = machine.SetProviderAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := [][]network.HostPort{{{

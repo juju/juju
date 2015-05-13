@@ -75,7 +75,7 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
