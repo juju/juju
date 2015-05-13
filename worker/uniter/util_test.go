@@ -59,7 +59,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.Address{
+	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 		Value: "private.address.example.com",

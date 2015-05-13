@@ -37,7 +37,7 @@ func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *runSuite) addMachineWithAddress(c *gc.C, address string) *state.Machine {
 	machine := s.addMachine(c)
-	machine.SetAddresses(network.NewAddress(address, network.ScopeUnknown))
+	machine.SetProviderAddresses(network.NewAddress(address, network.ScopeUnknown))
 	return machine
 }
 
@@ -80,7 +80,7 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mId)
 	c.Assert(err, jc.ErrorIsNil)
-	machine.SetAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
+	machine.SetProviderAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
 	return unit
 }
 

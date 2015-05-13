@@ -354,7 +354,7 @@ func (s *uniterBaseSuite) testPublicAddress(
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
+	err = s.machine0.SetProviderAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -397,7 +397,7 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.machine0.SetProviderAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -1508,7 +1508,7 @@ func (s *uniterBaseSuite) testEnterScope(
 	},
 ) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err := s.machine0.SetProviderAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
 	rel := s.addRelation(c, "wordpress", "mysql")

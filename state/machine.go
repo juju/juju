@@ -958,13 +958,22 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
-// SetAddresses records any addresses related to the machine, sourced
+// SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
+func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
 	if err = m.setAddresses(addresses, &m.doc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
 	return nil
+}
+
+// ProviderAddresses returns any hostnames and ips associated with a machine,
+// as determined by asking the provider.
+func (m *Machine) ProviderAddresses() (addresses []network.Address) {
+	for _, address := range m.doc.Addresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
 }
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
