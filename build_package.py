@@ -35,7 +35,7 @@ def setup_local(location, source_files, verbose=False):
     pass
 
 
-def build_binary(dsc_path, location, verbose=False):
+def build_binary(dsc_path, location, series, arch, verbose=False):
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
     build_dir = setup_local(location, source_files, verbose=verbose)
@@ -51,7 +51,9 @@ def main(argv):
     exitcode = 0
     args = get_args(argv)
     if args.command == 'binary':
-        exitcode = build_binary(args.dsc,  args.location, verbose=args.verbose)
+        exitcode = build_binary(
+            args.dsc,  args.location, args.series, args.arch,
+            verbose=args.verbose)
     return exitcode
 
 

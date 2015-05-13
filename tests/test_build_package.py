@@ -61,14 +61,16 @@ class BuildPackageTestCase(unittest.TestCase):
             code = main(
                 ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
         self.assertEqual(0, code)
-        bb_mock.assert_called_with('my.dsc', '~/workspace', verbose=False)
+        bb_mock.assert_called_with(
+            'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
 
     def test_build_binary(self):
         with patch('build_package.parse_dsc', autospec=True,
                    return_value=['orig', 'debian']) as pd_mock:
             with patch('build_package.setup_local', autospec=True,
                        return_value=['build_dir']) as sl_mock:
-                code = build_binary('my.dsc', '~/workspace', verbose=False)
+                code = build_binary(
+                    'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
         self.assertEqual(0, code)
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
