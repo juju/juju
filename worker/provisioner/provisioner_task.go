@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -12,8 +13,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
-
-	"regexp"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
