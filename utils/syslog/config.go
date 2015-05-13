@@ -57,6 +57,7 @@ $ActionQueueType LinkedList
 $ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
+$ActionQueueMaxDiskSpace 512M
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
 $ActionSendStreamDriverAuthMode anon
@@ -125,6 +126,7 @@ $ActionQueueType LinkedList
 $ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
+$ActionQueueMaxDiskSpace 512M
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
 $ActionSendStreamDriverAuthMode anon
