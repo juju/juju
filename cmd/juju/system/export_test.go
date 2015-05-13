@@ -18,7 +18,7 @@ func NewListCommand(cfgStore configstore.Storage) *ListCommand {
 // provided as specified.
 func NewEnvironmentsCommand(api EnvironmentManagerAPI, userCreds *configstore.APICredentials) *EnvironmentsCommand {
 	return &EnvironmentsCommand{
-		envmgrAPI: api,
+		api:       api,
 		userCreds: userCreds,
 	}
 }

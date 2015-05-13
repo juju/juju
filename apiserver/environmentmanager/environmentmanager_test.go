@@ -295,7 +295,7 @@ func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
@@ -309,10 +309,10 @@ func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 1)
+	c.Assert(result.UserEnvironments, gc.HasLen, 1)
 	expected, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEnvironmentMatches(c, result.Environments[0], expected)
+	s.checkEnvironmentMatches(c, result.UserEnvironments[0].Environment, expected)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
@@ -321,7 +321,7 @@ func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
 	other := names.NewUserTag("external@remote")
 	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {

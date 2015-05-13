@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"fmt"
 	"text/tabwriter"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/syscmd"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -24,7 +26,7 @@ type EnvironmentsCommand struct {
 	out       cmd.Output
 	user      string
 	listUUID  bool
-	envmgrAPI EnvironmentManagerAPI
+	api       EnvironmentManagerAPI
 	userCreds *configstore.APICredentials
 }
 
@@ -34,7 +36,7 @@ var envsDoc = `List all the environments the user can access on the current syst
 // environments command calls.
 type EnvironmentManagerAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]params.Environment, error)
+	ListEnvironments(user string) ([]params.UserEnvironment, error)
 }
 
 // Info implements Command.Info
@@ -46,9 +48,9 @@ func (c *EnvironmentsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EnvironmentsCommand) getEnvironmentManagerAPIClient() (EnvironmentManagerAPI, error) {
-	if c.envmgrAPI != nil {
-		return c.envmgrAPI, nil
+func (c *EnvironmentsCommand) getAPI() (EnvironmentManagerAPI, error) {
+	if c.api != nil {
+		return c.api, nil
 	}
 	return c.NewEnvironmentManagerAPIClient()
 }
@@ -74,7 +76,7 @@ func (c *EnvironmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getEnvironmentManagerAPIClient()
+	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +100,7 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]params.Environment)
+	envs, ok := value.([]params.UserEnvironment)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}
@@ -112,17 +114,21 @@ func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tOWNER")
+	fmt.Fprintf(tw, "NAME")
 	if c.listUUID {
 		fmt.Fprintf(tw, "\tENVIRONMENT UUID")
 	}
-	fmt.Fprintf(tw, "\n")
+	fmt.Fprintf(tw, "\tOWNER\tLAST CONNECTION\n")
 	for _, env := range envs {
-		fmt.Fprintf(tw, "%s\t%s", env.Name, env.OwnerTag)
+		fmt.Fprintf(tw, "%s", env.Name)
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", env.UUID)
 		}
-		fmt.Fprintf(tw, "\n")
+		lastConn := "never connected"
+		if env.LastConnection != nil {
+			lastConn = user.UserFriendlyDuration(*env.LastConnection, time.Now())
+		}
+		fmt.Fprintf(tw, "\t%s\t%s\n", env.OwnerTag, lastConn)
 	}
 	tw.Flush()
 	return out.Bytes(), nil
