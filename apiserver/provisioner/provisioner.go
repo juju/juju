@@ -1074,7 +1074,7 @@ var (
 		return a.AllocateTo(m.Id(), "")
 	}
 	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
-		return m.SetAddresses(a.Address())
+		return m.SetProviderAddresses(a.Address())
 	}
 	setAddrState = func(a *state.IPAddress, st state.AddressState) error {
 		return a.SetState(st)

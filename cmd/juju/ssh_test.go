@@ -228,7 +228,7 @@ func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
 		fmt.Sprintf("dummyenv-%s.internal", m.Id()),
 		network.ScopeCloudLocal,
 	)
-	err := m.SetAddresses(addrPub, addrPriv)
+	err := m.SetProviderAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
