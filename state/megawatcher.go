@@ -720,13 +720,38 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 
 func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {
 	localID := st.localID(id.(string))
+	parentID, ok := backingEntityIdForOpenedPortsKey(localID)
+	if ok {
+		// id signals that a machine has been removed.
+		switch info := store.Get(parentID).(type) {
+		case nil:
+			// The parent info doesn't exist. This is unexpected because the port
+			// always refers to a machine. Anyway, ignore the ports for now.
+			return
+		case *multiwatcher.MachineInfo:
+			// Retrieve the units placed in the machine.
+			units, err := st.UnitsFor(info.Id)
+			if err != nil {
+				logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
+				return
+			}
+			// Update the ports on all units assigned to the machine.
+			for _, u := range units {
+				if err := updateUnitPorts(st, store, u); err != nil {
+					logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
+				}
+			}
+		}
+		return
+	}
+	// id signals, that ports of one unit have been closed.
 	u, err := st.Unit(localID)
 	if err != nil {
-		panic(fmt.Errorf("cannot retrieve unit %q: %v", localID, err))
+		logger.Errorf("cannot retrieve unit %q: %v", localID, err)
+		return
 	}
-	err = updateUnitPorts(st, store, u)
-	if err != nil {
-		panic(fmt.Errorf("cannot update unit ports for %q: %v", localID, err))
+	if err = updateUnitPorts(st, store, u); err != nil {
+		logger.Errorf("cannot update unit ports for %q: %v", localID, err)
 	}
 }
 
