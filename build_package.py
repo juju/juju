@@ -27,6 +27,8 @@ def parse_dsc(dsc_path, verbose=False):
             data = line.split()
             data.append(os.path.join(there, data[2]))
             files.append(SourceFile(*data))
+            if verbose:
+                print("Found %s" % files[-1].name)
         elif found:
             # All files were found.
             break
@@ -38,9 +40,13 @@ def parse_dsc(dsc_path, verbose=False):
 def setup_local(location, series, arch, source_files, verbose=False):
     build_dir = os.path.abspath(
         os.path.join(location, 'juju-build-{}-{}'.format(series, arch)))
+    if verbose:
+        print('Creating %s' % build_dir)
     os.makedirs(build_dir)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
+        if verbose:
+            print('Copying %s to %s' % (sf.name, build_dir))
         shutil.copyfile(sf.path, dest_path)
     return build_dir
 
