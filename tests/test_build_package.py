@@ -44,6 +44,27 @@ DSC_CONTENT = dedent("""\
     """)
 
 
+def make_source_files(workspace, dsc_name):
+    dsc_path = os.path.join(workspace, dsc_name)
+    dsc_file = SourceFile(None, None, 'my.dsc', dsc_path)
+    orig_file = SourceFile(
+        '3456', '9876', 'juju-core_1.24-beta1.orig.tar.gz',
+        '%s/juju-core_1.24-beta1.orig.tar.gz' % workspace)
+    deb_file = SourceFile(
+        '4567', '4321',
+        'juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz',
+        '%s/juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz' %
+        workspace)
+    source_files = [dsc_file, orig_file, deb_file]
+    for sf in source_files:
+        with open(sf.path, 'w') as f:
+            if '.dsc' in sf.name:
+                f.write(DSC_CONTENT)
+            else:
+                f.write(sf.name)
+    return source_files
+
+
 class BuildPackageTestCase(unittest.TestCase):
 
     def test_get_args_binary(self):
@@ -77,28 +98,16 @@ class BuildPackageTestCase(unittest.TestCase):
 
     def test_parse_dsc(self):
         with temp_dir() as workspace:
+            expected_files = make_source_files(workspace, 'my.dsc')
             dsc_path = os.path.join(workspace, 'my.dsc')
-            with open(dsc_path, 'w') as f:
-                f.write(DSC_CONTENT)
             source_files = parse_dsc(dsc_path, verbose=False)
-        dsc_file = SourceFile(None, None, 'my.dsc', dsc_path)
-        orig_file = SourceFile(
-            '3456', '9876', 'juju-core_1.24-beta1.orig.tar.gz',
-            '%s/juju-core_1.24-beta1.orig.tar.gz' % workspace)
-        deb_file = SourceFile(
-            '4567', '4321',
-            'juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz',
-            '%s/juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz' %
-            workspace)
-        self.assertEqual([dsc_file, orig_file, deb_file], source_files)
+        self.assertEqual(expected_files, source_files)
 
     def test_setup_local(self):
         with temp_dir() as workspace:
-            dsc_path = os.path.join(workspace, 'my.dsc')
-            with open(dsc_path, 'w') as f:
-                f.write(DSC_CONTENT)
+            source_files = make_source_files(workspace, 'my.dsc')
             build_dir = setup_local(
-                workspace, 'trusty', 'i386', ['orig', 'debian'], verbose=False)
+                workspace, 'trusty', 'i386', source_files, verbose=False)
             self.assertEqual(
                 os.path.join(workspace, 'juju-build-trusty-i386'),
                 build_dir)

@@ -6,6 +6,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from collections import namedtuple
 import os
+import shutil
 import sys
 
 
@@ -36,7 +37,9 @@ def parse_dsc(dsc_path, verbose=False):
 def setup_local(location, series, arch, source_files, verbose=False):
     build_dir = os.path.join(location, 'juju-build-{}-{}'.format(series, arch))
     os.makedirs(build_dir)
-    # cp files to location.
+    for sf in source_files:
+        dest_path = os.path.join(build_dir, sf.name)
+        shutil.copyfile(sf.path, dest_path)
     return build_dir
 
 
