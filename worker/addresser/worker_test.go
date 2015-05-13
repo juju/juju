@@ -202,6 +202,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.AllocateTo(machine.Id(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("fake"))
 
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

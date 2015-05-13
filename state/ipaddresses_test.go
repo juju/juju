@@ -142,6 +142,22 @@ func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (s *IPAddressSuite) TestAllocateToProvisionedMachine(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("instance", "fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.AllocateTo(machine.Id(), "fake")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("instance"))
+}
+
 func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
 	for i, test := range []struct {
 		ipState state.AddressState

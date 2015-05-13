@@ -293,6 +293,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 	i.doc.MachineId = machineId
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
+	i.doc.InstanceId = string(instId)
 	return nil
 }
 
