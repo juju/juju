@@ -197,6 +197,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "really-fake", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
 
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,6 +210,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
 
 	err = addr.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
