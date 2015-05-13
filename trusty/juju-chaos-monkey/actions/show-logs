@@ -10,7 +10,11 @@ action-set action-parameters.monkey-id="${monkey_id}"
 
 target_dir="${chaos_dir}/chaos_monkey.${monkey_id}"
 for dir in ${target_dir}; do
-    log="${dir}/log/resutls.log"
+    log="${dir}/log/results.log"
     key=${dir##*\/chaos_monkey\.}
-    [[ -f $log ]] && action-set monkey-ids.${key}="$(cat ${log})"
+    count=1
+    while read line; do
+        action-set ${key}-run-log.${count}="${line}"
+        count=$((count + 1))
+    done < ${log}
 done
