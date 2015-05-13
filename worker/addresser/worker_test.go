@@ -195,15 +195,16 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("fake", "really-fake", nil)
+	err = machine.SetProvisioned("foo", "really-fake", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.AllocateTo(machine.Id(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("fake"))
+	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("foo"))
 
+	s.State.StartSync()
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
