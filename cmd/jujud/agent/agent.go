@@ -57,7 +57,7 @@ type AgentConf interface {
 	// ReadConfig reads the agent's config from its config file.
 	ReadConfig(tag string) error
 	// ChangeConfig modifies this configuration using the given mutator.
-	ChangeConfig(change AgentConfigMutator) error
+	ChangeConfig(change agent.ConfigMutator) error
 	// CurrentConfig returns the agent config for this agent.
 	CurrentConfig() agent.Config
 	// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
