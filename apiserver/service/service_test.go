@@ -228,7 +228,7 @@ func (s *serviceSuite) TestClientServiceDeployWithStorage(c *gc.C) {
 		"allecto": {
 			Count: 0,
 			Size:  1024,
-			Pool:  "loop-pool",
+			Pool:  "loop",
 		},
 	})
 }

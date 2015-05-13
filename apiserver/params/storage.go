@@ -108,6 +108,19 @@ type StorageAttachmentIds struct {
 	Ids []StorageAttachmentId `json:"ids"`
 }
 
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of a unit's attached storage instances.
+type StorageAttachmentIdsResult struct {
+	Result StorageAttachmentIds `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of multiple units attached storage instances.
+type StorageAttachmentIdsResults struct {
+	Results []StorageAttachmentIdsResult `json:"results,omitempty"`
+}
+
 // StorageAttachmentsResult holds the result of an API call to retrieve details
 // of a unit's attached storage instances.
 type StorageAttachmentsResult struct {
@@ -151,9 +164,9 @@ type MachineStorageIds struct {
 
 // Volume describes a storage volume in the environment.
 type Volume struct {
-	VolumeTag string `json:"volumetag"`
-	VolumeId  string `json:"volumeid"`
-	Serial    string `json:"serial"`
+	VolumeTag  string `json:"volumetag"`
+	VolumeId   string `json:"volumeid"`
+	HardwareId string `json:"hardwareid,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -448,8 +461,8 @@ type VolumeInstance struct {
 	// VolumeId is a unique provider-supplied ID for the volume.
 	VolumeId string `json:"volumeid"`
 
-	// Serial is the volume's serial number.
-	Serial string `json:"serial,omitempty"`
+	// HardwareId is the volume's hardware ID.
+	HardwareId string `json:"hardwareid,omitempty"`
 
 	// Size is the size of the volume in MiB.
 	Size uint64 `json:"size"`

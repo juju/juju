@@ -105,6 +105,39 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storageBlock, err := s.State.AddService("storage-block", "user-test-admin@local", ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err := storageBlock.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "loop",
+			Count: 1,
+			Size:  1024,
+		},
+		"allecto": {
+			Pool:  "loop",
+			Count: 0,
+			Size:  1024,
+		},
+	})
+
+	ch = s.AddTestingCharm(c, "storage-filesystem")
+	storageFilesystem, err := s.State.AddService("storage-filesystem", "user-test-admin@local", ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err = storageFilesystem.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "rootfs",
+			Count: 1,
+			Size:  1024,
+		},
+	})
+}
+
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
@@ -114,7 +147,6 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 		_, err := addService(storage)
 		c.Assert(err, gc.ErrorMatches, expect)
 	}
-	assertErr(nil, `.*no constraints specified for store.*`)
 
 	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
@@ -149,13 +181,36 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 	// TODO(wallyworld) - test pool name stored in data model
 }
 
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsNoConstraintsUsed(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 0, 0),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data":    makeStorageCons("loop", 1024, 1),
+		"allecto": makeStorageCons("loop", 1024, 0),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsJustCount(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data":    makeStorageCons("", 0, 1),
+		"allecto": makeStorageCons("", 0, 1),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data":    makeStorageCons("loop-pool", 1024, 1),
+		"allecto": makeStorageCons("loop-pool", 1024, 1),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+}
+
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultPool(c *gc.C) {
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 2048, 1),
 	}
 	expectedCons := map[string]state.StorageConstraints{
 		"data":    makeStorageCons("loop-pool", 2048, 1),
-		"allecto": makeStorageCons("loop-pool", 1024, 0),
+		"allecto": makeStorageCons("loop", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
 }
@@ -177,7 +232,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFallback(
 	}
 	expectedCons := map[string]state.StorageConstraints{
 		"data":    makeStorageCons("loop-pool", 1024, 1),
-		"allecto": makeStorageCons("loop-pool", 1024, 0),
+		"allecto": makeStorageCons("loop", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
 }
@@ -310,7 +365,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
 	}
 	assertUnitEnsureDeadError()
-	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
 	err = s.State.DestroyStorageInstance(storageTag)
@@ -334,7 +389,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
 
-	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,7 +401,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+		err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -368,8 +423,8 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	err := s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ensureDead := func() {
-		err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	destroy := func() {
+		err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	remove := func() {
@@ -377,8 +432,8 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	defer state.SetBeforeHooks(c, s.State, ensureDead, remove).Check()
-	ensureDead()
+	defer state.SetBeforeHooks(c, s.State, destroy, remove).Check()
+	destroy()
 	remove()
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
@@ -388,7 +443,7 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	err := s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dead")
+	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dying")
 
 	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -410,7 +465,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 	// Removing the attachment should check that there are no concurrent
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
-	err := s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,6 +509,44 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("multi2up/1")
 	wc.AssertNoChange()
+}
+
+func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+
+	w := s.State.WatchStorageAttachment(storageTag, u.UnitTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
+func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "block")
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DestroyUnitStorageAttachments(u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(attachments, gc.HasLen, 3)
+		for _, a := range attachments {
+			c.Assert(a.Life(), gc.Equals, state.Dying)
+			err := s.State.RemoveStorageAttachment(a.StorageInstance(), u.UnitTag())
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}).Check()
+
+	err = s.State.DestroyUnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance

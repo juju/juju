@@ -1045,10 +1045,11 @@ type settingsRefsDoc struct {
 func (s *Service) Status() (StatusInfo, error) {
 	doc, err := getStatus(s.st, s.globalKey())
 	if errors.IsNotFound(err) {
+		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
 		return s.deriveStatus()
 	}
 	if err != nil {
-		return StatusInfo{}, err
+		return StatusInfo{}, errors.Annotatef(err, "reading status for %q", s.Name())
 	}
 	return StatusInfo{
 		Status:  doc.Status,
@@ -1063,12 +1064,13 @@ func (s *Service) deriveStatus() (StatusInfo, error) {
 	if err != nil {
 		return StatusInfo{}, err
 	}
+	logger.Tracef("service %q has %d units", s.Name(), len(units))
 	var result StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, err
+			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
 		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {

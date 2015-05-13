@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api/watcher"
@@ -33,13 +34,18 @@ type StorageAccessor interface {
 	// with the specified unit and storage tags.
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 
+	// StorageAttachmentLife returns the lifecycle state of the specified
+	// storage attachments.
+	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
+
 	// UnitStorageAttachments returns details of all of the storage
 	// attachments for the unit with the specified tag.
-	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachment, error)
+	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachmentId, error)
 
-	// EnsureStorageAttachmentDead ensures that the storage attachment
-	// with the specified unit and storage tags is Dead.
-	EnsureStorageAttachmentDead(names.StorageTag, names.UnitTag) error
+	// DestroyUnitStorageAttachments ensures that all storage
+	// attachments for the specified unit will be removed at
+	// some point in the future.
+	DestroyUnitStorageAttachments(names.UnitTag) error
 
 	// RemoveStorageAttachment removes that the storage attachment
 	// with the specified unit and storage tags. This method is only
@@ -57,6 +63,10 @@ type Attachments struct {
 	hooks           chan hook.Info
 	storagers       map[names.StorageTag]*storager
 	storageStateDir string
+
+	// pending is the set of tags for storage attachments
+	// for which no hooks have been run.
+	pending set.Tags
 }
 
 // NewAttachments returns a new Attachments.
@@ -73,6 +83,7 @@ func NewAttachments(
 		hooks:           make(chan hook.Info),
 		storagers:       make(map[names.StorageTag]*storager),
 		storageStateDir: storageStateDir,
+		pending:         make(set.Tags),
 	}
 	if err := a.init(); err != nil {
 		return nil, err
@@ -88,25 +99,24 @@ func (a *Attachments) init() error {
 	}
 	// Query all remote, known storage attachments for the unit,
 	// so we can cull state files, and store current context.
-	attachments, err := a.st.UnitStorageAttachments(a.unitTag)
+	attachmentIds, err := a.st.UnitStorageAttachments(a.unitTag)
 	if err != nil {
 		return errors.Annotate(err, "getting unit attachments")
 	}
-	attachmentsByTag := make(map[names.StorageTag]*params.StorageAttachment)
-	for i, attachment := range attachments {
-		storageTag, err := names.ParseStorageTag(attachment.StorageTag)
+	attachmentsByTag := make(map[names.StorageTag]struct{})
+	for _, attachmentId := range attachmentIds {
+		storageTag, err := names.ParseStorageTag(attachmentId.StorageTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		attachmentsByTag[storageTag] = &attachments[i]
+		attachmentsByTag[storageTag] = struct{}{}
 	}
 	stateFiles, err := readAllStateFiles(a.storageStateDir)
 	if err != nil {
 		return errors.Annotate(err, "reading storage state dirs")
 	}
 	for storageTag, stateFile := range stateFiles {
-		_, ok := attachmentsByTag[storageTag]
-		if !ok {
+		if _, ok := attachmentsByTag[storageTag]; !ok {
 			if err := stateFile.Remove(); err != nil {
 				return errors.Trace(err)
 			}
@@ -119,10 +129,15 @@ func (a *Attachments) init() error {
 			return errors.Trace(err)
 		}
 	}
-	// Note: we ignore remote attachments that were not locally recorded;
-	// they will be picked up by UpdateStorage. We could handle it now, but
-	// we're going to have to refresh the attachment in response to the
-	// watcher anyway.
+	for storageTag := range attachmentsByTag {
+		if _, ok := stateFiles[storageTag]; !ok {
+			// There is no state file for the attachment, so no
+			// hooks have been committed for it.
+			a.pending.Add(storageTag)
+		}
+		// Non-locally recorded attachments will be further handled
+		// by UpdateStorage.
+	}
 	return nil
 }
 
@@ -142,68 +157,117 @@ func (a *Attachments) Stop() error {
 	return nil
 }
 
+// SetDying ensures that any unprovisioned storage attachments are removed
+// from state, and Pending is updated. After SetDying returns successfully,
+// and once Pending returns zero and Empty returns true, there will be no
+// remaining storage attachments.
+func (a *Attachments) SetDying() error {
+	if err := a.st.DestroyUnitStorageAttachments(a.unitTag); err != nil {
+		return errors.Trace(err)
+	}
+	if err := a.Refresh(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// Refresh fetches all of the unit's storage attachments and processes each
+// one as in UpdateStorage.
+func (a *Attachments) Refresh() error {
+	attachmentIds, err := a.st.UnitStorageAttachments(a.unitTag)
+	if err != nil {
+		return errors.Annotate(err, "getting unit attachments")
+	}
+	storageTags := make([]names.StorageTag, len(attachmentIds))
+	for i, attachmentId := range attachmentIds {
+		storageTag, err := names.ParseStorageTag(attachmentId.StorageTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		storageTags[i] = storageTag
+	}
+	// Remove non-existent storage from pending.
+	for pending := range a.pending {
+		var found bool
+		for _, active := range storageTags {
+			if pending == active {
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.pending.Remove(pending)
+		}
+	}
+	return a.UpdateStorage(storageTags)
+}
+
 // UpdateStorage responds to changes in the lifecycle states of the
 // storage attachments corresponding to the supplied storage tags,
 // sending storage hooks on the channel returned by Hooks().
 func (a *Attachments) UpdateStorage(tags []names.StorageTag) error {
-	for _, storageTag := range tags {
-		if err := a.updateOneStorage(storageTag); err != nil {
+	ids := make([]params.StorageAttachmentId, len(tags))
+	for i, storageTag := range tags {
+		ids[i] = params.StorageAttachmentId{
+			StorageTag: storageTag.String(),
+			UnitTag:    a.unitTag.String(),
+		}
+	}
+	results, err := a.st.StorageAttachmentLife(ids)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for i, result := range results {
+		if result.Error == nil {
+			continue
+		} else if params.IsCodeNotFound(result.Error) {
+			a.pending.Remove(tags[i])
+			continue
+		}
+		return errors.Annotatef(
+			result.Error, "getting life of storage %s attachment", tags[i].Id(),
+		)
+	}
+	for i, result := range results {
+		if result.Error != nil {
+			continue
+		}
+		if err := a.updateOneStorage(tags[i], result.Life); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (a *Attachments) updateOneStorage(storageTag names.StorageTag) error {
+func (a *Attachments) updateOneStorage(storageTag names.StorageTag, life params.Life) error {
 	// Fetch the attachment's remote state, so we know when we can
 	// stop the storager and possibly short-circuit the attachment's
 	// removal.
-	att, err := a.st.StorageAttachment(storageTag, a.unitTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	stateFile, err := readStateFile(a.storageStateDir, storageTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	storager := a.storagers[storageTag]
 
-	switch att.Life {
+	switch life {
 	case params.Dying:
 		if stateFile.state.attached {
 			// Previously ran storage-attached, so we'll
-			// need to run a storage-detaching hook.
+			// leave the storager to handle the lifecycle
+			// state change.
 			if storager == nil {
 				panic("missing storager for attached storage")
 			}
-			// TODO(axw) have storager watch both storage
-			// attachment and volume/filesystem attachment,
-			// else we need to force updates from here.
 			return nil
 		}
-		// Storage was not previously seen as Dying, so we can
-		// short-circuit the storage's death and removal.
-		if err := a.st.EnsureStorageAttachmentDead(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "ensuring storage is dead")
-		}
-		fallthrough
-	case params.Dead:
-		if storager != nil {
-			// Stopping the storager guarantees that no hooks will
-			// be delivered, which is a crucial requirement for
-			// short-circuiting.
-			if err := storager.Stop(); err != nil {
-				return errors.Trace(err)
-			}
-			delete(a.storagers, storageTag)
-		}
-		if err := a.st.RemoveStorageAttachment(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "removing storage")
-		}
-		return nil
+		// Storage attachment hasn't previously been observed,
+		// so we can short-circuit the removal.
+		err := a.removeStorageAttachment(storageTag, storager)
+		return errors.Trace(err)
 	}
 
 	if storager == nil {
+		a.pending.Add(storageTag)
 		return a.add(storageTag, stateFile)
 	}
 	return nil
@@ -218,6 +282,17 @@ func (a *Attachments) add(storageTag names.StorageTag, stateFile *stateFile) err
 	a.storagers[storageTag] = s
 	logger.Debugf("watching storage %q", storageTag.Id())
 	return nil
+}
+
+// Pending reports the number of storage attachments whose hooks have yet
+// to be run and committed.
+func (a *Attachments) Pending() int {
+	return a.pending.Size()
+}
+
+// Empty reports whether or not there are any active storage attachments.
+func (a *Attachments) Empty() bool {
+	return len(a.storagers) == 0
 }
 
 // Storage returns the ContextStorage with the supplied tag if it was
@@ -248,13 +323,30 @@ func (a *Attachments) CommitHook(hi hook.Info) error {
 	if err := storager.CommitHook(hi); err != nil {
 		return err
 	}
-	if hi.Kind == hooks.StorageDetached {
-		// Progress storage attachment to Dead.
-		storageTag := names.NewStorageTag(hi.StorageId)
-		if err := a.st.EnsureStorageAttachmentDead(storageTag, a.unitTag); err != nil {
-			return errors.Annotate(err, "ensuring storage is dead")
+	storageTag := names.NewStorageTag(hi.StorageId)
+	switch hi.Kind {
+	case hooks.StorageAttached:
+		a.pending.Remove(storageTag)
+	case hooks.StorageDetaching:
+		if err := a.removeStorageAttachment(storageTag, storager); err != nil {
+			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+func (a *Attachments) removeStorageAttachment(tag names.StorageTag, s *storager) error {
+	if err := a.st.RemoveStorageAttachment(tag, a.unitTag); err != nil {
+		return errors.Annotate(err, "removing storage attachment")
+	}
+	a.pending.Remove(tag)
+	if s == nil {
+		return nil
+	}
+	if err := s.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	delete(a.storagers, tag)
 	return nil
 }
 

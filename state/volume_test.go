@@ -30,6 +30,19 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineVolume(c, unit)
+}
+
+func (s *VolumeStateSuite) TestAssignToMachine(c *gc.C) {
+	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineVolume(c, unit)
+}
+
+func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,10 +103,10 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 			Size:  1024,
 			Count: 1,
 		},
-		"allecto": state.StorageConstraints{
+		"allecto": {
 			Pool:  "loop",
-			Size:  1024,
 			Count: 0,
+			Size:  1024,
 		},
 	})
 }
@@ -121,10 +134,10 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 			Size:  1024,
 			Count: 1,
 		},
-		"allecto": state.StorageConstraints{
-			Pool:  "default-block",
-			Size:  1024,
+		"allecto": {
+			Pool:  "loop",
 			Count: 0,
+			Size:  1024,
 		},
 	})
 }

@@ -69,14 +69,14 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	expectedVolumes := []params.Volume{{
 		VolumeTag:  "volume-1",
 		VolumeId:   "id-1",
-		Serial:     "serial-1",
+		HardwareId: "serial-1",
 		Size:       1024,
 		Persistent: true,
 	}, {
-		VolumeTag: "volume-2",
-		VolumeId:  "id-2",
-		Serial:    "serial-2",
-		Size:      1024,
+		VolumeTag:  "volume-2",
+		VolumeId:   "id-2",
+		HardwareId: "serial-2",
+		Size:       1024,
 	}}
 	expectedVolumeAttachments := []params.VolumeAttachment{{
 		VolumeTag:  "volume-1",

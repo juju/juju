@@ -19,9 +19,10 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -36,16 +37,16 @@ func init() {
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
+	CinderAttempt  = &cinderAttempt
 )
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
-func MetadataStorage(e environs.Environ) storage.Storage {
+func MetadataStorage(e environs.Environ) envstorage.Storage {
 	ecfg := e.(*environ).ecfg()
-	authModeCfg := AuthMode(ecfg.authMode())
 	container := "juju-dist-test"
 	metadataStorage := &openstackstorage{
 		containerName: container,
-		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
+		swift:         swift.New(authClient(ecfg)),
 	}
 
 	// Ensure the container exists.
@@ -72,6 +73,12 @@ var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
 )
+
+type OpenstackStorage openstackStorage
+
+func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
+	return &cinderVolumeSource{openstackStorage(s)}
+}
 
 var indexData = `
 		{
@@ -238,7 +245,7 @@ var imagesData = `
 
 const productMetadatafile = "image-metadata/products.json"
 
-func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
+func UseTestImageData(stor envstorage.Storage, cred *identity.Credentials) {
 	// Put some image metadata files into the public storage.
 	t := template.Must(template.New("").Parse(indexData))
 	var metadata bytes.Buffer
@@ -251,7 +258,7 @@ func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
-func RemoveTestImageData(stor storage.Storage) {
+func RemoveTestImageData(stor envstorage.Storage) {
 	stor.Remove(simplestreams.UnsignedIndex("v1", 1))
 	stor.Remove(productMetadatafile)
 }
@@ -310,7 +317,7 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
-func ImageMetadataStorage(e environs.Environ) storage.Storage {
+func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 	env := e.(*environ)
 	return &openstackstorage{
 		containerName: "imagemetadata",
@@ -320,7 +327,7 @@ func ImageMetadataStorage(e environs.Environ) storage.Storage {
 
 // CreateCustomStorage creates a swift container and returns the Storage object
 // so you can put data into it.
-func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
+func CreateCustomStorage(e environs.Environ, containerName string) envstorage.Storage {
 	env := e.(*environ)
 	swiftClient := swift.New(env.client)
 	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
@@ -333,7 +340,7 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 }
 
 // BlankContainerStorage creates a Storage object with blank container name.
-func BlankContainerStorage() storage.Storage {
+func BlankContainerStorage() envstorage.Storage {
 	return &openstackstorage{}
 }
 

@@ -45,6 +45,7 @@ func newStorager(
 	}, nil
 }
 
+// Stop stops the storager from generating or sending any more hook events.
 func (s *storager) Stop() error {
 	if err := s.sender.Stop(); err != nil {
 		return errors.Annotate(err, "stopping storage event sender")

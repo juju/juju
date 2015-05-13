@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -3062,9 +3060,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	)
 }
 
-func (s *StatusSuite) TestStatusWithFormatTabularFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags(feature.NewStatus)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+func (s *StatusSuite) TestStatusV2(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
 	s.testStatusWithFormatTabular(c, true)
 }
 
