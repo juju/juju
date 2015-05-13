@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -38,6 +39,7 @@ func (s *IPAddressSuite) assertAddress(
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
 	c.Assert(ipAddr.String(), gc.Equals, addr.String())
 	c.Assert(ipAddr.Id(), gc.Equals, s.State.EnvironUUID()+":"+addr.Value)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 }
 
 func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
@@ -234,18 +236,21 @@ func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
 	c.Assert(ipAddr.MachineId(), gc.Equals, "")
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	err = ipAddr.AllocateTo("wibble", "wobble")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateAllocated)
 	c.Assert(ipAddr.MachineId(), gc.Equals, "wibble")
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "wobble")
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	freshCopy, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.State(), gc.Equals, state.AddressStateAllocated)
 	c.Assert(freshCopy.MachineId(), gc.Equals, "wibble")
 	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
+	c.Assert(freshCopy.InstanceId(), gc.Equals, instance.UnknownId)
 
 	// allocating twice should fail.
 	err = ipAddr.AllocateTo("m", "i")
