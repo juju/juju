@@ -73,3 +73,82 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 	}
 	return result, nil
 }
+
+type ServiceStatusGetter struct {
+	st           *state.State
+	getcanAccess GetAuthFunc
+}
+
+func NewServiceStatusGetter(st *state.State, getcanAccess GetAuthFunc) *ServiceStatusGetter {
+	return &ServiceStatusGetter{
+		st:           st,
+		getcanAccess: getcanAccess,
+	}
+}
+
+// Status returns the status of each given entity.
+func (s *ServiceStatusGetter) Status(args params.ServiceUnits) (params.ServiceStatusResults, error) {
+	results := params.ServiceStatusResults{
+		Results: make([]params.ServiceStatusResult, len(args.ServiceUnits)),
+	}
+	canAccess, err := s.getcanAccess()
+	if err != nil {
+		return params.ServiceStatusResults{}, err
+	}
+
+	for i, serviceUnit := range args.ServiceUnits {
+		//TODO(perrito666) IsLeader check for unit.
+		unit, err := s.st.Unit(serviceUnit.UnitName)
+		if err != nil {
+			results.Results[i].Error = ServerError(err)
+			continue
+		}
+
+		if !canAccess(unit.Tag()) {
+			results.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+
+		service, err := unit.Service()
+		if err != nil {
+			results.Results[i].Error = ServerError(err)
+			continue
+		}
+
+		if !canAccess(service.Tag()) {
+			results.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+
+		serviceStatus, err := service.Status()
+		if err != nil {
+			results.Results[i].Service.Error = ServerError(err)
+			results.Results[i].Error = ServerError(err)
+			continue
+		}
+		results.Results[i].Service.Status = params.Status(serviceStatus.Status)
+		results.Results[i].Service.Info = serviceStatus.Message
+		results.Results[i].Service.Data = serviceStatus.Data
+		results.Results[i].Service.Since = serviceStatus.Since
+
+		unitStatuses, err := service.MembersStatus()
+		if err != nil {
+			results.Results[i].Error = ServerError(err)
+			continue
+		}
+		results.Results[i].Units.Results = make([]params.NamedStatusResult, len(unitStatuses))
+		for ri, r := range unitStatuses {
+			ur := params.NamedStatusResult{
+				Tag: r.Tag,
+				StatusResult: params.StatusResult{
+					Status: params.Status(r.StatusInfo.Status),
+					Info:   r.StatusInfo.Message,
+					Data:   r.StatusInfo.Data,
+					Since:  r.StatusInfo.Since,
+				},
+			}
+			results.Results[i].Units.Results[ri] = ur
+		}
+	}
+	return results, nil
+}

@@ -6,6 +6,7 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -16,6 +17,7 @@ type StatusSetCommand struct {
 	ctx     Context
 	status  string
 	message string
+	service bool
 }
 
 // NewStatusSetCommand makes a jujuc status-set command.
@@ -44,6 +46,10 @@ var validStatus = []params.Status{
 	params.StatusActive,
 }
 
+func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.service, "service", false, "set this status at a service level")
+}
+
 func (c *StatusSetCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("invalid args, require <status> [message]")
@@ -67,8 +73,13 @@ func (c *StatusSetCommand) Init(args []string) error {
 }
 
 func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.SetUnitStatus(StatusInfo{
+	statusInfo := StatusInfo{
 		Status: c.status,
 		Info:   c.message,
-	})
+	}
+	if !c.service {
+		return c.ctx.SetUnitStatus(statusInfo)
+	}
+	return c.ctx.SetServiceStatus(statusInfo)
+
 }

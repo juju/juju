@@ -231,10 +231,55 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
+func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	var err error
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	status, err := service.ServiceStatus(ctx.unit.Name())
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	us := make([]jujuc.StatusInfo, len(status.Units.Results))
+	for i, s := range status.Units.Results {
+		us[i] = jujuc.StatusInfo{
+			Tag:    s.Tag,
+			Status: string(s.Status),
+			Info:   s.Info,
+			Data:   s.Data,
+		}
+	}
+	return jujuc.ServiceStatusInfo{
+		Service: jujuc.StatusInfo{
+			Tag:    service.Name(),
+			Status: string(status.Service.Status),
+			Info:   status.Service.Info,
+			Data:   status.Service.Data,
+		},
+		Units: us,
+	}, nil
+}
+
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
+		params.Status(status.Status),
+		status.Info,
+		status.Data,
+	)
+}
+
+func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
+	ctx.hasRunStatusSet = true
+	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return service.SetServiceStatus(
+		ctx.unit.Name(),
 		params.Status(status.Status),
 		status.Info,
 		status.Data,

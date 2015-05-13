@@ -97,7 +97,7 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
-		StatusAPI:                  NewStatusAPI(st, accessUnit),
+		StatusAPI:                  NewStatusAPI(st, accessUnitOrService),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
