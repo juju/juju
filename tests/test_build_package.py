@@ -74,7 +74,7 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(0, code)
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
-            '~/workspace', ['orig', 'debian'], verbose=False)
+            '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
 
     def test_parse_dsc(self):
         with temp_dir() as there:
