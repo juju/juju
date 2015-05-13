@@ -236,6 +236,11 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Count: 1,
 			Size:  1024,
 		},
+		"allecto": {
+			Count: 0,
+			Size:  1024,
+			Pool:  "loop",
+		},
 	})
 }
 
