@@ -289,7 +289,7 @@ type FakeConfig struct {
 }
 
 func (FakeConfig) LogDir() string {
-	return "/var/log/juju/"
+	return filepath.FromSlash("/var/log/juju/")
 }
 
 func (FakeConfig) Tag() names.Tag {
@@ -332,7 +332,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(l.MaxAge, gc.Equals, 0)
 	c.Check(l.MaxBackups, gc.Equals, 2)
-	c.Check(l.Filename, gc.Equals, "/var/log/juju/machine-42.log")
+	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
 	c.Check(l.MaxSize, gc.Equals, 300)
 }
 
