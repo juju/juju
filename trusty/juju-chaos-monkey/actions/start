@@ -1,13 +1,21 @@
 #!/bin/bash -eux
-total_timeout="$(action-get total-timeout)"
-enablement_timeout="$(action-get enablement-timeout)"
 dry_run="$(config-get dry-run)"
 chaos_dir="$(config-get chaos-dir)"
+exclude_command="$(action-get exclude-command)"
+exclude_group="$(action-get exclude-group)"
+enablement_timeout="$(action-get enablement-timeout)"
+include_command="$(action-get include-command)"
+include_group="$(action-get include-group)"
+total_timeout="$(action-get total-timeout)"
+action-set action-parameters.dry-run="${dry_run}"
 action-set action-parameters.chaos-dir="${chaos_dir}"
 action-set action-parameters.charm-dir="${CHARM_DIR}"
-action-set action-parameters.dry-run="${dry_run}"
-action-set action-parameters.monkey-id=${JUJU_ACTION_TAG#action-}
+action-set action-parameters.exclude-command="${exclude_command}"
+action-set action-parameters.exclude-group="${exclude_group}"
 action-set action-parameters.enablement-timeout="${enablement_timeout}"
+action-set action-parameters.include-command="${include_command}"
+action-set action-parameters.include-group="${include_group}"
+action-set action-parameters.monkey-id=${JUJU_ACTION_TAG#action-}
 action-set action-parameters.total-timeout="${total_timeout}"
 
 # Create a unique directory to run and log this monkeys actions.
@@ -20,6 +28,18 @@ fi
 # Run the Chaos Monkey
 cmd="python ${target_dir}/juju-chaos-monkey/runner.py"
 cmd+=" ${target_dir}"
+if [[ -n ${exclude_command:-} ]]; then
+    cmd+=" --exclude-command ${exclude_command}"
+fi
+if [[ -n ${exclude_group:-} ]]; then
+    cmd+=" --exclude-group ${exclude_group}"
+fi
+if [[ -n ${include_command:-} ]]; then
+    cmd+=" --include-command ${include_command}"
+fi
+if [[ -n ${include_group:-} ]]; then
+    cmd+=" --include-group ${include_group}"
+fi
 if [[ -n ${total_timeout:-} ]]; then
     cmd+=" --total-timeout ${total_timeout}"
 fi

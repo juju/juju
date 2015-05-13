@@ -16,6 +16,18 @@ show-monkey-ids:
 start:
     description: Start the chaos monkey.
     params:
+        exclude-command:
+            type: string
+            description: Exclude commands from the test list.
+        exclude-group:
+            type: string
+            description: Exclude groups from the test list.
+        include-command:
+            type: string
+            description: Include only these commands in the test list.
+        include-group:
+            type: string
+            description: Include only these groups in the test list.
         total-timeout:
             type: integer
             description: Timeout in seconds for which the monkey should run.
