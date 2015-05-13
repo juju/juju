@@ -935,6 +935,11 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	var availabilityZones []string

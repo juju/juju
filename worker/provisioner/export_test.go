@@ -34,7 +34,7 @@ var (
 	NetInterfaces              = &netInterfaces
 	InterfaceAddrs             = &interfaceAddrs
 	DiscoverPrimaryNIC         = discoverPrimaryNIC
-	MaybeAllocateStaticIP      = maybeAllocateStaticIP
+	ConfigureContainerNetwork  = configureContainerNetwork
 	MaybeOverrideDefaultLXCNet = maybeOverrideDefaultLXCNet
 	EtcDefaultLXCNetPath       = &etcDefaultLXCNetPath
 	EtcDefaultLXCNet           = etcDefaultLXCNet
