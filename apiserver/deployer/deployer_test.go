@@ -299,7 +299,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses(network.NewAddress("0.1.2.3"))
+	err := s.machine0.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := s.State.Addresses()

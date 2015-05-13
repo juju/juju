@@ -52,7 +52,7 @@ func findImageMetadata(env *environ, args environs.StartInstanceParams) (*OvaFil
 		return nil, errors.Trace(err)
 	}
 	if len(matchingImages) == 0 {
-		return nil, errors.Errorf("no mathicng images found for given constraints: %v", ic)
+		return nil, errors.Errorf("no matching images found for given constraints: %v", ic)
 	}
 
 	return matchingImages[0], nil
