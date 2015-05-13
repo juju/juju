@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -43,6 +42,14 @@ type UnitAgent struct {
 	runner       worker.Runner
 	setupLogging func(agent.Config) error
 	logToStdErr  bool
+	ctx          *cmd.Context
+}
+
+// NewUnitAgent creates a new UnitAgent value properly initialized.
+func NewUnitAgent() *UnitAgent {
+	return &UnitAgent{
+		AgentConf: agentcmd.NewAgentConf(""),
+	}
 }
 
 // Info returns usage information for the command.
@@ -71,6 +78,22 @@ func (a *UnitAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+
+	if !a.logToStdErr {
+		if err := a.ReadConfig(a.Tag().String()); err != nil {
+			return err
+		}
+		agentConfig := a.CurrentConfig()
+
+		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
+		a.ctx.Stderr = &lumberjack.Logger{
+			Filename:   agent.LogFilename(agentConfig),
+			MaxSize:    300, // megabytes
+			MaxBackups: 2,
+		}
+
+	}
+
 	return nil
 }
 
@@ -88,19 +111,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	}
 	agentConfig := a.CurrentConfig()
 
-	if !a.logToStdErr {
-		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
-
-		log := &lumberjack.Logger{
-			Filename:   filename,
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
-		}
-
-		if err := cmdutil.SwitchProcessToRollingLogs(log); err != nil {
-			return err
-		}
-	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
