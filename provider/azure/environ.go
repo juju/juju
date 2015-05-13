@@ -701,6 +701,11 @@ func deploymentNameV2(serviceName string) string {
 	return serviceName + "-v2"
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*azureEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.MachineConfig.HasNetworks() {

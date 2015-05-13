@@ -127,10 +127,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		)
 		args.ContainerBridgeName = environs.DefaultBridgeName
 	} else {
-		logger.Debugf(
-			"address allocation feature enabled; using static IPs for containers",
-			environs.DefaultBridgeName,
-		)
+		logger.Debugf("address allocation feature enabled; using static IPs for containers")
 	}
 
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
@@ -793,6 +790,11 @@ func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instan
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
+
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
 
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (

@@ -59,7 +59,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-
 	if !environs.AddressAllocationEnabled() {
 		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
@@ -68,10 +67,8 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	} else {
 		logger.Debugf("trying to allocate static IP for container %q", machineId)
 
-		allocatedInfo, err := maybeAllocateStaticIP(
-			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo, broker.enableNAT,
-		)
+		allocatedInfo, err := configureContainerNetwork(
+			machineId, bridgeDevice, broker.api, args.NetworkInfo, broker.enableNAT, true)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
@@ -137,4 +134,10 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 // AllInstances only returns running containers.
 func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
+}
+
+// MaintainInstance is only called for LXC hosts.
+// Stub to fulfill the environs.InstanceBroker interface.
+func (*kvmBroker) MaintainInstance(environs.StartInstanceParams) error {
+	return nil
 }
