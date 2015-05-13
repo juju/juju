@@ -515,6 +515,62 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddInstanceIdFieldOfIPAddresses creates and populates the instance ID field
+// for all IP addresses referencing a live machine with a provisioned instance.
+func AddInstanceIdFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	machines, mCloser := st.getCollection(machinesC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a Life field, then it has already been
+		// upgraded.
+		if _, ok := address["instanceid"]; ok {
+			continue
+		}
+
+		allocatedState, ok := address["state"]
+
+		var addressAllocated bool
+		// if state was missing, we pretend the IP address is
+		// unallocated. State can't be empty anyway, so this shouldn't
+		// happen.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			addressAllocated = true
+		}
+
+		// An IP address that has an allocated state but no machine ID
+		// shouldn't be possible.
+		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
+			mDoc := &machineDoc{}
+			err := machines.Find(bson.D{{"machineid", machineId}}).One(&mDoc)
+			if err != nil || mDoc.Life != Alive {
+				life = Dead
+			}
+		}
+		logger.Debugf("setting life %q to address %q", life, address["value"])
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"life", life},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
