@@ -89,8 +89,8 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	)
 
 	// Create & start a machine agent so the tests have something to call into.
-	agentConf := agentcmd.AgentConf{DataDir: s.DataDir()}
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
+	agentConf := agentcmd.NewAgentConf(s.DataDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
 	// See comment in createMockJujudExecutable
@@ -333,8 +333,8 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	)
 
 	// Create & start a machine agent so the tests have something to call into.
-	agentConf := agentcmd.AgentConf{DataDir: s.DataDir()}
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
+	agentConf := agentcmd.NewAgentConf(s.DataDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
 	// See comment in createMockJujudExecutable

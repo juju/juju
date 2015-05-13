@@ -61,6 +61,13 @@ type BootstrapCommand struct {
 	ImageMetadataDir string
 }
 
+// NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
+func NewBootstrapCommand() *BootstrapCommand {
+	return &BootstrapCommand{
+		AgentConf: agentcmd.NewAgentConf(""),
+	}
+}
+
 // Info returns a decription of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
