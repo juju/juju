@@ -48,7 +48,8 @@ DSC_CONTENT = dedent("""\
 class BuildPackageTestCase(unittest.TestCase):
 
     def test_get_args_binary(self):
-        args = get_args(['prog', 'binary', 'my.dsc', '~/workspace'])
+        args = get_args(
+            ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
         self.assertEqual('binary', args.command)
         self.assertEqual('my.dsc', args.dsc)
         self.assertEqual('~/workspace', args.location)
@@ -57,7 +58,8 @@ class BuildPackageTestCase(unittest.TestCase):
     def test_main_binary(self):
         with patch('build_package.build_binary', autospec=True,
                    return_value=0) as bb_mock:
-            code = main(['prog', 'binary', 'my.dsc', '~/workspace'])
+            code = main(
+                ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
         self.assertEqual(0, code)
         bb_mock.assert_called_with('my.dsc', '~/workspace', verbose=False)
 
