@@ -32,7 +32,10 @@ def parse_dsc(dsc_path, verbose=False):
 
 
 def setup_local(location, series, arch, source_files, verbose=False):
-    pass
+    build_dir = os.path.join(location, 'juju-build-{}-{}'.format(series, arch))
+    os.makedirs(build_dir)
+    # cp files to location.
+    return build_dir
 
 
 def build_binary(dsc_path, location, series, arch, verbose=False):
@@ -40,8 +43,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
     source_files = parse_dsc(dsc_path, verbose=verbose)
     build_dir = setup_local(
         location, series, arch, source_files, verbose=verbose)
-    # make juju-build in location.
-    # cp files to location.
+
     # make lxc with location as a mount
     # start lxc and run build.
     return 0

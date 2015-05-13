@@ -2,8 +2,6 @@
 
 from mock import patch
 import os
-import shutil
-import tempfile
 from textwrap import dedent
 import unittest
 
@@ -12,6 +10,7 @@ from build_package import (
     get_args,
     main,
     parse_dsc,
+    setup_local,
     SourceFile,
 )
 from utils import temp_dir
@@ -68,7 +67,7 @@ class BuildPackageTestCase(unittest.TestCase):
         with patch('build_package.parse_dsc', autospec=True,
                    return_value=['orig', 'debian']) as pd_mock:
             with patch('build_package.setup_local', autospec=True,
-                       return_value=['build_dir']) as sl_mock:
+                       return_value='build_dir') as sl_mock:
                 code = build_binary(
                     'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
         self.assertEqual(0, code)
@@ -77,17 +76,29 @@ class BuildPackageTestCase(unittest.TestCase):
             '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
 
     def test_parse_dsc(self):
-        with temp_dir() as there:
-            dsc_path = '%s/my.dsc' % there
+        with temp_dir() as workspace:
+            dsc_path = os.path.join(workspace, 'my.dsc')
             with open(dsc_path, 'w') as f:
                 f.write(DSC_CONTENT)
             source_files = parse_dsc(dsc_path, verbose=False)
         orig_file = SourceFile(
             '3456', '9876', 'juju-core_1.24-beta1.orig.tar.gz',
-            '%s/juju-core_1.24-beta1.orig.tar.gz' % there)
+            '%s/juju-core_1.24-beta1.orig.tar.gz' % workspace)
         deb_file = SourceFile(
             '4567', '4321',
             'juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz',
             '%s/juju-core_1.24-beta1-0ubuntu1~14.04.1~juju1.debian.tar.gz' %
-            there)
+            workspace)
         self.assertEqual([orig_file, deb_file], source_files)
+
+    def test_setup_local(self):
+        with temp_dir() as workspace:
+            dsc_path = os.path.join(workspace, 'my.dsc')
+            with open(dsc_path, 'w') as f:
+                f.write(DSC_CONTENT)
+            build_dir = setup_local(
+                workspace, 'trusty', 'i386', ['orig', 'debian'], verbose=False)
+            self.assertEqual(
+                os.path.join(workspace, 'juju-build-trusty-i386'),
+                build_dir)
+            self.assertTrue(os.path.isdir(build_dir))
