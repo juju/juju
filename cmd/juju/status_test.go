@@ -1749,7 +1749,7 @@ type setAddresses struct {
 func (sa setAddresses) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sa.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(sa.addresses...)
+	err = m.SetProviderAddresses(sa.addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

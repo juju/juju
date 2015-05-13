@@ -497,7 +497,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	addrs := []network.Address{
 		network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}
-	err := machine.SetAddresses(addrs...)
+	err := machine.SetProviderAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.

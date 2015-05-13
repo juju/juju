@@ -160,7 +160,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(network.Address{
+		err := m.SetProviderAddresses(network.Address{
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 			Value: fmt.Sprintf("10.0.0.%d", i),
@@ -3613,7 +3613,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
