@@ -145,7 +145,7 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, gc.IsNil)
-	c.Assert(devices, gc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
 	}, {
