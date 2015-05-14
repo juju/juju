@@ -104,6 +104,28 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 			},
 			expectedCount: 0,
 		},
+		{
+			label: "Update",
+			test: func() (int, error) {
+				err := coll.Update(bson.D{{"_id", "bar"}},
+					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+
+				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "UpdateId",
+			test: func() (int, error) {
+				err := coll.UpdateId("bar",
+					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+
+				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
+			},
+			expectedCount: 1,
+		},
 	} {
 		c.Logf("test %d: %s", i, t.label)
 		collSnapshot.restore(c)
@@ -406,6 +428,26 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 				return 0, nil
 			},
 			expectedPanic: "query must either be bson.D or nil",
+		},
+		{
+			label: "Update",
+			test: func() (int, error) {
+				err := machines0.Update(bson.D{{"_id", m0.Id()}},
+					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "UpdateId",
+			test: func() (int, error) {
+				err := machines0.UpdateId(m0.Id(),
+					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
+			},
+			expectedCount: 1,
 		},
 	} {
 		c.Logf("test %d: %s", i, t.label)
