@@ -898,6 +898,21 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 	c.Assert(*md, gc.DeepEquals, *expected)
 }
 
+func (s *MachineSuite) TestMachineSetProvisionedSetsInstanceIdOnIPAddresses(c *gc.C) {
+	addr, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1", network.ScopeUnknown), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr.AllocateTo(s.machine.Id(), "fake")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetProvisioned("instance", "totally-fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("instance"))
+}
+
 func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
 	zone := "a_zone"
 	hwc := &instance.HardwareCharacteristics{

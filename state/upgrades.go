@@ -544,6 +544,7 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 			addressAllocated = true
 		}
 
+		life := Dead
 		// An IP address that has an allocated state but no machine ID
 		// shouldn't be possible.
 		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
