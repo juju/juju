@@ -2518,6 +2518,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 	err := instances.Insert(
 		bson.D{
 			{"_id", uuid + ":1"},
+			{"env-uuid", uuid},
 			{"machineid", 1},
 			{"instanceid", "instance"},
 		},
