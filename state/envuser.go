@@ -78,6 +78,10 @@ func (e *EnvironmentUser) LastConnection() *time.Time {
 func (e *EnvironmentUser) UpdateLastConnection() error {
 	envUsers, closer := e.st.getCollection(envUsersC)
 	defer closer()
+	// Update the safe mode of the underlying session to be not require
+	// write majority, nor sync to disk.
+	session := envUsers.Underlying().Database.Session
+	session.SetSafe(&mgo.Safe{})
 
 	timestamp := nowToTheSecond()
 	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
