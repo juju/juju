@@ -82,14 +82,18 @@ func (e *EnvironmentUser) LastConnection() *time.Time {
 
 // UpdateLastConnection updates the last connection time of the environment user.
 func (e *EnvironmentUser) UpdateLastConnection() error {
+	envUsers, closer := e.st.getCollection(envUsersC)
+	defer closer()
+	// Update the safe mode of the underlying session to be not require
+	// write majority, nor sync to disk.
+	session := envUsers.Underlying().Database.Session
+	session.SetSafe(&mgo.Safe{})
+
 	timestamp := nowToTheSecond()
-	ops := []txn.Op{{
-		C:      envUsersC,
-		Id:     e.ID(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
-	}}
-	if err := e.st.runTransaction(ops); err != nil {
+	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
+
+	id := strings.ToLower(e.UserName())
+	if err := envUsers.UpdateId(id, update); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
 
