@@ -97,7 +97,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		switch deviceType {
 		case typeDisk, typeLoop:
 		default:
-			logger.Debugf("ignoring %q type device: %+v", deviceType, dev)
+			logger.Tracef("ignoring %q type device: %+v", deviceType, dev)
 			continue
 		}
 
