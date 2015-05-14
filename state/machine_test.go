@@ -727,7 +727,7 @@ var addNetworkInterfaceErrorsTests = []struct {
 }, {
 	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
 	nil,
-	`cannot add network interface "eth1" to machine "2": invalid MAC address: invalid`,
+	`cannot add network interface "eth1" to machine "2": invalid MAC address.*`,
 }, {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
 	nil,
