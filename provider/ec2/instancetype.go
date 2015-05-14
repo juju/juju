@@ -298,7 +298,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      1024,
 		// Burstable baseline is 10% (from http://aws.amazon.com/ec2/faqs/#burst)
 		CpuPower: instances.CpuPower(10),
-		VirtType: &paravirtual,
+		VirtType: &hvm,
 	},
 	{ // General Purpose, 3rd generation.
 		Name:     "t2.small",
@@ -307,7 +307,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      2048,
 		// Burstable baseline is 20% (from http://aws.amazon.com/ec2/faqs/#burst)
 		CpuPower: instances.CpuPower(20),
-		VirtType: &paravirtual,
+		VirtType: &hvm,
 	},
 	{ // General Purpose, 3rd generation.
 		Name:     "t2.medium",
@@ -316,7 +316,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      4096,
 		// Burstable baseline is 40% (from http://aws.amazon.com/ec2/faqs/#burst)
 		CpuPower: instances.CpuPower(40),
-		VirtType: &paravirtual,
+		VirtType: &hvm,
 	},
 
 	{ // Compute-optimized, 3rd generation.
