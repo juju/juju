@@ -199,7 +199,10 @@ func (c *envStateCollection) Update(query interface{}, update interface{}) error
 // UUID will be automatically prefixed on to the id if it's a string and the
 // prefix isn't there already.
 func (c *envStateCollection) UpdateId(id interface{}, update interface{}) error {
-	return c.Collection.UpdateId(c.mungeId(id), update)
+	if sid, ok := id.(string); ok {
+		return c.Collection.UpdateId(addEnvUUID(c.envUUID, sid), update)
+	}
+	return c.Collection.UpdateId(bson.D{{"_id", id}}, update)
 }
 
 // Remove deletes a single document using the query provided. The

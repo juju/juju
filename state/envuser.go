@@ -87,7 +87,8 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 	timestamp := nowToTheSecond()
 	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
 
-	if err := envUsers.UpdateId(e.ID(), update); err != nil {
+	id := strings.ToLower(e.UserName())
+	if err := envUsers.UpdateId(id, update); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
 
