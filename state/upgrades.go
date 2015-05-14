@@ -515,12 +515,12 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
-// AddInstanceIdFieldOfIPAddresses creates and populates the instance ID field
+// AddInstanceIdFieldOfIPAddresses creates and populates the instance Id field
 // for all IP addresses referencing a live machine with a provisioned instance.
 func AddInstanceIdFieldOfIPAddresses(st *State) error {
 	addresses, iCloser := st.getCollection(ipaddressesC)
 	defer iCloser()
-	machines, mCloser := st.getCollection(machinesC)
+	instances, mCloser := st.getCollection(instanceDataC)
 	defer mCloser()
 
 	var ops []txn.Op
@@ -528,7 +528,7 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 	iter := addresses.Find(nil).Iter()
 	defer iter.Close()
 	for iter.Next(&address) {
-		// if the address already has a Life field, then it has already been
+		// if the address already has a instance Id field, then it has already been
 		// upgraded.
 		if _, ok := address["instanceid"]; ok {
 			continue
@@ -536,31 +536,23 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 
 		allocatedState, ok := address["state"]
 
-		var addressAllocated bool
-		// if state was missing, we pretend the IP address is
-		// unallocated. State can't be empty anyway, so this shouldn't
-		// happen.
-		if ok && allocatedState == string(AddressStateAllocated) {
-			addressAllocated = true
-		}
-
-		life := Dead
-		// An IP address that has an allocated state but no machine ID
-		// shouldn't be possible.
-		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
-			mDoc := &machineDoc{}
-			err := machines.Find(bson.D{{"machineid", machineId}}).One(&mDoc)
-			if err != nil || mDoc.Life != Alive {
-				life = Dead
+		instanceId := instance.UnknownId
+		// An unallocated address can't have an associated instance id.
+		if ok && allocatedState != string(AddressStateAllocated) {
+			if machineId, ok := address["machineid"]; ok && machineId != "" {
+				iDoc := &instanceData{}
+				err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
+				if err != nil {
+					instanceId = instance.Id(iDoc.InstanceId)
+				}
 			}
 		}
-		logger.Debugf("setting life %q to address %q", life, address["value"])
 
 		ops = append(ops, txn.Op{
 			C:  ipaddressesC,
 			Id: address["_id"],
 			Update: bson.D{{"$set", bson.D{
-				{"life", life},
+				{"instanceid", instanceId},
 			}}},
 		})
 		address = nil
