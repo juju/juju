@@ -2507,14 +2507,24 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
+	instances, closer := s.state.getRawCollection(instanceDataC)
+	defer closer()
 
 	s.addMachineWithLife(c, 1, Alive)
 	s.addMachineWithLife(c, 2, Alive)
 
-	// XXX add an instance in instanceDataC for machine 1
 	uuid := s.state.EnvironUUID()
 
-	err := addresses.Insert(
+	err := instances.Insert(
+		bson.D{
+			{"_id", uuid + ":1"},
+			{"machineid", 1},
+			{"instanceid", "instance"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addresses.Insert(
 		// This address should have the instance ID set.
 		bson.D{
 			{"_id", uuid + ":0.1.2.3"},
@@ -2568,22 +2578,26 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 	err = AddInstanceIdFieldOfIPAddresses(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ipAddr, err := s.state.IPAddress("0.1.2.4")
+	ipAddr, err := s.state.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("instance"))
+
+	ipAddr, err = s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	ipAddr, err = s.state.IPAddress("0.1.2.5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	ipAddr, err = s.state.IPAddress("0.1.2.6")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	doc := ipaddressDoc{}
 	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doc.Life, gc.Equals, Alive)
+	c.Assert(doc.InstanceId, gc.Equals, "instance")
 }
 
 func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {

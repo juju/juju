@@ -530,7 +530,9 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 	for iter.Next(&address) {
 		// if the address already has a instance Id field, then it has already been
 		// upgraded.
+		logger.Debugf("AddInstanceField: processing address %s", address["value"])
 		if _, ok := address["instanceid"]; ok {
+			logger.Tracef("skipping address %s, already has instance id", address["value"])
 			continue
 		}
 
@@ -538,15 +540,22 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 
 		instanceId := instance.UnknownId
 		// An unallocated address can't have an associated instance id.
-		if ok && allocatedState != string(AddressStateAllocated) {
+		if ok && allocatedState == string(AddressStateAllocated) {
 			if machineId, ok := address["machineid"]; ok && machineId != "" {
 				iDoc := &instanceData{}
 				err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
 				if err != nil {
 					instanceId = instance.Id(iDoc.InstanceId)
+				} else {
+					logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
 				}
+			} else {
+				logger.Debugf("machine id not found for address %s", address["value"])
 			}
+		} else {
+			logger.Debugf("address %s not allocated, setting unknown ID", address["value"])
 		}
+		logger.Debugf("setting instance id of %s to %q", address["value"], instanceId)
 
 		ops = append(ops, txn.Op{
 			C:  ipaddressesC,
