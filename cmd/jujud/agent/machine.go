@@ -159,11 +159,13 @@ type AgentConfigWriter interface {
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCmd(
+	ctx *cmd.Context,
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
+		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
@@ -177,6 +179,7 @@ type machineAgentCmd struct {
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
+	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
 	logToStdErr bool
@@ -211,15 +214,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
-	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
-		Filename:   filename,
+	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+	a.ctx.Stderr = &lumberjack.Logger{
+		Filename:   agent.LogFilename(agentConfig),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
 
-	return cmdutil.SwitchProcessToRollingLogs(log)
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
@@ -1245,38 +1248,47 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// required when upgrading from a pre-HA-capable
 	// environment. These calls won't do anything if the thing they
 	// need to set up has already been done.
-
-	if _, err := a.ensureMongoAdminUser(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := a.ensureMongoSharedSecret(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-	agentConfig = a.CurrentConfig() // ensureMongoSharedSecret may have updated the config
-
-	mongoInfo, ok := agentConfig.MongoInfo()
-	if !ok {
-		return errors.New("unable to retrieve mongo info to check replicaset")
-	}
-
-	haveReplicaset, err := isReplicasetConfigured(mongoInfo)
-	if err != nil {
-		return errors.Annotate(err, "error while checking replicaset")
-	}
-
-	// If the replicaset is to be initialised the machine addresses
-	// need to be retrieved *before* MongoDB is restarted with the
-	// --replset option (in EnsureMongoServer). Once MongoDB is
-	// started with --replset it won't respond to queries until the
-	// replicaset is initiated.
+	var needReplicasetInit = false
 	var machineAddrs []network.Address
-	if !haveReplicaset {
-		logger.Infof("replicaset not yet configured")
 
-		machineAddrs, err = getMachineAddresses(agentConfig)
-		if err != nil {
+	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
+	if err != nil {
+		return errors.Annotate(err, "error while checking if mongodb service is installed")
+	}
+
+	if mongoInstalled {
+		logger.Debugf("mongodb service is installed")
+
+		if _, err := a.ensureMongoAdminUser(agentConfig); err != nil {
 			return errors.Trace(err)
+		}
+
+		if err := a.ensureMongoSharedSecret(agentConfig); err != nil {
+			return errors.Trace(err)
+		}
+		agentConfig = a.CurrentConfig() // ensureMongoSharedSecret may have updated the config
+
+		mongoInfo, ok := agentConfig.MongoInfo()
+		if !ok {
+			return errors.New("unable to retrieve mongo info to check replicaset")
+		}
+
+		needReplicasetInit, err = isReplicasetInitNeeded(mongoInfo)
+		if err != nil {
+			return errors.Annotate(err, "error while checking replicaset")
+		}
+
+		// If the replicaset is to be initialised the machine addresses
+		// need to be retrieved *before* MongoDB is restarted with the
+		// --replset option (in EnsureMongoServer). Once MongoDB is
+		// started with --replset it won't respond to queries until the
+		// replicaset is initiated.
+		if needReplicasetInit {
+			logger.Infof("replicaset not yet configured")
+			machineAddrs, err = getMachineAddresses(agentConfig)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -1289,11 +1301,15 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 
-	// Create the replicaset it hasn't been set up yet.
-	if !haveReplicaset {
+	// Initiate the replicaset if required.
+	if needReplicasetInit {
 		servingInfo, ok := agentConfig.StateServingInfo()
 		if !ok {
 			return stateWorkerServingConfigErr
+		}
+		mongoInfo, ok := agentConfig.MongoInfo()
+		if !ok {
+			return errors.New("unable to retrieve mongo info to initiate replicaset")
 		}
 		if err := initiateReplicaSet(mongoInfo, servingInfo.StatePort, machineAddrs); err != nil {
 			return err
@@ -1377,9 +1393,9 @@ func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
 	return nil
 }
 
-// isReplicasetConfigured returns true if the replicaset has been
-// successfully initiated.
-func isReplicasetConfigured(mongoInfo *mongo.MongoInfo) (bool, error) {
+// isReplicasetInitNeeded returns true if the replicaset needs to be
+// initiated.
+func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return false, errors.Annotate(err, "cannot generate dial info to check replicaset")
@@ -1396,11 +1412,11 @@ func isReplicasetConfigured(mongoInfo *mongo.MongoInfo) (bool, error) {
 	cfg, err := replicaset.CurrentConfig(session)
 	if err != nil {
 		logger.Debugf("couldn't retrieve replicaset config (not fatal): %v", err)
-		return false, nil
+		return true, nil
 	}
 	numMembers := len(cfg.Members)
 	logger.Debugf("replicaset member count: %d", numMembers)
-	return numMembers > 0, nil
+	return numMembers < 1, nil
 }
 
 // getMachineAddresses connects to state to determine the machine's

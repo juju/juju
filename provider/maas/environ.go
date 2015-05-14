@@ -793,6 +793,11 @@ func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instan
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,

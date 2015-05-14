@@ -235,14 +235,17 @@ var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() error {
+	users, closer := u.st.getCollection(usersC)
+	defer closer()
+	// Update the safe mode of the underlying session to be not require
+	// write majority, nor sync to disk.
+	session := users.Underlying().Database.Session
+	session.SetSafe(&mgo.Safe{})
+
 	timestamp := nowToTheSecond()
-	ops := []txn.Op{{
-		C:      usersC,
-		Id:     u.Name(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}},
-	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	update := bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}}
+
+	if err := users.UpdateId(u.Name(), update); err != nil {
 		return errors.Annotatef(err, "cannot update last login timestamp for user %q", u.Name())
 	}
 

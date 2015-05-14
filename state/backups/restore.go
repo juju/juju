@@ -108,7 +108,7 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 		Value: publicAddress,
 		Type:  network.DeriveAddressType(publicAddress),
 	}
-	if err := machine.SetAddresses(publicAddressAddress, privateAddressAddress); err != nil {
+	if err := machine.SetProviderAddresses(publicAddressAddress, privateAddressAddress); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

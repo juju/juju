@@ -36,6 +36,7 @@ var _ environs.InstanceBroker = (*lxcBroker)(nil)
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
@@ -83,6 +84,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
+
 	if !environs.AddressAllocationEnabled() {
 		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
@@ -90,10 +92,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		)
 	} else {
 		logger.Debugf("trying to allocate static IP for container %q", machineId)
-		allocatedInfo, err := maybeAllocateStaticIP(
-			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo, broker.enableNAT,
-		)
+		allocatedInfo, err := configureContainerNetwork(
+			machineId, bridgeDevice, broker.api, args.NetworkInfo, broker.enableNAT, true)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
@@ -489,15 +489,16 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 // while the rest is kept as-is.
 const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
-// maybeAllocateStaticIP tries to allocate a static IP address for the
+// configureContainerNetworking tries to allocate a static IP address for the
 // given containerId using the provisioner API. If it fails, it's not
 // critical - just a warning, and it won't cause StartInstance to
 // fail.
-func maybeAllocateStaticIP(
+func configureContainerNetwork(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
 	enableNAT bool,
+	allocateAddress bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
@@ -521,7 +522,11 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 
-	finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	if allocateAddress {
+		finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	} else {
+		finalIfaceInfo, err = apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -559,4 +564,19 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 	return finalIfaceInfo, nil
+}
+
+// MaintainInstance checks that the container's host has the required iptables and routing
+// rules to make the container visible to both the host and other machines on the same subnet.
+func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineId := args.MachineConfig.MachineId
+	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+	_, err := configureContainerNetwork(machineId, bridgeDevice, broker.api, args.NetworkInfo, broker.enableNAT, false)
+	return err
 }

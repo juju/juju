@@ -93,7 +93,7 @@ func (i *IPAddress) InstanceId() instance.Id {
 }
 
 // InterfaceId returns the ID of the network interface the IP address is
-// associated with. If the address is not associated with a netowrk interface
+// associated with. If the address is not associated with a network interface
 // this returns "".
 func (i *IPAddress) InterfaceId() string {
 	return i.doc.InterfaceId
