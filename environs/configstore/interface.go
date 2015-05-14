@@ -63,6 +63,9 @@ type Storage interface {
 	// List returns a slice of existing environment names that the Storage
 	// knows about.
 	List() ([]string, error)
+
+	// Destroy destroys all information assosiated with the given environment UUID
+	Destroy(envUUID string) error
 }
 
 // EnvironInfo holds information associated with an environment.

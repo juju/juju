@@ -296,7 +296,37 @@ func Destroy(env Environ, store configstore.Storage) error {
 	if err := env.Destroy(); err != nil {
 		return err
 	}
-	return DestroyInfo(name, store)
+	if uuid, ok := env.Config().UUID(); ok {
+		return DestroyAllEnvironInfo(uuid, store)
+	} else {
+		return DestroyInfo(name, store)
+	}
+
+}
+
+// DestroyAllEnvironInfo destroys all configuration data for the
+// environment identified by envUUID from the given store.
+func DestroyAllEnvironInfo(envUUID string, store configstore.Storage) error {
+	names, err := store.List()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, envName := range names {
+		info, err := store.ReadInfo(envName)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return errors.Trace(err)
+		}
+		if info.APIEndpoint().EnvironUUID != envUUID {
+			continue
+		}
+		if err := info.Destroy(); err != nil {
+			return errors.Annotate(err, "cannot destroy environment configuration information")
+		}
+	}
+	return nil
 }
 
 // DestroyInfo destroys the configuration data for the named

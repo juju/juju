@@ -168,6 +168,11 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	return info, nil
 }
 
+// List implements Storage.List
+func (d *diskStore) Destroy(envUUID string) ([]string, error) {
+
+}
+
 func cacheFilename(dir string) string {
 	return filepath.Join(dir, "cache.yaml")
 }
