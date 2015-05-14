@@ -2504,6 +2504,88 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	c.Assert(doc.Life, gc.Equals, Alive)
 }
 
+func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, 2, Alive)
+
+	// XXX add an instance in instanceDataC for machine 1
+	uuid := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		// This address should have the instance ID set.
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", 1},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", AddressStateAllocated},
+		},
+		// This address won't have the instance ID set as there is no
+		// instance for machine 2.
+		bson.D{
+			{"_id", uuid + ":0.1.2.4"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", 2},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.4"},
+			{"state", AddressStateAllocated},
+		},
+		// This address won't have the instance ID set because it isn't
+		// allocated.
+		bson.D{
+			{"_id", uuid + ":0.1.2.5"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.5"},
+			{"state", ""},
+		},
+		// This address won't have the instance ID set because the
+		// machine referenced doesn't exist.
+		bson.D{
+			{"_id", uuid + ":0.1.2.6"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"machineid", 3},
+			{"subnetid", "foo"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.6"},
+			{"state", AddressStateAllocated},
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.6")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	doc := ipaddressDoc{}
+	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.Life, gc.Equals, Alive)
+}
+
 func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {
 	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()
