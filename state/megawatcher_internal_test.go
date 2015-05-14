@@ -1759,89 +1759,6 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	// Create all watcher state backing.
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
-	// Check opened ports.
-	err = b.Changed(all, watcher.Change{
-		C:  "units",
-		Id: s.state.docID("wordpress/0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	entities := all.All()
-	substNilSinceTimeForEntities(c, entities)
-	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.UnitInfo{
-			Name:           "wordpress/0",
-			Service:        "wordpress",
-			Series:         "quantal",
-			MachineId:      "0",
-			PublicAddress:  "1.2.3.4",
-			PrivateAddress: "4.3.2.1",
-			Ports:          []network.Port{{"tcp", 12345}},
-			PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
-			Status:         "pending",
-			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
-				Data:    map[string]interface{}{},
-			},
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: "allocating",
-				Data:    map[string]interface{}{},
-			},
-		},
-	})
-	// Close the ports.
-	err = u.ClosePorts("tcp", 12345, 12345)
-	c.Assert(err, jc.ErrorIsNil)
-	err = b.Changed(all, watcher.Change{
-		C:  openedPortsC,
-		Id: s.state.docID("wordpress/0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	entities = all.All()
-	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.UnitInfo{
-			Name:           "wordpress/0",
-			Service:        "wordpress",
-			Series:         "quantal",
-			MachineId:      "0",
-			PublicAddress:  "1.2.3.4",
-			PrivateAddress: "4.3.2.1",
-			Ports:          []network.Port{},
-			PortRanges:     []network.PortRange{},
-			Status:         "pending",
-			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
-				Data:    map[string]interface{}{},
-			},
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: "allocating",
-				Data:    map[string]interface{}{},
-			},
-		},
-	})
-}
-
-// TestClosingPortsMachine tests the correct reporting of closing ports.
-func (s *storeManagerStateSuite) TestClosingPortsMachine(c *gc.C) {
-	defer s.Reset(c)
-	// Init the test environment.
-	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
-	u, err := wordpress.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
-	privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
-	err = m.SetAddresses(publicAddress, privateAddress)
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.OpenPorts("tcp", 12345, 12345)
-	c.Assert(err, jc.ErrorIsNil)
-	// Create all watcher state backing.
-	b := newAllWatcherStateBacking(s.state)
-	all := newStore()
 	all.Update(&multiwatcher.MachineInfo{
 		Id: "0",
 	})
@@ -1878,7 +1795,7 @@ func (s *storeManagerStateSuite) TestClosingPortsMachine(c *gc.C) {
 			Id: "0",
 		},
 	})
-	// Close the ports and handle machine event..
+	// Close the ports.
 	err = u.ClosePorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
