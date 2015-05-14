@@ -1759,6 +1759,9 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	// Create all watcher state backing.
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
+	all.Update(&multiwatcher.MachineInfo{
+		Id: "0",
+	})
 	// Check opened ports.
 	err = b.Changed(all, watcher.Change{
 		C:  "units",
@@ -1788,13 +1791,16 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 				Data:    map[string]interface{}{},
 			},
 		},
+		&multiwatcher.MachineInfo{
+			Id: "0",
+		},
 	})
 	// Close the ports.
 	err = u.ClosePorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  openedPortsC,
-		Id: s.state.docID("wordpress/0"),
+		Id: s.state.docID("m#0#n#juju-public"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
@@ -1819,14 +1825,10 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 				Data:    map[string]interface{}{},
 			},
 		},
+		&multiwatcher.MachineInfo{
+			Id: "0",
+		},
 	})
-	// Try closing and updating with an invalid unit.
-	c.Assert(func() {
-		b.Changed(all, watcher.Change{
-			C:  openedPortsC,
-			Id: s.state.docID("unknown/42"),
-		})
-	}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
 }
 
 // TestSettings tests the correct reporting of unset service settings.
