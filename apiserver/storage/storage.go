@@ -576,10 +576,7 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 // instances being processed.
 // This method handles bulk add operations.
 // A "CHANGE" block can block this operation.
-func (a *API) AddToUnit(
-	args params.StoragesAddParams,
-) (params.ErrorResults, error) {
-
+func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
@@ -590,11 +587,11 @@ func (a *API) AddToUnit(
 		return params.ErrorResults{}, nil
 	}
 
-	serverErr := func(err error) *params.Error {
+	serverErr := func(err error) params.ErrorResult {
 		if errors.IsNotFound(err) {
 			err = common.ErrPerm
 		}
-		return common.ServerError(err)
+		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
@@ -608,11 +605,11 @@ func (a *API) AddToUnit(
 		return s
 	}
 
-	results := make([]params.ErrorResult, len(args.Storages))
+	result := make([]params.ErrorResult, len(args.Storages))
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			results[i].Error = serverErr(
+			result[i] = serverErr(
 				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
 			continue
 		}
@@ -621,10 +618,9 @@ func (a *API) AddToUnit(
 			one.StorageName,
 			paramsToState(one.Constraints))
 		if err != nil {
-			results[i].Error = serverErr(
-				errors.Annotatef(err,
-					"adding storage %v for %v", one.StorageName, one.UnitTag))
+			result[i] = serverErr(
+				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
-	return params.ErrorResults{Results: results}, nil
+	return params.ErrorResults{Results: result}, nil
 }
