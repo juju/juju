@@ -237,9 +237,9 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
-            mock.assert_called_once_with(client,
-                'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'), False,
-                juju_home=None)
+            mock.assert_called_once_with(
+                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
+                False, juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -1792,6 +1792,16 @@ class TestEnvironment(TestCase):
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--config',
                          'bundle:~juju-qa/some-bundle'), True
+        )
+
+    def test_deployer_with_bundle_name(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-bundle', 'name')
+        mock.assert_called_with(
+            'deployer', ('--debug', '--deploy-delay', '10', '--config',
+                         'bundle:~juju-qa/some-bundle', 'name'), True
         )
 
     def test_quickstart_maas(self):

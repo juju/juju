@@ -316,13 +316,15 @@ class EnvJujuClient:
             args.extend(['--repository', repository])
         return self.juju('deploy', tuple(args))
 
-    def deployer(self, bundle):
+    def deployer(self, bundle, name=None):
         """deployer, using sudo if necessary."""
         args = (
             '--debug',
             '--deploy-delay', '10',
             '--config', bundle,
         )
+        if name:
+            args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
 
     def quickstart(self, bundle, upload_tools=False):
