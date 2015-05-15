@@ -14,10 +14,6 @@ const (
 	metricsPollInterval = 5 * time.Minute
 )
 
-// CollectMetricsSignal is the signature of the function used to generate a
-// collect-metrics signal.
-type CollectMetricsSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
-
 // activeMetricsTimer returns a channel that will signal the collect metrics hook
 // as close to interval after the last run as possible.
 var activeMetricsTimer = func(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
@@ -34,7 +30,7 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 
 // getMetricsTimer returns the metrics timer we should be using, given the supplied
 // charm.
-func getMetricsTimer(ch corecharm.Charm) CollectMetricsSignal {
+func getMetricsTimer(ch corecharm.Charm) TimedSignal {
 	metrics := ch.Metrics()
 	if metrics != nil && len(metrics.Metrics) > 0 {
 		return activeMetricsTimer

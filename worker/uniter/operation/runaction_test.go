@@ -119,6 +119,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 		ActionId:           &someActionId,
 		Started:            true,
 		CollectMetricsTime: 1234567,
+		UpdateStatusTime:   1234567,
 		Hook:               &hook.Info{Kind: hooks.Install},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -184,6 +185,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 			Hook:               &hook.Info{Kind: hooks.Install},
 			Started:            true,
 			CollectMetricsTime: 1234567,
+			UpdateStatusTime:   1234567,
 		},
 	}}
 
@@ -228,6 +230,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Step:               operation.Pending,
 			Started:            true,
 			CollectMetricsTime: 1234567,
+			UpdateStatusTime:   1234567,
 			CharmURL:           curl("cs:quantal/wordpress-2"),
 			ActionId:           &randomActionId,
 		},
@@ -236,6 +239,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Step:               operation.Pending,
 			Started:            true,
 			CollectMetricsTime: 1234567,
+			UpdateStatusTime:   1234567,
 		},
 	}, {
 		description: "preserves only appropriate fields, with hook",
@@ -244,6 +248,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Step:               operation.Pending,
 			Started:            true,
 			CollectMetricsTime: 1234567,
+			UpdateStatusTime:   1234567,
 			CharmURL:           curl("cs:quantal/wordpress-2"),
 			ActionId:           &randomActionId,
 			Hook:               &hook.Info{Kind: hooks.Install},
@@ -254,6 +259,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Hook:               &hook.Info{Kind: hooks.Install},
 			Started:            true,
 			CollectMetricsTime: 1234567,
+			UpdateStatusTime:   1234567,
 		},
 	}}
 

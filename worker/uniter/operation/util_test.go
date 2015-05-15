@@ -490,6 +490,7 @@ var overwriteState = operation.State{
 	Step:               operation.Pending,
 	Started:            true,
 	CollectMetricsTime: 1234567,
+	UpdateStatusTime:   1234567,
 	CharmURL:           curl("cs:quantal/wordpress-2"),
 	ActionId:           &randomActionId,
 	Hook:               &hook.Info{Kind: hooks.Install},
