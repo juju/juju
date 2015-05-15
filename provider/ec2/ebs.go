@@ -5,11 +5,11 @@ package ec2
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
@@ -24,7 +24,6 @@ const (
 	EBS_ProviderType = storage.ProviderType("ebs")
 
 	// Config attributes
-	// TODO(wallyworld) - use juju/schema for defining attributes
 
 	// The volume type (default standard):
 	//   "gp2" for General Purpose (SSD) volumes
@@ -45,6 +44,13 @@ const (
 	// volumes, as the volume will be created in the zone of the
 	// instance it is bound to.
 	EBS_AvailabilityZone = "availability-zone"
+
+	volumeTypeMagnetic        = "magnetic"         // standard
+	volumeTypeSsd             = "ssd"              // gp2
+	volumeTypeProvisionedIops = "provisioned-iops" // io1
+	volumeTypeStandard        = "standard"
+	volumeTypeGp2             = "gp2"
+	volumeTypeIo1             = "io1"
 )
 
 // AWS error codes
@@ -82,7 +88,9 @@ const (
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
 func init() {
-	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{"volume-type": "gp2"})
+	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
+		EBS_VolumeType: volumeTypeSsd,
+	})
 	defaultPools := []*storage.Config{
 		ebsssdPool,
 	}
@@ -94,23 +102,76 @@ type ebsProvider struct{}
 
 var _ storage.Provider = (*ebsProvider)(nil)
 
-var validConfigOptions = set.NewStrings(
-	storage.Persistent,
-	EBS_VolumeType,
-	EBS_IOPS,
-	EBS_Encrypted,
-	EBS_AvailabilityZone,
+var ebsConfigFields = schema.Fields{
+	storage.Persistent: schema.Bool(),
+	EBS_VolumeType: schema.OneOf(
+		schema.Const(volumeTypeMagnetic),
+		schema.Const(volumeTypeSsd),
+		schema.Const(volumeTypeProvisionedIops),
+		schema.Const(volumeTypeStandard),
+		schema.Const(volumeTypeGp2),
+		schema.Const(volumeTypeIo1),
+	),
+	EBS_IOPS:             schema.ForceInt(),
+	EBS_Encrypted:        schema.Bool(),
+	EBS_AvailabilityZone: schema.String(),
+}
+
+var ebsConfigChecker = schema.FieldMap(
+	ebsConfigFields,
+	schema.Defaults{
+		storage.Persistent:   false,
+		EBS_VolumeType:       volumeTypeMagnetic,
+		EBS_IOPS:             schema.Omit,
+		EBS_Encrypted:        false,
+		EBS_AvailabilityZone: schema.Omit,
+	},
 )
 
-// ValidateConfig is defined on the Provider interface.
-func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
-	// TODO - check valid values as well as attr names
-	for attr := range providerConfig.Attrs() {
-		if !validConfigOptions.Contains(attr) {
-			return errors.Errorf("unknown provider config option %q", attr)
-		}
+type ebsConfig struct {
+	persistent       bool
+	volumeType       string
+	iops             int
+	encrypted        bool
+	availabilityZone string
+}
+
+func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
+	out, err := ebsConfigChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating EBS storage config")
 	}
-	return nil
+	coerced := out.(map[string]interface{})
+	iops, _ := coerced[EBS_IOPS].(int)
+	availabilityZone, _ := coerced[EBS_AvailabilityZone].(string)
+	volumeType := coerced[EBS_VolumeType].(string)
+	ebsConfig := &ebsConfig{
+		persistent:       coerced[storage.Persistent].(bool),
+		volumeType:       volumeType,
+		iops:             iops,
+		encrypted:        coerced[EBS_Encrypted].(bool),
+		availabilityZone: availabilityZone,
+	}
+	switch ebsConfig.volumeType {
+	case volumeTypeMagnetic:
+		ebsConfig.volumeType = volumeTypeStandard
+	case volumeTypeSsd:
+		ebsConfig.volumeType = volumeTypeGp2
+	case volumeTypeProvisionedIops:
+		ebsConfig.volumeType = volumeTypeIo1
+	}
+	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIo1 {
+		return nil, errors.Errorf("IOPS specified, but volume type is %q", volumeType)
+	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIo1 {
+		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIo1)
+	}
+	return ebsConfig, nil
+}
+
+// ValidateConfig is defined on the Provider interface.
+func (e *ebsProvider) ValidateConfig(cfg *storage.Config) error {
+	_, err := newEbsConfig(cfg.Attrs())
+	return errors.Trace(err)
 }
 
 // Supports is defined on the Provider interface.
@@ -128,27 +189,8 @@ func (e *ebsProvider) Dynamic() bool {
 	return true
 }
 
-// TranslateUserEBSOptions translates user friendly parameter values to the AWS values.
-func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range userOptions {
-		if k == EBS_VolumeType {
-			switch v {
-			case "magnetic":
-				v = "standard"
-			case "ssd":
-				v = "gp2"
-			case "provisioned-iops":
-				v = "io1"
-			}
-		}
-		result[k] = v
-	}
-	return result
-}
-
 // VolumeSource is defined on the Provider interface.
-func (e *ebsProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
 	ec2, _, _, err := awsClients(environConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
@@ -168,39 +210,20 @@ type ebsVolumeSource struct {
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
 
 // parseVolumeOptions uses storage volume parameters to make a struct used to create volumes.
-func parseVolumeOptions(size uint64, attr map[string]interface{}) (_ ec2.CreateVolume, persistent bool, _ error) {
+func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.CreateVolume, persistent bool, _ error) {
+	ebsConfig, err := newEbsConfig(attrs)
+	if err != nil {
+		return ec2.CreateVolume{}, false, errors.Trace(err)
+	}
 	vol := ec2.CreateVolume{
 		// Juju size is MiB, AWS size is GiB.
 		VolumeSize: int(mibToGib(size)),
+		VolumeType: ebsConfig.volumeType,
+		AvailZone:  ebsConfig.availabilityZone,
+		Encrypted:  ebsConfig.encrypted,
+		IOPS:       int64(ebsConfig.iops),
 	}
-
-	persistent, _ = attr["persistent"].(bool)
-
-	availabilityZone, _ := attr[EBS_AvailabilityZone].(string)
-	if persistent && availabilityZone == "" {
-		return vol, false, errors.New("missing availability zone for persistent volume")
-	} else if !persistent && availabilityZone != "" {
-		return vol, false, errors.New("cannot specify availability zone for non-persistent volume")
-	}
-	vol.AvailZone = availabilityZone
-
-	// TODO(wallyworld) - remove type assertions when juju/schema is used
-	options := TranslateUserEBSOptions(attr)
-	if v, ok := options[EBS_VolumeType]; ok && v != "" {
-		vol.VolumeType = v.(string)
-	}
-	if v, ok := options[EBS_IOPS]; ok && v != "" {
-		var err error
-		vol.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
-		if err != nil {
-			return vol, false, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
-		}
-	}
-	if v, ok := options[EBS_Encrypted].(bool); ok {
-		vol.Encrypted = v
-	}
-
-	return vol, persistent, nil
+	return vol, ebsConfig.persistent, nil
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
@@ -347,7 +370,7 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	if vol.VolumeSize > volumeSizeMaxGiB {
 		return errors.Errorf("%d GiB exceeds the maximum of %d GiB", vol.VolumeSize, volumeSizeMaxGiB)
 	}
-	if vol.VolumeType == "io1" {
+	if vol.VolumeType == volumeTypeIo1 {
 		if vol.VolumeSize < provisionedIopsvolumeSizeMinGiB {
 			return errors.Errorf(
 				"volume size is %d GiB, must be at least %d GiB for provisioned IOPS",
@@ -357,9 +380,6 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 		}
 	}
 	if vol.IOPS > 0 {
-		if vol.VolumeType != "io1" {
-			return errors.Errorf("IOPS specified, but volume type is %q", vol.VolumeType)
-		}
 		minSize := int(vol.IOPS / maxProvisionedIopsSizeRatio)
 		if vol.VolumeSize < minSize {
 			return errors.Errorf(
@@ -367,6 +387,13 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 				vol.VolumeSize, minSize, vol.IOPS,
 			)
 		}
+	}
+	// TODO(axw) we should always attach volumes to a machine initially, so the user should not
+	// have an option to specify the AZ.
+	if persistent && vol.AvailZone == "" {
+		return errors.New("missing availability zone for persistent volume")
+	} else if !persistent && vol.AvailZone != "" {
+		return errors.New("cannot specify availability zone for non-persistent volume")
 	}
 	return nil
 }
