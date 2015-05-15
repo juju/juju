@@ -32,7 +32,7 @@ type loopProvider struct {
 var _ storage.Provider = (*loopProvider)(nil)
 
 // ValidateConfig is defined on the Provider interface.
-func (lp *loopProvider) ValidateConfig(cfg *storage.Config) error {
+func (*loopProvider) ValidateConfig(*storage.Config) error {
 	// Loop provider has no configuration.
 	return nil
 }

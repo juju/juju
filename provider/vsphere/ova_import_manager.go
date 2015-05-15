@@ -266,7 +266,7 @@ func (m *ovaImportManager) uploadImage(ofi ovaFileItem, basePath string) error {
 			curPercent := int(pr.Percentage())
 			if curPercent-lastPercent >= 10 {
 				lastPercent = curPercent
-				logger.Debugf("Progress: %d%", lastPercent)
+				logger.Debugf("Progress: %d%%", lastPercent)
 			}
 		}
 	}()
