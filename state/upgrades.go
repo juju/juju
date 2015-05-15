@@ -543,11 +543,11 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 			if machineId, ok := address["machineid"]; ok && machineId != "" {
 				iDoc := &instanceData{}
 				err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
-				if err == nil {
+				if err != nil {
+					logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
+				} else {
 					instanceId = instance.Id(iDoc.InstanceId)
 					logger.Debugf("found instance id %q for address %s", instanceId, address["value"])
-				} else {
-					logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
 				}
 			} else {
 				logger.Debugf("machine id not found for address %s", address["value"])
