@@ -576,22 +576,25 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 // instances being processed.
 // This method handles bulk add operations.
 // A "CHANGE" block can block this operation.
-func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
+func (a *API) AddToUnit(
+	args params.StoragesAddParams,
+) (params.StoragesAddResult, error) {
+
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.StoragesAddResult{}, errors.Trace(err)
 	}
 
 	if len(args.Storages) == 0 {
-		return params.ErrorResults{}, nil
+		return params.StoragesAddResult{}, nil
 	}
 
-	serverErr := func(err error) params.ErrorResult {
+	serverErr := func(err error) *params.Error {
 		if errors.IsNotFound(err) {
 			err = common.ErrPerm
 		}
-		return params.ErrorResult{Error: common.ServerError(err)}
+		return common.ServerError(err)
 	}
 
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
@@ -605,11 +608,15 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		return s
 	}
 
-	result := make([]params.ErrorResult, len(args.Storages))
+	results := make([]params.StorageAddResult, len(args.Storages))
 	for i, one := range args.Storages {
+		results[i] = params.StorageAddResult{
+			UnitTag:     one.UnitTag,
+			StorageName: one.StorageName,
+		}
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i] = serverErr(
+			results[i].Error = serverErr(
 				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
 			continue
 		}
@@ -618,9 +625,10 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 			one.StorageName,
 			paramsToState(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			results[i].Error = serverErr(
+				errors.Annotatef(err,
+					"adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
-	return params.ErrorResults{Results: result}, nil
+	return params.StoragesAddResult{Results: results}, nil
 }

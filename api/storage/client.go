@@ -101,3 +101,51 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
 	}
 	return found.Results, nil
 }
+
+// AddToUnit adds specified storage to desired units.
+func (c *Client) AddToUnit(
+	cons map[string]map[string]map[string]interface{},
+) ([]params.StorageAddResult, error) {
+	out := params.StoragesAddResult{}
+	storages := buildStorageAddParams(cons)
+	in := params.StoragesAddParams{Storages: storages}
+	err := c.facade.FacadeCall("AddToUnit", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.Results, nil
+}
+
+// buildStorageAddParams constructs collections of storage constraints.
+func buildStorageAddParams(
+	unitCons map[string]map[string]map[string]interface{},
+) []params.StorageAddParams {
+	all := []params.StorageAddParams{}
+
+	constraints := func(attrs map[string]interface{}) params.StorageConstraints {
+		result := params.StorageConstraints{}
+		// for now, ignore type casting problems
+		if pool, ok := attrs["pool"].(string); ok {
+			result.Pool = pool
+		}
+		if count, ok := attrs["count"].(*uint64); ok {
+			result.Count = count
+		}
+		if size, ok := attrs["size"].(*uint64); ok {
+			result.Size = size
+		}
+		return result
+	}
+
+	for u, storages := range unitCons {
+		for s, cons := range storages {
+			one := params.StorageAddParams{
+				UnitTag:     u,
+				StorageName: s,
+				Constraints: constraints(cons),
+			}
+			all = append(all, one)
+		}
+	}
+	return all
+}

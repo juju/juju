@@ -390,3 +390,112 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 	_, err := storageClient.ListVolumes(nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
+
+func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
+	cons := map[string]interface{}{
+		"pool": "value",
+		"key2": true,
+		"size": 42,
+	}
+
+	storagesA := map[string]map[string]interface{}{
+		"storage": cons,
+		"one": map[string]interface{}{
+			"pool": "value",
+			"key2": true,
+			"size": 42,
+		},
+	}
+
+	errOut := "error"
+	storagesB := map[string]map[string]interface{}{
+		errOut:    cons,
+		"another": nil,
+	}
+
+	unitStorages := map[string]map[string]map[string]interface{}{
+		"unitA": storagesA,
+		"unitB": storagesB,
+	}
+
+	storageN := 4
+	expectedError := common.ServerError(errors.NotValidf("storage directive"))
+	one := func(u, s string, attrs params.StorageConstraints) params.StorageAddResult {
+		result := params.StorageAddResult{
+			UnitTag:     u,
+			StorageName: s,
+		}
+		if s == errOut {
+			result.Error = expectedError
+		}
+		return result
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddToUnit")
+
+			args, ok := a.(params.StoragesAddParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Storages, gc.HasLen, storageN)
+
+			if results, k := result.(*params.StoragesAddResult); k {
+				out := []params.StorageAddResult{}
+				for _, s := range args.Storages {
+					out = append(out, one(s.UnitTag, s.StorageName, s.Constraints))
+				}
+				results.Results = out
+			}
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	r, err := storageClient.AddToUnit(unitStorages)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.HasLen, storageN)
+	expected := []params.StorageAddResult{
+		{"unitB", "error", expectedError},
+		{"unitB", "another", nil},
+		{"unitA", "storage", nil},
+		{"unitA", "one", nil},
+	}
+	c.Assert(r, jc.SameContents, expected)
+}
+
+func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
+	cons := map[string]interface{}{
+		"pool": "value",
+		"size": 42,
+	}
+
+	storagesA := map[string]map[string]interface{}{
+		"storage": cons,
+	}
+
+	unitStorages := map[string]map[string]map[string]interface{}{
+		"unitA": storagesA,
+	}
+
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddToUnit")
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.AddToUnit(unitStorages)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.HasLen, 0)
+}

@@ -514,3 +514,21 @@ type StorageAddParams struct {
 type StoragesAddParams struct {
 	Storages []StorageAddParams `json:"storages"`
 }
+
+// StorageAddResult holds the result of a storage addition operation
+// for a given unit.
+type StorageAddResult struct {
+	// UnitTag  is unit name.
+	UnitTag string `json:"unit"`
+
+	// StorageName is the name of the storage as specified in the charm.
+	StorageName string `bson:"name"`
+
+	// Error contains error encountered when adding a storage to unit.
+	Error *Error `json:"error,omitempty"`
+}
+
+// StoragesAddResult holds the results of storage addition operations.
+type StoragesAddResult struct {
+	Results []StorageAddResult `json:"results,omitempty"`
+}
