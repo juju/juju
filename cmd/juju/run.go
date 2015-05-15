@@ -148,8 +148,6 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 	var results = make([]interface{}, len(runResults))
 
 	for i, result := range runResults {
-		// We always want to have a string for stdout, but only show stderr,
-		// code and error if they are there.
 		values := make(map[string]interface{})
 		values["MachineId"] = result.MachineId
 		if result.UnitId != "" {
@@ -157,12 +155,10 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 
 		}
 		storeOutput(values, "Stdout", result.Stdout)
-		if len(result.Stderr) > 0 {
-			storeOutput(values, "Stderr", result.Stderr)
-		}
-		if result.Code != 0 {
-			values["ReturnCode"] = result.Code
-		}
+		storeOutput(values, "Stderr", result.Stderr)
+
+		values["ReturnCode"] = result.Code
+
 		if result.Error != "" {
 			values["Error"] = result.Error
 		}
