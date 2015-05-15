@@ -24,11 +24,15 @@ shift 4
 $SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
 JUJU_BIN=$(dirname $($SCRIPTS/jujuci.py get-juju-bin))
 $SCRIPTS/jujuci.py get build-revision buildvars.bash ./
-# Avoid polluting environment when printing branch/revision
-bash -eu <<'EOT'
+set +x
 source buildvars.bash
 rev=${REVNO-$(echo $REVISION_ID | head -c7)}
 echo "Testing $BRANCH $rev on $ENV"
-EOT
+set -x
+if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
+    echo "Setting the defaul juju to 1.20.11."
+    export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
+fi
+
 timeout -s INT $timeout $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
   --series $series $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
