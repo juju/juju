@@ -304,6 +304,19 @@ def parse_args(args=None):
     parser_get_certification_bin.add_argument(
         'workspace', nargs='?', default='.',
         help='The place to store binaries.')
+    parser_get_build_vars = subparsers.add_parser(
+        'get-build-vars',
+        help='Retrieve the build-vars for a build-revision.')
+    parser_get_build_vars.add_argument(
+        '--print', 'Print the build var test data')
+    parser_get_build_vars.add_argument(
+        '--version', 'Print the test juju version')
+    parser_get_build_vars.add_argument('--branch', 'Print the test branch')
+    parser_get_build_vars.add_argument(
+        '--short-branch', 'Print the short name of the branch')
+    parser_get_build_vars.add_argument('--revision', 'Print the test revision')
+    parser_get_build_vars.add_argument(
+        '--short-revision', 'Print the short revision of the branch')
     add_credential_args(parser_get_certification_bin)
     parsed_args = parser.parse_args(args)
     credentials = get_credentials(parsed_args)
