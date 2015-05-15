@@ -428,6 +428,7 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 			args, ok := a.(params.StoragesAddParams)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Storages, gc.HasLen, storageN)
+			c.Assert(args.Storages, gc.DeepEquals, unitStorages)
 
 			if results, k := result.(*params.ErrorResults); k {
 				out := []params.ErrorResult{}
