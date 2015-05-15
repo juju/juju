@@ -6,10 +6,12 @@ package maas
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/schema"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
@@ -41,15 +43,54 @@ var validConfigOptions = set.NewStrings(
 	tagsAttribute,
 )
 
-// ValidateConfig is defined on the Provider interface.
-func (e *maasStorageProvider) ValidateConfig(providerConfig *storage.Config) error {
-	// TODO - check valid values as well as attr names
-	for attr := range providerConfig.Attrs() {
-		if !validConfigOptions.Contains(attr) {
-			return errors.Errorf("unknown provider config option %q", attr)
+var storageConfigFields = schema.Fields{
+	tagsAttribute: schema.OneOf(
+		schema.List(schema.String()),
+		schema.String(),
+	),
+}
+
+var storageConfigChecker = schema.FieldMap(
+	storageConfigFields,
+	schema.Defaults{
+		tagsAttribute: schema.Omit,
+	},
+)
+
+type storageConfig struct {
+	tags []string
+}
+
+func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
+	out, err := storageConfigChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating MAAS storage config")
+	}
+	coerced := out.(map[string]interface{})
+	var tags []string
+	switch v := coerced[tagsAttribute].(type) {
+	case []string:
+		tags = v
+	case string:
+		fields := strings.Split(v, ",")
+		for _, f := range fields {
+			f = strings.TrimSpace(f)
+			if len(f) == 0 {
+				continue
+			}
+			if i := strings.IndexFunc(f, unicode.IsSpace); i >= 0 {
+				return nil, errors.Errorf("tags may not contain whitespace: %q", f)
+			}
+			tags = append(tags, f)
 		}
 	}
-	return nil
+	return &storageConfig{tags: tags}, nil
+}
+
+// ValidateConfig is defined on the Provider interface.
+func (e *maasStorageProvider) ValidateConfig(cfg *storage.Config) error {
+	_, err := newStorageConfig(cfg.Attrs())
+	return errors.Trace(err)
 }
 
 // Supports is defined on the Provider interface.
@@ -103,20 +144,14 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 	}
 	volumes[0] = rootVolume
 	for i, v := range args {
+		cfg, err := newStorageConfig(v.Attributes)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		info := volumeInfo{
 			name:     v.Tag.Id(),
 			sizeInGB: mibToGb(v.Size),
-		}
-		var tags string
-		if len(v.Attributes) > 0 {
-			tags = v.Attributes[tagsAttribute].(string)
-		}
-		if len(tags) > 0 {
-			// We don't want any spaces in the tags;
-			// strip out any just in case.
-			// TODO(wallyworld) reject pool configuration if tags have spaces
-			tags = strings.Replace(tags, " ", "", -1)
-			info.tags = strings.Split(tags, ",")
+			tags:     cfg.tags,
 		}
 		volumes[i+1] = info
 	}
