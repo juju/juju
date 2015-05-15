@@ -50,6 +50,8 @@ type stateCollection interface {
 	Find(query interface{}) *mgo.Query
 	FindId(id interface{}) *mgo.Query
 	Insert(docs ...interface{}) error
+	Update(selector interface{}, update interface{}) error
+	UpdateId(id interface{}, update interface{}) error
 	Remove(sel interface{}) error
 	RemoveId(id interface{}) error
 	RemoveAll(sel interface{}) (*mgo.ChangeInfo, error)
@@ -175,6 +177,33 @@ func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 		return c.Collection.FindId(addEnvUUID(c.envUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
+}
+
+// Update finds a single document matching the provided query document and
+// modifies it according to the update document.
+//
+// An "env-uuid" condition will always be added to the query to ensure
+// that only data for the environment being filtered on is returned.
+//
+// If a simple "_id" field selector is included in the query
+// (e.g. "{{"_id", "foo"}}" the relevant environment UUID prefix will
+// be added on to the id. Note that more complex selectors using the
+// "_id" field (e.g. using the $in operator) will not be modified. In
+// these cases it is up to the caller to add environment UUID
+// prefixes when necessary.
+func (c *envStateCollection) Update(query interface{}, update interface{}) error {
+	return c.Collection.Update(c.mungeQuery(query), update)
+}
+
+// UpdateId finds a single document by _id and modifies it according to the
+// update document. The id must be a string or bson.ObjectId. The environment
+// UUID will be automatically prefixed on to the id if it's a string and the
+// prefix isn't there already.
+func (c *envStateCollection) UpdateId(id interface{}, update interface{}) error {
+	if sid, ok := id.(string); ok {
+		return c.Collection.UpdateId(addEnvUUID(c.envUUID, sid), update)
+	}
+	return c.Collection.UpdateId(bson.D{{"_id", id}}, update)
 }
 
 // Remove deletes a single document using the query provided. The
