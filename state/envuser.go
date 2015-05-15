@@ -25,12 +25,18 @@ type EnvironmentUser struct {
 }
 
 type envUserDoc struct {
-	ID             string     `bson:"_id"`
-	EnvUUID        string     `bson:"env-uuid"`
-	UserName       string     `bson:"user"`
-	DisplayName    string     `bson:"displayname"`
-	CreatedBy      string     `bson:"createdby"`
-	DateCreated    time.Time  `bson:"datecreated"`
+	ID          string    `bson:"_id"`
+	EnvUUID     string    `bson:"env-uuid"`
+	UserName    string    `bson:"user"`
+	DisplayName string    `bson:"displayname"`
+	CreatedBy   string    `bson:"createdby"`
+	DateCreated time.Time `bson:"datecreated"`
+	// LastConnection is updated by the apiserver whenever the user
+	// connects over the API. This update is not done using mgo.txn
+	// so this value could well change underneath a normal transaction
+	// and as such, it should NEVER appear in any transaction asserts.
+	// It is really informational only as far as everyone except the
+	// api server is concerned.
 	LastConnection *time.Time `bson:"lastconnection"`
 }
 
