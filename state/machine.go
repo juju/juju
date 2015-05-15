@@ -890,17 +890,6 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			Insert: instData,
 		},
 	}
-	addresses, err := m.st.AllocatedIPAddresses(m.doc.Id)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, addr := range addresses {
-		ops = append(ops, txn.Op{
-			C:      ipaddressesC,
-			Id:     addr.Id(),
-			Update: bson.D{{"$set", bson.D{{"instanceid", id}}}},
-		})
-	}
 
 	if err = m.st.runTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
