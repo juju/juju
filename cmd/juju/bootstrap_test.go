@@ -153,6 +153,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
+		c.Assert(err, gc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, gc.Matches, test.err)
 		return restore
