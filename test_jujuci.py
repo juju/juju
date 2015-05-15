@@ -151,6 +151,22 @@ class JujuCITestCase(TestCase):
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
 
+    def test_main_get_build_vars(self):
+        with patch('jujuci.get_build_vars', autospec=True) as mock:
+            main(
+                ['-d', '-v', 'get-build-vars', '--summary',
+                 '--version', '--branch', '--short-branch',
+                 '--revision', '--short-revision', '123',
+                 '--user', 'jrandom', '--password', '1password'])
+        args, kwargs = mock.call_args
+        self.assertEqual((Credentials('jrandom', '1password'), '123'), args)
+        self.assertTrue(kwargs['summary'])
+        self.assertTrue(kwargs['version'])
+        self.assertTrue(kwargs['branch'])
+        self.assertTrue(kwargs['short_branch'])
+        self.assertTrue(kwargs['revision'])
+        self.assertTrue(kwargs['short_revision'])
+
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
         json_io = StringIO(json.dumps(expected_data))

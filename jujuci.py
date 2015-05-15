@@ -120,6 +120,12 @@ def retrieve_buildvars(credentials, build_number):
     return get_jenkins_json(credentials, artifact.location)
 
 
+def get_build_vars(credentials, build_number, summary=False, version=False,
+                   branch=False, short_branch=False,
+                   revision=False, short_revision=False, verbose=False):
+    pass
+
+
 def get_release_package_filename(credentials, build_data):
     revision_build = get_revision_build(build_data)
     version = retrieve_buildvars(credentials, revision_build)['version']
@@ -304,20 +310,31 @@ def parse_args(args=None):
     parser_get_certification_bin.add_argument(
         'workspace', nargs='?', default='.',
         help='The place to store binaries.')
+    add_credential_args(parser_get_certification_bin)
     parser_get_build_vars = subparsers.add_parser(
         'get-build-vars',
         help='Retrieve the build-vars for a build-revision.')
     parser_get_build_vars.add_argument(
-        '--print', 'Print the build var test data')
+        '--summary', action='store_true', default=False,
+        help='Summarise the build var test data')
     parser_get_build_vars.add_argument(
-        '--version', 'Print the test juju version')
-    parser_get_build_vars.add_argument('--branch', 'Print the test branch')
+        '--version', action='store_true', default=False,
+        help='Print the test juju version')
     parser_get_build_vars.add_argument(
-        '--short-branch', 'Print the short name of the branch')
-    parser_get_build_vars.add_argument('--revision', 'Print the test revision')
+        '--branch', action='store_true', default=False,
+        help='Print the test branch')
     parser_get_build_vars.add_argument(
-        '--short-revision', 'Print the short revision of the branch')
-    add_credential_args(parser_get_certification_bin)
+        '--short-branch', action='store_true', default=False,
+        help='Print the short name of the branch')
+    parser_get_build_vars.add_argument(
+        '--revision', action='store_true', default=False,
+        help='Print the test revision')
+    parser_get_build_vars.add_argument(
+        '--short-revision', action='store_true', default=False,
+        help='Print the short revision of the branch')
+    parser_get_build_vars.add_argument(
+        'build', help='The build-revision build number')
+    add_credential_args(parser_get_build_vars)
     parsed_args = parser.parse_args(args)
     credentials = get_credentials(parsed_args)
     return parsed_args, credentials
@@ -383,6 +400,13 @@ def main(argv):
             path = get_certification_bin(credentials, args.version,
                                          args.workspace)
             print(path)
+        elif args.command == 'get-build-vars':
+            get_build_vars(
+                credentials, args.build,
+                summary=args.summary, version=args.version,
+                branch=args.branch, short_branch=args.short_branch,
+                revision=args.revision, short_revision=args.short_revision,
+                verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:
