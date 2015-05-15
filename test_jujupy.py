@@ -237,9 +237,9 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
-            mock.assert_called_once_with(client,
-                'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'), False,
-                juju_home=None)
+            mock.assert_called_once_with(
+                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
+                False, juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
