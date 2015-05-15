@@ -157,7 +157,9 @@ func (i *IPAddress) EnsureDead() (err error) {
 			}
 			return nil, errors.Errorf("unexpected life value: %s", i.Life().String())
 		}
-		return []txn.Op{ensureIPAddressDeadOp(i, true)}, nil
+		op := ensureIPAddressDeadOp(i)
+		op.Assert = isAliveDoc
+		return []txn.Op{op}, nil
 	}
 
 	err = i.st.run(buildTxn)
@@ -314,14 +316,11 @@ func (i *IPAddress) Refresh() error {
 	return nil
 }
 
-func ensureIPAddressDeadOp(addr *IPAddress, assertAlive bool) txn.Op {
+func ensureIPAddressDeadOp(addr *IPAddress) txn.Op {
 	op := txn.Op{
 		C:      ipaddressesC,
 		Id:     addr.Id(),
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-	}
-	if assertAlive {
-		op.Assert = isAliveDoc
 	}
 	return op
 }

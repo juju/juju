@@ -684,7 +684,7 @@ func (m *Machine) Remove() (err error) {
 	}
 	for _, address := range ipAddresses {
 		logger.Debugf("creating op to set IP addr %q to Dead", address.Value())
-		ops = append(ops, ensureIPAddressDeadOp(address, false))
+		ops = append(ops, ensureIPAddressDeadOp(address))
 	}
 	logger.Debugf("removing machine %q", m.Id())
 	// The only abort conditions in play indicate that the machine has already
