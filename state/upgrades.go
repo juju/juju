@@ -536,9 +536,8 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 			continue
 		}
 
-		allocatedState, ok := address["state"]
-
 		instanceId := instance.UnknownId
+		allocatedState, ok := address["state"]
 		// An unallocated address can't have an associated instance id.
 		if ok && allocatedState == string(AddressStateAllocated) {
 			if machineId, ok := address["machineid"]; ok && machineId != "" {
