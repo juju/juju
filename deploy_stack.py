@@ -601,6 +601,8 @@ def run_deployer():
                         help='The juju environment to test')
     parser.add_argument('logs', help='log directory.')
     parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('--bundle-name', default=None,
+                        help='Name of the bundle to deploy.')
     add_juju_args(parser)
     add_output_args(parser)
     add_path_args(parser)
@@ -619,7 +621,7 @@ def run_deployer():
     if host is None:
         raise Exception('Could not get machine 0 host')
     try:
-        client.deployer(args.bundle_path)
+        client.deployer(args.bundle_path, args.bundle_name)
     except BaseException as e:
         logging.exception(e)
         if host is not None:
