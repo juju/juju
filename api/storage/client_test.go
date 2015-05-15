@@ -392,39 +392,23 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 }
 
 func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
-	cons := map[string]interface{}{
-		"pool": "value",
-		"key2": true,
-		"size": 42,
-	}
-
-	storagesA := map[string]map[string]interface{}{
-		"storage": cons,
-		"one": map[string]interface{}{
-			"pool": "value",
-			"key2": true,
-			"size": 42,
-		},
+	size := uint64(42)
+	cons := params.StorageConstraints{
+		Pool: "value",
+		Size: &size,
 	}
 
 	errOut := "error"
-	storagesB := map[string]map[string]interface{}{
-		errOut:    cons,
-		"another": nil,
+	unitStorages := []params.StorageAddParams{
+		params.StorageAddParams{UnitTag: "u-a", StorageName: "one", Constraints: cons},
+		params.StorageAddParams{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
+		params.StorageAddParams{UnitTag: "u-b", StorageName: "nil-constraints"},
 	}
 
-	unitStorages := map[string]map[string]map[string]interface{}{
-		"unitA": storagesA,
-		"unitB": storagesB,
-	}
-
-	storageN := 4
+	storageN := 3
 	expectedError := common.ServerError(errors.NotValidf("storage directive"))
-	one := func(u, s string, attrs params.StorageConstraints) params.StorageAddResult {
-		result := params.StorageAddResult{
-			UnitTag:     u,
-			StorageName: s,
-		}
+	one := func(u, s string, attrs params.StorageConstraints) params.ErrorResult {
+		result := params.ErrorResult{}
 		if s == errOut {
 			result.Error = expectedError
 		}
@@ -445,8 +429,8 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Storages, gc.HasLen, storageN)
 
-			if results, k := result.(*params.StoragesAddResult); k {
-				out := []params.StorageAddResult{}
+			if results, k := result.(*params.ErrorResults); k {
+				out := []params.ErrorResult{}
 				for _, s := range args.Storages {
 					out = append(out, one(s.UnitTag, s.StorageName, s.Constraints))
 				}
@@ -459,27 +443,17 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	r, err := storageClient.AddToUnit(unitStorages)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.HasLen, storageN)
-	expected := []params.StorageAddResult{
-		{"unitB", "error", expectedError},
-		{"unitB", "another", nil},
-		{"unitA", "storage", nil},
-		{"unitA", "one", nil},
+	expected := []params.ErrorResult{
+		{nil},
+		{expectedError},
+		{nil},
 	}
 	c.Assert(r, jc.SameContents, expected)
 }
 
 func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
-	cons := map[string]interface{}{
-		"pool": "value",
-		"size": 42,
-	}
-
-	storagesA := map[string]map[string]interface{}{
-		"storage": cons,
-	}
-
-	unitStorages := map[string]map[string]map[string]interface{}{
-		"unitA": storagesA,
+	unitStorages := []params.StorageAddParams{
+		params.StorageAddParams{UnitTag: "u-a", StorageName: "one"},
 	}
 
 	msg := "facade failure"

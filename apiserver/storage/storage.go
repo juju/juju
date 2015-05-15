@@ -578,16 +578,16 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 // A "CHANGE" block can block this operation.
 func (a *API) AddToUnit(
 	args params.StoragesAddParams,
-) (params.StoragesAddResult, error) {
+) (params.ErrorResults, error) {
 
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
-		return params.StoragesAddResult{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 
 	if len(args.Storages) == 0 {
-		return params.StoragesAddResult{}, nil
+		return params.ErrorResults{}, nil
 	}
 
 	serverErr := func(err error) *params.Error {
@@ -608,12 +608,8 @@ func (a *API) AddToUnit(
 		return s
 	}
 
-	results := make([]params.StorageAddResult, len(args.Storages))
+	results := make([]params.ErrorResult, len(args.Storages))
 	for i, one := range args.Storages {
-		results[i] = params.StorageAddResult{
-			UnitTag:     one.UnitTag,
-			StorageName: one.StorageName,
-		}
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
 			results[i].Error = serverErr(
@@ -630,5 +626,5 @@ func (a *API) AddToUnit(
 					"adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
-	return params.StoragesAddResult{Results: results}, nil
+	return params.ErrorResults{Results: results}, nil
 }
