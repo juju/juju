@@ -42,6 +42,14 @@ func (s *IPAddressSuite) assertAddress(
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 }
 
+func (s *IPAddressSuite) createMachine(c *gc.C) *state.Machine {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine
+}
+
 func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 	for i, test := range []string{"0.1.2.3", "2001:db8::1"} {
 		c.Logf("test %d: %q", i, test)
@@ -143,10 +151,7 @@ func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAllocateToProvisionedMachine(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("instance", "fake", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	machine := s.createMachine(c)
 
 	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
@@ -246,6 +251,8 @@ func (s *IPAddressSuite) TestSetState(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
+	machine := s.createMachine(c)
+
 	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,7 +261,7 @@ func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
-	err = ipAddr.AllocateTo("wibble", "wobble")
+	err = ipAddr.AllocateTo(machine.Id(), "wobble")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateAllocated)
 	c.Assert(ipAddr.MachineId(), gc.Equals, "wibble")
@@ -285,19 +292,20 @@ func (s *IPAddressSuite) TestAddress(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
-	addresses := [][]string{
-		{"0.1.2.3", "wibble"},
-		{"0.1.2.4", "wibble"},
-		{"0.1.2.5", "wobble"},
+	machine := s.createMachine(c)
+	addresses := []string{
+		"0.1.2.3",
+		"0.1.2.4",
+		"0.1.2.5",
 	}
 	for _, details := range addresses {
-		addr := network.NewAddress(details[0], network.ScopePublic)
+		addr := network.NewAddress(details, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(details[1], "wobble")
+		err = ipAddr.AllocateTo(machine.Id(), "wobble")
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	result, err := s.State.AllocatedIPAddresses("wibble")
+	result, err := s.State.AllocatedIPAddresses(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	addr1, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,17 +317,18 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {
-	addresses := [][]string{
-		{"0.1.2.3", "wibble"},
-		{"0.1.2.4", "wibble"},
-		{"0.1.2.5", "wobble"},
-		{"0.1.2.6", "wobble"},
+	machine := s.createMachine(c)
+	addresses := []string{
+		"0.1.2.3",
+		"0.1.2.4",
+		"0.1.2.5",
+		"0.1.2.6",
 	}
 	for i, details := range addresses {
-		addr := network.NewAddress(details[0], network.ScopePublic)
+		addr := network.NewAddress(details, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(details[1], "wobble")
+		err = ipAddr.AllocateTo(machine.Id(), "wobble")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 0 {
 			err := ipAddr.EnsureDead()

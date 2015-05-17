@@ -87,7 +87,8 @@ func (i *IPAddress) MachineId() string {
 
 // InstanceId returns the provider ID of the instance the IP address is
 // associated with. For a container this will be the ID of the host. If
-// the address is not associated with an instance this returns "".
+// the address is not associated with an instance this returns "" (the same as
+// instance.UnknownId).
 func (i *IPAddress) InstanceId() instance.Id {
 	return instance.Id(i.doc.InstanceId)
 }
@@ -248,9 +249,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 
 	var instId instance.Id
 	machine, err := i.st.Machine(machineId)
-	if errors.IsNotFound(err) {
-		instId = instance.UnknownId
-	} else if err != nil {
+	if err != nil {
 		return errors.Annotatef(err, "cannot get allocated machine %q", machineId)
 	} else {
 		instId, err = machine.InstanceId()
