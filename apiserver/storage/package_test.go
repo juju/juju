@@ -10,8 +10,10 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storage"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
@@ -44,6 +46,8 @@ type baseStorageSuite struct {
 
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
+
+	blocks map[state.BlockType]state.Block
 }
 
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
@@ -59,6 +63,26 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.api, err = storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
+	c.Assert(s.calls, jc.SameContents, expectedCalls)
+}
+
+const (
+	allStorageInstancesCall                 = "allStorageInstances"
+	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
+	unitAssignedMachineCall                 = "UnitAssignedMachine"
+	storageInstanceCall                     = "StorageInstance"
+	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
+	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
+	storageInstanceVolumeCall               = "storageInstanceVolume"
+	volumeCall                              = "volumeCall"
+	machineVolumeAttachmentsCall            = "machineVolumeAttachments"
+	volumeAttachmentsCall                   = "volumeAttachments"
+	allVolumesCall                          = "allVolumes"
+	addStorageForUnitCall                   = "addStorageForUnit"
+	getBlockForTypeCall                     = "getBlockForType"
+)
 
 func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
@@ -83,6 +107,7 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		MachineTag: s.machineTag,
 	}
 
+	s.blocks = make(map[state.BlockType]state.Block)
 	return &mockState{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.calls = append(s.calls, allStorageInstancesCall)
@@ -139,7 +164,37 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 			return []state.Volume{s.volume}, nil
 		},
 		envName: "storagetest",
+		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+			s.calls = append(s.calls, addStorageForUnitCall)
+			return nil
+		},
+		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
+			s.calls = append(s.calls, getBlockForTypeCall)
+			val, found := s.blocks[t]
+			return val, found, nil
+		},
 	}
+}
+
+func (s *baseStorageSuite) addBlock(c *gc.C, t state.BlockType, msg string) {
+	s.blocks[t] = mockBlock{t, msg}
+}
+
+func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
+	s.addBlock(c, state.ChangeBlock, msg)
+}
+
+func (s *baseStorageSuite) blockDestroyEnvironment(c *gc.C, msg string) {
+	s.addBlock(c, state.DestroyBlock, msg)
+}
+
+func (s *baseStorageSuite) blockRemoveObject(c *gc.C, msg string) {
+	s.addBlock(c, state.RemoveBlock, msg)
+}
+
+func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *baseStorageSuite) constructPoolManager(c *gc.C) *mockPoolManager {
@@ -203,6 +258,7 @@ type mockState struct {
 	storageInstanceVolumeAttachment     func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
+	watchStorageAttachment              func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	envName                             string
@@ -210,6 +266,8 @@ type mockState struct {
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
 	allVolumes                          func() ([]state.Volume, error)
+	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
+	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -244,6 +302,10 @@ func (st *mockState) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (st
 	return st.storageInstanceVolumeAttachment(m, v)
 }
 
+func (st *mockState) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+	return st.watchStorageAttachment(s, u)
+}
+
 func (st *mockState) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
 	return st.watchFilesystemAttachment(mtag, f)
 }
@@ -270,6 +332,14 @@ func (st *mockState) MachineVolumeAttachments(machine names.MachineTag) ([]state
 
 func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
 	return st.volume(tag)
+}
+
+func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) error {
+	return st.addStorageForUnit(u, name, cons)
+}
+
+func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	return st.getBlockForType(t)
 }
 
 type mockNotifyWatcher struct {
@@ -355,6 +425,10 @@ func (m *mockStorageInstance) StorageTag() names.StorageTag {
 	return m.storageTag.(names.StorageTag)
 }
 
+func (m *mockStorageInstance) CharmURL() *charm.URL {
+	panic("not implemented for test")
+}
+
 type mockStorageAttachment struct {
 	state.StorageAttachment
 	storage *mockStorageInstance
@@ -391,4 +465,25 @@ func (va *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
 
 func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
 	panic("not implemented for test")
+}
+
+type mockBlock struct {
+	t   state.BlockType
+	msg string
+}
+
+func (b mockBlock) Id() string {
+	panic("not implemented for test")
+}
+
+func (b mockBlock) Tag() (names.Tag, error) {
+	panic("not implemented for test")
+}
+
+func (b mockBlock) Type() state.BlockType {
+	return b.t
+}
+
+func (b mockBlock) Message() string {
+	return b.msg
 }

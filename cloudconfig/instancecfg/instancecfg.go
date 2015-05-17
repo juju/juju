@@ -100,6 +100,10 @@ type InstanceConfig struct {
 	// is.  If the instance is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// MachineContainerHostname specifies the hostname to be used with the
+	// cloud config for the instance. If this is not set, hostname uses the default.
+	MachineContainerHostname string
+
 	// Networks holds a list of networks the instances should be on.
 	Networks []string
 
@@ -382,6 +386,10 @@ var DataDir = agent.DefaultDataDir
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+
+// DefaultBridgeName is the network bridge device name used for LXC and KVM
+// containers
+const DefaultBridgeName = "juju-br0"
 
 // NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,

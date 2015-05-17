@@ -45,23 +45,23 @@ func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *stat
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 100)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
 	h, err = statusHistory(200)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 100)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
 	h, err = statusHistory(50)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 50)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 50")
 
 }
 
@@ -705,14 +705,14 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {

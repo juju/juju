@@ -166,6 +166,15 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 	return err, tw.Log()
 }
 
+func (s *prepareSuite) TestErrorWitnNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	container := s.newAPI(c, true, true)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{},
+		`address allocation not supported`,
+	)
+}
+
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
 	container := s.newAPI(c, false, true)
 	args := s.makeArgs(container)
@@ -692,6 +701,15 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 	return err
 }
 
+func (s *releaseSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	s.newAPI(c, true, false)
+	args := s.makeArgs(s.machines[0])
+	s.assertCall(c, args, &params.ErrorResults{},
+		"address allocation not supported",
+	)
+}
+
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
@@ -782,7 +800,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	}
 }
 
-func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
+func (s *releaseSuite) TestSuccess(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
 

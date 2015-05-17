@@ -55,12 +55,12 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
-		Serial:     "capncrunch",
+		HardwareId: "capncrunch",
 		Size:       2,
 	}
 	s.blockDevices[names.NewVolumeTag("1")] = storage.BlockDevice{
-		Serial: "weetbix",
-		Size:   3,
+		HardwareId: "weetbix",
+		Size:       3,
 	}
 	filesystems, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
@@ -101,7 +101,7 @@ func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
-		Serial:     "capncrunch",
+		HardwareId: "capncrunch",
 		Size:       2,
 	}
 	s.filesystems[names.NewFilesystemTag("0/0")] = storage.Filesystem{

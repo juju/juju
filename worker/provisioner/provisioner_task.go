@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -230,7 +231,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Find machines without an instance id or that are dead
-	pending, dead, err := task.pendingOrDead(ids)
+	pending, dead, maintain, err := task.pendingOrDeadOrMaintain(ids)
 	if err != nil {
 		return err
 	}
@@ -285,6 +286,9 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		delete(task.machines, machine.Id())
 	}
 
+	// Any machines that require maintenance get pinged
+	task.maintainMachines(maintain)
+
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
 }
@@ -331,7 +335,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
+func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []*apiprovisioner.Machine, err error) {
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -343,11 +347,11 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			if _, err := machine.InstanceId(); err == nil {
 				continue
 			} else if !params.IsCodeNotProvisioned(err) {
-				return nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
+				return nil, nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
 			}
 			logger.Infof("killing dying, unprovisioned machine %q", machine)
 			if err := machine.EnsureDead(); err != nil {
-				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
+				return nil, nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
 			}
 			fallthrough
 		case params.Dead:
@@ -371,6 +375,14 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			}
 		} else {
 			logger.Infof("machine %v already started as instance %q", machine, instId)
+			if err != nil {
+				logger.Infof("Error fetching provisioning info")
+			} else {
+				isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
+				if isLxc.MatchString(machine.Id()) {
+					maintain = append(maintain, machine)
+				}
+			}
 		}
 	}
 	logger.Tracef("pending machines: %v", pending)
@@ -523,6 +535,19 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 	}, nil
+}
+
+func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine) error {
+	for _, m := range machines {
+		logger.Infof("maintainMachines: %v", m)
+		startInstanceParams := environs.StartInstanceParams{}
+		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
+		startInstanceParams.InstanceConfig.MachineId = m.Id()
+		if err := task.broker.MaintainInstance(startInstanceParams); err != nil {
+			return errors.Annotatef(err, "cannot maintain machine %v", m)
+		}
+	}
+	return nil
 }
 
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
@@ -695,7 +720,7 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 		result[i] = params.Volume{
 			v.Tag.String(),
 			v.VolumeId,
-			v.Serial,
+			v.HardwareId,
 			v.Size,
 			v.Persistent,
 		}

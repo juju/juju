@@ -45,18 +45,32 @@ func (s *varsSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
 
 func (s *varsSuite) TestMergeEnvironment(c *gc.C) {
 	c.Check(osenv.MergeEnvironment(nil, nil), gc.HasLen, 0)
-	initial := map[string]string{"a": "foo", "b": "bar"}
 	newValues := map[string]string{"a": "baz", "c": "omg"}
-	expected := map[string]string{"a": "baz", "c": "omg"}
-
 	created := osenv.MergeEnvironment(nil, newValues)
+	expected := map[string]string{"a": "baz", "c": "omg"}
 	c.Check(created, jc.DeepEquals, expected)
 	// Show that the map returned isn't the one passed in.
 	newValues["d"] = "another"
 	c.Check(created, jc.DeepEquals, expected)
+}
 
-	created = osenv.MergeEnvironment(initial, newValues)
-	expected = map[string]string{"a": "baz", "b": "bar", "c": "omg", "d": "another"}
+func (s *varsSuite) TestMergeEnvWin(c *gc.C) {
+	initial := map[string]string{"a": "foo", "b": "bar", "foo": "val"}
+	newValues := map[string]string{"a": "baz", "c": "omg", "FOO": "val2", "d": "another"}
+
+	created := osenv.MergeEnvWin(initial, newValues)
+	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "foo": "val2", "d": "another"}
+	// The returned value is the inital map.
+	c.Check(created, jc.DeepEquals, expected)
+	c.Check(initial, jc.DeepEquals, expected)
+}
+
+func (s *varsSuite) TestMergeEnvUnix(c *gc.C) {
+	initial := map[string]string{"a": "foo", "b": "bar"}
+	newValues := map[string]string{"a": "baz", "c": "omg", "d": "another"}
+
+	created := osenv.MergeEnvUnix(initial, newValues)
+	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "d": "another"}
 	// The returned value is the inital map.
 	c.Check(created, jc.DeepEquals, expected)
 	c.Check(initial, jc.DeepEquals, expected)

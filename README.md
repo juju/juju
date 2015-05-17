@@ -49,7 +49,7 @@ export it as part of your login script.
 
 Add `$GOPATH/bin` to your `PATH`, so you can run the go programs you install:
 
-    PATH="$PATH:$GOPATH/bin"
+    PATH="$GOPATH/bin:$PATH"
 
 
 Getting juju

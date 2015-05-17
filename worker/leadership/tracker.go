@@ -120,7 +120,7 @@ func (t *tracker) WaitMinion() Ticket {
 }
 
 func (t *tracker) loop() error {
-	logger.Infof("%s making initial claim for %s leadership", t.unitName, t.serviceName)
+	logger.Debugf("%s making initial claim for %s leadership", t.unitName, t.serviceName)
 	if err := t.refresh(); err != nil {
 		return errors.Trace(err)
 	}
@@ -129,29 +129,29 @@ func (t *tracker) loop() error {
 		case <-t.tomb.Dying():
 			return tomb.ErrDying
 		case <-t.claimLease:
-			logger.Infof("%s claiming lease for %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s claiming lease for %s leadership", t.unitName, t.serviceName)
 			t.claimLease = nil
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		case <-t.renewLease:
-			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s renewing lease for %s leadership", t.unitName, t.serviceName)
 			t.renewLease = nil
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		case ticketCh := <-t.claimTickets:
-			logger.Infof("%s got claim request for %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s got claim request for %s leadership", t.unitName, t.serviceName)
 			if err := t.resolveClaim(ticketCh); err != nil {
 				return errors.Trace(err)
 			}
 		case ticketCh := <-t.waitLeaderTickets:
-			logger.Infof("%s got wait request for %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s got wait request for %s leadership", t.unitName, t.serviceName)
 			if err := t.resolveWaitLeader(ticketCh); err != nil {
 				return errors.Trace(err)
 			}
 		case ticketCh := <-t.waitMinionTickets:
-			logger.Infof("%s got wait request for %s leadership loss", t.unitName, t.serviceName)
+			logger.Debugf("%s got wait request for %s leadership loss", t.unitName, t.serviceName)
 			if err := t.resolveWaitMinion(ticketCh); err != nil {
 				return errors.Trace(err)
 			}
@@ -162,7 +162,7 @@ func (t *tracker) loop() error {
 // refresh makes a leadership request, and updates tracker state to conform to
 // latest known reality.
 func (t *tracker) refresh() error {
-	logger.Infof("checking %s for %s leadership", t.unitName, t.serviceName)
+	logger.Debugf("checking %s for %s leadership", t.unitName, t.serviceName)
 	leaseDuration := 2 * t.duration
 	untilTime := time.Now().Add(leaseDuration)
 	err := t.leadership.ClaimLeadership(t.serviceName, t.unitName, leaseDuration)
@@ -177,7 +177,7 @@ func (t *tracker) refresh() error {
 
 // setLeader arranges for lease renewal.
 func (t *tracker) setLeader(untilTime time.Time) error {
-	logger.Infof("%s confirmed for %s leadership until %s", t.unitName, t.serviceName, untilTime)
+	logger.Debugf("%s confirmed for %s leadership until %s", t.unitName, t.serviceName, untilTime)
 	renewTime := untilTime.Add(-t.duration)
 	logger.Infof("%s will renew %s leadership at %s", t.unitName, t.serviceName, renewTime)
 	t.isMinion = false
@@ -185,7 +185,7 @@ func (t *tracker) setLeader(untilTime time.Time) error {
 	t.renewLease = time.After(renewTime.Sub(time.Now()))
 
 	for len(t.waitingLeader) > 0 {
-		logger.Infof("notifying %s ticket of impending %s leadership", t.unitName, t.serviceName)
+		logger.Debugf("notifying %s ticket of impending %s leadership", t.unitName, t.serviceName)
 		var ticketCh chan bool
 		ticketCh, t.waitingLeader = t.waitingLeader[0], t.waitingLeader[1:]
 		defer close(ticketCh)
@@ -205,7 +205,7 @@ func (t *tracker) setMinion() error {
 		t.claimLease = make(chan struct{})
 		go func() {
 			defer close(t.claimLease)
-			logger.Infof("%s waiting for %s leadership release", t.unitName, t.serviceName)
+			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.serviceName)
 			err := t.leadership.BlockUntilLeadershipReleased(t.serviceName)
 			if err != nil {
 				logger.Warningf("error while %s waiting for %s leadership release: %v", t.unitName, t.serviceName, err)
@@ -220,7 +220,7 @@ func (t *tracker) setMinion() error {
 	}
 
 	for len(t.waitingMinion) > 0 {
-		logger.Infof("notifying %s ticket of impending loss of %s leadership", t.unitName, t.serviceName)
+		logger.Debugf("notifying %s ticket of impending loss of %s leadership", t.unitName, t.serviceName)
 		var ticketCh chan bool
 		ticketCh, t.waitingMinion = t.waitingMinion[0], t.waitingMinion[1:]
 		defer close(ticketCh)
@@ -239,13 +239,13 @@ func (t *tracker) isLeader() (bool, error) {
 		case <-t.tomb.Dying():
 			return false, errors.Trace(tomb.ErrDying)
 		case <-t.renewLease:
-			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s renewing lease for %s leadership", t.unitName, t.serviceName)
 			t.renewLease = nil
 			if err := t.refresh(); err != nil {
 				return false, errors.Trace(err)
 			}
 		default:
-			logger.Infof("%s still has %s leadership", t.unitName, t.serviceName)
+			logger.Debugf("%s still has %s leadership", t.unitName, t.serviceName)
 		}
 	}
 	return !t.isMinion, nil
@@ -254,15 +254,15 @@ func (t *tracker) isLeader() (bool, error) {
 // resolveClaim will send true on the supplied channel if leadership can be
 // successfully verified, and will always close it whether or not it sent.
 func (t *tracker) resolveClaim(ticketCh chan bool) error {
-	logger.Infof("resolving %s leadership ticket for %s...", t.serviceName, t.unitName)
+	logger.Debugf("resolving %s leadership ticket for %s...", t.serviceName, t.unitName)
 	defer close(ticketCh)
 	if leader, err := t.isLeader(); err != nil {
 		return errors.Trace(err)
 	} else if !leader {
-		logger.Infof("%s is not %s leader", t.unitName, t.serviceName)
+		logger.Debugf("%s is not %s leader", t.unitName, t.serviceName)
 		return nil
 	}
-	logger.Infof("confirming %s leadership for %s", t.serviceName, t.unitName)
+	logger.Debugf("confirming %s leadership for %s", t.serviceName, t.unitName)
 	return t.sendTrue(ticketCh)
 }
 
@@ -282,11 +282,11 @@ func (t *tracker) resolveWaitLeader(ticketCh chan bool) error {
 	if leader, err := t.isLeader(); err != nil {
 		return errors.Trace(err)
 	} else if leader {
-		logger.Infof("reporting %s leadership for %s", t.serviceName, t.unitName)
+		logger.Debugf("reporting %s leadership for %s", t.serviceName, t.unitName)
 		return t.sendTrue(ticketCh)
 	}
 
-	logger.Infof("waiting for %s to attain %s leadership", t.unitName, t.serviceName)
+	logger.Debugf("waiting for %s to attain %s leadership", t.unitName, t.serviceName)
 	t.waitingLeader = append(t.waitingLeader, ticketCh)
 	dontClose = true
 	return nil
@@ -305,11 +305,11 @@ func (t *tracker) resolveWaitMinion(ticketCh chan bool) error {
 	if leader, err := t.isLeader(); err != nil {
 		return errors.Trace(err)
 	} else if leader {
-		logger.Infof("waiting for %s to lose %s leadership", t.unitName, t.serviceName)
+		logger.Debugf("waiting for %s to lose %s leadership", t.unitName, t.serviceName)
 		t.waitingMinion = append(t.waitingMinion, ticketCh)
 		dontClose = true
 	} else {
-		logger.Infof("reporting %s leadership loss for %s", t.serviceName, t.unitName)
+		logger.Debugf("reporting %s leadership loss for %s", t.serviceName, t.unitName)
 	}
 	return nil
 

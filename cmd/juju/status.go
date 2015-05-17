@@ -11,13 +11,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
@@ -76,7 +74,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 
 	defaultFormat := "yaml"
-	if featureflag.Enabled(feature.NewStatus) {
+	if c.CompatVersion() > 1 {
 		defaultFormat = "tabular"
 	}
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
@@ -142,7 +140,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	result := newStatusFormatter(status, c.isoTime).format()
+	result := newStatusFormatter(status, c.CompatVersion(), c.isoTime).format()
 	return c.out.Write(ctx, result)
 }
 
@@ -314,16 +312,18 @@ func (n networkStatus) GetYAML() (tag string, value interface{}) {
 }
 
 type statusFormatter struct {
-	status    *api.Status
-	relations map[int]api.RelationStatus
-	isoTime   bool
+	status        *api.Status
+	relations     map[int]api.RelationStatus
+	isoTime       bool
+	compatVersion int
 }
 
-func newStatusFormatter(status *api.Status, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *api.Status, compatVersion int, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
-		status:    status,
-		relations: make(map[int]api.RelationStatus),
-		isoTime:   isoTime,
+		status:        status,
+		relations:     make(map[int]api.RelationStatus),
+		compatVersion: compatVersion,
+		isoTime:       isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -460,7 +460,7 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
-	if !featureflag.Enabled(feature.NewStatus) || out.AgentStatusInfo.Current == "" {
+	if sf.compatVersion < 2 || out.AgentStatusInfo.Current == "" {
 		out.Err = unit.Err
 		out.AgentState = unit.AgentState
 		out.AgentStateInfo = unit.AgentStateInfo

@@ -201,14 +201,15 @@ func (cfg *centOSCloudConfig) AddPackageCommands(
 	)
 }
 
-// updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *centOSCloudConfig) updatePackages() {
+// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
+func (cfg *centOSCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"bridge-utils",
 		"rsyslog-gnutls",
 		"cloud-utils",
 		"nmap-ncat",
+		"tmux",
 	}
 
 	// The required packages need to come from the correct repo.

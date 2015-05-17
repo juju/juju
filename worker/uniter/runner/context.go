@@ -227,7 +227,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Debugf("[WORKLOAD-STATUS] %s %s", status.Status, status.Info)
+	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
@@ -578,15 +578,19 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		}
 		sendBatches = append(sendBatches, batchParam)
 	}
-	err = ctx.unit.AddMetricBatches(sendBatches)
+	results, err := ctx.unit.AddMetricBatches(sendBatches)
 	if err != nil {
+		// Do not return metric sending error.
 		logger.Errorf("%v", err)
-		return errors.Trace(err)
 	}
-	for _, batch := range sendBatches {
-		err = ctx.metricsReader.Remove(batch.UUID)
-		if err != nil {
-			return errors.Trace(err)
+	for batchUUID, resultErr := range results {
+		if resultErr == nil || resultErr == (*params.Error)(nil) || params.IsCodeAlreadyExists(resultErr) {
+			err = ctx.metricsReader.Remove(batchUUID)
+			if err != nil {
+				logger.Errorf("could not remove batch %q from spool: %v", batchUUID, err)
+			}
+		} else {
+			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
 	return ctxErr

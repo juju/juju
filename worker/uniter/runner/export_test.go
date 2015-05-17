@@ -16,14 +16,14 @@ import (
 )
 
 var (
-	MergeEnvironment  = mergeEnvironment
-	SearchHook        = searchHook
-	HookCommand       = hookCommand
-	LookPath          = lookPath
-	ValidatePortRange = validatePortRange
-	TryOpenPorts      = tryOpenPorts
-	TryClosePorts     = tryClosePorts
-	LockTimeout       = lockTimeout
+	MergeWindowsEnvironment = mergeWindowsEnvironment
+	SearchHook              = searchHook
+	HookCommand             = hookCommand
+	LookPath                = lookPath
+	ValidatePortRange       = validatePortRange
+	TryOpenPorts            = tryOpenPorts
+	TryClosePorts           = tryClosePorts
+	LockTimeout             = lockTimeout
 )
 
 func RunnerPaths(rnr Runner) Paths {
@@ -95,6 +95,17 @@ func PatchCachedStatus(ctx Context, status, info string, data map[string]interfa
 	}
 	return func() {
 		hctx.status = oldStatus
+	}
+}
+
+// PatchMetricsReader patches the metrics reader used by the context with a new
+// object.
+func PatchMetricsReader(ctx Context, reader MetricsReader) func() {
+	hctx := ctx.(*HookContext)
+	oldReader := hctx.metricsReader
+	hctx.metricsReader = reader
+	return func() {
+		hctx.metricsReader = oldReader
 	}
 }
 

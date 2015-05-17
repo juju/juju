@@ -509,7 +509,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 		out[i] = params.Volume{
 			v.Tag.String(),
 			v.VolumeId,
-			v.Serial,
+			v.HardwareId,
 			v.Size,
 			v.Persistent,
 		}
@@ -538,7 +538,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 	return storage.Volume{
 		volumeTag,
 		in.VolumeId,
-		in.Serial,
+		in.HardwareId,
 		in.Size,
 		in.Persistent,
 	}, nil

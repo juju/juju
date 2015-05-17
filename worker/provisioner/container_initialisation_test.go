@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
@@ -23,8 +24,10 @@ import (
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -47,7 +50,7 @@ type ContainerSetupSuite struct {
 var _ = gc.Suite(&ContainerSetupSuite{})
 
 func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
+	// TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Skipping container tests on windows")
 	}
@@ -277,7 +280,7 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect("any-old-thing")
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string) {
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string, addressable bool) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
@@ -303,14 +306,17 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	s.createContainer(c, m, ctype)
 
-	// After initialisation starts, but before running the
-	// initializer, lxc-net should be created if ctype is LXC, as the
-	// dummy provider supports static address allocation by default.
-	if ctype == instance.LXC {
-		AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
-		defer os.Remove(s.fakeLXCNet)
-	} else {
-		c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+	// Only feature-flagged addressable containers modify lxc-net.
+	if addressable {
+		// After initialisation starts, but before running the
+		// initializer, lxc-net should be created if ctype is LXC, as the
+		// dummy provider supports static address allocation by default.
+		if ctype == instance.LXC {
+			AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+			defer os.Remove(s.fakeLXCNet)
+		} else {
+			c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+		}
 	}
 
 	for _, pack := range packages {
@@ -336,7 +342,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 			[]string{"uvtool-libvirt"},
 			[]string{"uvtool"}}},
 	} {
-		s.assertContainerInitialised(c, test.ctype, test.packages)
+		s.assertContainerInitialised(c, test.ctype, test.packages, false)
 	}
 }
 
@@ -467,4 +473,30 @@ type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.
 
 func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
 	return t(v, series, arch)
+}
+
+// AddressableContainerSetupSuite only contains tests depending on the
+// address allocation feature flag being enabled.
+type AddressableContainerSetupSuite struct {
+	ContainerSetupSuite
+}
+
+var _ = gc.Suite(&AddressableContainerSetupSuite{})
+
+func (s *AddressableContainerSetupSuite) enableFeatureFlag() {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
+func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
+	for _, test := range []struct {
+		ctype    instance.ContainerType
+		packages [][]string
+	}{
+		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc"}, {"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{{"uvtool-libvirt"}, {"uvtool"}}},
+	} {
+		s.enableFeatureFlag()
+		s.assertContainerInitialised(c, test.ctype, test.packages, true)
+	}
 }

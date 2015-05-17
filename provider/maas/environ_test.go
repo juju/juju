@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,6 +43,7 @@ func (s *environSuite) SetUpSuite(c *gc.C) {
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -199,7 +201,11 @@ var expectedCloudinitConfig = []string{
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
 
-func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
+var expectedCloudinitConfigWithBridge = []string{
+	"set -xe",
+	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'", "\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n# Change the config to make $PRIMARY_IFACE manual instead of DHCP,\n# then create the bridge and enslave $PRIMARY_IFACE into it.\ngrep -q \"iface ${PRIMARY_IFACE} inet dhcp\" /etc/network/interfaces && \\\nsed -i \"s/iface ${PRIMARY_IFACE} inet dhcp//\" /etc/network/interfaces && \\\ncat >> /etc/network/interfaces << EOF\n\n# Primary interface (defining the default route)\niface ${PRIMARY_IFACE} inet manual\n\n# Bridge to use for LXC/KVM containers\nauto juju-br0\niface juju-br0 inet dhcp\n    bridge_ports ${PRIMARY_IFACE}\nEOF\n\n# Make the primary interface not auto-starting.\ngrep -q \"auto ${PRIMARY_IFACE}\" /etc/network/interfaces && \\\nsed -i \"s/auto ${PRIMARY_IFACE}//\" /etc/network/interfaces\n\n# Finally, stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n"}
+
+func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,6 +213,24 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
+}
+
+func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
+	cfg := getSimpleTestConfig(c, nil)
+	env, err := maas.NewEnviron(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	testCase := func(expectedConfig []string) {
+		cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
+		c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedConfig)
+	}
+	// First test the default case (address allocation feature flag on).
+	testCase(expectedCloudinitConfig)
+
+	// Now test with the flag off.
+	s.SetFeatureFlags() // clear the flags.
+	testCase(expectedCloudinitConfigWithBridge)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {

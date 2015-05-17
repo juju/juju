@@ -8,10 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5/hooks"
-
-	"github.com/juju/juju/feature"
 )
 
 // TODO(fwereade): move these definitions to juju/charm/hooks.
@@ -54,14 +51,11 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")
-	case hooks.StorageAttached, hooks.StorageDetached:
-		// TODO: stop checking feature flag once storage has graduated.
-		if featureflag.Enabled(feature.Storage) {
-			if !names.IsValidStorage(hi.StorageId) {
-				return fmt.Errorf("invalid storage ID %q", hi.StorageId)
-			}
-			return nil
+	case hooks.StorageAttached, hooks.StorageDetaching:
+		if !names.IsValidStorage(hi.StorageId) {
+			return fmt.Errorf("invalid storage ID %q", hi.StorageId)
 		}
+		return nil
 	// TODO(fwereade): define these in charm/hooks...
 	case LeaderElected, LeaderDeposed, LeaderSettingsChanged:
 		return nil

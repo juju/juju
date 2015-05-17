@@ -239,8 +239,8 @@ done`
 	}
 }
 
-// updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *ubuntuCloudConfig) updatePackages() {
+// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
+func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",
@@ -251,6 +251,7 @@ func (cfg *ubuntuCloudConfig) updatePackages() {
 		"rsyslog-gnutls",
 		"cloud-utils",
 		"cloud-image-utils",
+		"tmux",
 	}
 
 	// The required packages need to come from the correct repo.

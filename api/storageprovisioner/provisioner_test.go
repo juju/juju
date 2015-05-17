@@ -164,10 +164,10 @@ func (s *provisionerSuite) TestVolumes(c *gc.C) {
 		*(result.(*params.VolumeResults)) = params.VolumeResults{
 			Results: []params.VolumeResult{{
 				Result: params.Volume{
-					VolumeTag: "volume-100",
-					VolumeId:  "volume-id",
-					Serial:    "abc",
-					Size:      1024,
+					VolumeTag:  "volume-100",
+					VolumeId:   "volume-id",
+					HardwareId: "abc",
+					Size:       1024,
 				},
 			}},
 		}
@@ -181,7 +181,7 @@ func (s *provisionerSuite) TestVolumes(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumes, jc.DeepEquals, []params.VolumeResult{{
 		Result: params.Volume{
-			VolumeTag: "volume-100", VolumeId: "volume-id", Serial: "abc", Size: 1024,
+			VolumeTag: "volume-100", VolumeId: "volume-id", HardwareId: "abc", Size: 1024,
 		},
 	}})
 }
@@ -260,7 +260,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	blockDeviceResults := []params.BlockDeviceResult{{
 		Result: storage.BlockDevice{
 			DeviceName: "xvdf1",
-			Serial:     "kjlaksjdlasjdklasd123123",
+			HardwareId: "kjlaksjdlasjdklasd123123",
 			Size:       1024,
 		},
 	}}
@@ -478,7 +478,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "SetVolumeInfo")
 		c.Check(arg, gc.DeepEquals, params.Volumes{
-			Volumes: []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024, Persistent: true}},
+			Volumes: []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", HardwareId: "abc", Size: 1024, Persistent: true}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -489,7 +489,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 	})
 
 	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
-	volumes := []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024, Persistent: true}}
+	volumes := []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", HardwareId: "abc", Size: 1024, Persistent: true}}
 	errorResults, err := st.SetVolumeInfo(volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)

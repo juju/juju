@@ -50,7 +50,7 @@ type NetworkInterface struct {
 }
 
 // NetworkConfig describes the necessary information to configure
-// all network interfaces on a machine. This mostly duplicates
+// a single network interface on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
 // the API.
