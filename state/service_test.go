@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type ServiceSuite struct {
@@ -1794,3 +1796,176 @@ func (s *ServiceSuite) TestStatus(c *gc.C) {
 		s.testStatus(c, t.status1, t.status2, t.expected)
 	}
 }
+
+const oneRequiredStorageMeta = `
+storage:
+  data0:
+    type: block
+`
+
+const oneOptionalStorageMeta = `
+storage:
+  data0:
+    type: block
+    multiple:
+      range: 0-
+`
+
+const twoRequiredStorageMeta = `
+storage:
+  data0:
+    type: block
+  data1:
+    type: block
+`
+
+const twoOptionalStorageMeta = `
+storage:
+  data0:
+    type: block
+    multiple:
+      range: 0-
+  data1:
+    type: block
+    multiple:
+      range: 0-
+`
+
+const oneRequiredFilesystemStorageMeta = `
+storage:
+  data0:
+    type: filesystem
+`
+
+const oneRequiredSharedStorageMeta = `
+storage:
+  data0:
+    type: block
+    shared: true
+`
+
+const oneRequiredReadOnlyStorageMeta = `
+storage:
+  data0:
+    type: block
+    read-only: true
+`
+
+const oneRequiredLocationStorageMeta = `
+storage:
+  data0:
+    type: filesystem
+    location: /srv
+`
+
+func storageRange(min, max int) string {
+	var minStr, maxStr string
+	if min > 0 {
+		minStr = fmt.Sprint(min)
+	}
+	if max > 0 {
+		maxStr = fmt.Sprint(max)
+	}
+	return fmt.Sprintf(`
+    multiple:
+      range: %s-%s
+`[1:], minStr, maxStr)
+}
+
+func (s *ServiceSuite) testSetCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+	svc := s.AddTestingService(c, "test", oldCh)
+	return svc.SetCharm(newCh, false)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+twoOptionalStorageMeta,
+		mysqlBaseMeta+oneOptionalStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": storage "data1" removed`)
+}
+
+func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta+twoRequiredStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": required storage "data1" added`)
+}
+
+func (s *ServiceSuite) TestSetCharmOptionalStorageAdded(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta+twoOptionalStorageMeta,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageCountMinDecreased(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageCountMinIncreased(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: min increased from 1 to 2`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 2),
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 1),
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: max decreased from 2 to 1`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, -1),
+		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 999),
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: max decreased from \<unbounded\> to 999`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" type changed from "block" to "filesystem"`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta+oneRequiredSharedStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" shared changed from false to true`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredStorageMeta,
+		mysqlBaseMeta+oneRequiredReadOnlyStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" read-only changed from false to true`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
+	err := s.testSetCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
+		mysqlBaseMeta+oneRequiredLocationStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
+}
+
+// TODO following things cannot change: type, shared, read-only, location, range

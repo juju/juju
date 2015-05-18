@@ -373,6 +373,79 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 	return asserts, nil
 }
 
+func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot upgrade service %q to charm %q", s, newMeta.Name)
+	ch, _, err := s.Charm()
+	if err != nil {
+		return nil
+	}
+	oldMeta := ch.Meta()
+	for name := range oldMeta.Storage {
+		if _, ok := newMeta.Storage[name]; !ok {
+			return errors.Errorf("storage %q removed", name)
+		}
+	}
+	less := func(a, b int) bool {
+		return a != -1 && (b == -1 || a < b)
+	}
+	for name, newStorageMeta := range newMeta.Storage {
+		oldStorageMeta, ok := oldMeta.Storage[name]
+		if !ok {
+			if newStorageMeta.CountMin > 0 {
+				return errors.Errorf("required storage %q added", name)
+			}
+			// New storage is fine as long as it is not required.
+			//
+			// TODO(axw) introduce a way of adding storage at
+			// upgrade time. We should also look at supplying
+			// a way of adding/changing other things during
+			// upgrade, e.g. changing service config.
+			continue
+		}
+		if newStorageMeta.Type != oldStorageMeta.Type {
+			return errors.Errorf(
+				"existing storage %q type changed from %q to %q",
+				name, oldStorageMeta.Type, newStorageMeta.Type,
+			)
+		}
+		if newStorageMeta.Shared != oldStorageMeta.Shared {
+			return errors.Errorf(
+				"existing storage %q shared changed from %v to %v",
+				name, oldStorageMeta.Shared, newStorageMeta.Shared,
+			)
+		}
+		if newStorageMeta.ReadOnly != oldStorageMeta.ReadOnly {
+			return errors.Errorf(
+				"existing storage %q read-only changed from %v to %v",
+				name, oldStorageMeta.ReadOnly, newStorageMeta.ReadOnly,
+			)
+		}
+		if newStorageMeta.Location != oldStorageMeta.Location {
+			return errors.Errorf(
+				"existing storage %q location changed from %q to %q",
+				name, oldStorageMeta.Location, newStorageMeta.Location,
+			)
+		}
+		if newStorageMeta.CountMin > oldStorageMeta.CountMin {
+			return errors.Errorf(
+				"existing storage %q range contracted: min increased from %d to %d",
+				name, oldStorageMeta.CountMin, newStorageMeta.CountMin,
+			)
+		}
+		if less(newStorageMeta.CountMax, oldStorageMeta.CountMax) {
+			var oldCountMax interface{} = oldStorageMeta.CountMax
+			if oldStorageMeta.CountMax == -1 {
+				oldCountMax = "<unbounded>"
+			}
+			return errors.Errorf(
+				"existing storage %q range contracted: max decreased from %v to %d",
+				name, oldCountMax, newStorageMeta.CountMax,
+			)
+		}
+	}
+	return nil
+}
+
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
@@ -468,6 +541,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, relOps...)
+
+	// Check storage to ensure no storage is removed, and no required
+	// storage is added for which there are no constraints.
+	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
