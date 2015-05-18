@@ -136,9 +136,10 @@ def get_buildvars(credentials, build_number, summary=False, env='unknown',
     buildvars['short_revision_id'] = buildvars['revision_id'][0:7]
     buildvars['short_branch'] = buildvars['branch'].split(':')[1]
     buildvars['env'] = env
+    template = (
+        'Testing {branch} {short_revision_id} on {env} for {revision_build}')
     if summary:
-        text = 'Testing {branch} {short_revision_id} on {env}'.format(
-            **buildvars)
+        text = template.format(**buildvars)
     else:
         data = []
         if revision_build:

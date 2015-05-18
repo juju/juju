@@ -531,7 +531,8 @@ class JujuCITestCase(TestCase):
                 branch=False, revision=False)
             rb_mock.assert_called_once_with(credentials, 1234)
             self.assertEqual(
-                'Testing gitbranch:1.22:github.com/juju/juju 1234567 on foo',
+                'Testing gitbranch:1.22:github.com/juju/juju 1234567 '
+                'on foo for 1234',
                 text)
             # The version case used to skip jobs testing old versions.
             text = get_buildvars(credentials, 1234,
