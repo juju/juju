@@ -151,8 +151,8 @@ class JujuCITestCase(TestCase):
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
 
-    def test_main_get_build_vars(self):
-        with patch('jujuci.get_build_vars', autospec=True) as mock:
+    def test_main_get_buildvars(self):
+        with patch('jujuci.get_buildvars', autospec=True) as mock:
             main(
                 ['-d', '-v', 'get-build-vars', '--summary',
                  '--version', '--branch', '--short-branch',
