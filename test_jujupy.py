@@ -56,8 +56,10 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     test_case.assertEqual(args, (expected_args,))
     kwarg_keys = ['env']
     if assign_stderr:
-        kwarg_keys = ['stderr'] + kwarg_keys
-        test_case.assertEqual(type(kwargs['stderr']), file)
+        with tempfile.TemporaryFile() as example:
+            # 'example' is a pragmatic way of checking file types in py2 and 3.
+            kwarg_keys = ['stderr'] + kwarg_keys
+            test_case.assertIsInstance(kwargs['stderr'], type(example))
     test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
@@ -1376,6 +1378,9 @@ class TestStatus(TestCase):
 
     def test_get_unit(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -1398,6 +1403,9 @@ class TestStatus(TestCase):
 
     def test_get_open_ports(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {
