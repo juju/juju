@@ -530,10 +530,23 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 	for iter.Next(&address) {
 		// if the address already has a instance Id field, then it has already been
 		// upgraded.
-		logger.Debugf("AddInstanceField: processing address %s", address["value"])
+		logger.Tracef("AddInstanceField: processing address %s", address["value"])
 		if _, ok := address["instanceid"]; ok {
 			logger.Tracef("skipping address %s, already has instance id", address["value"])
 			continue
+		}
+
+		fetchId := func(machineId string) instance.Id {
+			instanceId := instance.UnknownId
+			iDoc := &instanceData{}
+			err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
+			if err != nil {
+				logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
+			} else {
+				instanceId = instance.Id(iDoc.InstanceId)
+				logger.Debugf("found instance id %q for address %s", instanceId, address["value"])
+			}
+			return instanceId
 		}
 
 		instanceId := instance.UnknownId
@@ -541,14 +554,7 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 		// An unallocated address can't have an associated instance id.
 		if ok && allocatedState == string(AddressStateAllocated) {
 			if machineId, ok := address["machineid"]; ok && machineId != "" {
-				iDoc := &instanceData{}
-				err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
-				if err != nil {
-					logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
-				} else {
-					instanceId = instance.Id(iDoc.InstanceId)
-					logger.Debugf("found instance id %q for address %s", instanceId, address["value"])
-				}
+				instanceId = fetchId(machineId)
 			} else {
 				logger.Debugf("machine id not found for address %s", address["value"])
 			}
