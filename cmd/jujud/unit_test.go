@@ -18,6 +18,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"fmt"
+
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"

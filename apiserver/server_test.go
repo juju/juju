@@ -13,10 +13,10 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"

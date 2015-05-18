@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
