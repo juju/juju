@@ -2509,8 +2509,8 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
-	instances, closer := s.state.getRawCollection(instanceDataC)
-	defer closer()
+	instances, closer2 := s.state.getRawCollection(instanceDataC)
+	defer closer2()
 
 	s.addMachineWithLife(c, 1, Alive)
 	s.addMachineWithLife(c, 2, Alive)
@@ -2606,8 +2606,8 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
-	instances, closer := s.state.getRawCollection(instanceDataC)
-	defer closer()
+	instances, closer2 := s.state.getRawCollection(instanceDataC)
+	defer closer2()
 
 	s.addMachineWithLife(c, 1, Alive)
 	s.addMachineWithLife(c, 2, Alive)
