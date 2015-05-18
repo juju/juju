@@ -155,18 +155,20 @@ class JujuCITestCase(TestCase):
     def test_main_get_buildvars(self):
         with patch('jujuci.get_buildvars', autospec=True) as mock:
             main(
-                ['-d', '-v', 'get-build-vars', '--summary',
-                 '--version', '--branch', '--short-branch',
-                 '--revision', '--short-revision', '123',
+                ['get-build-vars', '--env', 'foo', '--summary',
+                 '--revision-build', '--version', '--short-branch',
+                 '--short-revision', '--branch', '--revision', '123',
                  '--user', 'jrandom', '--password', '1password'])
         args, kwargs = mock.call_args
         self.assertEqual((Credentials('jrandom', '1password'), '123'), args)
+        self.assertEqual('foo', kwargs['env'])
         self.assertTrue(kwargs['summary'])
+        self.assertTrue(kwargs['revision_build'])
         self.assertTrue(kwargs['version'])
-        self.assertTrue(kwargs['branch'])
-        self.assertTrue(kwargs['short_branch'])
-        self.assertTrue(kwargs['revision'])
         self.assertTrue(kwargs['short_revision'])
+        self.assertTrue(kwargs['short_branch'])
+        self.assertTrue(kwargs['branch'])
+        self.assertTrue(kwargs['revision'])
 
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
@@ -524,20 +526,20 @@ class JujuCITestCase(TestCase):
                    return_value=buildvars) as rb_mock:
             # The summary case for deploy and upgrade jobs.
             text = get_buildvars(credentials, 1234, env='foo',
-                summary=True, version=False,
-                branch=False, short_branch=False,
-                revision=False, short_revision=False)
+                summary=True, revision_build=False, version=False,
+                short_branch=False, short_revision=False,
+                branch=False, revision=False)
             rb_mock.assert_called_once_with(credentials, 1234)
             self.assertEqual(
                 'Testing gitbranch:1.22:github.com/juju/juju 1234567 on foo',
                 text)
             # The version case used to skip jobs testing old versions.
-            text = get_buildvars(credentials, 1234, env='foo',
-                summary=False, version=True,
+            text = get_buildvars(credentials, 1234,
+                summary=False, revision_build=True, version=True,
                 branch=True, short_branch=True,
                 revision=True, short_revision=True)
             self.assertEqual(
-                '1.22.4 1.22 1234567 '
+                '1234 1.22.4 1.22 1234567 '
                 'gitbranch:1.22:github.com/juju/juju 1234567abcdef',
                 text)
 

@@ -121,13 +121,16 @@ def retrieve_buildvars(credentials, build_number):
 
 
 def get_buildvars(credentials, build_number, summary=False, env='unknown',
-                  version=False, branch=False, short_branch=False,
-                  revision=False, short_revision=False):
+                  revision_build=False, version=False, branch=False,
+                  short_branch=False, revision=False, short_revision=False):
     """Return requested information as text.
 
     The 'summary' kwarg returns intelligible information about the build.
     'env' is included in the summary text. Otherwise, a space-separated
-    string composed of the each True kwarg is returned.
+    string composed of the each True kwarg is returned in this order:
+        revision_build version short_branch short_revision branch revision
+    Note that revision_build is always the same as build number;
+    build_number can be an alias like 'lastBuild' or 'lastSuccessfulBuild'.
     """
     buildvars = retrieve_buildvars(credentials, build_number)
     buildvars['short_revision_id'] = buildvars['revision_id'][0:7]
@@ -138,6 +141,8 @@ def get_buildvars(credentials, build_number, summary=False, env='unknown',
             **buildvars)
     else:
         data = []
+        if revision_build:
+            data.append(buildvars['revision_build'])
         if version:
             data.append(buildvars['version'])
         if short_branch:
@@ -341,23 +346,29 @@ def parse_args(args=None):
         'get-build-vars',
         help='Retrieve the build-vars for a build-revision.')
     parser_get_buildvars.add_argument(
+        '--env', default='Unknown',
+        help='The env name to include in the summary')
+    parser_get_buildvars.add_argument(
         '--summary', action='store_true', default=False,
         help='Summarise the build var test data')
+    parser_get_buildvars.add_argument(
+        '--revision-build', action='store_true', default=False,
+        help='Print the test revision build number')
     parser_get_buildvars.add_argument(
         '--version', action='store_true', default=False,
         help='Print the test juju version')
     parser_get_buildvars.add_argument(
-        '--branch', action='store_true', default=False,
-        help='Print the test branch')
-    parser_get_buildvars.add_argument(
         '--short-branch', action='store_true', default=False,
         help='Print the short name of the branch')
     parser_get_buildvars.add_argument(
-        '--revision', action='store_true', default=False,
-        help='Print the test revision')
-    parser_get_buildvars.add_argument(
         '--short-revision', action='store_true', default=False,
         help='Print the short revision of the branch')
+    parser_get_buildvars.add_argument(
+        '--branch', action='store_true', default=False,
+        help='Print the test branch')
+    parser_get_buildvars.add_argument(
+        '--revision', action='store_true', default=False,
+        help='Print the test revision')
     parser_get_buildvars.add_argument(
         'build', help='The build-revision build number')
     add_credential_args(parser_get_buildvars)
@@ -428,10 +439,11 @@ def main(argv):
             print(path)
         elif args.command == 'get-build-vars':
             text = get_buildvars(
-                credentials, args.build,
-                summary=args.summary, version=args.version, env=args.version,
-                branch=args.branch, short_branch=args.short_branch,
-                revision=args.revision, short_revision=args.short_revision)
+                credentials, args.build, env=args.env,
+                summary=args.summary, revision_build=args.revision_build,
+                version=args.version, short_branch=args.short_branch,
+                short_revision=args.short_revision,
+                branch=args.branch, revision=args.revision)
             print(text)
     except Exception as e:
         print(e)
