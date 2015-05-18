@@ -1872,7 +1872,7 @@ func storageRange(min, max int) string {
 `[1:], minStr, maxStr)
 }
 
-func (s *ServiceSuite) testSetCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
+func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
@@ -1881,7 +1881,7 @@ func (s *ServiceSuite) testSetCharmFromMeta(c *gc.C, oldMeta, newMeta string) er
 }
 
 func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+twoOptionalStorageMeta,
 		mysqlBaseMeta+oneOptionalStorageMeta,
 	)
@@ -1889,7 +1889,7 @@ func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+twoRequiredStorageMeta,
 	)
@@ -1897,7 +1897,7 @@ func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmOptionalStorageAdded(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+twoOptionalStorageMeta,
 	)
@@ -1905,7 +1905,7 @@ func (s *ServiceSuite) TestSetCharmOptionalStorageAdded(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMinDecreased(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
 	)
@@ -1913,7 +1913,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMinDecreased(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMinIncreased(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
 	)
@@ -1921,7 +1921,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMinIncreased(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 2),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 1),
 	)
@@ -1929,7 +1929,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, -1),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 999),
 	)
@@ -1937,7 +1937,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 	)
@@ -1945,7 +1945,7 @@ func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredSharedStorageMeta,
 	)
@@ -1953,7 +1953,7 @@ func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredReadOnlyStorageMeta,
 	)
@@ -1961,11 +1961,9 @@ func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
-	err := s.testSetCharmFromMeta(c,
+	err := s.setCharmFromMeta(c,
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
 }
-
-// TODO following things cannot change: type, shared, read-only, location, range

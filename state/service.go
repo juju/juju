@@ -377,7 +377,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot upgrade service %q to charm %q", s, newMeta.Name)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return nil
+		return errors.Trace(err)
 	}
 	oldMeta := ch.Meta()
 	for name := range oldMeta.Storage {
