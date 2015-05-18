@@ -536,7 +536,7 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 			continue
 		}
 
-		fetchId := func(machineId string) instance.Id {
+		fetchId := func(machineId interface{}) instance.Id {
 			instanceId := instance.UnknownId
 			iDoc := &instanceData{}
 			err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
