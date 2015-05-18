@@ -209,7 +209,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9"), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.AllocateTo(machine.Id(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
