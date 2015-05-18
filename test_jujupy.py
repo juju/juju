@@ -1376,6 +1376,9 @@ class TestStatus(TestCase):
 
     def test_get_unit(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -1398,6 +1401,9 @@ class TestStatus(TestCase):
 
     def test_get_open_ports(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {

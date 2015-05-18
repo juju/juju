@@ -516,16 +516,17 @@ class JujuCITestCase(TestCase):
 
     def test_get_buildvars(self):
         buildvars = {
-            'revision_id': '1234567abcdef', 
-            'version': '1.22.4', 
-            'revision_build': '1234', 
+            'revision_id': '1234567abcdef',
+            'version': '1.22.4',
+            'revision_build': '1234',
             'branch': 'gitbranch:1.22:github.com/juju/juju',
             }
         credentials = Credentials('bar', 'baz')
         with patch('jujuci.retrieve_buildvars', autospec=True,
                    return_value=buildvars) as rb_mock:
             # The summary case for deploy and upgrade jobs.
-            text = get_buildvars(credentials, 1234, env='foo',
+            text = get_buildvars(
+                credentials, 1234, env='foo',
                 summary=True, revision_build=False, version=False,
                 short_branch=False, short_revision=False,
                 branch=False, revision=False)
@@ -535,7 +536,8 @@ class JujuCITestCase(TestCase):
                 'on foo for 1234',
                 text)
             # The version case used to skip jobs testing old versions.
-            text = get_buildvars(credentials, 1234,
+            text = get_buildvars(
+                credentials, 1234,
                 summary=False, revision_build=True, version=True,
                 branch=True, short_branch=True,
                 revision=True, short_revision=True)
