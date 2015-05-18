@@ -525,8 +525,7 @@ class JujuCITestCase(TestCase):
             summary = get_buildvars(credentials, 1234, env='foo',
                 summary=True, version=False,
                 branch=False, short_branch=False,
-                revision=False, short_revision=False,
-                verbose=False)
+                revision=False, short_revision=False)
             rb_mock.assert_called_once_with(credentials, 1234)
             self.assertEqual(
                 'Testing gitbranch:1.22:github.com/juju/juju 1234567 on foo',

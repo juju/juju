@@ -122,14 +122,13 @@ def retrieve_buildvars(credentials, build_number):
 
 def get_buildvars(credentials, build_number, summary=False, env='unknown',
                    version=False, branch=False, short_branch=False,
-                   revision=False, short_revision=False, verbose=False):
+                   revision=False, short_revision=False):
     buildvars = retrieve_buildvars(credentials, build_number)
     buildvars['short_revision'] = buildvars['revision_id'][0:7]
     buildvars['short_branch'] = buildvars['branch'].split(':')[1]
     buildvars['env'] = env
     if summary:
         text = 'Testing {branch} {short_revision} on {env}'.format(**buildvars)
-    print(text)
     return text
 
 
@@ -408,12 +407,12 @@ def main(argv):
                                          args.workspace)
             print(path)
         elif args.command == 'get-build-vars':
-            get_buildvars(
+            text = get_buildvars(
                 credentials, args.build,
                 summary=args.summary, version=args.version, env=args.version,
                 branch=args.branch, short_branch=args.short_branch,
-                revision=args.revision, short_revision=args.short_revision,
-                verbose=args.verbose)
+                revision=args.revision, short_revision=args.short_revision)
+            print(text)
     except Exception as e:
         print(e)
         if args.verbose:
