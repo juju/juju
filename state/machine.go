@@ -683,7 +683,7 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	for _, address := range ipAddresses {
-		logger.Debugf("creating op to set IP addr %q to Dead", address.Value())
+		logger.Tracef("creating op to set IP addr %q to Dead", address.Value())
 		ops = append(ops, ensureIPAddressDeadOp(address))
 	}
 	logger.Debugf("removing machine %q", m.Id())
