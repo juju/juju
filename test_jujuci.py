@@ -18,6 +18,7 @@ from jujuci import (
     find_artifacts,
     get_artifacts,
     get_build_data,
+    get_buildvars,
     get_certification_bin,
     get_credentials,
     get_juju_bin,
@@ -510,6 +511,26 @@ class JujuCITestCase(TestCase):
                 workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
             artifacts = os.listdir(artifacts_dir)
             self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
+
+    def test_get_buildvars(self):
+        buildvars = {
+            'revision_id': '12345679129d290470a4fc1eadf833d82a2aeb46', 
+            'version': '1.22.4', 
+            'revision_build': '1234', 
+            'branch': 'gitbranch:1.22:github.com/juju/juju',
+            }
+        credentials = Credentials('bar', 'baz')
+        with patch('jujuci.retrieve_buildvars', autospec=True,
+                   return_value=buildvars) as rb_mock:
+            summary = get_buildvars(credentials, 1234, env='foo',
+                summary=True, version=False,
+                branch=False, short_branch=False,
+                revision=False, short_revision=False,
+                verbose=False)
+            rb_mock.assert_called_once_with(credentials, 1234)
+            self.assertEqual(
+                'Testing gitbranch:1.22:github.com/juju/juju 1234567 on foo',
+                summary)
 
 
 class TestPackageNamer(TestCase):

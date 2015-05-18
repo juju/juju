@@ -120,10 +120,17 @@ def retrieve_buildvars(credentials, build_number):
     return get_jenkins_json(credentials, artifact.location)
 
 
-def get_buildvars(credentials, build_number, summary=False, version=False,
-                   branch=False, short_branch=False,
+def get_buildvars(credentials, build_number, summary=False, env='unknown',
+                   version=False, branch=False, short_branch=False,
                    revision=False, short_revision=False, verbose=False):
-    pass
+    buildvars = retrieve_buildvars(credentials, build_number)
+    buildvars['short_revision'] = buildvars['revision_id'][0:7]
+    buildvars['short_branch'] = buildvars['branch'].split(':')[1]
+    buildvars['env'] = env
+    if summary:
+        text = 'Testing {branch} {short_revision} on {env}'.format(**buildvars)
+    print(text)
+    return text
 
 
 def get_release_package_filename(credentials, build_data):
@@ -403,7 +410,7 @@ def main(argv):
         elif args.command == 'get-build-vars':
             get_buildvars(
                 credentials, args.build,
-                summary=args.summary, version=args.version,
+                summary=args.summary, version=args.version, env=args.version,
                 branch=args.branch, short_branch=args.short_branch,
                 revision=args.revision, short_revision=args.short_revision,
                 verbose=args.verbose)
