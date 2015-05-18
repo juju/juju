@@ -249,15 +249,6 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			if lastErr == nil {
 				return hc, nil
 			}
-			switch err := lastErr.(type) {
-			case *ssh.ConnectionRefusedError:
-				logger.Debugf("not ready yet: %v", err)
-			case *ssh.TooManyAuthFailuresError:
-				// TODO(ericsnow) Fail here?
-				logger.Errorf("ignoring problem: %v", err)
-			default:
-				logger.Debugf("ignoring unknown error: %v", err)
-			}
 		}
 		select {
 		case <-hc.closed:
@@ -293,7 +284,6 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.Address) {
 			continue
 		}
 		fmt.Fprintf(p.stderr, "Attempting to connect to %s:22\n", addr.Value)
-		logger.Debugf("Attempting to connect to %s:22", addr.Value)
 		closed := make(chan struct{})
 		hc := &hostChecker{
 			addr:            addr,
@@ -329,7 +319,10 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 	cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	cmd.Stdin = strings.NewReader(checkHostScript)
 	output, err := cmd.CombinedOutput()
-	return ssh.WrapError(err, output)
+	if err != nil && len(output) > 0 {
+		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
+	}
+	return err
 }
 
 // waitSSH waits for the instance to be assigned a routable
