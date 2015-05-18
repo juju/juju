@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
+
 __metaclass__ = type
 
 from argparse import ArgumentParser
@@ -485,7 +488,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
 
     def add_hook(self, hooks_path, hook_name, hook_contents):
         with open(os.path.join(hooks_path, hook_name), 'w') as f:
-            os.fchmod(f.fileno(), 0755)
+            os.fchmod(f.fileno(), 0o755)
             f.write(hook_contents)
 
 
@@ -804,7 +807,7 @@ def run_single(args):
         try:
             for stage in stages:
                 for step in stage.factory(upgrade_sequence).iter_steps(client):
-                    print step
+                    print(step)
         except BaseException as e:
             logging.exception(e)
             client.destroy_environment()

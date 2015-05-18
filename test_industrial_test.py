@@ -1570,7 +1570,7 @@ class TestUpgradeCharmAttempt(TestCase):
         with open(hook_path) as hook_file:
             self.assertEqual(hook_file.read(), content)
             mode = os.fstat(hook_file.fileno()).st_mode
-        self.assertEqual(0755, mode & 0777)
+        self.assertEqual(0o755, mode & 0o777)
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()

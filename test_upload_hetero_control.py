@@ -342,5 +342,5 @@ access_key = fake_username
 
 
 def fake_artifacts(max=4):
-    for x in xrange(1, max):
+    for x in range(1, max):
         yield "filename", "artifact data %s" % x

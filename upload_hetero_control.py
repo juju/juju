@@ -210,7 +210,7 @@ class HUploader:
         :return: None
         """
         latest_build_num = self.jenkins_build.get_latest_build_number()
-        for build_number in xrange(1, latest_build_num + 1):
+        for build_number in range(1, latest_build_num + 1):
             self.jenkins_build.set_build_number(build_number)
             self.upload()
 

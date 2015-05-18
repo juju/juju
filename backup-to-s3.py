@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Backup Jenkins data to S3 and remove old backups."""
 
+from __future__ import print_function
+
 from datetime import datetime
 import re
 
@@ -55,7 +57,7 @@ if __name__ == '__main__':
     today = datetime.now().strftime('%Y-%m-%d')
     todays_url = '%s%s/' % (BACKUP_URL, today)
     if todays_url in all_backups:
-        print "backup for %s already exists." % today
+        print("backup for %s already exists." % today)
     else:
         run_backup(todays_url)
         all_backups.append(todays_url)
