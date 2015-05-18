@@ -27,7 +27,8 @@ var _ = gc.Suite(&workerSuite{})
 
 type workerSuite struct {
 	testing.JujuConnSuite
-	machine *state.Machine
+	machine  *state.Machine
+	machine2 *state.Machine
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
@@ -40,6 +41,12 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.machine = machine
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// this machine will be destroyed after address creation to test the
+	// handling of addresses for machines that have gone.
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine2 = machine2
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createAddresses(c)
@@ -55,17 +62,20 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 1 {
-			// two of the addresses start out Dead
-			err = ipAddr.AllocateTo("dead-machine", "wobble")
-			c.Assert(err, jc.ErrorIsNil)
-			err = ipAddr.EnsureDead()
-			c.Assert(err, jc.ErrorIsNil)
+			err = ipAddr.AllocateTo(s.machine2.Id(), "wobble")
 		} else {
 			err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
 	}
+	// Two of the addresses start out allocated to this
+	// machine which we destroy to test the handling of
+	// addresses allocated to dead machines.
+	err := s.machine2.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine2.Remove()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func dummyListen() chan dummy.Operation {
@@ -177,6 +187,51 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	// The address should have been removed from state.
 	for a := common.ShortAttempt.Start(); a.Next(); {
 		_, err := s.State.IPAddress("0.1.2.3")
+		if errors.IsNotFound(err) {
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("IP address not removed")
+		}
+	}
+}
+
+func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	defer s.assertStop(c, w)
+	s.waitForInitialDead(c)
+	opsChan := dummyListen()
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "really-fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9"), "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr.AllocateTo(machine.Id(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("foo"))
+	s.State.StartSync()
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Life(), gc.Equals, state.Dead)
+
+	// Wait for ReleaseAddress attempt.
+	op := waitForReleaseOp(c, opsChan)
+	c.Assert(op, jc.DeepEquals, makeReleaseOp(9))
+
+	// The address should have been removed from state.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		_, err := s.State.IPAddress("0.1.2.9")
 		if errors.IsNotFound(err) {
 			break
 		}

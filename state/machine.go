@@ -678,6 +678,15 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
+	if err != nil {
+		return err
+	}
+	for _, address := range ipAddresses {
+		logger.Tracef("creating op to set IP addr %q to Dead", address.Value())
+		ops = append(ops, ensureIPAddressDeadOp(address))
+	}
+	logger.Tracef("removing machine %q", m.Id())
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
 	return onAbort(m.st.runTransaction(ops), nil)
