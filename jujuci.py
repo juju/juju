@@ -121,14 +121,34 @@ def retrieve_buildvars(credentials, build_number):
 
 
 def get_buildvars(credentials, build_number, summary=False, env='unknown',
-                   version=False, branch=False, short_branch=False,
-                   revision=False, short_revision=False):
+                  version=False, branch=False, short_branch=False,
+                  revision=False, short_revision=False):
+    """Return requested information as text.
+
+    The 'summary' kwarg returns intelligible information about the build.
+    'env' is included in the summary text. Otherwise, a space-separated
+    string composed of the each True kwarg is returned.
+    """
     buildvars = retrieve_buildvars(credentials, build_number)
-    buildvars['short_revision'] = buildvars['revision_id'][0:7]
+    buildvars['short_revision_id'] = buildvars['revision_id'][0:7]
     buildvars['short_branch'] = buildvars['branch'].split(':')[1]
     buildvars['env'] = env
     if summary:
-        text = 'Testing {branch} {short_revision} on {env}'.format(**buildvars)
+        text = 'Testing {branch} {short_revision_id} on {env}'.format(
+            **buildvars)
+    else:
+        data = []
+        if version:
+            data.append(buildvars['version'])
+        if short_branch:
+            data.append(buildvars['short_branch'])
+        if short_revision:
+            data.append(buildvars['short_revision_id'])
+        if branch:
+            data.append(buildvars['branch'])
+        if revision:
+            data.append(buildvars['revision_id'])
+        text = ' '.join(data)
     return text
 
 
