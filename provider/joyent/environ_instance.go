@@ -85,6 +85,11 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 	return validator, nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
 	if args.InstanceConfig.HasNetworks() {

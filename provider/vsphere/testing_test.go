@@ -25,17 +25,19 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":       "vsphere",
-		"uuid":       "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"datacenter": "/datacenter1",
-		"host":       "host1",
-		"user":       "user1",
-		"password":   "password1",
+		"type":             "vsphere",
+		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"datacenter":       "/datacenter1",
+		"host":             "host1",
+		"user":             "user1",
+		"password":         "password1",
+		"external-network": "",
 	})
 )
 
@@ -57,6 +59,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.setUpHttpProxy(c)
 	s.FakeMetadataServer()
+	osenv.SetJujuHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
@@ -74,7 +77,6 @@ func (s *BaseSuite) setConfig(c *gc.C, cfg *config.Config) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	s.Env.ecfg = s.EnvConfig
-	//s.Prefix = "juju-" + uuid + "-"
 }
 
 func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {

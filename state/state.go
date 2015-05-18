@@ -420,10 +420,11 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if isHigher, err := st.isVersionHigherThanServer(newVersion); err == nil && !st.IsStateServer() && isHigher {
-		return errors.Errorf("a hosted environment cannot have a higher version than the server environment")
-	} else if err != nil {
-		return err
+	if newVersion.Compare(version.Current.Number) > 0 && !st.IsStateServer() {
+		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+			newVersion.String(),
+			version.Current.Number,
+		)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -460,7 +461,6 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{
 					{"$set", bson.D{{"agent-version", newVersion.String()}}},
-					{"$set", bson.D{{"previous-agent-version", currentVersion}}},
 				},
 			},
 		}
@@ -477,23 +477,6 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 	}
 	return errors.Trace(err)
-}
-
-func (st *State) isVersionHigherThanServer(newVersion version.Number) (bool, error) {
-	env, err := st.StateServerEnvironment()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	cfg, err := env.Config()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return false, errors.New("agent version not set in environment config")
-	}
-	// Is the desired version greater than the current API server version?
-	return agentVersion.Compare(newVersion) < 0, nil
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
@@ -1285,6 +1268,9 @@ func (st *State) AddService(
 	}
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if storage == nil {
+		storage = make(map[string]StorageConstraints)
 	}
 	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)

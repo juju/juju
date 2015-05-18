@@ -768,7 +768,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	endPoint, err := c.apiEndpoint("charms", fmt.Sprintf("series=%s", curl.Series))
+	endPoint, err := c.apiEndpoint("charms", "series="+curl.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

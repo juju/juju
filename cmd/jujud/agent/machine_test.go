@@ -25,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -60,6 +61,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -95,7 +97,7 @@ func TestPackage(t *testing.T) {
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
-	fakeEnsureMongo agenttesting.FakeEnsure
+	fakeEnsureMongo *agenttesting.FakeEnsureMongo
 	AgentSuite
 }
 
@@ -133,9 +135,8 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 		return newDummyWorker(), nil
 	})
 
-	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
-	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
+	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -209,16 +210,17 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	agentConf := AgentConf{DataDir: s.DataDir()}
+	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf)
 	return machineAgentFactory(m.Id())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, *AgentConf) {
-		agentConf := AgentConf{DataDir: s.DataDir()}
+	create := func() (cmd.Command, AgentConf) {
+		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
+			nil,
 			MachineAgentFactoryFn(&agentConf, &agentConf),
 			&agentConf,
 			&agentConf,
@@ -261,14 +263,14 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 		{},
 		{"--machine-id", "-4004"},
 	} {
-		var agentConf AgentConf
+		var agentConf agentConf
 		err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, args)
 		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
 	}
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	var agentConf AgentConf
+	var agentConf agentConf
 	a := &machineAgentCmd{agentInitializer: &agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
@@ -279,6 +281,83 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+type FakeConfig struct {
+	agent.Config
+}
+
+func (FakeConfig) LogDir() string {
+	return filepath.FromSlash("/var/log/juju/")
+}
+
+func (FakeConfig) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+type FakeAgentConfig struct {
+	AgentConfigWriter
+	apiaddressupdater.APIAddressSetter
+	AgentInitializer
+}
+
+func (FakeAgentConfig) ReadConfig(string) error { return nil }
+
+func (FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{}
+}
+
+func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	agentConf := FakeAgentConfig{}
+
+	a := NewMachineAgentCmd(
+		ctx,
+		MachineAgentFactoryFn(agentConf, agentConf),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	l, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(l.MaxAge, gc.Equals, 0)
+	c.Check(l.MaxBackups, gc.Equals, 2)
+	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
+	c.Check(l.MaxSize, gc.Equals, 300)
+}
+
+func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	agentConf := FakeAgentConfig{}
+
+	a := NewMachineAgentCmd(
+		ctx,
+		MachineAgentFactoryFn(agentConf, agentConf),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	// set the value that normally gets set by the flag parsing
+	a.(*machineAgentCmd).logToStdErr = true
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	_, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *MachineSuite) TestRunStop(c *gc.C) {
@@ -419,7 +498,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
 	addrs := network.NewAddresses("0.1.2.3")
-	err := machine.SetAddresses(addrs...)
+	err := machine.SetProviderAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
@@ -1483,6 +1562,9 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.fakeEnsureMongo.ServiceInstalled = true
+	s.fakeEnsureMongo.ReplicasetInitiated = false
+
 	s.AgentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
 		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1593,6 +1675,61 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	r1 := s.singularRecord.nextRunner(c)
 	workers = r1.waitForWorker(c, "firewaller")
 	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+}
+
+func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("state servers on windows aren't supported")
+	}
+
+	s.fakeEnsureMongo.ReplicasetInitiated = false
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
+}
+
+func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("state servers on windows aren't supported")
+	}
+
+	s.fakeEnsureMongo.ReplicasetInitiated = true
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+}
+
+func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("state servers on windows aren't supported")
+	}
+
+	s.fakeEnsureMongo.ServiceInstalled = false
+	s.fakeEnsureMongo.ReplicasetInitiated = true
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

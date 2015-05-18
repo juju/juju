@@ -478,15 +478,36 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
+	storageOps, err := st.machineStorageOps(mdoc, &machineStorageParams{
+		filesystems:           template.Filesystems,
+		filesystemAttachments: template.FilesystemAttachments,
+		volumes:               template.Volumes,
+		volumeAttachments:     template.VolumeAttachments,
+	})
+	if err != nil {
+		return nil, txn.Op{}, errors.Trace(err)
+	}
+	prereqOps = append(prereqOps, storageOps...)
+	return prereqOps, machineOp, nil
+}
+
+type machineStorageParams struct {
+	volumes               []MachineVolumeParams
+	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
+	filesystems           []MachineFilesystemParams
+	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
+}
+
+func (st *State) machineStorageOps(mdoc *machineDoc, args *machineStorageParams) ([]txn.Op, error) {
 	var filesystemOps, volumeOps []txn.Op
 	var fsAttachments []filesystemAttachmentTemplate
 	var volumeAttachments []volumeAttachmentTemplate
 
 	// Create filesystems and filesystem attachments.
-	for _, f := range template.Filesystems {
+	for _, f := range args.filesystems {
 		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
 		if err != nil {
-			return nil, txn.Op{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		filesystemOps = append(filesystemOps, ops...)
 		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
@@ -500,10 +521,10 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	// Create volumes and volume attachments.
-	for _, v := range template.Volumes {
+	for _, v := range args.volumes {
 		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
 		if err != nil {
-			return nil, txn.Op{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		volumeOps = append(volumeOps, op)
 		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
@@ -511,18 +532,21 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		})
 	}
 
+	// TODO(axw) handle args.filesystemAttachments, args.volumeAttachments
+	// when we handle attaching to existing (e.g. shared) storage.
+
+	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
 	if len(fsAttachments) > 0 {
 		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
-		prereqOps = append(prereqOps, filesystemOps...)
-		prereqOps = append(prereqOps, attachmentOps...)
+		ops = append(ops, filesystemOps...)
+		ops = append(ops, attachmentOps...)
 	}
 	if len(volumeAttachments) > 0 {
 		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
-		prereqOps = append(prereqOps, volumeOps...)
-		prereqOps = append(prereqOps, attachmentOps...)
+		ops = append(ops, volumeOps...)
+		ops = append(ops, attachmentOps...)
 	}
-
-	return prereqOps, machineOp, nil
+	return ops, nil
 }
 
 func hasJob(jobs []MachineJob, job MachineJob) bool {

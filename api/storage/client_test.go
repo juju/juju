@@ -390,3 +390,87 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 	_, err := storageClient.ListVolumes(nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
+
+func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
+	size := uint64(42)
+	cons := params.StorageConstraints{
+		Pool: "value",
+		Size: &size,
+	}
+
+	errOut := "error"
+	unitStorages := []params.StorageAddParams{
+		params.StorageAddParams{UnitTag: "u-a", StorageName: "one", Constraints: cons},
+		params.StorageAddParams{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
+		params.StorageAddParams{UnitTag: "u-b", StorageName: "nil-constraints"},
+	}
+
+	storageN := 3
+	expectedError := common.ServerError(errors.NotValidf("storage directive"))
+	one := func(u, s string, attrs params.StorageConstraints) params.ErrorResult {
+		result := params.ErrorResult{}
+		if s == errOut {
+			result.Error = expectedError
+		}
+		return result
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddToUnit")
+
+			args, ok := a.(params.StoragesAddParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Storages, gc.HasLen, storageN)
+			c.Assert(args.Storages, gc.DeepEquals, unitStorages)
+
+			if results, k := result.(*params.ErrorResults); k {
+				out := []params.ErrorResult{}
+				for _, s := range args.Storages {
+					out = append(out, one(s.UnitTag, s.StorageName, s.Constraints))
+				}
+				results.Results = out
+			}
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	r, err := storageClient.AddToUnit(unitStorages)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.HasLen, storageN)
+	expected := []params.ErrorResult{
+		{nil},
+		{expectedError},
+		{nil},
+	}
+	c.Assert(r, jc.SameContents, expected)
+}
+
+func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
+	unitStorages := []params.StorageAddParams{
+		params.StorageAddParams{UnitTag: "u-a", StorageName: "one"},
+	}
+
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddToUnit")
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.AddToUnit(unitStorages)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.HasLen, 0)
+}

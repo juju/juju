@@ -17,10 +17,11 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgDatacenter = "datacenter"
-	cfgHost       = "host"
-	cfgUser       = "user"
-	cfgPassword   = "password"
+	cfgDatacenter      = "datacenter"
+	cfgHost            = "host"
+	cfgUser            = "user"
+	cfgPassword        = "password"
+	cfgExternalNetwork = "external-network"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -29,26 +30,41 @@ var boilerplateConfig = `
 vmware:
   type: vsphere
 
-  # Vsphere API host or DNS name
+  # IP address or DNS name of vsphere API host.
   host:
 
-  # Vsphere API user credentials
+  # Vsphere API user credentials.
   user:
   password:
 
-  # Vsphere datacenter
+  # Name of vsphere datacenter.
   datacenter:
+
+  # Name of the network, that all created vms will use ot obtain public ip address. 
+  # This network should have ip pool configured or DHCP server connected to it.
+  # This parameter is optional. 
+  extenal-network:
 `[1:]
 
 // configFields is the spec for each vmware config value's type.
 var configFields = schema.Fields{
-	cfgHost:       schema.String(),
-	cfgUser:       schema.String(),
-	cfgPassword:   schema.String(),
-	cfgDatacenter: schema.String(),
+	cfgHost:            schema.String(),
+	cfgUser:            schema.String(),
+	cfgPassword:        schema.String(),
+	cfgDatacenter:      schema.String(),
+	cfgExternalNetwork: schema.String(),
 }
 
-var configDefaults = schema.Defaults{}
+var requiredFields = []string{
+	cfgHost,
+	cfgUser,
+	cfgPassword,
+	cfgDatacenter,
+}
+
+var configDefaults = schema.Defaults{
+	cfgExternalNetwork: "",
+}
 
 var configSecretFields = []string{
 	cfgPassword,
@@ -118,6 +134,10 @@ func (c *environConfig) password() string {
 	return c.attrs[cfgPassword].(string)
 }
 
+func (c *environConfig) externalNetwork() string {
+	return c.attrs[cfgExternalNetwork].(string)
+}
+
 func (c *environConfig) url() (*url.URL, error) {
 	return url.Parse(fmt.Sprintf("https://%s:%s@%s/sdk", c.user(), c.password(), c.host()))
 }
@@ -134,7 +154,7 @@ func (c *environConfig) secret() map[string]string {
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
-	for field := range configFields {
+	for _, field := range requiredFields {
 		if c.attrs[field].(string) == "" {
 			return errors.Errorf("%s: must not be empty", field)
 		}

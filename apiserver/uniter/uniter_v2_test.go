@@ -81,13 +81,9 @@ func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 
 	attachments, err := uniter.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attachments, gc.DeepEquals, []params.StorageAttachment{{
+	c.Assert(attachments, gc.DeepEquals, []params.StorageAttachmentId{{
 		StorageTag: "storage-data-0",
-		OwnerTag:   unit.Tag().String(),
 		UnitTag:    unit.Tag().String(),
-		Kind:       params.StorageKindBlock,
-		Location:   "/dev/xvdf1",
-		Life:       "alive",
 	}})
 }
 

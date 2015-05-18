@@ -27,24 +27,36 @@ const (
 
 // Config defines the configuration for a storage source.
 type Config struct {
-	name     string
-	provider ProviderType
-	attrs    map[string]interface{}
+	name       string
+	provider   ProviderType
+	attrs      map[string]interface{}
+	persistent bool
 }
+
+var fields = schema.Fields{
+	Persistent: schema.Bool(),
+}
+
+var configChecker = schema.FieldMap(
+	fields,
+	schema.Defaults{
+		Persistent: false,
+	},
+)
 
 // NewConfig creates a new Config for instantiating a storage source.
 func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
-	// TODO(axw) validate attributes.
-	// TODO(wallyworld) use config schema
-	checker := schema.Bool()
-	if _, ok := attrs[Persistent]; ok {
-		persistent, err := checker.Coerce(attrs[Persistent], nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid value for pool attribute %q", Persistent)
-		}
-		attrs[Persistent] = persistent
+	out, err := configChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating common storage config")
 	}
-	return &Config{name, provider, attrs}, nil
+	coerced := out.(map[string]interface{})
+	return &Config{
+		name:       name,
+		provider:   provider,
+		attrs:      attrs,
+		persistent: coerced[Persistent].(bool),
+	}, nil
 }
 
 // Name returns the name of a storage source. This is not necessarily unique,
@@ -59,11 +71,11 @@ func (c *Config) Provider() ProviderType {
 }
 
 // Attrs returns the configuration attributes for a storage source.
-func (c *Config) Attrs() (attrs map[string]interface{}) {
+func (c *Config) Attrs() map[string]interface{} {
 	if c.attrs == nil {
-		return attrs
+		return nil
 	}
-	attrs = make(map[string]interface{})
+	attrs := make(map[string]interface{})
 	for k, v := range c.attrs {
 		attrs[k] = v
 	}
@@ -78,6 +90,5 @@ func (c *Config) ValueString(name string) (string, bool) {
 
 // IsPersistent returns true if config has persistent set to true.
 func (c *Config) IsPersistent() bool {
-	v, _ := c.attrs[Persistent].(bool)
-	return v
+	return c.persistent
 }

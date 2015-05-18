@@ -843,10 +843,27 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 }
 
 // PrepareContainerInterfaceInfo allocates an address and returns
-// information for configuring networking on a container. It accepts
+// information to configure networking for a container. It accepts
 // container tags as arguments. If the address allocation feature flag
 // is not enabled, it returns a NotSupported error.
-func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
+	params.MachineNetworkConfigResults, error) {
+	return p.prepareOrGetContainerInterfaceInfo(args, true)
+}
+
+// GetContainerInterfaceInfo returns information to configure networking
+// for a container. It accepts container tags as arguments. If the address
+// allocation feature flag is not enabled, it returns a NotSupported error.
+func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
+	params.MachineNetworkConfigResults, error) {
+	return p.prepareOrGetContainerInterfaceInfo(args, false)
+}
+
+// prepareOrGetContainerInterfaceInfo optionally allocates an address and returns information
+// for configuring networking on a container. It accepts container tags as arguments.
+func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
+	args params.Entities, provisionContainer bool) (
+	params.MachineNetworkConfigResults, error) {
 	result := params.MachineNetworkConfigResults{
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
@@ -872,6 +889,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	if err != nil {
 		return result, errors.Annotate(err, "cannot allocate addresses")
 	}
+
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
@@ -891,7 +909,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 			err = errors.Errorf("cannot allocate address for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		} else if ciid, cerr := container.InstanceId(); cerr == nil {
+		} else if ciid, cerr := container.InstanceId(); provisionContainer == true && cerr == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
@@ -904,12 +922,33 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 			continue
 		}
 
-		// Allocate and set address.
-		addr, err := p.allocateAddress(environ, subnet, host, container, instId)
-		if err != nil {
-			err = errors.Annotatef(err, "failed to allocate an address for %q", container)
-			result.Results[i].Error = common.ServerError(err)
-			continue
+		var addresses []*state.IPAddress
+		if provisionContainer {
+			// Allocate and set address.
+			addr, err := p.allocateAddress(environ, subnet, host, container, instId)
+			addresses = append(addresses, addr)
+			if err != nil {
+				err = errors.Annotatef(err, "failed to allocate an address for %q", container)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		} else {
+			id := container.Id()
+			addresses, err = p.st.AllocatedIPAddresses(id)
+			if err != nil {
+				logger.Warningf("failed to get Id for container %q: %v", tag, err)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			// TODO(dooferlad): if we get more than 1 address back, we ignore everything after
+			// the first. The calling function expects exactly one result though,
+			// so we don't appear to have a way of allocating >1 address to a
+			// container...
+			if len(addresses) != 1 {
+				logger.Warningf("got %d addresses for container %q - expected 1: %v", len(addresses), tag, err)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
 		}
 		// Store it on the machine, construct and set an interface result.
 		dnsServers := make([]string, len(interfaceInfo.DNSServers))
@@ -933,7 +972,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 				NoAutoStart:      interfaceInfo.NoAutoStart,
 				DNSServers:       dnsServers,
 				ConfigType:       string(network.ConfigStatic),
-				Address:          addr.Value(),
+				Address:          addresses[0].Value(),
 				// container's gateway is the host's primary NIC's IP.
 				GatewayAddress: interfaceInfo.Address.Value,
 				ExtraConfig:    interfaceInfo.ExtraConfig,
@@ -1074,7 +1113,7 @@ var (
 		return a.AllocateTo(m.Id(), "")
 	}
 	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
-		return m.SetAddresses(a.Address())
+		return m.SetProviderAddresses(a.Address())
 	}
 	setAddrState = func(a *state.IPAddress, st state.AddressState) error {
 		return a.SetState(st)

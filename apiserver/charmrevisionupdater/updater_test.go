@@ -122,6 +122,31 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
+	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.SetupScenario(c)
+
+	// Disallow read access to the wordpress charm in the charm store.
+	err := s.Server.NewClient().Put("/quantal/wordpress/meta/perm/read", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Run the revision updater and check that the public charm updates are
+	// still properly notified.
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	curl := charm.MustParseURL("cs:quantal/mysql")
+	pending, err := s.State.LatestPlaceholderCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
+
+	// No pending charm for wordpress.
+	curl = charm.MustParseURL("cs:quantal/wordpress")
+	_, err = s.State.LatestPlaceholderCharm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageEnviron)
 	s.SetupScenario(c)

@@ -172,11 +172,11 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	}
 	err = checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	err = checkLocalPort(cfg.APIPort(), "API port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return p.Open(cfg)
@@ -255,13 +255,12 @@ var checkLocalPort = func(port int, description string) error {
 	// TODO(mue) Add a timeout?
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
-		if nerr, ok := err.(*net.OpError); ok {
-			if nerr.Err == syscall.ECONNREFUSED {
-				// No connection, so everything is fine.
-				return nil
-			}
+		if isConnectionRefused(err) {
+			// we're expecting to get conn refused
+			return nil
 		}
-		return err
+		// some other error happened
+		return errors.Trace(err)
 	}
 	// Connected, so port is in use.
 	err = conn.Close()
@@ -269,6 +268,21 @@ var checkLocalPort = func(port int, description string) error {
 		return err
 	}
 	return errors.Errorf("cannot use %d as %s, already in use", port, description)
+}
+
+// isConnectionRefused indicates if the err was caused by a refused connection.
+func isConnectionRefused(err error) bool {
+	if err, ok := err.(*net.OpError); ok {
+		// go 1.4 and earlier
+		if err.Err == syscall.ECONNREFUSED {
+			return true
+		}
+		// go 1.5 and later
+		if err, ok := err.Err.(*os.SyscallError); ok {
+			return err.Err == syscall.ECONNREFUSED
+		}
+	}
+	return false
 }
 
 // Validate implements environs.EnvironProvider.Validate.

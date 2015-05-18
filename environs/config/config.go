@@ -560,14 +560,6 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Check that the previous agent version parses ok if set explicitly; otherwise leave
-	// it alone.
-	if v, ok := cfg.defined["previous-agent-version"].(string); ok {
-		if _, err := version.Parse(v); err != nil {
-			return fmt.Errorf("invalid previous agent version in environment configuration: %q", v)
-		}
-	}
-
 	// If the logging config is set, make sure it is valid.
 	if v, ok := cfg.defined["logging-config"].(string); ok {
 		if _, err := loggo.ParseConfigurationString(v); err != nil {
@@ -624,14 +616,7 @@ func Validate(cfg, old *Config) error {
 				return fmt.Errorf("cannot clear agent-version")
 			}
 		}
-
-		if _, oldFound := old.PreviousAgentVersion(); oldFound {
-			if _, newFound := cfg.PreviousAgentVersion(); !newFound {
-				return fmt.Errorf("cannot clear previous-agent-version")
-			}
-		}
 	}
-
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
@@ -994,20 +979,6 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 	return version.Zero, false
 }
 
-// PreviousAgentVersion returns the version number for the agent tools before
-// the last upgrade, and whether it has been set. The value is set during an
-// upgrade and thus will not be set if the environment has not had an upgrade.
-func (c *Config) PreviousAgentVersion() (version.Number, bool) {
-	if v, ok := c.defined["previous-agent-version"].(string); ok {
-		n, err := version.Parse(v)
-		if err != nil {
-			panic(err) // We should have checked it earlier.
-		}
-		return n, true
-	}
-	return version.Zero, false
-}
-
 // AgentMetadataURL returns the URL that locates the agent tarballs and metadata,
 // and whether it has been set.
 func (c *Config) AgentMetadataURL() (string, bool) {
@@ -1201,7 +1172,6 @@ var fields = schema.Fields{
 	"authorized-keys-path":       schema.String(),
 	"firewall-mode":              schema.String(),
 	"agent-version":              schema.String(),
-	"previous-agent-version":     schema.String(),
 	"development":                schema.Bool(),
 	"admin-secret":               schema.String(),
 	"ca-cert":                    schema.String(),
@@ -1259,7 +1229,6 @@ var fields = schema.Fields{
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
 	"agent-version":              schema.Omit,
-	"previous-agent-version":     schema.Omit,
 	"ca-cert":                    schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,

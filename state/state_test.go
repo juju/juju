@@ -590,7 +590,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(network.Address{
+		err := m.SetProviderAddresses(network.Address{
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 			Value: fmt.Sprintf("10.0.0.%d", i),
@@ -3550,28 +3550,29 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
-	assertAgentVersion(c, s.State, "1.2.3")
-	assertAgentVersion(c, otherSt, "1.2.3")
 
-	// Change the server agent-version, other environ should remain unchanged
-	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, "1.2.3")
+	higher := version.Current
+	higher.Patch++
+	lower := version.Current
+	lower.Patch--
 
 	// Set other environ version to < server envrion version
-	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.5"))
+	err := otherSt.SetEnvironAgentVersion(lower.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, "4.5.5")
+	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server envrion version
-	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, "4.5.6")
+	assertAgentVersion(c, otherSt, version.Current.Number.String())
 
-	// Wet other environ version to > server envrion version
-	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.7"))
-	c.Assert(err, gc.ErrorMatches, "a hosted environment cannot have a higher version than the server environment")
-	assertAgentVersion(c, otherSt, "4.5.6")
+	// Set other environ version to > server envrion version
+	err = otherSt.SetEnvironAgentVersion(higher.Number)
+	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+		higher.Number.String(),
+		version.Current.Number.String(),
+	)
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
@@ -4319,7 +4320,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

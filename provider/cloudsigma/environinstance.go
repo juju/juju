@@ -39,6 +39,11 @@ var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*
 	return matchingImages[0], nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance asks for a new instance to be created, associated with
 // the provided config in machineConfig. The given config describes the juju
 // state for the new instance to connect to. The config MachineNonce, which must be

@@ -730,7 +730,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
+func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -740,7 +740,7 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 	}
 	// authModeCfg has already been validated so we know it's one of the values below.
 	var authMode identity.AuthMode
-	switch authModeCfg {
+	switch AuthMode(ecfg.authMode()) {
 	case AuthLegacy:
 		authMode = identity.AuthLegacy
 	case AuthUserPass:
@@ -780,13 +780,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	// At this point, the authentication method config value has been validated so we extract it's value here
 	// to avoid having to validate again each time when creating the OpenStack client.
-	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
-	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	e.client = e.authClient(ecfg, authModeCfg)
+	e.client = authClient(ecfg)
 
 	e.novaUnlocked = nova.New(e.client)
 
@@ -936,6 +934,11 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
+
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {

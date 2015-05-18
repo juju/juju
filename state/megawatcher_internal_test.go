@@ -171,7 +171,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(network.NewAddress("example.com"))
+	err = m.SetProviderAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
 		Id:                      "0",
@@ -1300,7 +1300,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
-			err = m.SetAddresses(publicAddress, privateAddress)
+			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1595,7 +1595,7 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 			// Add a network to the machine and open a port.
 			publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
 			privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
-			err = m.SetAddresses(publicAddress, privateAddress)
+			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			if flag&assignUnit != 0 {
@@ -1752,13 +1752,18 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
 	privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
-	err = m.SetAddresses(publicAddress, privateAddress)
+	err = m.SetProviderAddresses(publicAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMachineAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.OpenPorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	// Create all watcher state backing.
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
+	all.Update(&multiwatcher.MachineInfo{
+		Id: "0",
+	})
 	// Check opened ports.
 	err = b.Changed(all, watcher.Change{
 		C:  "units",
@@ -1788,13 +1793,16 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 				Data:    map[string]interface{}{},
 			},
 		},
+		&multiwatcher.MachineInfo{
+			Id: "0",
+		},
 	})
 	// Close the ports.
 	err = u.ClosePorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  openedPortsC,
-		Id: s.state.docID("wordpress/0"),
+		Id: s.state.docID("m#0#n#juju-public"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
@@ -1819,14 +1827,10 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 				Data:    map[string]interface{}{},
 			},
 		},
+		&multiwatcher.MachineInfo{
+			Id: "0",
+		},
 	})
-	// Try closing and updating with an invalid unit.
-	c.Assert(func() {
-		b.Changed(all, watcher.Change{
-			C:  openedPortsC,
-			Id: s.state.docID("unknown/42"),
-		})
-	}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
 }
 
 // TestSettings tests the correct reporting of unset service settings.

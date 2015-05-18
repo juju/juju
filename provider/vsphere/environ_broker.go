@@ -30,6 +30,11 @@ func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	env = env.getSnapshot()
@@ -66,7 +71,7 @@ var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvfFileMetadata) error {
+func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvaFileMetadata) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
 	if err != nil {
 		return err
@@ -79,7 +84,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
@@ -87,6 +92,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 		return nil, nil, errors.Trace(err)
 	}
 	cloudcfg.AddPackage("open-vm-tools")
+	cloudcfg.AddPackage("iptables-persistent")
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
@@ -133,7 +139,21 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
 			continue
 		}
-		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
+		apiPort := 0
+		if isStateServer(args.InstanceConfig) {
+			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		}
+		spec := &instanceSpec{
+			machineID: machineID,
+			zone:      availZone,
+			hwc:       hwc,
+			img:       img,
+			userData:  userData,
+			sshKey:    args.InstanceConfig.AuthorizedKeys,
+			isState:   isStateServer(args.InstanceConfig),
+			apiPort:   apiPort,
+		}
+		inst, err = env.client.CreateInstance(env.ecfg, spec)
 		if err != nil {
 			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
 			continue

@@ -619,15 +619,15 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
+		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      unitsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -674,9 +674,10 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 		return nil, -1, err
 	}
 	meta := charm.Meta()
+	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
+	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, url, cons)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
@@ -735,16 +736,17 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
-	ops = append(ops, txn.Op{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: append(observedFieldsMatch, asserts...),
-		Remove: true,
-	},
-		removeConstraintsOp(s.st, u.globalAgentKey()),
+	ops = append(ops,
+		txn.Op{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: append(observedFieldsMatch, asserts...),
+			Remove: true,
+		},
+		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
 		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
-		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
@@ -1044,10 +1046,11 @@ type settingsRefsDoc struct {
 func (s *Service) Status() (StatusInfo, error) {
 	doc, err := getStatus(s.st, s.globalKey())
 	if errors.IsNotFound(err) {
+		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
 		return s.deriveStatus()
 	}
 	if err != nil {
-		return StatusInfo{}, err
+		return StatusInfo{}, errors.Annotatef(err, "reading status for %q", s.Name())
 	}
 	return StatusInfo{
 		Status:  doc.Status,
@@ -1062,12 +1065,13 @@ func (s *Service) deriveStatus() (StatusInfo, error) {
 	if err != nil {
 		return StatusInfo{}, err
 	}
+	logger.Tracef("service %q has %d units", s.Name(), len(units))
 	var result StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, err
+			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
 		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
