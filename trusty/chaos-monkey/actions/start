@@ -21,12 +21,12 @@ action-set action-parameters.total-timeout="${total_timeout}"
 # Create a unique directory to run and log this monkeys actions.
 target_dir=${chaos_dir}/chaos_monkey.${JUJU_ACTION_TAG#action-}
 mkdir -p ${target_dir}/log
-if [[ -d ${CHARM_DIR}/juju-chaos-monkey ]]; then
-    cp -a ${CHARM_DIR}/juju-chaos-monkey ${target_dir}
+if [[ -d ${CHARM_DIR}/chaos-monkey ]]; then
+    cp -a ${CHARM_DIR}/chaos-monkey ${target_dir}
 fi
 
 # Run the Chaos Monkey
-cmd="python ${target_dir}/juju-chaos-monkey/runner.py"
+cmd="python ${target_dir}/chaos-monkey/runner.py"
 cmd+=" ${target_dir}"
 if [[ -n ${exclude_command:-} ]]; then
     cmd+=" --exclude-command ${exclude_command}"

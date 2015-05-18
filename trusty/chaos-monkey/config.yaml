@@ -1,8 +1,8 @@
 options:
   chaos-dir:
     type: string
-    default: /home/ubuntu/juju-chaos-monkey
-    description: The juju-chaos-monkey project directory.
+    default: /home/ubuntu/chaos-monkey
+    description: The chaos-monkey project directory.
   dry-run:
     type: boolean
     default: false

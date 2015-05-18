@@ -2,4 +2,4 @@
 
 apt-get update
 apt-get install -y python bzr
-${CHARM_DIR}/hooks/extract_juju_chaos_monkey.bash
+${CHARM_DIR}/hooks/extract_chaos_monkey.bash
