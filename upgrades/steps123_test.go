@@ -25,6 +25,7 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 		"insert userenvnameC doc for each environment",
 		"add name field to users and lowercase _id field",
 		"add life field to IP addresses",
+		"add instance id field to IP addresses",
 		"lower case _id of envUsers",
 		"add leadership settings documents for all services",
 	}
