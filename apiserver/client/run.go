@@ -87,6 +87,11 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
 	}
+
+	if len(run.Machines) == 0 && len(run.Services) == 0 && len(run.Units) == 0 {
+		return params.RunResults{}, errors.Errorf("you must specify a target - either machines, services or units")
+	}
+
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
 		return results, err

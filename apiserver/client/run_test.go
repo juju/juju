@@ -317,6 +317,18 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
+func (s *runSuite) TestRunMachineAndServiceNoTarget(c *gc.C) {
+	client := s.APIState.Client()
+	results, err := client.Run(
+		params.RunParams{
+			Commands: "hostname",
+			Timeout:  testing.LongWait,
+		})
+
+	c.Assert(err, gc.NotNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
 func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 	// Make three machines.
 	s.addMachineWithAddress(c, "10.3.2.1")
