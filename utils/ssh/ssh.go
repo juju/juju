@@ -10,55 +10,13 @@ package ssh
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 	"syscall"
 
 	"github.com/juju/cmd"
 	je "github.com/juju/errors"
 )
-
-type SSHError struct {
-	error
-	Output string
-}
-
-func (sshe SSHError) Error() string {
-	// TODO(ericsnow) Include the exit code?
-	output := strings.TrimSpace(sshe.Output)
-	return fmt.Sprintf("SSH command failed: %s", output)
-}
-
-type ConnectionRefusedError struct {
-	SSHError
-}
-
-type TooManyAuthFailuresError struct {
-	SSHError
-}
-
-func WrapError(err error, rawOutput []byte) error {
-	if err == nil {
-		return nil
-	}
-	output := string(rawOutput)
-	sshErr := SSHError{
-		error:  err,
-		Output: output,
-	}
-	if len(rawOutput) == 0 {
-		return &sshErr
-	}
-	if strings.Contains(output, "Connection refused") {
-		return &ConnectionRefusedError{sshErr}
-	}
-	if strings.Contains(output, "Too many authentication failures") {
-		return &TooManyAuthFailuresError{sshErr}
-	}
-	return &sshErr
-}
 
 // Options is a client-implementation independent SSH options set.
 type Options struct {
@@ -78,8 +36,6 @@ type Options struct {
 	// knownHostsFile is a path to a file in which to save the host's
 	// fingerprint.
 	knownHostsFile string
-	// verbosity is the level of verbosity to use relative to the default.
-	verbosity int
 }
 
 // SetProxyCommand sets a command to execute to proxy traffic through.
@@ -121,11 +77,6 @@ func (o *Options) AllowPasswordAuthentication() {
 // specified here.
 func (o *Options) SetIdentities(identityFiles ...string) {
 	o.identities = append([]string{}, identityFiles...)
-}
-
-// SetVerbosity sets the verbosity level to use, relative to the default.
-func (o *Options) SetVerbosity(verbosity int) {
-	o.verbosity = verbosity
 }
 
 // Client is an interface for SSH clients to implement
