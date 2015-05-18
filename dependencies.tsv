@@ -28,7 +28,7 @@ github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-04-
 github.com/juju/schema	git	1c4e902df91bd058b84029533bf4ce92e6ef87ab	2015-03-30T01:12:23Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	a3720f880a5787622a21fbf718a3ac9d551dbe9c	2015-04-10T20:58:11Z
-github.com/juju/txn	git	2407a1fa094db5603f4718f11e1fafc8543273eb	2015-03-27T20:47:42Z
+github.com/juju/txn	git	5c38fee875d088643ebe2074f308d79680578ba7	2015-05-21T12:30:32Z
 github.com/juju/utils	git	4a0d9395ff427578c988ffc7709a17dd4608231e	2015-05-08T17:09:17Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
