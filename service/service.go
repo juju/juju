@@ -176,12 +176,10 @@ func listServicesCommand(initSystem string) (string, bool) {
 }
 
 // InstallServicesCommand composes the list of shell commands that install
-// and start the given service.
+// and start the given service on the given operating system.
 func InstallServiceCommands(name string, conf common.Conf, os string) ([]string, error) {
-	start := true
-
 	if os == "windows" {
-		cmds, err := installCommands(name, conf, InitSystemWindows, start)
+		cmds, err := installCommands(name, conf, InitSystemWindows)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -190,7 +188,7 @@ func InstallServiceCommands(name string, conf common.Conf, os string) ([]string,
 
 	candidates := make(map[string]string)
 	for _, initSystem := range linuxInitSystems {
-		cmds, err := installCommands(name, conf, initSystem, start)
+		cmds, err := installCommands(name, conf, initSystem)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -211,7 +209,7 @@ func InstallServiceCommands(name string, conf common.Conf, os string) ([]string,
 	return cmds, nil
 }
 
-func installCommands(name string, conf common.Conf, initSystem string, start bool) ([]string, error) {
+func installCommands(name string, conf common.Conf, initSystem string) ([]string, error) {
 	svc, err := NewService(name, conf, initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -221,9 +219,7 @@ func installCommands(name string, conf common.Conf, initSystem string, start boo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !start {
-		return cmds, nil
-	}
+	// Return here if we want to only install (i.e. skip starting).
 
 	startCmds, err := svc.StartCommands()
 	if err != nil {
