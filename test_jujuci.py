@@ -28,6 +28,7 @@ from jujuci import (
     JENKINS_URL,
     list_artifacts,
     PackageNamer,
+    parse_args,
     PUBLISH_REVISION,
     main,
     retrieve_artifact,
@@ -35,6 +36,7 @@ from jujuci import (
 )
 import jujupy
 from utility import temp_dir
+from test_utility import parse_error
 
 
 def make_build_data(number='lastSuccessfulBuild'):
@@ -169,6 +171,12 @@ class JujuCITestCase(TestCase):
         self.assertTrue(kwargs['short_branch'])
         self.assertTrue(kwargs['branch'])
         self.assertTrue(kwargs['revision'])
+
+    def test_parse_arg_buildvars_error(self):
+        with parse_error(self) as stderr:
+            parse_args(['get-build-vars', '1234'])
+        self.assertIn(
+            'Expected --summary or one or more of:', stderr.getvalue())
 
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
