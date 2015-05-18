@@ -78,6 +78,8 @@ type Options struct {
 	// knownHostsFile is a path to a file in which to save the host's
 	// fingerprint.
 	knownHostsFile string
+	// verbosity is the level of verbosity to use relative to the default.
+	verbosity int
 }
 
 // SetProxyCommand sets a command to execute to proxy traffic through.
@@ -119,6 +121,11 @@ func (o *Options) AllowPasswordAuthentication() {
 // specified here.
 func (o *Options) SetIdentities(identityFiles ...string) {
 	o.identities = append([]string{}, identityFiles...)
+}
+
+// SetVerbosity sets the verbosity level to use, relative to the default.
+func (o *Options) SetVerbosity(verbosity int) {
+	o.verbosity = verbosity
 }
 
 // Client is an interface for SSH clients to implement
