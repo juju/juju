@@ -15,10 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
+	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"

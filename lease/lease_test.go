@@ -4,10 +4,11 @@
 package lease
 
 import (
-	coretesting "github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 	"testing"
 	"time"
+
+	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }

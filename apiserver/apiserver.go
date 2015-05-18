@@ -14,11 +14,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
