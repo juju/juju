@@ -10,13 +10,55 @@ package ssh
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/juju/cmd"
 	je "github.com/juju/errors"
 )
+
+type SSHError struct {
+	error
+	Output string
+}
+
+func (sshe SSHError) Error() string {
+	// TODO(ericsnow) Include the exit code?
+	output := strings.TrimSpace(sshe.Output)
+	return fmt.Sprintf("SSH command failed: %s", output)
+}
+
+type ConnectionRefusedError struct {
+	SSHError
+}
+
+type TooManyAuthFailuresError struct {
+	SSHError
+}
+
+func WrapError(err error, rawOutput []byte) error {
+	if err == nil {
+		return nil
+	}
+	output := string(rawOutput)
+	sshErr := SSHError{
+		error:  err,
+		Output: output,
+	}
+	if len(rawOutput) == 0 {
+		return &sshErr
+	}
+	if strings.Contains(output, "Connection refused") {
+		return &ConnectionRefusedError{sshErr}
+	}
+	if strings.Contains(output, "Too many authentication failures") {
+		return &TooManyAuthFailuresError{sshErr}
+	}
+	return &sshErr
+}
 
 // Options is a client-implementation independent SSH options set.
 type Options struct {
