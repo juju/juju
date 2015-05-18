@@ -117,6 +117,9 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 			args = append(args, "-p", port)
 		}
 	}
+	if options.verbosity > 0 {
+		args = append(args, "-v")
+	}
 	return args
 }
 
