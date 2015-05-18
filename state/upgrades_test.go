@@ -2493,15 +2493,17 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = AddLifeFieldOfIPAddresses(s.state)
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	err = AddLifeFieldOfIPAddresses(s.state)
+	before, err := s.state.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 
-	doc := ipaddressDoc{}
-	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doc.Life, gc.Equals, Alive)
+	after, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(after, jc.DeepEquals, before)
 }
 
 func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
