@@ -402,7 +402,7 @@ func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
 
 	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3", network.ScopeUnknown), "bar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr3.AllocateTo("bam", "bar")
+	err = addr3.AllocateTo(s.machine0.Id(), "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4", network.ScopeUnknown), "foo")
