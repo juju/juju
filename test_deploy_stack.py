@@ -771,7 +771,7 @@ class TestBootContext(TestCase):
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
-                           None, keep_env=False, upload_tools=False):
+                          None, keep_env=False, upload_tools=False):
             pass
         ue_mock.assert_called_with(
             client.env, 'bar', series='wacky', bootstrap_host=None,

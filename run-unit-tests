@@ -181,6 +181,7 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     set -eux
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
+    sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     rm -rf /home/ubuntu/$juju_version
     rm -rf /tmp/adduser-*
     rm -rf /tmp/go-*
