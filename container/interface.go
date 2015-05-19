@@ -18,6 +18,12 @@ const (
 	// supports networking.
 	ConfigIPForwarding = "ip-forwarding"
 
+	// ConfigLXCDefaultMTU, if set to a positive integer (serialized
+	// as a string), will cause all network interfaces on all created
+	// LXC containers (not KVM instances) to use the given MTU
+	// setting.
+	ConfigLXCDefaultMTU = "lxc-default-mtu"
+
 	DefaultNamespace = "juju"
 )
 

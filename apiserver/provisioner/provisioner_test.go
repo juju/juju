@@ -24,11 +24,12 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/dummy"
+	storagedummy "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -741,7 +742,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
 
@@ -824,9 +825,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
-	registry.RegisterProvider("dynamic", &dummy.StorageProvider{IsDynamic: true})
+	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
 	defer registry.RegisterProvider("dynamic", nil)
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "dynamic", "static")
 
@@ -1025,7 +1026,7 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
 
@@ -1295,7 +1296,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
 	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1525,4 +1526,44 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
+}
+
+type lxcDefaultMTUSuite struct {
+	provisionerSuite
+}
+
+var _ = gc.Suite(&lxcDefaultMTUSuite{})
+
+func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
+	// Because lxc-default-mtu is an immutable setting, we need to set
+	// it in the default config JujuConnSuite uses, before the
+	// environment is "created".
+	s.DummyConfig = dummy.SampleConfig()
+	s.DummyConfig["lxc-default-mtu"] = 9000
+	s.provisionerSuite.SetUpTest(c)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	value, ok := stateConfig.LXCDefaultMTU()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(value, gc.Equals, 9000)
+	c.Logf("environ config lxc-default-mtu set to %v", value)
+}
+
+func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	managerConfig := s.getManagerConfig(c, instance.LXC)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:          "juju",
+		container.ConfigLXCDefaultMTU: "9000",
+
+		"use-aufs":                   "false",
+		container.ConfigIPForwarding: "true",
+	})
+
+	// KVM instances are not affected.
+	managerConfig = s.getManagerConfig(c, instance.KVM)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:         "juju",
+		container.ConfigIPForwarding: "true",
+	})
 }

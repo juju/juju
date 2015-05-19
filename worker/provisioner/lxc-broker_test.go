@@ -106,7 +106,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"use-clone":          "false",
 	}
 	api := NewFakeAPI(c)
-	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil)
+	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil, 0)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -930,7 +930,7 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)

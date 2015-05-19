@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/juju/errors"
@@ -37,6 +38,7 @@ type ContainerSetup struct {
 	config                agent.Config
 	initLock              *fslock.Lock
 	addressableContainers bool
+	lxcDefaultMTU         int
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -242,6 +244,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
+	// Override default MTU for LXC NICs, if needed.
+	if mtu := managerConfig.PopValue(container.ConfigLXCDefaultMTU); mtu != "" {
+		value, err := strconv.Atoi(mtu)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		logger.Infof("setting MTU to %v for all LXC containers' interfaces", value)
+		cs.lxcDefaultMTU = value
+	}
+
 	// Enable IP forwarding and ARP proxying if needed.
 	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
 		if err := setIPAndARPForwarding(true); err != nil {
@@ -259,7 +271,13 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig, cs.imageURLGetter)
+		broker, err = NewLxcBroker(
+			cs.provisioner,
+			cs.config,
+			managerConfig,
+			cs.imageURLGetter,
+			cs.lxcDefaultMTU,
+		)
 		if err != nil {
 			return nil, nil, nil, err
 		}

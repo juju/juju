@@ -63,7 +63,7 @@ func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 
 func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	kvmContainer := s.ContainerFactory.New(name)
-	network := container.BridgeNetworkConfig("testbr0", nil)
+	network := container.BridgeNetworkConfig("testbr0", 0, nil)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
 		Series:       "quantal",
 		Arch:         version.Current.Arch,
