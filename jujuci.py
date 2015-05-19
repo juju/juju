@@ -376,12 +376,12 @@ def parse_args(args=None):
     parsed_args = parser.parse_args(args)
     if parsed_args.command == 'get-build-vars' and True not in (
             parsed_args.summary, parsed_args.revision_build,
-            parsed_args.revision, parsed_args.short_branch,
-            parsed_args.short_revision, parsed_args.branch,
-            parsed_args.revision):
+            parsed_args.version, parsed_args.revision,
+            parsed_args.short_branch, parsed_args.short_revision,
+            parsed_args.branch, parsed_args.revision):
         parser_get_buildvars.error(
             'Expected --summary or one or more of: --revision-build, '
-            '--revision, --short-branch, --short-revision, '
+            '--version, --revision, --short-branch, --short-revision, '
             '--branch, --revision')
     credentials = get_credentials(parsed_args)
     return parsed_args, credentials
