@@ -13,12 +13,27 @@ import sys
 
 SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
 
+
 CREATE_LXC_TEMPLATE = """\
 set -eu
 sudo lxc-create -t download -n {container} -- -d ubuntu -r {series} -a {arch}
 sudo mkdir /var/lib/lxc/{container}/rootfs/workspace
 echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
     sudo tee -a /var/lib/lxc/{container}/config
+"""
+
+
+BUILD_DEB_TEMPLATE = """\
+set -eu
+sudo lxc-start -d -n {container}
+sudo lxc-attach -n {container} -- <<EOT
+    cd workspace
+    apt-get install build-essential
+    dpkg-source -x juju-core_*.dsc
+    mk-build-deps -i juju-core_*.dsc
+    dpkg-buildpackage -us -uc
+EOT
+sudo lxc-stop -n {container}
 """
 
 
@@ -70,12 +85,17 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     return container
 
 
+def build_in_lxc(container, verbose=False):
+    pass
+
+
 def build_binary(dsc_path, location, series, arch, verbose=False):
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
     build_dir = setup_local(
         location, series, arch, source_files, verbose=verbose)
-    setup_lxc(series, arch, build_dir, verbose=verbose)
+    container = setup_lxc(series, arch, build_dir, verbose=verbose)
+    build_in_lxc(container, verbose=verbose)
     # cp $THERE/juju-build/*.deb ./
     return 0
 
