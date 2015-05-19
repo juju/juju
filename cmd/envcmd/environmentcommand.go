@@ -1,15 +1,11 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package envcmd
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -27,39 +23,10 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")
 
-const CurrentEnvironmentFilename = "current-environment"
-
 // ErrNoEnvironmentSpecified is returned by commands that operate on
 // an environment if there is no current environment, no environment
 // has been explicitly specified, and there is no default environment.
 var ErrNoEnvironmentSpecified = errors.New("no environment specified")
-
-func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
-}
-
-// Read the file $JUJU_HOME/current-environment and return the value stored
-// there.  If the file doesn't exist, or there is a problem reading the file,
-// an empty string is returned.
-func ReadCurrentEnvironment() string {
-	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
-	// The file not being there, or not readable isn't really an error for us
-	// here.  We treat it as "can't tell, so you get the default".
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(current))
-}
-
-// Write the envName to the file $JUJU_HOME/current-environment file.
-func WriteCurrentEnvironment(envName string) error {
-	path := getCurrentEnvironmentFilePath()
-	err := ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
-	if err != nil {
-		return fmt.Errorf("unable to write to the environment file: %q, %s", path, err)
-	}
-	return nil
-}
 
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
