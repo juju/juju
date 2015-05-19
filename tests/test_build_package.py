@@ -19,6 +19,7 @@ from build_package import (
     setup_local,
     setup_lxc,
     SourceFile,
+    teardown_lxc,
 )
 from utils import temp_dir
 
@@ -100,15 +101,18 @@ class BuildPackageTestCase(unittest.TestCase):
                            return_value='trusty-i386') as l_mock:
                     with patch('build_package.build_in_lxc',
                                autospec=True) as bl_mock:
-                        code = build_binary(
-                            'my.dsc', '~/workspace', 'trusty', 'i386',
-                            verbose=False)
+                        with patch('build_package.teardown_lxc', autospec=True,
+                                   return_value=True) as tl_mock:
+                            code = build_binary(
+                                'my.dsc', '~/workspace', 'trusty', 'i386',
+                                verbose=False)
         self.assertEqual(0, code)
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
             '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
         l_mock.assert_called_with('trusty', 'i386', 'build_dir', verbose=False)
         bl_mock.assert_called_with('trusty-i386', verbose=False)
+        tl_mock.assert_called_with('trusty-i386', verbose=False)
 
     def test_parse_dsc(self):
         with temp_dir() as workspace:
@@ -150,9 +154,15 @@ class BuildPackageTestCase(unittest.TestCase):
         p_mock.assert_called_with(['bash', '-c', build_script])
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
 
-    def test_build_in_lxc_check_call_exception(self):
+    def test_build_in_lxc_stop_lxc(self):
         with patch('subprocess.check_call') as cc_mock:
             with patch('subprocess.Popen', side_effect=Exception):
                 with self.assertRaises(Exception):
                     build_in_lxc('trusty-i386', verbose=False)
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
+
+    def test_teardown_lxc(self):
+        with patch('subprocess.check_call') as cc_mock:
+            teardown_lxc('trusty-i386', verbose=False)
+        cc_mock.assert_called_with(
+            ['sudo', 'lxc-destroy', '-n', 'trusty-i386'])

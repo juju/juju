@@ -109,8 +109,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
     try:
         build_in_lxc(container, verbose=verbose)
     finally:
-        pass
-        # teardown_lxc(container, verbose=False)
+        teardown_lxc(container, verbose=False)
     # cp $THERE/juju-build/*.deb ./
     return 0
 
