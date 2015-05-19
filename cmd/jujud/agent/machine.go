@@ -81,6 +81,7 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -961,6 +962,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
+				return txnpruner.New(st, time.Hour*2), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil

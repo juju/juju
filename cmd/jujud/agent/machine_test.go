@@ -574,6 +574,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		"firewaller",
 		"minunitsworker",
 		"resumer",
+		"txnpruner",
 	})
 }
 
