@@ -229,6 +229,10 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
 			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
 		}
+		if lxcDefaultMTU, ok := config.LXCDefaultMTU(); ok {
+			logger.Debugf("using default MTU %v for all LXC containers NICs", lxcDefaultMTU)
+			cfg[container.ConfigLXCDefaultMTU] = fmt.Sprintf("%d", lxcDefaultMTU)
+		}
 	}
 
 	if !environs.AddressAllocationEnabled() {

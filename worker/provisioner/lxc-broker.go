@@ -50,6 +50,7 @@ func newLxcBroker(
 	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
 	enableNAT bool,
+	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
@@ -60,6 +61,7 @@ func newLxcBroker(
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
+		defaultMTU:  defaultMTU,
 	}, nil
 }
 
@@ -68,6 +70,7 @@ type lxcBroker struct {
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
+	defaultMTU  int
 }
 
 // StartInstance is specified in the Broker interface.
@@ -102,7 +105,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 			args.NetworkInfo = allocatedInfo
 		}
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
+	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -489,10 +492,12 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 // while the rest is kept as-is.
 const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
-// configureContainerNetworking tries to allocate a static IP address for the
-// given containerId using the provisioner API. If it fails, it's not
-// critical - just a warning, and it won't cause StartInstance to
-// fail.
+// configureContainerNetworking tries to allocate a static IP address
+// for the given containerId using the provisioner API, when
+// allocateAddress is true. Otherwise it configures the container with
+// an already allocated address, when allocateAddress is false (e.g.
+// after a host reboot). If the API call fails, it's not critical -
+// just a warning, and it won't cause StartInstance to fail.
 func configureContainerNetwork(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
@@ -503,7 +508,7 @@ func configureContainerNetwork(
 	defer func() {
 		if err != nil {
 			logger.Warningf(
-				"failed allocating a static IP for container %q: %v",
+				"failed configuring a static IP for container %q: %v",
 				containerId, err,
 			)
 		}
@@ -513,7 +518,6 @@ func configureContainerNetwork(
 		// When we already have interface info, don't overwrite it.
 		return nil, nil
 	}
-	logger.Debugf("trying to allocate a static IP for container %q", containerId)
 
 	var primaryNIC string
 	var primaryAddr network.Address
@@ -523,14 +527,16 @@ func configureContainerNetwork(
 	}
 
 	if allocateAddress {
+		logger.Debugf("trying to allocate a static IP for container %q", containerId)
 		finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
 	} else {
+		logger.Debugf("getting allocated static IP for container %q", containerId)
 		finalIfaceInfo, err = apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("PrepareContainerInterfaceInfo returned %#v", finalIfaceInfo)
+	logger.Debugf("container interface info result %#v", finalIfaceInfo)
 
 	// Populate ConfigType and DNSServers as needed.
 	var dnsServers []network.Address

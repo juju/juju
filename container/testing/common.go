@@ -58,7 +58,7 @@ func CreateContainerWithMachineConfig(
 	machineConfig *cloudinit.MachineConfig,
 ) instance.Instance {
 
-	networkConfig := container.BridgeNetworkConfig("nic42", nil)
+	networkConfig := container.BridgeNetworkConfig("nic42", 0, nil)
 	return CreateContainerWithMachineAndNetworkConfig(c, manager, machineConfig, networkConfig)
 }
 
@@ -113,7 +113,7 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	}
 	machineConfig.Config = envConfig
 
-	network := container.BridgeNetworkConfig("nic42", nil)
+	network := container.BridgeNetworkConfig("nic42", 0, nil)
 
 	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
 
