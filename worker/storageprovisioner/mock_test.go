@@ -194,12 +194,11 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 					"persistent": tag.String() == "volume-1",
 				},
 			}
-			if tag.Id() == attachedVolumeId {
-				volumeParams.Attachment = &params.VolumeAttachmentParams{
-					VolumeTag:  tag.String(),
-					MachineTag: "machine-1",
-					Provider:   "dummy",
-				}
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				VolumeTag:  tag.String(),
+				MachineTag: "machine-1",
+				InstanceId: string(v.provisionedMachines["machine-1"]),
+				Provider:   "dummy",
 			}
 			result = append(result, params.VolumeParamsResult{Result: volumeParams})
 		}
@@ -326,7 +325,7 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 				Error: &params.Error{Message: "already provisioned"},
 			})
 		} else {
-			instanceId, _ := f.provisionedMachines[id.MachineTag]
+			instanceId := f.provisionedMachines[id.MachineTag]
 			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
 				MachineTag:    id.MachineTag,
 				FilesystemTag: id.AttachmentTag,
@@ -433,9 +432,9 @@ func (p *dummyProvider) Dynamic() bool {
 }
 
 func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	if params.Tag.Id() == needsInstanceVolumeId {
-		return storage.ErrVolumeNeedsInstance
-	}
+	//if params.Tag.Id() == needsInstanceVolumeId {
+	//	return storage.ErrVolumeNeedsInstance
+	//}
 	return nil
 }
 
@@ -571,4 +570,35 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 
 func (s *mockManagedFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
 	return errors.NotImplementedf("DetachFilesystems")
+}
+
+type mockMachineAccessor struct {
+	instanceIds map[names.MachineTag]instance.Id
+	watcher     *mockNotifyWatcher
+}
+
+func (a *mockMachineAccessor) WatchMachine(names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+	return a.watcher, nil
+}
+
+func (a *mockMachineAccessor) InstanceIds(tags []names.MachineTag) ([]params.StringResult, error) {
+	results := make([]params.StringResult, len(tags))
+	for i, tag := range tags {
+		instanceId, ok := a.instanceIds[tag]
+		if !ok {
+			results[i].Error = &params.Error{Code: params.CodeNotFound}
+		} else if instanceId == "" {
+			results[i].Error = &params.Error{Code: params.CodeNotProvisioned}
+		} else {
+			results[i].Result = string(instanceId)
+		}
+	}
+	return results, nil
+}
+
+func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
+	return &mockMachineAccessor{
+		instanceIds: make(map[names.MachineTag]instance.Id),
+		watcher:     &mockNotifyWatcher{make(chan struct{}, 1)},
+	}
 }

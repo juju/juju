@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
@@ -24,10 +23,6 @@ const (
 	ScopeEnviron Scope = iota
 	ScopeMachine
 )
-
-// ErrVolumeNeedsInstance is an error indicating that a volume cannot be
-// created because the related machine instance has not been provisioned.
-var ErrVolumeNeedsInstance = errors.New("need running instance to provision volume")
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
@@ -86,12 +81,6 @@ type VolumeSource interface {
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
-	//
-	// If the provider requires information about the machine instance to
-	// which the volume will be attached before, and the supplied instance
-	// ID is empty (i.e. the instance is not yet provisioned), then
-	// ErrVolumeNeedsInstance must be returned to indicate that the
-	// provisioner should call again when the instance has been provisioned.
 	ValidateVolumeParams(params VolumeParams) error
 
 	// AttachVolumes attaches volumes to machines.

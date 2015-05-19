@@ -392,9 +392,10 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				InstanceId: "inst-id",
 				Provider:   "environscoped",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `machine 2 not provisioned`,
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-2",
+				VolumeTag:  "volume-3",
+				Provider:   "environscoped",
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -436,9 +437,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				InstanceId:    "inst-id",
 				Provider:      "environscoped",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `machine 2 not provisioned`,
+			{Result: params.FilesystemAttachmentParams{
+				MachineTag:    "machine-2",
+				FilesystemTag: "filesystem-3",
+				Provider:      "environscoped",
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},

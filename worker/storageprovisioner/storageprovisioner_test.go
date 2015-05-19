@@ -60,6 +60,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		newMockFilesystemAccessor(),
 		&mockLifecycleManager{},
 		newMockEnvironAccessor(c),
+		newMockMachineAccessor(c),
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -82,13 +83,18 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		VolumeTag:  "volume-1",
 		MachineTag: "machine-1",
 		DeviceName: "/dev/sda1",
+	}, {
+		VolumeTag:  "volume-2",
+		MachineTag: "machine-1",
+		DeviceName: "/dev/sda2",
 	}}
 
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
-		c.Assert(volumes, gc.DeepEquals, expectedVolumes)
+		c.Assert(volumes, jc.SameContents, expectedVolumes)
 		return nil, nil
 	}
 
@@ -102,6 +108,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
@@ -110,6 +117,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -146,6 +154,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	volumeAccessor := newMockVolumeAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
@@ -154,6 +163,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -167,10 +177,20 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
+	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeInfo = func([]params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return nil, nil
+	}
+	volumeAccessor.setVolumeAttachmentInfo = func([]params.VolumeAttachment) ([]params.ErrorResult, error) {
+		return nil, nil
+	}
+
 	lifecycleManager := &mockLifecycleManager{}
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
 		"storage-dir",
@@ -178,17 +198,17 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer worker.Wait()
 	defer worker.Kill()
 
-	// Note: we're testing the *current* behaviour. Later, the provisioner
-	// should not rely on bouncing to wait for the instance, but should
-	// implement a state machine that watches instances.
 	volumeAccessor.volumesWatcher.changes <- []string{needsInstanceVolumeId}
 	environAccessor.watcher.changes <- struct{}{}
-	err := worker.Wait()
-	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need running instance to provision volume`)
+	assertNoEvent(c, volumeInfoSet, "volume info set")
+	machineAccessor.instanceIds[names.NewMachineTag("1")] = "inst-id"
+	machineAccessor.watcher.changes <- struct{}{}
+	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 }
 
 func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
@@ -202,6 +222,7 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
 		"storage-dir",
@@ -209,6 +230,7 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -262,6 +284,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
@@ -270,6 +293,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -331,6 +355,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	volumeAccessor := newMockVolumeAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		coretesting.EnvironmentTag,
@@ -339,6 +364,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -370,6 +396,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	volumeAccessor := newMockVolumeAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		names.NewMachineTag("0"),
@@ -378,6 +405,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -438,6 +466,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	volumeAccessor := newMockVolumeAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
 		names.NewMachineTag("0"),
@@ -446,6 +475,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -488,7 +518,9 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
 
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
 		c.Assert(envConfig, gc.NotNil)
 		c.Assert(sourceConfig, gc.NotNil)
@@ -503,6 +535,7 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 		filesystemAccessor,
 		lifecycleManager,
 		environAccessor,
+		machineAccessor,
 	)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -516,7 +549,7 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
 
 	err = worker.Wait()
-	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
+	c.Assert(err, gc.ErrorMatches, `processing pending volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
