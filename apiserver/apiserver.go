@@ -371,7 +371,9 @@ func (srv *Server) run(lis net.Listener) {
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{ssState: srv.state}},
+		&imagesDownloadHandler{
+			httpHandler: httpHandler{ssState: srv.state},
+			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",

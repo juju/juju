@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type imageSuite struct {
@@ -91,9 +94,21 @@ func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 // us to set the responses for things like image queries.
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
+type CountingRoundTripper struct {
+	count int
+	*jujutest.CannedRoundTripper
+}
+
+func (v *CountingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	v.count += 1
+	return v.CannedRoundTripper.RoundTrip(req)
+}
+
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+		testRoundTripper.Sub = &CountingRoundTripper{
+			CannedRoundTripper: jujutest.NewCannedRoundTripper(files, nil),
+		}
 	} else {
 		testRoundTripper.Sub = nil
 	}
@@ -124,6 +139,53 @@ func (s *imageSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	c.Assert(metadata.SourceURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
 	c.Assert(string(data), gc.Equals, string(s.imageData))
 	c.Assert(string(data), gc.Equals, string(cachedData))
+}
+
+func (s *imageSuite) TestDownloadFetchesAndCachesConcurrent(c *gc.C) {
+	// Set up some image data for a fake server.
+	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
+	useTestImageData(map[string]string{
+		"/trusty-released-amd64-root.tar.gz": s.imageData,
+		"/SHA256SUMS":                        s.imageChecksum + " *trusty-released-amd64-root.tar.gz",
+	})
+	defer func() {
+		useTestImageData(nil)
+	}()
+
+	// Fetch the same image multiple times concurrently and ensure that
+	// it is only downloaded from the external URL once.
+	done := make(chan struct{})
+	go func() {
+		var wg sync.WaitGroup
+		wg.Add(10)
+		for i := 0; i < 10; i++ {
+			go func() {
+				defer wg.Done()
+				url := s.imageURL(c, "lxc", "trusty", "amd64")
+				response, err := s.downloadRequest(c, url)
+				c.Assert(err, jc.ErrorIsNil)
+				data := s.testDownload(c, response)
+				c.Assert(string(data), gc.Equals, string(s.imageData))
+			}()
+		}
+		wg.Wait()
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for images to be fetced")
+	}
+
+	// Downloading an image is 2 requests - one for image, one for SA256.
+	c.Assert(testRoundTripper.Sub.(*CountingRoundTripper).count, gc.Equals, 2)
+
+	// Check that the image is correctly cached.
+	metadata, cachedData := s.getImageFromStorage(c, s.State, "lxc", "trusty", "amd64")
+	c.Assert(metadata.Size, gc.Equals, int64(len(s.imageData)))
+	c.Assert(metadata.SHA256, gc.Equals, s.imageChecksum)
+	c.Assert(metadata.SourceURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
+	c.Assert(s.imageData, gc.Equals, string(cachedData))
 }
 
 func (s *imageSuite) TestDownloadFetchChecksumMismatch(c *gc.C) {
