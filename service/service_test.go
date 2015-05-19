@@ -84,6 +84,31 @@ func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	c.Check(strings.Split(script, "\n"), jc.DeepEquals, expected)
 }
 
+func (s *serviceSuite) TestInstallServiceCommandsLinux(c *gc.C) {
+	cmds, err := service.InstallServiceCommands(s.Name, s.Conf, "ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cmds, gc.HasLen, 2)
+	c.Check(cmds[0], jc.HasPrefix, "init_system=$(")
+	c.Check(cmds[1], jc.Contains, `if [[ $init_system == "systemd" ]]; then`)
+	c.Check(cmds[1], jc.Contains, "systemctl start")
+	c.Check(cmds[1], jc.Contains, `if [[ $init_system == "upstart" ]]; then`)
+	c.Check(cmds[1], jc.Contains, "start juju-agent-machine-0")
+	c.Check(cmds[1], gc.Not(jc.Contains), "windows")
+}
+
+func (s *serviceSuite) TestInstallServiceCommandsWindows(c *gc.C) {
+	cmds, err := service.InstallServiceCommands(s.Name, s.Conf, "windows")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cmds, gc.HasLen, 3)
+	for i := 0; i < 3; i++ {
+		c.Check(cmds[i], jc.Contains, "juju-agent-machine-0")
+	}
+	c.Check(cmds[0], jc.HasPrefix, "New-Service")
+	c.Check(cmds[2], jc.HasPrefix, "Start-Service")
+}
+
 func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
 	s.PatchAttempts(5)
 

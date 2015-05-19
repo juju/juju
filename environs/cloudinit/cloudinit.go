@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -270,30 +269,21 @@ func AddAptCommands(
 	}
 }
 
-func (cfg *MachineConfig) initService() (service.Service, string, error) {
+func (cfg *MachineConfig) machineAgentCommands() ([]string, string, error) {
+	osName := strings.ToLower(cfg.Tools.Version.OS.String())
 	conf, toolsDir := service.MachineAgentConf(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,
-		strings.ToLower(cfg.Tools.Version.OS.String()),
+		osName,
 	)
 
 	name := cfg.MachineAgentServiceName
-	initSystem, ok := cfg.initSystem()
-	if !ok {
-		return nil, "", errors.New("could not identify init system")
+	cmds, err := service.InstallServiceCommands(name, conf, osName)
+	if err != nil {
+		return nil, "", errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
 	}
-	logger.Debugf("using init system %q for machine agent script", initSystem)
-	svc, err := newService(name, conf, initSystem)
-	return svc, toolsDir, errors.Trace(err)
-}
-
-func (cfg *MachineConfig) initSystem() (string, bool) {
-	return service.VersionInitSystem(cfg.Tools.Version)
-}
-
-var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
-	return service.NewService(name, conf, initSystem)
+	return cmds, toolsDir, nil
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
