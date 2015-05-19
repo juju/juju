@@ -12,9 +12,14 @@ import (
 )
 
 var (
+	// The defaults below are best suited to retries associated
+	// with disk I/O timeouts, eg database operations.
+	// Use the NetworkOperationWithRetries() variant to explicitly
+	// use retry values better suited to different scenarios.
+
 	// DefaultNetworkOperationRetryDelay is the default time
 	// to wait between operation retries.
-	DefaultNetworkOperationRetryDelay = 1 * time.Minute
+	DefaultNetworkOperationRetryDelay = 30 * time.Second
 
 	// DefaultNetworkOperationAttempts is the default number
 	// of attempts before giving up.

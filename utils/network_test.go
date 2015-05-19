@@ -36,7 +36,7 @@ func (s *networkSuite) TestOpFailureNoRetry(c *gc.C) {
 	netErr := &netError{false}
 	callCount := 0
 	f := func() error {
-		callCount += 1
+		callCount++
 		return netErr
 	}
 	err := utils.NetworkOperationWitDefaultRetries(f, "do it")()
@@ -49,7 +49,7 @@ func (s *networkSuite) TestOpFailureRetries(c *gc.C) {
 	netErr := &netError{true}
 	callCount := 0
 	f := func() error {
-		callCount += 1
+		callCount++
 		return netErr
 	}
 	err := utils.NetworkOperationWitDefaultRetries(f, "do it")()
@@ -62,7 +62,7 @@ func (s *networkSuite) TestOpNestedFailureRetries(c *gc.C) {
 	netErr := &netError{true}
 	callCount := 0
 	f := func() error {
-		callCount += 1
+		callCount++
 		return errors.Annotate(errors.Trace(netErr), "create a wrapped error")
 	}
 	err := utils.NetworkOperationWitDefaultRetries(f, "do it")()
@@ -75,7 +75,7 @@ func (s *networkSuite) TestOpSucceedsAfterRetries(c *gc.C) {
 	netErr := &netError{true}
 	callCount := 0
 	f := func() error {
-		callCount += 1
+		callCount++
 		if callCount == 5 {
 			return nil
 		}

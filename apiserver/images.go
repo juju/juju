@@ -129,7 +129,10 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 			return err
 		}, "streaming os image from blobstore")()
 	}
-	return metadata, imageReader, err
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return metadata, imageReader, nil
 }
 
 // fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
