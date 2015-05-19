@@ -106,7 +106,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"use-clone":          "false",
 	}
 	api := NewFakeAPI(c)
-	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil, 0)
+	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -548,6 +548,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 			test.primaryAddr,
 			test.bridgeName,
 			test.ifaceInfo,
+			false, // TODO(dimitern): Untested.
 		)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 	}
@@ -563,7 +564,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesCheckError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, "iptables failed with unexpected exit code 42")
 }
 
@@ -589,7 +590,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -I .*" failed with exit code 42`)
 }
 
@@ -604,7 +605,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches,
 		`command "ip route add 0.1.2.3 dev bridge" failed with exit code 123`,
 	)
@@ -633,7 +634,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesAddsRuleIfMissing(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now verify the expected commands - since check returns 1, add
@@ -752,7 +753,7 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICSuccess(c *gc.C) {
 	c.Assert(addr, jc.DeepEquals, network.NewAddress("0.1.2.3"))
 }
 
-func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
+func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	// All the pieces used by this func are separately tested, we just
 	// test the integration between them.
 	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
@@ -775,14 +776,14 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
 	// First call as if we are configuring the container for the first time
 	api := NewFakeAPI(c)
-	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true)
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 	c.Assert(api.calls, gc.DeepEquals, []string{})
 
 	// Next call as if the container has already been configured.
 	api.calls = []string{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 	c.Assert(api.calls, gc.DeepEquals, []string{})
@@ -790,14 +791,14 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// Call as if the container already has a network configuration, but doesn't.
 	api = NewFakeAPI(c)
 	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
 	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
 	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 
 	// When it's not empty, result should be populated as expected.
 	api.calls = []string{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -812,7 +813,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	c.Assert(api.calls, gc.DeepEquals, []string{"PrepareContainerInterfaceInfo"})
 
 	api.calls = []string{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -930,7 +931,7 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, 0)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)

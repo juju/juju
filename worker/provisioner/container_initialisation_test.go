@@ -255,7 +255,7 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 	brokerCalled := false
 	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
-		imageURLGetter container.ImageURLGetter, defaultMTU int) (environs.InstanceBroker, error) {
+		imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(imageURL, gc.Equals, "imageURL")
@@ -531,7 +531,7 @@ func (s *LXCDefaultMTUSuite) TestDefaultMTUPropagatedToNewLXCBroker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	brokerCalled := false
-	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig, imageURLGetter container.ImageURLGetter, defaultMTU int) (environs.InstanceBroker, error) {
+	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig, imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
 		brokerCalled = true
 		c.Assert(defaultMTU, gc.Equals, 9000)
 		return nil, fmt.Errorf("lxc broker error")

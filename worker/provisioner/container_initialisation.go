@@ -38,6 +38,7 @@ type ContainerSetup struct {
 	config                agent.Config
 	initLock              *fslock.Lock
 	addressableContainers bool
+	enableNAT             bool
 	lxcDefaultMTU         int
 
 	// Save the workerName so the worker thread can be stopped.
@@ -263,6 +264,12 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		logger.Infof("enabled IP forwarding and ARP proxying for containers")
 	}
 
+	// Enable NAT if needed.
+	if nat := managerConfig.PopValue(container.ConfigEnableNAT); nat != "" {
+		cs.enableNAT = true
+		logger.Infof("enabling NAT for containers")
+	}
+
 	switch containerType {
 	case instance.LXC:
 		series, err := cs.machine.Series()
@@ -276,6 +283,7 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.config,
 			managerConfig,
 			cs.imageURLGetter,
+			cs.enableNAT,
 			cs.lxcDefaultMTU,
 		)
 		if err != nil {
@@ -290,7 +298,12 @@ func (cs *ContainerSetup) getContainerArtifacts(
 
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		broker, err = NewKvmBroker(cs.provisioner, cs.config, managerConfig)
+		broker, err = NewKvmBroker(
+			cs.provisioner,
+			cs.config,
+			managerConfig,
+			cs.enableNAT,
+		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
 			return nil, nil, nil, err

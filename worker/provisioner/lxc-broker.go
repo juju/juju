@@ -46,8 +46,11 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 var NewLxcBroker = newLxcBroker
 
 func newLxcBroker(
-	api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+	api APICalls,
+	agentConfig agent.Config,
+	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
+	enableNAT bool,
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
@@ -58,6 +61,7 @@ func newLxcBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
 		defaultMTU:  defaultMTU,
 	}, nil
 }
@@ -66,6 +70,7 @@ type lxcBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
 	defaultMTU  int
 }
 
@@ -92,7 +97,13 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	} else {
 		logger.Debugf("trying to allocate static IP for container %q", machineId)
 		allocatedInfo, err := configureContainerNetwork(
-			machineId, bridgeDevice, broker.api, args.NetworkInfo, true)
+			machineId,
+			bridgeDevice,
+			broker.api,
+			args.NetworkInfo,
+			true, // allocate a new address.
+			broker.enableNAT,
+		)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
@@ -353,6 +364,7 @@ var setupRoutesAndIPTables = func(
 	primaryAddr network.Address,
 	bridgeName string,
 	ifaceInfo []network.InterfaceInfo,
+	enableNAT bool,
 ) error {
 
 	if primaryNIC == "" || primaryAddr.Value == "" || bridgeName == "" || len(ifaceInfo) == 0 {
@@ -401,6 +413,11 @@ var setupRoutesAndIPTables = func(
 		}
 
 		for name, rule := range iptablesRules {
+			if !enableNAT && name == "iptablesSNAT" {
+				// Do not add the SNAT rule if we shouldn't enable
+				// NAT.
+				continue
+			}
 			if err := addRuleIfDoesNotExist(name, rule); err != nil {
 				return err
 			}
@@ -408,11 +425,15 @@ var setupRoutesAndIPTables = func(
 
 		// TODO(dooferlad): subnets should be a list of subnets in the EC2 VPC and
 		// should be empty for MAAS. See bug http://pad.lv/1443942
-		subnets := []string{data.HostIP + "/16"}
-		for _, subnet := range subnets {
-			data.SubnetCIDR = subnet
-			if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
-				return err
+		if enableNAT {
+			// Only add the following hack to allow AWS egress traffic
+			// for hosted containers to work.
+			subnets := []string{data.HostIP + "/16"}
+			for _, subnet := range subnets {
+				data.SubnetCIDR = subnet
+				if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -492,6 +513,7 @@ func configureContainerNetwork(
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
 	allocateAddress bool,
+	enableNAT bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
@@ -547,7 +569,13 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
-	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
+	err = setupRoutesAndIPTables(
+		primaryNIC,
+		primaryAddr,
+		bridgeDevice,
+		finalIfaceInfo,
+		enableNAT,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -565,6 +593,13 @@ func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) err
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	_, err := configureContainerNetwork(machineId, bridgeDevice, broker.api, args.NetworkInfo, false)
+	_, err := configureContainerNetwork(
+		machineId,
+		bridgeDevice,
+		broker.api,
+		args.NetworkInfo,
+		false, // don't allocate a new address.
+		broker.enableNAT,
+	)
 	return err
 }
