@@ -15,13 +15,11 @@ set -x
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 if [[ -n ${revision_build:-} ]]; then
-    $SCRIPTS/jujuci.py get build-revision buildvars.bash ./
-    source buildvars.bash
+    VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $revision_build)
     PACKAGES_JOB="publish-revision"
     JUJU_LOCAL_DEB="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
     JUJU_CORE_DEB="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-    rev=${REVNO-$(echo $REVISION_ID | head -c7)}
-    echo "Testing $BRANCH $rev on $ENV"
+    $SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 elif [[ -n ${VERSION:-} ]]; then
     PACKAGES_JOB="certify-ubuntu-packages"
     JUJU_LOCAL_DEB=$(
