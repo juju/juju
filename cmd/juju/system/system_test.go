@@ -18,6 +18,7 @@ type SystemCommandSuite struct {
 var _ = gc.Suite(&SystemCommandSuite{})
 
 var expectedCommmandNames = []string{
+	"environments",
 	"help",
 	"list",
 }

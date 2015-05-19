@@ -185,10 +185,17 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	return nil
 }
 
+// UserEnvironment contains information about an environment that a
+// user has access to, along with the last time the user has connected
+// to the environment.
+type UserEnvironment struct {
+	*Environment
+	LastConnection *time.Time
+}
+
 // EnvironmentsForUser returns a list of enviroments that the user
 // is able to access.
-func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error) {
-
+func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, error) {
 	// Since there are no groups at this stage, the simplest way to get all
 	// the environments that a particular user can see is to look through the
 	// environment user collection. A raw collection is required to support
@@ -203,14 +210,14 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error)
 		return nil, err
 	}
 
-	var result []*Environment
+	var result []*UserEnvironment
 	for _, doc := range userSlice {
 		envTag := names.NewEnvironTag(doc.EnvUUID)
 		env, err := st.GetEnvironment(envTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result = append(result, env)
+		result = append(result, &UserEnvironment{Environment: env, LastConnection: doc.LastConnection})
 	}
 
 	return result, nil

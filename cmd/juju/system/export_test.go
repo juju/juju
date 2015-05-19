@@ -13,3 +13,12 @@ func NewListCommand(cfgStore configstore.Storage) *ListCommand {
 		cfgStore: cfgStore,
 	}
 }
+
+// NewEnvironmentsCommand returns a EnvironmentsCommand with the API and userCreds
+// provided as specified.
+func NewEnvironmentsCommand(api EnvironmentManagerAPI, userCreds *configstore.APICredentials) *EnvironmentsCommand {
+	return &EnvironmentsCommand{
+		api:       api,
+		userCreds: userCreds,
+	}
+}
