@@ -25,7 +25,6 @@ echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
 
 BUILD_DEB_TEMPLATE = """\
 set -eu
-sudo lxc-start -d -n {container}
 sudo lxc-attach -n {container} -- <<EOT
     cd workspace
     apt-get install build-essential
@@ -33,7 +32,6 @@ sudo lxc-attach -n {container} -- <<EOT
     mk-build-deps -i juju-core_*.dsc
     dpkg-buildpackage -us -uc
 EOT
-sudo lxc-stop -n {container}
 """
 
 
@@ -86,7 +84,20 @@ def setup_lxc(series, arch, build_dir, verbose=False):
 
 
 def build_in_lxc(container, verbose=False):
-    pass
+    returncode = 0
+    subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
+    try:
+        build_script = BUILD_DEB_TEMPLATE.format(container=container)
+        proc = subprocess.Popen(['bash', '-c', build_script])
+        proc.communicate()
+        returncode = proc.returncode
+    finally:
+        subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
+    return returncode
+
+
+def teardown_lxc(container, verbose=False):
+    subprocess.check_call(['sudo', 'lxc-destroy', '-n', container])
 
 
 def build_binary(dsc_path, location, series, arch, verbose=False):

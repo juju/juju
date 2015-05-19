@@ -1,12 +1,17 @@
 """Tests for build_package script."""
 
-from mock import patch
+from mock import (
+    Mock,
+    patch
+)
 import os
 from textwrap import dedent
 import unittest
 
 from build_package import (
     build_binary,
+    BUILD_DEB_TEMPLATE,
+    build_in_lxc,
     CREATE_LXC_TEMPLATE,
     get_args,
     main,
@@ -131,3 +136,16 @@ class BuildPackageTestCase(unittest.TestCase):
             container='trusty-i386', series='trusty', arch='i386',
             build_dir='/build-dir')
         co_mock.assert_called_with(['bash', '-c', lxc_script])
+
+    def test_build_in_lxc(self):
+        with patch('subprocess.check_call') as cc_mock:
+            proc = Mock(returncode=0)
+            with patch('subprocess.Popen', return_value=proc) as p_mock:
+                code = build_in_lxc('trusty-i386', verbose=False)
+        self.assertEqual(0, code)
+        proc.communicate.assert_called_with()
+        cc_mock.assert_any_call(
+            ['sudo', 'lxc-start', '-d', '-n', 'trusty-i386'])
+        build_script = BUILD_DEB_TEMPLATE.format(container='trusty-i386')
+        p_mock.assert_called_with(['bash', '-c', build_script])
+        cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
