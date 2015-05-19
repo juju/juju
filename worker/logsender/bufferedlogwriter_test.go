@@ -5,12 +5,14 @@ package logsender_test
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
 )
@@ -26,6 +28,7 @@ type bufferedLogWriterSuite struct {
 var _ = gc.Suite(&bufferedLogWriterSuite{})
 
 func (s *bufferedLogWriterSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.writer = logsender.NewBufferedLogWriter(maxLen)
 	s.shouldClose = true
 }
@@ -34,6 +37,7 @@ func (s *bufferedLogWriterSuite) TearDownTest(c *gc.C) {
 	if s.shouldClose {
 		s.writer.Close()
 	}
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *bufferedLogWriterSuite) TestOne(c *gc.C) {
@@ -124,6 +128,56 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 
 	// Further Write attempts should fail.
 	c.Assert(func() { s.writeAndReceive(c) }, gc.PanicMatches, ".+ send on closed channel")
+}
+
+func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
+	s.SetFeatureFlags(feature.DbLog)
+
+	logsCh, err := logsender.InstallBufferedLogWriter(10)
+	c.Assert(err, jc.ErrorIsNil)
+	defer logsender.UninstallBufferedLogWriter()
+
+	logger := loggo.GetLogger("bufferedLogWriter-test")
+
+	for i := 0; i < 5; i++ {
+		logger.Infof("%d", i)
+	}
+
+	for i := 0; i < 5; i++ {
+		select {
+		case rec := <-logsCh:
+			c.Assert(rec.Message, gc.Equals, strconv.Itoa(i))
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for logs")
+		}
+	}
+}
+
+func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
+	s.SetFeatureFlags(feature.DbLog)
+
+	_, err := logsender.InstallBufferedLogWriter(10)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = logsender.UninstallBufferedLogWriter()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Second uninstall attempt should fail
+	err = logsender.UninstallBufferedLogWriter()
+	c.Assert(err, gc.ErrorMatches, "failed to uninstall log buffering: .+")
+}
+
+func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
+	logsCh, err := logsender.InstallBufferedLogWriter(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(logsCh, gc.IsNil)
+}
+
+func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
+	err := logsender.UninstallBufferedLogWriter()
+	// With the feature flag, uninstalling without first installing
+	// would result in an error.
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bufferedLogWriterSuite) writeAndReceive(c *gc.C) {
