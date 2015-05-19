@@ -58,6 +58,12 @@ func stateStepsFor123() []Step {
 				return state.AddLifeFieldOfIPAddresses(context.State())
 			},
 		}, &upgradeStep{
+			description: "add instance id field to IP addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddInstanceIdFieldOfIPAddresses(context.State())
+			},
+		}, &upgradeStep{
 			description: "lower case _id of envUsers",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
