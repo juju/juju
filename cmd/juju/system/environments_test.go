@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
-	"github.com/juju/juju/cmd/syscmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -80,7 +80,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 
 func (s *EnvironmentsSuite) newCommand() cmd.Command {
 	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	return syscmd.Wrap(command)
+	return envcmd.Wrap(command)
 }
 
 func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {

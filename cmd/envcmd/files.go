@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	currentEnvironmentFilename = "current-environment"
-	currentSystemFilename      = "current-system"
+	CurrentEnvironmentFilename = "current-environment"
+	CurrentSystemFilename      = "current-system"
 )
 
 func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(osenv.JujuHome(), currentEnvironmentFilename)
+	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
 }
 
 func getCurrentSystemFilePath() string {
-	return filepath.Join(osenv.JujuHome(), currentSystemFilename)
+	return filepath.Join(osenv.JujuHome(), CurrentSystemFilename)
 }
 
 // Read the file $JUJU_HOME/current-environment and return the value stored
