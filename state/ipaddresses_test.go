@@ -291,7 +291,6 @@ func (s *IPAddressSuite) TestAddress(c *gc.C) {
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
-
 }
 
 func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
@@ -317,7 +316,6 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []*state.IPAddress{addr1, addr2}
 	c.Assert(result, jc.SameContents, expected)
-
 }
 
 func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {

@@ -680,7 +680,7 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	for _, address := range ipAddresses {
 		logger.Tracef("creating op to set IP addr %q to Dead", address.Value())
