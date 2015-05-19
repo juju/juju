@@ -15,6 +15,12 @@ func stateStepsFor124() []Step {
 			run: func(context Context) error {
 				return state.AddDefaultBlockDevicesDocs(context.State())
 			},
+		}, &upgradeStep{
+			description: "add instance id field to IP addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddInstanceIdFieldOfIPAddresses(context.State())
+			},
 		},
 	)
 	return steps

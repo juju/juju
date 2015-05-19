@@ -515,6 +515,70 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddInstanceIdFieldOfIPAddresses creates and populates the instance Id field
+// for all IP addresses referencing a live machine with a provisioned instance.
+func AddInstanceIdFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	instances, mCloser := st.getCollection(instanceDataC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a instance Id field, then it has already been
+		// upgraded.
+		logger.Tracef("AddInstanceField: processing address %s", address["value"])
+		if _, ok := address["instanceid"]; ok {
+			logger.Tracef("skipping address %s, already has instance id", address["value"])
+			continue
+		}
+
+		fetchId := func(machineId interface{}) instance.Id {
+			instanceId := instance.UnknownId
+			iDoc := &instanceData{}
+			err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
+			if err != nil {
+				logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
+			} else {
+				instanceId = instance.Id(iDoc.InstanceId)
+				logger.Debugf("found instance id %q for address %s", instanceId, address["value"])
+			}
+			return instanceId
+		}
+
+		instanceId := instance.UnknownId
+		allocatedState, ok := address["state"]
+		// An unallocated address can't have an associated instance id.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			if machineId, ok := address["machineid"]; ok && machineId != "" {
+				instanceId = fetchId(machineId)
+			} else {
+				logger.Debugf("machine id not found for address %s", address["value"])
+			}
+		} else {
+			logger.Debugf("address %s not allocated, setting unknown ID", address["value"])
+		}
+		logger.Debugf("setting instance id of %s to %q", address["value"], instanceId)
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"instanceid", instanceId},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
