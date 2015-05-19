@@ -18,14 +18,19 @@ import (
 var ErrNoTools = errors.New("no tools available")
 
 const (
-	toolPrefix = "tools/%s/juju-"
-	toolSuffix = ".tgz"
+	toolPrefix        = "tools/%s/juju-"
+	unixToolSuffix    = ".tgz"
+	windowsToolSuffix = ".zip"
+	toolSuffixLen     = 4
 )
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
 func StorageName(vers version.Binary, stream string) string {
-	return storagePrefix(stream) + vers.String() + toolSuffix
+	if vers.OS == version.Windows {
+		return storagePrefix(stream) + vers.String() + windowsToolSuffix
+	}
+	return storagePrefix(stream) + vers.String() + unixToolSuffix
 }
 
 func storagePrefix(stream string) string {
@@ -50,11 +55,14 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 	var foundAnyTools bool
 	for _, name := range names {
 		name = filepath.ToSlash(name)
-		if !strings.HasPrefix(name, storagePrefix) || !strings.HasSuffix(name, toolSuffix) {
+		if !strings.HasPrefix(name, storagePrefix) {
+			continue
+		}
+		if !(strings.HasSuffix(name, unixToolSuffix) || strings.HasSuffix(name, windowsToolSuffix)) {
 			continue
 		}
 		var t coretools.Tools
-		vers := name[len(storagePrefix) : len(name)-len(toolSuffix)]
+		vers := name[len(storagePrefix) : len(name)-toolSuffixLen]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			logger.Debugf("failed to parse version %q: %v", vers, err)
 			continue
