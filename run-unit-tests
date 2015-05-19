@@ -56,9 +56,8 @@ if [[ $IS_LOCAL == "false" ]]; then
     # Download the buildvars and tartfile and lean the tarfile name.
     downloaded=$($SCRIPTS/jujuci.py get build-revision '*' ./)
     tarfile=$(basename $(echo "$downloaded" | grep -F tar.gz))
-    source buildvars.bash
-    rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-    echo "Testing $BRANCH $rev"
+    $SCRIPTS/jujuci.py get-build-vars \
+        --summary --env $AMI_IMAGE $REVISION_BUILD
 fi
 tarfile_path=$(readlink -f $tarfile)
 tarfile_basename=$(basename $tarfile)
