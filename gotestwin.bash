@@ -17,9 +17,8 @@ SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
 set -x
 DOWNLOADED=$($SCRIPTS/jujuci.py get -b $REVISION build-revision '*' ./)
 TARFILE=$(basename $(echo "$DOWNLOADED" | grep -F tar.gz))
-source buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-echo "Testing $BRANCH $rev"
+$SCRIPTS/jujuci.py get-build-vars --summary --env $HOST $REVISION
+
 
 scp $SSH_OPTIONS ./$TARFILE $SCRIPTS/gotesttarfile.py \
     Administrator@$HOST:$CYG_CI_DIR/

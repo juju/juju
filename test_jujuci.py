@@ -172,6 +172,22 @@ class JujuCITestCase(TestCase):
         self.assertTrue(kwargs['branch'])
         self.assertTrue(kwargs['revision'])
 
+    def test_parse_arg_buildvars_common_options(self):
+        args, credentials = parse_args(
+                ['get-build-vars', '--env', 'foo', '--summary',
+                 '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertEqual(Credentials('jrandom', '1password'), credentials)
+        self.assertEqual('foo', args.env)
+        self.assertTrue(args.summary)
+        args, credentials = parse_args(
+                ['get-build-vars', '--version',
+                 '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertTrue(args.version)
+        args, credentials = parse_args(
+                ['get-build-vars', '--short-branch',
+                 '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertTrue(args.short_branch)
+
     def test_parse_arg_buildvars_error(self):
         with parse_error(self) as stderr:
             parse_args(['get-build-vars', '1234'])
