@@ -114,6 +114,23 @@ class BuildPackageTestCase(unittest.TestCase):
         bl_mock.assert_called_with('trusty-i386', verbose=False)
         tl_mock.assert_called_with('trusty-i386', verbose=False)
 
+    def test_build_binary_teardown_lxc(self):
+        with patch('build_package.parse_dsc', autospec=True,
+                   return_value=['orig', 'debian']):
+            with patch('build_package.setup_local', autospec=True,
+                       return_value='build_dir'):
+                with patch('build_package.setup_lxc', autospec=True,
+                           return_value='trusty-i386'):
+                    with patch('build_package.build_in_lxc', autospec=True,
+                               side_effect=Exception):
+                        with patch('build_package.teardown_lxc', autospec=True,
+                                   return_value=True) as tl_mock:
+                            with self.assertRaises(Exception):
+                                build_binary(
+                                    'my.dsc', '~/workspace', 'trusty', 'i386',
+                                    verbose=False)
+        tl_mock.assert_called_with('trusty-i386', verbose=False)
+
     def test_parse_dsc(self):
         with temp_dir() as workspace:
             expected_files = make_source_files(workspace, 'my.dsc')
