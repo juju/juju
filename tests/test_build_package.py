@@ -149,3 +149,10 @@ class BuildPackageTestCase(unittest.TestCase):
         build_script = BUILD_DEB_TEMPLATE.format(container='trusty-i386')
         p_mock.assert_called_with(['bash', '-c', build_script])
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
+
+    def test_build_in_lxc_check_call_exception(self):
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('subprocess.Popen', side_effect=Exception):
+                with self.assertRaises(Exception):
+                    build_in_lxc('trusty-i386', verbose=False)
+        cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])

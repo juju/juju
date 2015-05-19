@@ -84,7 +84,7 @@ def setup_lxc(series, arch, build_dir, verbose=False):
 
 
 def build_in_lxc(container, verbose=False):
-    returncode = 0
+    returncode = 1
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container)
@@ -106,7 +106,11 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
     build_dir = setup_local(
         location, series, arch, source_files, verbose=verbose)
     container = setup_lxc(series, arch, build_dir, verbose=verbose)
-    build_in_lxc(container, verbose=verbose)
+    try:
+        build_in_lxc(container, verbose=verbose)
+    finally:
+        pass
+        # teardown_lxc(container, verbose=False)
     # cp $THERE/juju-build/*.deb ./
     return 0
 
