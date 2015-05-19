@@ -1161,14 +1161,13 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			}
 			configLines = append(configLines, line)
 		}
+		currentLog := strings.TrimPrefix(c.GetTestLog(), lastTestLog)
 		c.Check(configLines, jc.DeepEquals, test.rendered)
 		if test.logContains != "" {
-			log := strings.TrimPrefix(c.GetTestLog(), lastTestLog)
-			c.Check(log, jc.Contains, test.logContains)
+			c.Check(currentLog, jc.Contains, test.logContains)
 		}
 		if test.logDoesNotContain != "" {
-			log := strings.TrimPrefix(c.GetTestLog(), lastTestLog)
-			c.Check(log, gc.Not(jc.Contains), test.logDoesNotContain)
+			c.Check(currentLog, gc.Not(jc.Contains), test.logDoesNotContain)
 		}
 		// TODO(dimitern) In a follow-up, test the generated user-data
 		// honors the other settings.
