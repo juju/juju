@@ -2618,7 +2618,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 		bson.D{
 			{"_id", uuid + ":1"},
 			{"env-uuid", uuid},
-			{"machineid", 1},
+			{"machineid", "1"},
 			{"instanceid", "instance"},
 		},
 	)
@@ -2631,7 +2631,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Alive},
 			{"subnetid", "foo"},
-			{"machineid", 1},
+			{"machineid", "1"},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", AddressStateAllocated},
