@@ -111,7 +111,7 @@ func (s *Service) confPath() string {
 
 // Validate returns an error if the service is not adequately defined.
 func (s *Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate(""); err != nil {
 		return errors.Trace(err)
 	}
 

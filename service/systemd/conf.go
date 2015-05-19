@@ -92,7 +92,7 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("missing service name")
 	}
 
-	if err := conf.Validate(); err != nil {
+	if err := conf.Validate(""); err != nil {
 		return errors.Trace(err)
 	}
 

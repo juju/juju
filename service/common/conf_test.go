@@ -39,7 +39,7 @@ func (*confSuite) TestValidateOkay(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command a b c",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -49,7 +49,7 @@ func (*confSuite) TestValidateSingleQuotedExecutable(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: "'/path/to/some-command' a b c",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -59,7 +59,7 @@ func (*confSuite) TestValidateDoubleQuotedExecutable(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: `"/path/to/some-command" a b c`,
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -69,7 +69,7 @@ func (*confSuite) TestValidatePartiallyQuotedExecutable(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: "'/path/to/some-command a b c'",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStart \(.*`)
 }
@@ -78,7 +78,7 @@ func (*confSuite) TestValidateMissingDesc(c *gc.C) {
 	conf := common.Conf{
 		ExecStart: "/path/to/some-command a b c",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
 }
@@ -87,7 +87,7 @@ func (*confSuite) TestValidateMissingExecStart(c *gc.C) {
 	conf := common.Conf{
 		Desc: "some service",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
 }
@@ -97,7 +97,7 @@ func (*confSuite) TestValidateRelativeExecStart(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: "some-command a b c",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStart \(.*`)
 }
@@ -108,7 +108,17 @@ func (*confSuite) TestValidateRelativeExecStopPost(c *gc.C) {
 		ExecStart:    "/path/to/some-command a b c",
 		ExecStopPost: "some-other-command a b c",
 	}
-	err := conf.Validate()
+	err := conf.Validate("")
 
 	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStopPost \(.*`)
+}
+
+func (*confSuite) TestValidateWindowsExecStart(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: `C:\some-command a b c`,
+	}
+	err := conf.Validate("windows")
+
+	c.Check(err, jc.ErrorIsNil)
 }
