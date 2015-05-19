@@ -88,6 +88,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -997,6 +998,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
+				return txnpruner.New(st, time.Hour*2), nil
 			})
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
