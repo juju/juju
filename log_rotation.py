@@ -38,8 +38,7 @@ def test_log_rotation(environment, debug):
                 print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
             env.wait_for_started()
-            env.deploy('local:{}/fill-logs'.format(env.config.get(
-                'default-series', 'trusty')))
+            env.deploy('local:trusty/fill-logs')
             env.wait_for_started()
 
             test_unit_rotation(env)
@@ -50,14 +49,17 @@ def test_log_rotation(environment, debug):
                 sys.stderr.write(e.stderr)
             raise
     finally:
-        env.destroy_environment()
+        # env.destroy_environment()
+        pass
 
 
 def test_unit_rotation(env):
     # the rotation point should be 300 megs, so let's make sure we hit that.hit
     # we'll obviously already have some data in the logs, so adding exactly 300megs
     # should do the trick.
-    env.action_do("fill-logs/0", "fill-unit", "megs=300")
+
+    # we run do_fetch here so that we wait for fill-logs to finish.
+    env.action_do_fetch("fill-logs/0", "fill-unit", "megs=300")
     output = env.action_do_fetch("fill-logs/0", "unit-size")
     obj = yaml_loads(output)
 
@@ -68,28 +70,25 @@ def test_unit_rotation(env):
     check_unit_backup("log1", obj)
 
     # we should only have one backup, not two.
-    log2 = obj["results"]["result-map"]["log2"]
-    if log2 is not None:
-        raise Exception("Extra backup unit log after rotation: " + log2["name"])
+    check_extra_backup("log2", obj)
 
     # do it all again, this should generate a second backup.
 
-    env.action_do("fill-logs/0", "fill-unit", "megs=300")
+    env.action_do_fetch("fill-logs/0", "fill-unit", "megs=300")
     output = env.action_do_fetch("fill-logs/0", "unit-size")
     print(output)
     obj = yaml_loads(output)
 
     check_unit_log0(obj)
+    check_unit_backup("log0", obj)
     check_unit_backup("log1", obj)
-    check_unit_backup("log2", obj)
 
-    log3 = obj["results"]["result-map"]["log3"]
-    if log3 is not None:
-        raise Exception("Extra backup unit log after second rotation: " + log2["name"])
+    # we should have two backups.
+    check_extra_backup("log3", obj)
 
     # one more time... we should still only have 2 backups and primary
 
-    env.action_do("fill-logs/0", "fill-unit", "megs=300")
+    env.action_do_fetch("fill-logs/0", "fill-unit", "megs=300")
     output = env.action_do_fetch("fill-logs/0", "unit-size")
     obj = yaml_loads(output)
 
@@ -97,29 +96,45 @@ def test_unit_rotation(env):
     check_unit_backup("log1", obj)
     check_unit_backup("log2", obj)
 
-    log3 = obj["results"]["result-map"]["log3"]
-    if log3 is not None:
-        raise Exception("Extra backup unit log after second rotation: " + log2["name"])
+    # we should have two backups.
+    check_extra_backup("log3", obj)
+
+
+def check_extra_backup(logname, yaml_obj):
+    try:
+        # this should raise a KeyError
+        log = yaml_obj["results"]["result-map"][logname]
+        try:
+            # no exception! log exists.
+            name = log["name"]
+            raise Exception("Extra backup unit log after rotation: " + name)
+        except KeyError:
+            # no name for log for ome reason
+            raise Exception("Extra backup unit log (with no name) after rotation")
+    except KeyError:
+        # this is correct
+        pass
 
 
 def check_unit_backup(logname, yaml_obj):
-    log = yaml_obj["results"]["result-map"][logname]
-    if log is None:
-        raise Exception(format("Missing backup unit log '{}'' after rotation.", logname))
+    try:
+        log = yaml_obj["results"]["result-map"][logname]
+    except KeyError:
+        raise Exception("Missing backup unit log '{}'' after rotation.".format(logname))
 
-    backup_pattern_string = "/var/log/juju/unit-fill-logs-0(.+?)\.log"
+    backup_pattern_string = "/var/log/juju/unit-fill-logs-0-(.+?)\.log"
     backup_pattern = re.compile(backup_pattern_string)
 
     log_name = log["name"]
     matches = re.match(backup_pattern, log_name)
-    if len(matches) < 2:
-        raise Exception(format("Rotated unit log name '{}' does not match pattern '{}'.", log_name, backup_pattern_string))
+    if matches is None:
+        raise Exception("Rotated unit log name '{}' does not match pattern '{}'.".format(log_name, backup_pattern_string))
 
     size = int(log["size"])
-    if size < 300 or size > 301:
-        raise Exception(format("Unit log name '{}' should be close to 300MB, but is {}MB.", size))
+    if size < 299 or size > 301:
+        raise Exception("Unit log name '{}' should be close to 300MB, but is {}MB.".format(log_name, size))
 
-    dt = matches[1]
+    dt = matches.groups()[0]
     dt_pattern = "%Y-%m-%dT%H-%M-%S.%f"
 
     try:
@@ -127,22 +142,22 @@ def check_unit_backup(logname, yaml_obj):
         # support partial seconds.
         dt = datetime.strptime(dt, dt_pattern)
     except Exception:
-        raise Exception(format("Rotated unit log name for {} has invalid datetime appended: {}", logname, dt))
+        raise Exception("Rotated unit log name for {} has invalid datetime appended: {}".format(log_name, dt))
 
 
 def check_unit_log0(obj):
-    log0 = obj["results"]["result-map"]["log0"]
-    if log0 is None:
+    log = obj["results"]["result-map"]["log0"]
+    if log is None:
         raise Exception("No unit log returned from unit-size action.")
 
     expected = "/var/log/juju/unit-fill-logs-0.log"
-    name = log0["name"]
+    name = log["name"]
     if name != expected:
-        raise Exception(format("Wrong unit name from action result. Expected: {}, actual: {}", expected, name))
+        raise Exception("Wrong unit name from action result. Expected: {}, actual: {}".format(expected, name))
 
-    size = int(log0["size"])
-    if size > 300:
-        raise Exception(format("Unit log not rolled. Expected size < 300MB, got: {}MB", size))
+    size = int(log["size"])
+    if size > 299:
+        raise Exception("Unit log not rolled. Expected size < 300MB, got: {}MB".format(size))
 
 
 def main():

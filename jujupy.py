@@ -209,7 +209,7 @@ class EnvJujuClient:
             constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
-            args = ('--upload-tools',) + args
+            args = ('--upload-tools', ) + args
         return args
 
     def bootstrap(self, upload_tools=False, juju_home=None):
@@ -479,9 +479,11 @@ class EnvJujuClient:
         """
         out = self.get_juju_output("action", "fetch", id, "--wait", "30s",
                                     include_e=False)
+        print(out)
         status = yaml_loads(out)["status"]
         if status != "completed":
             raise Exception("timed out waiting for action to complete during fetch")
+        return out
 
     def action_do(self, unit, action, *args):
         """Performs the given action on the given unit.
@@ -505,9 +507,7 @@ class EnvJujuClient:
         Returns the yaml output of the action.
         """
         id = self.action_do(unit, action, *args)
-        out = self.action_fetch(id)
-        print("output: \n" + out)
-        return out
+        return self.action_fetch(id)
 
 
 class EnvJujuClient24(EnvJujuClient):
