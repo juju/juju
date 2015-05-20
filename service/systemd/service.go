@@ -15,9 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -92,13 +90,14 @@ type Service struct {
 }
 
 // NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf) (*Service, error) {
+func NewService(name string, conf common.Conf, dataDir string) (*Service, error) {
 	confName := name + ".service"
-	dataDir, err := findDataDir()
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
+	// TODO(ericsnow) Factor out the datadir-related code.
+	var volName string
+	if conf.ExecStart != "" {
+		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirname := path.Join(dataDir, "init", name)
+	dirname := volName + renderer.Join(dataDir, "init", name)
 
 	service := &Service{
 		Service: common.Service{
@@ -115,10 +114,6 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	}
 
 	return service, nil
-}
-
-var findDataDir = func() (string, error) {
-	return paths.DataDir(version.Current.Series)
 }
 
 // dbusAPI exposes all the systemd API methods needed by juju.
