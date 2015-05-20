@@ -73,7 +73,6 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 
 	// Patch things out.
 	s.dataDir = "/juju/data/dir" // This is never used concretely in tests.
-	systemd.PatchFindDataDir(s, s.dataDir)
 	s.ch = systemd.PatchNewChan(s)
 
 	s.stub = &testing.Stub{}
@@ -91,7 +90,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 		Desc:      "juju agent for " + tagStr,
 		ExecStart: jujud + " " + tagStr,
 	}
-	s.service, err = systemd.NewService(s.name, s.conf)
+	s.service, err = systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reset any incidental calls.
@@ -213,7 +212,7 @@ func (s *initSystemSuite) TestListServicesEmpty(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestNewService(c *gc.C) {
-	service, err := systemd.NewService(s.name, s.conf)
+	service, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, jc.DeepEquals, &systemd.Service{
@@ -231,7 +230,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
-	service, err := systemd.NewService(s.name, s.conf)
+	service, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
@@ -267,7 +266,7 @@ exec 2>&1
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
-	service, err := systemd.NewService(s.name, common.Conf{})
+	service, err := systemd.NewService(s.name, common.Conf{}, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, jc.DeepEquals, &systemd.Service{
@@ -284,7 +283,7 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
 
-	svc, err := systemd.NewService(s.name, s.conf)
+	svc, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(svc, jc.DeepEquals, &systemd.Service{
@@ -302,7 +301,7 @@ func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 	s.conf.ExtraScript = "'/path/to/another/command'"
 
-	svc, err := systemd.NewService(s.name, s.conf)
+	svc, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
@@ -332,7 +331,7 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 func (s *initSystemSuite) TestNewServiceMultiline(c *gc.C) {
 	s.conf.ExecStart = "a\nb\nc"
 
-	svc, err := systemd.NewService(s.name, s.conf)
+	svc, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
@@ -706,7 +705,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.ch <- "done"
 
 	conf.Env["a"] = "c"
-	service, err := systemd.NewService(s.name, conf)
+	service, err := systemd.NewService(s.name, conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Install()
 	c.Assert(err, jc.ErrorIsNil)
@@ -788,10 +787,9 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	name := "jujud-machine-0"
 	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
-	service, err := systemd.NewService(s.name, s.conf)
+	service, err := systemd.NewService(s.name, s.conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -820,12 +818,11 @@ exec 2>&1
 
 func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
 
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := systemd.NewService(name, conf)
+	svc, err := systemd.NewService(name, conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
