@@ -54,16 +54,21 @@ func (c *SwitchCommand) Init(args []string) (err error) {
 	return
 }
 
-func getConfigstoreEnvironments() (set.Strings, error) {
+func getConfigstoreOptions() (set.Strings, set.Strings, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to get config store")
+		return nil, nil, errors.Annotate(err, "failed to get config store")
 	}
-	other, err := store.List()
+	environmentNames, err := store.List()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to list environments in config store")
+		return nil, nil, errors.Annotate(err, "failed to list environments in config store")
 	}
-	return set.NewStrings(other...), nil
+	systemNames, err := store.ListSystems()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "failed to list systems in config store")
+	}
+	// Also include the systems.
+	return set.NewStrings(environmentNames...), set.NewStrings(systemNames...), nil
 }
 
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
@@ -79,11 +84,12 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	}
 
 	names := set.NewStrings(environments.Names()...)
-	configEnvirons, err := getConfigstoreEnvironments()
+	configEnvirons, configSystems, err := getConfigstoreOptions()
 	if err != nil {
 		return err
 	}
 	names = names.Union(configEnvirons)
+	names = names.Union(configSystems)
 
 	if c.List {
 		// List all environments.
@@ -106,9 +112,15 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	isSystem := false
 	currentEnv := envcmd.ReadCurrentEnvironment()
 	if currentEnv == "" {
-		currentEnv = environments.Default
+		currentEnv = envcmd.ReadCurrentSystem()
+		if currentEnv == "" {
+			currentEnv = environments.Default
+		} else {
+			isSystem = true
+		}
 	}
 
 	// Handle the different operation modes.
@@ -118,14 +130,27 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no currently specified environment")
 	case c.EnvName == "":
 		// Simply print the current environment.
+		if isSystem {
+			currentEnv += " (system)"
+		}
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
 			return errors.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
-		if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
-			return err
+		// If the name is not in the environment set, but is in the system
+		// set, then write the name into the current system file.
+		logger.Debugf("systems: %v", configSystems)
+		logger.Debugf("environs: %v", configEnvirons)
+		if configSystems.Contains(c.EnvName) && !configEnvirons.Contains(c.EnvName) {
+			if err := envcmd.WriteCurrentSystem(c.EnvName); err != nil {
+				return err
+			}
+		} else {
+			if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
+				return err
+			}
 		}
 		if currentEnv == "" {
 			fmt.Fprintf(ctx.Stdout, "-> %s\n", c.EnvName)
