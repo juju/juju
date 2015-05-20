@@ -471,18 +471,21 @@ class EnvJujuClient:
         print_now("State-Server backup at %s" % backup_file_path)
         return backup_file_path
 
-    def action_fetch(self, id):
+    def action_fetch(self, id, action=None):
         """Fetches the results of the action with the given id.
 
         Will wait for up to 10 seconds for the action results.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("action", "fetch", id, "--wait", "30s",
+        out = self.get_juju_output("action", "fetch", id, "--wait", "1m",
                                     include_e=False)
         print(out)
         status = yaml_loads(out)["status"]
         if status != "completed":
-            raise Exception("timed out waiting for action to complete during fetch")
+            if action != None:
+                raise Exception("timed out waiting for action %s to complete during fetch" % action)
+            else:
+                raise Exception("timed out waiting for action to complete during fetch")
         return out
 
     def action_do(self, unit, action, *args):
@@ -507,7 +510,7 @@ class EnvJujuClient:
         Returns the yaml output of the action.
         """
         id = self.action_do(unit, action, *args)
-        return self.action_fetch(id)
+        return self.action_fetch(id, action)
 
 
 class EnvJujuClient24(EnvJujuClient):

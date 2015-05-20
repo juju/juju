@@ -79,11 +79,11 @@ def test_unit_rotation(env):
     print(output)
     obj = yaml_loads(output)
 
-    check_unit_log0(obj)
-    check_unit_backup("log0", obj)
-    check_unit_backup("log1", obj)
-
     # we should have two backups.
+    check_unit_log0(obj)
+    check_unit_backup("log1", obj)
+    check_unit_backup("log2", obj)
+
     check_extra_backup("log3", obj)
 
     # one more time... we should still only have 2 backups and primary
