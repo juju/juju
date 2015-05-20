@@ -24,12 +24,20 @@ echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
 
 
 BUILD_DEB_TEMPLATE = """\
-set -eu
-sudo lxc-attach -n {container} -- <<EOT
+sudo lxc-attach -n {container} -- bash <<"EOT"
+    set -eu
     cd workspace
-    apt-get install build-essential
-    dpkg-source -x juju-core_*.dsc
+    while ! ifconfig | grep -q "addr:10.0."; do
+        echo "Waiting for network"
+        sleep 1
+    done
+    set +e
+    apt-get update
+    apt-get install -y build-essential
+    set -ex
     mk-build-deps -i juju-core_*.dsc
+    dpkg-source -x juju-core_*.dsc
+    cd juju-core_*
     dpkg-buildpackage -us -uc
 EOT
 """
@@ -69,6 +77,7 @@ def setup_local(location, series, arch, source_files, verbose=False):
     if verbose:
         print('Creating %s' % build_dir)
     os.makedirs(build_dir)
+    os.chmod(build_dir, 0o7777)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
         if verbose:
@@ -86,6 +95,8 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     lxc_script = CREATE_LXC_TEMPLATE.format(
         container=container, series=series, arch=arch, build_dir=build_dir)
     entry_cmd = ['bash', '-c', lxc_script]
+    if verbose:
+        print('Creating %s container' % container)
     output = subprocess.check_output(entry_cmd)
     if verbose:
         print(output)
@@ -99,13 +110,8 @@ def build_in_lxc(container, verbose=False):
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container)
         proc = subprocess.Popen(['bash', '-c', build_script])
-        out, err = proc.communicate()
+        proc.communicate()
         returncode = proc.returncode
-        if verbose:
-            print(out)
-            if err:
-                print("FROM STDERR:")
-                print(err)
     finally:
         subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
     return returncode
