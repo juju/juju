@@ -33,12 +33,27 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     done
     set +e
     apt-get update
-    apt-get install -y build-essential
-    set -ex
-    mk-build-deps -i juju-core_*.dsc
+    apt-get install -y build-essential devscripts equivs
+EOT
+sudo lxc-attach -n {container} -- bash <<"EOT"
+    set -eux
+    cd workspace
+    echo "Installing build deps."
+    mk-build-deps -i --tool 'apt-get --yes' juju-core_*.dsc
+EOT
+sudo lxc-attach -n {container} -- bash <<"EOT"
+    set -eux
+    cd workspace
+    echo "Unpacking source package."
     dpkg-source -x juju-core_*.dsc
-    cd juju-core_*
+    cd `basename juju-core_*.orig.tar.gz .orig.tar.gz | tr _ -`
+    echo "Building package."
     dpkg-buildpackage -us -uc
+    cp *.deb ../
+EOT
+sudo lxc-attach -n {container} -- bash <<"EOT"
+    cd workspace
+    chmod -R ugo+rw *
 EOT
 """
 
@@ -77,7 +92,7 @@ def setup_local(location, series, arch, source_files, verbose=False):
     if verbose:
         print('Creating %s' % build_dir)
     os.makedirs(build_dir)
-    os.chmod(build_dir, 0o7777)
+    os.chmod(build_dir, 0o777)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
         if verbose:
