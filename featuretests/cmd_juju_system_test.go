@@ -48,7 +48,8 @@ func (s *cmdSystemSuite) TestSystemListCommand(c *gc.C) {
 
 func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
 	s.createEnv(c, "new-env", false)
-	context, err := testing.RunCommand(c, envcmd.Wrap(&system.EnvironmentsCommand{}))
+	envcmd.WriteCurrentSystem("dummyenv")
+	context, err := testing.RunCommand(c, envcmd.WrapSystem(&system.EnvironmentsCommand{}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME      OWNER                   LAST CONNECTION\n"+

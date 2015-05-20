@@ -80,7 +80,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 
 func (s *EnvironmentsSuite) newCommand() cmd.Command {
 	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	return envcmd.Wrap(command)
+	return envcmd.WrapSystem(command)
 }
 
 func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {
