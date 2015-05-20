@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -391,6 +392,28 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	a.apiStateUpgrader = &unitAgentUpgrader{}
+
+	closedAPI := false
+	s.AgentSuite.PatchValue(&reportClosedAPI, func(st interface{}) {
+		closedAPI = true
+	})
+
+	worker, err := a.APIWorkers()
+	c.Assert(worker, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
+	c.Assert(closedAPI, jc.IsTrue)
+}
+
+type unitAgentUpgrader struct{}
+
+func (u *unitAgentUpgrader) SetVersion(s string, v version.Binary) error {
+	return errors.New("test failure")
 }
 
 type runner interface {
