@@ -99,8 +99,13 @@ def build_in_lxc(container, verbose=False):
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container)
         proc = subprocess.Popen(['bash', '-c', build_script])
-        proc.communicate()
+        out, err = proc.communicate()
         returncode = proc.returncode
+        if verbose:
+            print(out)
+            if err:
+                print("FROM STDERR:")
+                print(err)
     finally:
         subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
     return returncode
@@ -108,6 +113,8 @@ def build_in_lxc(container, verbose=False):
 
 def teardown_lxc(container, verbose=False):
     """Destroy the lxc container."""
+    if verbose:
+        print('Deleting the lxc container %s' % container)
     subprocess.check_call(['sudo', 'lxc-destroy', '-n', container])
 
 
