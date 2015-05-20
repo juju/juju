@@ -51,13 +51,19 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-set <maintenance | blocked | waiting | active> [message]
-purpose: set status information
+	expectedHelp := "" +
+		"usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
+		"purpose: set status information\n" +
+		"\n" +
+		"options:\n" +
+		"--service  (= false)\n" +
+		"    set this status at a service level\n" +
+		"\n" +
+		"Sets the workload status of the charm. Message is optional.\n" +
+		"The \"last updated\" attribute of the status is set, even if the\n" +
+		"status and message are the same as what's already set.\n"
 
-Sets the workload status of the charm. Message is optional.
-The "last updated" attribute of the status is set, even if the
-status and message are the same as what's already set.
-`)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 

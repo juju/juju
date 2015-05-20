@@ -75,11 +75,11 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 }
 
 type ServiceStatusGetter struct {
-	st           *state.State
+	st           state.UnitFinder
 	getcanAccess GetAuthFunc
 }
 
-func NewServiceStatusGetter(st *state.State, getcanAccess GetAuthFunc) *ServiceStatusGetter {
+func NewServiceStatusGetter(st state.UnitFinder, getcanAccess GetAuthFunc) *ServiceStatusGetter {
 	return &ServiceStatusGetter{
 		st:           st,
 		getcanAccess: getcanAccess,

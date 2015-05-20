@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -142,4 +143,36 @@ func (s *serviceSuite) patchNewState(
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
+	message := "a test message"
+	stat, err := s.wordpressService.Status()
+	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
+	c.Assert(stat.Message, gc.Not(gc.Equals), message)
+
+	err = s.apiService.SetServiceStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	stat, err = s.wordpressService.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Assert(stat.Message, gc.Equals, message)
+}
+
+func (s *serviceSuite) TestServiceStatus(c *gc.C) {
+	message := "a test message"
+	stat, err := s.wordpressService.Status()
+	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
+	c.Assert(stat.Message, gc.Not(gc.Equals), message)
+
+	err = s.wordpressService.SetStatus(state.Status(params.StatusActive), message, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stat, err = s.wordpressService.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Assert(stat.Message, gc.Equals, message)
+	result, err := s.apiService.ServiceStatus(s.wordpressUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
 }
