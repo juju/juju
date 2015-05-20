@@ -100,6 +100,18 @@ def teardown_lxc(container, verbose=False):
     subprocess.check_call(['sudo', 'lxc-destroy', '-n', container])
 
 
+def move_debs(build_dir, location, verbose=False):
+    found = False
+    files = [f for f in os.listdir(build_dir) if f.endswith('.deb')]
+    for file_name in files:
+        file_path = os.path.join(location, file_name)
+        if verbose:
+            print("Found %s" % file_name)
+        shutil.move(file_path, location)
+        found = True
+    return found
+
+
 def build_binary(dsc_path, location, series, arch, verbose=False):
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
@@ -110,7 +122,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
         build_in_lxc(container, verbose=verbose)
     finally:
         teardown_lxc(container, verbose=False)
-    # cp $THERE/juju-build/*.deb ./
+    move_debs(build_dir, location, verbose=verbose)
     return 0
 
 
