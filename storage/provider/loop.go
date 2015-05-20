@@ -61,10 +61,11 @@ func (lp *loopProvider) VolumeSource(
 	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
-	if err := os.MkdirAll(storageDir, 0755); err != nil {
-		return nil, errors.Annotate(err, "creating storage directory")
-	}
-	return &loopVolumeSource{lp.run, storageDir}, nil
+	return &loopVolumeSource{
+		&osDirFuncs{lp.run},
+		lp.run,
+		storageDir,
+	}, nil
 }
 
 // FilesystemSource is defined on the Provider interface.
@@ -93,6 +94,7 @@ func (*loopProvider) Dynamic() bool {
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
+	dirFuncs   dirFuncs
 	run        runCommandFunc
 	storageDir string
 }
@@ -115,6 +117,9 @@ func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]stora
 func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
 	volumeId := params.Tag.String()
 	loopFilePath := lvs.volumeFilePath(volumeId)
+	if err := ensureDir(lvs.dirFuncs, filepath.Dir(loopFilePath)); err != nil {
+		return storage.Volume{}, errors.Trace(err)
+	}
 	if err := createBlockFile(lvs.run, loopFilePath, params.Size); err != nil {
 		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
@@ -192,7 +197,7 @@ func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams
 
 func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
 	loopFilePath := lvs.volumeFilePath(arg.VolumeId)
-	deviceName, err := attachLoopDevice(lvs.run, loopFilePath)
+	deviceName, err := attachLoopDevice(lvs.run, loopFilePath, arg.ReadOnly)
 	if err != nil {
 		os.Remove(loopFilePath)
 		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
@@ -201,6 +206,7 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		Volume:     arg.Volume,
 		Machine:    arg.Machine,
 		DeviceName: deviceName,
+		ReadOnly:   arg.ReadOnly,
 	}, nil
 }
 
@@ -224,10 +230,16 @@ func createBlockFile(run runCommandFunc, filePath string, sizeInMiB uint64) erro
 // attachLoopDevice attaches a loop device to the file with the
 // specified path, and returns the loop device's name (e.g. "loop0").
 // losetup will create additional loop devices as necessary.
-func attachLoopDevice(run runCommandFunc, filePath string) (loopDeviceName string, _ error) {
+func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
 	// -f automatically finds the first available loop-device.
+	// -r sets up a read-only loop-device.
 	// --show returns the loop device chosen on stdout.
-	stdout, err := run("losetup", "-f", "--show", filePath)
+	args := []string{"-f", "--show"}
+	if readOnly {
+		args = append(args, "-r")
+	}
+	args = append(args, filePath)
+	stdout, err := run("losetup", args...)
 	if err != nil {
 		return "", errors.Annotatef(err, "attaching loop device to %q", filePath)
 	}

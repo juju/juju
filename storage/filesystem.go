@@ -37,4 +37,7 @@ type FilesystemAttachment struct {
 	// Path is the path at which the filesystem is mounted on the machine that
 	// this attachment corresponds to.
 	Path string
+
+	// ReadOnly indicates that the filesystem is mounted read-only.
+	ReadOnly bool
 }

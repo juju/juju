@@ -96,8 +96,21 @@ func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 }
 
 func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
+	s.testAttachFilesystems(c, false)
+}
+
+func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *gc.C) {
+	s.testAttachFilesystems(c, true)
+}
+
+func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
 	source := s.initSource(c)
-	s.commands.expect("mount", "/dev/sda", "/in/the/place")
+	var args []string
+	if readOnly {
+		args = append(args, "-o", "ro")
+	}
+	args = append(args, "/dev/sda", "/in/the/place")
+	s.commands.expect("mount", args...)
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
@@ -115,6 +128,7 @@ func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("0"),
 			InstanceId: "inst-ance",
+			ReadOnly:   readOnly,
 		},
 		Path: "/in/the/place",
 	}})
@@ -123,6 +137,7 @@ func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 		Filesystem: names.NewFilesystemTag("0/0"),
 		Machine:    names.NewMachineTag("0"),
 		Path:       "/in/the/place",
+		ReadOnly:   readOnly,
 	}})
 }
 

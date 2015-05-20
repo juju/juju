@@ -578,6 +578,7 @@ func filesystemAttachmentsFromStorage(in []storage.FilesystemAttachment) []param
 			f.Filesystem.String(),
 			f.Machine.String(),
 			f.Path,
+			f.ReadOnly,
 		}
 	}
 	return out
@@ -616,6 +617,7 @@ func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.Fil
 		filesystemTag,
 		machineTag,
 		in.MountPoint,
+		in.ReadOnly,
 	}, nil
 }
 
@@ -655,6 +657,7 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 			Provider:   storage.ProviderType(in.Provider),
 			Machine:    machineTag,
 			InstanceId: instance.Id(in.InstanceId),
+			ReadOnly:   in.ReadOnly,
 		},
 		Filesystem: filesystemTag,
 		Path:       in.MountPoint,

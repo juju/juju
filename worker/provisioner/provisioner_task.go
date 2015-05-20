@@ -520,7 +520,8 @@ func constructStartInstanceParams(
 			v.Attributes,
 			&storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					Machine: machineTag,
+					Machine:  machineTag,
+					ReadOnly: v.Attachment.ReadOnly,
 				},
 				Volume: volumeTag,
 			},
