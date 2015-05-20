@@ -36,6 +36,7 @@ EOT
 
 
 def parse_dsc(dsc_path, verbose=False):
+    """Return the source files need to build a binary package."""
     there = os.path.dirname(dsc_path)
     dsc_name = os.path.basename(dsc_path)
     dcs_source_file = SourceFile(None, None, dsc_name, dsc_path)
@@ -59,6 +60,10 @@ def parse_dsc(dsc_path, verbose=False):
 
 
 def setup_local(location, series, arch, source_files, verbose=False):
+    """Create a directory to build binaries in.
+
+    The directoy has the source files required to build binaries.
+    """
     build_dir = os.path.abspath(
         os.path.join(location, 'juju-build-{}-{}'.format(series, arch)))
     if verbose:
@@ -73,6 +78,10 @@ def setup_local(location, series, arch, source_files, verbose=False):
 
 
 def setup_lxc(series, arch, build_dir, verbose=False):
+    """Create an LXC container to build binaries.
+
+    The local build_dir with the source files is bound to the container.
+    """
     container = '{}-{}'.format(series, arch)
     lxc_script = CREATE_LXC_TEMPLATE.format(
         container=container, series=series, arch=arch, build_dir=build_dir)
@@ -84,6 +93,7 @@ def setup_lxc(series, arch, build_dir, verbose=False):
 
 
 def build_in_lxc(container, verbose=False):
+    """Build the binaries from the source files in the container."""
     returncode = 1
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
@@ -97,10 +107,12 @@ def build_in_lxc(container, verbose=False):
 
 
 def teardown_lxc(container, verbose=False):
+    """Destroy the lxc container."""
     subprocess.check_call(['sudo', 'lxc-destroy', '-n', container])
 
 
 def move_debs(build_dir, location, verbose=False):
+    """Move the debs from the build_dir to the location dir."""
     found = False
     files = [f for f in os.listdir(build_dir) if f.endswith('.deb')]
     for file_name in files:
@@ -114,6 +126,7 @@ def move_debs(build_dir, location, verbose=False):
 
 
 def build_binary(dsc_path, location, series, arch, verbose=False):
+    """Build binary debs from a dsc file."""
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
     build_dir = setup_local(
