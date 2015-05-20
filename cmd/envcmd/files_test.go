@@ -5,6 +5,7 @@ package envcmd_test
 
 import (
 	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -73,4 +74,11 @@ func (s *filesSuite) TestWriteSystemRemovesEnvironmentFile(c *gc.C) {
 	err = envcmd.WriteCurrentSystem("baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envcmd.GetCurrentEnvironmentFilePath(), jc.DoesNotExist)
+}
+
+func (*filesSuite) TestErrorWritingFile(c *gc.C) {
+	// Can't write a file over a directory.
+	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
+	err := envcmd.WriteCurrentEnvironment("fubar")
+	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
 }

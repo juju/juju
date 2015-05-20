@@ -66,13 +66,6 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
-	// Can't write a file over a directory.
-	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
-	err := envcmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
-}
-
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
 	testEnsureEnvName(c, "explicit", "-e", "explicit")
@@ -96,6 +89,14 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureEnvName(c, "fubar")
+}
+
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitSystemFile(c *gc.C) {
+	// If there is a current-system file, error raised.
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = initTestCommand(c)
+	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using system "fubar"`)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {

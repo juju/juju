@@ -42,6 +42,9 @@ func GetDefaultEnvironment() (string, error) {
 	if currentEnv := ReadCurrentEnvironment(); currentEnv != "" {
 		return currentEnv, nil
 	}
+	if currentSystem := ReadCurrentSystem(); currentSystem != "" {
+		return "", errors.Errorf("not operating on an environment, using system %q", currentSystem)
+	}
 	envs, err := environs.ReadEnvirons("")
 	if environs.IsNoEnv(err) {
 		// That's fine, not an error here.
