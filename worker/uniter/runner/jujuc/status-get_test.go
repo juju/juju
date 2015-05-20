@@ -88,20 +88,24 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-get [options] [--include-data]
-purpose: print status information
+	expectedHelp := "" +
+		"usage: status-get [options] [--include-data] [--service]\n" +
+		"purpose: print status information\n" +
+		"\n" +
+		"options:\n" +
+		"--format  (= smart)\n" +
+		"    specify output format (json|smart|yaml)\n" +
+		"--include-data  (= false)\n" +
+		"    print all status data\n" +
+		"-o, --output (= \"\")\n" +
+		"    specify an output file\n" +
+		"--service  (= false)\n" +
+		"    print status for all units of this service\n" +
+		"\n" +
+		"By default, only the status value is printed.\n" +
+		"If the --include-data flag is passed, the associated data are printed also.\n"
 
-options:
---format  (= smart)
-    specify output format (json|smart|yaml)
---include-data  (= false)
-    print all status data
--o, --output (= "")
-    specify an output file
-
-By default, only the status value is printed.
-If the --include-data flag is passed, the associated data are printed also.
-`)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 

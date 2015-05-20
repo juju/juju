@@ -1139,6 +1139,7 @@ func (s *Service) Status() (StatusInfo, error) {
 	}, nil
 }
 
+// SetStatus sets the status for the service.
 func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
 	oldDoc, err := getStatus(s.st, s.globalKey())
 	insert := false
@@ -1175,6 +1176,7 @@ func (s *Service) SetStatus(status Status, info string, data map[string]interfac
 	return nil
 }
 
+// MembersStatus returns the status for all units in this service.
 func (s *Service) MembersStatus() ([]NamedStatusInfo, error) {
 	units, err := s.AllUnits()
 	if err != nil {

@@ -22,6 +22,31 @@ var _ = gc.Suite(&statusGetterSuite{})
 
 var _ state.StatusGetter = new(fakeStatus)
 
+func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
+	st := &fakeState{
+		units: map[string]*state.Unit{
+			"unit/1": &state.Unit{},
+			"unit/2": &state.Unit{},
+			"unit/3": &state.Unit{},
+		},
+	}
+	getCanAccess := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool { return true }, nil
+	}
+	sg := common.NewServiceStatusGetter(st, getCanAccess)
+	args := params.ServiceUnits{
+		ServiceUnits: []params.ServiceUnit{
+			params.ServiceUnit{
+				UnitName: "unit/1",
+			},
+		},
+	}
+	result, err := sg.Status(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ServiceStatusResults{})
+
+}
+
 func (*statusGetterSuite) TestStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
