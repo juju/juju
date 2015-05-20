@@ -51,6 +51,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
+// PruneTransactions removes data for completed transactions.
+func (st *State) PruneTransactions() error {
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).PruneTransactions()
+}
+
 func newMultiEnvRunner(envUUID string, db *mgo.Database) jujutxn.Runner {
 	return &multiEnvRunner{
 		rawRunner: jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
@@ -71,7 +78,7 @@ func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
 	return r.rawRunner.RunTransaction(ops)
 }
 
-// Run is part of the jujutxn.Run interface. Operations returned by
+// Run is part of the jujutxn.Runner interface. Operations returned by
 // the given "transactions" function that affect multi-environment
 // collections will be modified in-place to ensure correct interaction
 // with these collections.
@@ -88,9 +95,14 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 	})
 }
 
-// Run is part of the jujutxn.Run interface.
+// ResumeTransactions is part of the jujutxn.Runner interface.
 func (r *multiEnvRunner) ResumeTransactions() error {
 	return r.rawRunner.ResumeTransactions()
+}
+
+// PruneTransactions is part of the jujutxn.Runner interface.
+func (r *multiEnvRunner) PruneTransactions() error {
+	return r.rawRunner.PruneTransactions()
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) {
