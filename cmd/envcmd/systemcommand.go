@@ -20,29 +20,36 @@ import (
 // explicitly specified, and there is no default system.
 var ErrNoSystemSpecified = errors.New("no system specified")
 
-// SystemCommand extends cmd.Command with a SetEnvName method.
+// SystemCommand extends cmd.Command with a SetSystemName method.
 type SystemCommand interface {
 	cmd.Command
 
-	// TODO (cherylj): Once we have a way of recording the current system
-	// we need to stop using the environment.
+	// SetSystemName is called prior to the wrapped command's Init method with
+	// the active system name. The system name is guaranteed to be non-empty
+	// at entry of Init.
+	SetSystemName(systemName string)
 
-	// SetEnvName is called prior to the wrapped command's Init method
-	// with the active environment name. The environment name is guaranteed
-	// to be non-empty at entry of Init.
-	SetEnvName(envName string)
+	// SystemName returns the name of the system or environment used to
+	// determine that API end point.
+	SystemName() string
 }
 
 // SysCommandBase is a convenience type for embedding in commands
 // that wish to implement SystemCommand.
 type SysCommandBase struct {
 	cmd.CommandBase
-	envName string
+	systemName string
 }
 
-// SetEnvName records the current environment name in the SysCommandBase
-func (c *SysCommandBase) SetEnvName(envName string) {
-	c.envName = envName
+// SetSystemName records the current environment name in the SysCommandBase
+func (c *SysCommandBase) SetSystemName(systemName string) {
+	c.systemName = systemName
+}
+
+// SystemName returns the name of the system or environment used to determine
+// that API end point.
+func (c *SysCommandBase) SystemName() string {
+	return c.systemName
 }
 
 // NewEnvironmentManagerAPIClient returns an API client for the EnvironmentManager on the
@@ -69,10 +76,10 @@ func (c *SysCommandBase) NewUserManagerAPIClient() (*usermanager.Client, error) 
 // credentials.  Only the UserManager and EnvironmentManager may be accessed
 // through this API connection.
 func (c *SysCommandBase) newAPIRoot() (*api.State, error) {
-	if c.envName == "" {
+	if c.systemName == "" {
 		return nil, errors.Trace(ErrNoSystemSpecified)
 	}
-	return juju.NewAPIFromName(c.envName)
+	return juju.NewAPIFromName(c.systemName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -81,10 +88,10 @@ func (c *SysCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	// TODO: the user may soon be specified through the command line
 	// or through an environment setting, so return these when they are ready.
 	var emptyCreds configstore.APICredentials
-	if c.envName == "" {
+	if c.systemName == "" {
 		return emptyCreds, errors.Trace(ErrNoSystemSpecified)
 	}
-	info, err := connectionInfoForName(c.envName)
+	info, err := connectionInfoForName(c.systemName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
@@ -92,13 +99,13 @@ func (c *SysCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 }
 
 // connectionInfoForName reads the environment information for the named
-// environment (envName) and returns it.
-func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+// environment (systemName) and returns it.
+func connectionInfoForName(systemName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(envName)
+	info, err := store.ReadInfo(systemName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -113,26 +120,25 @@ func WrapSystem(c SystemCommand) cmd.Command {
 
 type sysCommandWrapper struct {
 	SystemCommand
-	envName string
+	systemName string
 }
 
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
 func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&w.envName, "s", "", "juju system to operate in")
-	f.StringVar(&w.envName, "system", "", "")
+	f.StringVar(&w.systemName, "s", "", "juju system to operate in")
+	f.StringVar(&w.systemName, "system", "", "")
 	w.SystemCommand.SetFlags(f)
 }
 
 // Init implements Command.Init, then calls the wrapped command's Init.
 func (w *sysCommandWrapper) Init(args []string) error {
-	if w.envName == "" {
+	if w.systemName == "" {
 		// Look for the default.
-		defaultEnv, err := GetDefaultEnvironment()
-		if err != nil {
-			return err
+		w.systemName = ReadCurrentSystem()
+		if w.systemName == "" {
+			w.systemName = ReadCurrentEnvironment()
 		}
-		w.envName = defaultEnv
 	}
-	w.SetEnvName(w.envName)
+	w.SetSystemName(w.systemName)
 	return w.SystemCommand.Init(args)
 }
