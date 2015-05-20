@@ -22,12 +22,6 @@ type SystemCommandSuite struct {
 
 var _ = gc.Suite(&SystemCommandSuite{})
 
-func (s *SystemCommandSuite) TestSystemCommandInitExplicit(c *gc.C) {
-	// Take system name from command line arg.
-	testEnsureSystemName(c, "explicit", "-s", "explicit")
-	testEnsureSystemName(c, "explicit", "--system", "explicit")
-}
-
 func (s *SystemCommandSuite) TestSystemCommandInitMultipleConfigs(c *gc.C) {
 	// The environments.yaml file is ignored for system commands.
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
@@ -54,6 +48,15 @@ func (s *SystemCommandSuite) TestSystemCommandInitEnvFile(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureSystemName(c, "fubar")
+}
+
+func (s *SystemCommandSuite) TestSystemCommandInitExplicit(c *gc.C) {
+	// Take system name from command line arg, and it trumps the current-
+	// system file.
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	testEnsureSystemName(c, "explicit", "-s", "explicit")
+	testEnsureSystemName(c, "explicit", "--system", "explicit")
 }
 
 type testSystemCommand struct {
