@@ -241,7 +241,8 @@ class EnvJujuClient:
 
     def get_juju_output(self, command, *args, **kwargs):
         args = self._full_args(command, False, args,
-                               timeout=kwargs.get('timeout'))
+                               timeout=kwargs.get('timeout'),
+                               include_e=kwargs.get('include_e'))
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
@@ -469,6 +470,44 @@ class EnvJujuClient:
         backup_file_path = os.path.abspath(backup_file_name)
         print_now("State-Server backup at %s" % backup_file_path)
         return backup_file_path
+
+    def action_fetch(self, id):
+        """Fetches the results of the action with the given id.
+
+        Will wait for up to 10 seconds for the action results.
+        Returns the yaml output of the fetched action.
+        """
+        out = self.get_juju_output("action", "fetch", id, "--wait", "30s",
+                                    include_e=False)
+        status = yaml_loads(out)["status"]
+        if status != "completed":
+            raise Exception("timed out waiting for action to complete during fetch")
+
+    def action_do(self, unit, action, *args):
+        """Performs the given action on the given unit.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the id of the queued action.
+        """
+        args = ("do", unit, action) + args
+        output = self.get_juju_output("action", *args, include_e=False)
+        action_id_pattern = re.compile('Action queued with id: ([a-f0-9\-]{36})')
+        match = action_id_pattern.search(output)
+        if match is None:
+            raise Exception("Action id not found in output: %s" %
+                            output)
+        return match.group(1)
+
+    def action_do_fetch(self, unit, action, *args):
+        """Performs the given action on the given unit and waits for the results.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the yaml output of the action.
+        """
+        id = self.action_do(unit, action, *args)
+        out = self.action_fetch(id)
+        print("output: \n" + out)
+        return out
 
 
 class EnvJujuClient24(EnvJujuClient):
@@ -792,6 +831,16 @@ class Environment(SimpleEnvironment):
             testing_url = url.replace('/tools', '/testing/tools')
             self.client.set_env_option(self, 'tools-metadata-url',
                                        testing_url)
+
+    def action_fetch(self, id):
+        return self.client.get_env_client(self).action_fetch(id)
+
+    def action_do(self, unit, action, *args):
+        return self.client.get_env_client(self).action_do(unit, action, *args)
+
+    def action_do_fetch(self, unit, action, *args):
+        return self.client.get_env_client(self).action_do_fetch(unit,
+                                                                action, *args)
 
 
 class GroupReporter:
