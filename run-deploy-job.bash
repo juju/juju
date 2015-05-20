@@ -23,8 +23,8 @@ timeout=$4
 shift 4
 $SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
 JUJU_BIN=$(dirname $($SCRIPTS/jujuci.py get-juju-bin))
-$SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $REVISION_BUILD
-VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $REVISION_BUILD)
+$SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
+VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $revision_build)
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     echo "Setting the defaul juju to 1.20.11."
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
