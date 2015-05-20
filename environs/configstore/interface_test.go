@@ -46,12 +46,12 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 }
 
-func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName string, serverUUID string) {
+func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, envUUID, serverUUID string) {
 	info := store.CreateInfo(envName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   []string{"localhost"},
 		CACert:      testing.CACert,
-		EnvironUUID: envName,
+		EnvironUUID: envUUID,
 		ServerUUID:  serverUUID,
 	})
 	err := info.Write()
@@ -60,11 +60,12 @@ func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore
 
 func (s *interfaceSuite) TestList(c *gc.C) {
 	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "")
-	s.createInitialisedEnvironment(c, store, "envb", "")
+	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
+	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
 
 	s.SetFeatureFlags(feature.JES)
-	s.createInitialisedEnvironment(c, store, "envc", "envc")
+	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
+	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
 
 	environs, err := store.List()
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,16 +74,17 @@ func (s *interfaceSuite) TestList(c *gc.C) {
 
 func (s *interfaceSuite) TestListSystems(c *gc.C) {
 	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "")
-	s.createInitialisedEnvironment(c, store, "envb", "")
+	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
+	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
 
 	s.SetFeatureFlags(feature.JES)
-	s.createInitialisedEnvironment(c, store, "envc", "envc")
-	s.createInitialisedEnvironment(c, store, "envd", "envc")
+	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
+	s.createInitialisedEnvironment(c, store, "envd", "envd-uuid", "envc-uuid")
+	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
 
 	environs, err := store.ListSystems()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
+	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc", "system"})
 }
 
 func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
