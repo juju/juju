@@ -704,6 +704,30 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	var resultConfig = map[string]string{
+		"lxc-default-mtu": "9000",
+	}
+	var called bool
+	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ContainerManagerConfig")
+		expected := params.ContainerManagerConfigParams{
+			Type: instance.LXC,
+		}
+		c.Assert(args, gc.Equals, expected)
+		result := response.(*params.ContainerManagerConfig)
+		result.ManagerConfig = resultConfig
+		return nil
+	})
+
+	args := params.ContainerManagerConfigParams{Type: instance.LXC}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ManagerConfig, jc.DeepEquals, resultConfig)
+}
+
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, jc.ErrorIsNil)
