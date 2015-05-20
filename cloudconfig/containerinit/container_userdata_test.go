@@ -84,20 +84,20 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	data, err := containerinit.GenerateNetworkConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 
 	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedNetConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
@@ -117,7 +117,7 @@ bootcmd:
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "#cloud-config\n{}\n"
@@ -127,7 +127,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", nil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// No need to test the exact contents here, as they are already
