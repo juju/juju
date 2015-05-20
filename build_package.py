@@ -104,10 +104,11 @@ def move_debs(build_dir, location, verbose=False):
     found = False
     files = [f for f in os.listdir(build_dir) if f.endswith('.deb')]
     for file_name in files:
-        file_path = os.path.join(location, file_name)
+        file_path = os.path.join(build_dir, file_name)
+        dest_path = os.path.join(location, file_name)
         if verbose:
             print("Found %s" % file_name)
-        shutil.move(file_path, location)
+        shutil.move(file_path, dest_path)
         found = True
     return found
 

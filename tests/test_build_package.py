@@ -15,6 +15,7 @@ from build_package import (
     CREATE_LXC_TEMPLATE,
     get_args,
     main,
+    move_debs,
     parse_dsc,
     setup_local,
     setup_lxc,
@@ -96,7 +97,7 @@ class BuildPackageTestCase(unittest.TestCase):
         with patch('build_package.parse_dsc', autospec=True,
                    return_value=['orig', 'debian']) as pd_mock:
             with patch('build_package.setup_local', autospec=True,
-                       return_value='~/workspace/trusty-i386') as sl_mock:
+                       return_value='build_dir') as sl_mock:
                 with patch('build_package.setup_lxc', autospec=True,
                            return_value='trusty-i386') as l_mock:
                     with patch('build_package.build_in_lxc',
@@ -113,12 +114,11 @@ class BuildPackageTestCase(unittest.TestCase):
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
             '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
-        l_mock.assert_called_with(
-            'trusty', 'i386', '~/workspace/trusty-i386', verbose=False)
+        l_mock.assert_called_with('trusty', 'i386', 'build_dir', verbose=False)
         bl_mock.assert_called_with('trusty-i386', verbose=False)
         tl_mock.assert_called_with('trusty-i386', verbose=False)
         md_mock.assert_called_with(
-            '~/workspace/trusty-i386','~/workspace', verbose=False)
+            'build_dir','~/workspace', verbose=False)
 
     def test_build_binary_teardown_lxc(self):
         with patch('build_package.parse_dsc', autospec=True,
@@ -189,3 +189,15 @@ class BuildPackageTestCase(unittest.TestCase):
             teardown_lxc('trusty-i386', verbose=False)
         cc_mock.assert_called_with(
             ['sudo', 'lxc-destroy', '-n', 'trusty-i386'])
+
+    def test_move_debs(self):
+        with temp_dir() as workspace:
+            build_dir = os.path.join(workspace, 'juju-build-trusty-i386')
+            os.makedirs(build_dir)
+            deb_file = os.path.join(build_dir, 'my.deb')
+            with open(deb_file, 'w') as f:
+                f.write('deb')
+            found = move_debs(build_dir, workspace)
+            self.assertTrue(found)
+            self.assertFalse(os.path.isfile(deb_file))
+            self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
