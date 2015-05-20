@@ -202,10 +202,6 @@ func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
 
 // ValidateVolumeParams implements storage.VolumeSource.
 func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	// TODO(axw) this should move to the storageprovisioner.
-	if params.Attachment == nil || params.Attachment.InstanceId == "" {
-		return storage.ErrVolumeNeedsInstance
-	}
 	return nil
 }
 

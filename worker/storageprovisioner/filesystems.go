@@ -362,6 +362,9 @@ func processAliveFilesystemAttachments(
 		if err != nil {
 			return errors.Annotate(err, "getting filesystem attachment parameters")
 		}
+		if params.InstanceId == "" {
+			watchMachine(ctx, params.Machine)
+		}
 		ctx.pendingFilesystemAttachments[pending[i]] = params
 	}
 	return nil
@@ -392,7 +395,6 @@ func processPendingFilesystemAttachments(ctx *context) error {
 				continue
 			}
 		}
-		// TODO(axw) watch machines in storageprovisioner
 		if params.InstanceId == "" {
 			logger.Debugf("machine %v has not been provisioned yet", params.Machine.Id())
 			continue

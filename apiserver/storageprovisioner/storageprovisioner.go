@@ -27,6 +27,7 @@ type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 	*common.EnvironWatcher
+	*common.InstanceIdGetter
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
@@ -35,6 +36,7 @@ type StorageProvisionerAPI struct {
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
+	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
@@ -84,24 +86,34 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			}
 		}, nil
 	}
+	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			machineTag, ok := names.VolumeMachine(tag)
+			if ok {
+				return canAccessStorageMachine(machineTag, false)
+			}
+			return authorizer.AuthEnvironManager()
+		case names.FilesystemTag:
+			machineTag, ok := names.FilesystemMachine(tag)
+			if ok {
+				return canAccessStorageMachine(machineTag, false)
+			}
+			return authorizer.AuthEnvironManager()
+		case names.MachineTag:
+			return allowMachines && canAccessStorageMachine(tag, true)
+		default:
+			return false
+		}
+	}
 	getStorageEntityAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			switch tag := tag.(type) {
-			case names.VolumeTag:
-				machineTag, ok := names.VolumeMachine(tag)
-				if ok {
-					return canAccessStorageMachine(machineTag, false)
-				}
-				return authorizer.AuthEnvironManager()
-			case names.FilesystemTag:
-				machineTag, ok := names.FilesystemMachine(tag)
-				if ok {
-					return canAccessStorageMachine(machineTag, false)
-				}
-				return authorizer.AuthEnvironManager()
-			default:
-				return false
-			}
+			return canAccessStorageEntity(tag, false)
+		}, nil
+	}
+	lifeAuthFunc := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return canAccessStorageEntity(tag, true)
 		}, nil
 	}
 	getAttachmentAuthFunc := func() (func(names.MachineTag, names.Tag) bool, error) {
@@ -134,20 +146,27 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	}
 	getMachineAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			switch tag := tag.(type) {
-			case names.MachineTag:
-				return canAccessStorageMachine(tag, false)
-			default:
-				return false
+			if tag, ok := tag.(names.MachineTag); ok {
+				return canAccessStorageMachine(tag, true)
 			}
+			return false
+		}, nil
+	}
+	getBlockDevicesAuthFunc := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			if tag, ok := tag.(names.MachineTag); ok {
+				return canAccessStorageMachine(tag, false)
+			}
+			return false
 		}, nil
 	}
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:     common.NewLifeGetter(stateInterface, getStorageEntityAuthFunc),
-		DeadEnsurer:    common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
-		EnvironWatcher: common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		LifeGetter:       common.NewLifeGetter(stateInterface, lifeAuthFunc),
+		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
+		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 
 		st:                       stateInterface,
 		settings:                 settings,
@@ -157,12 +176,13 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
 		getMachineAuthFunc:       getMachineAuthFunc,
+		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
 	}, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.
 func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.NotifyWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getBlockDevicesAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
 	}
@@ -178,6 +198,45 @@ func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.
 			return "", common.ErrPerm
 		}
 		w := s.st.WatchBlockDevices(machineTag)
+		if _, ok := <-w.Changes(); ok {
+			return s.resources.Register(w), nil
+		}
+		return "", watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.NotifyWatchResult
+		id, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.NotifyWatcherId = id
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// WatchMachines watches for changes to the specified machines.
+func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
+	canAccess, err := s.getMachineAuthFunc()
+	if err != nil {
+		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, error) {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag) {
+			return "", common.ErrPerm
+		}
+		w, err := s.st.WatchMachine(machineTag)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
 		if _, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), nil
 		}
@@ -508,21 +567,21 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		if len(volumeAttachments) == 1 {
+		if len(volumeAttachments) >= 1 {
 			machineTag := volumeAttachments[0].Machine()
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				MachineTag: machineTag.String(),
+				VolumeTag:  tag.String(),
+				Provider:   volumeParams.Provider,
+				// TODO(axw) other attachment params (e.g. ReadOnly)
+			}
 			instanceId, err := s.st.MachineInstanceId(machineTag)
 			if errors.IsNotProvisioned(err) {
 				// Leave the attachment until later.
 			} else if err != nil {
 				return params.VolumeParams{}, err
 			} else {
-				volumeParams.Attachment = &params.VolumeAttachmentParams{
-					MachineTag: volumeAttachments[0].Machine().String(),
-					VolumeTag:  tag.String(),
-					InstanceId: string(instanceId),
-					Provider:   volumeParams.Provider,
-					// TODO(axw) other attachment params (e.g. ReadOnly)
-				}
+				volumeParams.Attachment.InstanceId = string(instanceId)
 			}
 		}
 		return volumeParams, nil
@@ -600,13 +659,10 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			return params.VolumeAttachmentParams{}, err
 		}
 		instanceId, err := s.st.MachineInstanceId(volumeAttachment.Machine())
-		if err != nil {
-			// Can't attach a volume to a machine that
-			// hasn't been provisioned yet.
-			//
-			// TODO(axw) worker should watch machines,
-			// and trigger attachment when machine is
-			// provisioned.
+		if errors.IsNotProvisioned(err) {
+			// The worker must watch for machine provisioning events.
+			instanceId = ""
+		} else if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
 		volume, err := s.st.Volume(volumeAttachment.Volume())
@@ -667,13 +723,10 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			return params.FilesystemAttachmentParams{}, err
 		}
 		instanceId, err := s.st.MachineInstanceId(filesystemAttachment.Machine())
-		if err != nil {
-			// Can't attach a filesystem to a machine that
-			// hasn't been provisioned yet.
-			//
-			// TODO(axw) worker should watch machines,
-			// and trigger attachment when machine is
-			// provisioned.
+		if errors.IsNotProvisioned(err) {
+			// The worker must watch for machine provisioning events.
+			instanceId = ""
+		} else if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
 		filesystem, err := s.st.Filesystem(filesystemAttachment.Filesystem())

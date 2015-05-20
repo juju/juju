@@ -19,6 +19,7 @@ type provisionerState interface {
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
+	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchEnvironFilesystems() state.StringsWatcher
 	WatchEnvironFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
@@ -52,4 +53,12 @@ func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) 
 		return "", errors.Trace(err)
 	}
 	return m.InstanceId()
+}
+
+func (s stateShim) WatchMachine(tag names.MachineTag) (state.NotifyWatcher, error) {
+	m, err := s.Machine(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.Watch(), nil
 }
