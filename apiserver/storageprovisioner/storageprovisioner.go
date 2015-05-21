@@ -74,9 +74,6 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			case names.EnvironTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
-				//
-				// TODO(axw) allow watching volumes in alternative
-				// environments? Need to check with thumper.
 				isEnvironManager := authorizer.AuthEnvironManager()
 				return isEnvironManager && tag == st.EnvironTag()
 			case names.MachineTag:
@@ -683,12 +680,20 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
+		volumeAttachmentParams, ok := volumeAttachment.Params()
+		if !ok {
+			return params.VolumeAttachmentParams{}, errors.Errorf(
+				"volume %q is already attached to machine %q",
+				volumeAttachment.Volume().Id(),
+				volumeAttachment.Machine().Id(),
+			)
+		}
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
 			string(instanceId),
 			string(providerType),
-			// TODO(axw) other attachment params (e.g. ReadOnly)
+			volumeAttachmentParams.ReadOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {
@@ -764,6 +769,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			// Path, MountPoint and Location in different
 			// parts of the codebase.
 			filesystemAttachmentParams.Location,
+			filesystemAttachmentParams.ReadOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {

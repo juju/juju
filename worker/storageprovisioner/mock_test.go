@@ -199,6 +199,7 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 				MachineTag: "machine-1",
 				InstanceId: string(v.provisionedMachines["machine-1"]),
 				Provider:   "dummy",
+				ReadOnly:   tag.String() == "volume-1",
 			}
 			result = append(result, params.VolumeParamsResult{Result: volumeParams})
 		}
@@ -331,6 +332,7 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 				FilesystemTag: id.AttachmentTag,
 				InstanceId:    string(instanceId),
 				Provider:      "dummy",
+				ReadOnly:      true,
 			}})
 		}
 	}
@@ -432,9 +434,6 @@ func (p *dummyProvider) Dynamic() bool {
 }
 
 func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	//if params.Tag.Id() == needsInstanceVolumeId {
-	//	return storage.ErrVolumeNeedsInstance
-	//}
 	return nil
 }
 
@@ -456,6 +455,7 @@ func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storag
 				Volume:     p.Tag,
 				Machine:    p.Attachment.Machine,
 				DeviceName: "/dev/sda" + p.Tag.Id(),
+				ReadOnly:   p.Attachment.ReadOnly,
 			})
 		}
 	}
@@ -563,6 +563,7 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 			Filesystem: arg.Filesystem,
 			Machine:    arg.Machine,
 			Path:       "/mnt/" + blockDevice.DeviceName,
+			ReadOnly:   arg.ReadOnly,
 		})
 	}
 	return filesystemAttachments, nil

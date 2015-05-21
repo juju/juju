@@ -182,7 +182,7 @@ type VolumeAttachment struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	DeviceName string `json:"devicename,omitempty"`
-	ReadOnly   bool   `json:"readonly"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // VolumeAttachments describes a set of storage volume attachments.
@@ -206,6 +206,7 @@ type VolumeAttachmentParams struct {
 	MachineTag string `json:"machinetag"`
 	InstanceId string `json:"instanceid,omitempty"`
 	Provider   string `json:"provider"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // VolumeAttachmentsResult holds the volume attachments for a single
@@ -287,6 +288,7 @@ type FilesystemAttachment struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
 	MountPoint    string `json:"mountpoint,omitempty"`
+	ReadOnly      bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachments describes a set of storage filesystem attachments.
@@ -312,6 +314,7 @@ type FilesystemAttachmentParams struct {
 	InstanceId    string `json:"instanceid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`
+	ReadOnly      bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,

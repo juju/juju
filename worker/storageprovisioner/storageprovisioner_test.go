@@ -83,6 +83,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		VolumeTag:  "volume-1",
 		MachineTag: "machine-1",
 		DeviceName: "/dev/sda1",
+		ReadOnly:   true,
 	}, {
 		VolumeTag:  "volume-2",
 		MachineTag: "machine-1",
@@ -101,7 +102,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	volumeAttachmentInfoSet := make(chan interface{})
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 		defer close(volumeAttachmentInfoSet)
-		c.Assert(volumeAttachments, gc.DeepEquals, expectedVolumeAttachments)
+		c.Assert(volumeAttachments, jc.SameContents, expectedVolumeAttachments)
 		return nil, nil
 	}
 	lifecycleManager := &mockLifecycleManager{}
@@ -510,6 +511,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 		FilesystemTag: "filesystem-0-0",
 		MachineTag:    "machine-0",
 		MountPoint:    "/mnt/xvdf1",
+		ReadOnly:      true,
 	}})
 }
 

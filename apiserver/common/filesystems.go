@@ -120,6 +120,7 @@ func FilesystemAttachmentToState(in params.FilesystemAttachment) (names.MachineT
 	}
 	info := state.FilesystemAttachmentInfo{
 		in.MountPoint,
+		in.ReadOnly,
 	}
 	return machineTag, filesystemTag, info, nil
 }
@@ -134,6 +135,7 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 		v.Filesystem().String(),
 		v.Machine().String(),
 		info.MountPoint,
+		info.ReadOnly,
 	}, nil
 }
 

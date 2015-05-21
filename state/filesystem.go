@@ -140,6 +140,7 @@ type FilesystemAttachmentInfo struct {
 	// machine. MountPoint may be empty, meaning that the filesystem is
 	// not mounted yet.
 	MountPoint string `bson:"mountpoint"`
+	ReadOnly   bool   `bson:"read-only"`
 }
 
 // FilesystemAttachmentParams records parameters for attaching a filesystem to a

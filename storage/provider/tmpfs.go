@@ -62,7 +62,6 @@ func (p *tmpfsProvider) FilesystemSource(environConfig *config.Config, sourceCon
 	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
-
 	return &tmpfsFilesystemSource{
 		&osDirFuncs{p.run},
 		p.run,
@@ -166,6 +165,9 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 	if err != nil {
 		return storage.FilesystemAttachment{}, err
 	}
+	if err := ensureDir(s.dirFuncs, path); err != nil {
+		return storage.FilesystemAttachment{}, errors.Trace(err)
+	}
 
 	// Check if the mount already exists.
 	source, err := s.dirFuncs.mountPointSource(path)
@@ -173,15 +175,15 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
 	if source != arg.Filesystem.String() {
-		if err := ensureDir(s.dirFuncs, path); err != nil {
-			return storage.FilesystemAttachment{}, err
-		}
 		if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
 			return storage.FilesystemAttachment{}, err
 		}
+		options := fmt.Sprintf("size=%dm", info.Size)
+		if arg.ReadOnly {
+			options += ",ro"
+		}
 		if _, err := s.run(
-			"mount", "-t", "tmpfs", arg.Filesystem.String(), path,
-			"-o", fmt.Sprintf("size=%dm", info.Size),
+			"mount", "-t", "tmpfs", arg.Filesystem.String(), path, "-o", options,
 		); err != nil {
 			os.Remove(path)
 			return storage.FilesystemAttachment{}, errors.Annotate(err, "cannot mount tmpfs")
@@ -192,6 +194,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 		Filesystem: arg.Filesystem,
 		Machine:    arg.Machine,
 		Path:       path,
+		ReadOnly:   arg.ReadOnly,
 	}, nil
 }
 
@@ -205,6 +208,9 @@ func (s *tmpfsFilesystemSource) writeFilesystemInfo(info storage.Filesystem) err
 	filename := s.filesystemInfoFile(info.Tag)
 	if _, err := os.Stat(filename); err == nil {
 		return errors.Errorf("filesystem %v already exists", info.Tag.Id())
+	}
+	if err := ensureDir(s.dirFuncs, filepath.Dir(filename)); err != nil {
+		return errors.Trace(err)
 	}
 	err := utils.WriteYaml(filename, filesystemInfo{&info.Size})
 	if err != nil {

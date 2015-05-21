@@ -57,7 +57,7 @@ type VolumeInfo struct {
 	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
 
 	// from params.VolumeAttachments
-	ReadOnly bool `yaml:"readonly" json:"readonly"`
+	ReadOnly bool `yaml:"read-only" json:"read-only"`
 
 	// from params.Volume. This is juju volume id.
 	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`

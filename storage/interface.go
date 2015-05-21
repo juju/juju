@@ -203,6 +203,9 @@ type AttachmentParams struct {
 	// that interact with the instances, such as EBS/EC2. The InstanceId
 	// field will be empty if the instance is not yet provisioned.
 	InstanceId instance.Id
+
+	// ReadOnly indicates that the storage should be attached as read-only.
+	ReadOnly bool
 }
 
 // FilesystemParams is a fully specified set of parameters for filesystem creation,

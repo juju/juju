@@ -138,8 +138,6 @@ func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=source", "file")
-	cmd.respond("header\nvalue", nil)
 	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1,
@@ -154,7 +152,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=source", "file")
+	cmd := s.commands.expect("df", "--output=source", "exists")
 	cmd.respond("header\nfilesystem-123", nil)
 	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("123"),
@@ -163,11 +161,40 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	attachments, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("123"),
-		Path:       "file",
+		Path:       "exists",
 	}})
 	c.Assert(attachments, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("123"),
-		Path:       "file",
+		Path:       "exists",
+	}})
+}
+
+func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
+	source := s.tmpfsFilesystemSource(c)
+	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+		Tag:  names.NewFilesystemTag("1"),
+		Size: 1024,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := s.commands.expect("df", "--output=source", "/var/lib/juju/storage/fs/foo")
+	cmd.respond("header\nvalue", nil)
+	s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m,ro")
+
+	attachments, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem: names.NewFilesystemTag("1"),
+		Path:       "/var/lib/juju/storage/fs/foo",
+		AttachmentParams: storage.AttachmentParams{
+			Machine:  names.NewMachineTag("2"),
+			ReadOnly: true,
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("1"),
+		Machine:    names.NewMachineTag("2"),
+		Path:       "/var/lib/juju/storage/fs/foo",
+		ReadOnly:   true,
 	}})
 }
 

@@ -567,12 +567,22 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			// Leave dynamic storage to the storage provisioner.
 			continue
 		}
+		volumeAttachmentParams, ok := volumeAttachment.Params()
+		if !ok {
+			// Attachment is already provisioned; this is an insane
+			// state, so we should not proceed with the volume.
+			return nil, errors.Errorf(
+				"volume %s already attached to machine %s",
+				volumeTag.Id(), m.Id(),
+			)
+		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
 		volumeParams.Attachment = &params.VolumeAttachmentParams{
 			volumeTag.String(),
 			m.Tag().String(),
 			"", // we're creating the machine, so it has no instance ID.
 			volumeParams.Provider,
+			volumeAttachmentParams.ReadOnly,
 		}
 		allVolumeParams = append(allVolumeParams, volumeParams)
 	}
