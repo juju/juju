@@ -1858,7 +1858,7 @@ class TestEnvironment(TestCase):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
         mock.assert_called_with(
-            'action', ('do', 'foo/0', 'myaction', "param=5"), True
+            'action', 'do', 'foo/0', 'myaction', "param=5", include_e=False
         )
 
     def test_action_do_error(self):
@@ -1881,7 +1881,7 @@ class TestEnvironment(TestCase):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_with(
-            'action', ('fetch', '123', "--wait", "1m"), True
+            'action', 'fetch', '123', "--wait", "1m", include_e=False
         )
 
     def test_action_fetch_timeout(self):
@@ -1901,12 +1901,10 @@ class TestEnvironment(TestCase):
                                '1.23-series-arch', None)
         with patch.object(EnvJujuClient, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
-            mock.return_value = ret
+            mock.side_effect = ["Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9", 
+                                ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
-        mock.assert_called_with(
-            'action', ('do', 'foo/0', 'myaction', "param=5"), True
-        )
 
 
 class TestGroupReporter(TestCase):

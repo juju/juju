@@ -242,7 +242,7 @@ class EnvJujuClient:
     def get_juju_output(self, command, *args, **kwargs):
         args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'),
-                               include_e=kwargs.get('include_e'))
+                               include_e=kwargs.get('include_e', True))
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
