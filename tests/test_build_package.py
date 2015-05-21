@@ -115,7 +115,7 @@ class BuildPackageTestCase(unittest.TestCase):
         bl_mock.assert_called_with('trusty-i386', 'build_dir', verbose=False)
         tl_mock.assert_called_with('trusty-i386', verbose=False)
         md_mock.assert_called_with(
-            'build_dir','~/workspace', verbose=False)
+            'build_dir', '~/workspace', verbose=False)
 
     @patch('build_package.build_in_lxc', side_effect=Exception)
     @patch('build_package.setup_lxc', return_value='trusty-i386')
@@ -178,7 +178,6 @@ class BuildPackageTestCase(unittest.TestCase):
         user = os.environ.get('USER', 'jenkins')
         cc_mock.assert_any_call(['sudo', 'chown', '-R', user, build_dir])
         oc_mock.assert_any_call(build_dir, 0o775)
-
 
     @autopatch('subprocess.check_call')
     @autopatch('os.chmod')
