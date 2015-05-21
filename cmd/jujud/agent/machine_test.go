@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -812,7 +813,7 @@ func (s *MachineSuite) assertJobWithState(
 // passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
-	reportOpened *func(interface{}),
+	reportOpened *func(io.Closer),
 	job state.MachineJob,
 	test func(agent.Config, interface{}),
 ) {
@@ -824,8 +825,8 @@ func (s *MachineSuite) assertAgentOpensState(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 
-	agentAPIs := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(reportOpened, func(st interface{}) {
+	agentAPIs := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(reportOpened, func(st io.Closer) {
 		select {
 		case agentAPIs <- st:
 		default:
@@ -1389,7 +1390,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	})
 
 	stateOpened := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st interface{}) {
+	s.AgentSuite.PatchValue(&reportOpenedState, func(st io.Closer) {
 		select {
 		case stateOpened <- st:
 		default:
@@ -1464,15 +1465,25 @@ func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 	a := s.newAgent(c, m)
 	a.apiStateUpgrader = &machineAgentUpgrader{}
 
-	closedAPI := false
-	s.AgentSuite.PatchValue(&reportClosedAPI, func(st interface{}) {
-		closedAPI = true
+	closedAPI := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(&reportClosedAPI, func(st io.Closer) {
+		select {
+		case closedAPI <- st:
+		default:
+		}
 	})
 
 	worker, err := a.APIWorker()
+
+	select {
+	case closed := <-closedAPI:
+		c.Assert(closed, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("API not opened")
+	}
+
 	c.Assert(worker, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
-	c.Assert(closedAPI, jc.IsTrue)
 }
 
 type machineAgentUpgrader struct{}

@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -101,9 +102,9 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	reportOpenedState        = func(interface{}) {}
-	reportOpenedAPI          = func(interface{}) {}
-	reportClosedAPI          = func(interface{}) {}
+	reportOpenedState        = func(io.Closer) {}
+	reportOpenedAPI          = func(io.Closer) {}
+	reportClosedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 

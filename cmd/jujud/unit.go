@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -34,7 +35,7 @@ import (
 
 var (
 	agentLogger     = loggo.GetLogger("juju.jujud")
-	reportClosedAPI = func(interface{}) {}
+	reportClosedAPI = func(io.Closer) {}
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
