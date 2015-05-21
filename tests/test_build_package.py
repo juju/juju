@@ -112,7 +112,7 @@ class BuildPackageTestCase(unittest.TestCase):
         sl_mock.assert_called_with(
             '~/workspace', 'trusty', 'i386', ['orig', 'debian'], verbose=False)
         l_mock.assert_called_with('trusty', 'i386', 'build_dir', verbose=False)
-        bl_mock.assert_called_with('trusty-i386', verbose=False)
+        bl_mock.assert_called_with('trusty-i386', 'build_dir', verbose=False)
         tl_mock.assert_called_with('trusty-i386', verbose=False)
         md_mock.assert_called_with(
             'build_dir','~/workspace', verbose=False)
@@ -157,25 +157,43 @@ class BuildPackageTestCase(unittest.TestCase):
             build_dir='/build-dir')
         co_mock.assert_called_with([lxc_script], shell=True)
 
-    def test_build_in_lxc(self):
-        with patch('subprocess.check_call') as cc_mock:
+    @autopatch('subprocess.check_call')
+    @autopatch('os.chmod')
+    def test_build_in_lxc(self, oc_mock, cc_mock):
+        with temp_dir() as workspace:
+            source_files = make_source_files(workspace, 'my.dsc')
+            build_dir = setup_local(
+                workspace, 'trusty', 'i386', source_files, verbose=False)
             proc = Mock(returncode=0)
             with patch('subprocess.Popen', return_value=proc) as p_mock:
-                code = build_in_lxc('trusty-i386', verbose=False)
+                code = build_in_lxc('trusty-i386', build_dir, verbose=False)
         self.assertEqual(0, code)
+        oc_mock.assert_any_call(build_dir, 0o777)
         proc.communicate.assert_called_with()
         cc_mock.assert_any_call(
             ['sudo', 'lxc-start', '-d', '-n', 'trusty-i386'])
         build_script = BUILD_DEB_TEMPLATE.format(container='trusty-i386')
         p_mock.assert_called_with([build_script], shell=True)
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
+        user = os.environ.get('USER', 'jenkins')
+        cc_mock.assert_any_call(['sudo', 'chown', '-R', user, build_dir])
+        oc_mock.assert_any_call(build_dir, 0o775)
 
-    def test_build_in_lxc_stop_lxc(self):
-        with patch('subprocess.check_call') as cc_mock:
+
+    @autopatch('subprocess.check_call')
+    @autopatch('os.chmod')
+    def test_build_in_lxc_stop_lxc(self, oc_mock, cc_mock):
+        with temp_dir() as workspace:
+            source_files = make_source_files(workspace, 'my.dsc')
+            build_dir = setup_local(
+                workspace, 'trusty', 'i386', source_files, verbose=False)
             with patch('subprocess.Popen', side_effect=Exception):
                 with self.assertRaises(Exception):
-                    build_in_lxc('trusty-i386', verbose=False)
+                    build_in_lxc('trusty-i386', build_dir, verbose=False)
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
+        user = os.environ.get('USER', 'jenkins')
+        cc_mock.assert_any_call(['sudo', 'chown', '-R', user, build_dir])
+        oc_mock.assert_any_call(build_dir, 0o775)
 
     def test_teardown_lxc(self):
         with patch('subprocess.check_call') as cc_mock:

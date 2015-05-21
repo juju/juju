@@ -48,16 +48,10 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nBuilding the packages.\n"
     cd workspace
+    rm *build-deps*.deb
     dpkg-source -x *.dsc
     cd $(basename *.orig.tar.gz .orig.tar.gz | tr _ -)
     dpkg-buildpackage -us -uc
-EOT
-sudo lxc-attach -n {container} -- bash <<"EOT"
-    echo "\nCleaning up.\n"
-    cd workspace
-    rm *build-deps*.deb
-    find . -type d -exec chmod ugo+rwx {{}} \;
-    find . -type f -exec chmod ugo+rw {{}} \;
 EOT
 """
 
@@ -96,7 +90,6 @@ def setup_local(location, series, arch, source_files, verbose=False):
     if verbose:
         print('Creating %s' % build_dir)
     os.makedirs(build_dir)
-    os.chmod(build_dir, 0o777)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
         if verbose:
@@ -121,9 +114,10 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     return container
 
 
-def build_in_lxc(container, verbose=False):
+def build_in_lxc(container, build_dir, verbose=False):
     """Build the binaries from the source files in the container."""
     returncode = 1
+    os.chmod(build_dir, 0o777)
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container)
@@ -132,6 +126,9 @@ def build_in_lxc(container, verbose=False):
         returncode = proc.returncode
     finally:
         subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
+        user = os.environ.get('USER', 'jenkins')
+        subprocess.check_call(['sudo', 'chown', '-R', user, build_dir])
+        os.chmod(build_dir, 0o775)
     return returncode
 
 
@@ -164,7 +161,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
         location, series, arch, source_files, verbose=verbose)
     container = setup_lxc(series, arch, build_dir, verbose=verbose)
     try:
-        build_in_lxc(container, verbose=verbose)
+        build_in_lxc(container, build_dir, verbose=verbose)
     finally:
         teardown_lxc(container, verbose=False)
     move_debs(build_dir, location, verbose=verbose)
