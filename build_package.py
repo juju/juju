@@ -155,7 +155,7 @@ def move_debs(build_dir, location, verbose=False):
     return found
 
 
-def build_binary(dsc_path, location, series, arch, verbose=False):
+def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
     """Build binary debs from a dsc file."""
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
@@ -177,7 +177,7 @@ def main(argv):
     if args.command == 'binary':
         exitcode = build_binary(
             args.dsc,  args.location, args.series, args.arch,
-            verbose=args.verbose)
+            ppa=args.ppa, verbose=args.verbose)
     return exitcode
 
 

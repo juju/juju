@@ -102,7 +102,7 @@ class BuildPackageTestCase(unittest.TestCase):
                 ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
         self.assertEqual(0, code)
         bb_mock.assert_called_with(
-            'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
+            'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
