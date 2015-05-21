@@ -96,7 +96,7 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot() error {
-	cmds, err := c.icfg.MachineAgentCommands(c.conf.ShellRenderer())
+	svc, err := c.icfg.InitService(c.conf.ShellRenderer())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -106,6 +106,17 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	// the init script.
 	toolsDir := c.icfg.ToolsDir(c.conf.ShellRenderer())
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
+
+	name := c.tag.String()
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	startCmds, err := svc.StartCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	cmds = append(cmds, startCmds...)
 
 	svcName := c.icfg.MachineAgentServiceName
 	// TODO (gsamfira): This is temporary until we find a cleaner way to fix
