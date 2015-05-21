@@ -237,18 +237,20 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
-	status, err := service.ServiceStatus(ctx.unit.Name())
+	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
-	us := make([]jujuc.StatusInfo, len(status.Units.Results))
-	for i, s := range status.Units.Results {
+	us := make([]jujuc.StatusInfo, len(status.Units))
+	i := 0
+	for t, s := range status.Units {
 		us[i] = jujuc.StatusInfo{
-			Tag:    s.Tag,
+			Tag:    t,
 			Status: string(s.Status),
 			Info:   s.Info,
 			Data:   s.Data,
 		}
+		i++
 	}
 	return jujuc.ServiceStatusInfo{
 		Service: jujuc.StatusInfo{
@@ -262,7 +264,6 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 }
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
-	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
@@ -278,7 +279,7 @@ func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.SetServiceStatus(
+	return service.SetStatus(
 		ctx.unit.Name(),
 		params.Status(status.Status),
 		status.Info,

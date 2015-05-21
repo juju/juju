@@ -47,7 +47,7 @@ var validStatus = []params.Status{
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.service, "service", false, "set this status at a service level")
+	f.BoolVar(&c.service, "service", false, "set this status for the service to which the unit belongs")
 }
 
 func (c *StatusSetCommand) Init(args []string) error {

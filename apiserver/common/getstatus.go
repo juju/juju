@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
@@ -74,12 +75,14 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 	return result, nil
 }
 
+// ServiceStatusGetter is a StatusGetter for combined service and unit statuses.
 type ServiceStatusGetter struct {
-	st           state.UnitFinder
+	st           state.EntityFinder
 	getcanAccess GetAuthFunc
 }
 
-func NewServiceStatusGetter(st state.UnitFinder, getcanAccess GetAuthFunc) *ServiceStatusGetter {
+// NewServiceStatusGetter returns a ServiceStatusGetter.
+func NewServiceStatusGetter(st state.EntityFinder, getcanAccess GetAuthFunc) *ServiceStatusGetter {
 	return &ServiceStatusGetter{
 		st:           st,
 		getcanAccess: getcanAccess,
@@ -87,26 +90,32 @@ func NewServiceStatusGetter(st state.UnitFinder, getcanAccess GetAuthFunc) *Serv
 }
 
 // Status returns the status of each given entity.
-func (s *ServiceStatusGetter) Status(args params.ServiceUnits) (params.ServiceStatusResults, error) {
+func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
 	results := params.ServiceStatusResults{
-		Results: make([]params.ServiceStatusResult, len(args.ServiceUnits)),
+		Results: make([]params.ServiceStatusResult, len(args.Entities)),
 	}
 	canAccess, err := s.getcanAccess()
 	if err != nil {
 		return params.ServiceStatusResults{}, err
 	}
 
-	for i, serviceUnit := range args.ServiceUnits {
+	for i, serviceUnit := range args.Entities {
 		//TODO(perrito666) IsLeader check for unit.
-		unit, err := s.st.Unit(serviceUnit.UnitName)
+		tag, err := names.ParseUnitTag(serviceUnit.Tag)
 		if err != nil {
 			results.Results[i].Error = ServerError(err)
 			continue
 		}
-
-		if !canAccess(unit.Tag()) {
-			results.Results[i].Error = ServerError(ErrPerm)
+		entity, err := s.st.FindEntity(tag)
+		if err != nil {
+			results.Results[i].Error = ServerError(err)
 			continue
+		}
+		unit, ok := entity.(*state.Unit)
+		if !ok {
+			results.Results[i].Error = ServerError(errors.Errorf("%q is not a valid Unit tag", serviceUnit.Tag))
+			continue
+
 		}
 
 		service, err := unit.Service()
@@ -131,23 +140,20 @@ func (s *ServiceStatusGetter) Status(args params.ServiceUnits) (params.ServiceSt
 		results.Results[i].Service.Data = serviceStatus.Data
 		results.Results[i].Service.Since = serviceStatus.Since
 
-		unitStatuses, err := service.MembersStatus()
+		unitStatuses, err := service.UnitsStatus()
 		if err != nil {
 			results.Results[i].Error = ServerError(err)
 			continue
 		}
-		results.Results[i].Units.Results = make([]params.NamedStatusResult, len(unitStatuses))
-		for ri, r := range unitStatuses {
-			ur := params.NamedStatusResult{
-				Tag: r.Tag,
-				StatusResult: params.StatusResult{
-					Status: params.Status(r.StatusInfo.Status),
-					Info:   r.StatusInfo.Message,
-					Data:   r.StatusInfo.Data,
-					Since:  r.StatusInfo.Since,
-				},
+		results.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
+		for uTag, r := range unitStatuses {
+			ur := params.StatusResult{
+				Status: params.Status(r.Status),
+				Info:   r.Message,
+				Data:   r.Data,
+				Since:  r.Since,
 			}
-			results.Results[i].Units.Results[ri] = ur
+			results.Results[i].Units[uTag] = ur
 		}
 	}
 	return results, nil

@@ -56,16 +56,6 @@ type EntityPassword struct {
 	Password string
 }
 
-// ServiceUnit identifies a unit by its name.
-type ServiceUnit struct {
-	UnitName string
-}
-
-//ServiceUnits identifies multiple ServiceUnits.
-type ServiceUnits struct {
-	ServiceUnits []ServiceUnit
-}
-
 // ErrorResults holds the results of calling a bulk operation which
 // returns no data, only an error result. The order and
 // number of elements matches the operations specified in the request.

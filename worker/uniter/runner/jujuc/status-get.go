@@ -47,7 +47,7 @@ func (c *StatusGetCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// StatusInfo is a record of the status information for a unit's workload.
+// StatusInfo is a record of the status information for a service or a unit's workload.
 type StatusInfo struct {
 	Tag    string
 	Status string
@@ -55,6 +55,7 @@ type StatusInfo struct {
 	Data   map[string]interface{}
 }
 
+// ServiceStatusInfo holds StatusInfo for a Service and all its Units.
 type ServiceStatusInfo struct {
 	Service StatusInfo
 	Units   []StatusInfo
@@ -88,15 +89,13 @@ func (c *StatusGetCommand) ServiceStatus(ctx *cmd.Context) error {
 	statusDetails := make(map[string]interface{})
 	details := toDetails(serviceStatus.Service, c.includeData)
 
-	if len(serviceStatus.Units) > 0 {
-		details["units"] = make(map[string]interface{}, len(serviceStatus.Units))
-	}
-
+	units := make(map[string]interface{}, len(serviceStatus.Units))
 	for _, unit := range serviceStatus.Units {
 		unitDetails := toDetails(unit, c.includeData)
 		//TODO(perrito666) I am sure there is a nicer way to put this
-		details["units"].(map[string]interface{})[unit.Tag] = unitDetails
+		units[unit.Tag] = unitDetails
 	}
+	details["units"] = units
 	statusDetails["service-status"] = details
 	c.out.Write(ctx, statusDetails)
 

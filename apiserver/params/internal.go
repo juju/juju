@@ -344,19 +344,6 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
-// ServiceStatus holds a unit tag and a service tag plus status information.
-type ServiceStatus struct {
-	UnitName string
-	Status   Status
-	Info     string
-	Data     map[string]interface{}
-}
-
-// SetServiceStatus holds the paramaeters for making a SetServiceStatus call
-type SetServiceStatus struct {
-	Services []ServiceStatus
-}
-
 type HistoryKind string
 
 const (
@@ -389,21 +376,10 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
-// NamedStatusResult hods a StatusResult and a Tag identifying the origin of it.
-type NamedStatusResult struct {
-	Tag string
-	StatusResult
-}
-
-// NamedStatusResults holds multiple NamedStatusResult
-type NamedStatusResults struct {
-	Results []NamedStatusResult
-}
-
 // ServiceStatusResult holds results for a service Full Status
 type ServiceStatusResult struct {
 	Service StatusResult
-	Units   NamedStatusResults
+	Units   map[string]StatusResult
 	Error   *Error
 }
 
