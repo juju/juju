@@ -87,6 +87,12 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
 			{Volume: state.VolumeParams{Pool: "environscoped", Size: 4096}},
+			{
+				Volume: state.VolumeParams{Pool: "environscoped", Size: 4096},
+				Attachment: state.VolumeAttachmentParams{
+					ReadOnly: true,
+				},
+			},
 		},
 	})
 	// Only provision the first and third volumes.
@@ -125,7 +131,10 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 		InstanceId: instance.Id("inst-id"),
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
-			Attachment: state.FilesystemAttachmentParams{Location: "/srv"},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "/srv",
+				ReadOnly: true,
+			},
 		}, {
 			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
 		}, {
@@ -300,7 +309,10 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	err := s.State.SetFilesystemAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewFilesystemTag("0/0"),
-		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/srv",
+			ReadOnly:   true,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -324,6 +336,7 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 				MachineTag:    "machine-0",
 				Info: params.FilesystemAttachmentInfo{
 					MountPoint: "/srv",
+					ReadOnly:   true,
 				},
 			}},
 			{Error: &params.Error{
@@ -338,7 +351,12 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(params.Entities{
-		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
+		Entities: []params.Entity{
+			{"volume-0-0"},
+			{"volume-1"},
+			{"volume-3"},
+			{"volume-42"},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.VolumeParamsResults{
@@ -353,6 +371,18 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 					VolumeTag:  "volume-1",
 					Provider:   "environscoped",
 					InstanceId: "inst-id",
+				},
+			}},
+			{Result: params.VolumeParams{
+				VolumeTag: "volume-3",
+				Size:      4096,
+				Provider:  "environscoped",
+				Attachment: &params.VolumeAttachmentParams{
+					MachineTag: "machine-0",
+					VolumeTag:  "volume-3",
+					Provider:   "environscoped",
+					InstanceId: "inst-id",
+					ReadOnly:   true,
 				},
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
@@ -397,8 +427,11 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-1",
 		}, {
-			MachineTag:    "machine-2",
+			MachineTag:    "machine-0",
 			AttachmentTag: "volume-3",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-4",
 		}, {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-42",
@@ -420,8 +453,15 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				Provider:   "environscoped",
 			}},
 			{Result: params.VolumeAttachmentParams{
-				MachineTag: "machine-2",
+				MachineTag: "machine-0",
 				VolumeTag:  "volume-3",
+				InstanceId: "inst-id",
+				Provider:   "environscoped",
+				ReadOnly:   true,
+			}},
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-2",
+				VolumeTag:  "volume-4",
 				Provider:   "environscoped",
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
@@ -457,6 +497,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				InstanceId:    "inst-id",
 				Provider:      "machinescoped",
 				MountPoint:    "/srv",
+				ReadOnly:      true,
 			}},
 			{Result: params.FilesystemAttachmentParams{
 				MachineTag:    "machine-0",
@@ -484,6 +525,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 			VolumeTag:  "volume-0-0",
 			Info: params.VolumeAttachmentInfo{
 				DeviceName: "sda",
+				ReadOnly:   true,
 			},
 		}, {
 			MachineTag: "machine-0",
@@ -493,7 +535,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 			},
 		}, {
 			MachineTag: "machine-2",
-			VolumeTag:  "volume-3",
+			VolumeTag:  "volume-4",
 			Info: params.VolumeAttachmentInfo{
 				DeviceName: "sdc",
 			},
@@ -526,6 +568,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 			FilesystemTag: "filesystem-0-0",
 			Info: params.FilesystemAttachmentInfo{
 				MountPoint: "/srv/a",
+				ReadOnly:   true,
 			},
 		}, {
 			MachineTag:    "machine-0",
@@ -576,7 +619,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{"0/0"}},
-			{StringsWatcherId: "2", Changes: []string{"1", "2", "3"}},
+			{StringsWatcherId: "2", Changes: []string{"1", "2", "3", "4"}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -627,6 +670,9 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}, {
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-2",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-3",
 				}},
 			},
 			{
@@ -638,8 +684,11 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-2",
 				}, {
-					MachineTag:    "machine-2",
+					MachineTag:    "machine-0",
 					AttachmentTag: "volume-3",
+				}, {
+					MachineTag:    "machine-2",
+					AttachmentTag: "volume-4",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -888,7 +937,7 @@ func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 			AttachmentTag: "volume-1",
 		}, {
 			MachineTag:    "machine-2",
-			AttachmentTag: "volume-3",
+			AttachmentTag: "volume-4",
 		}, {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-42",
