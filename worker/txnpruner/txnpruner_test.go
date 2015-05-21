@@ -70,9 +70,9 @@ type fakeTransactionPruner struct {
 	pruneCh chan bool
 }
 
-// PruneTransactions implements the txnpruner.TransactionPruner
+// MaybePruneTransactions implements the txnpruner.TransactionPruner
 // interface.
-func (p *fakeTransactionPruner) PruneTransactions() error {
+func (p *fakeTransactionPruner) MaybePruneTransactions() error {
 	p.pruneCh <- true
 	return nil
 }

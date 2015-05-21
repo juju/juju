@@ -16,7 +16,7 @@ var logger = loggo.GetLogger("juju.worker.txnpruner")
 // TransactionPruner defines the interface for types capable of
 // pruning transactions.
 type TransactionPruner interface {
-	PruneTransactions() error
+	MaybePruneTransactions() error
 }
 
 // New returns a worker which periodically prunes the data for
@@ -32,7 +32,7 @@ func New(tp TransactionPruner, interval time.Duration) worker.Worker {
 			select {
 			case <-timer.C:
 				logger.Debugf("starting transaction pruning")
-				err := tp.PruneTransactions()
+				err := tp.MaybePruneTransactions()
 				if err != nil {
 					return errors.Annotate(err, "pruning failed, txnpruner stopping")
 				}
