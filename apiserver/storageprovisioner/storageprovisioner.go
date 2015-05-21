@@ -564,21 +564,33 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		if len(volumeAttachments) >= 1 {
-			machineTag := volumeAttachments[0].Machine()
-			volumeParams.Attachment = &params.VolumeAttachmentParams{
-				MachineTag: machineTag.String(),
-				VolumeTag:  tag.String(),
-				Provider:   volumeParams.Provider,
-				// TODO(axw) other attachment params (e.g. ReadOnly)
+		if len(volumeAttachments) == 1 {
+			// There is exactly one attachment to be made, so make
+			// it immediately. Otherwise we will defer attachments
+			// until later.
+			volumeAttachment := volumeAttachments[0]
+			volumeAttachmentParams, ok := volumeAttachment.Params()
+			if !ok {
+				return params.VolumeParams{}, errors.Errorf(
+					"volume %q is already attached to machine %q",
+					volumeAttachment.Volume().Id(),
+					volumeAttachment.Machine().Id(),
+				)
 			}
+			machineTag := volumeAttachment.Machine()
 			instanceId, err := s.st.MachineInstanceId(machineTag)
 			if errors.IsNotProvisioned(err) {
 				// Leave the attachment until later.
+				instanceId = ""
 			} else if err != nil {
 				return params.VolumeParams{}, err
-			} else {
-				volumeParams.Attachment.InstanceId = string(instanceId)
+			}
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				tag.String(),
+				machineTag.String(),
+				string(instanceId),
+				volumeParams.Provider,
+				volumeAttachmentParams.ReadOnly,
 			}
 		}
 		return volumeParams, nil
