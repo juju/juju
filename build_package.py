@@ -117,6 +117,8 @@ def setup_lxc(series, arch, build_dir, verbose=False):
 def build_in_lxc(container, build_dir, verbose=False):
     """Build the binaries from the source files in the container."""
     returncode = 1
+    # The work in the container runs as a different user. Care is needed to
+    # ensure permissions and ownership are correct before and after the build.
     os.chmod(build_dir, 0o777)
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
@@ -187,6 +189,8 @@ def get_args(argv=None):
         help="Increase the verbosity of the output")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
+    bin_parser.add_argument(
+        '--ppa', default=None, help="The PPA that provides package deps.")
     bin_parser.add_argument("dsc", help="The dsc file to build")
     bin_parser.add_argument("location", help="The location to build in.")
     bin_parser.add_argument("series", help="The series to build in.")

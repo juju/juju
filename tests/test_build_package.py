@@ -86,7 +86,14 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual('binary', args.command)
         self.assertEqual('my.dsc', args.dsc)
         self.assertEqual('~/workspace', args.location)
+        self.assertIs(None, args.ppa)
         self.assertFalse(args.verbose)
+
+    def test_get_args_binary_with_ppa(self):
+        args = get_args(
+            ['prog', 'binary', '--ppa', 'ppa:juju/experimental',
+             'my.dsc', '~/workspace', 'trusty', 'i386'])
+        self.assertEqual('ppa:juju/experimental', args.ppa)
 
     def test_main_binary(self):
         with patch('build_package.build_binary', autospec=True,
