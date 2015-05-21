@@ -51,11 +51,12 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-// PruneTransactions removes data for completed transactions.
-func (st *State) PruneTransactions() error {
+// MaybePruneTransactions removes data for completed transactions.
+func (st *State) MaybePruneTransactions() error {
 	session := st.db.Session.Copy()
 	defer session.Close()
-	return st.txnRunner(session).PruneTransactions()
+	// Prune txns only when txn count has doubled since last prune.
+	return st.txnRunner(session).MaybePruneTransactions(2.0)
 }
 
 func newMultiEnvRunner(envUUID string, db *mgo.Database) jujutxn.Runner {
@@ -100,9 +101,9 @@ func (r *multiEnvRunner) ResumeTransactions() error {
 	return r.rawRunner.ResumeTransactions()
 }
 
-// PruneTransactions is part of the jujutxn.Runner interface.
-func (r *multiEnvRunner) PruneTransactions() error {
-	return r.rawRunner.PruneTransactions()
+// MaybePruneTransactions is part of the jujutxn.Runner interface.
+func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
+	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) {

@@ -326,15 +326,15 @@ func (s *MultiEnvRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *MultiEnvRunnerSuite) TestPruneTransactions(c *gc.C) {
-	err := s.multiEnvRunner.PruneTransactions()
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
 }
 
-func (s *MultiEnvRunnerSuite) TestPruneTransactionsWithError(c *gc.C) {
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 	s.testRunner.pruneTransactionsErr = errors.New("boom")
-	err := s.multiEnvRunner.PruneTransactions()
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -369,7 +369,7 @@ func (r *recordingRunner) ResumeTransactions() error {
 	return r.resumeTransactionsErr
 }
 
-func (r *recordingRunner) PruneTransactions() error {
+func (r *recordingRunner) MaybePruneTransactions(float32) error {
 	r.pruneTransactionsCalled = true
 	return r.pruneTransactionsErr
 }
