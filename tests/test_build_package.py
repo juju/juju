@@ -74,6 +74,10 @@ def make_source_files(workspace, dsc_name):
     return source_files
 
 
+def autopatch(target, **kwargs):
+    return patch(target, autospec=True, **kwargs)
+
+
 class BuildPackageTestCase(unittest.TestCase):
 
     def test_get_args_binary(self):
@@ -93,23 +97,16 @@ class BuildPackageTestCase(unittest.TestCase):
         bb_mock.assert_called_with(
             'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
 
-    def test_build_binary(self):
-        with patch('build_package.parse_dsc', autospec=True,
-                   return_value=['orig', 'debian']) as pd_mock:
-            with patch('build_package.setup_local', autospec=True,
-                       return_value='build_dir') as sl_mock:
-                with patch('build_package.setup_lxc', autospec=True,
-                           return_value='trusty-i386') as l_mock:
-                    with patch('build_package.build_in_lxc',
-                               autospec=True) as bl_mock:
-                        with patch('build_package.teardown_lxc', autospec=True,
-                                   return_value=True) as tl_mock:
-                            with patch('build_package.move_debs',
-                                       autospec=True,
-                                       return_value=True) as md_mock:
-                                code = build_binary(
-                                    'my.dsc', '~/workspace', 'trusty', 'i386',
-                                    verbose=False)
+    @autopatch('build_package.move_debs', return_value=True)
+    @autopatch('build_package.teardown_lxc', return_value=True)
+    @autopatch('build_package.build_in_lxc')
+    @autopatch('build_package.setup_lxc', return_value='trusty-i386')
+    @autopatch('build_package.setup_local', return_value='build_dir')
+    @autopatch('build_package.parse_dsc', return_value=['orig', 'debian'])
+    def test_build_binary(self,
+                          pd_mock, sl_mock, l_mock, bl_mock, tl_mock, md_mock):
+        code = build_binary(
+            'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
         self.assertEqual(0, code)
         pd_mock.assert_called_with('my.dsc', verbose=False)
         sl_mock.assert_called_with(
