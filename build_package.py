@@ -26,6 +26,7 @@ echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
 BUILD_DEB_TEMPLATE = """\
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eu
+    echo "\nInstalling common build deps.\n"
     cd workspace
     while ! ifconfig | grep -q "addr:10.0."; do
         echo "Waiting for network"
@@ -37,23 +38,24 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
+    echo "\nInstalling build deps from dsc.\n"
     cd workspace
-    echo "Installing build deps."
-    mk-build-deps -i --tool 'apt-get --yes' juju-core_*.dsc
+    mk-build-deps -i --tool 'apt-get --yes' *.dsc
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
+    echo "\nBuilding the packages.\n"
     cd workspace
-    echo "Unpacking source package."
-    dpkg-source -x juju-core_*.dsc
-    cd `basename juju-core_*.orig.tar.gz .orig.tar.gz | tr _ -`
-    echo "Building package."
+    dpkg-source -x *.dsc
+    cd $(basename *.orig.tar.gz .orig.tar.gz | tr _ -)
     dpkg-buildpackage -us -uc
-    cp *.deb ../
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     cd workspace
-    chmod -R ugo+rw *
+    echo "\nCleaning up.\n"
+    rm *build-deps*.deb
+    find . -type d -exec chmod ugo+rwx {{}} \;
+    find . -type f -exec chmod ugo+rw {{}} \;
 EOT
 """
 
