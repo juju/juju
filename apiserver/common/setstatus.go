@@ -16,34 +16,47 @@ import (
 // ServiceStatusSetter implements a SetServiceStatus method to be
 // used by facades that can change a service status.
 type ServiceStatusSetter struct {
-	st           *state.State
+	st           state.EntityFinder
 	getCanModify GetAuthFunc
 }
 
-func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ServiceStatusSetter {
+// NewServiceStatusSetter returns a ServiceStatusSetter.
+func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *ServiceStatusSetter {
 	return &ServiceStatusSetter{
 		st:           st,
 		getCanModify: getCanModify,
 	}
 }
 
-func (s *ServiceStatusSetter) SetStatus(args params.SetServiceStatus) (params.ErrorResults, error) {
+// SetStatus sets the status on the service given by the unit in args if the unit is the leader.
+func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Services)),
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	if len(args.Services) == 0 {
+	if len(args.Entities) == 0 {
 		return result, nil
 	}
 	canModify, err := s.getCanModify()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, arg := range args.Services {
+	for i, arg := range args.Entities {
 		// TODO(perrito666) Check IsLeader for unitTag.
-		unit, err := s.st.Unit(arg.UnitName)
+		tag, err := names.ParseUnitTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
+		}
+		entity, err := s.st.FindEntity(tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		unit, ok := entity.(*state.Unit)
+		if !ok {
+			result.Results[i].Error = ServerError(errors.Errorf("%q is not a valid Unit tag", arg.Tag))
+			continue
+
 		}
 		service, err := unit.Service()
 		if err != nil {

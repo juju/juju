@@ -159,35 +159,41 @@ func (s *Service) ownerTag() (names.UserTag, error) {
 	return names.ParseUserTag(result.Result)
 }
 
-// SetServiceStatus sets the status of the unit.
-func (s *Service) SetServiceStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
+// SetStatus sets the status of the service.
+func (s *Service) SetStatus(unitTag string, status params.Status, info string, data map[string]interface{}) error {
 	//TODO(perrto666) bump api version for this?
 	if s.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("SetServiceStatus")
+		return errors.NotImplementedf("SetStatus")
 	}
 	var result params.ErrorResults
-	args := params.SetServiceStatus{
-		Services: []params.ServiceStatus{
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
 			{
-				UnitName: unitName,
-				Status:   status,
-				Info:     info,
-				Data:     data},
+				Tag:    unitTag,
+				Status: status,
+				Info:   info,
+				Data:   data,
+			},
 		},
 	}
 	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return errors.NotImplementedf("SetServiceStatus")
+		}
 		return errors.Trace(err)
 	}
 	return result.OneError()
 }
 
-func (s *Service) ServiceStatus(unitName string) (params.ServiceStatusResult, error) {
+// ServiceStatus returns the status of the service if the passed unitTag,
+// corresponding to the calling unit, is of the leader.
+func (s *Service) Status(unitTag string) (params.ServiceStatusResult, error) {
 	var results params.ServiceStatusResults
-	args := params.ServiceUnits{
-		ServiceUnits: []params.ServiceUnit{
+	args := params.Entities{
+		Entities: []params.Entity{
 			{
-				UnitName: unitName,
+				Tag: unitTag,
 			},
 		},
 	}

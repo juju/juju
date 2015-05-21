@@ -1177,21 +1177,18 @@ func (s *Service) SetStatus(status Status, info string, data map[string]interfac
 }
 
 // MembersStatus returns the status for all units in this service.
-func (s *Service) MembersStatus() ([]NamedStatusInfo, error) {
+func (s *Service) UnitsStatus() (map[string]StatusInfo, error) {
 	units, err := s.AllUnits()
 	if err != nil {
 		return nil, err
 	}
-	results := make([]NamedStatusInfo, len(units))
-	for i, unit := range units {
+	results := make(map[string]StatusInfo, len(units))
+	for _, unit := range units {
 		unitStatus, err := unit.Status()
 		if err != nil {
 			return nil, err
 		}
-		results[i] = NamedStatusInfo{
-			Tag:        unit.Name(),
-			StatusInfo: unitStatus,
-		}
+		results[unit.Name()] = unitStatus
 	}
 	return results, nil
 

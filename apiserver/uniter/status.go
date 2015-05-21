@@ -79,7 +79,7 @@ func (s *StatusAPI) SetUnitStatus(args params.SetStatus) (params.ErrorResults, e
 
 // SetServiceStatus sets the status for all the Services in args if the given Unit is
 // the leader.
-func (s *StatusAPI) SetServiceStatus(args params.SetServiceStatus) (params.ErrorResults, error) {
+func (s *StatusAPI) SetServiceStatus(args params.SetStatus) (params.ErrorResults, error) {
 	return s.serviceSetter.SetStatus(args)
 }
 
@@ -88,7 +88,7 @@ func (s *StatusAPI) UnitStatus(args params.Entities) (params.StatusResults, erro
 	return s.unitGetter.Status(args)
 }
 
-// ServiceStatus returns the status of the Service and its workloads.
-func (s *StatusAPI) ServiceStatus(args params.ServiceUnits) (params.ServiceStatusResults, error) {
+// ServiceStatus returns the status of the Services and its workloads.
+func (s *StatusAPI) ServiceStatus(args params.Entities) (params.ServiceStatusResults, error) {
 	return s.serviceGetter.Status(args)
 }
