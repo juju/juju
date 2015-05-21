@@ -302,19 +302,16 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
+func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.VolumeInfo, error) {
 	resp, err := v.ec2.Volumes(volIds, nil)
 	if err != nil {
 		return nil, err
 	}
-	vols := make([]storage.Volume, len(resp.Volumes))
+	vols := make([]storage.VolumeInfo, len(resp.Volumes))
 	for i, vol := range resp.Volumes {
-		vols[i] = storage.Volume{
-			// TODO(wallyworld) - fill in tag when interface is fixed
-			VolumeInfo: storage.VolumeInfo{
-				Size:     gibToMib(uint64(vol.Size)),
-				VolumeId: vol.Id,
-			},
+		vols[i] = storage.VolumeInfo{
+			Size:     gibToMib(uint64(vol.Size)),
+			VolumeId: vol.Id,
 		}
 		for _, attachment := range vol.Attachments {
 			if !attachment.DeleteOnTermination {

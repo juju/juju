@@ -137,7 +137,7 @@ func (lvs *loopVolumeSource) volumeFilePath(volumeId string) string {
 }
 
 // DescribeVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volume, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }

@@ -162,12 +162,10 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumes, err := volSource.DescribeVolumes([]string{mockVolId})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(volumes, jc.DeepEquals, []storage.Volume{{
-		VolumeInfo: storage.VolumeInfo{
-			VolumeId:   mockVolId,
-			Size:       mockVolSize,
-			Persistent: true,
-		},
+	c.Check(volumes, jc.DeepEquals, []storage.VolumeInfo{{
+		VolumeId:   mockVolId,
+		Size:       mockVolSize,
+		Persistent: true,
 	}})
 }
 

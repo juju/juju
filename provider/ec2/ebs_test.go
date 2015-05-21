@@ -275,16 +275,12 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.Volume{{
-		VolumeInfo: storage.VolumeInfo{
-			Size:     10240,
-			VolumeId: "vol-0",
-		},
+	c.Assert(vols, jc.SameContents, []storage.VolumeInfo{{
+		Size:     10240,
+		VolumeId: "vol-0",
 	}, {
-		VolumeInfo: storage.VolumeInfo{
-			Size:     20480,
-			VolumeId: "vol-1",
-		},
+		Size:     20480,
+		VolumeId: "vol-1",
 	}})
 }
 

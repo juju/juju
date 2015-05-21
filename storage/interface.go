@@ -73,7 +73,7 @@ type VolumeSource interface {
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	DescribeVolumes(volIds []string) ([]Volume, error)
+	DescribeVolumes(volIds []string) ([]VolumeInfo, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
