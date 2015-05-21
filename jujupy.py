@@ -474,7 +474,9 @@ class EnvJujuClient:
     def action_fetch(self, id, action=None):
         """Fetches the results of the action with the given id.
 
-        Will wait for up to 10 seconds for the action results.
+        Will wait for up to 1 minute for the action results.
+        The action name here is just used for an more informational error in 
+        cases where it's available.
         Returns the yaml output of the fetched action.
         """
         out = self.get_juju_output("action", "fetch", id, "--wait", "1m",

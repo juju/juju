@@ -1849,6 +1849,65 @@ class TestEnvironment(TestCase):
         mock_get.assert_called_with(env, 'tools-metadata-url')
         self.assertEqual(0, mock_set.call_count)
 
+    def test_action_do(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = \
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
+            id = client.action_do("foo/0", "myaction", "param=5")
+            self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
+        mock.assert_called_with(
+            'action', ('do', 'foo/0', 'myaction', "param=5"), True
+        )
+
+    def test_action_do_error(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = "some bad text"
+            try:
+                client.action_do("foo/0", "myaction", "param=5")
+                self.fail("bad return should have caused exception")
+            except Exception:
+                pass  # yay, this is correct
+
+    def test_action_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            mock.return_value = ret
+            out = client.action_fetch("123")
+            self.assertEqual(out, ret)
+        mock.assert_called_with(
+            'action', ('fetch', '123', "--wait", "1m"), True
+        )
+
+    def test_action_fetch_timeout(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: pending\nfoo: bar"
+            mock.return_value = ret
+            try:
+                client.action_fetch("123")
+                self.fail("expected exception from call timeout")
+            except Exception:
+                pass  # yay, this is correct
+
+    def test_action_do_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            mock.return_value = ret
+            out = client.action_do_fetch("foo/0", "myaction", "param=5")
+            self.assertEqual(out, ret)
+        mock.assert_called_with(
+            'action', ('do', 'foo/0', 'myaction', "param=5"), True
+        )
+
 
 class TestGroupReporter(TestCase):
 
