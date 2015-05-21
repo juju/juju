@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -399,15 +400,25 @@ func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 	a := s.newAgent(c, unit)
 	a.apiStateUpgrader = &unitAgentUpgrader{}
 
-	closedAPI := false
-	s.AgentSuite.PatchValue(&reportClosedAPI, func(st interface{}) {
-		closedAPI = true
+	closedAPI := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(&reportClosedAPI, func(st io.Closer) {
+		select {
+		case closedAPI <- st:
+		default:
+		}
 	})
 
 	worker, err := a.APIWorkers()
+
+	select {
+	case closed := <-closedAPI:
+		c.Assert(closed, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("API not opened")
+	}
+
 	c.Assert(worker, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
-	c.Assert(closedAPI, jc.IsTrue)
 }
 
 type unitAgentUpgrader struct{}
