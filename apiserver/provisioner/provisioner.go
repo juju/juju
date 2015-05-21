@@ -561,7 +561,10 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		if !ok {
 			// Attachment is already provisioned; this is an insane
 			// state, so we should not proceed with the volume.
-			continue
+			return nil, errors.Errorf(
+				"volume %s already attached to machine %s",
+				volumeTag.Id(), m.Id(),
+			)
 		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
 		volumeParams.Attachment = &params.VolumeAttachmentParams{
