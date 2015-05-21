@@ -479,7 +479,6 @@ class EnvJujuClient:
         """
         out = self.get_juju_output("action", "fetch", id, "--wait", "1m",
                                     include_e=False)
-        print(out)
         status = yaml_loads(out)["status"]
         if status != "completed":
             if action != None:
