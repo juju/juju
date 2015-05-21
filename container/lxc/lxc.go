@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,7 +59,7 @@ const (
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
 func DefaultNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig(DefaultLxcBridge, nil)
+	return container.BridgeNetworkConfig(DefaultLxcBridge, 0, nil)
 }
 
 // FsCommandOutput calls cmd.Output, this is used as an overloading point so
@@ -889,14 +888,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 	}
 	data := configData{
 		Link: config.Device,
+		MTU:  config.MTU,
 	}
-
-	primaryNIC, err := discoverHostNIC()
-	if err != nil {
-		logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
-	} else if primaryNIC.MTU > 0 {
-		logger.Infof("setting MTU to %d for all container network interfaces", primaryNIC.MTU)
-		data.MTU = primaryNIC.MTU
+	if config.MTU > 0 {
+		logger.Infof("setting MTU to %v for all LXC network interfaces", config.MTU)
 	}
 
 	switch config.NetworkType {
@@ -964,39 +959,6 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		return ""
 	}
 	return buf.String()
-}
-
-// discoverHostNIC detects and returns the primary network interface
-// on the machine. Out of all interfaces, the first non-loopback
-// device which is up and has address is considered the primary.
-var discoverHostNIC = func() (net.Interface, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return net.Interface{}, errors.Annotatef(err, "cannot get network interfaces")
-	}
-	logger.Tracef("trying to discover primary network interface")
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagLoopback != 0 {
-			// Skip the loopback.
-			logger.Tracef("not using loopback interface %q", iface.Name)
-			continue
-		}
-		if iface.Flags&net.FlagUp != 0 {
-			// Possibly the primary, but ensure it has an address as
-			// well.
-			logger.Tracef("verifying interface %q has addresses", iface.Name)
-			addrs, err := iface.Addrs()
-			if err != nil {
-				return net.Interface{}, errors.Annotatef(err, "cannot get %q addresses", iface.Name)
-			}
-			if len(addrs) > 0 {
-				// We found it.
-				logger.Tracef("primary network interface is %q", iface.Name)
-				return iface, nil
-			}
-		}
-	}
-	return net.Interface{}, errors.Errorf("cannot detect the primary network interface")
 }
 
 func generateNetworkConfig(config *container.NetworkConfig) string {

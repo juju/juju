@@ -104,6 +104,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	} else if err != nil {
 		return err
 	}
+	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
+		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
+	}
 
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
