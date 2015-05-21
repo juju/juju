@@ -349,13 +349,32 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemErrorAll(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
+func (s *discoverySuite) TestDiscoverInitSystemScriptBash(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("not supported on windows")
 	}
 
 	script, filename := s.newDiscoverInitSystemScript(c)
 	script += filename
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
+}
+
+func (s *discoverySuite) TestDiscoverInitSystemScriptBourneShell(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	script += "sh " + filename
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})
