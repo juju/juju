@@ -33,6 +33,7 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
         sleep 1
     done
     set +e
+    export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y build-essential devscripts equivs
 EOT
@@ -40,6 +41,7 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nInstalling build deps from dsc.\n"
     cd workspace
+    export DEBIAN_FRONTEND=noninteractive
     mk-build-deps -i --tool 'apt-get --yes' *.dsc
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
@@ -51,8 +53,8 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     dpkg-buildpackage -us -uc
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
-    cd workspace
     echo "\nCleaning up.\n"
+    cd workspace
     rm *build-deps*.deb
     find . -type d -exec chmod ugo+rwx {{}} \;
     find . -type f -exec chmod ugo+rw {{}} \;
@@ -111,10 +113,9 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     container = '{}-{}'.format(series, arch)
     lxc_script = CREATE_LXC_TEMPLATE.format(
         container=container, series=series, arch=arch, build_dir=build_dir)
-    entry_cmd = ['bash', '-c', lxc_script]
     if verbose:
         print('Creating %s container' % container)
-    output = subprocess.check_output(entry_cmd)
+    output = subprocess.check_output([lxc_script], shell=True)
     if verbose:
         print(output)
     return container
@@ -126,7 +127,7 @@ def build_in_lxc(container, verbose=False):
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container)
-        proc = subprocess.Popen(['bash', '-c', build_script])
+        proc = subprocess.Popen([build_script], shell=True)
         proc.communicate()
         returncode = proc.returncode
     finally:
