@@ -5,8 +5,8 @@ package storage
 
 import "github.com/juju/names"
 
-// Filesystem describes a filesystem, either
-// local or remote (NFS, Ceph etc).
+// Filesystem identifies and describes a filesystem, either local or remote
+// (NFS, Ceph etc).
 type Filesystem struct {
 	// Tag is a unique name assigned by Juju to the filesystem.
 	Tag names.FilesystemTag
@@ -14,6 +14,11 @@ type Filesystem struct {
 	// Volume is the tag of the volume that backs the filesystem, if any.
 	Volume names.VolumeTag
 
+	FilesystemInfo
+}
+
+// Filesystem describes a filesystem, either local or remote (NFS, Ceph etc).
+type FilesystemInfo struct {
 	// FilesystemId is a unique provider-supplied ID for the filesystem.
 	// FilesystemId is required to be unique for the lifetime of the
 	// filesystem, but may be reused.
@@ -34,8 +39,14 @@ type FilesystemAttachment struct {
 	// this attachment corresponds to.
 	Machine names.MachineTag
 
-	// Path is the path at which the filesystem is mounted on the machine that
-	// this attachment corresponds to.
+	FilesystemAttachmentInfo
+}
+
+// FilesystemAttachmentInfo describes machine-specific filesystem attachment
+// information, including how the filesystem is exposed on the machine.
+type FilesystemAttachmentInfo struct {
+	// Path is the path at which the filesystem is mounted on the machine
+	// that this attachment corresponds to.
 	Path string
 
 	// ReadOnly indicates that the filesystem is mounted read-only.

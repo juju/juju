@@ -80,9 +80,9 @@ func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.Filesyst
 		return names.FilesystemTag{}, state.FilesystemInfo{}, errors.Trace(err)
 	}
 	return filesystemTag, state.FilesystemInfo{
-		v.Size,
+		v.Info.Size,
 		"", // pool is set by state
-		v.FilesystemId,
+		v.Info.FilesystemId,
 	}, nil
 }
 
@@ -95,8 +95,10 @@ func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
 	result := params.Filesystem{
 		f.FilesystemTag().String(),
 		"",
-		info.FilesystemId,
-		info.Size,
+		params.FilesystemInfo{
+			info.FilesystemId,
+			info.Size,
+		},
 	}
 	volumeTag, err := f.Volume()
 	if err == nil {
@@ -119,8 +121,8 @@ func FilesystemAttachmentToState(in params.FilesystemAttachment) (names.MachineT
 		return names.MachineTag{}, names.FilesystemTag{}, state.FilesystemAttachmentInfo{}, err
 	}
 	info := state.FilesystemAttachmentInfo{
-		in.MountPoint,
-		in.ReadOnly,
+		in.Info.MountPoint,
+		in.Info.ReadOnly,
 	}
 	return machineTag, filesystemTag, info, nil
 }
@@ -134,8 +136,10 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 	return params.FilesystemAttachment{
 		v.Filesystem().String(),
 		v.Machine().String(),
-		info.MountPoint,
-		info.ReadOnly,
+		params.FilesystemAttachmentInfo{
+			info.MountPoint,
+			info.ReadOnly,
+		},
 	}, nil
 }
 

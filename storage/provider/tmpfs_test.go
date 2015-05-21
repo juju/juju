@@ -96,8 +96,10 @@ func (s *tmpfsSuite) TestCreateFilesystems(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
-		Tag:  names.NewFilesystemTag("6"),
-		Size: 2,
+		Tag: names.NewFilesystemTag("6"),
+		FilesystemInfo: storage.FilesystemInfo{
+			Size: 2,
+		},
 	}})
 }
 
@@ -116,11 +118,15 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
-		Tag:  names.NewFilesystemTag("1"),
-		Size: 32,
+		Tag: names.NewFilesystemTag("1"),
+		FilesystemInfo: storage.FilesystemInfo{
+			Size: 32,
+		},
 	}, {
-		Tag:  names.NewFilesystemTag("2"),
-		Size: 16,
+		Tag: names.NewFilesystemTag("2"),
+		FilesystemInfo: storage.FilesystemInfo{
+			Size: 16,
+		},
 	}})
 }
 
@@ -165,7 +171,9 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	}})
 	c.Assert(attachments, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("123"),
-		Path:       "exists",
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path: "exists",
+		},
 	}})
 }
 
@@ -193,8 +201,10 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 	c.Assert(attachments, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("1"),
 		Machine:    names.NewMachineTag("2"),
-		Path:       "/var/lib/juju/storage/fs/foo",
-		ReadOnly:   true,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path:     "/var/lib/juju/storage/fs/foo",
+			ReadOnly: true,
+		},
 	}})
 }
 

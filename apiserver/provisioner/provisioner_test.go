@@ -1129,14 +1129,16 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Nonce:      "fake",
 		Volumes: []params.Volume{{
 			VolumeTag: "volume-0",
-			VolumeId:  "vol-0",
-			Size:      1234,
+			Info: params.VolumeInfo{
+				VolumeId: "vol-0",
+				Size:     1234,
+			},
 		}},
-		VolumeAttachments: []params.VolumeAttachment{{
-			VolumeTag:  "volume-0",
-			MachineTag: volumesMachine.Tag().String(),
-			DeviceName: "sda",
-		}},
+		VolumeAttachments: map[string]params.VolumeAttachmentInfo{
+			"volume-0": {
+				DeviceName: "sda",
+			},
+		},
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},

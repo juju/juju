@@ -151,20 +151,26 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, i
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 3)
 	c.Assert(vols, jc.SameContents, []storage.Volume{{
-		Tag:        names.NewVolumeTag("0"),
-		Size:       10240,
-		VolumeId:   "vol-0",
-		Persistent: true,
+		names.NewVolumeTag("0"),
+		storage.VolumeInfo{
+			Size:       10240,
+			VolumeId:   "vol-0",
+			Persistent: true,
+		},
 	}, {
-		Tag:        names.NewVolumeTag("1"),
-		Size:       20480,
-		VolumeId:   "vol-1",
-		Persistent: true,
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			Size:       20480,
+			VolumeId:   "vol-1",
+			Persistent: true,
+		},
 	}, {
-		Tag:        names.NewVolumeTag("2"),
-		Size:       30720,
-		VolumeId:   "vol-2",
-		Persistent: false,
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			Size:       30720,
+			VolumeId:   "vol-2",
+			Persistent: false,
+		},
 	}})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
@@ -269,7 +275,7 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.Volume{{
+	c.Assert(vols, jc.SameContents, []storage.VolumeInfo{{
 		Size:     10240,
 		VolumeId: "vol-0",
 	}, {
@@ -407,10 +413,12 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag("0"),
-		Machine:    names.NewMachineTag("1"),
-		DeviceName: "xvdf",
-		ReadOnly:   false,
+		names.NewVolumeTag("0"),
+		names.NewMachineTag("1"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "xvdf",
+			ReadOnly:   false,
+		},
 	})
 
 	ec2Client := ec2.StorageEC2(vs)
@@ -431,10 +439,12 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag("0"),
-		Machine:    names.NewMachineTag("1"),
-		DeviceName: "xvdf",
-		ReadOnly:   false,
+		names.NewVolumeTag("0"),
+		names.NewMachineTag("1"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "xvdf",
+			ReadOnly:   false,
+		},
 	})
 }
 

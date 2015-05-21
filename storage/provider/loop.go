@@ -124,9 +124,11 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
 	return storage.Volume{
-		Tag:      params.Tag,
-		VolumeId: volumeId,
-		Size:     params.Size,
+		params.Tag,
+		storage.VolumeInfo{
+			VolumeId: volumeId,
+			Size:     params.Size,
+		},
 	}, nil
 }
 
@@ -135,7 +137,7 @@ func (lvs *loopVolumeSource) volumeFilePath(volumeId string) string {
 }
 
 // DescribeVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volume, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }
@@ -203,10 +205,12 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
 	}
 	return storage.VolumeAttachment{
-		Volume:     arg.Volume,
-		Machine:    arg.Machine,
-		DeviceName: deviceName,
-		ReadOnly:   arg.ReadOnly,
+		arg.Volume,
+		arg.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: deviceName,
+			ReadOnly:   arg.ReadOnly,
+		},
 	}, nil
 }
 

@@ -532,10 +532,12 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 	for i, v := range in {
 		out[i] = params.Volume{
 			v.Tag.String(),
-			v.VolumeId,
-			v.HardwareId,
-			v.Size,
-			v.Persistent,
+			params.VolumeInfo{
+				v.VolumeId,
+				v.HardwareId,
+				v.Size,
+				v.Persistent,
+			},
 		}
 	}
 	return out
@@ -547,8 +549,10 @@ func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.Volume
 		out[i] = params.VolumeAttachment{
 			v.Volume.String(),
 			v.Machine.String(),
-			v.DeviceName,
-			v.ReadOnly,
+			params.VolumeAttachmentInfo{
+				v.DeviceName,
+				v.ReadOnly,
+			},
 		}
 	}
 	return out
@@ -561,10 +565,12 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 	}
 	return storage.Volume{
 		volumeTag,
-		in.VolumeId,
-		in.HardwareId,
-		in.Size,
-		in.Persistent,
+		storage.VolumeInfo{
+			in.Info.VolumeId,
+			in.Info.HardwareId,
+			in.Info.Size,
+			in.Info.Persistent,
+		},
 	}, nil
 }
 
@@ -580,8 +586,10 @@ func volumeAttachmentFromParams(in params.VolumeAttachment) (storage.VolumeAttac
 	return storage.VolumeAttachment{
 		volumeTag,
 		machineTag,
-		in.DeviceName,
-		in.ReadOnly,
+		storage.VolumeAttachmentInfo{
+			in.Info.DeviceName,
+			in.Info.ReadOnly,
+		},
 	}, nil
 }
 

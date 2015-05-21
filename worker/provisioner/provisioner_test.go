@@ -851,12 +851,16 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	}}
 	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
 	expectVolumeInfo := []storage.Volume{{
-		Tag:  names.NewVolumeTag("1"),
-		Size: 1024,
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			Size: 1024,
+		},
 	}, {
-		Tag:        names.NewVolumeTag("2"),
-		Size:       2048,
-		Persistent: true,
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			Size:       2048,
+			Persistent: true,
+		},
 	}}
 	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, cons)
 	c.Assert(err, jc.ErrorIsNil)

@@ -100,8 +100,8 @@ func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]
 			return errors.Trace(err)
 		}
 		info, unit, storage := createInfo(item.Volume)
-		info.DeviceName = one.DeviceName
-		info.ReadOnly = one.ReadOnly
+		info.DeviceName = one.Info.DeviceName
+		info.ReadOnly = one.Info.ReadOnly
 
 		addOneToAll(machine, unit, storage, info, all)
 	}

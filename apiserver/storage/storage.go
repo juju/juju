@@ -509,8 +509,10 @@ func convertStateVolumeAttachmentToParams(attachment state.VolumeAttachment) par
 		VolumeTag:  attachment.Volume().String(),
 		MachineTag: attachment.Machine().String()}
 	if info, err := attachment.Info(); err == nil {
-		result.DeviceName = info.DeviceName
-		result.ReadOnly = info.ReadOnly
+		result.Info = params.VolumeAttachmentInfo{
+			info.DeviceName,
+			info.ReadOnly,
+		}
 	}
 	return result
 }

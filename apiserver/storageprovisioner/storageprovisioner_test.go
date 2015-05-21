@@ -171,7 +171,15 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
-			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", HardwareId: "123", Size: 1024, Persistent: true}},
+			{Result: params.Volume{
+				VolumeTag: "volume-0-0",
+				Info: params.VolumeInfo{
+					VolumeId:   "abc",
+					HardwareId: "123",
+					Size:       1024,
+					Persistent: true,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -195,7 +203,14 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 		Results: []params.VolumeResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`volume "1"`))},
-			{Result: params.Volume{VolumeTag: "volume-2", VolumeId: "def", HardwareId: "456", Size: 4096}},
+			{Result: params.Volume{
+				VolumeTag: "volume-2",
+				Info: params.VolumeInfo{
+					VolumeId:   "def",
+					HardwareId: "456",
+					Size:       4096,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -224,7 +239,13 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 		Results: []params.FilesystemResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
-			{Result: params.Filesystem{FilesystemTag: "filesystem-2", FilesystemId: "def", Size: 4096}},
+			{Result: params.Filesystem{
+				FilesystemTag: "filesystem-2",
+				Info: params.FilesystemInfo{
+					FilesystemId: "def",
+					Size:         4096,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -257,7 +278,11 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.VolumeAttachmentResults{
 		Results: []params.VolumeAttachmentResult{
 			{Result: params.VolumeAttachment{
-				VolumeTag: "volume-0-0", MachineTag: "machine-0", DeviceName: "xvdf1",
+				VolumeTag:  "volume-0-0",
+				MachineTag: "machine-0",
+				Info: params.VolumeAttachmentInfo{
+					DeviceName: "xvdf1",
+				},
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -297,7 +322,9 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 			{Result: params.FilesystemAttachment{
 				FilesystemTag: "filesystem-0-0",
 				MachineTag:    "machine-0",
-				MountPoint:    "/srv",
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "/srv",
+				},
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -455,19 +482,27 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 		VolumeAttachments: []params.VolumeAttachment{{
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-0-0",
-			DeviceName: "sda",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sda",
+			},
 		}, {
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-1",
-			DeviceName: "sdb",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdb",
+			},
 		}, {
 			MachineTag: "machine-2",
 			VolumeTag:  "volume-3",
-			DeviceName: "sdc",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdc",
+			},
 		}, {
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-42",
-			DeviceName: "sdd",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdd",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -489,19 +524,27 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 		FilesystemAttachments: []params.FilesystemAttachment{{
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-0-0",
-			MountPoint:    "/srv/a",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/a",
+			},
 		}, {
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-1",
-			MountPoint:    "/srv/b",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/b",
+			},
 		}, {
 			MachineTag:    "machine-2",
 			FilesystemTag: "filesystem-3",
-			MountPoint:    "/srv/c",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/c",
+			},
 		}, {
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-42",
-			MountPoint:    "/srv/d",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/d",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

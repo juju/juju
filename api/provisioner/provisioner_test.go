@@ -320,14 +320,16 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}}
 	volumes := []params.Volume{{
 		VolumeTag: "volume-1-0",
-		VolumeId:  "vol-123",
-		Size:      124,
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+			Size:     124,
+		},
 	}}
-	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "volume-1-0",
-		MachineTag: "machine-1",
-		DeviceName: "xvdf1",
-	}}
+	volumeAttachments := map[string]params.VolumeAttachmentInfo{
+		"volume-1-0": {
+			DeviceName: "xvdf1",
+		},
+	}
 
 	err = apiMachine.SetInstanceInfo(
 		"i-will", "fake_nonce", &hwChars, networks, ifaces, volumes, volumeAttachments,

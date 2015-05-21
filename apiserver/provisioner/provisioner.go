@@ -622,8 +622,8 @@ func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag
 			return nil, errors.Trace(err)
 		}
 		m[volumeTag] = state.VolumeAttachmentInfo{
-			v.DeviceName,
-			false, // not read-only
+			v.Info.DeviceName,
+			v.Info.ReadOnly,
 		}
 	}
 	return m, nil
@@ -756,7 +756,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		volumeAttachments, err := common.VolumeAttachmentsToState(arg.VolumeAttachments)
+		volumeAttachments, err := common.VolumeAttachmentInfosToState(arg.VolumeAttachments)
 		if err != nil {
 			return err
 		}
