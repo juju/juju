@@ -603,8 +603,10 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 	return storage.Filesystem{
 		filesystemTag,
 		volumeTag,
-		in.Info.FilesystemId,
-		in.Info.Size,
+		storage.FilesystemInfo{
+			in.Info.FilesystemId,
+			in.Info.Size,
+		},
 	}, nil
 }
 
@@ -620,8 +622,10 @@ func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.Fil
 	return storage.FilesystemAttachment{
 		filesystemTag,
 		machineTag,
-		in.Info.MountPoint,
-		in.Info.ReadOnly,
+		storage.FilesystemAttachmentInfo{
+			in.Info.MountPoint,
+			in.Info.ReadOnly,
+		},
 	}, nil
 }
 

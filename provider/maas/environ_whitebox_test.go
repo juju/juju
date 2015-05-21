@@ -1454,30 +1454,38 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
 		{
-			Tag:        names.NewVolumeTag("1"),
-			Size:       238475,
-			VolumeId:   "volume-1",
-			HardwareId: "id_for_sda",
+			names.NewVolumeTag("1"),
+			storage.VolumeInfo{
+				Size:       238475,
+				VolumeId:   "volume-1",
+				HardwareId: "id_for_sda",
+			},
 		},
 		{
-			Tag:        names.NewVolumeTag("3"),
-			Size:       238475,
-			VolumeId:   "volume-3",
-			HardwareId: "",
+			names.NewVolumeTag("3"),
+			storage.VolumeInfo{
+				Size:       238475,
+				VolumeId:   "volume-3",
+				HardwareId: "",
+			},
 		},
 	})
 	c.Assert(result.VolumeAttachments, jc.DeepEquals, []storage.VolumeAttachment{
 		{
-			Volume:     names.NewVolumeTag("1"),
-			DeviceName: "",
-			Machine:    names.NewMachineTag("1"),
-			ReadOnly:   false,
+			names.NewVolumeTag("1"),
+			names.NewMachineTag("1"),
+			storage.VolumeAttachmentInfo{
+				DeviceName: "",
+				ReadOnly:   false,
+			},
 		},
 		{
-			Volume:     names.NewVolumeTag("3"),
-			DeviceName: "sdc",
-			Machine:    names.NewMachineTag("1"),
-			ReadOnly:   false,
+			names.NewVolumeTag("3"),
+			names.NewMachineTag("1"),
+			storage.VolumeAttachmentInfo{
+				DeviceName: "sdc",
+				ReadOnly:   false,
+			},
 		},
 	})
 }

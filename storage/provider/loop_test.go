@@ -104,9 +104,11 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	// volume attachments always deferred to AttachVolumes
 	c.Assert(volumeAttachments, gc.HasLen, 0)
 	c.Assert(volumes[0], gc.Equals, storage.Volume{
-		Tag:      names.NewVolumeTag("0"),
-		VolumeId: "volume-0",
-		Size:     2,
+		names.NewVolumeTag("0"),
+		storage.VolumeInfo{
+			VolumeId: "volume-0",
+			Size:     2,
+		},
 	})
 }
 
@@ -188,14 +190,18 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, jc.DeepEquals, []storage.VolumeAttachment{{
-		Volume:     names.NewVolumeTag("0"),
-		Machine:    names.NewMachineTag("0"),
-		DeviceName: "loop98",
+		names.NewVolumeTag("0"),
+		names.NewMachineTag("0"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "loop98",
+		},
 	}, {
-		Volume:     names.NewVolumeTag("1"),
-		Machine:    names.NewMachineTag("0"),
-		DeviceName: "loop99",
-		ReadOnly:   true,
+		names.NewVolumeTag("1"),
+		names.NewMachineTag("0"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "loop99",
+			ReadOnly:   true,
+		},
 	}})
 }
 

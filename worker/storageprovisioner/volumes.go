@@ -565,10 +565,12 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 	}
 	return storage.Volume{
 		volumeTag,
-		in.Info.VolumeId,
-		in.Info.HardwareId,
-		in.Info.Size,
-		in.Info.Persistent,
+		storage.VolumeInfo{
+			in.Info.VolumeId,
+			in.Info.HardwareId,
+			in.Info.Size,
+			in.Info.Persistent,
+		},
 	}, nil
 }
 
@@ -584,8 +586,10 @@ func volumeAttachmentFromParams(in params.VolumeAttachment) (storage.VolumeAttac
 	return storage.VolumeAttachment{
 		volumeTag,
 		machineTag,
-		in.Info.DeviceName,
-		in.Info.ReadOnly,
+		storage.VolumeAttachmentInfo{
+			in.Info.DeviceName,
+			in.Info.ReadOnly,
+		},
 	}, nil
 }
 

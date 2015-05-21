@@ -89,8 +89,10 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 	return storage.Filesystem{
 		arg.Tag,
 		arg.Volume,
-		arg.Tag.String(),
-		blockDevice.Size,
+		storage.FilesystemInfo{
+			arg.Tag.String(),
+			blockDevice.Size,
+		},
 	}, nil
 }
 
@@ -130,8 +132,10 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 	return storage.FilesystemAttachment{
 		arg.Filesystem,
 		arg.Machine,
-		arg.Path,
-		arg.ReadOnly,
+		storage.FilesystemAttachmentInfo{
+			arg.Path,
+			arg.ReadOnly,
+		},
 	}, nil
 }
 

@@ -63,9 +63,11 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attachments, jc.DeepEquals, []storage.VolumeAttachment{{
-		Volume:     mockVolumeTag,
-		Machine:    mockMachineTag,
-		DeviceName: "sda",
+		mockVolumeTag,
+		mockMachineTag,
+		storage.VolumeAttachmentInfo{
+			DeviceName: "sda",
+		},
 	}})
 }
 
@@ -127,15 +129,19 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(volumes, jc.DeepEquals, []storage.Volume{{
-		VolumeId:   mockVolId,
-		Tag:        mockVolumeTag,
-		Size:       providedSize,
-		Persistent: true,
+		mockVolumeTag,
+		storage.VolumeInfo{
+			VolumeId:   mockVolId,
+			Size:       providedSize,
+			Persistent: true,
+		},
 	}})
 	c.Check(attachments, jc.DeepEquals, []storage.VolumeAttachment{{
-		Volume:     mockVolumeTag,
-		Machine:    mockMachineTag,
-		DeviceName: "sda",
+		mockVolumeTag,
+		mockMachineTag,
+		storage.VolumeAttachmentInfo{
+			DeviceName: "sda",
+		},
 	}})
 
 	// should have been 3 calls to GetVolume: twice initially
@@ -157,9 +163,11 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	volumes, err := volSource.DescribeVolumes([]string{mockVolId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(volumes, jc.DeepEquals, []storage.Volume{{
-		VolumeId:   mockVolId,
-		Size:       mockVolSize,
-		Persistent: true,
+		VolumeInfo: storage.VolumeInfo{
+			VolumeId:   mockVolId,
+			Size:       mockVolSize,
+			Persistent: true,
+		},
 	}})
 }
 

@@ -127,8 +127,7 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 		sizeInMiB = x - x%pageSizeInMiB
 	}
 
-	info := storage.Filesystem{
-		Tag:  params.Tag,
+	info := storage.FilesystemInfo{
 		Size: sizeInMiB,
 	}
 
@@ -136,11 +135,11 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 	// AttachFilesystems needs to know the size so it can pass it onto
 	// "mount"; write the size of the filesystem to a file in the
 	// storage directory.
-	if err := s.writeFilesystemInfo(info); err != nil {
+	if err := s.writeFilesystemInfo(params.Tag, info); err != nil {
 		return storage.Filesystem{}, err
 	}
 
-	return info, nil
+	return storage.Filesystem{params.Tag, params.Volume, info}, nil
 }
 
 // AttachFilesystems is defined on the FilesystemSource interface.
@@ -191,10 +190,12 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 	}
 
 	return storage.FilesystemAttachment{
-		Filesystem: arg.Filesystem,
-		Machine:    arg.Machine,
-		Path:       path,
-		ReadOnly:   arg.ReadOnly,
+		arg.Filesystem,
+		arg.Machine,
+		storage.FilesystemAttachmentInfo{
+			Path:     path,
+			ReadOnly: arg.ReadOnly,
+		},
 	}, nil
 }
 
@@ -204,10 +205,10 @@ func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttac
 	return errors.NotImplementedf("DetachFilesystems")
 }
 
-func (s *tmpfsFilesystemSource) writeFilesystemInfo(info storage.Filesystem) error {
-	filename := s.filesystemInfoFile(info.Tag)
+func (s *tmpfsFilesystemSource) writeFilesystemInfo(tag names.FilesystemTag, info storage.FilesystemInfo) error {
+	filename := s.filesystemInfoFile(tag)
 	if _, err := os.Stat(filename); err == nil {
-		return errors.Errorf("filesystem %v already exists", info.Tag.Id())
+		return errors.Errorf("filesystem %v already exists", tag.Id())
 	}
 	if err := ensureDir(s.dirFuncs, filepath.Dir(filename)); err != nil {
 		return errors.Trace(err)
@@ -219,15 +220,15 @@ func (s *tmpfsFilesystemSource) writeFilesystemInfo(info storage.Filesystem) err
 	return err
 }
 
-func (s *tmpfsFilesystemSource) readFilesystemInfo(tag names.FilesystemTag) (storage.Filesystem, error) {
+func (s *tmpfsFilesystemSource) readFilesystemInfo(tag names.FilesystemTag) (storage.FilesystemInfo, error) {
 	var info filesystemInfo
 	if err := utils.ReadYaml(s.filesystemInfoFile(tag), &info); err != nil {
-		return storage.Filesystem{}, errors.Annotate(err, "reading filesystem info from disk")
+		return storage.FilesystemInfo{}, errors.Annotate(err, "reading filesystem info from disk")
 	}
 	if info.Size == nil {
-		return storage.Filesystem{}, errors.New("invalid filesystem info: missing size")
+		return storage.FilesystemInfo{}, errors.New("invalid filesystem info: missing size")
 	}
-	return storage.Filesystem{Tag: tag, Size: *info.Size}, nil
+	return storage.FilesystemInfo{Size: *info.Size}, nil
 }
 
 func (s *tmpfsFilesystemSource) filesystemInfoFile(tag names.FilesystemTag) string {

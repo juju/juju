@@ -958,9 +958,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for i, v := range args.Volumes {
 		persistent, _ := v.Attributes[storage.Persistent].(bool)
 		volumes[i] = storage.Volume{
-			Tag:        names.NewVolumeTag(strconv.Itoa(i + 1)),
-			Size:       v.Size,
-			Persistent: persistent,
+			Tag: names.NewVolumeTag(strconv.Itoa(i + 1)),
+			VolumeInfo: storage.VolumeInfo{
+				Size:       v.Size,
+				Persistent: persistent,
+			},
 		}
 	}
 	estate.insts[i.id] = i

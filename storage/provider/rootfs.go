@@ -168,9 +168,12 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
 	filesystem = storage.Filesystem{
-		Tag:          params.Tag,
-		FilesystemId: params.Tag.Id(),
-		Size:         sizeInMiB,
+		params.Tag,
+		names.VolumeTag{},
+		storage.FilesystemInfo{
+			FilesystemId: params.Tag.Id(),
+			Size:         sizeInMiB,
+		},
 	}
 	return filesystem, nil
 }
@@ -199,9 +202,11 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 		return storage.FilesystemAttachment{}, err
 	}
 	return storage.FilesystemAttachment{
-		Filesystem: arg.Filesystem,
-		Machine:    arg.Machine,
-		Path:       mountPoint,
+		arg.Filesystem,
+		arg.Machine,
+		storage.FilesystemAttachmentInfo{
+			Path: mountPoint,
+		},
 	}, nil
 }
 

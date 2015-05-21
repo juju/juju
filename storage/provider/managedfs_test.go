@@ -73,15 +73,19 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
-		Tag:          names.NewFilesystemTag("0/0"),
-		Volume:       names.NewVolumeTag("0"),
-		FilesystemId: "filesystem-0-0",
-		Size:         2,
+		names.NewFilesystemTag("0/0"),
+		names.NewVolumeTag("0"),
+		storage.FilesystemInfo{
+			FilesystemId: "filesystem-0-0",
+			Size:         2,
+		},
 	}, {
-		Tag:          names.NewFilesystemTag("0/1"),
-		Volume:       names.NewVolumeTag("1"),
-		FilesystemId: "filesystem-0-1",
-		Size:         3,
+		names.NewFilesystemTag("0/1"),
+		names.NewVolumeTag("1"),
+		storage.FilesystemInfo{
+			FilesystemId: "filesystem-0-1",
+			Size:         3,
+		},
 	}})
 }
 
@@ -134,10 +138,12 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, jc.DeepEquals, []storage.FilesystemAttachment{{
-		Filesystem: names.NewFilesystemTag("0/0"),
-		Machine:    names.NewMachineTag("0"),
-		Path:       "/in/the/place",
-		ReadOnly:   readOnly,
+		names.NewFilesystemTag("0/0"),
+		names.NewMachineTag("0"),
+		storage.FilesystemAttachmentInfo{
+			Path:     "/in/the/place",
+			ReadOnly: readOnly,
+		},
 	}})
 }
 

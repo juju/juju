@@ -444,18 +444,22 @@ func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storag
 	for _, p := range params {
 		persistent, _ := p.Attributes["persistent"].(bool)
 		volumes = append(volumes, storage.Volume{
-			Tag:        p.Tag,
-			Size:       p.Size,
-			HardwareId: "serial-" + p.Tag.Id(),
-			VolumeId:   "id-" + p.Tag.Id(),
-			Persistent: persistent,
+			p.Tag,
+			storage.VolumeInfo{
+				Size:       p.Size,
+				HardwareId: "serial-" + p.Tag.Id(),
+				VolumeId:   "id-" + p.Tag.Id(),
+				Persistent: persistent,
+			},
 		})
 		if p.Attachment != nil {
 			volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-				Volume:     p.Tag,
-				Machine:    p.Attachment.Machine,
-				DeviceName: "/dev/sda" + p.Tag.Id(),
-				ReadOnly:   p.Attachment.ReadOnly,
+				p.Tag,
+				p.Attachment.Machine,
+				storage.VolumeAttachmentInfo{
+					DeviceName: "/dev/sda" + p.Tag.Id(),
+					ReadOnly:   p.Attachment.ReadOnly,
+				},
 			})
 		}
 	}
@@ -473,9 +477,11 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 			panic("AttachVolumes called with unprovisioned machine")
 		}
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-			Volume:     p.Volume,
-			Machine:    p.Machine,
-			DeviceName: "/dev/sda" + p.Volume.Id(),
+			p.Volume,
+			p.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "/dev/sda" + p.Volume.Id(),
+			},
 		})
 	}
 	return volumeAttachments, nil
@@ -490,9 +496,11 @@ func (*dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParam
 	var filesystems []storage.Filesystem
 	for _, p := range params {
 		filesystems = append(filesystems, storage.Filesystem{
-			Tag:          p.Tag,
-			Size:         p.Size,
-			FilesystemId: "id-" + p.Tag.Id(),
+			Tag: p.Tag,
+			FilesystemInfo: storage.FilesystemInfo{
+				Size:         p.Size,
+				FilesystemId: "id-" + p.Tag.Id(),
+			},
 		})
 	}
 	return filesystems, nil
@@ -509,9 +517,11 @@ func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttac
 			panic("AttachFilesystems called with unprovisioned machine")
 		}
 		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
-			Filesystem: p.Filesystem,
-			Machine:    p.Machine,
-			Path:       "/srv/" + p.FilesystemId,
+			p.Filesystem,
+			p.Machine,
+			storage.FilesystemAttachmentInfo{
+				Path: "/srv/" + p.FilesystemId,
+			},
 		})
 	}
 	return filesystemAttachments, nil
@@ -534,9 +544,11 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.Filesyste
 			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", arg.Tag.Id())
 		}
 		filesystems = append(filesystems, storage.Filesystem{
-			Tag:          arg.Tag,
-			Size:         blockDevice.Size,
-			FilesystemId: blockDevice.DeviceName,
+			Tag: arg.Tag,
+			FilesystemInfo: storage.FilesystemInfo{
+				Size:         blockDevice.Size,
+				FilesystemId: blockDevice.DeviceName,
+			},
 		})
 	}
 	return filesystems, nil
@@ -560,10 +572,12 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", filesystem.Tag.Id())
 		}
 		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
-			Filesystem: arg.Filesystem,
-			Machine:    arg.Machine,
-			Path:       "/mnt/" + blockDevice.DeviceName,
-			ReadOnly:   arg.ReadOnly,
+			arg.Filesystem,
+			arg.Machine,
+			storage.FilesystemAttachmentInfo{
+				Path:     "/mnt/" + blockDevice.DeviceName,
+				ReadOnly: arg.ReadOnly,
+			},
 		})
 	}
 	return filesystemAttachments, nil

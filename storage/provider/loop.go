@@ -124,9 +124,11 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
 	return storage.Volume{
-		Tag:      params.Tag,
-		VolumeId: volumeId,
-		Size:     params.Size,
+		params.Tag,
+		storage.VolumeInfo{
+			VolumeId: volumeId,
+			Size:     params.Size,
+		},
 	}, nil
 }
 
@@ -203,10 +205,12 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
 	}
 	return storage.VolumeAttachment{
-		Volume:     arg.Volume,
-		Machine:    arg.Machine,
-		DeviceName: deviceName,
-		ReadOnly:   arg.ReadOnly,
+		arg.Volume,
+		arg.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: deviceName,
+			ReadOnly:   arg.ReadOnly,
+		},
 	}, nil
 }
 

@@ -242,9 +242,11 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		}
 	}
 	return storage.VolumeAttachment{
-		Machine:    arg.Machine,
-		Volume:     arg.Volume,
-		DeviceName: novaAttachment.Device[len("/dev/"):],
+		arg.Volume,
+		arg.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: novaAttachment.Device[len("/dev/"):],
+		},
 	}, nil
 }
 
@@ -290,12 +292,14 @@ func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams
 
 func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
 	return storage.Volume{
-		VolumeId: volume.ID,
-		Size:     uint64(volume.Size * 1024),
-		Tag:      tag,
-		// TODO(axw) there is currently no way to mark a volume as
-		// "delete on termination", so all volumes are persistent.
-		Persistent: true,
+		tag,
+		storage.VolumeInfo{
+			VolumeId: volume.ID,
+			Size:     uint64(volume.Size * 1024),
+			// TODO(axw) there is currently no way to mark a volume as
+			// "delete on termination", so all volumes are persistent.
+			Persistent: true,
+		},
 	}
 }
 

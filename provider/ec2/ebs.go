@@ -263,13 +263,15 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 		}
 		volumeId := resp.Id
 		volumes = append(volumes, storage.Volume{
-			Tag:      p.Tag,
-			VolumeId: volumeId,
-			Size:     gibToMib(uint64(resp.Size)),
-			// TODO(axw) Later, when we handle destruction of
-			// volumes within Juju, we should not mark any
-			// EBS volumes as persistent.
-			Persistent: persistent,
+			p.Tag,
+			storage.VolumeInfo{
+				VolumeId: volumeId,
+				Size:     gibToMib(uint64(resp.Size)),
+				// TODO(axw) Later, when we handle destruction of
+				// volumes within Juju, we should not mark any
+				// EBS volumes as persistent.
+				Persistent: persistent,
+			},
 		})
 
 		nextDeviceName := blockDeviceNamer(instances[instId])
@@ -289,9 +291,11 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			return nil, nil, errors.Annotatef(err, "binding termination of %v to %v", resp.Volume.Id, instId)
 		}
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-			Volume:     p.Tag,
-			Machine:    p.Attachment.Machine,
-			DeviceName: actualDeviceName,
+			p.Tag,
+			p.Attachment.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: actualDeviceName,
+			},
 		})
 	}
 	return volumes, volumeAttachments, nil
@@ -307,8 +311,10 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, er
 	for i, vol := range resp.Volumes {
 		vols[i] = storage.Volume{
 			// TODO(wallyworld) - fill in tag when interface is fixed
-			Size:     gibToMib(uint64(vol.Size)),
-			VolumeId: vol.Id,
+			VolumeInfo: storage.VolumeInfo{
+				Size:     gibToMib(uint64(vol.Size)),
+				VolumeId: vol.Id,
+			},
 		}
 		for _, attachment := range vol.Attachments {
 			if !attachment.DeleteOnTermination {
@@ -394,9 +400,11 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 		}
 		attached = append(attached, params)
 		attachments = append(attachments, storage.VolumeAttachment{
-			Volume:     params.Volume,
-			Machine:    params.Machine,
-			DeviceName: deviceName,
+			params.Volume,
+			params.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: deviceName,
+			},
 		})
 	}
 	return attachments, nil
