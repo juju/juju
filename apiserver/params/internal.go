@@ -320,10 +320,9 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
-	// here, containing only the information regarding the attachment.
-	// The rest can be inferred from the context.
-	VolumeAttachments []VolumeAttachment
+	// VolumeAttachments is a mapping from volume tag to
+	// volume attachment info.
+	VolumeAttachments map[string]VolumeAttachmentInfo
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo

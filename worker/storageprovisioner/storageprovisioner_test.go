@@ -68,26 +68,34 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	expectedVolumes := []params.Volume{{
-		VolumeTag:  "volume-1",
-		VolumeId:   "id-1",
-		HardwareId: "serial-1",
-		Size:       1024,
-		Persistent: true,
+		VolumeTag: "volume-1",
+		Info: params.VolumeInfo{
+			VolumeId:   "id-1",
+			HardwareId: "serial-1",
+			Size:       1024,
+			Persistent: true,
+		},
 	}, {
-		VolumeTag:  "volume-2",
-		VolumeId:   "id-2",
-		HardwareId: "serial-2",
-		Size:       1024,
+		VolumeTag: "volume-2",
+		Info: params.VolumeInfo{
+			VolumeId:   "id-2",
+			HardwareId: "serial-2",
+			Size:       1024,
+		},
 	}}
 	expectedVolumeAttachments := []params.VolumeAttachment{{
 		VolumeTag:  "volume-1",
 		MachineTag: "machine-1",
-		DeviceName: "/dev/sda1",
-		ReadOnly:   true,
+		Info: params.VolumeAttachmentInfo{
+			DeviceName: "/dev/sda1",
+			ReadOnly:   true,
+		},
 	}, {
 		VolumeTag:  "volume-2",
 		MachineTag: "machine-1",
-		DeviceName: "/dev/sda2",
+		Info: params.VolumeAttachmentInfo{
+			DeviceName: "/dev/sda2",
+		},
 	}}
 
 	volumeInfoSet := make(chan interface{})
@@ -136,12 +144,16 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	expectedFilesystems := []params.Filesystem{{
 		FilesystemTag: "filesystem-1",
-		FilesystemId:  "id-1",
-		Size:          1024,
+		Info: params.FilesystemInfo{
+			FilesystemId: "id-1",
+			Size:         1024,
+		},
 	}, {
 		FilesystemTag: "filesystem-2",
-		FilesystemId:  "id-2",
-		Size:          1024,
+		Info: params.FilesystemInfo{
+			FilesystemId: "id-2",
+			Size:         1024,
+		},
 	}}
 
 	filesystemInfoSet := make(chan interface{})
@@ -250,7 +262,9 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	expectedVolumeAttachments := []params.VolumeAttachment{{
 		VolumeTag:  "volume-1",
 		MachineTag: "machine-1",
-		DeviceName: "/dev/sda1",
+		Info: params.VolumeAttachmentInfo{
+			DeviceName: "/dev/sda1",
+		},
 	}}
 
 	volumeAttachmentInfoSet := make(chan interface{})
@@ -265,7 +279,9 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	// volume-1, machine-0, and machine-1 are provisioned.
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
-		VolumeId:  "vol-123",
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+		},
 	}
 	volumeAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
@@ -321,7 +337,9 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	expectedFilesystemAttachments := []params.FilesystemAttachment{{
 		FilesystemTag: "filesystem-1",
 		MachineTag:    "machine-1",
-		MountPoint:    "/srv/fs-123",
+		Info: params.FilesystemAttachmentInfo{
+			MountPoint: "/srv/fs-123",
+		},
 	}}
 
 	filesystemAttachmentInfoSet := make(chan interface{})
@@ -335,7 +353,9 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	// filesystem-1 and machine-1 are provisioned.
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
 		FilesystemTag: "filesystem-1",
-		FilesystemId:  "fs-123",
+		Info: params.FilesystemInfo{
+			FilesystemId: "fs-123",
+		},
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
 	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
@@ -430,8 +450,10 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	).([]params.Filesystem)
 	c.Assert(filesystemInfo, jc.DeepEquals, []params.Filesystem{{
 		FilesystemTag: "filesystem-0-0",
-		FilesystemId:  "xvdf1",
-		Size:          123,
+		Info: params.FilesystemInfo{
+			FilesystemId: "xvdf1",
+			Size:         123,
+		},
 	}})
 
 	// If we now attach the block device for volume 0/1 and trigger the
@@ -451,8 +473,10 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	).([]params.Filesystem)
 	c.Assert(filesystemInfo, jc.DeepEquals, []params.Filesystem{{
 		FilesystemTag: "filesystem-0-1",
-		FilesystemId:  "xvdf2",
-		Size:          246,
+		Info: params.FilesystemInfo{
+			FilesystemId: "xvdf2",
+			Size:         246,
+		},
 	}})
 }
 
@@ -484,8 +508,10 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	filesystemAccessor.provisionedFilesystems["filesystem-0-0"] = params.Filesystem{
 		FilesystemTag: "filesystem-0-0",
 		VolumeTag:     "volume-0-0",
-		FilesystemId:  "whatever",
-		Size:          123,
+		Info: params.FilesystemInfo{
+			FilesystemId: "whatever",
+			Size:         123,
+		},
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
 
@@ -510,8 +536,10 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, []params.FilesystemAttachment{{
 		FilesystemTag: "filesystem-0-0",
 		MachineTag:    "machine-0",
-		MountPoint:    "/mnt/xvdf1",
-		ReadOnly:      true,
+		Info: params.FilesystemAttachmentInfo{
+			MountPoint: "/mnt/xvdf1",
+			ReadOnly:   true,
+		},
 	}})
 }
 

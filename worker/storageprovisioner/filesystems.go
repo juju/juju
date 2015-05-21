@@ -560,8 +560,10 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 		paramsFilesystem := params.Filesystem{
 			f.Tag.String(),
 			"",
-			f.FilesystemId,
-			f.Size,
+			params.FilesystemInfo{
+				f.FilesystemId,
+				f.Size,
+			},
 		}
 		if f.Volume != (names.VolumeTag{}) {
 			paramsFilesystem.VolumeTag = f.Volume.String()
@@ -577,8 +579,10 @@ func filesystemAttachmentsFromStorage(in []storage.FilesystemAttachment) []param
 		out[i] = params.FilesystemAttachment{
 			f.Filesystem.String(),
 			f.Machine.String(),
-			f.Path,
-			f.ReadOnly,
+			params.FilesystemAttachmentInfo{
+				f.Path,
+				f.ReadOnly,
+			},
 		}
 	}
 	return out
@@ -599,8 +603,8 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 	return storage.Filesystem{
 		filesystemTag,
 		volumeTag,
-		in.FilesystemId,
-		in.Size,
+		in.Info.FilesystemId,
+		in.Info.Size,
 	}, nil
 }
 
@@ -616,8 +620,8 @@ func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.Fil
 	return storage.FilesystemAttachment{
 		filesystemTag,
 		machineTag,
-		in.MountPoint,
-		in.ReadOnly,
+		in.Info.MountPoint,
+		in.Info.ReadOnly,
 	}, nil
 }
 
