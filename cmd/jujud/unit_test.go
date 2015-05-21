@@ -418,6 +418,7 @@ func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 	s.AgentSuite.PatchValue(&reportClosedAPI, func(st io.Closer) {
 		select {
 		case closedAPI <- st:
+			close(closedAPI)
 		default:
 		}
 	})
