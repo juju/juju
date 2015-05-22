@@ -151,7 +151,7 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.apiService.SetServiceStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Tag().String(), params.StatusActive, message, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	stat, err = s.wordpressService.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +172,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Equals, message)
-	result, err := s.apiService.ServiceStatus(s.wordpressUnit.Name())
+	result, err := s.apiService.Status(s.wordpressUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
 }

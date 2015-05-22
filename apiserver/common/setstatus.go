@@ -30,6 +30,10 @@ func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *Se
 
 // SetStatus sets the status on the service given by the unit in args if the unit is the leader.
 func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return serviceSetStatus(s, args, serviceFromUnitTag)
+}
+
+func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService serviceGetter) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -41,30 +45,13 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Entities {
-		// TODO(perrito666) Check IsLeader for unitTag.
-		tag, err := names.ParseUnitTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		entity, err := s.st.FindEntity(tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		unit, ok := entity.(*state.Unit)
-		if !ok {
-			result.Results[i].Error = ServerError(errors.Errorf("%q is not a valid Unit tag", arg.Tag))
-			continue
-
-		}
-		service, err := unit.Service()
+		service, err := getService(s.st, arg.Tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
 
-		if !canModify(unit.Tag()) {
+		if !canModify(service.Tag()) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
@@ -75,7 +62,6 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 
 	}
 	return result, nil
-
 }
 
 // StatusSetter implements a common SetStatus method for use by

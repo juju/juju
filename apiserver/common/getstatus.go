@@ -6,7 +6,6 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
@@ -89,8 +88,46 @@ func NewServiceStatusGetter(st state.EntityFinder, getcanAccess GetAuthFunc) *Se
 	}
 }
 
+// StatusService interface represents an Entity that can return Status for itself
+// and its Units.
+type StatusService interface {
+	state.Entity
+	Status() (state.StatusInfo, error)
+	UnitsStatus() (map[string]state.StatusInfo, error)
+	SetStatus(state.Status, string, map[string]interface{}) error
+}
+
+type serviceGetter func(state.EntityFinder, string) (StatusService, error)
+
+func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, error) {
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return nil, err
+	}
+	entity, err := st.FindEntity(tag)
+	if err != nil {
+
+		return nil, err
+	}
+	unit, ok := entity.(*state.Unit)
+	if !ok {
+		return nil, err
+	}
+
+	var service StatusService
+	service, err = unit.Service()
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
 // Status returns the status of each given entity.
 func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
+	return serviceStatus(s, args, serviceFromUnitTag)
+}
+
+func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serviceGetter) (params.ServiceStatusResults, error) {
 	results := params.ServiceStatusResults{
 		Results: make([]params.ServiceStatusResult, len(args.Entities)),
 	}
@@ -101,29 +138,12 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 
 	for i, serviceUnit := range args.Entities {
 		//TODO(perrito666) IsLeader check for unit.
-		tag, err := names.ParseUnitTag(serviceUnit.Tag)
+		var service StatusService
+		service, err = getService(s.st, serviceUnit.Tag)
 		if err != nil {
-			results.Results[i].Error = ServerError(err)
+			results.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		entity, err := s.st.FindEntity(tag)
-		if err != nil {
-			results.Results[i].Error = ServerError(err)
-			continue
-		}
-		unit, ok := entity.(*state.Unit)
-		if !ok {
-			results.Results[i].Error = ServerError(errors.Errorf("%q is not a valid Unit tag", serviceUnit.Tag))
-			continue
-
-		}
-
-		service, err := unit.Service()
-		if err != nil {
-			results.Results[i].Error = ServerError(err)
-			continue
-		}
-
 		if !canAccess(service.Tag()) {
 			results.Results[i].Error = ServerError(ErrPerm)
 			continue

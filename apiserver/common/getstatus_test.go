@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -22,29 +23,132 @@ var _ = gc.Suite(&statusGetterSuite{})
 
 var _ state.StatusGetter = new(fakeStatus)
 
+func fakeServiceFromUnitTag(st state.EntityFinder, unitTag string) (common.StatusService, error) {
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return nil, err
+	}
+	entity, err := st.FindEntity(tag)
+	service, ok := entity.(*fakeService)
+	if !ok {
+		return nil, err
+	}
+	return service, nil
+}
+
+type fakeService struct {
+	tag         names.Tag
+	status      state.StatusInfo
+	statusError error
+
+	unitsStatus      map[string]state.StatusInfo
+	unitsStatusError error
+	serviceStatus    state.StatusInfo
+	err              error
+	fetchError
+}
+
+func (s *fakeService) Status() (state.StatusInfo, error) {
+	return s.status, s.statusError
+}
+
+func (s *fakeService) UnitsStatus() (map[string]state.StatusInfo, error) {
+	return s.unitsStatus, s.unitsStatusError
+}
+
+func (s *fakeService) Tag() names.Tag {
+	return s.tag
+}
+
+func (s *fakeService) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+	s.serviceStatus.Status = status
+	s.serviceStatus.Message = info
+	s.serviceStatus.Data = data
+	updated := time.Now()
+	s.serviceStatus.Since = &updated
+	return s.err
+}
+
 func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
+	now := time.Now()
 	st := &fakeState{
-		units: map[string]*state.Unit{
-			"unit/1": &state.Unit{},
-			"unit/2": &state.Unit{},
-			"unit/3": &state.Unit{},
+		entities: map[names.Tag]entityWithError{
+			u("x/1"): &fakeService{
+				tag: serviceTag("wordpress-1"),
+				status: state.StatusInfo{
+					Status:  state.StatusActive,
+					Message: "foo service",
+					Since:   &now,
+				},
+				statusError: nil,
+				unitsStatus: map[string]state.StatusInfo{
+					"unit-x-1": state.StatusInfo{
+						Status:  state.StatusActive,
+						Message: "foo",
+						Since:   &now,
+					},
+					"unit-x-2": state.StatusInfo{
+						Status:  state.StatusActive,
+						Message: "foo 2",
+						Since:   &now,
+					},
+				},
+				unitsStatusError: nil,
+			},
+		},
+	}
+
+	expected := params.ServiceStatusResults{
+		Results: []params.ServiceStatusResult{
+			params.ServiceStatusResult{
+				Service: params.StatusResult{
+					Error:  nil,
+					Id:     "",
+					Life:   "",
+					Status: "active",
+					Info:   "foo service",
+					Data:   nil,
+					Since:  &now,
+				},
+				Units: map[string]params.StatusResult{
+					"unit-x-1": params.StatusResult{
+						Error:  nil,
+						Id:     "",
+						Life:   "",
+						Status: "active",
+						Info:   "foo",
+						Data:   nil,
+						Since:  &now,
+					},
+					"unit-x-2": params.StatusResult{
+						Error:  nil,
+						Id:     "",
+						Life:   "",
+						Status: "active",
+						Info:   "foo 2",
+						Data:   nil,
+						Since:  &now,
+					},
+				},
+				Error: nil},
 		},
 	}
 	getCanAccess := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool { return true }, nil
 	}
-	sg := common.NewServiceStatusGetter(st, getCanAccess)
-	args := params.ServiceUnits{
-		ServiceUnits: []params.ServiceUnit{
-			params.ServiceUnit{
-				UnitName: "unit/1",
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			params.Entity{
+				Tag: "unit-x-1",
 			},
 		},
 	}
-	result, err := sg.Status(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ServiceStatusResults{})
 
+	sg := common.NewServiceStatusGetter(st, getCanAccess)
+	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (*statusGetterSuite) TestStatus(c *gc.C) {

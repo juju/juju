@@ -54,6 +54,100 @@ func (s *fakeStatus) UpdateStatus(data map[string]interface{}) error {
 	return s.err
 }
 
+func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
+	st := &fakeState{
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeService{
+				tag: serviceTag("x/0"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusAllocating,
+					Message: "blah",
+				},
+				err: fmt.Errorf("x0 fails"),
+			},
+			u("x/1"): &fakeService{
+				tag: serviceTag("x/1"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusInstalling,
+					Message: "blah",
+				},
+			},
+			u("x/2"): &fakeService{
+				tag: serviceTag("x/2"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusActive,
+					Message: "foo",
+				},
+			},
+			u("x/3"): &fakeService{
+				tag: serviceTag("x/3"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusError,
+					Message: "some info",
+				},
+			},
+			u("x/4"): &fakeService{
+				tag:           serviceTag("x/4"),
+				serviceStatus: state.StatusInfo{},
+				fetchError:    "x3 error",
+			},
+			u("x/5"): &fakeService{
+				tag: serviceTag("x/5"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusStopping,
+					Message: "blah",
+				},
+			},
+		},
+	}
+	getCanModify := func() (common.AuthFunc, error) {
+		x0 := serviceTag("x/0")
+		x1 := serviceTag("x/1")
+		x2 := serviceTag("x/2")
+		x3 := serviceTag("x/3")
+		x4 := serviceTag("x/4")
+		x5 := serviceTag("x/5")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
+		}, nil
+	}
+	s := common.NewServiceStatusSetter(st, getCanModify)
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{"unit-x-0", params.StatusInstalling, "bar", nil},
+			{"unit-x-1", params.StatusActive, "bar", nil},
+			{"unit-x-2", params.StatusStopping, "", nil},
+			{"unit-x-3", params.StatusAllocating, "not really", nil},
+			{"unit-x-4", params.StatusStopping, "", nil},
+			{"unit-x-5", params.StatusError, "blarg", nil},
+		},
+	}
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{Message: "x0 fails"}},
+			{nil},
+			{nil},
+			{nil},
+			{&params.Error{Message: "x3 error"}},
+			{nil},
+		},
+	})
+	get := func(tag names.Tag) *fakeService {
+		return st.entities[tag].(*fakeService)
+	}
+	c.Assert(get(u("x/1")).serviceStatus.Status, gc.Equals, state.StatusActive)
+	c.Assert(get(u("x/1")).serviceStatus.Message, gc.Equals, "bar")
+	c.Assert(get(u("x/2")).serviceStatus.Status, gc.Equals, state.StatusStopping)
+	c.Assert(get(u("x/2")).serviceStatus.Message, gc.Equals, "")
+	c.Assert(get(u("x/3")).serviceStatus.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(get(u("x/3")).serviceStatus.Message, gc.Equals, "not really")
+	c.Assert(get(u("x/5")).serviceStatus.Status, gc.Equals, state.StatusError)
+	c.Assert(get(u("x/5")).serviceStatus.Message, gc.Equals, "blarg")
+
+}
+
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{

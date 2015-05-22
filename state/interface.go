@@ -36,13 +36,13 @@ var (
 	_ Entity = (*Action)(nil)
 )
 
-// UnitFinder is implemented by *State. See State.Service
-// for documentation on the method.
-type UnitFinder interface {
-	Unit(string) (*Unit, error)
+// EntityWithService is implemented by Units it is intended
+// for anything that can return its Service.
+type EntityWithService interface {
+	Service() (*Service, error)
 }
 
-var _ UnitFinder = (*State)(nil)
+var _ EntityWithService = (*Unit)(nil)
 
 // Lifer represents an entity with a life.
 type Lifer interface {
