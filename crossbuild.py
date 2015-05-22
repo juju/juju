@@ -150,7 +150,8 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
         built_agent_path = os.path.join(
             gopath, 'bin', 'windows_amd64', 'jujud.exe')
         make_agent_tarball(
-            built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
+            'win2012', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 
 def make_agent_tarball(series, built_agent_path, version, dest_dir,

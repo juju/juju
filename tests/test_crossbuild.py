@@ -203,7 +203,7 @@ class CrossBuildTestCase(TestCase):
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            ('baz/bar_1.2.3/bin/windows_amd64/jujud.exe',
+            ('win2012', 'baz/bar_1.2.3/bin/windows_amd64/jujud.exe',
              '1.2.3',
              os.getcwd()),
             mt_mock.call_args[0])
