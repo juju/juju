@@ -586,7 +586,6 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
-		fmt.Println(m.doc.Principals)
 		if len(m.doc.Principals) == 1 {
 			// Get the sole unit and service on the machine.
 			u, err := m.st.Unit(m.doc.Principals[0])
