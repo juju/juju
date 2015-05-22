@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujufactory "github.com/juju/juju/testing/factory"
 )
 
@@ -964,76 +962,4 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
 	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
 	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
-}
-
-type unitStorageSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&unitStorageSuite{})
-
-func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
-	tag := names.NewUnitTag(t)
-	st := uniter.NewState(apiCaller, tag)
-	u, err := st.Unit(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	return u
-}
-func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
-	args := map[string]params.StorageConstraints{
-		"data": params.StorageConstraints{Pool: "loop"},
-	}
-	expected := params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
-		},
-	}
-
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 2)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddUnitStorage")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "yoink"},
-			}},
-		}
-		return nil
-	})
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
-	err := u.AddStorage(args)
-	c.Assert(err, gc.ErrorMatches, "yoink")
-}
-
-func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
-	args := map[string]params.StorageConstraints{
-		"data": params.StorageConstraints{Pool: "loop"},
-	}
-	expected := params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
-		},
-	}
-
-	var called bool
-	msg := "yoink"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 2)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddUnitStorage")
-		c.Assert(arg, gc.DeepEquals, expected)
-		called = true
-
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		return errors.New(msg)
-	})
-
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
-	err := u.AddStorage(args)
-	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
 }
