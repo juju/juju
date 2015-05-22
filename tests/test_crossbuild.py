@@ -66,6 +66,13 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
 
+    def test_main_centos_both(self):
+        with patch('crossbuild.build_centos') as mock:
+            main(['centos', '--build-dir', './foo', 'bar.1.2.3.tar.gz'])
+        args, kwargs = mock.call_args
+        self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+
     def test_go_build(self):
         with patch('crossbuild.run_command') as mock:
             go_build(

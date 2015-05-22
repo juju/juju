@@ -211,6 +211,16 @@ def make_osx_tarball(binary_paths, version, dest_dir,
                 tar.add(binary_path, arcname=arcname)
 
 
+def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build an Centos client, plugins and agent from a tarball."""
+    return
+
+def make_centos_client_tarball(binary_paths, version, dest_dir,
+                               dry_run=False, verbose=False):
+    """Create a tarball of the built binaries and files."""
+    return
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser(
@@ -253,6 +263,14 @@ def parse_args(args=None):
         help='The path cross build dir.')
     parser_osx_client.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
+    # ./crossbuild centos-all juju-core-1.2.3.tar.gz
+    parser_centos = subparsers.add_parser(
+        'centos', help='Build an amd64 Centos client,  plugins, and agent.')
+    parser_centos.add_argument(
+        '-b', '--build-dir', default='$HOME/crossbuild',
+        help='The path cross build dir.')
+    parser_centos.add_argument(
+        'tarball_path', help='The path to the juju source tarball.')
     return parser.parse_args(args)
 
 
@@ -274,6 +292,10 @@ def main(argv):
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'osx-client':
             build_osx_client(
+                args.tarball_path, args.build_dir,
+                dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'centos':
+            build_centos(
                 args.tarball_path, args.build_dir,
                 dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
