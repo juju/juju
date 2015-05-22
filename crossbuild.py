@@ -224,9 +224,10 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
             cmd_package, goroot, gopath, 'amd64', 'linux',
             dry_run=False, verbose=verbose)
         bin_path = os.path.join(gopath, 'bin')
+        built_agent_path = os.path.join(bin_path, 'jujud')
         binary_paths = [
             os.path.join(bin_path, 'juju'),
-            os.path.join(bin_path, 'jujud'),
+            built_agent_path,
             os.path.join(bin_path, 'juju-metadata'),
             os.path.join(gopath, ISS_DIR, 'README.txt'),
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
@@ -234,7 +235,9 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
         make_client_tarball(
             'centos', binary_paths, version, cwd,
             dry_run=dry_run, verbose=verbose)
-
+        make_agent_tarball(
+            'centos', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 def parse_args(args=None):
     """Return the argument parser for this program."""

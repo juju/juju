@@ -284,7 +284,8 @@ class CrossBuildTestCase(TestCase):
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
                 with patch('crossbuild.make_client_tarball') as mt_mock:
-                    build_centos('baz/bar_1.2.3.tar.gz', '/foo')
+                    with patch('crossbuild.make_agent_tarball') as at_mock:
+                        build_centos('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
         args, kwargs = gb_mock.call_args
@@ -304,3 +305,6 @@ class CrossBuildTestCase(TestCase):
               ],
              '1.2.3', os.getcwd()),
             mt_mock.call_args[0])
+        self.assertEqual(
+            ('centos', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd()),
+            at_mock.call_args[0])
