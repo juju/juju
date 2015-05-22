@@ -259,7 +259,7 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 	defer clientConn.Close()
 
 	_, err := clientConn.Write([]byte(msg))
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	clientState = clientConn.ConnectionState()
 	clientConn.Close()
 
