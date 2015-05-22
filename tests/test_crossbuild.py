@@ -302,8 +302,8 @@ class CrossBuildTestCase(TestCase):
             'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
             ]
         mt_mock.assert_called_once_with(
-            'centos', bin_paths, '1.2.3', os.getcwd(),
+            'centos7', bin_paths, '1.2.3', os.getcwd(),
             dry_run=False, verbose=False)
         at_mock.assert_called_once_with(
-            'centos', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd(),
+            'centos7', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd(),
             dry_run=False, verbose=False)

@@ -233,10 +233,10 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
         make_client_tarball(
-            'centos', binary_paths, version, cwd,
+            'centos7', binary_paths, version, cwd,
             dry_run=dry_run, verbose=verbose)
         make_agent_tarball(
-            'centos', built_agent_path, version, cwd,
+            'centos7', built_agent_path, version, cwd,
             dry_run=dry_run, verbose=verbose)
 
 def parse_args(args=None):
