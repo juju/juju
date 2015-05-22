@@ -205,6 +205,7 @@ class BuildPackageTestCase(unittest.TestCase):
             ppa='deb http://ppa.launchpad.net/juju/golang/ubuntu trusty main')
         p_mock.assert_called_with([build_script], shell=True)
 
+    @patch.dict(os.environ, {'USER': 'bingo'})
     @autopatch('subprocess.check_call')
     @autopatch('os.chmod')
     def test_build_in_lxc_stop_lxc(self, oc_mock, cc_mock):
@@ -216,8 +217,7 @@ class BuildPackageTestCase(unittest.TestCase):
                 with self.assertRaises(Exception):
                     build_in_lxc('trusty-i386', build_dir, verbose=False)
         cc_mock.assert_any_call(['sudo', 'lxc-stop', '-n', 'trusty-i386'])
-        user = os.environ.get('USER', 'jenkins')
-        cc_mock.assert_any_call(['sudo', 'chown', '-R', user, build_dir])
+        cc_mock.assert_any_call(['sudo', 'chown', '-R', 'bingo', build_dir])
         oc_mock.assert_any_call(build_dir, 0o775)
 
     def test_teardown_lxc(self):
