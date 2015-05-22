@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -310,4 +311,14 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+}
+
+func (s *InterfaceSuite) TestAddUnitStorage(c *gc.C) {
+	ctx := s.GetContext(c, -1, "u/123")
+	size := uint64(1)
+	ok := ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+	c.Assert(ok, jc.ErrorIsNil)
 }

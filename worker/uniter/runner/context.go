@@ -263,6 +263,10 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, boo
 	return ctx.storage.Storage(tag)
 }
 
+func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) error {
+	return ctx.storage.AddStorage(cons)
+}
+
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
 	return tryOpenPorts(
 		protocol, fromPort, toPort,

@@ -186,3 +186,24 @@ func (sa *StorageAccessor) RemoveStorageAttachment(storageTag names.StorageTag, 
 	}
 	return nil
 }
+
+// AddStorage adds desired storage instances to a unit.
+func (sa *StorageAccessor) AddUnitStorage(unitTag names.UnitTag, cons map[string]params.StorageConstraints) error {
+	if sa.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("AddUnitStorage() (need V2+)")
+	}
+
+	all := make([]params.StorageAddParams, 0, len(cons))
+	for k, v := range cons {
+		all = append(all, params.StorageAddParams{unitTag.String(), k, v})
+	}
+
+	args := params.StoragesAddParams{Storages: all}
+	var results params.ErrorResults
+	err := sa.facade.FacadeCall("AddUnitStorage", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
+}
