@@ -85,6 +85,9 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: requestedSize / 1024,
 				Name: "volume-123",
+				Metadata: map[string]string{
+					"JujuEnv": testing.EnvironmentTag.Id(),
+				},
 			})
 			return &cinder.Volume{
 				ID: mockVolId,
