@@ -21,7 +21,10 @@ from crossbuild import (
     run_command,
     working_directory,
 )
-from utils import temp_dir
+from utils import (
+    autopatch,
+    temp_dir,
+)
 
 
 @contextmanager
@@ -279,13 +282,12 @@ class CrossBuildTestCase(TestCase):
                 self.assertEqual(
                     0o664, tar.getmember('juju-bin/README.txt').mode)
 
-    def test_build_centos(self):
-        with patch('crossbuild.go_tarball',
-                   side_effect=fake_go_tarball) as gt_mock:
-            with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.make_client_tarball') as mt_mock:
-                    with patch('crossbuild.make_agent_tarball') as at_mock:
-                        build_centos('baz/bar_1.2.3.tar.gz', '/foo')
+    @autopatch('crossbuild.make_agent_tarball')
+    @autopatch('crossbuild.make_client_tarball')
+    @autopatch('crossbuild.go_build')
+    @autopatch('crossbuild.go_tarball', side_effect=fake_go_tarball)
+    def test_build_centos(self, gt_mock, gb_mock, mt_mock, at_mock):
+        build_centos('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
         args, kwargs = gb_mock.call_args
