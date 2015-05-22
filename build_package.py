@@ -33,6 +33,8 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
         sleep 1
     done
     set +e
+    # Adding the ppa directly to sources.list without the archive key
+    # requires apt to be run with --force-yes
     echo "{ppa}" >> /etc/apt/sources.list
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
