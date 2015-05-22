@@ -188,18 +188,18 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
         make_client_tarball(
-            binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
+            'osx', binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_client_tarball(binary_paths, version, dest_dir,
+def make_client_tarball(os_name, binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
     """Create a tarball of the built binaries and files."""
-    osx_tarball_name = 'juju-%s-osx.tar.gz' % version
-    osx_tarball_path = os.path.join(dest_dir, osx_tarball_name)
+    os_tarball_name = 'juju-%s-%s.tar.gz' % (version, os_name)
+    os_tarball_path = os.path.join(dest_dir, os_tarball_name)
     if not dry_run:
         if verbose:
-            print('Creating %s' % osx_tarball_path)
-        with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
+            print('Creating %s' % os_tarball_path)
+        with tarfile.open(name=os_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
             ti.mode = int('775', 8)  # Py2/3 compatible octal.

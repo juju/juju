@@ -243,7 +243,8 @@ class CrossBuildTestCase(TestCase):
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            (['baz/bar_1.2.3/bin/darwin_amd64/juju',
+            ('osx',
+             ['baz/bar_1.2.3/bin/darwin_amd64/juju',
               'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata',
               'baz/bar_1.2.3/src/github.com/juju/juju/'
                 'scripts/win-installer/README.txt',
@@ -265,7 +266,8 @@ class CrossBuildTestCase(TestCase):
                     jb.write('juju')
             os.chmod(juju_binary, oct_775)
             os.chmod(readme_file, oct_664)
-            make_client_tarball([juju_binary, readme_file], '1.2.3', base_dir)
+            make_client_tarball(
+                'osx', [juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
             self.assertTrue(os.path.isfile(osx_tarball_path))
             with tarfile.open(osx_tarball_path, 'r:gz') as tar:
