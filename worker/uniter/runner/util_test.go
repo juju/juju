@@ -169,6 +169,16 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *HookContextSuite) GetContext(
+	c *gc.C, relId int, remoteName string,
+) jujuc.Context {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.getHookContext(
+		c, uuid.String(), relId, remoteName, noProxies,
+	)
+}
+
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
