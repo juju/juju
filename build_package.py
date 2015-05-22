@@ -33,31 +33,28 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
         sleep 1
     done
     set +e
+    # Adding the ppa directly to sources.list without the archive key
+    # requires apt to be run with --force-yes
+    echo "{ppa}" >> /etc/apt/sources.list
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y build-essential devscripts equivs
+    apt-get install -y --force-yes build-essential devscripts equivs
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nInstalling build deps from dsc.\n"
     cd workspace
     export DEBIAN_FRONTEND=noninteractive
-    mk-build-deps -i --tool 'apt-get --yes' *.dsc
+    mk-build-deps -i --tool 'apt-get --yes --force-yes' *.dsc
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nBuilding the packages.\n"
     cd workspace
+    rm *build-deps*.deb
     dpkg-source -x *.dsc
     cd $(basename *.orig.tar.gz .orig.tar.gz | tr _ -)
     dpkg-buildpackage -us -uc
-EOT
-sudo lxc-attach -n {container} -- bash <<"EOT"
-    echo "\nCleaning up.\n"
-    cd workspace
-    rm *build-deps*.deb
-    find . -type d -exec chmod ugo+rwx {{}} \;
-    find . -type f -exec chmod ugo+rw {{}} \;
 EOT
 """
 
@@ -96,7 +93,6 @@ def setup_local(location, series, arch, source_files, verbose=False):
     if verbose:
         print('Creating %s' % build_dir)
     os.makedirs(build_dir)
-    os.chmod(build_dir, 0o777)
     for sf in source_files:
         dest_path = os.path.join(build_dir, sf.name)
         if verbose:
@@ -121,17 +117,30 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     return container
 
 
-def build_in_lxc(container, verbose=False):
+def build_in_lxc(container, build_dir, ppa=None, verbose=False):
     """Build the binaries from the source files in the container."""
     returncode = 1
+    if ppa:
+        path = ppa.split(':')[1]
+        series = container.split('-')[0]
+        ppa = 'deb http://ppa.launchpad.net/{}/ubuntu {} main'.format(
+            path, series)
+    else:
+        ppa = '# No PPA added.'
+    # The work in the container runs as a different user. Care is needed to
+    # ensure permissions and ownership are correct before and after the build.
+    os.chmod(build_dir, 0o777)
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
-        build_script = BUILD_DEB_TEMPLATE.format(container=container)
+        build_script = BUILD_DEB_TEMPLATE.format(container=container, ppa=ppa)
         proc = subprocess.Popen([build_script], shell=True)
         proc.communicate()
         returncode = proc.returncode
     finally:
         subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
+        user = os.environ.get('USER', 'jenkins')
+        subprocess.check_call(['sudo', 'chown', '-R', user, build_dir])
+        os.chmod(build_dir, 0o775)
     return returncode
 
 
@@ -156,7 +165,7 @@ def move_debs(build_dir, location, verbose=False):
     return found
 
 
-def build_binary(dsc_path, location, series, arch, verbose=False):
+def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
     """Build binary debs from a dsc file."""
     # If location is remote, setup remote location and run.
     source_files = parse_dsc(dsc_path, verbose=verbose)
@@ -164,7 +173,7 @@ def build_binary(dsc_path, location, series, arch, verbose=False):
         location, series, arch, source_files, verbose=verbose)
     container = setup_lxc(series, arch, build_dir, verbose=verbose)
     try:
-        build_in_lxc(container, verbose=verbose)
+        build_in_lxc(container, build_dir, ppa=ppa, verbose=verbose)
     finally:
         teardown_lxc(container, verbose=False)
     move_debs(build_dir, location, verbose=verbose)
@@ -178,7 +187,7 @@ def main(argv):
     if args.command == 'binary':
         exitcode = build_binary(
             args.dsc,  args.location, args.series, args.arch,
-            verbose=args.verbose)
+            ppa=args.ppa, verbose=args.verbose)
     return exitcode
 
 
@@ -190,6 +199,8 @@ def get_args(argv=None):
         help="Increase the verbosity of the output")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
+    bin_parser.add_argument(
+        '--ppa', default=None, help="The PPA that provides package deps.")
     bin_parser.add_argument("dsc", help="The dsc file to build")
     bin_parser.add_argument("location", help="The location to build in.")
     bin_parser.add_argument("series", help="The series to build in.")
