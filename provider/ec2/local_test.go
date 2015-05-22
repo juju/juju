@@ -941,6 +941,39 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	c.Assert(result, jc.IsFalse)
 }
 
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 2)
+
+	var bootstrapInst instance.Instance
+	if instances[0].Id() == inst.Id() {
+		inst = instances[0]
+		bootstrapInst = instances[1]
+	} else {
+		bootstrapInst = instances[0]
+		inst = instances[1]
+	}
+
+	ec2Inst := ec2.InstanceEC2(bootstrapInst)
+	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "machine-0"},
+		{"JujuEnv", coretesting.EnvironmentTag.Id()},
+		{"JujuStateServer", "true"},
+	})
+	ec2Inst = ec2.InstanceEC2(inst)
+	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "machine-1"},
+		{"JujuEnv", coretesting.EnvironmentTag.Id()},
+	})
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {

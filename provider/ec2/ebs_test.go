@@ -210,6 +210,52 @@ func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 	s.assertCreateVolumes(c, vs, "")
 }
 
+func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	vols, err := s.createVolumes(vs, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 3)
+	c.Assert(vols, jc.SameContents, []storage.Volume{{
+		names.NewVolumeTag("0"),
+		storage.VolumeInfo{
+			Size:       10240,
+			VolumeId:   "vol-0",
+			Persistent: true,
+		},
+	}, {
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			Size:       20480,
+			VolumeId:   "vol-1",
+			Persistent: true,
+		},
+	}, {
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			Size:       30720,
+			VolumeId:   "vol-2",
+			Persistent: false,
+		},
+	}})
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
+	sortBySize(ec2Vols.Volumes)
+	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "volume-0"},
+		{"JujuEnv", testing.EnvironmentTag.Id()},
+	})
+	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "volume-1"},
+		{"JujuEnv", testing.EnvironmentTag.Id()},
+	})
+	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "volume-2"},
+		{"JujuEnv", testing.EnvironmentTag.Id()},
+	})
+}
+
 func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	vs := s.volumeSource(c, nil)
