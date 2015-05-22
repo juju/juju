@@ -288,25 +288,22 @@ class CrossBuildTestCase(TestCase):
     @autopatch('crossbuild.go_tarball', side_effect=fake_go_tarball)
     def test_build_centos(self, gt_mock, gb_mock, mt_mock, at_mock):
         build_centos('baz/bar_1.2.3.tar.gz', '/foo')
-        args, kwargs = gt_mock.call_args
-        self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
-        args, kwargs = gb_mock.call_args
-        self.assertEqual(
-            ('github.com/juju/juju/cmd/...',
-             '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'linux'),
-            args)
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
-        self.assertEqual(
-            ('centos',
-             ['baz/bar_1.2.3/bin/juju',
-              'baz/bar_1.2.3/bin/jujud',
-              'baz/bar_1.2.3/bin/juju-metadata',
-              'baz/bar_1.2.3/src/github.com/juju/juju/'
+        gt_mock.assert_called_once_with('baz/bar_1.2.3.tar.gz')
+        gb_mock.assert_called_once_with(
+            'github.com/juju/juju/cmd/...',
+            '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'linux',
+            dry_run=False, verbose=False)
+        bin_paths = [
+            'baz/bar_1.2.3/bin/juju',
+            'baz/bar_1.2.3/bin/jujud',
+            'baz/bar_1.2.3/bin/juju-metadata',
+            'baz/bar_1.2.3/src/github.com/juju/juju/'
                 'scripts/win-installer/README.txt',
-              'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
-              ],
-             '1.2.3', os.getcwd()),
-            mt_mock.call_args[0])
-        self.assertEqual(
-            ('centos', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd()),
-            at_mock.call_args[0])
+            'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
+            ]
+        mt_mock.assert_called_once_with(
+            'centos', bin_paths, '1.2.3', os.getcwd(),
+            dry_run=False, verbose=False)
+        at_mock.assert_called_once_with(
+            'centos', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd(),
+            dry_run=False, verbose=False)
