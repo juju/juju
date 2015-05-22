@@ -202,7 +202,7 @@ def make_client_tarball(os_name, binary_paths, version, dest_dir,
         with tarfile.open(name=os_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
-            ti.mode = int('775', 8)  # Py2/3 compatible octal.
+            ti.mode = 0o775
             tar.addfile(ti)
             for binary_path in binary_paths:
                 if verbose:

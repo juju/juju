@@ -254,8 +254,6 @@ class CrossBuildTestCase(TestCase):
             mt_mock.call_args[0])
 
     def test_make_client_tarball(self):
-        oct_775 = int('775', 8)
-        oct_664 = int('664', 8)
         with temp_dir() as base_dir:
             cmd_dir = os.path.join(base_dir, 'foo')
             os.makedirs(cmd_dir)
@@ -264,8 +262,8 @@ class CrossBuildTestCase(TestCase):
             for path in [juju_binary, readme_file]:
                 with open(path, 'w') as jb:
                     jb.write('juju')
-            os.chmod(juju_binary, oct_775)
-            os.chmod(readme_file, oct_664)
+            os.chmod(juju_binary, 0o775)
+            os.chmod(readme_file, 0o664)
             make_client_tarball(
                 'osx', [juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
@@ -275,11 +273,11 @@ class CrossBuildTestCase(TestCase):
                     ['juju-bin', 'juju-bin/juju', 'juju-bin/README.txt'],
                     tar.getnames())
                 self.assertEqual(
-                    oct_775, tar.getmember('juju-bin').mode)
+                    0o775, tar.getmember('juju-bin').mode)
                 self.assertEqual(
-                    oct_775, tar.getmember('juju-bin/juju').mode)
+                    0o775, tar.getmember('juju-bin/juju').mode)
                 self.assertEqual(
-                    oct_664, tar.getmember('juju-bin/README.txt').mode)
+                    0o664, tar.getmember('juju-bin/README.txt').mode)
 
     def test_build_centos(self):
         with patch('crossbuild.go_tarball',
