@@ -100,7 +100,7 @@ func (c *baseConfigure) Render() ([]byte, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	cmds, toolsDir, err := c.mcfg.machineAgentCommands()
+	svc, toolsDir, err := c.mcfg.initService()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,6 +109,16 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
+
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	startCmds, err := svc.StartCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	cmds = append(cmds, startCmds...)
 
 	svcName := c.mcfg.MachineAgentServiceName
 	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))

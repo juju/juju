@@ -175,59 +175,6 @@ func listServicesCommand(initSystem string) (string, bool) {
 	}
 }
 
-// InstallServicesCommand composes the list of shell commands that install
-// and start the given service on the given operating system.
-func InstallServiceCommands(name string, conf common.Conf, os string) ([]string, error) {
-	if os == "windows" {
-		cmds, err := installCommands(name, conf, InitSystemWindows)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return cmds, nil
-	}
-
-	candidates := make(map[string]string)
-	for _, initSystem := range linuxInitSystems {
-		cmds, err := installCommands(name, conf, initSystem)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		candidates[initSystem] = "\n  " + strings.Join(cmds, "\n  ")
-	}
-
-	handler := func(initSystem string) (string, bool) {
-		if cmds, ok := candidates[initSystem]; ok {
-			return cmds, true
-		}
-		return "", false
-	}
-	script := newShellSelectCommand("init_system", handler)
-	cmds := []string{
-		"init_system=$(" + DiscoverInitSystemScript + ")",
-		script,
-	}
-	return cmds, nil
-}
-
-func installCommands(name string, conf common.Conf, initSystem string) ([]string, error) {
-	svc, err := NewService(name, conf, initSystem)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Return here if we want to only install (i.e. skip starting).
-
-	startCmds, err := svc.StartCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return append(cmds, startCmds...), nil
-}
-
 // installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
 var installStartRetryAttempts = utils.AttemptStrategy{
