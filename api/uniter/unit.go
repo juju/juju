@@ -734,3 +734,24 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
 	return u.st.WatchUnitStorageAttachments(u.tag)
 }
+
+// AddStorage adds desired storage instances to a unit.
+func (u *Unit) AddStorage(cons map[string]params.StorageConstraints) error {
+	if u.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("AddStorage() (need V2+)")
+	}
+
+	all := make([]params.StorageAddParams, 0, len(cons))
+	for k, v := range cons {
+		all = append(all, params.StorageAddParams{u.Tag().String(), k, v})
+	}
+
+	args := params.StoragesAddParams{Storages: all}
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("AddUnitStorage", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
+}

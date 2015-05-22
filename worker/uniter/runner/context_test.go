@@ -314,7 +314,9 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestAddUnitStorage(c *gc.C) {
-	ctx := s.GetContext(c, -1, "u/123")
+	ctx := s.GetContext(c, -1, "")
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
 	size := uint64(1)
 	ok := ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
