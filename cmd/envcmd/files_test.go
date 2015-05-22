@@ -76,9 +76,16 @@ func (s *filesSuite) TestWriteSystemRemovesEnvironmentFile(c *gc.C) {
 	c.Assert(envcmd.GetCurrentEnvironmentFilePath(), jc.DoesNotExist)
 }
 
-func (*filesSuite) TestErrorWritingFile(c *gc.C) {
+func (*filesSuite) TestErrorWritingCurrentEnvironment(c *gc.C) {
 	// Can't write a file over a directory.
 	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
+}
+
+func (*filesSuite) TestErrorWritingCurrentSystem(c *gc.C) {
+	// Can't write a file over a directory.
+	os.MkdirAll(envcmd.GetCurrentSystemFilePath(), 0777)
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, gc.ErrorMatches, "unable to write to the system file: .*")
 }

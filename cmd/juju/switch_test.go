@@ -85,7 +85,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
 }
 
-func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
+func (s *SwitchSimpleSuite) addTestSystem(c *gc.C) {
 	// First set up a system in the config store.
 	s.SetFeatureFlags(feature.JES)
 	store, err := configstore.Default()
@@ -98,17 +98,30 @@ func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
 	})
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
+}
 
+func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
+	s.addTestSystem(c)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "a-system")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> a-system\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> a-system (system)\n")
 	c.Assert(envcmd.ReadCurrentSystem(), gc.Equals, "a-system")
+}
+
+func (s *SwitchSimpleSuite) TestListWithSystem(c *gc.C) {
+	s.addTestSystem(c)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `
+a-system (system)
+erewhemos
+`[1:])
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment`)
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment or system`)
 }
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {

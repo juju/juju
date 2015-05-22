@@ -64,6 +64,9 @@ func WriteCurrentEnvironment(envName string) error {
 	}
 	// If there is a current system file, remove it.
 	if err := os.Remove(getCurrentSystemFilePath()); err != nil && !os.IsNotExist(err) {
+		logger.Debugf("removing the current environment file due to %s", err)
+		// Best attempt to remove the file we just wrote.
+		os.Remove(path)
 		return err
 	}
 	return nil
@@ -74,10 +77,13 @@ func WriteCurrentSystem(systemName string) error {
 	path := getCurrentSystemFilePath()
 	err := ioutil.WriteFile(path, []byte(systemName+"\n"), 0644)
 	if err != nil {
-		return errors.Errorf("unable to write to the environment file: %q, %s", path, err)
+		return errors.Errorf("unable to write to the system file: %q, %s", path, err)
 	}
 	// If there is a current environment file, remove it.
 	if err := os.Remove(getCurrentEnvironmentFilePath()); err != nil && !os.IsNotExist(err) {
+		logger.Debugf("removing the current system file due to %s", err)
+		// Best attempt to remove the file we just wrote.
+		os.Remove(path)
 		return err
 	}
 	return nil

@@ -91,25 +91,11 @@ func (c *SysCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	if c.systemName == "" {
 		return emptyCreds, errors.Trace(ErrNoSystemSpecified)
 	}
-	info, err := connectionInfoForName(c.systemName)
+	info, err := ConnectionInfoForName(c.systemName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
 	return info.APICredentials(), nil
-}
-
-// connectionInfoForName reads the environment information for the named
-// environment (systemName) and returns it.
-func connectionInfoForName(systemName string) (configstore.EnvironInfo, error) {
-	store, err := getConfigStore()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	info, err := store.ReadInfo(systemName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return info, nil
 }
 
 // Wrap wraps the specified SystemCommand, returning a Command

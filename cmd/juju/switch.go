@@ -34,6 +34,8 @@ current environment file if it represents a valid environment name as
 specified in the environments.yaml file.
 `
 
+const systemSuffix = " (system)"
+
 func (c *SwitchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
@@ -92,11 +94,14 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	names = names.Union(configSystems)
 
 	if c.List {
-		// List all environments.
+		// List all environments and systems.
 		if c.EnvName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names.SortedValues() {
+			if configSystems.Contains(name) && !configEnvirons.Contains(name) {
+				name += systemSuffix
+			}
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 		return nil
@@ -112,14 +117,13 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	isSystem := false
 	currentEnv := envcmd.ReadCurrentEnvironment()
 	if currentEnv == "" {
 		currentEnv = envcmd.ReadCurrentSystem()
 		if currentEnv == "" {
 			currentEnv = environments.Default
 		} else {
-			isSystem = true
+			currentEnv += systemSuffix
 		}
 	}
 
@@ -130,32 +134,31 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no currently specified environment")
 	case c.EnvName == "":
 		// Simply print the current environment.
-		if isSystem {
-			currentEnv += " (system)"
-		}
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
-			return errors.Errorf("%q is not a name of an existing defined environment", c.EnvName)
+			return errors.Errorf("%q is not a name of an existing defined environment or system", c.EnvName)
 		}
 		// If the name is not in the environment set, but is in the system
 		// set, then write the name into the current system file.
 		logger.Debugf("systems: %v", configSystems)
 		logger.Debugf("environs: %v", configEnvirons)
-		if configSystems.Contains(c.EnvName) && !configEnvirons.Contains(c.EnvName) {
-			if err := envcmd.WriteCurrentSystem(c.EnvName); err != nil {
+		newEnv := c.EnvName
+		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
+			if err := envcmd.WriteCurrentSystem(newEnv); err != nil {
 				return err
 			}
+			newEnv += systemSuffix
 		} else {
-			if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
+			if err := envcmd.WriteCurrentEnvironment(newEnv); err != nil {
 				return err
 			}
 		}
 		if currentEnv == "" {
-			fmt.Fprintf(ctx.Stdout, "-> %s\n", c.EnvName)
+			fmt.Fprintf(ctx.Stdout, "-> %s\n", newEnv)
 		} else {
-			fmt.Fprintf(ctx.Stdout, "%s -> %s\n", currentEnv, c.EnvName)
+			fmt.Fprintf(ctx.Stdout, "%s -> %s\n", currentEnv, newEnv)
 		}
 	}
 	return nil
