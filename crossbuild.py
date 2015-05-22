@@ -187,11 +187,11 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
             os.path.join(gopath, ISS_DIR, 'README.txt'),
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
-        make_osx_tarball(
+        make_client_tarball(
             binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_osx_tarball(binary_paths, version, dest_dir,
+def make_client_tarball(binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
     """Create a tarball of the built binaries and files."""
     osx_tarball_name = 'juju-%s-osx.tar.gz' % version

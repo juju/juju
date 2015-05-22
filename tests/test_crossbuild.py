@@ -15,7 +15,7 @@ from crossbuild import (
     ISCC_CMD,
     ISS_DIR,
     make_installer,
-    make_osx_tarball,
+    make_client_tarball,
     make_win_agent_tarball,
     main,
     run_command,
@@ -232,7 +232,7 @@ class CrossBuildTestCase(TestCase):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.make_osx_tarball') as mt_mock:
+                with patch('crossbuild.make_client_tarball') as mt_mock:
                     build_osx_client('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
@@ -252,7 +252,7 @@ class CrossBuildTestCase(TestCase):
              '1.2.3', os.getcwd()),
             mt_mock.call_args[0])
 
-    def test_make_osx_tarball(self):
+    def test_make_client_tarball(self):
         oct_775 = int('775', 8)
         oct_664 = int('664', 8)
         with temp_dir() as base_dir:
@@ -265,7 +265,7 @@ class CrossBuildTestCase(TestCase):
                     jb.write('juju')
             os.chmod(juju_binary, oct_775)
             os.chmod(readme_file, oct_664)
-            make_osx_tarball([juju_binary, readme_file], '1.2.3', base_dir)
+            make_client_tarball([juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
             self.assertTrue(os.path.isfile(osx_tarball_path))
             with tarfile.open(osx_tarball_path, 'r:gz') as tar:
