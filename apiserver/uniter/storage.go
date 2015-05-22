@@ -313,10 +313,8 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 }
 
 // AddUnitStorage validates and creates additional storage instances for units.
-// Storage instances are defined in collection of storages.
-// If no directives were specified, we do not try to add any instances.
 // Failures on an individual storage instance do not block remaining
-// instances being processed.
+// instances from being processed.
 func (a *StorageAPI) AddUnitStorage(
 	args params.StoragesAddParams,
 ) (params.ErrorResults, error) {
