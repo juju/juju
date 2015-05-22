@@ -33,16 +33,17 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
         sleep 1
     done
     set +e
+    echo "{ppa}" >> /etc/apt/sources.list
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y build-essential devscripts equivs
+    apt-get install -y --force-yes build-essential devscripts equivs
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nInstalling build deps from dsc.\n"
     cd workspace
     export DEBIAN_FRONTEND=noninteractive
-    mk-build-deps -i --tool 'apt-get --yes' *.dsc
+    mk-build-deps -i --tool 'apt-get --yes --force-yes' *.dsc
 EOT
 sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
@@ -114,15 +115,22 @@ def setup_lxc(series, arch, build_dir, verbose=False):
     return container
 
 
-def build_in_lxc(container, build_dir, verbose=False):
+def build_in_lxc(container, build_dir, ppa=None, verbose=False):
     """Build the binaries from the source files in the container."""
     returncode = 1
+    if ppa:
+        path = ppa.split(':')[1]
+        series = container.split('-')[0]
+        ppa = 'deb http://ppa.launchpad.net/{}/ubuntu {} main'.format(
+            path, series)
+    else:
+        ppa = '# No PPA added.'
     # The work in the container runs as a different user. Care is needed to
     # ensure permissions and ownership are correct before and after the build.
     os.chmod(build_dir, 0o777)
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
-        build_script = BUILD_DEB_TEMPLATE.format(container=container)
+        build_script = BUILD_DEB_TEMPLATE.format(container=container, ppa=ppa)
         proc = subprocess.Popen([build_script], shell=True)
         proc.communicate()
         returncode = proc.returncode
@@ -163,7 +171,7 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
         location, series, arch, source_files, verbose=verbose)
     container = setup_lxc(series, arch, build_dir, verbose=verbose)
     try:
-        build_in_lxc(container, build_dir, verbose=verbose)
+        build_in_lxc(container, build_dir, ppa=ppa, verbose=verbose)
     finally:
         teardown_lxc(container, verbose=False)
     move_debs(build_dir, location, verbose=verbose)
