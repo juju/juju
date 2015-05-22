@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -38,6 +39,10 @@ const (
 	none                        = "none"
 	invalidParameterValue       = "InvalidParameterValue"
 	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+
+	// tagName is the AWS-specific tag key that populates resources'
+	// name columns in the console.
+	tagName = "Name"
 )
 
 // Use shortAttempt to poll for short-term events or for retrying API calls.
@@ -423,7 +428,17 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+	var inst *ec2Instance
+	defer func() {
+		if resultErr == nil || inst == nil {
+			return
+		}
+		if err := e.StopInstances(inst.Id()); err != nil {
+			logger.Errorf("error stopping failed instance: %v", err)
+		}
+	}()
+
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -532,18 +547,33 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
-	inst := &ec2Instance{
+	inst = &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	// TODO(axw) tag all resources (instances and volumes), for accounting
-	// and identification.
+	// Tag instance, for accounting and identification.
+	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
+	tags := map[string]string{
+		tagName: names.NewMachineTag(args.InstanceConfig.MachineId).String(),
+	}
+	if stateServer {
+		// It's a state server; tag it as such. We don't currently use
+		// this tag for anything, but we can use this to migrate away
+		// from requiring S3 for recording state server instance IDs.
+		tags[common.TagJujuStateServer] = "true"
+	}
+	if uuid, ok := e.Config().UUID(); ok {
+		tags[common.TagJujuEnv] = uuid
+	}
+	if err := tagResources(e.ec2(), tags, string(inst.Id())); err != nil {
+		return nil, errors.Annotate(err, "tagging instance")
+	}
 
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
+	if stateServer {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
+			return nil, errors.Annotate(err, "recording instance in provider-state")
 		}
 	}
 
@@ -560,6 +590,20 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+// tagResources calls ec2.CreateTags, tagging each of the specified resources
+// with the given tags.
+func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	ec2Tags := make([]ec2.Tag, 0, len(tags))
+	for k, v := range tags {
+		ec2Tags = append(ec2Tags, ec2.Tag{k, v})
+	}
+	_, err := e.CreateTags(resourceIds, ec2Tags)
+	return err
 }
 
 var runInstances = _runInstances

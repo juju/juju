@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -183,7 +184,11 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	return &ebsVolumeSource{ec2}, nil
+	source := &ebsVolumeSource{ec2: ec2}
+	if uuid, ok := environConfig.UUID(); ok {
+		source.uuid = &uuid
+	}
+	return source, nil
 }
 
 // FilesystemSource is defined on the Provider interface.
@@ -192,7 +197,8 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 }
 
 type ebsVolumeSource struct {
-	ec2 *ec2.EC2
+	ec2  *ec2.EC2
+	uuid *string
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -273,6 +279,16 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 				Persistent: persistent,
 			},
 		})
+
+		tags := map[string]string{
+			tagName: p.Tag.String(),
+		}
+		if v.uuid != nil {
+			tags[common.TagJujuEnv] = *v.uuid
+		}
+		if err := tagResources(v.ec2, tags, volumeId); err != nil {
+			return nil, nil, errors.Annotate(err, "tagging volume")
+		}
 
 		nextDeviceName := blockDeviceNamer(instances[instId])
 		requestDeviceName, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId, false)
