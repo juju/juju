@@ -28,7 +28,6 @@ type entityWithError interface {
 
 type fakeState struct {
 	entities map[names.Tag]entityWithError
-	units    map[string]*state.Unit
 }
 
 func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
@@ -40,14 +39,6 @@ func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
 		return nil, err
 	}
 	return entity, nil
-}
-
-func (st *fakeState) Unit(name string) (*state.Unit, error) {
-	unit, ok := st.units[name]
-	if !ok {
-		return nil, errors.NotFoundf("unit %q", name)
-	}
-	return unit, nil
 }
 
 type fetchError string

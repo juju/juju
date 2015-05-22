@@ -264,6 +264,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 }
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
@@ -273,7 +274,6 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 }
 
 func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
-	ctx.hasRunStatusSet = true
 	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
 	service, err := ctx.unit.Service()
 	if err != nil {
