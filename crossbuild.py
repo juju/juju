@@ -213,9 +213,26 @@ def make_osx_tarball(binary_paths, version, dest_dir,
 
 def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
     """Build an Centos client, plugins and agent from a tarball."""
-    return
+    cwd = os.getcwd()
+    cmd_package = '%s/cmd/...' % JUJU_PACKAGE_PATH
+    goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    with go_tarball(tarball_path) as (gopath, version):
+        # This command always executes in a tmp dir, it does not make changes.
+        go_build(
+            cmd_package, goroot, gopath, 'amd64', 'linux',
+            dry_run=False, verbose=verbose)
+        bin_path = os.path.join(gopath, 'bin')
+        binary_paths = [
+            os.path.join(bin_path, 'juju'),
+            os.path.join(bin_path, 'jujud'),
+            os.path.join(bin_path, 'juju-metadata'),
+            os.path.join(gopath, ISS_DIR, 'README.txt'),
+            os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
+        ]
+        make_centos_tarball(
+            binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
 
-def make_centos_client_tarball(binary_paths, version, dest_dir,
+def make_centos_tarball(binary_paths, version, dest_dir,
                                dry_run=False, verbose=False):
     """Create a tarball of the built binaries and files."""
     return
