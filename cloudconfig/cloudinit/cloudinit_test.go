@@ -210,6 +210,44 @@ var ctests = []struct {
 		cfg.AddPackage("ubuntu")
 	},
 }, {
+	"Packages on precise, needing cloud-tools",
+	map[string]interface{}{"packages": []string{
+		// Regular packages (not needing the cloud-tools archive)
+		"juju",
+		"curl",
+		// The following need to be among the list of cloud-tools
+		// packages (see cloudArchivePackagesUbuntu in juju/utils
+		// repo).
+		"--target-release", "precise-updates/cloud-tools", "cloud-utils",
+		"--target-release", "precise-updates/cloud-tools", "cloud-image-utils",
+		// Other regular packages.
+		"ubuntu",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.AddPackage("juju")
+		cfg.AddPackage("curl")
+		// cloud-tools packages need to appear in the list of packages
+		// after the "--target-release" and
+		// "precise-updates/cloud-tools" lines to work around the
+		// broken 0.6.3 cloud-init on precise. cloud-init 0.6.3
+		// concatenates all space-separated arguments for each entry
+		// in the packages list, and then escapes the result in single
+		// quotes, which in turn leads to incorrectly rendered apt-get
+		// command (e.g. instead of "apt-get install --target-release
+		// foo/bar package" 0.6.3 will try to execute "apt-get install
+		// '--target-release foo/bar package'".). See bug #1424777 for
+		// more info.
+		cfg.AddPackage("--target-release")
+		cfg.AddPackage("precise-updates/cloud-tools")
+		cfg.AddPackage("cloud-utils")
+
+		cfg.AddPackage("--target-release")
+		cfg.AddPackage("precise-updates/cloud-tools")
+		cfg.AddPackage("cloud-image-utils")
+
+		cfg.AddPackage("ubuntu")
+	},
+}, {
 	"BootCmd",
 	map[string]interface{}{"bootcmd": []string{
 		"ls > /dev",
@@ -300,7 +338,7 @@ var ctests = []struct {
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
-		cfg, err := cloudinit.New("trusty")
+		cfg, err := cloudinit.New("precise")
 		c.Assert(err, jc.ErrorIsNil)
 		t.setOption(cfg)
 		data, err := cfg.RenderYAML()
@@ -315,7 +353,7 @@ func (S) TestOutput(c *gc.C) {
 }
 
 func (S) TestRunCmds(c *gc.C) {
-	cfg, err := cloudinit.New("trusty")
+	cfg, err := cloudinit.New("precise")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
 	cfg.AddScripts("a", "b")
@@ -326,7 +364,7 @@ func (S) TestRunCmds(c *gc.C) {
 }
 
 func (S) TestPackages(c *gc.C) {
-	cfg, err := cloudinit.New("trusty")
+	cfg, err := cloudinit.New("precise")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
