@@ -281,9 +281,9 @@ def parse_args(args=None):
         help='The path cross build dir.')
     parser_osx_client.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
-    # ./crossbuild centos-all juju-core-1.2.3.tar.gz
+    # ./crossbuild centos juju-core-1.2.3.tar.gz
     parser_centos = subparsers.add_parser(
-        'centos', help='Build an amd64 Centos client,  plugins, and agent.')
+        'centos', help='Build an amd64 Centos client, plugins, and agent.')
     parser_centos.add_argument(
         '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
