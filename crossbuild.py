@@ -153,10 +153,10 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
             built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_agent_tarball(built_agent_path, version, dest_dir,
-                           dry_run=False, verbose=False):
-    """Create a win agent tgz for a jujud."""
-    agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
+def make_agent_tarball(series, built_agent_path, version, dest_dir,
+                       dry_run=False, verbose=False):
+    """Create a agent tgz for a jujud."""
+    agent_tarball_name = 'juju-%s-%s-amd64.tgz' % (version, series)
     agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
     if not dry_run:
         if verbose:
@@ -164,7 +164,8 @@ def make_agent_tarball(built_agent_path, version, dest_dir,
         with tarfile.open(name=agent_tarball_path, mode='w:gz') as tar:
             if verbose:
                 print('Adding %s' % built_agent_path)
-            tar.add(built_agent_path, arcname='jujud.exe')
+            arcname = os.path.basename(built_agent_path)
+            tar.add(built_agent_path, arcname=arcname)
 
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):

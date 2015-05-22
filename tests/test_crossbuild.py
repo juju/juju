@@ -215,7 +215,7 @@ class CrossBuildTestCase(TestCase):
             jujud_binary = os.path.join(agent_dir,  'jujud.exe')
             with open(jujud_binary, 'w') as jb:
                 jb.write('jujud')
-            make_agent_tarball(jujud_binary, '1.2.3', base_dir)
+            make_agent_tarball('win2012', jujud_binary, '1.2.3', base_dir)
             agent_tarball_path = os.path.join(
                 base_dir, 'juju-1.2.3-win2012-amd64.tgz')
             self.assertTrue(os.path.isfile(agent_tarball_path))
@@ -225,7 +225,7 @@ class CrossBuildTestCase(TestCase):
     def test_make_agent_tarball_with_dry_run(self):
         with patch('tarfile.open') as mock:
             make_agent_tarball(
-                'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
+                'win2012', 'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
         self.assertEqual(0, mock.call_count)
 
     def test_build_osx_client(self):
