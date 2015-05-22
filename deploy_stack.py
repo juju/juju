@@ -667,6 +667,14 @@ def wait_for_state_server_to_shutdown(host, client, instance_id):
                 '{} was not deleted:\n{}'.format(instance_id, output))
 
 
+def parse_new_state_server_from_error(error):
+    output = str(error) + getattr(error, 'output', '')
+    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    if matches:
+        return matches[-1]
+    return None
+
+
 def main():
     parser = ArgumentParser('Deploy a WordPress stack')
     parser.add_argument('--charm-prefix', help='A prefix for charm urls.',

@@ -55,6 +55,15 @@ def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
 
+def make_client(juju_path, debug, env_name, temp_env_name):
+    env = SimpleEnvironment.from_config(env_name)
+    if temp_env_name is not None:
+        env.environment = temp_env_name
+        env.config['name'] = temp_env_name
+    full_path = os.path.join(juju_path, 'juju')
+    return EnvJujuClient.by_version(env, full_path, debug)
+
+
 class CannotConnectEnv(subprocess.CalledProcessError):
 
     def __init__(self, e):
@@ -172,6 +181,10 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
+        if command == "action":
+            # action requires the -e after the action subcommand, so just
+            # put it at the end.
+            return prefix + ('juju', logging, command,) + args + e_arg
         return prefix + ('juju', logging, command,) + e_arg + args
 
     def __init__(self, env, version, full_path, debug=False):
@@ -475,15 +488,14 @@ class EnvJujuClient:
         """Fetches the results of the action with the given id.
 
         Will wait for up to 1 minute for the action results.
-        The action name here is just used for an more informational error in 
+        The action name here is just used for an more informational error in
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("action", "fetch", id, "--wait", "1m",
-                                    include_e=False)
+        out = self.get_juju_output("action", "fetch", id, "--wait", "1m")
         status = yaml_loads(out)["status"]
         if status != "completed":
-            if action != None:
+            if action is not None:
                 raise Exception("timed out waiting for action %s to complete during fetch" % action)
             else:
                 raise Exception("timed out waiting for action to complete during fetch")
@@ -496,7 +508,7 @@ class EnvJujuClient:
         Returns the id of the queued action.
         """
         args = ("do", unit, action) + args
-        output = self.get_juju_output("action", *args, include_e=False)
+        output = self.get_juju_output("action", *args)
         action_id_pattern = re.compile('Action queued with id: ([a-f0-9\-]{36})')
         match = action_id_pattern.search(output)
         if match is None:

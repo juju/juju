@@ -16,16 +16,17 @@ from deploy_stack import (
     dump_env_logs,
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
+    parse_new_state_server_from_error,
 )
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
+    setup_juju_path,
     )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
     temp_bootstrap_env,
     until_timeout,
+    make_client,
 )
 from substrate import (
     terminate_instances,
@@ -37,15 +38,6 @@ from utility import (
 
 
 running_instance_pattern = re.compile('\["([^"]+)"\]')
-
-
-def setup_juju_path(juju_path):
-    """Ensure the binaries and scripts under test are found first."""
-    full_path = os.path.abspath(juju_path)
-    if not os.path.isdir(full_path):
-        raise ValueError("The juju_path does not exist: %s" % full_path)
-    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
-    sys.path.insert(0, full_path)
 
 
 def deploy_stack(client, charm_prefix):
@@ -133,14 +125,6 @@ def restore_missing_state_server(client, backup_file):
     print_now("PASS")
 
 
-def parse_new_state_server_from_error(error):
-    output = str(error) + getattr(error, 'output', '')
-    matches = re.findall(r'Attempting to connect to (.*):22', output)
-    if matches:
-        return matches[-1]
-    return None
-
-
 def parse_args(argv=None):
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -165,15 +149,6 @@ def parse_args(argv=None):
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
     return parser.parse_args(argv)
-
-
-def make_client(juju_path, debug, env_name, temp_env_name):
-    env = SimpleEnvironment.from_config(env_name)
-    if temp_env_name is not None:
-        env.environment = temp_env_name
-        env.config['name'] = temp_env_name
-    full_path = os.path.join(juju_path, 'juju')
-    return EnvJujuClient.by_version(env, full_path, debug)
 
 
 def main():
