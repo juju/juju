@@ -16,7 +16,7 @@ from crossbuild import (
     ISS_DIR,
     make_installer,
     make_client_tarball,
-    make_win_agent_tarball,
+    make_agent_tarball,
     main,
     run_command,
     working_directory,
@@ -192,7 +192,7 @@ class CrossBuildTestCase(TestCase):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.make_win_agent_tarball') as mt_mock:
+                with patch('crossbuild.make_agent_tarball') as mt_mock:
                     build_win_agent('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
@@ -208,23 +208,23 @@ class CrossBuildTestCase(TestCase):
              os.getcwd()),
             mt_mock.call_args[0])
 
-    def test_make_win_agent_tarball(self):
+    def test_make_agent_tarball(self):
         with temp_dir() as base_dir:
             agent_dir = os.path.join(base_dir, 'foo')
             os.makedirs(agent_dir)
             jujud_binary = os.path.join(agent_dir,  'jujud.exe')
             with open(jujud_binary, 'w') as jb:
                 jb.write('jujud')
-            make_win_agent_tarball(jujud_binary, '1.2.3', base_dir)
+            make_agent_tarball(jujud_binary, '1.2.3', base_dir)
             agent_tarball_path = os.path.join(
                 base_dir, 'juju-1.2.3-win2012-amd64.tgz')
             self.assertTrue(os.path.isfile(agent_tarball_path))
             with tarfile.open(agent_tarball_path, 'r:gz') as tar:
                 self.assertEqual(['jujud.exe'], tar.getnames())
 
-    def test_make_win_agent_tarball_with_dry_run(self):
+    def test_make_agent_tarball_with_dry_run(self):
         with patch('tarfile.open') as mock:
-            make_win_agent_tarball(
+            make_agent_tarball(
                 'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
         self.assertEqual(0, mock.call_count)
 

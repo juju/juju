@@ -149,11 +149,11 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(
             gopath, 'bin', 'windows_amd64', 'jujud.exe')
-        make_win_agent_tarball(
+        make_agent_tarball(
             built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_win_agent_tarball(built_agent_path, version, dest_dir,
+def make_agent_tarball(built_agent_path, version, dest_dir,
                            dry_run=False, verbose=False):
     """Create a win agent tgz for a jujud."""
     agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
