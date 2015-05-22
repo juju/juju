@@ -5,9 +5,11 @@ package uniter_test
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
@@ -313,23 +315,30 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		}, nil
 	}
 
+	p := "blah"
+	size := uint64(1)
+	pools := set.NewStrings("", p)
+	sizes := set.NewStrings("0", "1")
+
 	mockState := &mockStorageState{}
 	setMock(mockState, func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 		if name == storageName1 {
 			return errors.New("badness")
 		}
+		c.Assert(cons.Count, gc.Equals, uint64(0))
+		c.Assert(pools.Contains(cons.Pool), jc.IsTrue)
+		c.Assert(sizes.Contains(fmt.Sprintf("%d", cons.Size)), jc.IsTrue)
 		return nil
 	})
 
 	storage, err := uniter.NewStorageAPI(mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	size := uint64(1)
 	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{{
 			UnitTag:     unitTag0.String(),
 			StorageName: storageName0,
-			Constraints: params.StorageConstraints{Pool: "blah"},
+			Constraints: params.StorageConstraints{Pool: p},
 		}, {
 			UnitTag:     unitTag0.String(),
 			StorageName: storageName0,
@@ -337,7 +346,7 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		}, {
 			UnitTag:     unitTag0.String(),
 			StorageName: storageName1,
-			Constraints: params.StorageConstraints{Size: &size},
+			Constraints: params.StorageConstraints{},
 		},
 		}},
 	)
