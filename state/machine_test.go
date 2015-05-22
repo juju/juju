@@ -363,6 +363,24 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
+func (s *MachineSuite) TestDestroyWithCleanupPending(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Machine is not destroyed because cleanup worker will do it.
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Alive)
+}
+
 func (s *MachineSuite) TestRemove(c *gc.C) {
 	err := s.machine.Remove()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")

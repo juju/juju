@@ -582,7 +582,34 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		if m.doc.HasVote {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
-		if len(m.doc.Principals) != 0 {
+		// If there's only one service on the machine, and that service is dying/dead,
+		// then the machine may be soon destroyed by a cleanup worker.
+		// In that case, we don't want to return any error about not being able to
+		// destroy a machine with units as it will be a lie.
+		fmt.Println(m.doc.Principals)
+		if len(m.doc.Principals) == 1 {
+			// Get the sole unit and service on the machine.
+			u, err := m.st.Unit(m.doc.Principals[0])
+			if err != nil {
+				return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+			}
+			svc, err := u.Service()
+			if err != nil {
+				return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+			}
+			// If the service is dead/dying and there are no containers
+			// being hosted, we return a no-op. There are no transactions
+			// to run because the cleanup worker will destroy the machine.
+			isServiceAlive := svc.Life() == Alive
+			containers, err := m.Containers()
+			if err != nil {
+				return nil, errors.Annotatef(err, "reading machine %s containers", m)
+			}
+			if !isServiceAlive && len(containers) == 0 {
+				return nil, nil
+			}
+		}
+		if len(m.doc.Principals) > 0 {
 			return nil, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
