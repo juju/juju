@@ -315,25 +315,28 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 // AddUnitStorage validates and creates additional storage instances for units.
 // Storage instances are defined in collection of storages.
 // If no directives were specified, we do not try to add any instances.
-// Any failed operations are reported as errors.
 // Failures on an individual storage instance do not block remaining
 // instances being processed.
-func (s *StorageAPI) AddUnitStorage(
+func (a *StorageAPI) AddUnitStorage(
 	args params.StoragesAddParams,
 ) (params.ErrorResults, error) {
-
+	canAccess, err := a.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
 	if len(args.Storages) == 0 {
 		return params.ErrorResults{}, nil
 	}
 
 	serverErr := func(err error) params.ErrorResult {
-		if errors.IsNotFound(err) {
-			err = common.ErrPerm
-		}
-		return params.ErrorResult{Error: common.ServerError(err)}
+		return params.ErrorResult{common.ServerError(err)}
 	}
 
-	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
+	storageErr := func(err error, s, u string) params.ErrorResult {
+		return serverErr(errors.Annotatef(err, "adding storage %v for %v", s, u))
+	}
+
+	cons := func(p params.StorageConstraints) state.StorageConstraints {
 		s := state.StorageConstraints{Pool: p.Pool}
 		if p.Size != nil {
 			s.Size = *p.Size
@@ -346,20 +349,27 @@ func (s *StorageAPI) AddUnitStorage(
 
 	result := make([]params.ErrorResult, len(args.Storages))
 	for i, one := range args.Storages {
-		u, err := names.ParseUnitTag(one.UnitTag)
+		u, err := accessUnitTag(one.UnitTag, canAccess)
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			result[i] = serverErr(err)
 			continue
 		}
 
-		err = s.st.AddStorageForUnit(u,
-			one.StorageName,
-			paramsToState(one.Constraints))
+		err = a.st.AddStorageForUnit(u, one.StorageName, cons(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			result[i] = storageErr(err, one.StorageName, one.UnitTag)
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, error) {
+	u, err := names.ParseUnitTag(tag)
+	if err != nil {
+		return names.UnitTag{}, errors.Annotatef(err, "parsing unit tag %v", tag)
+	}
+	if !canAccess(u) {
+		return names.UnitTag{}, common.ErrPerm
+	}
+	return u, nil
 }
