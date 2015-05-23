@@ -7,6 +7,7 @@ enablement_timeout="$(action-get enablement-timeout)"
 include_command="$(action-get include-command)"
 include_group="$(action-get include-group)"
 total_timeout="$(action-get total-timeout)"
+mode="$(action-get mode)"
 action-set action-parameters.dry-run="${dry_run}"
 action-set action-parameters.chaos-dir="${chaos_dir}"
 action-set action-parameters.charm-dir="${CHARM_DIR}"
@@ -17,6 +18,7 @@ action-set action-parameters.include-command="${include_command}"
 action-set action-parameters.include-group="${include_group}"
 action-set action-parameters.monkey-id=${JUJU_ACTION_TAG#action-}
 action-set action-parameters.total-timeout="${total_timeout}"
+action-set action-parameters.mode="${mode}"
 
 # Create a unique directory to run and log this monkeys actions.
 target_dir=${chaos_dir}/chaos_monkey.${JUJU_ACTION_TAG#action-}
@@ -45,6 +47,9 @@ if [[ -n ${total_timeout:-} ]]; then
 fi
 if [[ -n ${enablement_timeout:-} ]]; then
     cmd+=" --enablement-timeout ${enablement_timeout}"
+fi
+if [[ -n ${mode:-} && "single" == "$mode" ]]; then
+    cmd+=" --run-once"
 fi
 action-set action-info.runner-cmd="${cmd}"
 action-set action-info.runner-log="${target_dir}/log/results.log"
