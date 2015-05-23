@@ -42,6 +42,14 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 
 
+def parse_new_state_server_from_error(error):
+    output = str(error) + getattr(error, 'output', '')
+    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    if matches:
+        return matches[-1]
+    return None
+
+
 class ErroredUnit(Exception):
 
     def __init__(self, unit_name, state):
@@ -222,7 +230,7 @@ class EnvJujuClient:
             constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
-            args = ('--upload-tools', ) + args
+            args = ('--upload-tools',) + args
         return args
 
     def bootstrap(self, upload_tools=False, juju_home=None):
@@ -495,10 +503,10 @@ class EnvJujuClient:
         out = self.get_juju_output("action", "fetch", id, "--wait", "1m")
         status = yaml_loads(out)["status"]
         if status != "completed":
+            name = ""
             if action is not None:
-                raise Exception("timed out waiting for action %s to complete during fetch" % action)
-            else:
-                raise Exception("timed out waiting for action to complete during fetch")
+                name = " " + action
+            raise Exception("timed out waiting for action%s to complete during fetch" % name)
         return out
 
     def action_do(self, unit, action, *args):

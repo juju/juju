@@ -9,20 +9,19 @@ import logging
 import re
 import sys
 
-from jujuconfig import (
-    get_juju_home,
-    setup_juju_path,
-)
 from deploy_stack import (
     dump_env_logs,
     get_machine_dns_name,
-    parse_new_state_server_from_error,
 )
+from jujuconfig import (
+    get_juju_home,
+ )
 from jujupy import (
-    temp_bootstrap_env,
     CannotConnectEnv,
-    yaml_loads,
+    temp_bootstrap_env,
     make_client,
+    parse_new_state_server_from_error,
+    yaml_loads,
 )
 from utility import (
     print_now,
@@ -44,75 +43,69 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
     # we run do_fetch here so that we wait for fill-logs to finish.
     client.action_do_fetch("fill-logs/0", fill_action, *args)
-    output = client.action_do_fetch("fill-logs/0", size_action)
-    obj = yaml_loads(output)
+    out = client.action_do_fetch("fill-logs/0", size_action)
+    action_output = yaml_loads(out)
 
     # Now we should have one primary log file, and one backup log file.
     # The backup should be approximately 300 megs.
     # The primary should be below 300.
 
-    check_log0(logfile, obj)
-    check_expected_backup("log1", prefix, obj)
+    check_log0(logfile, action_output)
+    check_expected_backup("log1", prefix, action_output)
 
     # we should only have one backup, not two.
-    check_for_extra_backup("log2", obj)
+    check_for_extra_backup("log2", action_output)
 
     # do it all again, this should generate a second backup.
 
     client.action_do_fetch("fill-logs/0", fill_action, *args)
-    output = client.action_do_fetch("fill-logs/0", size_action)
-    obj = yaml_loads(output)
+    out = client.action_do_fetch("fill-logs/0", size_action)
+    action_output = yaml_loads(out)
 
     # we should have two backups.
-    check_log0(logfile, obj)
-    check_expected_backup("log1", prefix, obj)
-    check_expected_backup("log2", prefix, obj)
+    check_log0(logfile, action_output)
+    check_expected_backup("log1", prefix, action_output)
+    check_expected_backup("log2", prefix, action_output)
 
-    check_for_extra_backup("log3", obj)
+    check_for_extra_backup("log3", action_output)
 
     # one more time... we should still only have 2 backups and primary
 
     client.action_do_fetch("fill-logs/0", fill_action, *args)
-    output = client.action_do_fetch("fill-logs/0", size_action)
-    obj = yaml_loads(output)
+    out = client.action_do_fetch("fill-logs/0", size_action)
+    action_output = yaml_loads(out)
 
-    check_log0(logfile, obj)
-    check_expected_backup("log1", prefix, obj)
-    check_expected_backup("log2", prefix, obj)
+    check_log0(logfile, action_output)
+    check_expected_backup("log1", prefix, action_output)
+    check_expected_backup("log2", prefix, action_output)
 
     # we should have two backups.
-    check_for_extra_backup("log3", obj)
+    check_for_extra_backup("log3", action_output)
 
 
-def check_for_extra_backup(logname, yaml_obj):
-    try:
-        # this should raise a KeyError
-        log = yaml_obj["results"]["result-map"][logname]
-        try:
-            # no exception! log exists.
-            name = log["name"]
-            raise Exception("Extra backup log after rotation: " + name)
-        except KeyError:
-            # no name for log for some reason
-            raise Exception("Extra backup log (with no name) after rotation")
-    except KeyError:
+def check_for_extra_backup(logname, action_output):
+    log = action_output["results"]["result-map"].get(logname)
+    if log is None:
         # this is correct
-        pass
+        return
+    # log exists.
+    name = log.get("name")
+    if name is None:
+        name = "(no name)"
+    raise Exception("Extra backup log after rotation: " + name)
 
 
-def check_expected_backup(key, logprefix, yaml_obj):
-    try:
-        log = yaml_obj["results"]["result-map"][key]
-    except KeyError:
+def check_expected_backup(key, logprefix, action_output):
+    log = action_output["results"]["result-map"].get(key)
+    if log is None:
         raise Exception("Missing backup log '{}' after rotation.".format(key))
 
-    backup_pattern_string = "/var/log/juju/%s-(.+?)\.log" % logprefix
-    backup_pattern = re.compile(backup_pattern_string)
+    backup_pattern = "/var/log/juju/%s-(.+?)\.log" % logprefix
 
     log_name = log["name"]
     matches = re.match(backup_pattern, log_name)
     if matches is None:
-        raise Exception("Rotated log name '{}' does not match pattern '{}'.".format(log_name, backup_pattern_string))
+        raise Exception("Rotated log name '{}' does not match pattern '{}'.".format(log_name, backup_pattern))
 
     size = int(log["size"])
     if size < 299 or size > 301:
@@ -129,8 +122,8 @@ def check_expected_backup(key, logprefix, yaml_obj):
         raise Exception("Rotated log name for {} has invalid datetime appended: {}".format(log_name, dt))
 
 
-def check_log0(expected, obj):
-    log = obj["results"]["result-map"]["log0"]
+def check_log0(expected, action_output):
+    log = action_output["results"]["result-map"].get("log0")
     if log is None:
         raise Exception("No log returned from size action.")
 
@@ -148,52 +141,19 @@ def parse_args(argv=None):
     parser.add_argument(
         '--debug', action='store_true', default=False,
         help='Use --debug juju logging.')
-    parser.add_argument('juju_path')
-    parser.add_argument('env_name')
+    parser.add_argument('agent', help='Which agent log rotation to test - machine or unit.')
+    parser.add_argument('juju_path', help='Directory your juju binary lives in.')
+    parser.add_argument('env_name', help='Juju environment name to run tests in.')
     parser.add_argument('logs', help='Directory to store logs in.')
     parser.add_argument(
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
-    return parser.parse_args(argv)
-
-
-def main():
-    args = parse_args()
-    log_dir = args.logs
-    try:
-        setup_juju_path(args.juju_path)
-        client = make_client(args.juju_path, args.debug, args.env_name,
-                             args.temp_env_name)
-        client.destroy_environment()
-        juju_home = get_juju_home()
-        with temp_bootstrap_env(juju_home, client):
-            client.bootstrap()
-        bootstrap_host = get_machine_dns_name(client, 0)
-        try:
-            try:
-                client.get_status(60)
-            except CannotConnectEnv:
-                print("Status got Unable to connect to env.  Retrying...")
-                client.get_status(60)
-            client.wait_for_started()
-            client.juju("deploy", ('local:trusty/fill-logs',))
-            client.wait_for_started(60)
-
-            test_unit_rotation(client)
-            test_machine_rotation(client)
-        except Exception as e:
-            try_cleanup(bootstrap_host, e, client, log_dir)
-            raise
-        finally:
-            client.destroy_environment()
-    except Exception as e3:
-        print_now("\nEXCEPTION CAUGHT:\n")
-        logging.exception(e3)
-        if getattr(e3, 'output', None):
-            print_now('\n')
-            print_now(e.output)
-        print_now("\nFAIL")
+    args = parser.parse_args(argv)
+    if args.agent != "machine" and args.agent != "unit":
+        print("invalid value for agent, must be 'machine' or 'unit'.")
+        parser.print_usage()
         sys.exit(1)
+    return args
 
 
 def try_cleanup(bootstrap_host, e, client, log_dir):
@@ -205,6 +165,38 @@ def try_cleanup(bootstrap_host, e, client, log_dir):
         # Swallow the exception so we don't obscure the original exception.
         print_now("exception while dumping logs:\n")
         logging.exception(e2)
+
+
+def main():
+    args = parse_args()
+    log_dir = args.logs
+
+    client = make_client(args.juju_path, args.debug, args.env_name,
+                         args.temp_env_name)
+    client.destroy_environment()
+    juju_home = get_juju_home()
+    with temp_bootstrap_env(juju_home, client):
+        client.bootstrap()
+    bootstrap_host = get_machine_dns_name(client, 0)
+    try:
+        try:
+            client.get_status(60)
+        except CannotConnectEnv:
+            print("Status got Unable to connect to env.  Retrying...")
+            client.get_status(60)
+        client.wait_for_started()
+        client.juju("deploy", ('local:trusty/fill-logs',))
+        client.wait_for_started(60)
+
+        if args.agent == "unit":
+            test_unit_rotation(client)
+        if args.agent == "machine":
+            test_machine_rotation(client)
+    except Exception as e:
+        try_cleanup(bootstrap_host, e, client, log_dir)
+        raise
+    finally:
+        client.destroy_environment()
 
 
 if __name__ == '__main__':

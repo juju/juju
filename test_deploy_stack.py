@@ -44,7 +44,6 @@ from deploy_stack import (
     safe_print_status,
     retain_jenv,
     update_env,
-    parse_new_state_server_from_error,
 )
 from jujupy import (
     EnvJujuClient,
@@ -814,15 +813,3 @@ class TestDeployJobParseArgs(TestCase):
         self.assertEqual('wacky', args.agent_stream)
 
 
-class AssessRecoveryTestCase(TestCase):
-
-    def test_parse_new_state_server_from_error(self):
-        output = dedent("""
-            Waiting for address
-            Attempting to connect to 10.0.0.202:22
-            Attempting to connect to 1.2.3.4:22
-            The fingerprint for the ECDSA key sent by the remote host is
-            """)
-        error = subprocess.CalledProcessError(1, ['foo'], output)
-        address = parse_new_state_server_from_error(error)
-        self.assertEqual('1.2.3.4', address)

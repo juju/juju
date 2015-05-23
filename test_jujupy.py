@@ -41,6 +41,7 @@ from jujupy import (
     _temp_env as temp_env,
     uniquify_local,
     make_client,
+    parse_new_state_server_from_error,
 )
 from utility import (
     scoped_environ,
@@ -1859,7 +1860,7 @@ class TestEnvironment(TestCase):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
         mock.assert_called_with(
-            'action', 'do', 'foo/0', 'myaction', "param=5", include_e=False
+            'action', 'do', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -1882,7 +1883,7 @@ class TestEnvironment(TestCase):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_with(
-            'action', 'fetch', '123', "--wait", "1m", include_e=False
+            'action', 'fetch', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):
@@ -2077,3 +2078,16 @@ class TestMakeClient(TestCase):
         self.assertEqual(client.env.config['orig-name'], 'foo')
         self.assertEqual(client.env.config['name'], 'foo')
         self.assertEqual(client.env.environment, 'foo')
+
+class AssessParseStateServerFromErrorTestCase(TestCase):
+
+    def test_parse_new_state_server_from_error(self):
+        output = dedent("""
+            Waiting for address
+            Attempting to connect to 10.0.0.202:22
+            Attempting to connect to 1.2.3.4:22
+            The fingerprint for the ECDSA key sent by the remote host is
+            """)
+        error = subprocess.CalledProcessError(1, ['foo'], output)
+        address = parse_new_state_server_from_error(error)
+        self.assertEqual('1.2.3.4', address)

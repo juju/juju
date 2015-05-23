@@ -2,7 +2,6 @@ import errno
 import os
 import re
 import subprocess
-import sys
 import yaml
 
 
@@ -141,12 +140,3 @@ def describe_substrate(config):
         }[config['type']]
     except KeyError:
         return config['type']
-
-
-def setup_juju_path(juju_path):
-    """Ensure the binaries and scripts under test are found first."""
-    full_path = os.path.abspath(juju_path)
-    if not os.path.isdir(full_path):
-        raise ValueError("The juju_path does not exist: %s" % full_path)
-    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
-    sys.path.insert(0, full_path)

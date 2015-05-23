@@ -16,17 +16,16 @@ from deploy_stack import (
     dump_env_logs,
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
-    parse_new_state_server_from_error,
 )
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    setup_juju_path,
     )
 from jujupy import (
     temp_bootstrap_env,
     until_timeout,
     make_client,
+    parse_new_state_server_from_error,
 )
 from substrate import (
     terminate_instances,
@@ -155,7 +154,6 @@ def main():
     args = parse_args()
     log_dir = args.logs
     try:
-        setup_juju_path(args.juju_path)
         client = make_client(args.juju_path, args.debug, args.env_name,
                              args.temp_env_name)
         juju_home = get_juju_home()
