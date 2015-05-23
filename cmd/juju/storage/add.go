@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/keyvalues"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -82,11 +81,6 @@ func (c *AddCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags implements Command.SetFlags.
-func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.StorageCommandBase.SetFlags(f)
-}
-
 // Run implements Command.Run.
 func (c *AddCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := getStorageAddAPI(c)
@@ -101,29 +95,29 @@ func (c *AddCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// If there are any failures, display them first.
-	// Then display all successes.
+	// Then display all added storage.
 	// If there are no failures, then there is no need to display all successes.
-	var success []string
+	var added []string
+
 	for i, one := range results {
 		us := storages[i]
-		msgPrefix := fmt.Sprintf("storage %q", us.StorageName)
 		if one.Error != nil {
-			err := errors.Annotatef(one.Error, "%v %v", failMsg, msgPrefix)
-			fmt.Fprintln(ctx.Stderr, err.Error())
+			fmt.Fprintf(ctx.Stderr, fail+": %v\n", us.StorageName, one.Error)
 			continue
 		}
-		success = append(success, successMsg+msgPrefix)
+		added = append(added, fmt.Sprintf(success, us.StorageName))
 	}
-	if len(success) < len(storages) {
-		fmt.Fprintf(ctx.Stderr, strings.Join(success, "\n"))
+	if len(added) < len(storages) {
+		fmt.Fprintf(ctx.Stderr, strings.Join(added, "\n"))
 	}
 	return nil
 }
 
 var (
 	getStorageAddAPI = (*AddCommand).getStorageAddAPI
-	successMsg       = "success: "
-	failMsg          = "fail:"
+	storageName      = "storage %q"
+	success          = "success: " + storageName
+	fail             = "fail: " + storageName
 )
 
 // StorageAddAPI defines the API methods that the storage commands use.

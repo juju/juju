@@ -20,15 +20,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type AddSuite struct {
+type addSuite struct {
 	SubStorageSuite
 	mockAPI *mockAddAPI
 	args    []string
 }
 
-var _ = gc.Suite(&AddSuite{})
+var _ = gc.Suite(&addSuite{})
 
-func (s *AddSuite) SetUpTest(c *gc.C) {
+func (s *addSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockAddAPI{}
@@ -38,61 +38,58 @@ func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.args = nil
 }
 
-func (s *AddSuite) TestAddNoArgs(c *gc.C) {
-	s.assertAddErrorOutput(c, ".*storage add requires a unit and a storage directive.*")
+type tstData struct {
+	args        []string
+	expectedErr string
 }
 
-func (s *AddSuite) TestAddOnlyUnit(c *gc.C) {
-	s.args = []string{"tst/123"}
-	s.assertAddErrorOutput(c, ".*storage add requires a unit and a storage directive.*")
+var errorTsts = []tstData{
+	{nil, ".*storage add requires a unit and a storage directive.*"},
+	{[]string{"tst/123"}, ".*storage add requires a unit and a storage directive.*"},
+	{[]string{"tst/123", "data"}, `.*expected "key=value", got "data".*`},
+	{[]string{"tst/123", "data="}, `.*storage constraints require at least one field to be specified`},
+	{[]string{"tst/123", "data=-676"}, `.*count must be greater than zero, got "-676".*`},
 }
 
-func (s *AddSuite) TestAddNoConstraints(c *gc.C) {
-	s.args = []string{"tst/123", "data"}
-	s.assertAddErrorOutput(c, `.*expected "key=value", got "data".*`)
+func (s *addSuite) TestAddArgs(c *gc.C) {
+	for i, t := range errorTsts {
+		c.Logf("test %d for %q", i, t.args)
+		s.args = t.args
+		s.assertAddErrorOutput(c, t.expectedErr)
+	}
 }
 
-func (s *AddSuite) TestAddEmptyConstraints(c *gc.C) {
-	s.args = []string{"tst/123", "data="}
-	s.assertAddErrorOutput(c, ".*storage constraints require at least one field to be specified.*")
-}
-
-func (s *AddSuite) TestAddUnparseableConstraints(c *gc.C) {
-	s.args = []string{"tst/123", "data=-676"}
-	s.assertAddErrorOutput(c, `.*count must be greater than zero, got "-676".*`)
+func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string) {
+	_, err := runAdd(c, s.args...)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
 }
 
 func runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, envcmd.Wrap(&storage.AddCommand{}), args...)
 }
 
-func (s *AddSuite) TestAddInvalidUnit(c *gc.C) {
+func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
 	s.args = []string{"tst-123", "data=676"}
 	s.assertAddErrorOutput(c, `.*unit name "tst-123" not valid.*`)
 }
 
-func (s *AddSuite) assertAddErrorOutput(c *gc.C, expected string) {
-	_, err := runAdd(c, s.args...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
-}
-
-func (s *AddSuite) TestAddSuccess(c *gc.C) {
+func (s *addSuite) TestAddSuccess(c *gc.C) {
 	s.args = []string{"tst/123", "data=676"}
 	s.assertAddOutput(c, "", "")
 }
 
-func (s *AddSuite) TestAddOperationAborted(c *gc.C) {
+func (s *addSuite) TestAddOperationAborted(c *gc.C) {
 	s.args = []string{"tst/123", "data=676"}
 	s.mockAPI.abort = true
 	s.assertAddErrorOutput(c, ".*aborted.*")
 }
 
-func (s *AddSuite) TestAddFailure(c *gc.C) {
+func (s *addSuite) TestAddFailure(c *gc.C) {
 	s.args = []string{"tst/123", "err=676"}
 	s.assertAddOutput(c, "", "fail: storage \"err\": test failure\n")
 }
 
-func (s *AddSuite) TestAddMixOrderPreserved(c *gc.C) {
+func (s *addSuite) TestAddMixOrderPreserved(c *gc.C) {
 	expectedErr := `
 fail: storage "err": test failure
 success: storage "a"`[1:]
@@ -104,7 +101,7 @@ success: storage "a"`[1:]
 	s.assertAddOutput(c, "", expectedErr)
 }
 
-func (s *AddSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
+func (s *addSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
 	context, err := runAdd(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
 
