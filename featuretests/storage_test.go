@@ -420,6 +420,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	before, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageExist(c, before, "data")
 
 	context := runAddToUnit(c, u, "allecto=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
@@ -428,6 +429,18 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	after, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-len(before), gc.Equals, 1)
+	s.assertStorageExist(c, after, "data", "allecto")
+}
+
+func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
+	all []state.StorageInstance,
+	expected ...string) {
+
+	names := make([]string, len(all))
+	for i, one := range all {
+		names[i] = one.StorageName()
+	}
+	c.Assert(names, jc.SameContents, expected)
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitFailure(c *gc.C) {
