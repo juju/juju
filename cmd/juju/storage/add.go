@@ -16,23 +16,21 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-const AddCommandDoc = `
+const (
+	addCommandDoc = `
 Add storage instances to a unit dynamically.
 Specify a unit and a storage specification in the same format 
 as passed to juju deploy --storage=”...”.
 
-* note use of positional arguments
-
-options:
--e, --environment (= "")
-    juju environment to operate in
--o, --output (= "")
-    specify an output 
-<unit name> 
-    unit name
-<storage spec>
-    storage spec
+Example:
+    juju storage add u/0 data=ebs,1024,3 
+    Add 3 ebs storage instances for "data" storage to unit u/0. 
 `
+	addCommandAgs = `
+<unit name> <storage directive> ...
+    where storage directive is <charm storage name=<storage constraints>
+`
+)
 
 // AddCommand adds unit storage instances dynamically.
 type AddCommand struct {
@@ -77,7 +75,8 @@ func (c *AddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Purpose: "adds unit storage dynamically",
-		Doc:     AddCommandDoc,
+		Doc:     addCommandDoc,
+		Args:    addCommandAgs,
 	}
 }
 
