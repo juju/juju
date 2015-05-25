@@ -287,6 +287,6 @@ func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, "remote")
-	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
+	err := fmt.Sprintf(".*%s:.*no such file or directory\n", badSock)
 	c.Assert(output, gc.Matches, err)
 }
