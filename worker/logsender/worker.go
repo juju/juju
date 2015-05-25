@@ -61,7 +61,7 @@ func dialLogsinkAPI(apiInfo *api.Info) (*websocket.Conn, error) {
 	// connections to both /log (debuglog) and /logsink.
 	header := utils.BasicAuthHeader(apiInfo.Tag.String(), apiInfo.Password)
 	header.Set("X-Juju-Nonce", apiInfo.Nonce)
-	conn, err := api.Connect(apiInfo, "/logsink", header, api.DefaultDialOpts())
+	conn, err := api.Connect(apiInfo, "/logsink", header, api.DialOpts{})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to connect to logsink API")
 	}
