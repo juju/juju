@@ -39,10 +39,14 @@ func GetDefaultEnvironment() (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return defaultEnv, nil
 	}
-	if currentEnv := ReadCurrentEnvironment(); currentEnv != "" {
+	if currentEnv, err := ReadCurrentEnvironment(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentEnv != "" {
 		return currentEnv, nil
 	}
-	if currentSystem := ReadCurrentSystem(); currentSystem != "" {
+	if currentSystem, err := ReadCurrentSystem(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentSystem != "" {
 		return "", errors.Errorf("not operating on an environment, using system %q", currentSystem)
 	}
 	envs, err := environs.ReadEnvirons("")

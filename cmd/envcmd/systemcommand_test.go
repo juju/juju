@@ -25,7 +25,8 @@ var _ = gc.Suite(&SystemCommandSuite{})
 func (s *SystemCommandSuite) TestSystemCommandInitMultipleConfigs(c *gc.C) {
 	// The environments.yaml file is ignored for system commands.
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	testEnsureSystemName(c, "")
+	_, err := initTestSystemCommand(c)
+	c.Assert(err, gc.ErrorMatches, "no system specified")
 }
 
 func (s *SystemCommandSuite) TestSystemCommandInitNoEnvFile(c *gc.C) {
@@ -33,8 +34,8 @@ func (s *SystemCommandSuite) TestSystemCommandInitNoEnvFile(c *gc.C) {
 	// there.
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, jc.ErrorIsNil)
-	testEnsureSystemName(c, "")
+	_, err = initTestSystemCommand(c)
+	c.Assert(err, gc.ErrorMatches, "no system specified")
 }
 
 func (s *SystemCommandSuite) TestSystemCommandInitSystemFile(c *gc.C) {

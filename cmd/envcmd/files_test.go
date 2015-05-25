@@ -21,26 +21,30 @@ type filesSuite struct {
 var _ = gc.Suite(&filesSuite{})
 
 func (s *filesSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
-	env := envcmd.ReadCurrentEnvironment()
+	env, err := envcmd.ReadCurrentEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.Equals, "")
 }
 
 func (s *filesSuite) TestReadCurrentSystemUnset(c *gc.C) {
-	env := envcmd.ReadCurrentSystem()
+	env, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.Equals, "")
 }
 
 func (s *filesSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env := envcmd.ReadCurrentEnvironment()
+	env, err := envcmd.ReadCurrentEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.Equals, "fubar")
 }
 
 func (s *filesSuite) TestReadCurrentSystemSet(c *gc.C) {
 	err := envcmd.WriteCurrentSystem("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env := envcmd.ReadCurrentSystem()
+	env, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.Equals, "fubar")
 }
 

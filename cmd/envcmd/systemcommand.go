@@ -116,14 +116,28 @@ func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	w.SystemCommand.SetFlags(f)
 }
 
+func (w *sysCommandWrapper) getDefaultSystemName() (string, error) {
+	if currentSystem, err := ReadCurrentSystem(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentSystem != "" {
+		return currentSystem, nil
+	}
+	if currentEnv, err := ReadCurrentEnvironment(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentEnv != "" {
+		return currentEnv, nil
+	}
+	return "", errors.Trace(ErrNoSystemSpecified)
+}
+
 // Init implements Command.Init, then calls the wrapped command's Init.
 func (w *sysCommandWrapper) Init(args []string) error {
 	if w.systemName == "" {
-		// Look for the default.
-		w.systemName = ReadCurrentSystem()
-		if w.systemName == "" {
-			w.systemName = ReadCurrentEnvironment()
+		name, err := w.getDefaultSystemName()
+		if err != nil {
+			return errors.Trace(err)
 		}
+		w.systemName = name
 	}
 	w.SetSystemName(w.systemName)
 	return w.SystemCommand.Init(args)
