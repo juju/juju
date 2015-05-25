@@ -320,8 +320,10 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	pools := set.NewStrings("", p)
 	sizes := set.NewStrings("0", "1")
 
+	isCalled := false
 	mockState := &mockStorageState{}
 	setMock(mockState, func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		isCalled = true
 		c.Assert(u, gc.DeepEquals, unitTag0)
 		if name == storageName1 {
 			return errors.New("badness")
@@ -351,6 +353,7 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isCalled, jc.IsTrue)
 	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
