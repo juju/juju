@@ -109,9 +109,15 @@ func (mr *Machiner) Handle() error {
 		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 
-	// If the machine is Dying, it has no units,
-	// and can be safely set to Dead.
+	// Attempt to mark the machine Dead. If the
+	// machine still has units assigned, this
+	// will fail with CodeHasAssignedUnits. Once
+	// the units are removed, the watcher will
+	// trigger again and we'll reattempt.
 	if err := mr.machine.EnsureDead(); err != nil {
+		if params.IsCodeHasAssignedUnits(err) {
+			return nil
+		}
 		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)
 	}
 	return worker.ErrTerminateAgent
