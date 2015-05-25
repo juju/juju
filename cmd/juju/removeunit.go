@@ -33,7 +33,8 @@ func (c *RemoveUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...]",
-		Purpose: removeUnitDoc,
+		Purpose: "remove service units from the environment",
+		Doc:     removeUnitDoc,
 		Aliases: []string{"destroy-unit"},
 	}
 }
