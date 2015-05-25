@@ -6,9 +6,7 @@ package envcmd
 import (
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
