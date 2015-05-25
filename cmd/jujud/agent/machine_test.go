@@ -1332,12 +1332,12 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			c.Check(scope, gc.Equals, s.State.EnvironTag())
-			c.Assert(atomic.CompareAndSwapUint32(&environWorkers, 0, 1), gc.Equals, uint32(1))
+			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
 		}
 		if storageDir != "" {
 			c.Check(scope, gc.Equals, m.Tag())
-			c.Assert(atomic.CompareAndSwapUint32(&machineWorkers, 0, 1), gc.Equals, uint32(1))
+			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
 		}
 		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
