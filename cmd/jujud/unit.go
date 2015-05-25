@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -17,6 +18,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -32,18 +34,22 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var agentLogger = loggo.GetLogger("juju.jujud")
+var (
+	agentLogger     = loggo.GetLogger("juju.jujud")
+	reportClosedAPI = func(io.Closer) {}
+)
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	agentcmd.AgentConf
-	UnitName     string
-	runner       worker.Runner
-	setupLogging func(agent.Config) error
-	logToStdErr  bool
-	ctx          *cmd.Context
+	UnitName         string
+	runner           worker.Runner
+	setupLogging     func(agent.Config) error
+	logToStdErr      bool
+	ctx              *cmd.Context
+	apiStateUpgrader agentcmd.APIStateUpgrader
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
@@ -51,6 +57,13 @@ func NewUnitAgent() *UnitAgent {
 	return &UnitAgent{
 		AgentConf: agentcmd.NewAgentConf(""),
 	}
+}
+
+func (a *UnitAgent) getUpgrader(st *api.State) agentcmd.APIStateUpgrader {
+	if a.apiStateUpgrader != nil {
+		return a.apiStateUpgrader
+	}
+	return st.Upgrader()
 }
 
 // Info returns usage information for the command.
@@ -124,7 +137,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	return err
 }
 
-func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	hookLock, err := cmdutil.HookExecutionLock(dataDir)
@@ -158,10 +171,18 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 	}
 
+	defer func() {
+		if err != nil {
+			st.Close()
+			reportClosedAPI(st)
+		}
+	}()
+
 	// Before starting any workers, ensure we record the Juju version this unit
 	// agent is running.
 	currentTools := &tools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+	apiStateUpgrader := a.getUpgrader(st)
+	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
 		return nil, errors.Annotate(err, "cannot set unit agent version")
 	}
 
