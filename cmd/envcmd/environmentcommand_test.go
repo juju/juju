@@ -5,9 +5,7 @@ package envcmd_test
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
-	"testing"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -19,29 +17,15 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type EnvironmentCommandSuite struct {
-	coretesting.FakeJujuHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&EnvironmentCommandSuite{})
-
-func Test(t *testing.T) { gc.TestingT(t) }
-
-func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
-	env := envcmd.ReadCurrentEnvironment()
-	c.Assert(env, gc.Equals, "")
-}
-
-func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, jc.ErrorIsNil)
-	env := envcmd.ReadCurrentEnvironment()
-	c.Assert(env, gc.Equals, "fubar")
-}
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironment(c *gc.C) {
 	env, err := envcmd.GetDefaultEnvironment()
@@ -82,21 +66,6 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, jc.ErrorIsNil)
-	current, err := ioutil.ReadFile(envcmd.GetCurrentEnvironmentFilePath())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(current), gc.Equals, "fubar\n")
-}
-
-func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
-	// Can't write a file over a directory.
-	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
-	err := envcmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
-}
-
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
 	testEnsureEnvName(c, "explicit", "-e", "explicit")
@@ -104,15 +73,15 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
 	// Take environment name from the default.
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	testEnsureEnvName(c, coretesting.SampleEnvName)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	testEnsureEnvName(c, testing.SampleEnvName)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
 	// Take environment name from the one and only environment,
 	// even if it is not explicitly marked as default.
-	coretesting.WriteEnvironments(c, coretesting.SingleEnvConfigNoDefault)
-	testEnsureEnvName(c, coretesting.SampleEnvName)
+	testing.WriteEnvironments(c, testing.SingleEnvConfigNoDefault)
+	testEnsureEnvName(c, testing.SampleEnvName)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
@@ -120,6 +89,14 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureEnvName(c, "fubar")
+}
+
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitSystemFile(c *gc.C) {
+	// If there is a current-system file, error raised.
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = initTestCommand(c)
+	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using system "fubar"`)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
@@ -131,7 +108,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigNoDefault(c *gc.C) {
 	// If there are multiple environments but no default, the connection name is empty.
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 	testEnsureEnvName(c, "")
 }
 
@@ -170,7 +147,7 @@ func testEnsureEnvName(c *gc.C, expect string, args ...string) {
 }
 
 type ConnectionEndpointSuite struct {
-	coretesting.FakeJujuHomeSuite
+	testing.FakeJujuHomeSuite
 	store    configstore.Storage
 	endpoint configstore.APIEndpoint
 }

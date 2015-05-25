@@ -69,8 +69,14 @@ func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error 
 	if !ok {
 		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
 	}
-	logger.Tracef("comparing api user %q against owner %q and admin %q", apiUser, user, adminUser)
-	if apiUser == user || apiUser == adminUser {
+	// We can't just compare the UserTags themselves as the provider part
+	// may be unset, and gets replaced with 'local'. We must compare against
+	// the Username of the user tag.
+	apiUsername := apiUser.Username()
+	username := user.Username()
+	adminUsername := adminUser.Username()
+	logger.Tracef("comparing api user %q against owner %q and admin %q", apiUsername, username, adminUsername)
+	if apiUsername == username || apiUsername == adminUsername {
 		return nil
 	}
 	return common.ErrPerm

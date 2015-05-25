@@ -298,6 +298,16 @@ func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
+func (s *envManagerSuite) TestListEnvironmentsForSelfLocalUser(c *gc.C) {
+	// When the user's credentials cache stores the simple name, but the
+	// api server converts it to a fully qualified name.
+	user := names.NewUserTag("local-user")
+	s.setAPIUser(c, names.NewUserTag("local-user@local"))
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+}
+
 func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
