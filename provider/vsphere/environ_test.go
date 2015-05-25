@@ -6,9 +6,10 @@
 package vsphere_test
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
-	"os"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"

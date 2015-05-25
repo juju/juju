@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1320,9 +1321,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	machineWorkerStarted := false
-	environWorkerStarted := false
-	numWorkers := 0
+	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
 	newWorker := func(
 		scope names.Tag,
@@ -1335,15 +1334,15 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			c.Check(scope, gc.Equals, s.State.EnvironTag())
-			environWorkerStarted = true
-			numWorkers = numWorkers + 1
+			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
+			atomic.AddUint32(&numWorkers, 1)
 		}
 		if storageDir != "" {
 			c.Check(scope, gc.Equals, m.Tag())
-			machineWorkerStarted = true
-			numWorkers = numWorkers + 1
+			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
+			atomic.AddUint32(&numWorkers, 1)
 		}
-		if environWorkerStarted && machineWorkerStarted {
+		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
 			close(started)
 		}
 		return worker.NewNoOpWorker()
@@ -1353,7 +1352,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	// Wait for worker to be started.
 	select {
 	case <-started:
-		c.Assert(numWorkers, gc.Equals, 2)
+		c.Assert(atomic.LoadUint32(&numWorkers), gc.Equals, uint32(2))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for storage worker to start")
 	}
