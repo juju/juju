@@ -23,12 +23,11 @@ func EnsureSymlinks(dir string) (err error) {
 			err = errors.Annotatef(err, "cannot initialize hook commands in %q", dir)
 		}
 	}()
-	st, err := os.Lstat(dir)
+	isSymlink, err := symlink.IsSymlink(dir)
 	if err != nil {
 		return err
 	}
-	// NOTE: need to work out how to do this on windows.
-	if st.Mode()&os.ModeSymlink != 0 {
+	if isSymlink {
 		link, err := symlink.Read(dir)
 		if err != nil {
 			return err

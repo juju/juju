@@ -113,8 +113,8 @@ func (cfg *windowsCloudConfig) AddPackageCommands(
 func (cfg *windowsCloudConfig) AddCloudArchiveCloudTools() {
 }
 
-// updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *windowsCloudConfig) updatePackages() {
+// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
+func (cfg *windowsCloudConfig) addRequiredPackages() {
 }
 
 // updateProxySettings is defined on the AdvancedPackagingConfig interface.

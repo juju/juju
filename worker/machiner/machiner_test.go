@@ -149,6 +149,38 @@ func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 }
 
+func (s *MachinerSuite) TestSetDeadWithDyingUnit(c *gc.C) {
+	mr := s.makeMachiner()
+	defer worker.Stop(mr)
+
+	// Add a service, assign to machine.
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Service alive, can't destroy machine.
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// With dying unit, machine can now be marked as dying.
+	c.Assert(s.machine.Destroy(), gc.IsNil)
+	s.State.StartSync()
+	c.Assert(s.machine.Refresh(), gc.IsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Dying)
+
+	// When the unit is ultimately destroyed, the machine becomes dead.
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+
+}
+
 func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`

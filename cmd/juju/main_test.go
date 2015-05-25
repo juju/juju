@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -263,9 +262,8 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// remove "storage" for the first test because the feature is not
-	// enabled.
-	devFeatures := []string{feature.Storage}
+	// Here we can add feature flags for any commands we want to hide by default.
+	devFeatures := []string{}
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.

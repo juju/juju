@@ -131,14 +131,18 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 }
 
 // AddMetricsBatches makes an api call to the uniter requesting it to store metrics batches in state.
-func (u *Unit) AddMetricBatches(batches []params.MetricBatch) error {
+func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
 	p := params.MetricBatchParams{
 		Batches: make([]params.MetricBatchParam, len(batches)),
 	}
 
+	batchResults := make(map[string]error, len(batches))
+
 	for i, batch := range batches {
 		p.Batches[i].Tag = u.tag.String()
 		p.Batches[i].Batch = batch
+
+		batchResults[batch.UUID] = nil
 	}
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
@@ -146,14 +150,17 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) error {
 		for _, batch := range batches {
 			err = u.AddMetrics(batch.Metrics)
 			if err != nil {
-				return errors.Annotate(err, "failed to add metrics")
+				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
 			}
 		}
-		return nil
+		return batchResults, nil
 	} else if err != nil {
-		return errors.Annotate(err, "failed to send metric batches")
+		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
-	return results.Combine()
+	for i, result := range results.Results {
+		batchResults[batches[i].UUID] = result.Error
+	}
+	return batchResults, nil
 }
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or

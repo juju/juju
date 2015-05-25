@@ -272,7 +272,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
-		err := machine.SetAddresses(params.Addresses...)
+		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return machine, params.Password

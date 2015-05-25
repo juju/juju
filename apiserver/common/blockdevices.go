@@ -15,7 +15,7 @@ func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
 		in.DeviceName,
 		in.Label,
 		in.UUID,
-		in.Serial,
+		in.HardwareId,
 		in.Size,
 		in.FilesystemType,
 		in.InUse,
@@ -31,8 +31,8 @@ func MatchingBlockDevice(
 	attachmentInfo state.VolumeAttachmentInfo,
 ) (*state.BlockDeviceInfo, bool) {
 	for _, dev := range blockDevices {
-		if volumeInfo.Serial != "" {
-			if volumeInfo.Serial == dev.Serial {
+		if volumeInfo.HardwareId != "" {
+			if volumeInfo.HardwareId == dev.HardwareId {
 				return &dev, true
 			}
 		} else if attachmentInfo.DeviceName == dev.DeviceName {

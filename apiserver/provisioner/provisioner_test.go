@@ -20,14 +20,16 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/dummy"
+	storagedummy "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -54,6 +56,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional state server machine.
@@ -736,7 +742,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
 
@@ -819,9 +825,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
-	registry.RegisterProvider("dynamic", &dummy.StorageProvider{IsDynamic: true})
+	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
 	defer registry.RegisterProvider("dynamic", nil)
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "dynamic", "static")
 
@@ -1020,7 +1026,7 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
 
@@ -1290,7 +1296,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
 	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1305,6 +1311,16 @@ func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 		// dummy provider supports both networking and address
 		// allocation by default, so IP forwarding should be enabled.
 		container.ConfigIPForwarding: "true",
+	})
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForwarding(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+		// ConfigIPForwarding should be missing.
 	})
 }
 
@@ -1343,18 +1359,13 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
-	args := params.MachineContainersParams{
-		Params: []params.MachineContainers{
-			{
-				MachineTag:     "machine-0",
-				ContainerTypes: []instance.ContainerType{instance.LXC},
-			},
-			{
-				MachineTag:     "machine-1",
-				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
-			},
-		},
-	}
+	args := params.MachineContainersParams{Params: []params.MachineContainers{{
+		MachineTag:     "machine-0",
+		ContainerTypes: []instance.ContainerType{instance.LXC},
+	}, {
+		MachineTag:     "machine-1",
+		ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+	}}}
 	results, err := s.provisioner.SetSupportedContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
@@ -1515,4 +1526,44 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
+}
+
+type lxcDefaultMTUSuite struct {
+	provisionerSuite
+}
+
+var _ = gc.Suite(&lxcDefaultMTUSuite{})
+
+func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
+	// Because lxc-default-mtu is an immutable setting, we need to set
+	// it in the default config JujuConnSuite uses, before the
+	// environment is "created".
+	s.DummyConfig = dummy.SampleConfig()
+	s.DummyConfig["lxc-default-mtu"] = 9000
+	s.provisionerSuite.SetUpTest(c)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	value, ok := stateConfig.LXCDefaultMTU()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(value, gc.Equals, 9000)
+	c.Logf("environ config lxc-default-mtu set to %v", value)
+}
+
+func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	managerConfig := s.getManagerConfig(c, instance.LXC)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:          "juju",
+		container.ConfigLXCDefaultMTU: "9000",
+
+		"use-aufs":                   "false",
+		container.ConfigIPForwarding: "true",
+	})
+
+	// KVM instances are not affected.
+	managerConfig = s.getManagerConfig(c, instance.KVM)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:         "juju",
+		container.ConfigIPForwarding: "true",
+	})
 }

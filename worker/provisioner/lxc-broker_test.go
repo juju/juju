@@ -29,6 +29,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/juju/arch"
@@ -60,6 +61,7 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping lxc tests on windows")
 	}
@@ -103,7 +105,8 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{c, s}, s.agentConfig, managerConfig, nil)
+	api := NewFakeAPI(c)
+	s.broker, err = provisioner.NewLxcBroker(&api, s.agentConfig, managerConfig, nil, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -137,9 +140,42 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []stor
 	return result.Instance
 }
 
+func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) {
+	instanceConfig := s.instanceConfig(c, machineId)
+	cons := constraints.Value{}
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	err := s.broker.MaintainInstance(environs.StartInstanceParams{
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		Volumes:        volumes,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, nil)
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
+	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.maintainInstance(c, machineId, nil)
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
@@ -282,16 +318,17 @@ func (s *lxcBrokerSuite) TestLocalDNSServers(c *gc.C) {
 	s.PatchValue(provisioner.ResolvConf, fakeConf)
 
 	// If config is missing, that's OK.
-	dnses, err := provisioner.LocalDNSServers()
+	dnses, dnsSearch, err := provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, gc.HasLen, 0)
+	c.Assert(dnsSearch, gc.Equals, "")
 
 	// Enter some data in fakeConf.
 	data := `
  anything else is ignored
   # comments are ignored
   nameserver  0.1.2.3  # that's parsed
-search foo # ignored
+search  foo.baz # comment ignored
 # nameserver 42.42.42.42 - ignored as well
 nameserver 8.8.8.8
 nameserver example.com # comment after is ok
@@ -299,11 +336,12 @@ nameserver example.com # comment after is ok
 	err = ioutil.WriteFile(fakeConf, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dnses, err = provisioner.LocalDNSServers()
+	dnses, dnsSearch, err = provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, jc.DeepEquals, network.NewAddresses(
 		"0.1.2.3", "8.8.8.8", "example.com",
 	))
+	c.Assert(dnsSearch, gc.Equals, "foo.baz")
 }
 
 func (s *lxcBrokerSuite) TestMustParseTemplate(c *gc.C) {
@@ -510,6 +548,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 			test.primaryAddr,
 			test.bridgeName,
 			test.ifaceInfo,
+			false, // TODO(dimitern): Untested.
 		)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 	}
@@ -525,7 +564,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesCheckError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, "iptables failed with unexpected exit code 42")
 }
 
@@ -551,7 +590,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -I .*" failed with exit code 42`)
 }
 
@@ -566,7 +605,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches,
 		`command "ip route add 0.1.2.3 dev bridge" failed with exit code 123`,
 	)
@@ -595,7 +634,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesAddsRuleIfMissing(c *gc.C) {
 	}}
 
 	addr := network.NewAddress("0.1.2.1")
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now verify the expected commands - since check returns 1, add
@@ -714,7 +753,7 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICSuccess(c *gc.C) {
 	c.Assert(addr, jc.DeepEquals, network.NewAddress("0.1.2.3"))
 }
 
-func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
+func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	// All the pieces used by this func are separately tested, we just
 	// test the integration between them.
 	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
@@ -735,13 +774,31 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// When ifaceInfo is not empty it shouldn't do anything and both
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
-	result, err := provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c, nil}, ifaceInfo)
+	// First call as if we are configuring the container for the first time
+	api := NewFakeAPI(c)
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
+	c.Assert(api.calls, gc.DeepEquals, []string{})
+
+	// Next call as if the container has already been configured.
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.IsNil)
+	c.Assert(api.calls, gc.DeepEquals, []string{})
+
+	// Call as if the container already has a network configuration, but doesn't.
+	api = NewFakeAPI(c)
+	ifaceInfo = []network.InterfaceInfo{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
+	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
+	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 
 	// When it's not empty, result should be populated as expected.
-	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c, nil}, ifaceInfo)
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -753,6 +810,22 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}})
+	c.Assert(api.calls, gc.DeepEquals, []string{"PrepareContainerInterfaceInfo"})
+
+	api.calls = []string{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", &api, ifaceInfo, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     provisioner.MACAddressTemplate,
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+	}})
+	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 }
 
 type lxcProvisionerSuite struct {
@@ -858,7 +931,7 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)
@@ -917,11 +990,30 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 }
 
 type fakeAPI struct {
-	c     *gc.C
-	suite *lxcBrokerSuite
+	c            *gc.C
+	suite        *lxcBrokerSuite
+	calls        []string
+	machineReady bool
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
+
+var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
+	DeviceIndex:    0,
+	MACAddress:     "aa:bb:cc:dd:ee:ff",
+	CIDR:           "0.1.2.0/24",
+	InterfaceName:  "dummy0",
+	Address:        network.NewAddress("0.1.2.3"),
+	GatewayAddress: network.NewAddress("0.1.2.1"),
+}
+
+func NewFakeAPI(c *gc.C) (f fakeAPI) {
+	f.c = c
+	f.suite = nil
+	f.calls = []string{}
+	f.machineReady = false
+	return
+}
 
 func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	p := params.ContainerConfig{
@@ -940,12 +1032,19 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network
 	if f.c != nil {
 		f.c.Assert(tag.String(), gc.Equals, "machine-42")
 	}
-	return []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "dummy0",
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-	}}, nil
+	f.calls = append(f.calls, "PrepareContainerInterfaceInfo")
+	f.machineReady = true
+	return []network.InterfaceInfo{fakeInterfaceInfo}, nil
+}
+
+func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+	if f.c != nil {
+		f.c.Assert(tag.String(), gc.Equals, "machine-42")
+	}
+	f.calls = append(f.calls, "GetContainerInterfaceInfo")
+	if f.machineReady == false {
+		return []network.InterfaceInfo{},
+			errors.NotProvisionedf("machine-42 has no network provisioning info")
+	}
+	return []network.InterfaceInfo{fakeInterfaceInfo}, nil
 }

@@ -375,9 +375,9 @@ func (s *ConstraintsSuite) TestIncludeExcludeAndHaveNetworks(c *gc.C) {
 
 func (s *ConstraintsSuite) TestInvalidNetworks(c *gc.C) {
 	invalidNames := []string{
-		"%ne$t", "^net#2", "_", "tcp:ip",
+		"%ne$t", "^net#2", "+", "tcp:ip",
 		"^^mynet", "^^^^^^^^", "net^x",
-		"-foo", "net/3", "^net_4", "&#!",
+		"&-foo", "net/3", "^net=4", "&#!",
 	}
 	for _, name := range invalidNames {
 		con, err := constraints.Parse("networks=" + name)

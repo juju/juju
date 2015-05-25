@@ -58,7 +58,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		return reflect.DeepEqual(m.Addresses(), s.addressesForIndex(index)) && (!isProvisioned || status == expectedStatus)
+		return reflect.DeepEqual(m.ProviderAddresses(), s.addressesForIndex(index)) && (!isProvisioned || status == expectedStatus)
 	}
 
 	// Wait for the odd numbered machines in the

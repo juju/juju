@@ -11,4 +11,5 @@ var (
 	GetVolumeListAPI  = &getVolumeListAPI
 
 	ConvertToVolumeInfo = convertToVolumeInfo
+	GetStorageAddAPI    = &getStorageAddAPI
 )

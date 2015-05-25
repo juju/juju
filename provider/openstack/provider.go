@@ -18,11 +18,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"launchpad.net/goose/client"
-	gooseerrors "launchpad.net/goose/errors"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/swift"
+	"gopkg.in/goose.v1/client"
+	gooseerrors "gopkg.in/goose.v1/errors"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/swift"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -730,7 +730,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
+func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -740,7 +740,7 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 	}
 	// authModeCfg has already been validated so we know it's one of the values below.
 	var authMode identity.AuthMode
-	switch authModeCfg {
+	switch AuthMode(ecfg.authMode()) {
 	case AuthLegacy:
 		authMode = identity.AuthLegacy
 	case AuthUserPass:
@@ -780,13 +780,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	// At this point, the authentication method config value has been validated so we extract it's value here
 	// to avoid having to validate again each time when creating the OpenStack client.
-	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
-	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	e.client = e.authClient(ecfg, authModeCfg)
+	e.client = authClient(ecfg)
 
 	e.novaUnlocked = nova.New(e.client)
 
@@ -936,6 +934,11 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
+
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -1136,43 +1139,48 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
-// collectInstances tries to get information on each instance id in ids.
-// It fills the slots in the given map for known servers with status
-// either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []instance.Id, out map[string]instance.Instance) []instance.Id {
-	var err error
-	serversById := make(map[string]nova.ServerDetail)
+func (e *environ) isAliveServer(server nova.ServerDetail) bool {
+	switch server.Status {
+	// HPCloud uses "BUILD(spawning)" as an intermediate BUILD state
+	// once networking is available.
+	case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
+		return true
+	}
+	return false
+}
+
+func (e *environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
+	wantedServers := make([]nova.ServerDetail, 0, len(ids))
 	if len(ids) == 1 {
-		// most common case - single instance
-		var server *nova.ServerDetail
-		server, err = e.nova().GetServer(string(ids[0]))
-		if server != nil {
-			serversById[server.Id] = *server
+		// Common case, single instance, may return NotFound
+		var maybeServer *nova.ServerDetail
+		maybeServer, err := e.nova().GetServer(string(ids[0]))
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		var servers []nova.ServerDetail
-		servers, err = e.nova().ListServersDetail(e.machinesFilter())
-		for _, server := range servers {
-			serversById[server.Id] = server
+		// Only return server details if it is currently alive
+		if maybeServer != nil && e.isAliveServer(*maybeServer) {
+			wantedServers = append(wantedServers, *maybeServer)
 		}
+		return wantedServers, nil
 	}
+	// List all servers that may be in the environment
+	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
-		return ids
+		return nil, err
 	}
-	var missing []instance.Id
+	// Create a set of the ids of servers that are wanted
+	idSet := make(map[string]struct{}, len(ids))
 	for _, id := range ids {
-		if server, found := serversById[string(id)]; found {
-			// HPCloud uses "BUILD(spawning)" as an intermediate BUILD states once networking is available.
-			switch server.Status {
-			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
-				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[string(id)] = &openstackInstance{e: e, serverDetail: &server}
-				continue
-			}
-		}
-		missing = append(missing, id)
+		idSet[string(id)] = struct{}{}
 	}
-	return missing
+	// Return only servers with the wanted ids that are currently alive
+	for _, server := range servers {
+		if _, ok := idSet[server.Id]; ok && e.isAliveServer(server) {
+			wantedServers = append(wantedServers, server)
+		}
+	}
+	return wantedServers, nil
 }
 
 // updateFloatingIPAddresses updates the instances with any floating IP address
@@ -1198,23 +1206,41 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	missing := ids
-	found := make(map[string]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
+	var foundServers []nova.ServerDetail
 	for a := shortAttempt.Start(); a.Next(); {
-		if missing = e.collectInstances(missing, found); len(missing) == 0 {
+		var err error
+		foundServers, err = e.listServers(ids)
+		if err != nil {
+			logger.Debugf("error listing servers: %v", err)
+			if !gooseerrors.IsNotFound(err) {
+				return nil, err
+			}
+		}
+		if len(foundServers) == len(ids) {
 			break
 		}
 	}
-	if len(found) == 0 {
+	logger.Tracef("%d/%d live servers found", len(foundServers), len(ids))
+	if len(foundServers) == 0 {
 		return nil, environs.ErrNoInstances
+	}
+
+	instsById := make(map[string]instance.Instance, len(foundServers))
+	for i, server := range foundServers {
+		// TODO(wallyworld): lookup the flavor details to fill in the
+		// instance type data
+		instsById[server.Id] = &openstackInstance{
+			e:            e,
+			serverDetail: &foundServers[i],
+		}
 	}
 
 	// Update the instance structs with any floating IP address that has been assigned to the instance.
 	if e.ecfg().useFloatingIP() {
-		if err := e.updateFloatingIPAddresses(found); err != nil {
+		if err := e.updateFloatingIPAddresses(instsById); err != nil {
 			return nil, err
 		}
 	}
@@ -1222,7 +1248,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {
-		if inst := found[string(id)]; inst != nil {
+		if inst := instsById[string(id)]; inst != nil {
 			insts[i] = inst
 		} else {
 			err = environs.ErrPartialInstances
@@ -1238,7 +1264,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	}
 	instsById := make(map[string]instance.Instance)
 	for _, server := range servers {
-		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+		if e.isAliveServer(server) {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}

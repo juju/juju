@@ -161,12 +161,18 @@ type userDoc struct {
 	Name        string `bson:"name"`
 	DisplayName string `bson:"displayname"`
 	// Removing users means they still exist, but are marked deactivated
-	Deactivated  bool       `bson:"deactivated"`
-	PasswordHash string     `bson:"passwordhash"`
-	PasswordSalt string     `bson:"passwordsalt"`
-	CreatedBy    string     `bson:"createdby"`
-	DateCreated  time.Time  `bson:"datecreated"`
-	LastLogin    *time.Time `bson:"lastlogin"`
+	Deactivated  bool      `bson:"deactivated"`
+	PasswordHash string    `bson:"passwordhash"`
+	PasswordSalt string    `bson:"passwordsalt"`
+	CreatedBy    string    `bson:"createdby"`
+	DateCreated  time.Time `bson:"datecreated"`
+	// LastLogin is updated by the apiserver whenever the user
+	// connects over the API. This update is not done using mgo.txn
+	// so this value could well change underneath a normal transaction
+	// and as such, it should NEVER appear in any transaction asserts.
+	// It is really informational only as far as everyone except the
+	// api server is concerned.
+	LastLogin *time.Time `bson:"lastlogin"`
 }
 
 // String returns "<name>@local" where <name> is the Name of the user.
@@ -235,14 +241,17 @@ var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() error {
+	users, closer := u.st.getCollection(usersC)
+	defer closer()
+	// Update the safe mode of the underlying session to be not require
+	// write majority, nor sync to disk.
+	session := users.Underlying().Database.Session
+	session.SetSafe(&mgo.Safe{})
+
 	timestamp := nowToTheSecond()
-	ops := []txn.Op{{
-		C:      usersC,
-		Id:     u.Name(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}},
-	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	update := bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}}
+
+	if err := users.UpdateId(u.Name(), update); err != nil {
 		return errors.Annotatef(err, "cannot update last login timestamp for user %q", u.Name())
 	}
 

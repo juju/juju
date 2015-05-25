@@ -219,6 +219,39 @@ var configTests = []configTest{
 			"allow-lxc-loop-mounts": false,
 		},
 	}, {
+		about:       "LXC default MTU not set",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "LXC default MTU set explicitly",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": 9000,
+		},
+	}, {
+		about:       "LXC default MTU invalid (not a number)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": "foo",
+		},
+		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
+	}, {
+		about:       "LXC default MTU invalid (negative)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": -42,
+		},
+		err: `lxc-default-mtu: expected positive integer, got -42`,
+	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1437,6 +1470,11 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-clone-aufs": false},
 	new:   testing.Attrs{"lxc-clone-aufs": true},
 	err:   `cannot change lxc-clone-aufs from false to true`,
+}, {
+	about: "Cannot change lxc-default-mtu",
+	old:   testing.Attrs{"lxc-default-mtu": 9000},
+	new:   testing.Attrs{"lxc-default-mtu": 42},
+	err:   `cannot change lxc-default-mtu from 9000 to 42`,
 }, {
 	about: "Cannot change prefer-ipv6",
 	old:   testing.Attrs{"prefer-ipv6": false},

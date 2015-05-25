@@ -16,11 +16,11 @@ import (
 	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/client"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices/hook"
-	"launchpad.net/goose/testservices/openstackservice"
+	"gopkg.in/goose.v1/client"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/testservices/hook"
+	"gopkg.in/goose.v1/testservices/openstackservice"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -646,32 +646,6 @@ func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 	s.assertInstancesGathering(c, true)
 }
 
-func (s *localServerSuite) TestCollectInstances(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	env := s.Prepare(c)
-	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = "BUILD(networking)"
-			return nil
-		},
-	)
-	defer cleanup()
-	stateInst, _ := testing.AssertStartInstance(c, env, "100")
-	defer func() {
-		err := env.StopInstances(stateInst.Id())
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-	found := make(map[string]instance.Instance)
-	missing := []instance.Id{stateInst.Id()}
-
-	resultMissing := openstack.CollectInstances(env, missing, found)
-
-	c.Assert(resultMissing, gc.DeepEquals, missing)
-}
-
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -732,6 +706,40 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0].Status(), gc.Equals, nova.StatusShutoff)
 	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
+}
+
+func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"server",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("strange error not instance")
+		},
+	)
+	defer cleanup()
+
+	instances, err := env.Instances([]instance.Id{"1"})
+	c.Check(instances, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
+}
+
+func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"matchServers",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("strange error no instances")
+		},
+	)
+	defer cleanup()
+
+	instances, err := env.Instances([]instance.Id{"1", "2"})
+	c.Check(instances, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
 }
 
 // TODO (wallyworld) - this test was copied from the ec2 provider.

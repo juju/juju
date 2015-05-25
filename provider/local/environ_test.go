@@ -209,9 +209,6 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 			c.Check(cloudcfg.SystemUpgrade(), gc.Equals, val)
 		}
 
-		if !icfg.EnableOSRefreshUpdate {
-			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
-		}
 		c.Assert(icfg.AgentEnvironment, gc.Not(gc.IsNil))
 		c.Assert(icfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units

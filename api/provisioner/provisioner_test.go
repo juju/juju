@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -57,6 +58,10 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
@@ -69,7 +74,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -78,6 +83,21 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
+}
+
+func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(ifaceInfo, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches,
+		`cannot release static addresses for "42": address allocation not supported`,
+	)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -580,7 +600,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -682,6 +702,30 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 		// allocation by default, so IP forwarding should be enabled.
 		container.ConfigIPForwarding: "true",
 	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	var resultConfig = map[string]string{
+		"lxc-default-mtu": "9000",
+	}
+	var called bool
+	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ContainerManagerConfig")
+		expected := params.ContainerManagerConfigParams{
+			Type: instance.LXC,
+		}
+		c.Assert(args, gc.Equals, expected)
+		result := response.(*params.ContainerManagerConfig)
+		result.ManagerConfig = resultConfig
+		return nil
+	})
+
+	args := params.ContainerManagerConfigParams{Type: instance.LXC}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ManagerConfig, jc.DeepEquals, resultConfig)
 }
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {

@@ -34,7 +34,7 @@ var (
 	NetInterfaces              = &netInterfaces
 	InterfaceAddrs             = &interfaceAddrs
 	DiscoverPrimaryNIC         = discoverPrimaryNIC
-	MaybeAllocateStaticIP      = maybeAllocateStaticIP
+	ConfigureContainerNetwork  = configureContainerNetwork
 	MaybeOverrideDefaultLXCNet = maybeOverrideDefaultLXCNet
 	EtcDefaultLXCNetPath       = &etcDefaultLXCNetPath
 	EtcDefaultLXCNet           = etcDefaultLXCNet
@@ -51,7 +51,7 @@ var SetIPAndARPForwarding func(bool) error
 
 // SetupRoutesAndIPTables calls the internal setupRoutesAndIPTables
 // and the restores the mocked one.
-var SetupRoutesAndIPTables func(string, network.Address, string, []network.InterfaceInfo) error
+var SetupRoutesAndIPTables func(string, network.Address, string, []network.InterfaceInfo, bool) error
 
 func init() {
 	// In order to isolate the host machine from the running tests,
@@ -69,7 +69,7 @@ func init() {
 		func(bool) error { return nil },
 	)
 	mockSetupRoutesAndIPTablesValue := reflect.ValueOf(
-		func(string, network.Address, string, []network.InterfaceInfo) error { return nil },
+		func(string, network.Address, string, []network.InterfaceInfo, bool) error { return nil },
 	)
 	switchValues := func(newValue, oldValue reflect.Value) {
 		newValue.Set(oldValue)
@@ -82,9 +82,9 @@ func init() {
 		defer switchValues(newSetIPAndARPForwardingValue, mockSetIPAndARPForwardingValue)
 		return setIPAndARPForwarding(v)
 	}
-	SetupRoutesAndIPTables = func(nic string, addr network.Address, bridge string, ifinfo []network.InterfaceInfo) error {
+	SetupRoutesAndIPTables = func(nic string, addr network.Address, bridge string, ifinfo []network.InterfaceInfo, enableNAT bool) error {
 		switchValues(newSetupRoutesAndIPTablesValue, oldSetupRoutesAndIPTablesValue)
 		defer switchValues(newSetupRoutesAndIPTablesValue, mockSetupRoutesAndIPTablesValue)
-		return setupRoutesAndIPTables(nic, addr, bridge, ifinfo)
+		return setupRoutesAndIPTables(nic, addr, bridge, ifinfo, enableNAT)
 	}
 }

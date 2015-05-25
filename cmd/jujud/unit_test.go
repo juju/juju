@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,9 +14,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -97,7 +100,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a := &UnitAgent{}
+	a := NewUnitAgent()
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,19 +108,20 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a := &UnitAgent{}
+	a := NewUnitAgent()
 	err := coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
+		"--log-to-stderr",
 	})
 
 	c.Assert(err, gc.IsNil)
-	c.Check(a.AgentConf.DataDir, gc.Equals, "jd")
+	c.Check(a.AgentConf.DataDir(), gc.Equals, "jd")
 	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc := &UnitAgent{}
+	uc := NewUnitAgent()
 	err := coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
@@ -133,13 +137,13 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := coretesting.InitCommand(&UnitAgent{}, append(args, "--data-dir", "jc"))
+		err := coretesting.InitCommand(NewUnitAgent(), append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	err := coretesting.InitCommand(&UnitAgent{}, []string{
+	err := coretesting.InitCommand(NewUnitAgent(), []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -405,6 +409,39 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
+func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	a.apiStateUpgrader = &unitAgentUpgrader{}
+
+	closedAPI := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(&reportClosedAPI, func(st io.Closer) {
+		select {
+		case closedAPI <- st:
+			close(closedAPI)
+		default:
+		}
+	})
+
+	worker, err := a.APIWorkers()
+
+	select {
+	case closed := <-closedAPI:
+		c.Assert(closed, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("API not opened")
+	}
+
+	c.Assert(worker, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
+}
+
+type unitAgentUpgrader struct{}
+
+func (u *unitAgentUpgrader) SetVersion(s string, v version.Binary) error {
+	return errors.New("test failure")
+}
+
 type runner interface {
 	Run(*cmd.Context) error
 	Stop() error
@@ -431,4 +468,70 @@ func newDummyWorker() worker.Worker {
 		<-stop
 		return nil
 	})
+}
+
+type FakeConfig struct {
+	agent.Config
+}
+
+func (FakeConfig) LogDir() string {
+	return filepath.FromSlash("/var/log/juju/")
+}
+
+func (FakeConfig) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+type FakeAgentConfig struct {
+	agentcmd.AgentConf
+}
+
+func (FakeAgentConfig) ReadConfig(string) error { return nil }
+
+func (FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{}
+}
+
+func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	a := UnitAgent{
+		AgentConf: FakeAgentConfig{},
+		ctx:       ctx,
+		UnitName:  "mysql/25",
+	}
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	l, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(l.MaxAge, gc.Equals, 0)
+	c.Check(l.MaxBackups, gc.Equals, 2)
+	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
+	c.Check(l.MaxSize, gc.Equals, 300)
+}
+
+func (s *UnitSuite) TestDontUseLumberjack(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+
+	a := UnitAgent{
+		AgentConf: FakeAgentConfig{},
+		ctx:       ctx,
+		UnitName:  "mysql/25",
+
+		// this is what would get set by the CLI flags to tell us not to log to
+		// the file.
+		logToStdErr: true,
+	}
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	_, ok := ctx.Stderr.(*lumberjack.Logger)
+	c.Assert(ok, jc.IsFalse)
 }

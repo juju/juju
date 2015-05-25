@@ -87,7 +87,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	network := container.BridgeNetworkConfig("virbr0", nil)
+	network := container.BridgeNetworkConfig("virbr0", 0, nil)
 
 	instanceConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),

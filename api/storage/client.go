@@ -101,3 +101,14 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
 	}
 	return found.Results, nil
 }
+
+// AddToUnit adds specified storage to desired units.
+func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+	out := params.ErrorResults{}
+	in := params.StoragesAddParams{Storages: storages}
+	err := c.facade.FacadeCall("AddToUnit", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.Results, nil
+}

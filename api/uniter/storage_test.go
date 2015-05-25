@@ -22,12 +22,9 @@ type storageSuite struct {
 }
 
 func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
-	storageAttachments := []params.StorageAttachment{{
+	storageAttachmentIds := []params.StorageAttachmentId{{
 		StorageTag: "storage-whatever-0",
-		OwnerTag:   "service-mysql",
 		UnitTag:    "unit-mysql-0",
-		Kind:       params.StorageKindBlock,
-		Location:   "/dev/sda",
 	}}
 
 	var called bool
@@ -39,10 +36,10 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StorageAttachmentsResults{})
-		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
-			Results: []params.StorageAttachmentsResult{{
-				Result: storageAttachments,
+		c.Assert(result, gc.FitsTypeOf, &params.StorageAttachmentIdsResults{})
+		*(result.(*params.StorageAttachmentIdsResults)) = params.StorageAttachmentIdsResults{
+			Results: []params.StorageAttachmentIdsResult{{
+				Result: params.StorageAttachmentIds{storageAttachmentIds},
 			}},
 		}
 		called = true
@@ -50,16 +47,40 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	attachments, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
+	attachmentIds, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
-	c.Assert(attachments, gc.DeepEquals, storageAttachments)
+	c.Assert(attachmentIds, gc.DeepEquals, storageAttachmentIds)
+}
+
+func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
+	var called bool
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Uniter")
+		c.Check(version, gc.Equals, 2)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "DestroyUnitStorageAttachments")
+		c.Check(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		called = true
+		return nil
+	})
+
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := st.DestroyUnitStorageAttachments(names.NewUnitTag("mysql/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
 }
 
 func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
-			[]params.StorageAttachmentsResult{{}, {}},
+		*(result.(*params.StorageAttachmentIdsResults)) = params.StorageAttachmentIdsResults{
+			[]params.StorageAttachmentIdsResult{{}, {}},
 		}
 		return nil
 	})
@@ -110,7 +131,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 		c.Check(objType, gc.Equals, "Uniter")
 		c.Check(version, gc.Equals, 2)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchStorageAttachmentInfos")
+		c.Check(request, gc.Equals, "WatchStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{{
 				StorageTag: "storage-data-0",
@@ -171,30 +192,34 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(attachment, gc.DeepEquals, storageAttachment)
 }
 
-func (s *storageSuite) TestEnsureStorageAttachmentDead(c *gc.C) {
+func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
 		c.Check(version, gc.Equals, 2)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "EnsureStorageAttachmentsDead")
+		c.Check(request, gc.Equals, "StorageAttachmentLife")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{{
 				StorageTag: "storage-data-0",
 				UnitTag:    "unit-mysql-0",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "yessirilikeit"},
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: params.Dying,
 			}},
 		}
 		return nil
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.EnsureStorageAttachmentDead(names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
-	c.Check(err, gc.ErrorMatches, "yessirilikeit")
+	results, err := st.StorageAttachmentLife([]params.StorageAttachmentId{{
+		StorageTag: "storage-data-0",
+		UnitTag:    "unit-mysql-0",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []params.LifeResult{{Life: params.Dying}})
 }
 
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
