@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,17 +24,15 @@ const (
 )
 
 var (
-	fileMutex sync.Mutex
-	// A second should be way more than enough to write or read any files.
-	lockTimeout = time.Second
+	// 5 seconds should be way more than enough to write or read any files
+	// even on heavily loaded systems.
+	lockTimeout = 5 * time.Second
 )
 
 // NOTE: synchronisation across functions in this file.
 //
-// Each of the read and write functions use a fileMutex
-// to synchronise calls across the current executable.
-// A fslock is also used once this mutex is acquired to
-// synchronise calls across different executables.
+// Each of the read and write functions use a fslock to synchronise calls
+// across both the current executable and across different executables.
 
 func getCurrentEnvironmentFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
@@ -48,9 +45,6 @@ func getCurrentSystemFilePath() string {
 // Read the file $JUJU_HOME/current-environment and return the value stored
 // there.  If the file doesn't exist an empty string is returned and no error.
 func ReadCurrentEnvironment() (string, error) {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-
 	lock, err := acquireEnvironmentLock("read current-environment")
 	if err != nil {
 		return "", errors.Trace(err)
@@ -70,9 +64,6 @@ func ReadCurrentEnvironment() (string, error) {
 // Read the file $JUJU_HOME/current-system and return the value stored there.
 // If the file doesn't exist an empty string is returned and no error.
 func ReadCurrentSystem() (string, error) {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-
 	lock, err := acquireEnvironmentLock("read current-system")
 	if err != nil {
 		return "", errors.Trace(err)
@@ -91,9 +82,6 @@ func ReadCurrentSystem() (string, error) {
 
 // Write the envName to the file $JUJU_HOME/current-environment file.
 func WriteCurrentEnvironment(envName string) error {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-
 	lock, err := acquireEnvironmentLock("write current-environment")
 	if err != nil {
 		return errors.Trace(err)
@@ -117,9 +105,6 @@ func WriteCurrentEnvironment(envName string) error {
 
 // Write the systemName to the file $JUJU_HOME/current-system file.
 func WriteCurrentSystem(systemName string) error {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-
 	lock, err := acquireEnvironmentLock("write current-system")
 	if err != nil {
 		return errors.Trace(err)
