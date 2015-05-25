@@ -30,6 +30,7 @@ from jujupy import (
     Environment,
     EnvJujuClient,
     EnvJujuClient24,
+    EnvJujuClient25,
     ErroredUnit,
     GroupReporter,
     get_local_root,
@@ -82,26 +83,33 @@ class ClientTest(TestCase):
         self.pause_mock = patcher.start()
 
 
-class TestEnvJujuClient24(ClientTest):
+class TestEnvJujuClient25(ClientTest):
+
+    client_class = EnvJujuClient25
 
     def test__shell_environ_not_cloudsigma(self):
-        client = EnvJujuClient24(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ()
         self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
 
     def test__shell_environ_cloudsigma(self):
-        client = EnvJujuClient24(
+        client = self.client_class(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.24-foobar', 'path')
+            '1.25-foobar', 'path')
         env = client._shell_environ()
         self.assertEqual(env[JUJU_DEV_FEATURE_FLAGS], 'cloudsigma')
 
     def test__shell_environ_juju_home(self):
-        client = EnvJujuClient24(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestEnvJujuClient24(TestEnvJujuClient25):
+
+    client_class = EnvJujuClient25
 
 
 class TestEnvJujuClient(ClientTest):
@@ -160,6 +168,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.24-alpha1'
             yield '1.24.7'
             yield '1.25.1'
+            yield '1.26.1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -182,8 +191,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24.7')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient25)
             self.assertEqual(client.version, '1.25.1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '1.26.1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
