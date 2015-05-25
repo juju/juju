@@ -67,9 +67,10 @@ var configFields = schema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	"access-key": "",
-	"secret-key": "",
-	"region":     "us-east-1",
+	"access-key":     "",
+	"secret-key":     "",
+	"region":         "us-east-1",
+	"control-bucket": "",
 }
 
 type environConfig struct {

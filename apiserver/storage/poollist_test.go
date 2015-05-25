@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -51,7 +52,11 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	s.createPools(c, 2)
 	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 2)
+
+	assertPoolNames(c, pools.Results,
+		"testpool0", "testpool1",
+		"dummy", "loop",
+		"tmpfs", "rootfs")
 }
 
 func (s *poolSuite) TestListByName(c *gc.C) {
@@ -74,12 +79,12 @@ func (s *poolSuite) TestListByType(c *gc.C) {
 	s.baseStorageSuite.pools[poolName], err =
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Provider, gc.DeepEquals, tstType)
-	c.Assert(pools.Results[0].Name, gc.DeepEquals, poolName)
+	c.Assert(pools.Results, gc.HasLen, 2)
+	assertPoolNames(c, pools.Results, "rayofsunshine", "tmpfs")
 }
 
 func (s *poolSuite) TestListByNameAndTypeAnd(c *gc.C) {
@@ -114,7 +119,15 @@ func (s *poolSuite) TestListByNamesOr(c *gc.C) {
 			fmt.Sprintf("%v%v", tstName, 0),
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pools.Results) < len(s.pools), jc.IsTrue)
+	assertPoolNames(c, pools.Results, "testpool0", "testpool1")
+}
+
+func assertPoolNames(c *gc.C, results []params.StoragePool, expected ...string) {
+	expectedNames := set.NewStrings(expected...)
+	c.Assert(len(expectedNames), gc.Equals, len(results))
+	for _, one := range results {
+		c.Assert(expectedNames.Contains(one.Name), jc.IsTrue)
+	}
 }
 
 func (s *poolSuite) TestListByTypesOr(c *gc.C) {
@@ -129,13 +142,17 @@ func (s *poolSuite) TestListByTypesOr(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType, string(provider.LoopProviderType)}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pools.Results) <= len(s.pools), jc.IsTrue)
+
+	assertPoolNames(c, pools.Results,
+		"testpool0", "testpool1",
+		"rayofsunshine", "loop",
+		"tmpfs")
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 0)
+	assertPoolNames(c, pools.Results, "dummy", "rootfs", "loop", "tmpfs")
 }
 
 func (s *poolSuite) TestListFilterEmpty(c *gc.C) {

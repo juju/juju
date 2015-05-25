@@ -34,8 +34,8 @@ var (
 type machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	Addresses() []network.Address
-	SetAddresses(...network.Address) error
+	ProviderAddresses() []network.Address
+	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (string, error)
 	SetInstanceStatus(status string) error
 	String() string
@@ -262,9 +262,9 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			}
 		}
 	}
-	if !addressesEqual(m.Addresses(), instInfo.addresses) {
+	if !addressesEqual(m.ProviderAddresses(), instInfo.addresses) {
 		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
-		if err = m.SetAddresses(instInfo.addresses...); err != nil {
+		if err = m.SetProviderAddresses(instInfo.addresses...); err != nil {
 			logger.Errorf("cannot set addresses on %q: %v", m, err)
 		}
 	}

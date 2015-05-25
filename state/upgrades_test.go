@@ -2493,15 +2493,163 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = AddLifeFieldOfIPAddresses(s.state)
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	err = AddLifeFieldOfIPAddresses(s.state)
+	before, err := s.state.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(after, jc.DeepEquals, before)
+}
+
+func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+	instances, closer2 := s.state.getRawCollection(instanceDataC)
+	defer closer2()
+
+	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, 2, Alive)
+
+	uuid := s.state.EnvironUUID()
+
+	err := instances.Insert(
+		bson.D{
+			{"_id", uuid + ":1"},
+			{"env-uuid", uuid},
+			{"machineid", "1"},
+			{"instanceid", "instance"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addresses.Insert(
+		// This address should have the instance ID set.
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", AddressStateAllocated},
+		},
+		// This address won't have the instance ID set as there is no
+		// instance for machine 2.
+		bson.D{
+			{"_id", uuid + ":0.1.2.4"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "2"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.4"},
+			{"state", AddressStateAllocated},
+		},
+		// This address won't have the instance ID set because it isn't
+		// allocated.
+		bson.D{
+			{"_id", uuid + ":0.1.2.5"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.5"},
+			{"state", ""},
+		},
+		// This address won't have the instance ID set because the
+		// machine referenced doesn't exist.
+		bson.D{
+			{"_id", uuid + ":0.1.2.6"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"machineid", "3"},
+			{"subnetid", "foo"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.6"},
+			{"state", AddressStateAllocated},
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("instance"))
+
+	ipAddr, err = s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.6")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
 	doc := ipaddressDoc{}
 	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doc.Life, gc.Equals, Alive)
+	c.Assert(doc.InstanceId, gc.Equals, "instance")
+}
+
+func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+	instances, closer2 := s.state.getRawCollection(instanceDataC)
+	defer closer2()
+
+	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, 2, Alive)
+
+	uuid := s.state.EnvironUUID()
+
+	err := instances.Insert(
+		bson.D{
+			{"_id", uuid + ":1"},
+			{"env-uuid", uuid},
+			{"machineid", "1"},
+			{"instanceid", "instance"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addresses.Insert(
+		// This address should have the instance ID set.
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", AddressStateAllocated},
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// and repeat
+	err = AddInstanceIdFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("instance"))
 }
 
 func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {
@@ -2609,4 +2757,236 @@ func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
 	secondPassIDs := s.readDocIDs(c, settingsC, ".+#leader$")
 
 	c.Check(firstPassIDs, jc.SameContents, secondPassIDs)
+}
+
+func (s *upgradesSuite) prepareEnvsForMachineBlockDevices(c *gc.C, envs map[string][]string) []string {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	addEnvironment := func(envUUID string) {
+		err := environments.Insert(bson.M{
+			"_id": envUUID,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var expectedDocIDs []string
+	machines, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+	addMachine := func(envUUID, id string) {
+		err := machines.Insert(bson.M{
+			"_id":       envUUID + ":" + id,
+			"env-uuid":  envUUID,
+			"machineid": id,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+id)
+	}
+
+	// Use the helpers to set up the environments.
+	for envUUID, machines := range envs {
+		if envUUID == "" {
+			envUUID = s.state.EnvironUUID()
+		} else {
+			addEnvironment(envUUID)
+		}
+		for _, mId := range machines {
+			addMachine(envUUID, mId)
+		}
+	}
+
+	return expectedDocIDs
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
+	expectedDocIDs := s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsFresh(c *gc.C) {
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsMultipleEmpty(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	originalIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(originalIDs, gc.HasLen, 0)
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	firstPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	err = AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	secondPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
+}
+
+func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
+	// This tests a DB migration regression triggered by Go 1.3+'s
+	// randomised map iteration feature. See LP #1451674.
+	//
+	// Here we ensure that the addEnvUUIDToEntityCollection helper
+	// doesn't change the order of document fields. This is important
+	// because MongoDB comparisons and txn assertions will not work as
+	// expected if document field orders don't match.
+	//
+	// Several documents, each containing other documents in an array,
+	// are inserted and then read back out to ensure that field
+	// ordering hasn't changed.
+
+	type address struct {
+		Value       string `bson:"value"`
+		AddressType string `bson:"addresstype"`
+		NetworkName string `bson:"networkname"`
+		Scope       string `bson:"networkscope"`
+	}
+
+	type fakeMachineDoc struct {
+		DocID     string    `bson:"_id"`
+		Series    string    `bson:"series"`
+		Addresses []address `bson:"addresses"`
+	}
+
+	mdoc := fakeMachineDoc{
+		Series: "foo",
+		Addresses: []address{
+			{
+				Value:       "1.2.3.4",
+				AddressType: "local",
+				NetworkName: "foo",
+				Scope:       "bar",
+			},
+			{
+				Value:       "5.4.3.2",
+				AddressType: "meta",
+				NetworkName: "brie",
+				Scope:       "cheese",
+			},
+		},
+	}
+
+	machines, close := s.state.getRawCollection(machinesC)
+	defer close()
+	for i := 0; i < 20; i++ {
+		mdoc.DocID = fmt.Sprintf("%d", i)
+		err := machines.Insert(mdoc)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err := addEnvUUIDToEntityCollection(s.state, machinesC, setOldID("machineid"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var outDocs []bson.D
+	err = machines.Find(nil).All(&outDocs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedMachineFields := []string{"_id", "series", "addresses", "machineid", "env-uuid"}
+	expectedAddressFields := []string{"value", "addresstype", "networkname", "networkscope"}
+	for _, doc := range outDocs {
+		for i, fieldName := range expectedMachineFields {
+			c.Assert(doc[i].Name, gc.Equals, fieldName)
+		}
+
+		addresses := doc[2].Value.([]interface{})
+		c.Assert(addresses, gc.HasLen, 2)
+		for _, addressElem := range addresses {
+			address := addressElem.(bson.D)
+			for i, fieldName := range expectedAddressFields {
+				c.Assert(address[i].Name, gc.Equals, fieldName)
+			}
+		}
+	}
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequence(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"_id", s.state.docID("my-service")},
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
+
+	var result map[string]interface{}
+	err = svcC.Find(nil).Select(bson.M{"unitseq": 1}).One(&result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result["unitseq"], gc.Equals, nil)
+}
+
+func (s *upgradesSuite) TestMoveServiceNotUnitSeq(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequenceWithPreExistingSequence(c *gc.C) {
+	_, err := s.state.sequence("service-my-service")
+
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err = svcC.Insert(
+		bson.D{
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
 }

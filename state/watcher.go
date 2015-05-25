@@ -1355,14 +1355,6 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	}
 }
 
-// entityWatcher generates an event when a document in the db changes
-type entityWatcher struct {
-	commonWatcher
-	out chan struct{}
-}
-
-var _ Watcher = (*entityWatcher)(nil)
-
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
@@ -1418,6 +1410,13 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
+// WatchStorageAttachment returns a watcher for observing changes
+// to a storage attachment.
+func (st *State) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+	id := storageAttachmentId(u.Id(), s.Id())
+	return newEntityWatcher(st, storageAttachmentsC, st.docID(id))
+}
+
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
 func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
@@ -1471,6 +1470,8 @@ type docWatcher struct {
 	out chan struct{}
 }
 
+var _ Watcher = (*docWatcher)(nil)
+
 type docKey struct {
 	coll string
 	key  interface{}
@@ -1490,7 +1491,7 @@ func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
 	return w
 }
 
-// Changes returns the event channel for the entityWatcher.
+// Changes returns the event channel for the docWatcher.
 func (w *docWatcher) Changes() <-chan struct{} {
 	return w.out
 }

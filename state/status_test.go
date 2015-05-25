@@ -5,8 +5,8 @@ package state_test
 
 import (
 	"fmt"
-	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -15,20 +15,18 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-type HistoryPrunerSuite struct {
+type statusSuite struct {
 	statetesting.StateSuite
 }
 
-func (s *HistoryPrunerSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-}
+var _ = gc.Suite(&statusSuite{})
 
-func (s *HistoryPrunerSuite) TestPruneStatusHistory(c *gc.C) {
+func (s *statusSuite) TestPruneStatusHistory(c *gc.C) {
 	var oldDoc state.StatusDoc
 	var err error
 	st := s.State
 	globalKey := "BogusKey"
-	for changeno := 1; changeno <= 201; changeno++ {
+	for changeno := 1; changeno <= 200; changeno++ {
 		oldDoc = state.StatusDoc{
 			Status:     "AGivenStatus",
 			StatusInfo: fmt.Sprintf("Status change %d", changeno),
@@ -41,7 +39,7 @@ func (s *HistoryPrunerSuite) TestPruneStatusHistory(c *gc.C) {
 
 		h := txn.Op{
 			C:      state.StatusesHistoryC,
-			Id:     fmt.Sprintf("%s%d", globalKey, time.Now().UTC().UnixNano()),
+			Id:     changeno,
 			Insert: hDoc,
 		}
 
@@ -51,14 +49,61 @@ func (s *HistoryPrunerSuite) TestPruneStatusHistory(c *gc.C) {
 	}
 	history, err := state.StatusHistory(500, globalKey, st)
 	c.Assert(history, gc.HasLen, 200)
-	c.Assert(history[0].Message, gc.Equals, "Status change 1")
-	c.Assert(history[199].Message, gc.Equals, "Status change 200")
+	c.Assert(history[0].Message, gc.Equals, "Status change 200")
+	c.Assert(history[199].Message, gc.Equals, "Status change 1")
 
 	err = state.PruneStatusHistory(st, 100)
 	c.Assert(err, jc.ErrorIsNil)
 	history, err = state.StatusHistory(500, globalKey, st)
 	c.Assert(history, gc.HasLen, 100)
-	c.Assert(history[0].Message, gc.Equals, "Status change 100")
-	c.Assert(history[99].Message, gc.Equals, "Status change 200")
+	c.Assert(history[0].Message, gc.Equals, "Status change 200")
+	c.Assert(history[99].Message, gc.Equals, "Status change 101")
+}
 
+func (s *statusSuite) TestTranslateLegacyAgentState(c *gc.C) {
+	for i, test := range []struct {
+		agentStatus     state.Status
+		workloadStatus  state.Status
+		workloadMessage string
+		expected        state.Status
+	}{
+		{
+			agentStatus: state.StatusAllocating,
+			expected:    state.StatusPending,
+		}, {
+			agentStatus: state.StatusError,
+			expected:    state.StatusError,
+		}, {
+			agentStatus:     state.StatusIdle,
+			workloadStatus:  state.StatusMaintenance,
+			expected:        state.StatusPending,
+			workloadMessage: "installing charm software",
+		}, {
+			agentStatus:     state.StatusIdle,
+			workloadStatus:  state.StatusMaintenance,
+			expected:        state.StatusStarted,
+			workloadMessage: "backing up",
+		}, {
+			agentStatus:    state.StatusIdle,
+			workloadStatus: state.StatusTerminated,
+			expected:       state.StatusStopped,
+		}, {
+			agentStatus:    state.StatusIdle,
+			workloadStatus: state.StatusBlocked,
+			expected:       state.StatusStarted,
+		},
+	} {
+		c.Logf("test %d", i)
+		legacy, ok := state.TranslateToLegacyAgentState(test.agentStatus, test.workloadStatus, test.workloadMessage)
+		c.Check(ok, jc.IsTrue)
+		c.Check(legacy, gc.Equals, test.expected)
+	}
+}
+
+func (s *statusSuite) TestStatusNotFoundError(c *gc.C) {
+	err := state.NewStatusNotFound("foo")
+	c.Assert(state.IsStatusNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err.Error(), gc.Equals, `status for key "foo" not found`)
+	c.Assert(state.IsStatusNotFound(errors.New("foo")), jc.IsFalse)
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
@@ -183,6 +184,7 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
+	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
@@ -883,6 +885,31 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.ReleaseAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {

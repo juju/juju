@@ -15,6 +15,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"fmt"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -202,7 +203,7 @@ func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map
 				info2, ok := units2[storageKey]
 				c.Assert(ok, jc.IsTrue)
 				propertyCompare(info1.VolumeId, info2.VolumeId)
-				propertyCompare(info1.Serial, info2.Serial)
+				propertyCompare(info1.HardwareId, info2.HardwareId)
 				propertyCompare(info1.Size, info2.Size)
 				propertyCompare(info1.Persistent, info2.Persistent)
 				propertyCompare(info1.DeviceName, info2.DeviceName)
@@ -294,7 +295,7 @@ func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storagei
 	result := params.VolumeInstance{
 		VolumeTag:  tag.String(),
 		VolumeId:   "provider-supplied-" + tag.Id(),
-		Serial:     "serial blah blah",
+		HardwareId: "serial blah blah",
 		Persistent: persistent,
 		Size:       uint64(1024),
 	}

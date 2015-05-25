@@ -125,7 +125,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	s.addUnit(srv, m[3], c)
 	// Simulate machine 3 has a public IPv6 address.
 	ipv6Addr := network.NewScopedAddress("2001:db8::1", network.ScopePublic)
-	err = m[3].SetAddresses(ipv6Addr)
+	err = m[3].SetProviderAddresses(ipv6Addr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range scpTests {

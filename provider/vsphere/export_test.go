@@ -1,6 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !gccgo
+
 package vsphere
 
 import (
@@ -10,10 +12,6 @@ import (
 var (
 	Provider environs.EnvironProvider = providerInstance
 )
-
-func init() {
-	environs.RegisterProvider(providerType, providerInstance)
-}
 
 func ExposeEnvFakeClient(env *environ) *fakeClient {
 	return env.client.connection.RoundTripper.(*fakeClient)

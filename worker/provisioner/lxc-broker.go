@@ -37,6 +37,7 @@ var _ environs.InstanceBroker = (*lxcBroker)(nil)
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
@@ -45,8 +46,12 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 var NewLxcBroker = newLxcBroker
 
 func newLxcBroker(
-	api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+	api APICalls,
+	agentConfig agent.Config,
+	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
+	enableNAT bool,
+	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
@@ -56,6 +61,8 @@ func newLxcBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
+		defaultMTU:  defaultMTU,
 	}, nil
 }
 
@@ -63,6 +70,8 @@ type lxcBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
+	defaultMTU  int
 }
 
 // StartInstance is specified in the Broker interface.
@@ -79,17 +88,31 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	allocatedInfo, err := maybeAllocateStaticIP(
-		machineId, bridgeDevice, broker.api, args.NetworkInfo,
-	)
-	if err != nil {
-		// It's fine, just ignore it. The effect will be that the
-		// container won't have a static address configured.
-		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+
+	if !environs.AddressAllocationEnabled() {
+		logger.Debugf(
+			"address allocation feature flag not enabled; using DHCP for container %q",
+			machineId,
+		)
 	} else {
-		args.NetworkInfo = allocatedInfo
+		logger.Debugf("trying to allocate static IP for container %q", machineId)
+		allocatedInfo, err := configureContainerNetwork(
+			machineId,
+			bridgeDevice,
+			broker.api,
+			args.NetworkInfo,
+			true, // allocate a new address.
+			broker.enableNAT,
+		)
+		if err != nil {
+			// It's fine, just ignore it. The effect will be that the
+			// container won't have a static address configured.
+			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+		} else {
+			args.NetworkInfo = allocatedInfo
+		}
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
+	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -180,17 +203,19 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series string, arch *st
 var resolvConf = "/etc/resolv.conf"
 
 // localDNSServers parses the /etc/resolv.conf file (if available) and
-// extracts all nameservers addresses, returning them.
-func localDNSServers() ([]network.Address, error) {
+// extracts all nameservers addresses, and the default search domain
+// and returns them.
+func localDNSServers() ([]network.Address, string, error) {
 	file, err := os.Open(resolvConf)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, "", nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot open %q", resolvConf)
+		return nil, "", errors.Annotatef(err, "cannot open %q", resolvConf)
 	}
 	defer file.Close()
 
 	var addresses []network.Address
+	var searchDomain string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -207,12 +232,20 @@ func localDNSServers() ([]network.Address, error) {
 			address = strings.TrimSpace(address)
 			addresses = append(addresses, network.NewAddress(address))
 		}
+		if strings.HasPrefix(line, "search") {
+			searchDomain = strings.TrimPrefix(line, "search")
+			// Drop comments after the domain, if any.
+			if strings.Contains(searchDomain, "#") {
+				searchDomain = searchDomain[:strings.Index(searchDomain, "#")]
+			}
+			searchDomain = strings.TrimSpace(searchDomain)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, errors.Annotatef(err, "cannot read DNS servers from %q", resolvConf)
+		return nil, "", errors.Annotatef(err, "cannot read DNS servers from %q", resolvConf)
 	}
-	return addresses, nil
+	return addresses, searchDomain, nil
 }
 
 // ipRouteAdd is the command template to add a static route for
@@ -226,14 +259,31 @@ type IptablesRule struct {
 	Rule  string
 }
 
+var skipSNATRule = IptablesRule{
+	// For EC2, to get internet access we need traffic to appear with
+	// source address matching the container's host. For internal
+	// traffic we want to keep the container IP because it is used
+	// by some services. This rule sits above the SNAT rule, which
+	// changes the source address of traffic to the container host IP
+	// address, skipping this modification if the traffic destination
+	// is inside the EC2 VPC.
+	"nat",
+	"POSTROUTING",
+	"-d {{.SubnetCIDR}} -o {{.HostIF}} -j RETURN",
+}
+
 var iptablesRules = map[string]IptablesRule{
 	// iptablesCheckSNAT is the command template to verify if a SNAT
 	// rule already exists for the host NIC named .HostIF (usually
 	// eth0) and source address .HostIP (usually eth0's address). We
 	// need to check whether the rule exists because we only want to
 	// add it once. Exit code 0 means the rule exists, 1 means it
-	// doesn't
-	"iptablesForwardOut": {
+	// doesn't.
+	"iptablesSNAT": {
+		"nat",
+		"POSTROUTING",
+		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
+	}, "iptablesForwardOut": {
 		// Ensure that we have ACCEPT rules that apply to the containers that
 		// we are creating so any DROP rules added by libvirt while setting
 		// up virbr0 further down the chain don't disrupt wanted traffic.
@@ -314,6 +364,7 @@ var setupRoutesAndIPTables = func(
 	primaryAddr network.Address,
 	bridgeName string,
 	ifaceInfo []network.InterfaceInfo,
+	enableNAT bool,
 ) error {
 
 	if primaryNIC == "" || primaryAddr.Value == "" || bridgeName == "" || len(ifaceInfo) == 0 {
@@ -331,9 +382,10 @@ var setupRoutesAndIPTables = func(
 			HostBridge    string
 			ContainerIP   string
 			ContainerCIDR string
-		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR}
+			SubnetCIDR    string
+		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR, iface.CIDR}
 
-		for name, rule := range iptablesRules {
+		var addRuleIfDoesNotExist = func(name string, rule IptablesRule) error {
 			check := mustExecTemplate("rule", "iptables -t {{.Table}} -C {{.Chain}} {{.Rule}}", rule)
 			t := mustParseTemplate(name+"Check", check)
 
@@ -356,6 +408,32 @@ var setupRoutesAndIPTables = func(
 			default:
 				// Unexpected code - better report it.
 				return errors.Errorf("iptables failed with unexpected exit code %d", code)
+			}
+			return nil
+		}
+
+		for name, rule := range iptablesRules {
+			if !enableNAT && name == "iptablesSNAT" {
+				// Do not add the SNAT rule if we shouldn't enable
+				// NAT.
+				continue
+			}
+			if err := addRuleIfDoesNotExist(name, rule); err != nil {
+				return err
+			}
+		}
+
+		// TODO(dooferlad): subnets should be a list of subnets in the EC2 VPC and
+		// should be empty for MAAS. See bug http://pad.lv/1443942
+		if enableNAT {
+			// Only add the following hack to allow AWS egress traffic
+			// for hosted containers to work.
+			subnets := []string{data.HostIP + "/16"}
+			for _, subnet := range subnets {
+				data.SubnetCIDR = subnet
+				if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -424,19 +502,23 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 // while the rest is kept as-is.
 const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
-// maybeAllocateStaticIP tries to allocate a static IP address for the
-// given containerId using the provisioner API. If it fails, it's not
-// critical - just a warning, and it won't cause StartInstance to
-// fail.
-func maybeAllocateStaticIP(
+// configureContainerNetworking tries to allocate a static IP address
+// for the given containerId using the provisioner API, when
+// allocateAddress is true. Otherwise it configures the container with
+// an already allocated address, when allocateAddress is false (e.g.
+// after a host reboot). If the API call fails, it's not critical -
+// just a warning, and it won't cause StartInstance to fail.
+func configureContainerNetwork(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
+	allocateAddress bool,
+	enableNAT bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
 			logger.Warningf(
-				"failed allocating a static IP for container %q: %v",
+				"failed configuring a static IP for container %q: %v",
 				containerId, err,
 			)
 		}
@@ -446,7 +528,6 @@ func maybeAllocateStaticIP(
 		// When we already have interface info, don't overwrite it.
 		return nil, nil
 	}
-	logger.Debugf("trying to allocate a static IP for container %q", containerId)
 
 	var primaryNIC string
 	var primaryAddr network.Address
@@ -455,15 +536,22 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 
-	finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	if allocateAddress {
+		logger.Debugf("trying to allocate a static IP for container %q", containerId)
+		finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	} else {
+		logger.Debugf("getting allocated static IP for container %q", containerId)
+		finalIfaceInfo, err = apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("PrepareContainerInterfaceInfo returned %#v", finalIfaceInfo)
+	logger.Debugf("container interface info result %#v", finalIfaceInfo)
 
 	// Populate ConfigType and DNSServers as needed.
 	var dnsServers []network.Address
-	dnsServers, err = localDNSServers()
+	var searchDomain string
+	dnsServers, searchDomain, err = localDNSServers()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -478,11 +566,40 @@ func maybeAllocateStaticIP(
 		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
+		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
-	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
+	err = setupRoutesAndIPTables(
+		primaryNIC,
+		primaryAddr,
+		bridgeDevice,
+		finalIfaceInfo,
+		enableNAT,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return finalIfaceInfo, nil
+}
+
+// MaintainInstance checks that the container's host has the required iptables and routing
+// rules to make the container visible to both the host and other machines on the same subnet.
+func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineId := args.InstanceConfig.MachineId
+	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+	_, err := configureContainerNetwork(
+		machineId,
+		bridgeDevice,
+		broker.api,
+		args.NetworkInfo,
+		false, // don't allocate a new address.
+		broker.enableNAT,
+	)
+	return err
 }

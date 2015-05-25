@@ -45,23 +45,23 @@ func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *stat
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 100)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
 	h, err = statusHistory(200)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 100)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
 	h, err = statusHistory(50)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 50)
 	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
 	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 50")
 
 }
 
@@ -224,7 +224,7 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.Address{
+	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 		Value: "private.address.example.com",
@@ -260,7 +260,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
 
-	err = machine.SetAddresses(public, private)
+	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, ok = s.unit.PublicAddress()
@@ -278,7 +278,7 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	privateProvider := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
 	privateMachine := network.NewAddress("127.0.0.2")
 
-	err = machine.SetAddresses(privateProvider)
+	err = machine.SetProviderAddresses(privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetMachineAddresses(privateMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +286,7 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	c.Check(address, gc.Equals, "127.0.0.1")
 	c.Assert(ok, jc.IsTrue)
 
-	err = machine.SetAddresses(publicProvider, privateProvider)
+	err = machine.SetProviderAddresses(publicProvider, privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok = s.unit.PublicAddress()
 	c.Check(address, gc.Equals, "8.8.8.8")
@@ -317,7 +317,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
 
-	err = machine.SetAddresses(public, private)
+	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, ok = s.unit.PrivateAddress()
@@ -705,14 +705,14 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, "status not found")
+	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {

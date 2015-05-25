@@ -294,7 +294,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test no changes before the charm URL is set.
@@ -330,7 +330,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the addresses of the unit's assigned machine; new event received.
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4"))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	configC.AssertOneReceive()
@@ -355,7 +355,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not get any config-change events until
@@ -383,7 +383,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 
 	// Changing the machine addresses should also result in
 	// a config-change event.
-	err = s.machine.SetAddresses(
+	err = s.machine.SetProviderAddresses(
 		network.NewAddress("0.1.2.3"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,7 +407,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the machine addresses.
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the charm URL to trigger config events.
@@ -604,7 +604,7 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-block2")
 	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
 		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
-		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 2048, Count: 2},
 	})
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)

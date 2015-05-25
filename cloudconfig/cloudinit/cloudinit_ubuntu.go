@@ -196,16 +196,35 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, looper+cfg.paccmder.UpgradeCmd())
 	}
 
+	var pkgsWithTargetRelease []string
 	pkgs := cfg.Packages()
 	for i, _ := range pkgs {
 		pack := pkgs[i]
-		// apply --target-release, if required.
-		if config.SeriesRequiresCloudArchiveTools(cfg.series) && cfg.pacconfer.IsCloudArchivePackage(pack) {
-			pack = strings.Join(cfg.pacconfer.ApplyCloudArchiveTarget(pack), " ")
+		if pack == "--target-release" || len(pkgsWithTargetRelease) > 0 {
+			// We have --target-release foo/bar package. Accumulate
+			// the args until we've reached the package, before
+			// passing the 3 element slice to InstallCmd below.
+			pkgsWithTargetRelease = append(pkgsWithTargetRelease, pack)
+			if len(pkgsWithTargetRelease) < 3 {
+				// We expect exactly 3 elements, the last one being
+				// the package.
+				continue
+			}
+		}
+		packageName := pack
+		installArgs := []string{pack}
+
+		if len(pkgsWithTargetRelease) == 3 {
+			// If we have a --target-release package, build the
+			// install command args from the accumulated
+			// pkgsWithTargetRelease slice and reset it.
+			installArgs = append([]string{}, pkgsWithTargetRelease...)
+			packageName = strings.Join(installArgs, " ")
+			pkgsWithTargetRelease = []string{}
 		}
 
-		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkgs[i]))
-		cmd := looper + cfg.paccmder.InstallCmd(pack)
+		cmds = append(cmds, LogProgressCmd("Installing package: %s", packageName))
+		cmd := looper + cfg.paccmder.InstallCmd(installArgs...)
 		cmds = append(cmds, cmd)
 	}
 
@@ -239,8 +258,8 @@ done`
 	}
 }
 
-// updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *ubuntuCloudConfig) updatePackages() {
+// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
+func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",
@@ -251,6 +270,7 @@ func (cfg *ubuntuCloudConfig) updatePackages() {
 		"rsyslog-gnutls",
 		"cloud-utils",
 		"cloud-image-utils",
+		"tmux",
 	}
 
 	// The required packages need to come from the correct repo.
@@ -262,9 +282,15 @@ func (cfg *ubuntuCloudConfig) updatePackages() {
 	for _, pack := range packages {
 		if config.SeriesRequiresCloudArchiveTools(cfg.series) && cfg.pacconfer.IsCloudArchivePackage(pack) {
 			// On precise, we need to pass a --target-release entry in
-			// pieces for it to work:
-			// TODO (aznashwan): figure out what the hell precise wants.
-			cfg.AddPackage(strings.Join(cfg.pacconfer.ApplyCloudArchiveTarget(pack), " "))
+			// pieces (as "packages") for it to work:
+			// --target-release, precise-updates/cloud-tools,
+			// package-name. All these 3 entries are needed so
+			// cloud-init 0.6.3 can generate the correct apt-get
+			// install command line for "package-name".
+			args := cfg.pacconfer.ApplyCloudArchiveTarget(pack)
+			for _, arg := range args {
+				cfg.AddPackage(arg)
+			}
 		} else {
 			cfg.AddPackage(pack)
 		}

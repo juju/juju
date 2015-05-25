@@ -161,7 +161,7 @@ func (s *stateSuite) TestCommitHook(c *gc.C) {
 
 	for i := 0; i < 2; i++ {
 		err := state.CommitHook(hook.Info{
-			Kind:      hooks.StorageDetached,
+			Kind:      hooks.StorageDetaching,
 			StorageId: "data-0",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -195,7 +195,7 @@ func (s *stateSuite) TestValidateHook(c *gc.C) {
 	}
 
 	assertValidates(false, hooks.StorageAttached)
-	assertValidates(true, hooks.StorageDetached)
-	assertValidateFails(false, hooks.StorageDetached, `inappropriate "storage-detached" hook for storage "data/0": storage not attached`)
+	assertValidates(true, hooks.StorageDetaching)
+	assertValidateFails(false, hooks.StorageDetaching, `inappropriate "storage-detaching" hook for storage "data/0": storage not attached`)
 	assertValidateFails(true, hooks.StorageAttached, `inappropriate "storage-attached" hook for storage "data/0": storage already attached`)
 }

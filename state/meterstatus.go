@@ -55,11 +55,11 @@ func MeterStatusFromString(str string) MeterStatusCode {
 
 // This const block defines the relative severities of the valid MeterStatusCodes in ascending order.
 const (
-	MeterGreen MeterStatusCode = iota
-	MeterNotSet
-	MeterAmber
+	MeterNotAvailable MeterStatusCode = iota
 	MeterRed
-	MeterNotAvailable
+	MeterAmber
+	MeterNotSet
+	MeterGreen
 )
 
 var (
@@ -170,7 +170,7 @@ func (u *Unit) GetMeterStatus() (MeterStatus, error) {
 }
 
 func combineMeterStatus(a, b MeterStatus) MeterStatus {
-	if a.Severity() > b.Severity() {
+	if a.Severity() < b.Severity() {
 		return a
 	}
 	return b

@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/schema"
-	"launchpad.net/goose/identity"
+	"gopkg.in/goose.v1/identity"
 
 	"github.com/juju/juju/environs/config"
 )

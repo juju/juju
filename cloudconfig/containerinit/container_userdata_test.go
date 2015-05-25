@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	systemdtesting "github.com/juju/juju/service/systemd/testing"
@@ -48,6 +49,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:    false,
 		Address:        network.NewAddress("0.1.2.3"),
 		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearch:      "foo.bar",
 		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}, {
 		InterfaceName: "eth1",
@@ -63,6 +65,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet manual
     dns-nameservers ns1.invalid ns2.invalid
+    dns-search foo.bar
     pre-up ip address add 0.1.2.3/32 dev eth0 &> /dev/null || true
     up ip route replace 0.1.2.1 dev eth0
     up ip route replace default via 0.1.2.1
@@ -81,20 +84,20 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	data, err := containerinit.GenerateNetworkConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 
 	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedNetConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
@@ -114,7 +117,7 @@ bootcmd:
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "#cloud-config\n{}\n"
@@ -124,7 +127,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", nil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// No need to test the exact contents here, as they are already
@@ -153,6 +156,7 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 }
 
 func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
 	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -185,6 +189,7 @@ end script
 }
 
 func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.PatchValue(&version.Current.Series, "vivid")
 	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
 	c.Assert(err, jc.ErrorIsNil)

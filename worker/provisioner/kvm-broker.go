@@ -23,6 +23,7 @@ func NewKvmBroker(
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
+	enableNAT bool,
 ) (environs.InstanceBroker, error) {
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
@@ -32,6 +33,7 @@ func NewKvmBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
 	}, nil
 }
 
@@ -39,6 +41,7 @@ type kvmBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
 }
 
 // StartInstance is specified in the Broker interface.
@@ -57,19 +60,33 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-
-	allocatedInfo, err := maybeAllocateStaticIP(
-		machineId, bridgeDevice, broker.api, args.NetworkInfo,
-	)
-	if err != nil {
-		// It's fine, just ignore it. The effect will be that the
-		// container won't have a static address configured.
-		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+	if !environs.AddressAllocationEnabled() {
+		logger.Debugf(
+			"address allocation feature flag not enabled; using DHCP for container %q",
+			machineId,
+		)
 	} else {
-		args.NetworkInfo = allocatedInfo
+		logger.Debugf("trying to allocate static IP for container %q", machineId)
+
+		allocatedInfo, err := configureContainerNetwork(
+			machineId,
+			bridgeDevice,
+			broker.api,
+			args.NetworkInfo,
+			true, // allocate a new address.
+			broker.enableNAT,
+		)
+		if err != nil {
+			// It's fine, just ignore it. The effect will be that the
+			// container won't have a static address configured.
+			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+		} else {
+			args.NetworkInfo = allocatedInfo
+		}
 	}
 
-	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
+	// Unlike with LXC, we don't override the default MTU to use.
+	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
@@ -128,4 +145,10 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 // AllInstances only returns running containers.
 func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
+}
+
+// MaintainInstance is only called for LXC hosts.
+// Stub to fulfill the environs.InstanceBroker interface.
+func (*kvmBroker) MaintainInstance(environs.StartInstanceParams) error {
+	return nil
 }

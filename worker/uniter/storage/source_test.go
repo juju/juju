@@ -67,7 +67,7 @@ func (s *storageHookQueueSuite) TestStorageHookQueueAttachedDetach(c *gc.C) {
 	updateHookQueue(c, q, params.Dying)
 	c.Assert(q.Empty(), jc.IsFalse)
 	c.Assert(q.Next(), gc.Equals, hook.Info{
-		Kind:      hooks.StorageDetached,
+		Kind:      hooks.StorageDetaching,
 		StorageId: "data/0",
 	})
 }
@@ -99,7 +99,7 @@ func (s *storageHookQueueSuite) TestStorageHookQueueAttachDetach(c *gc.C) {
 	updateHookQueue(c, q, params.Dying)
 	c.Assert(q.Empty(), jc.IsFalse)
 	c.Assert(q.Next(), gc.Equals, hook.Info{
-		Kind:      hooks.StorageDetached,
+		Kind:      hooks.StorageDetaching,
 		StorageId: "data/0",
 	})
 }

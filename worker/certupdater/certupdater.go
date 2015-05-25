@@ -100,12 +100,12 @@ func (c *CertificateUpdater) Handle() error {
 		return errors.Annotate(err, "cannot add CA private key to environment config")
 	}
 
-	// For backwards compatibility, we must include "juju-apiserver"
+	// For backwards compatibility, we must include "anything", "juju-apiserver"
 	// and "juju-mongodb" as hostnames as that is what clients specify
 	// as the hostname for verification (this certicate is used both
 	// for serving MongoDB and API server connections).  We also
 	// explicitly include localhost.
-	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb"}
+	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
 	for _, addr := range addresses {
 		if addr.Value == "localhost" {
 			continue

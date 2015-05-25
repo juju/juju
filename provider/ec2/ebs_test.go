@@ -4,6 +4,7 @@
 package ec2_test
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -31,43 +32,20 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-func (*storageSuite) TestValidateConfigInvalidConfig(c *gc.C) {
+func (*storageSuite) TestValidateConfigUnknownConfig(c *gc.C) {
 	p := ec2.EBSProvider()
 	cfg, err := storage.NewConfig("foo", ec2.EBS_ProviderType, map[string]interface{}{
-		"invalid": "config",
+		"unknown": "config",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
-	c.Assert(err, gc.ErrorMatches, `unknown provider config option "invalid"`)
+	c.Assert(err, jc.ErrorIsNil) // unknown attrs ignored
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {
 	p := ec2.EBSProvider()
 	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
-}
-
-func (*storageSuite) TestTranslateUserEBSOptions(c *gc.C) {
-	for _, vType := range []string{"magnetic", "ssd", "provisioned-iops"} {
-		in := map[string]interface{}{
-			"volume-type": vType,
-			"foo":         "bar",
-		}
-		var expected string
-		switch vType {
-		case "magnetic":
-			expected = "standard"
-		case "ssd":
-			expected = "gp2"
-		case "provisioned-iops":
-			expected = "io1"
-		}
-		out := ec2.TranslateUserEBSOptions(in)
-		c.Assert(out, jc.DeepEquals, map[string]interface{}{
-			"volume-type": expected,
-			"foo":         "bar",
-		})
-	}
 }
 
 var _ = gc.Suite(&ebsVolumeSuite{})
@@ -135,6 +113,7 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, z
 			"persistent":        true,
 			"availability-zone": zone,
 			"volume-type":       "io1",
+			"iops":              100,
 		},
 	}, {
 		Tag:      volume1,
@@ -211,6 +190,45 @@ func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 	s.assertCreateVolumes(c, vs, "us-east-1")
 }
 
+func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	ec2Client := ec2.StorageEC2(vs)
+	zone := "us-east-1"
+	aliases := [][2]string{
+		{"magnetic", "standard"},
+		{"ssd", "gp2"},
+		{"provisioned-iops", "io1"},
+	}
+	for i, alias := range aliases {
+		params := []storage.VolumeParams{{
+			Tag:      names.NewVolumeTag("0"),
+			Size:     10 * 1000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"persistent":        true,
+				"availability-zone": zone,
+				"volume-type":       alias[0],
+			},
+		}}
+		if alias[1] == "io1" {
+			params[0].Attributes["iops"] = 100
+		}
+		vols, _, err := vs.CreateVolumes(params)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(vols, gc.HasLen, 1)
+		c.Assert(vols[0].VolumeId, gc.Equals, fmt.Sprintf("vol-%d", i))
+	}
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, len(aliases))
+	sort.Sort(volumeSorter{ec2Vols.Volumes, func(i, j awsec2.Volume) bool {
+		return i.Id < j.Id
+	}})
+	for i, alias := range aliases {
+		c.Assert(ec2Vols.Volumes[i].VolumeType, gc.Equals, alias[1])
+	}
+}
+
 func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "us-east-1")
@@ -267,6 +285,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 				"persistent":        false,
 				"availability-zone": "us-east-1",
 			},
+			Attachment: &attachmentParams,
 		},
 		err: "cannot specify availability zone for non-persistent volume",
 	}, {
@@ -331,6 +350,17 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			Attachment: &attachmentParams,
 		},
 		err: `IOPS specified, but volume type is "standard"`,
+	}, {
+		params: storage.VolumeParams{
+			Tag:      volume0,
+			Size:     10000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "what",
+			},
+			Attachment: &attachmentParams,
+		},
+		err: "validating EBS storage config: volume-type: unexpected value \"what\"",
 	}} {
 		_, _, err := vs.CreateVolumes([]storage.VolumeParams{test.params})
 		c.Check(err, gc.ErrorMatches, test.err)

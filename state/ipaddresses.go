@@ -10,6 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -54,6 +55,7 @@ type ipaddressDoc struct {
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
+	InstanceId  string       `bson:"instanceid,omitempty"`
 	InterfaceId string       `bson:"interfaceid,omitempty"`
 	Value       string       `bson:"value"`
 	Type        string       `bson:"type"`
@@ -64,6 +66,11 @@ type ipaddressDoc struct {
 // Life returns whether the IP address is Alive, Dying or Dead.
 func (i *IPAddress) Life() Life {
 	return i.doc.Life
+}
+
+// Id returns the ID of the IP address.
+func (i *IPAddress) Id() string {
+	return i.doc.DocID
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If
@@ -78,8 +85,16 @@ func (i *IPAddress) MachineId() string {
 	return i.doc.MachineId
 }
 
+// InstanceId returns the provider ID of the instance the IP address is
+// associated with. For a container this will be the ID of the host. If
+// the address is not associated with an instance this returns "" (the same as
+// instance.UnknownId).
+func (i *IPAddress) InstanceId() instance.Id {
+	return instance.Id(i.doc.InstanceId)
+}
+
 // InterfaceId returns the ID of the network interface the IP address is
-// associated with. If the address is not associated with a netowrk interface
+// associated with. If the address is not associated with a network interface
 // this returns "".
 func (i *IPAddress) InterfaceId() string {
 	return i.doc.InterfaceId
@@ -143,12 +158,9 @@ func (i *IPAddress) EnsureDead() (err error) {
 			}
 			return nil, errors.Errorf("unexpected life value: %s", i.Life().String())
 		}
-		return []txn.Op{{
-			C:      ipaddressesC,
-			Id:     i.doc.DocID,
-			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-			Assert: isAliveDoc,
-		}}, nil
+		op := ensureIPAddressDeadOp(i)
+		op.Assert = isAliveDoc
+		return []txn.Op{op}, nil
 	}
 
 	err = i.st.run(buildTxn)
@@ -236,6 +248,21 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
+	var instId instance.Id
+	machine, err := i.st.Machine(machineId)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get allocated machine %q", machineId)
+	} else {
+		instId, err = machine.InstanceId()
+
+		if errors.IsNotProvisioned(err) {
+			// The machine is not yet provisioned. The instance ID will be
+			// set on provisioning.
+			instId = instance.UnknownId
+		} else if err != nil {
+			return errors.Annotatef(err, "cannot get machine %q instance ID", machineId)
+		}
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := i.Refresh(); errors.IsNotFound(err) {
@@ -256,6 +283,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 			Update: bson.D{{"$set", bson.D{
 				{"machineid", machineId},
 				{"interfaceid", interfaceId},
+				{"instanceid", instId},
 				{"state", string(AddressStateAllocated)},
 			}}},
 		}}, nil
@@ -268,6 +296,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 	i.doc.MachineId = machineId
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
+	i.doc.InstanceId = string(instId)
 	return nil
 }
 
@@ -286,4 +315,13 @@ func (i *IPAddress) Refresh() error {
 		return errors.Annotatef(err, "cannot refresh IP address %q", i)
 	}
 	return nil
+}
+
+func ensureIPAddressDeadOp(addr *IPAddress) txn.Op {
+	op := txn.Op{
+		C:      ipaddressesC,
+		Id:     addr.Id(),
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}
+	return op
 }

@@ -590,7 +590,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(network.Address{
+		err := m.SetProviderAddresses(network.Address{
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 			Value: fmt.Sprintf("10.0.0.%d", i),
@@ -1654,8 +1654,8 @@ var addNetworkErrorsTests = []struct {
 	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "": name must be not empty`,
 }, {
-	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "-invalid-": invalid name`,
+	state.NetworkInfo{"$-invalid-", "provider-id", "0.3.1.0/24", 0},
+	`cannot add network "\$-invalid-": invalid name`,
 }, {
 	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
 	`cannot add network "net2": provider id must be not empty`,
@@ -4292,7 +4292,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

@@ -11,9 +11,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/client"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
+	"gopkg.in/goose.v1/client"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"

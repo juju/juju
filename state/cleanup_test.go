@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type CleanupSuite struct {
@@ -21,6 +23,11 @@ type CleanupSuite struct {
 }
 
 var _ = gc.Suite(&CleanupSuite{})
+
+func (s *CleanupSuite) SetUpSuite(c *gc.C) {
+	s.ConnSuite.SetUpSuite(c)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+}
 
 func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
@@ -350,12 +357,48 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
-func (s *CleanupSuite) TestCleanupStorage(c *gc.C) {
+func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("block", 1024, 1),
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// this tag matches the storage instance created for the unit above.
+	storageTag := names.NewStorageTag("data/0")
+
+	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Life(), gc.Equals, state.Alive)
+
+	// destroy unit and run cleanups; the attachment should be marked dying
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	// After running the cleanup, the attachment should be dying.
+	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Life(), gc.Equals, state.Dying)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
+	s.assertDoesNotNeedCleanup(c)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	u, err := service.AddUnit()
