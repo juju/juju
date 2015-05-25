@@ -1319,7 +1319,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	var numWorkers uint32
+	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
 	newWorker := func(
 		scope names.Tag,
@@ -1329,19 +1329,18 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 	) worker.Worker {
-		var machineWorkerStarted, environWorkerStarted bool
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			c.Check(scope, gc.Equals, s.State.EnvironTag())
-			environWorkerStarted = true
+			c.Assert(atomic.CompareAndSwapUint32(&environWorkers, 0, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
 		}
 		if storageDir != "" {
 			c.Check(scope, gc.Equals, m.Tag())
-			machineWorkerStarted = true
+			c.Assert(atomic.CompareAndSwapUint32(&machineWorkers, 0, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
 		}
-		if environWorkerStarted && machineWorkerStarted {
+		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
 			close(started)
 		}
 		return worker.NewNoOpWorker()
