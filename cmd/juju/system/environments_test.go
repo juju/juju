@@ -48,6 +48,9 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]params.UserEnviro
 func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
+	err := envcmd.WriteCurrentSystem("fake")
+	c.Assert(err, jc.ErrorIsNil)
+
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 

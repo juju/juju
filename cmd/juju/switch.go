@@ -117,9 +117,15 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	currentEnv := envcmd.ReadCurrentEnvironment()
+	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if currentEnv == "" {
-		currentEnv = envcmd.ReadCurrentSystem()
+		currentEnv, err = envcmd.ReadCurrentSystem()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if currentEnv == "" {
 			currentEnv = environments.Default
 		} else {
