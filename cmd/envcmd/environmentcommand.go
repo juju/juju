@@ -1,15 +1,12 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package envcmd
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
+	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -27,39 +24,10 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")
 
-const CurrentEnvironmentFilename = "current-environment"
-
 // ErrNoEnvironmentSpecified is returned by commands that operate on
 // an environment if there is no current environment, no environment
 // has been explicitly specified, and there is no default environment.
 var ErrNoEnvironmentSpecified = errors.New("no environment specified")
-
-func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
-}
-
-// Read the file $JUJU_HOME/current-environment and return the value stored
-// there.  If the file doesn't exist, or there is a problem reading the file,
-// an empty string is returned.
-func ReadCurrentEnvironment() string {
-	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
-	// The file not being there, or not readable isn't really an error for us
-	// here.  We treat it as "can't tell, so you get the default".
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(current))
-}
-
-// Write the envName to the file $JUJU_HOME/current-environment file.
-func WriteCurrentEnvironment(envName string) error {
-	path := getCurrentEnvironmentFilePath()
-	err := ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
-	if err != nil {
-		return fmt.Errorf("unable to write to the environment file: %q, %s", path, err)
-	}
-	return nil
-}
 
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
@@ -72,8 +40,15 @@ func GetDefaultEnvironment() (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return defaultEnv, nil
 	}
-	if currentEnv := ReadCurrentEnvironment(); currentEnv != "" {
+	if currentEnv, err := ReadCurrentEnvironment(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentEnv != "" {
 		return currentEnv, nil
+	}
+	if currentSystem, err := ReadCurrentSystem(); err != nil {
+		return "", errors.Trace(err)
+	} else if currentSystem != "" {
+		return "", errors.Errorf("not operating on an environment, using system %q", currentSystem)
 	}
 	envs, err := environs.ReadEnvirons("")
 	if environs.IsNoEnv(err) {
@@ -103,6 +78,10 @@ type EnvCommandBase struct {
 	// to specify an environment in multiple ways, and not always referencing
 	// a file on disk based on the EnvName or the environemnts.yaml file.
 	envName string
+
+	// compatVersion defines the minimum CLI version
+	// that this command should be compatible with.
+	compatVerson *int
 }
 
 func (c *EnvCommandBase) SetEnvName(envName string) {
@@ -234,6 +213,26 @@ func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
 	return ConnectionInfoForName(c.envName)
+}
+
+// CompatVersion returns the minimum CLI version
+// that this command should be compatible with.
+func (c *EnvCommandBase) CompatVersion() int {
+	if c.compatVerson != nil {
+		return *c.compatVerson
+	}
+	compatVerson := 1
+	val := os.Getenv(osenv.JujuCLIVersion)
+	if val != "" {
+		vers, err := strconv.Atoi(val)
+		if err != nil {
+			logger.Warningf("invalid %s value: %v", osenv.JujuCLIVersion, val)
+		} else {
+			compatVerson = vers
+		}
+	}
+	c.compatVerson = &compatVerson
+	return *c.compatVerson
 }
 
 // ConnectionName returns the name of the connection if there is one.

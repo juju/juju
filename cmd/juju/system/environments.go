@@ -14,15 +14,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/cmd/syscmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 // EnvironmentsCommand returns the list of all the environments the
 // current user can access on the current system.
 type EnvironmentsCommand struct {
-	syscmd.SysCommandBase
+	envcmd.SysCommandBase
 	out       cmd.Output
 	user      string
 	listUUID  bool

@@ -32,13 +32,14 @@ const LogErrorStack = "log-error-stack"
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
 
+// AddressAllocation is used to indicate that LXC and KVM containers
+// on providers that support that (currently only MAAS and EC2) will
+// use statically allocated IP addresses.
+const AddressAllocation = "address-allocation"
+
 // DbLog is the the feature which has Juju's logs go to
 // MongoDB instead of to all-machines.log using rsyslog.
 const DbLog = "db-log"
-
-// NewStatus is the name of the feature to enable the new
-// juju status output.
-const NewStatus = "new-status"
 
 // CloudSigma enables the CloudSigma provider.
 const CloudSigma = "cloudsigma"

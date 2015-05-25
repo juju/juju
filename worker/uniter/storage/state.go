@@ -41,7 +41,7 @@ func (s *state) ValidateHook(hi hook.Info) (err error) {
 		if s.attached {
 			return errors.New("storage already attached")
 		}
-	case hooks.StorageDetached: // TODO(axw) this should be "detaching"
+	case hooks.StorageDetaching:
 		if !s.attached {
 			return errors.New("storage not attached")
 		}
@@ -126,7 +126,7 @@ func readAllStateFiles(dirPath string) (files map[names.StorageTag]*stateFile, e
 // of the same hi are idempotent.
 func (d *stateFile) CommitHook(hi hook.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.StorageId)
-	if hi.Kind == hooks.StorageDetached { // TODO(axw) should be detaching
+	if hi.Kind == hooks.StorageDetaching {
 		return d.Remove()
 	}
 	attached := true

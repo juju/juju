@@ -21,8 +21,8 @@ type agentConfSuite struct {
 func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
 
-	conf := AgentConf{
-		DataDir: c.MkDir(),
+	conf := agentConf{
+		dataDir: c.MkDir(),
 		_config: mcsw,
 	}
 
@@ -37,8 +37,8 @@ func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 func (s *agentConfSuite) TestChangeConfigMutateFailure(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
 
-	conf := AgentConf{
-		DataDir: c.MkDir(),
+	conf := agentConf{
+		dataDir: c.MkDir(),
 		_config: mcsw,
 	}
 
@@ -55,8 +55,8 @@ func (s *agentConfSuite) TestChangeConfigWriteFailure(c *gc.C) {
 		WriteError: errors.New("boom"),
 	}
 
-	conf := AgentConf{
-		DataDir: c.MkDir(),
+	conf := agentConf{
+		dataDir: c.MkDir(),
 		_config: mcsw,
 	}
 

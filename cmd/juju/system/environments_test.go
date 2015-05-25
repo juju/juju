@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
-	"github.com/juju/juju/cmd/syscmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -48,6 +48,9 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]params.UserEnviro
 func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
+	err := envcmd.WriteCurrentSystem("fake")
+	c.Assert(err, jc.ErrorIsNil)
+
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
@@ -80,7 +83,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 
 func (s *EnvironmentsSuite) newCommand() cmd.Command {
 	command := system.NewEnvironmentsCommand(s.api, s.creds)
-	return syscmd.Wrap(command)
+	return envcmd.WrapSystem(command)
 }
 
 func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {

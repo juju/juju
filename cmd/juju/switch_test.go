@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )
@@ -43,12 +44,20 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
+func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
+	envcmd.WriteCurrentEnvironment("fubar")
 	context, err := testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
+}
+
+func (s *SwitchSimpleSuite) TestCurrentSystemHasPrecedence(c *gc.C) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	envcmd.WriteCurrentSystem("fubar")
+	context, err := testing.RunCommand(c, &SwitchCommand{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, "fubar (system)\n")
 }
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
@@ -73,13 +82,50 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> erewhemos-2\n")
-	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
+	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
+}
+
+func (s *SwitchSimpleSuite) addTestSystem(c *gc.C) {
+	// First set up a system in the config store.
+	s.SetFeatureFlags(feature.JES)
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+	info := store.CreateInfo("a-system")
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ServerUUID: "server-uuid",
+	})
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
+	s.addTestSystem(c)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "a-system")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> a-system (system)\n")
+	currSystem, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currSystem, gc.Equals, "a-system")
+}
+
+func (s *SwitchSimpleSuite) TestListWithSystem(c *gc.C) {
+	s.addTestSystem(c)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `
+a-system (system)
+erewhemos
+`[1:])
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment`)
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment or system`)
 }
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {

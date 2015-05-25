@@ -5,6 +5,7 @@ package system
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -50,6 +51,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to list systems in config store")
 	}
 
+	sort.Strings(list)
 	for _, name := range list {
 		fmt.Fprintf(ctx.Stdout, "%s\n", name)
 	}

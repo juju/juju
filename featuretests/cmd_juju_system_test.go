@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
-	"github.com/juju/juju/cmd/syscmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -48,7 +48,8 @@ func (s *cmdSystemSuite) TestSystemListCommand(c *gc.C) {
 
 func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
 	s.createEnv(c, "new-env", false)
-	context, err := testing.RunCommand(c, syscmd.Wrap(&system.EnvironmentsCommand{}))
+	envcmd.WriteCurrentSystem("dummyenv")
+	context, err := testing.RunCommand(c, envcmd.WrapSystem(&system.EnvironmentsCommand{}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME      OWNER                   LAST CONNECTION\n"+

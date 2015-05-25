@@ -45,7 +45,7 @@ type VolumeInfo struct {
 	VolumeId string `yaml:"id" json:"id"`
 
 	// from params.Volume
-	Serial string `yaml:"serial" json:"serial"`
+	HardwareId string `yaml:"hardwareid" json:"hardwareid"`
 
 	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`
@@ -124,7 +124,7 @@ func addOneToAll(machineId, unitId, storageId string, item VolumeInfo, all map[s
 
 func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage string) {
 	info.VolumeId = volume.VolumeId
-	info.Serial = volume.Serial
+	info.HardwareId = volume.HardwareId
 	info.Size = volume.Size
 	info.Persistent = volume.Persistent
 

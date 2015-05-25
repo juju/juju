@@ -27,6 +27,11 @@ func isStateServer(icfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Please note that in order to fulfil the demands made of Instances and

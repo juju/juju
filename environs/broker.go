@@ -94,4 +94,9 @@ type InstanceBroker interface {
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances() ([]instance.Instance, error)
+
+	// MaintainInstance is used to run actions on jujud startup for existing
+	// instances. It is currently only used to ensure that LXC hosts have the
+	// correct network configuration.
+	MaintainInstance(args StartInstanceParams) error
 }

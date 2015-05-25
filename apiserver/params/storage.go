@@ -108,6 +108,19 @@ type StorageAttachmentIds struct {
 	Ids []StorageAttachmentId `json:"ids"`
 }
 
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of a unit's attached storage instances.
+type StorageAttachmentIdsResult struct {
+	Result StorageAttachmentIds `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// IDs of multiple units attached storage instances.
+type StorageAttachmentIdsResults struct {
+	Results []StorageAttachmentIdsResult `json:"results,omitempty"`
+}
+
 // StorageAttachmentsResult holds the result of an API call to retrieve details
 // of a unit's attached storage instances.
 type StorageAttachmentsResult struct {
@@ -151,9 +164,9 @@ type MachineStorageIds struct {
 
 // Volume describes a storage volume in the environment.
 type Volume struct {
-	VolumeTag string `json:"volumetag"`
-	VolumeId  string `json:"volumeid"`
-	Serial    string `json:"serial"`
+	VolumeTag  string `json:"volumetag"`
+	VolumeId   string `json:"volumeid"`
+	HardwareId string `json:"hardwareid,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -448,8 +461,8 @@ type VolumeInstance struct {
 	// VolumeId is a unique provider-supplied ID for the volume.
 	VolumeId string `json:"volumeid"`
 
-	// Serial is the volume's serial number.
-	Serial string `json:"serial,omitempty"`
+	// HardwareId is the volume's hardware ID.
+	HardwareId string `json:"hardwareid,omitempty"`
 
 	// Size is the size of the volume in MiB.
 	Size uint64 `json:"size"`
@@ -483,4 +496,34 @@ type VolumeItem struct {
 // VolumeItemsResult holds volumes.
 type VolumeItemsResult struct {
 	Results []VolumeItem `json:"results,omitempty"`
+}
+
+// StorageConstraints contains constraints for storage instance.
+type StorageConstraints struct {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instance.
+	Pool string `bson:"pool,omitempty"`
+
+	// Size is the required size of the storage instance, in MiB.
+	Size *uint64 `bson:"size,omitempty"`
+
+	// Count is the required number of storage instances.
+	Count *uint64 `bson:"count,omitempty"`
+}
+
+// StorageAddParams holds storage details to add to a unit dynamically.
+type StorageAddParams struct {
+	// UnitTag  is unit name.
+	UnitTag string `json:"unit"`
+
+	// StorageName is the name of the storage as specified in the charm.
+	StorageName string `bson:"name"`
+
+	// Constraints are specified storage constraints.
+	Constraints StorageConstraints `json:"storage"`
+}
+
+// StoragesAddParams holds storage details to add to units dynamically.
+type StoragesAddParams struct {
+	Storages []StorageAddParams `json:"storages"`
 }

@@ -92,3 +92,26 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 	c.Assert(registry.IsProviderSupported("ec2", ptypeFoo), jc.IsTrue)
 	c.Assert(registry.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
 }
+
+func (s *providerRegistrySuite) TestListEnvProviderUnknownEnv(c *gc.C) {
+	all, exists := registry.EnvironStorageProviders("fluffy")
+	c.Assert(exists, jc.IsFalse)
+	c.Assert(all, gc.IsNil)
+}
+
+func (s *providerRegistrySuite) TestListEnvProviderKnownEnv(c *gc.C) {
+	ptypeFoo := storage.ProviderType("foo")
+	registry.RegisterEnvironStorageProviders("ec2", ptypeFoo)
+	all, exists := registry.EnvironStorageProviders("ec2")
+	c.Assert(exists, jc.IsTrue)
+	c.Assert(len(all) > 0, jc.IsTrue)
+
+	found := false
+	for _, one := range all {
+		if one == ptypeFoo {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
+}

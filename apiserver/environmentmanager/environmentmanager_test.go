@@ -151,6 +151,11 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"region", "auth-url", "auth-mode"},
+		}, {
+			provider: "ec2",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"region"},
 		},
 	} {
 		c.Logf("%d: %s provider", i, test.provider)
@@ -293,6 +298,16 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+}
+
+func (s *envManagerSuite) TestListEnvironmentsForSelfLocalUser(c *gc.C) {
+	// When the user's credentials cache stores the simple name, but the
+	// api server converts it to a fully qualified name.
+	user := names.NewUserTag("local-user")
+	s.setAPIUser(c, names.NewUserTag("local-user@local"))
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserEnvironments, gc.HasLen, 0)

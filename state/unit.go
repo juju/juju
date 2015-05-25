@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -1184,6 +1185,18 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if err := u.st.supportsUnitPlacement(); err != nil {
 		return err
 	}
+	storageParams, err := u.machineStorageParams()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+		return errors.Trace(err)
+	}
+	storageOps, err := u.st.machineStorageOps(&m.doc, storageParams)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
 			{{"machineid", ""}},
@@ -1205,6 +1218,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
+	ops = append(ops, storageOps...)
 	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
@@ -1231,6 +1245,83 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		return alreadyAssignedErr
 	}
 	return inUseErr
+}
+
+// validateDynamicMachineStorageParams validates that the provided machine
+// storage parameters are compatible with the specified machine.
+func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
+	if len(params.volumes)+len(params.filesystems)+len(params.volumeAttachments)+len(params.filesystemAttachments) == 0 {
+		return nil
+	}
+	if m.ContainerType() != "" {
+		// TODO(axw) consult storage providers to check if they
+		// support adding storage to containers. Loop is fine,
+		// for example.
+		//
+		// TODO(axw) later we might allow *any* storage, and
+		// passthrough/bindmount storage. That would imply either
+		// container creation time only, or requiring containers
+		// to be restarted to pick up new configuration.
+		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
+	}
+	pools := make(set.Strings)
+	for _, v := range params.volumes {
+		v, err := m.st.volumeParamsWithDefaults(v.Volume)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pools.Add(v.Pool)
+	}
+	for _, f := range params.filesystems {
+		f, err := m.st.filesystemParamsWithDefaults(f.Filesystem)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pools.Add(f.Pool)
+	}
+	for volumeTag := range params.volumeAttachments {
+		volume, err := m.st.Volume(volumeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params, ok := volume.Params(); ok {
+			pools.Add(params.Pool)
+		} else {
+			info, err := volume.Info()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			pools.Add(info.Pool)
+		}
+	}
+	for filesystemTag := range params.filesystemAttachments {
+		filesystem, err := m.st.Filesystem(filesystemTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params, ok := filesystem.Params(); ok {
+			pools.Add(params.Pool)
+		} else {
+			info, err := filesystem.Info()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			pools.Add(info.Pool)
+		}
+	}
+	for pool := range pools {
+		providerType, provider, err := poolStorageProvider(m.st, pool)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !provider.Dynamic() {
+			return errors.Errorf(
+				"%s storage provider does not support dynamic storage",
+				providerType,
+			)
+		}
+	}
+	return nil
 }
 
 func assignContextf(err *error, unit *Unit, target string) {
@@ -1442,7 +1533,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	storageParams, err := u.newMachineStorageParams()
+	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1459,17 +1550,10 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	return u.assignToNewMachine(template, "", containerType)
 }
 
-type storageParams struct {
-	volumes               []MachineVolumeParams
-	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
-	filesystems           []MachineFilesystemParams
-	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
-}
-
-// newMachineStorageParams returns parameters for creating volumes/filesystems
-// and volume/filesystem attachments for a new machine that the unit will be
+// machineStorageParams returns parameters for creating volumes/filesystems
+// and volume/filesystem attachments for a machine that the unit will be
 // assigned to.
-func (u *Unit) newMachineStorageParams() (*storageParams, error) {
+func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
@@ -1561,7 +1645,7 @@ func (u *Unit) newMachineStorageParams() (*storageParams, error) {
 			return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 		}
 	}
-	result := &storageParams{
+	result := &machineStorageParams{
 		volumes,
 		volumeAttachments,
 		filesystems,

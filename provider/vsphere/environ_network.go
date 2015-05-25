@@ -12,56 +12,71 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// AllocateAddress implements environs.Environ, but is not implmemented.
+// AllocateAddress implements environs.Environ.
 func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
-	//TODO: implement
-	return errors.Trace(errors.NotImplementedf(""))
+	return env.changeAddress(instID, netID, addr, true)
 }
 
-// ReleaseAddress implements environs.Environ, but is not implmemented.
+// ReleaseAddress implements environs.Environ:w.
 func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
-	//TODO: implement
-	return errors.Trace(errors.NotImplementedf(""))
+	return env.changeAddress(instID, netID, addr, false)
 }
 
-// Subnets implements environs.Environ, but is not implmemented.
+func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr network.Address, add bool) error {
+	instances, err := env.Instances([]instance.Id{instID})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	inst := instances[0].(*environInstance)
+	_, client, err := inst.getSshClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	interfaceName := "eth0"
+	if string(netID) == env.ecfg.externalNetwork() {
+		interfaceName = "eth1"
+	}
+	if add {
+		err = client.addIpAddress(interfaceName, addr.Value)
+	} else {
+		err = client.releaseIpAddress(interfaceName, addr.Value)
+	}
+
+	return errors.Trace(err)
+}
+
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
+	return true, nil
+}
+
+// Subnets implements environs.Environ.
 func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return env.client.Subnets(inst, ids)
 }
 
-// ListNetworks implements environs.Environ, but is not implmemented.
-func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
-}
-
-// NetworkInterfaces implements environs.Environ, but is not implmemented.
+// NetworkInterfaces implements environs.Environ.
 func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return env.client.GetNetworkInterfaces(inst, env.ecfg)
 }
 
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	//TODO: implement
-	return errors.Trace(errors.NotImplementedf(""))
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	//TODO: implement
-	return errors.Trace(errors.NotImplementedf(""))
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
 // Ports returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }
