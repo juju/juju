@@ -6,6 +6,8 @@ package system
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/cmd/syscmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.system")
@@ -25,6 +27,7 @@ func NewSuperCommand() cmd.Command {
 	})
 
 	systemCmd.Register(&ListCommand{})
+	systemCmd.Register(syscmd.Wrap(&EnvironmentsCommand{}))
 
 	return systemCmd
 }

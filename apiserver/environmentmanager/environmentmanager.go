@@ -31,7 +31,7 @@ func init() {
 type EnvironmentManager interface {
 	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
-	ListEnvironments(user params.Entity) (params.EnvironmentList, error)
+	ListEnvironments(user params.Entity) (params.UserEnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -321,8 +321,8 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.EnvironmentList, error) {
-	result := params.EnvironmentList{}
+func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.UserEnvironmentList, error) {
+	result := params.UserEnvironmentList{}
 
 	stateServerEnv, err := em.state.StateServerEnvironment()
 	if err != nil {
@@ -346,10 +346,13 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.En
 	}
 
 	for _, env := range environments {
-		result.Environments = append(result.Environments, params.Environment{
-			Name:     env.Name(),
-			UUID:     env.UUID(),
-			OwnerTag: env.Owner().String(),
+		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
+			Environment: params.Environment{
+				Name:     env.Name(),
+				UUID:     env.UUID(),
+				OwnerTag: env.Owner().String(),
+			},
+			LastConnection: env.LastConnection,
 		})
 		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}
