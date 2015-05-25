@@ -18,6 +18,9 @@ import (
 
 var certDir = filepath.FromSlash(paths.MustSucceed(paths.CertDir(version.Current.Series)))
 
+// CreateCertPool creates a new x509.CertPool and adds in the caCert passed
+// in.  All certs from the cert directory (/etc/juju/cert.d on ubuntu) are
+// also added.
 func CreateCertPool(caCert string) (*x509.CertPool, error) {
 
 	pool := x509.NewCertPool()
@@ -31,7 +34,7 @@ func CreateCertPool(caCert string) (*x509.CertPool, error) {
 
 	count := processCertDir(pool)
 	if count >= 0 {
-		logger.Tracef("added %d certs to the pool from %s", count, certDir)
+		logger.Debugf("added %d certs to the pool from %s", count, certDir)
 	}
 
 	return pool, nil

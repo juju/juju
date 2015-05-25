@@ -82,7 +82,7 @@ func (s *certPoolSuite) TestCreateCertPoolEmptyDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 	c.Assert(s.logs.messages, gc.HasLen, 1)
-	c.Assert(s.logs.messages[0], gc.Matches, `TRACE added 0 certs to the pool from .*`)
+	c.Assert(s.logs.messages[0], gc.Matches, `DEBUG added 0 certs to the pool from .*`)
 }
 
 func (s *certPoolSuite) TestCreateCertPoolLoadsPEMFiles(c *gc.C) {
@@ -96,7 +96,7 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsPEMFiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 3)
 	c.Assert(s.logs.messages, gc.HasLen, 1)
-	c.Assert(s.logs.messages[0], gc.Matches, `TRACE added 3 certs to the pool from .*`)
+	c.Assert(s.logs.messages[0], gc.Matches, `DEBUG added 3 certs to the pool from .*`)
 }
 
 func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *gc.C) {
@@ -109,7 +109,7 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 1)
 	c.Assert(s.logs.messages, gc.HasLen, 1)
-	c.Assert(s.logs.messages[0], gc.Matches, `TRACE added 1 certs to the pool from .*`)
+	c.Assert(s.logs.messages[0], gc.Matches, `DEBUG added 1 certs to the pool from .*`)
 }
 
 func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
@@ -122,7 +122,7 @@ func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 	c.Assert(s.logs.messages, gc.HasLen, 2)
 	c.Assert(s.logs.messages[0], gc.Matches, `INFO error parsing cert ".*broken.pem": .*`)
-	c.Assert(s.logs.messages[1], gc.Matches, `TRACE added 0 certs to the pool from .*`)
+	c.Assert(s.logs.messages[1], gc.Matches, `DEBUG added 0 certs to the pool from .*`)
 }
 
 func (s *certPoolSuite) addCert(c *gc.C, filename string) {
