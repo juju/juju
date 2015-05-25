@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
@@ -185,6 +186,14 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 	c.Assert(info.Tag.Id(), gc.Equals, "valid-user@local")
 	c.Assert(info.Password, gc.Equals, "sekrit")
 	c.Assert(info.Nonce, gc.Equals, "")
+}
+
+func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
+	_, err := s.runServerFile(c, "--new-password")
+	c.Assert(err, jc.ErrorIsNil)
+	currentSystem, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentSystem, gc.Equals, "foo")
 }
 
 type mockAPIConnection struct {
