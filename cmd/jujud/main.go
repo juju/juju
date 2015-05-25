@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -116,6 +117,11 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
+	logCh, err := logsender.InstallBufferedLogWriter(20000)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
+
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
@@ -127,10 +133,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// MachineAgent type has called out the seperate concerns; the
 	// AgentConf should be split up to follow suite.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logCh)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	jujud.Register(agentcmd.NewUnitAgent(ctx))
+	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

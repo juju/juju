@@ -78,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
@@ -259,12 +260,14 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			apiAddressSetter,
+			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 		)
@@ -276,16 +279,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 ) *MachineAgent {
-
 	return &MachineAgent{
 		machineId:            machineId,
 		AgentConfigWriter:    agentConfWriter,
 		apiAddressSetter:     apiAddressSetter,
-		workersStarted:       make(chan struct{}),
+		bufferedLogs:         bufferedLogs,
 		upgradeWorkerContext: upgradeWorkerContext,
+		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
@@ -307,6 +311,7 @@ type MachineAgent struct {
 	previousAgentVersion version.Number
 	apiAddressSetter     apiaddressupdater.APIAddressSetter
 	runner               worker.Runner
+	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
 	restoreMode          bool
@@ -715,12 +720,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 	}
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	if isEnvironManager {
-		rsyslogMode = rsyslog.RsyslogModeAccumulate
-	}
-
 	runner := newConnRunner(st)
+
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
@@ -736,6 +737,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			// because we can't figure out how to do so without
 			// brutalising the transaction log.
 			return newResumer(st.Resumer()), nil
+		})
+	}
+
+	if featureflag.Enabled(feature.DbLog) {
+		runner.StartWorker("logsender", func() (worker.Worker, error) {
+			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
 		})
 	}
 
@@ -760,6 +767,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
+
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	if isEnvironManager {
+		rsyslogMode = rsyslog.RsyslogModeAccumulate
+	}
 
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
