@@ -44,7 +44,7 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
+func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	envcmd.WriteCurrentEnvironment("fubar")
 	context, err := testing.RunCommand(c, &SwitchCommand{})
@@ -52,7 +52,7 @@ func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentSystemHasPrecidence(c *gc.C) {
+func (s *SwitchSimpleSuite) TestCurrentSystemHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	envcmd.WriteCurrentSystem("fubar")
 	context, err := testing.RunCommand(c, &SwitchCommand{})

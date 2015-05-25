@@ -20,7 +20,8 @@ import (
 // explicitly specified, and there is no default system.
 var ErrNoSystemSpecified = errors.New("no system specified")
 
-// SystemCommand extends cmd.Command with a SetSystemName method.
+// SystemCommand is intended to be a base for all commands
+// that need to operate on systems as opposed to environments.
 type SystemCommand interface {
 	cmd.Command
 

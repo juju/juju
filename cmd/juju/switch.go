@@ -24,7 +24,7 @@ type SwitchCommand struct {
 }
 
 var switchDoc = `
-Show or change the default juju environment name.
+Show or change the default juju environment or system name.
 
 If no command line parameters are passed, switch will output the current
 environment as defined by the file $JUJU_HOME/current-environment.
@@ -40,7 +40,7 @@ func (c *SwitchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
 		Args:    "[environment name]",
-		Purpose: "show or change the default juju environment name",
+		Purpose: "show or change the default juju environment or system name",
 		Doc:     switchDoc,
 		Aliases: []string{"env"},
 	}
