@@ -318,7 +318,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = s.wordpressMachine.SetAddresses(
+	err = s.wordpressMachine.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -332,7 +332,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = s.wordpressMachine.SetAddresses(
+	err = s.wordpressMachine.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,14 +646,14 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -869,8 +869,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
 			return nil
 		})
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -893,8 +895,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.ErrorMatches, "permission denied")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -925,9 +929,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 }
 
 func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
@@ -941,8 +947,10 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 		Metrics:  metrics,
 	}
 
-	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[batch.UUID], gc.IsNil)
 
 	batches, err := s.State.MetricBatches()
 	c.Assert(err, gc.IsNil)

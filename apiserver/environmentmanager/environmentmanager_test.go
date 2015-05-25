@@ -151,6 +151,11 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"region", "auth-url", "auth-mode"},
+		}, {
+			provider: "ec2",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"region"},
 		},
 	} {
 		c.Logf("%d: %s provider", i, test.provider)

@@ -20,11 +20,7 @@ func init() {
 // NewPinger returns an object that can be pinged by calling its Ping method.
 // If this method is not called frequently enough, the connection will be
 // dropped.
-func NewPinger(
-	st *state.State, resources *common.Resources, authorizer common.Authorizer,
-) (
-	pinger, error,
-) {
+func NewPinger(st *state.State, resources *common.Resources, authorizer common.Authorizer) (Pinger, error) {
 	pingTimeout, ok := resources.Get("pingTimeout").(*pingTimeout)
 	if !ok {
 		return nullPinger{}, nil
@@ -32,9 +28,10 @@ func NewPinger(
 	return pingTimeout, nil
 }
 
-// pinger describes a type that can be pinged.
-type pinger interface {
+// pinger describes a resource that can be pinged and stopped.
+type Pinger interface {
 	Ping()
+	Stop() error
 }
 
 // pingTimeout listens for pings and will call the
@@ -44,18 +41,18 @@ type pingTimeout struct {
 	tomb    tomb.Tomb
 	action  func()
 	timeout time.Duration
-	reset   chan struct{}
+	reset   chan time.Duration
 }
 
 // newPingTimeout returns a new pingTimeout instance
 // that invokes the given action asynchronously if there
 // is more than the given timeout interval between calls
 // to its Ping method.
-func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
+func newPingTimeout(action func(), timeout time.Duration) Pinger {
 	pt := &pingTimeout{
 		action:  action,
 		timeout: timeout,
-		reset:   make(chan struct{}),
+		reset:   make(chan time.Duration),
 	}
 	go func() {
 		defer pt.tomb.Done()
@@ -69,7 +66,7 @@ func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
 func (pt *pingTimeout) Ping() {
 	select {
 	case <-pt.tomb.Dying():
-	case pt.reset <- struct{}{}:
+	case pt.reset <- pt.timeout:
 	}
 }
 
@@ -82,7 +79,7 @@ func (pt *pingTimeout) Stop() error {
 // loop waits for a reset signal, otherwise it performs
 // the initially passed action.
 func (pt *pingTimeout) loop() error {
-	timer := newTimer(pt.timeout)
+	timer := time.NewTimer(pt.timeout)
 	defer timer.Stop()
 	for {
 		select {
@@ -91,23 +88,14 @@ func (pt *pingTimeout) loop() error {
 		case <-timer.C:
 			go pt.action()
 			return errors.New("ping timeout")
-		case <-pt.reset:
-			resetTimer(timer, pt.timeout)
+		case duration := <-pt.reset:
+			timer.Reset(duration)
 		}
 	}
-}
-
-// newTimer is patched out during some tests.
-var newTimer = func(d time.Duration) *time.Timer {
-	return time.NewTimer(d)
-}
-
-// resetTimer is patched out during some tests.
-var resetTimer = func(timer *time.Timer, d time.Duration) bool {
-	return timer.Reset(d)
 }
 
 // nullPinger implements the pinger interface but just does nothing
 type nullPinger struct{}
 
-func (nullPinger) Ping() {}
+func (nullPinger) Ping()       {}
+func (nullPinger) Stop() error { return nil }

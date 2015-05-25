@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
@@ -154,11 +155,12 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
+		logger.Debugf("new unit %q added to backing state", u.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
 		unitStatus, agentStatus, err := unitAndAgentStatus(st, u.Name)
 		if err != nil {
-			return err
+			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.StatusInfo{
@@ -274,6 +276,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
 	if oldInfo == nil {
+		logger.Debugf("new service %q added to backing state", svc.Name)
 		key := serviceGlobalKey(svc.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
@@ -290,13 +293,29 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
-			return errors.Trace(err)
+			logger.Warningf("reading service status for key %s: %v", key, err)
 		}
-		info.Status = multiwatcher.StatusInfo{
-			Current: multiwatcher.Status(serviceStatus.Status),
-			Message: serviceStatus.Message,
-			Data:    serviceStatus.Data,
-			Since:   serviceStatus.Since,
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "reading service status for key %s", key)
+		}
+		if err == nil {
+			info.Status = multiwatcher.StatusInfo{
+				Current: multiwatcher.Status(serviceStatus.Status),
+				Message: serviceStatus.Message,
+				Data:    serviceStatus.Data,
+				Since:   serviceStatus.Since,
+			}
+		} else {
+			// TODO(wallyworld) - bug http://pad.lv/1451283
+			// return an error here once we figure out what's happening
+			// Not sure how status can even return NotFound as it is created
+			// with the service initially. For now, we'll log the error as per
+			// the above and return Unknown.
+			now := time.Now()
+			info.Status = multiwatcher.StatusInfo{
+				Current: multiwatcher.Status(StatusUnknown),
+				Since:   &now,
+			}
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -701,13 +720,28 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 
 func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {
 	localID := st.localID(id.(string))
-	u, err := st.Unit(localID)
-	if err != nil {
-		panic(fmt.Errorf("cannot retrieve unit %q: %v", localID, err))
+	parentID, ok := backingEntityIdForOpenedPortsKey(localID)
+	if !ok {
+		return
 	}
-	err = updateUnitPorts(st, store, u)
-	if err != nil {
-		panic(fmt.Errorf("cannot update unit ports for %q: %v", localID, err))
+	switch info := store.Get(parentID).(type) {
+	case nil:
+		// The parent info doesn't exist. This is unexpected because the port
+		// always refers to a machine. Anyway, ignore the ports for now.
+		return
+	case *multiwatcher.MachineInfo:
+		// Retrieve the units placed in the machine.
+		units, err := st.UnitsFor(info.Id)
+		if err != nil {
+			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
+			return
+		}
+		// Update the ports on all units assigned to the machine.
+		for _, u := range units {
+			if err := updateUnitPorts(st, store, u); err != nil {
+				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
+			}
+		}
 	}
 }
 

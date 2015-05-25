@@ -112,7 +112,7 @@ type VolumeParams struct {
 
 // VolumeInfo describes information about a volume.
 type VolumeInfo struct {
-	Serial     string `bson:"serial,omitempty"`
+	HardwareId string `bson:"hardwareid,omitempty"`
 	Size       uint64 `bson:"size"`
 	Pool       string `bson:"pool"`
 	VolumeId   string `bson:"volumeid"`
@@ -361,7 +361,12 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}
-	poolName, err := defaultStoragePool(envConfig, storage.StorageKindBlock)
+	cons := StorageConstraints{
+		Pool:  params.Pool,
+		Size:  params.Size,
+		Count: 1,
+	}
+	poolName, err := defaultStoragePool(envConfig, storage.StorageKindBlock, cons)
 	if err != nil {
 		return VolumeParams{}, errors.Annotate(err, "getting default block storage pool")
 	}

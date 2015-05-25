@@ -96,6 +96,10 @@ type State struct {
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
 	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
+
+	// UpdateStatusTime records the time the update status hook was last run.
+	// It's set to nil if the hook was not run at all.
+	UpdateStatusTime int64 `yaml:"updatestatustime,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.

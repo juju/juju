@@ -154,6 +154,7 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 			operation.State{
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 				Kind:               operation.RunHook,
 				Step:               operation.Pending,
 				Hook:               &hook.Info{Kind: hooks.ConfigChanged},
@@ -367,6 +368,7 @@ func (s *RunHookSuite) TestExecuteSuccess_Preserve(c *gc.C) {
 			operation.State{
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 				Kind:               operation.RunHook,
 				Step:               operation.Done,
 				Hook:               &hook.Info{Kind: hooks.ConfigChanged},
@@ -472,6 +474,7 @@ func (s *RunHookSuite) testExecuteHookWithSetStatus(c *gc.C, kind hooks.Kind, se
 			operation.State{
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 				Kind:               operation.RunHook,
 				Step:               operation.Done,
 				Hook:               &hook.Info{Kind: kind},
@@ -563,6 +566,7 @@ func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_Preserve(c *gc.C) {
 			operation.State{
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 				Kind:               operation.Continue,
 				Step:               operation.Pending,
 			},
@@ -604,6 +608,7 @@ func (s *RunHookSuite) TestCommitSuccess_Start_Preserve(c *gc.C) {
 			operation.State{
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 				Kind:               operation.Continue,
 				Step:               operation.Pending,
 			},
@@ -664,6 +669,7 @@ func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause hooks.Kind) {
 				Stopped:            cause == hooks.Stop,
 				Hook:               hi,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 			},
 		)
 	}
@@ -714,6 +720,7 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 				Started:            true,
 				Stopped:            hookInfo.Kind == hooks.Stop,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 			},
 		)
 	}
@@ -797,6 +804,46 @@ func (s *RunHookSuite) TestQueueNothing_RelationBroken_Preserve(c *gc.C) {
 	})
 }
 
+func (s *RunHookSuite) testCommitSuccess_UpdateStatusTime(c *gc.C, newHook newHook) {
+	callbacks := &CommitHookCallbacks{
+		MockCommitHook: &MockCommitHook{},
+	}
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	op, err := newHook(factory, hook.Info{Kind: hooks.UpdateStatus})
+	c.Assert(err, jc.ErrorIsNil)
+
+	nowBefore := time.Now().Unix()
+	newState, err := op.Commit(overwriteState)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nowAfter := time.Now().Unix()
+	nowWritten := newState.UpdateStatusTime
+	c.Logf("%d <= %d <= %d", nowBefore, nowWritten, nowAfter)
+	c.Check(nowBefore <= nowWritten, jc.IsTrue)
+	c.Check(nowWritten <= nowAfter, jc.IsTrue)
+
+	// Check the other fields match.
+	newState.UpdateStatusTime = 0
+	c.Check(newState, gc.DeepEquals, &operation.State{
+		Started:            true,
+		Kind:               operation.Continue,
+		Step:               operation.Pending,
+		CollectMetricsTime: 1234567,
+	})
+}
+
+func (s *RunHookSuite) TestCommitSuccess_UpdateStatusTime_Run(c *gc.C) {
+	s.testCommitSuccess_UpdateStatusTime(c, (operation.Factory).NewRunHook)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_UpdateStatusTime_Retry(c *gc.C) {
+	s.testCommitSuccess_UpdateStatusTime(c, (operation.Factory).NewRetryHook)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_UpdateStatusTime_Skip(c *gc.C) {
+	s.testCommitSuccess_UpdateStatusTime(c, (operation.Factory).NewSkipHook)
+}
+
 func (s *RunHookSuite) testCommitSuccess_CollectMetricsTime(c *gc.C, newHook newHook) {
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
@@ -818,9 +865,10 @@ func (s *RunHookSuite) testCommitSuccess_CollectMetricsTime(c *gc.C, newHook new
 	// Check the other fields match.
 	newState.CollectMetricsTime = 0
 	c.Check(newState, gc.DeepEquals, &operation.State{
-		Started: true,
-		Kind:    operation.Continue,
-		Step:    operation.Pending,
+		Started:          true,
+		Kind:             operation.Continue,
+		Step:             operation.Pending,
+		UpdateStatusTime: 1234567,
 	})
 }
 

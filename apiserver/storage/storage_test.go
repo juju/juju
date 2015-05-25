@@ -21,20 +21,6 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-const (
-	allStorageInstancesCall                 = "allStorageInstances"
-	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
-	unitAssignedMachineCall                 = "UnitAssignedMachine"
-	storageInstanceCall                     = "StorageInstance"
-	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
-	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
-	storageInstanceVolumeCall               = "storageInstanceVolume"
-	volumeCall                              = "volumeCall"
-	machineVolumeAttachmentsCall            = "machineVolumeAttachments"
-	volumeAttachmentsCall                   = "volumeAttachments"
-	allVolumesCall                          = "allVolumes"
-)
-
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.calls = append(s.calls, allStorageInstancesCall)
@@ -239,10 +225,6 @@ func (s *storageSuite) createTestStorageInfo() params.StorageInfo {
 		},
 		nil,
 	}
-}
-
-func (s *storageSuite) assertCalls(c *gc.C, expectedCalls []string) {
-	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
 func (s *storageSuite) assertInstanceInfoError(c *gc.C, obtained params.StorageInfo, wanted params.StorageInfo, expected string) {

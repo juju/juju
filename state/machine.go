@@ -531,29 +531,30 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
-	advanceAsserts := bson.D{
-		{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
-		{"$or", []bson.D{
+	// noUnits asserts that the machine has no principal units.
+	noUnits := bson.DocElem{
+		"$or", []bson.D{
 			{{"principals", bson.D{{"$size", 0}}}},
 			{{"principals", bson.D{{"$exists", false}}}},
-		}},
-		{"hasvote", bson.D{{"$ne", true}}},
+		},
 	}
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// If the transaction was aborted, grab a fresh copy of the machine data.
+		advanceAsserts := bson.D{
+			{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
+			{"hasvote", bson.D{{"$ne", true}}},
+		}
+		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
 		// could perhaps be made that this is not a helpful convention in the
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
-		if attempt != 0 {
-			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
+		if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, err
 		}
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
@@ -562,12 +563,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			if m.doc.Life != Alive {
 				return nil, jujutxn.ErrNoOperations
 			}
-			op.Assert = append(advanceAsserts, isAliveDoc...)
+			advanceAsserts = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			op.Assert = append(advanceAsserts, notDeadDoc...)
+			advanceAsserts = append(advanceAsserts, notDeadDoc...)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
@@ -582,12 +583,63 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		if m.doc.HasVote {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
-		if len(m.doc.Principals) != 0 {
+		// If there are no alive units left on the machine, or all the services are dying,
+		// then the machine may be soon destroyed by a cleanup worker.
+		// In that case, we don't want to return any error about not being able to
+		// destroy a machine with units as it will be a lie.
+		if life == Dying {
+			canDie := true
+			var principalUnitnames []string
+			for _, principalUnit := range m.doc.Principals {
+				principalUnitnames = append(principalUnitnames, principalUnit)
+				u, err := m.st.Unit(principalUnit)
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+				}
+				svc, err := u.Service()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+				}
+				if u.Life() == Alive && svc.Life() == Alive {
+					canDie = false
+					break
+				}
+			}
+			if canDie {
+				containers, err := m.Containers()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s containers", m)
+				}
+				canDie = len(containers) == 0
+			}
+			if canDie {
+				checkUnits := bson.DocElem{
+					"$or", []bson.D{
+						{{"principals", principalUnitnames}},
+						{{"principals", bson.D{{"$size", 0}}}},
+						{{"principals", bson.D{{"$exists", false}}}},
+					},
+				}
+				op.Assert = append(advanceAsserts, checkUnits)
+				containerCheck := txn.Op{
+					C:  containerRefsC,
+					Id: m.doc.DocID,
+					Assert: bson.D{{"$or", []bson.D{
+						{{"children", bson.D{{"$size", 0}}}},
+						{{"children", bson.D{{"$exists", false}}}},
+					}}},
+				}
+				return []txn.Op{op, containerCheck}, nil
+			}
+		}
+		if len(m.doc.Principals) > 0 {
 			return nil, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
 			}
 		}
+		// Add the additional asserts needed for this transaction.
+		op.Assert = append(advanceAsserts, noUnits)
 		return []txn.Op{op}, nil
 	}
 	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
@@ -678,6 +730,15 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, address := range ipAddresses {
+		logger.Tracef("creating op to set IP addr %q to Dead", address.Value())
+		ops = append(ops, ensureIPAddressDeadOp(address))
+	}
+	logger.Tracef("removing machine %q", m.Id())
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
 	return onAbort(m.st.runTransaction(ops), nil)
@@ -969,13 +1030,22 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
-// SetAddresses records any addresses related to the machine, sourced
+// SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
+func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
 	if err = m.setAddresses(addresses, &m.doc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
 	return nil
+}
+
+// ProviderAddresses returns any hostnames and ips associated with a machine,
+// as determined by asking the provider.
+func (m *Machine) ProviderAddresses() (addresses []network.Address) {
+	for _, address := range m.doc.Addresses {
+		addresses = append(addresses, address.networkAddress())
+	}
+	return
 }
 
 // MachineAddresses returns any hostnames and ips associated with a machine,

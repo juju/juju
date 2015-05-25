@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
@@ -37,6 +38,9 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
@@ -90,7 +94,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.Env.StartInstance(startInstArgs)
 
-	c.Assert(err, gc.ErrorMatches, "no mathicng images found for given constraints: .*")
+	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
 }
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
@@ -233,5 +237,5 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 	})
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	_, err := s.Env.StartInstance(startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import ovf file: Error zone 2")
+	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import OVA file: Error zone 2")
 }

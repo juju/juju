@@ -17,8 +17,6 @@ import (
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 )
 
 var (
@@ -135,49 +133,6 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Trace(err)
 	}
 
-	storageConstraints := args.Storage
-	if storageConstraints == nil {
-		storageConstraints = make(map[string]storage.Constraints)
-	}
-	// Validate the storage parameters against the charm metadata,
-	// and ensure there are no conflicting parameters.
-	if err := validateCharmStorage(args, ch); err != nil {
-		return err
-	}
-	// Handle stores with no corresponding constraints.
-	for store, charmStorage := range ch.Meta().Storage {
-		if _, ok := args.Storage[store]; ok {
-			// TODO(axw) if pool is not specified, we should set it to
-			// the environment's default pool.
-			continue
-		}
-		if charmStorage.Shared {
-			// TODO(axw) get the environment's default shared storage
-			// pool, and create constraints here.
-			return errors.Errorf(
-				"no constraints specified for shared charm storage %q",
-				store,
-			)
-		}
-		if charmStorage.CountMin <= 0 {
-			continue
-		}
-		if charmStorage.Type != charm.StorageFilesystem {
-			// TODO(axw) clarify what the rules are for "block" kind when
-			// no constraints are specified. For "filesystem" we use rootfs.
-			return errors.Errorf(
-				"no constraints specified for %v charm storage %q",
-				charmStorage.Type,
-				store,
-			)
-		}
-		storageConstraints[store] = storage.Constraints{
-			// The pool is the provider type since rootfs provider has no configuration.
-			Pool:  string(provider.RootfsProviderType),
-			Count: uint64(charmStorage.CountMin),
-		}
-	}
-
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
@@ -205,7 +160,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			Constraints:    args.Constraints,
 			ToMachineSpec:  args.ToMachineSpec,
 			Networks:       requestedNetworks,
-			Storage:        storageConstraints,
+			Storage:        args.Storage,
 		})
 	return err
 }
@@ -223,20 +178,6 @@ func ServiceSetSettingsStrings(service *state.Service, settings map[string]strin
 		return err
 	}
 	return service.UpdateConfigSettings(changes)
-}
-
-func validateCharmStorage(args params.ServiceDeploy, ch *state.Charm) error {
-	if len(args.Storage) == 0 {
-		return nil
-	}
-	if len(args.ToMachineSpec) != 0 {
-		// TODO(axw) when we support dynamic disk provisioning, we can
-		// relax this. We will need to consult the storage provider to
-		// decide whether or not this is allowable.
-		return errors.New("cannot specify storage and machine placement")
-	}
-	// Remaining validation is done in state.AddService.
-	return nil
 }
 
 func networkTagsToNames(tags []string) ([]string, error) {

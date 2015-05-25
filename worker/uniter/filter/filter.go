@@ -153,6 +153,10 @@ func (f *filter) Wait() error {
 	return f.tomb.Wait()
 }
 
+func (f *filter) Kill() {
+	f.tomb.Kill(nil)
+}
+
 // UnitDying returns a channel which is closed when the Unit enters a Dying state.
 func (f *filter) UnitDying() <-chan struct{} {
 	return f.outUnitDying
@@ -463,7 +467,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case _, ok = <-meterStatusw.Changes():
 			filterLogger.Debugf("got meter status change")
 			if !ok {
-				return watcher.EnsureErr(configw)
+				return watcher.EnsureErr(meterStatusw)
 			}
 			if err = f.meterStatusChanged(); err != nil {
 				return errors.Trace(err)

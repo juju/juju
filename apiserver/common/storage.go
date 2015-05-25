@@ -36,6 +36,10 @@ type StorageInterface interface {
 	// to the identified machine and volume.
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 
+	// WatchStorageAttachment watches for changes to the storage attachment
+	// corresponding to the identfified unit and storage instance.
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
+
 	// WatchFilesystemAttachment watches for changes to the filesystem
 	// attachment corresponding to the identfified machien and filesystem.
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
@@ -125,33 +129,38 @@ func filesystemStorageAttachmentInfo(
 	}, nil
 }
 
-// WatchStorageAttachmentInfo returns a state.NotifyWatcher that reacts to changes
+// WatchStorageAttachment returns a state.NotifyWatcher that reacts to changes
 // to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the tags
 // specified.
-func WatchStorageAttachmentInfo(
+func WatchStorageAttachment(
 	st StorageInterface,
 	storageTag names.StorageTag,
 	machineTag names.MachineTag,
+	unitTag names.UnitTag,
 ) (state.NotifyWatcher, error) {
 	storageInstance, err := st.StorageInstance(storageTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage instance")
 	}
+	var w state.NotifyWatcher
 	switch storageInstance.Kind() {
 	case state.StorageKindBlock:
 		volume, err := st.StorageInstanceVolume(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage volume")
 		}
-		return st.WatchVolumeAttachment(machineTag, volume.VolumeTag()), nil
+		w = st.WatchVolumeAttachment(machineTag, volume.VolumeTag())
 	case state.StorageKindFilesystem:
 		filesystem, err := st.StorageInstanceFilesystem(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage filesystem")
 		}
-		return st.WatchFilesystemAttachment(machineTag, filesystem.FilesystemTag()), nil
+		w = st.WatchFilesystemAttachment(machineTag, filesystem.FilesystemTag())
+	default:
+		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
-	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
+	w2 := st.WatchStorageAttachment(storageTag, unitTag)
+	return newMultiNotifyWatcher(w, w2), nil
 }
 
 var errNoDevicePath = errors.New("cannot determine device path: no serial or persistent device name")
@@ -163,8 +172,8 @@ func volumeAttachmentDevicePath(
 	volumeInfo state.VolumeInfo,
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
 ) (string, error) {
-	if volumeInfo.Serial != "" {
-		return path.Join("/dev/disk/by-id", volumeInfo.Serial), nil
+	if volumeInfo.HardwareId != "" {
+		return path.Join("/dev/disk/by-id", volumeInfo.HardwareId), nil
 	} else if volumeAttachmentInfo.DeviceName != "" {
 		return path.Join("/dev", volumeAttachmentInfo.DeviceName), nil
 	}

@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -64,6 +66,7 @@ func (s *liveSuite) TearDownSuite(c *gc.C) {
 
 func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 }
@@ -93,6 +96,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }
@@ -156,6 +160,14 @@ func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
 	supported, err = e.SupportsAddressAllocation("any-id")
 	c.Assert(err, gc.ErrorMatches, `dummy\.SupportsAddressAllocation is broken`)
 	c.Assert(supported, jc.IsFalse)
+
+	// Finally, test the method respects the feature flag when
+	// disabled.
+	s.SetFeatureFlags() // clear the flags.
+	supported, err = e.SupportsAddressAllocation("any-id")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(supported, jc.IsFalse)
 }
 
 func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
@@ -198,6 +210,13 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
 	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
+
+	// Finally, test the method respects the feature flag when
+	// disabled.
+	s.SetFeatureFlags() // clear the flags.
+	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *suite) TestReleaseAddress(c *gc.C) {
@@ -230,6 +249,13 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	address = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
 	err = e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, gc.ErrorMatches, `dummy\.ReleaseAddress is broken`)
+
+	// Finally, test the method respects the feature flag when
+	// disabled.
+	s.SetFeatureFlags() // clear the flags.
+	err = e.ReleaseAddress(inst.Id(), subnetId, address)
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *suite) TestNetworkInterfaces(c *gc.C) {

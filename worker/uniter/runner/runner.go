@@ -133,7 +133,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,
 		// because that already has handling for windows environment requirements.
-		env = mergeWindowsEnvironment(env)
+		env = mergeWindowsEnvironment(env, os.Environ())
 	}
 
 	debugctx := debug.NewHooksContext(runner.context.UnitName())

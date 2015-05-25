@@ -49,7 +49,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
 	{hook.Info{Kind: hooks.StorageAttached}, `invalid storage ID ""`},
 	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
-	{hook.Info{Kind: hooks.StorageDetached, StorageId: "data/0"}, ""},
+	{hook.Info{Kind: hooks.StorageDetaching, StorageId: "data/0"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {

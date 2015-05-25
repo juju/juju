@@ -206,7 +206,7 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = testing.RunCommand(c, &RunCommand{}, "foo/1", "bar")
-	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: `+utils.NoSuchFileErrRegexp)
+	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket:.*`+utils.NoSuchFileErrRegexp)
 }
 
 func (s *RunTestSuite) TestRunning(c *gc.C) {

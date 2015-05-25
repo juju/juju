@@ -358,6 +358,11 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*localEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.InstanceConfig.HasNetworks() {
@@ -390,7 +395,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 // Override for testing.
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
-	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
+	network := container.BridgeNetworkConfig(env.config.networkBridge(), 0, args.NetworkInfo)
 	allowLoopMounts, _ := env.config.AllowLXCLoopMounts()
 	isLXC := env.config.container() == instance.LXC
 	storage := &container.StorageConfig{

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	stdtesting "testing"
 	"time"
 
@@ -33,6 +34,7 @@ type RsyslogSuite struct {
 
 	st       *api.State
 	machine  *state.Machine
+	mu       sync.Mutex // protects dialTags
 	dialTags []string
 }
 
@@ -66,16 +68,20 @@ func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
-	s.dialTags = nil
 	s.PatchValue(rsyslog.DialSyslog, func(network, raddr string, priority syslog.Priority, tag string, tlsCfg *tls.Config) (*syslog.Writer, error) {
+		s.mu.Lock()
 		s.dialTags = append(s.dialTags, tag)
+		s.mu.Unlock()
 		return &syslog.Writer{}, nil
 	})
 	s.PatchValue(rsyslog.LogDir, c.MkDir())
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
 
+	s.mu.Lock()
+	s.dialTags = nil
+	s.mu.Unlock()
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
+	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -99,6 +105,8 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
+	s.mu.Lock()
+	s.mu.Unlock() // assert read barrier before accessing s.dialTags
 	for _, dialTag := range s.dialTags {
 		c.Assert(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
 	}

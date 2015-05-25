@@ -438,7 +438,7 @@ func (s *uniterBaseSuite) testPublicAddress(
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(
+	err = s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +483,7 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(
+	err = s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1624,7 +1624,7 @@ func (s *uniterBaseSuite) testEnterScope(
 	},
 ) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(
+	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2171,8 +2171,8 @@ func (s *uniterBaseSuite) testGetMeterStatus(c *gc.C, facade getMeterStatus) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Code, gc.Equals, "NOT SET")
-	c.Assert(result.Results[0].Info, gc.Equals, "")
+	c.Assert(result.Results[0].Code, gc.Equals, "AMBER")
+	c.Assert(result.Results[0].Info, gc.Equals, "not set")
 
 	newCode := "GREEN"
 	newInfo := "All is ok."

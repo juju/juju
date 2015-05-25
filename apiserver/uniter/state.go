@@ -11,17 +11,18 @@ import (
 )
 
 type storageStateInterface interface {
-	EnsureStorageAttachmentDead(names.StorageTag, names.UnitTag) error
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	DestroyUnitStorageAttachments(names.UnitTag) error
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }

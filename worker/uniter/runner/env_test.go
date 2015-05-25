@@ -48,12 +48,21 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 	os.Setenv("DUMMYVAR", "foo")
 
 	newEnv := make([]string, 0, len(expectEnv))
-	for _, v := range runner.MergeWindowsEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"}) {
+	for _, v := range runner.MergeWindowsEnvironment([]string{"dummyvar2=bar", "NEWVAR=ImNew"}, os.Environ()) {
 		if !(strings.HasPrefix(v, "=") && strings.HasSuffix(v, "=")) {
 			newEnv = append(newEnv, v)
 		}
 	}
 	c.Assert(expectEnv, jc.SameContents, newEnv)
+}
+
+func (s *MergeEnvSuite) TestMergeEnvWin(c *gc.C) {
+	initial := []string{"a=foo", "b=bar", "foo=val"}
+	newValues := []string{"a=baz", "c=omg", "FOO=val2", "d=another"}
+
+	created := runner.MergeWindowsEnvironment(newValues, initial)
+	expected := []string{"a=baz", "b=bar", "c=omg", "foo=val2", "d=another"}
+	c.Check(created, jc.SameContents, expected)
 }
 
 type EnvSuite struct {

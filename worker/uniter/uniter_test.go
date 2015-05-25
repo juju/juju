@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -1091,6 +1092,40 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
+	waitDyingHooks := custom{func(c *gc.C, ctx *context) {
+		// There is no ordering relationship between relation hooks and
+		// leader-settings-changed hooks; and while we're dying we may
+		// never get to leader-settings-changed before it's time to run
+		// the stop (as we might not react to a config change in time).
+		// It's actually clearer to just list the possible orders:
+		possibles := [][]string{{
+			"leader-settings-changed",
+			"db-relation-departed mysql/0 db:0",
+			"db-relation-broken db:0",
+			"stop",
+		}, {
+			"db-relation-departed mysql/0 db:0",
+			"leader-settings-changed",
+			"db-relation-broken db:0",
+			"stop",
+		}, {
+			"db-relation-departed mysql/0 db:0",
+			"db-relation-broken db:0",
+			"leader-settings-changed",
+			"stop",
+		}, {
+			"db-relation-departed mysql/0 db:0",
+			"db-relation-broken db:0",
+			"stop",
+		}}
+		unchecked := ctx.hooksCompleted[len(ctx.hooks):]
+		for _, possible := range possibles {
+			if ok, _ := jc.DeepEqual(unchecked, possible); ok {
+				return
+			}
+		}
+		c.Fatalf("unexpected hooks: %v", unchecked)
+	}}
 	s.runUniterTests(c, []uniterTest{
 		// Relations.
 		ut(
@@ -1134,12 +1169,8 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"service becomes dying while in a relation",
 			quickStartRelation{},
 			serviceDying,
-			waitHooks{
-				"db-relation-departed mysql/0 db:0",
-				"db-relation-broken db:0",
-				"stop",
-			},
 			waitUniterDead{},
+			waitDyingHooks,
 			relationState{life: state.Dying},
 			removeRelationUnit{"mysql/0"},
 			relationState{removed: true},
@@ -1148,40 +1179,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			quickStartRelation{},
 			unitDying,
 			waitUniterDead{},
-			custom{func(c *gc.C, ctx *context) {
-				// There is no ordering relationship between relation hooks and
-				// leader-settings-changed hooks; and while we're dying we may
-				// never get to leader-settings-changed before it's time to run
-				// the stop (as we might not react to a config change in time).
-				// It's actually clearer to just list the possible orders:
-				possibles := [][]string{{
-					"leader-settings-changed",
-					"db-relation-departed mysql/0 db:0",
-					"db-relation-broken db:0",
-					"stop",
-				}, {
-					"db-relation-departed mysql/0 db:0",
-					"leader-settings-changed",
-					"db-relation-broken db:0",
-					"stop",
-				}, {
-					"db-relation-departed mysql/0 db:0",
-					"db-relation-broken db:0",
-					"leader-settings-changed",
-					"stop",
-				}, {
-					"db-relation-departed mysql/0 db:0",
-					"db-relation-broken db:0",
-					"stop",
-				}}
-				unchecked := ctx.hooksCompleted[len(ctx.hooks):]
-				for _, possible := range possibles {
-					if ok, _ := jc.DeepEqual(unchecked, possible); ok {
-						return
-					}
-				}
-				c.Fatalf("unexpected hooks: %v", unchecked)
-			}},
+			waitDyingHooks,
 			relationState{life: state.Alive},
 			removeRelationUnit{"mysql/0"},
 			relationState{life: state.Alive},
@@ -1990,5 +1988,101 @@ func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
 			forceMinion{},
 			waitHooks{"leader-settings-changed"},
 		),
+	})
+}
+
+func (s *UniterSuite) TestStorage(c *gc.C) {
+	// appendStorageMetadata customises the wordpress charm's metadata,
+	// adding a "wp-content" filesystem store. We do it here rather
+	// than in the charm itself to avoid modifying all of the other
+	// scenarios.
+	appendStorageMetadata := func(c *gc.C, ctx *context, path string) {
+		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		defer func() {
+			err := f.Close()
+			c.Assert(err, jc.ErrorIsNil)
+		}()
+		_, err = io.WriteString(f, "storage:\n  wp-content:\n    type: filesystem\n")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"test that storage-attached is called",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			provisionStorage{},
+			startUniter{},
+			waitAddresses{},
+			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
+		), ut(
+			"test that storage-detaching is called before stop",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			provisionStorage{},
+			startUniter{},
+			waitAddresses{},
+			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
+			unitDying,
+			waitHooks{"leader-settings-changed"},
+			// "stop" hook is not called until storage is detached
+			waitHooks{"wp-content-storage-detaching", "stop"},
+			verifyStorageDetached{},
+			waitUniterDead{},
+		), ut(
+			"test that storage-detaching is called only if previously attached",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			// provision and destroy the storage before the uniter starts,
+			// to ensure it never sees the storage as attached
+			provisionStorage{},
+			destroyStorageAttachment{},
+			startUniter{},
+			waitHooks(startupHooks(false)),
+			unitDying,
+			// storage-detaching is not called because it was never attached
+			waitHooks{"stop"},
+			verifyStorageDetached{},
+			waitUniterDead{},
+		), ut(
+			"test that delay-provisioned storage does not block forever",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			startUniter{},
+			// no hooks should be run, as storage isn't provisioned
+			waitHooks{},
+			provisionStorage{},
+			waitHooks{"wp-content-storage-attached"},
+			waitHooks(startupHooks(false)),
+		), ut(
+			"test that unprovisioned storage does not block unit termination",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			startUniter{},
+			// no hooks should be run, as storage isn't provisioned
+			waitHooks{},
+			unitDying,
+			// TODO(axw) should we really be running startup hooks
+			// when the unit is dying?
+			waitHooks(startupHooks(true)),
+			waitHooks{"stop"},
+			waitUniterDead{},
+		),
+		// TODO(axw) test that storage-attached is run for new
+		// storage attachments before upgrade-charm is run. This
+		// requires additions to state to add storage when a charm
+		// is upgraded.
 	})
 }
