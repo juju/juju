@@ -129,8 +129,8 @@ type Context interface {
 	// the executing hook if it was found, and whether it was found.
 	HookStorage() (ContextStorage, bool)
 
-	// AddUnitStorage adds storage instances to the unit via an api.
-	AddUnitStorage(map[string]params.StorageConstraints) error
+	// AddUnitStorage saves storage constraints in the context.
+	AddUnitStorage(map[string]params.StorageConstraints)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

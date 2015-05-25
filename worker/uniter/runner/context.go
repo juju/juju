@@ -160,6 +160,12 @@ type HookContext struct {
 	// execution so that the uniter can ultimately decide if it needs to update
 	// a charm's workload status, or if the charm has already taken care of it.
 	hasRunStatusSet bool
+
+	// storageAddConstraints is a collection of storage constraints
+	// keyed on storage name as specified in the charm.
+	// This collection will be added to the unit on successful
+	// hook run, so the actual add will happen in a flush.
+	storageAddConstraints map[string]params.StorageConstraints
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -263,8 +269,8 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, boo
 	return ctx.storage.Storage(tag)
 }
 
-func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) error {
-	return ctx.unit.AddStorage(cons)
+func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
+	ctx.storageAddConstraints = cons
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -597,6 +603,23 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
+
+	fmt.Printf("Got 1")
+	// add storage to unit dynamically
+	if len(ctx.storageAddConstraints) > 0 {
+		fmt.Printf("Got 2")
+		e := ctx.unit.AddStorage(ctx.storageAddConstraints)
+		if e != nil {
+			fmt.Printf("Got err")
+			e = errors.Annotatef(err, "cannot add storage")
+			logger.Errorf("%v", e)
+			if ctxErr == nil {
+				ctxErr = e
+			}
+		}
+	}
+	fmt.Printf("Got 3")
+
 	return ctxErr
 }
 

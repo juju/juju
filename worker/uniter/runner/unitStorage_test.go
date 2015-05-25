@@ -60,7 +60,6 @@ func (s *unitStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -68,13 +67,23 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 }
 
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
-	ctx := s.HookContextSuite.GetContext(c, -1, "")
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 
 	size := uint64(1)
-	ok := ctx.AddUnitStorage(
+	ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
 			"allecto": params.StorageConstraints{Size: &size},
 		})
-	c.Assert(ok, jc.ErrorIsNil)
+
+	// Flush the context with a success.
+	err = ctx.FlushContext("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 2)
 }

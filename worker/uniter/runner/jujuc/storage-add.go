@@ -83,6 +83,6 @@ func (s *StorageAddCommand) Init(args []string) error {
 }
 
 func (s *StorageAddCommand) Run(ctx *cmd.Context) error {
-	err := s.ctx.AddUnitStorage(s.all)
-	return errors.Annotatef(err, "cannot add storage")
+	s.ctx.AddUnitStorage(s.all)
+	return nil
 }
