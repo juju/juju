@@ -95,7 +95,7 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 		return names.VolumeTag{}, state.VolumeInfo{}, errors.Trace(err)
 	}
 	return volumeTag, state.VolumeInfo{
-		v.Serial,
+		v.HardwareId,
 		v.Size,
 		"", // pool is set by state
 		v.VolumeId,
@@ -112,7 +112,7 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 	return params.Volume{
 		v.VolumeTag().String(),
 		info.VolumeId,
-		info.Serial,
+		info.HardwareId,
 		info.Size,
 		info.Persistent,
 	}, nil

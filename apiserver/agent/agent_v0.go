@@ -83,6 +83,12 @@ func (api *AgentAPIV0) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	return
 }
 
+// work around golang.org/issue/10628
+
+func (api *AgentAPIV1) StateServingInfo() (result state.StateServingInfo, err error) {
+	return api.AgentAPIV0.StateServingInfo()
+}
+
 func (api *AgentAPIV0) StateServingInfo() (result state.StateServingInfo, err error) {
 	if !api.auth.AuthEnvironManager() {
 		err = common.ErrPerm

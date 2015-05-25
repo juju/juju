@@ -50,7 +50,17 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 	if inst.base.Guest == nil || inst.base.Guest.IpAddress == "" {
 		return nil, nil
 	}
-	return network.NewAddresses(inst.base.Guest.IpAddress), nil
+	res := make([]network.Address, 0)
+	for _, net := range inst.base.Guest.Net {
+		for _, ip := range net.IpAddress {
+			scope := network.ScopeCloudLocal
+			if net.Network == inst.env.ecfg.externalNetwork() {
+				scope = network.ScopePublic
+			}
+			res = append(res, network.NewScopedAddress(ip, scope))
+		}
+	}
+	return res, nil
 }
 
 func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
@@ -67,17 +77,59 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return errors.Trace(errors.NotImplementedf("OpenPorts"))
+	return inst.changePorts(true, ports)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return errors.Trace(errors.NotImplementedf("ClosePorts"))
+	return inst.changePorts(false, ports)
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotImplementedf("Ports"))
+	_, sshClient, err := inst.getSshClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sshClient.findOpenPorts()
+}
+
+func (inst *environInstance) changePorts(insert bool, ports []network.PortRange) error {
+	if inst.env.ecfg.externalNetwork() == "" {
+		return errors.New("Can't close/open ports without external network")
+	}
+	addresses, sshClient, err := inst.getSshClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, addr := range addresses {
+		if addr.Scope == network.ScopePublic {
+			err = sshClient.changePorts(addr.Value, insert, ports)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (inst *environInstance) getSshClient() ([]network.Address, *sshClient, error) {
+	addresses, err := inst.Addresses()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	var localAddr string
+	for _, addr := range addresses {
+		if addr.Scope == network.ScopeCloudLocal {
+			localAddr = addr.Value
+			break
+		}
+	}
+
+	client := newSshClient(localAddr)
+	return addresses, client, err
 }

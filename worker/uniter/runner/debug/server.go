@@ -105,6 +105,7 @@ END
 cat > $JUJU_DEBUG/init.sh <<END
 #!/bin/bash
 cat $JUJU_DEBUG/welcome.msg
+trap 'echo \$? > $JUJU_DEBUG/hook_exit_status' EXIT
 END
 chmod +x $JUJU_DEBUG/init.sh
 
@@ -135,4 +136,6 @@ HOOK_PID=$(cat $JUJU_DEBUG/hook.pid)
 while kill -0 "$HOOK_PID" 2> /dev/null; do
     sleep 1
 done
+typeset -i exitstatus=$(cat $JUJU_DEBUG/hook_exit_status)
+exit $exitstatus
 `

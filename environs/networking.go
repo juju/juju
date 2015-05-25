@@ -4,6 +4,9 @@
 package environs
 
 import (
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -51,4 +54,10 @@ type NetworkingEnviron interface {
 func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
+}
+
+// AddressAllocationEnabled is a shortcut for checking if the
+// AddressAllocation feature flag is enabled.
+func AddressAllocationEnabled() bool {
+	return featureflag.Enabled(feature.AddressAllocation)
 }

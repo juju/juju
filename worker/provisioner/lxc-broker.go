@@ -37,6 +37,7 @@ var _ environs.InstanceBroker = (*lxcBroker)(nil)
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
@@ -45,8 +46,12 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 var NewLxcBroker = newLxcBroker
 
 func newLxcBroker(
-	api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+	api APICalls,
+	agentConfig agent.Config,
+	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
+	enableNAT bool,
+	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
@@ -56,6 +61,8 @@ func newLxcBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
+		defaultMTU:  defaultMTU,
 	}, nil
 }
 
@@ -63,6 +70,8 @@ type lxcBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
+	defaultMTU  int
 }
 
 // StartInstance is specified in the Broker interface.
@@ -79,17 +88,31 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	allocatedInfo, err := maybeAllocateStaticIP(
-		machineId, bridgeDevice, broker.api, args.NetworkInfo,
-	)
-	if err != nil {
-		// It's fine, just ignore it. The effect will be that the
-		// container won't have a static address configured.
-		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+
+	if !environs.AddressAllocationEnabled() {
+		logger.Debugf(
+			"address allocation feature flag not enabled; using DHCP for container %q",
+			machineId,
+		)
 	} else {
-		args.NetworkInfo = allocatedInfo
+		logger.Debugf("trying to allocate static IP for container %q", machineId)
+		allocatedInfo, err := configureContainerNetwork(
+			machineId,
+			bridgeDevice,
+			broker.api,
+			args.NetworkInfo,
+			true, // allocate a new address.
+			broker.enableNAT,
+		)
+		if err != nil {
+			// It's fine, just ignore it. The effect will be that the
+			// container won't have a static address configured.
+			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+		} else {
+			args.NetworkInfo = allocatedInfo
+		}
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
+	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -341,6 +364,7 @@ var setupRoutesAndIPTables = func(
 	primaryAddr network.Address,
 	bridgeName string,
 	ifaceInfo []network.InterfaceInfo,
+	enableNAT bool,
 ) error {
 
 	if primaryNIC == "" || primaryAddr.Value == "" || bridgeName == "" || len(ifaceInfo) == 0 {
@@ -389,6 +413,11 @@ var setupRoutesAndIPTables = func(
 		}
 
 		for name, rule := range iptablesRules {
+			if !enableNAT && name == "iptablesSNAT" {
+				// Do not add the SNAT rule if we shouldn't enable
+				// NAT.
+				continue
+			}
 			if err := addRuleIfDoesNotExist(name, rule); err != nil {
 				return err
 			}
@@ -396,11 +425,15 @@ var setupRoutesAndIPTables = func(
 
 		// TODO(dooferlad): subnets should be a list of subnets in the EC2 VPC and
 		// should be empty for MAAS. See bug http://pad.lv/1443942
-		subnets := []string{data.HostIP + "/16"}
-		for _, subnet := range subnets {
-			data.SubnetCIDR = subnet
-			if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
-				return err
+		if enableNAT {
+			// Only add the following hack to allow AWS egress traffic
+			// for hosted containers to work.
+			subnets := []string{data.HostIP + "/16"}
+			for _, subnet := range subnets {
+				data.SubnetCIDR = subnet
+				if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -469,19 +502,23 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 // while the rest is kept as-is.
 const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
-// maybeAllocateStaticIP tries to allocate a static IP address for the
-// given containerId using the provisioner API. If it fails, it's not
-// critical - just a warning, and it won't cause StartInstance to
-// fail.
-func maybeAllocateStaticIP(
+// configureContainerNetworking tries to allocate a static IP address
+// for the given containerId using the provisioner API, when
+// allocateAddress is true. Otherwise it configures the container with
+// an already allocated address, when allocateAddress is false (e.g.
+// after a host reboot). If the API call fails, it's not critical -
+// just a warning, and it won't cause StartInstance to fail.
+func configureContainerNetwork(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
+	allocateAddress bool,
+	enableNAT bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
 			logger.Warningf(
-				"failed allocating a static IP for container %q: %v",
+				"failed configuring a static IP for container %q: %v",
 				containerId, err,
 			)
 		}
@@ -491,7 +528,6 @@ func maybeAllocateStaticIP(
 		// When we already have interface info, don't overwrite it.
 		return nil, nil
 	}
-	logger.Debugf("trying to allocate a static IP for container %q", containerId)
 
 	var primaryNIC string
 	var primaryAddr network.Address
@@ -500,11 +536,17 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 
-	finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	if allocateAddress {
+		logger.Debugf("trying to allocate a static IP for container %q", containerId)
+		finalIfaceInfo, err = apiFacade.PrepareContainerInterfaceInfo(names.NewMachineTag(containerId))
+	} else {
+		logger.Debugf("getting allocated static IP for container %q", containerId)
+		finalIfaceInfo, err = apiFacade.GetContainerInterfaceInfo(names.NewMachineTag(containerId))
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("PrepareContainerInterfaceInfo returned %#v", finalIfaceInfo)
+	logger.Debugf("container interface info result %#v", finalIfaceInfo)
 
 	// Populate ConfigType and DNSServers as needed.
 	var dnsServers []network.Address
@@ -527,9 +569,37 @@ func maybeAllocateStaticIP(
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
-	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
+	err = setupRoutesAndIPTables(
+		primaryNIC,
+		primaryAddr,
+		bridgeDevice,
+		finalIfaceInfo,
+		enableNAT,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return finalIfaceInfo, nil
+}
+
+// MaintainInstance checks that the container's host has the required iptables and routing
+// rules to make the container visible to both the host and other machines on the same subnet.
+func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineId := args.InstanceConfig.MachineId
+	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+	_, err := configureContainerNetwork(
+		machineId,
+		bridgeDevice,
+		broker.api,
+		args.NetworkInfo,
+		false, // don't allocate a new address.
+		broker.enableNAT,
+	)
+	return err
 }

@@ -448,7 +448,7 @@ func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storag
 		volumes = append(volumes, storage.Volume{
 			Tag:        p.Tag,
 			Size:       p.Size,
-			Serial:     "serial-" + p.Tag.Id(),
+			HardwareId: "serial-" + p.Tag.Id(),
 			VolumeId:   "id-" + p.Tag.Id(),
 			Persistent: persistent,
 		})

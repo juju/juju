@@ -164,19 +164,42 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
-// PrepareContainerInterfaceInfo returns the necessary information to
+// PrepareContainerInterfaceInfo allocates an address and returns
+// information to configure networking for a container. It accepts
+// container tags as arguments. If the address allocation feature flag
+// is not enabled, it returns a NotSupported error.
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
+}
+
+// GetContainerInterfaceInfo returns information to configure networking
+// for a container. It accepts container tags as arguments. If the address
+// allocation feature flag is not enabled, it returns a NotSupported error.
+func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
+}
+
+// prepareOrGetContainerInterfaceInfo returns the necessary information to
 // configure network interfaces of a container with allocated static
 // IP addresses.
 //
 // TODO(dimitern): Before we start using this, we need to rename both
 // the method and the network.InterfaceInfo type to be called
 // InterfaceConfig.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) prepareOrGetContainerInterfaceInfo(
+	containerTag names.MachineTag, allocateNewAddress bool) (
+	[]network.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	if err := st.facade.FacadeCall("PrepareContainerInterfaceInfo", args, &result); err != nil {
+	facadeName := ""
+	if allocateNewAddress {
+		facadeName = "PrepareContainerInterfaceInfo"
+	} else {
+		facadeName = "GetContainerInterfaceInfo"
+	}
+	if err := st.facade.FacadeCall(facadeName, args, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != 1 {

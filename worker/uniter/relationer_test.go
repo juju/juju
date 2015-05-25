@@ -85,7 +85,7 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	privateAddr := network.NewScopedAddress(
 		strings.Replace(name, "/", "-", 1)+".testing.invalid", network.ScopeCloudLocal,
 	)
-	err = machine.SetAddresses(privateAddr)
+	err = machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -412,7 +412,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.NewScopedAddress("blah", network.ScopeCloudLocal))
+	err = machine.SetProviderAddresses(network.NewScopedAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")

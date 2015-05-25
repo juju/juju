@@ -108,6 +108,7 @@ type HookContextSuite struct {
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
 	meteredApiUnit *uniter.Unit
+	meteredCharm   *state.Charm
 	apiRelunits    map[int]*uniter.RelationUnit
 }
 
@@ -122,10 +123,10 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
-	meteredCharm := s.AddTestingCharm(c, "metered")
-	meteredService := s.AddTestingService(c, "m", meteredCharm)
+	s.meteredCharm = s.AddTestingCharm(c, "metered")
+	meteredService := s.AddTestingService(c, "m", s.meteredCharm)
 	meteredUnit := s.addUnit(c, meteredService)
-	err = meteredUnit.SetCharmURL(meteredCharm.URL())
+	err = meteredUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -196,7 +197,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
-	err := s.machine.SetAddresses(privateAddr)
+	err := s.machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }

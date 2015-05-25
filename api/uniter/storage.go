@@ -22,18 +22,15 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 	return &StorageAccessor{facade}
 }
 
-// UnitStorageAttachments returns the storage instances attached to a unit.
-func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachment, error) {
+// UnitStorageAttachments returns the IDs of a unit's storage attachments.
+func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// UnitStorageAttachments() was introduced in UniterAPIV2.
 		return nil, errors.NotImplementedf("UnitStorageAttachments() (need V2+)")
 	}
 	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: unitTag.String()},
-		},
+		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
-	var results params.StorageAttachmentsResults
+	var results params.StorageAttachmentIdsResults
 	err := sa.facade.FacadeCall("UnitStorageAttachments", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,7 +42,31 @@ func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]para
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return result.Result, nil
+	return result.Result.Ids, nil
+}
+
+// DestroyUnitStorageAttachments ensures that the specified unit's storage
+// attachments will be removed at some point in the future.
+func (sa *StorageAccessor) DestroyUnitStorageAttachments(unitTag names.UnitTag) error {
+	if sa.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("DestroyUnitStorageAttachments() (need V2+)")
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	}
+	var results params.ErrorResults
+	err := sa.facade.FacadeCall("DestroyUnitStorageAttachments", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
 
 // WatchUnitStorageAttachments starts a watcher for changes to storage
@@ -75,7 +96,6 @@ func (sa *StorageAccessor) WatchUnitStorageAttachments(unitTag names.UnitTag) (w
 // unit and storage tags.
 func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// StorageAttachment() was introduced in UniterAPIV2.
 		return params.StorageAttachment{}, errors.NotImplementedf("StorageAttachment() (need V2+)")
 	}
 	args := params.StorageAttachmentIds{
@@ -99,7 +119,25 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 	return result.Result, nil
 }
 
-// WatchStorageAttachmentInfos starts a watcher for changes to the info
+// StorageAttachmentLife returns the lifecycle state of the storage attachments
+// with the specified IDs.
+func (sa *StorageAccessor) StorageAttachmentLife(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
+	if sa.facade.BestAPIVersion() < 2 {
+		return nil, errors.NotImplementedf("StorageAttachmentLife() (need V2+)")
+	}
+	args := params.StorageAttachmentIds{ids}
+	var results params.LifeResults
+	err := sa.facade.FacadeCall("StorageAttachmentLife", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(ids) {
+		panic(errors.Errorf("expected %d results, got %d", len(ids), len(results.Results)))
+	}
+	return results.Results, nil
+}
+
+// WatchStorageAttachments starts a watcher for changes to the info
 // of the storage attachment with the specified unit and storage tags.
 func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
@@ -109,7 +147,7 @@ func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, u
 			UnitTag:    unitTag.String(),
 		}},
 	}
-	err := sa.facade.FacadeCall("WatchStorageAttachmentInfos", args, &results)
+	err := sa.facade.FacadeCall("WatchStorageAttachments", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -124,22 +162,10 @@ func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, u
 	return w, nil
 }
 
-// EnsureStorageAttachmentDead ensures that the storage attachment
-// with the specified unit and storage tags is Dead.
-func (sa *StorageAccessor) EnsureStorageAttachmentDead(storageTag names.StorageTag, unitTag names.UnitTag) error {
-	return sa.ensureDeadOrRemoveStorageAttachment("EnsureStorageAttachmentsDead", storageTag, unitTag)
-}
-
 // RemoveStorageAttachment removes the storage attachment with the
 // specified unit and storage tags from state. This method is only
 // expected to succeed if the storage attachment is Dead.
 func (sa *StorageAccessor) RemoveStorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) error {
-	return sa.ensureDeadOrRemoveStorageAttachment("RemoveStorageAttachments", storageTag, unitTag)
-}
-
-func (sa *StorageAccessor) ensureDeadOrRemoveStorageAttachment(
-	method string, storageTag names.StorageTag, unitTag names.UnitTag,
-) error {
 	var results params.ErrorResults
 	args := params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -147,7 +173,7 @@ func (sa *StorageAccessor) ensureDeadOrRemoveStorageAttachment(
 			UnitTag:    unitTag.String(),
 		}},
 	}
-	err := sa.facade.FacadeCall(method, args, &results)
+	err := sa.facade.FacadeCall("RemoveStorageAttachments", args, &results)
 	if err != nil {
 		return err
 	}

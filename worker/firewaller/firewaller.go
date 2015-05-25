@@ -343,6 +343,10 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		instanceId, err := m.InstanceId()
+		if errors.IsNotProvisioned(err) {
+			logger.Warningf("Machine not yet provisioned: %v", err)
+			continue
+		}
 		if err != nil {
 			return err
 		}

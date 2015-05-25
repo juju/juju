@@ -62,7 +62,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.Address{
+	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 		Value: "private.address.example.com",
@@ -296,6 +296,9 @@ var (
 	leaderCharmHooks = []string{
 		"leader-elected", "leader-deposed", "leader-settings-changed",
 	}
+	storageCharmHooks = []string{
+		"wp-content-storage-attached", "wp-content-storage-detaching",
+	}
 )
 
 func startupHooks(minion bool) []string {
@@ -311,6 +314,7 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 
 	allCharmHooks := baseCharmHooks
 	allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
+	allCharmHooks = append(allCharmHooks, storageCharmHooks...)
 
 	for _, name := range allCharmHooks {
 		path := filepath.Join(base, "hooks", name)
@@ -1619,4 +1623,56 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 	for _, s_ := range steps {
 		step(c, ctx, s_)
 	}
+}
+
+type provisionStorage struct{}
+
+func (s provisionStorage) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+
+	filesystem, err := ctx.st.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystemInfo := state.FilesystemInfo{
+		Size:         1024,
+		FilesystemId: "fs-id",
+	}
+	err = ctx.st.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := ctx.unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{
+		MountPoint: "/srv/wordpress/content",
+	}
+	err = ctx.st.SetFilesystemAttachmentInfo(
+		names.NewMachineTag(machineId),
+		filesystem.FilesystemTag(),
+		filesystemAttachmentInfo,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type destroyStorageAttachment struct{}
+
+func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	err = ctx.st.DestroyStorageAttachment(
+		storageAttachments[0].StorageInstance(),
+		ctx.unit.UnitTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type verifyStorageDetached struct{}
+
+func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 0)
 }

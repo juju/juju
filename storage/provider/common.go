@@ -20,10 +20,11 @@ func CommonProviders() map[storage.ProviderType]storage.Provider {
 	}
 }
 
-// ValidateConfig performs common provider config validation.
+// ValidateConfig performs storage provider config validation, including
+// any common validation.
 func ValidateConfig(p storage.Provider, cfg *storage.Config) error {
 	if p.Scope() == storage.ScopeMachine && cfg.IsPersistent() {
 		return errors.Errorf("machine scoped storage provider %q does not support persistent storage", cfg.Name())
 	}
-	return nil
+	return p.ValidateConfig(cfg)
 }

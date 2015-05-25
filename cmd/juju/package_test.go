@@ -66,7 +66,7 @@ func (s *CmdBlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 	s.on(c, "remove-object", msg)
 }
 
-// BlockDestroyEnvironment switches destory block on.
+// BlockDestroyEnvironment switches destroy block on.
 // This prevents juju environment destruction.
 func (s *CmdBlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 	s.on(c, "destroy-environment", msg)

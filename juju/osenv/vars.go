@@ -16,14 +16,22 @@ const (
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
+
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
 	// needed as MAAS still needs it at this stage, and we can't fix
 	// everything at once.
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
+
 	// JujuStatusIsoTimeEnvKey is the env var which if true, will cause status
 	// timestamps to be written in RFC3339 format.
 	JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
+
+	// JujuCLIVersion is a numeric value (1, 2, 3 etc) representing
+	// the oldest CLI version which should be adhered to.
+	// This includes args and output.
+	// Default is 1.
+	JujuCLIVersion = "JUJU_CLI_VERSION"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

@@ -62,12 +62,10 @@ func windowsEnv(paths Paths) []string {
 // (os.TempDir relies on $env:TEMP), and powershell erroring out
 // TODO(fwereade, gsamfira): this is copy/pasted from utils/exec.
 // This is only used on windows, so it is safe to do in a case insensitive way.
-func mergeWindowsEnvironment(newEnv []string) []string {
-	if newEnv == nil {
-		return nil
+func mergeWindowsEnvironment(newEnv, env []string) []string {
+	if len(newEnv) == 0 {
+		return env
 	}
-
-	env := os.Environ()
 
 	// this whole rigamarole is so that we retain the case of existing
 	// environment variables, while being case insensitive about overwriting
@@ -89,7 +87,7 @@ func mergeWindowsEnvironment(newEnv []string) []string {
 		varSplit := strings.SplitN(val, "=", 2)
 		k := varSplit[0]
 		if _, ok := uppers[strings.ToUpper(k)]; ok {
-			uppers[k] = varSplit[1]
+			uppers[strings.ToUpper(k)] = varSplit[1]
 		} else {
 			news[k] = varSplit[1]
 		}

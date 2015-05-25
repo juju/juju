@@ -687,6 +687,16 @@ func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {
 	s.assertUpgrading(c, true)
 }
 
+func (s *UpgradeSuite) TestServiceUnitSeqToSequence(c *gc.C) {
+	v123 := vers("1.2.3")
+	v124 := vers("1.2.4")
+
+	s.assertUpgrading(c, false)
+	_, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v124)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpgrading(c, true)
+}
+
 func (s *UpgradeSuite) setToFinishing(c *gc.C, info *state.UpgradeInfo) {
 	err := info.SetStatus(state.UpgradeRunning)
 	c.Assert(err, jc.ErrorIsNil)

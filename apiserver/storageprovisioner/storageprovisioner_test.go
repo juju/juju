@@ -91,16 +91,16 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	})
 	// Only provision the first and third volumes.
 	err := s.State.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
-		Serial:     "123",
+		HardwareId: "123",
 		VolumeId:   "abc",
 		Size:       1024,
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
-		Serial:   "456",
-		VolumeId: "def",
-		Size:     4096,
+		HardwareId: "456",
+		VolumeId:   "def",
+		Size:       4096,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -171,7 +171,7 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
-			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", Serial: "123", Size: 1024, Persistent: true}},
+			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", HardwareId: "123", Size: 1024, Persistent: true}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -195,7 +195,7 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 		Results: []params.VolumeResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`volume "1"`))},
-			{Result: params.Volume{VolumeTag: "volume-2", VolumeId: "def", Serial: "456", Size: 4096}},
+			{Result: params.Volume{VolumeTag: "volume-2", VolumeId: "def", HardwareId: "456", Size: 4096}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -783,7 +783,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	err = machine0.SetMachineBlockDevices(state.BlockDeviceInfo{
 		DeviceName: "sda",
 		Size:       123,
-		Serial:     "123", // matches volume-0/0
+		HardwareId: "123", // matches volume-0/0
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -802,7 +802,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 			{Result: storage.BlockDevice{
 				DeviceName: "sda",
 				Size:       123,
-				Serial:     "123",
+				HardwareId: "123",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -347,6 +347,7 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 				CharmURL:           curl("cs:quantal/nyancat-4"),
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 			},
 		)
 	}
@@ -540,6 +541,7 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 				CharmURL:           curl("cs:quantal/lol-1"),
 				Started:            true,
 				CollectMetricsTime: 1234567,
+				UpdateStatusTime:   1234567,
 			},
 		)
 	}

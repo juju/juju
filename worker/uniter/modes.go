@@ -28,7 +28,7 @@ func setAgentStatus(u *Uniter, status params.Status, info string, data map[strin
 	}
 	u.lastReportedStatus = status
 	u.lastReportedMessage = info
-	logger.Debugf("[AGENT-STATUS] %s %s", status, info)
+	logger.Debugf("[AGENT-STATUS] %s: %s", status, info)
 	return u.unit.SetAgentStatus(status, info, data)
 }
 
@@ -122,6 +122,22 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return ModeHookError, nil
 		case operation.Queued:
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
+			// Ensure storage-attached hooks are run before install
+			// or upgrade hooks.
+			switch opState.Hook.Kind {
+			case hooks.UpgradeCharm:
+				// Force a refresh of all storage attachments,
+				// so we find out about new ones introduced
+				// by the charm upgrade.
+				if err := u.storage.Refresh(); err != nil {
+					return nil, errors.Trace(err)
+				}
+				fallthrough
+			case hooks.Install:
+				if err := waitStorage(u); err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
 			creator = newRunHookOp(*opState.Hook)
 		case operation.Done:
 			logger.Infof("committing %q hook", opState.Hook.Kind)
@@ -275,10 +291,19 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 				leaderElected = u.leadershipTracker.WaitLeader().Ready()
 			}
 		}
+
+		// collect-metrics hook
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
+
+		// update-status hook
+		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
+		updateStatusSignal := u.updateStatusAt(
+			time.Now(), lastUpdateStatus, statusPollInterval,
+		)
+
 		var creator creator
 		select {
 		case <-time.After(idleWaitTime):
@@ -304,6 +329,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
+		case <-updateStatusSignal:
+			creator = newSimpleRunHookOp(hooks.UpdateStatus)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
 		case hookInfo := <-u.storage.Hooks():
@@ -346,8 +373,11 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		// and leader-set hook tools from acting in a correct but misleading way
 		// (ie continuing to act as though leader after leader-deposed has run).
 	}
+	if err := u.storage.SetDying(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	for {
-		if len(u.relations.GetInfo()) == 0 {
+		if len(u.relations.GetInfo()) == 0 && u.storage.Empty() {
 			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))
 		}
 		var creator creator
@@ -362,11 +392,43 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
+			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
+}
+
+// waitStorage waits until all storage attachments are provisioned
+// and their hooks processed.
+func waitStorage(u *Uniter) error {
+	if u.storage.Pending() == 0 {
+		return nil
+	}
+	logger.Infof("waiting for storage attachments")
+	for u.storage.Pending() > 0 {
+		var creator creator
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case <-u.f.UnitDying():
+			// Unit is shutting down; no need to handle any
+			// more storage-attached hooks. We will process
+			// required storage-detaching hooks in ModeAbideDying.
+			return nil
+		case tags := <-u.f.StorageEvents():
+			creator = newUpdateStorageOp(tags)
+		case hookInfo := <-u.storage.Hooks():
+			creator = newRunHookOp(hookInfo)
+		}
+		if err := u.runOperation(creator); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	logger.Infof("storage attachments ready")
+	return nil
 }
 
 // ModeHookError is responsible for watching and responding to:
