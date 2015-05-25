@@ -24,7 +24,7 @@ options:
    specify output format (json|tabular|yaml)
 `
 
-// ListCommand attempts to release storage instance.
+// ListCommand returns storage instances.
 type ListCommand struct {
 	StorageCommandBase
 	out cmd.Output
