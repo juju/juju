@@ -276,7 +276,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
-	c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 	err1 := s.machine.EnsureDead()
 	c.Assert(err1, gc.DeepEquals, err)
@@ -345,7 +345,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
 	err = s.machine.Destroy()
-	c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
@@ -363,7 +363,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
-func (s *MachineSuite) TestDestroyWithCleanupPending(c *gc.C) {
+func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -375,10 +375,72 @@ func (s *MachineSuite) TestDestroyWithCleanupPending(c *gc.C) {
 	err = s.machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine is still advanced to Dying.
-	err = s.machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Dying)
+}
+
+func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		anotherSvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+		anotherUnit, err := anotherSvc.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = anotherUnit.AssignToMachine(s.machine)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Alive)
+}
+
+func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Machine is still advanced to Dying.
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Dying)
+}
+
+func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}, s.machine.Id(), instance.LXC)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Alive)
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {

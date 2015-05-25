@@ -545,18 +545,16 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
 			{"hasvote", bson.D{{"$ne", true}}},
 		}
-		// If the transaction was aborted, grab a fresh copy of the machine data.
+		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
 		// could perhaps be made that this is not a helpful convention in the
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
-		if attempt != 0 {
-			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
+		if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, err
 		}
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
@@ -585,31 +583,50 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		if m.doc.HasVote {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
-		// If there's only one service on the machine, and that service is dying/dead,
+		// If there are no alive units left on the machine, or all the services are dying,
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
-		if len(m.doc.Principals) == 1 && life == Dying {
-			// Get the sole unit and service on the machine.
-			u, err := m.st.Unit(m.doc.Principals[0])
-			if err != nil {
-				return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+		if life == Dying {
+			canDie := true
+			for _, principalUnit := range m.doc.Principals {
+				u, err := m.st.Unit(principalUnit)
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+				}
+				svc, err := u.Service()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+				}
+				if u.Life() == Alive && svc.Life() == Alive {
+					canDie = false
+					break
+				}
 			}
-			svc, err := u.Service()
-			if err != nil {
-				return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+			if canDie {
+				containers, err := m.Containers()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading machine %s containers", m)
+				}
+				canDie = len(containers) == 0
 			}
-			// If the service is dead/dying and there are no containers
-			// being hosted, we still allow te machine to transition to dying.
-			// The cleanup worker will destroy the machine after the unit is dead.
-			isServiceAlive := svc.Life() == Alive
-			containers, err := m.Containers()
-			if err != nil {
-				return nil, errors.Annotatef(err, "reading machine %s containers", m)
-			}
-			if !isServiceAlive && len(containers) == 0 {
-				op.Assert = advanceAsserts
-				return []txn.Op{op}, nil
+			if canDie {
+				checkUnits := bson.DocElem{
+					"$or", []bson.D{
+						{{"principals", bson.D{{"$size", len(m.doc.Principals)}}}},
+						{{"principals", bson.D{{"$exists", false}}}},
+					},
+				}
+				op.Assert = append(advanceAsserts, checkUnits)
+				containerCheck := txn.Op{
+					C:  containerRefsC,
+					Id: m.doc.DocID,
+					Assert: bson.D{{"$or", []bson.D{
+						{{"children", bson.D{{"$size", 0}}}},
+						{{"children", bson.D{{"$exists", false}}}},
+					}}},
+				}
+				return []txn.Op{op, containerCheck}, nil
 			}
 		}
 		if len(m.doc.Principals) > 0 {
