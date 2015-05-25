@@ -82,7 +82,9 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> erewhemos-2\n")
-	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
+	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
 }
 
 func (s *SwitchSimpleSuite) addTestSystem(c *gc.C) {
@@ -105,7 +107,9 @@ func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "a-system")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> a-system (system)\n")
-	c.Assert(envcmd.ReadCurrentSystem(), gc.Equals, "a-system")
+	currSystem, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currSystem, gc.Equals, "a-system")
 }
 
 func (s *SwitchSimpleSuite) TestListWithSystem(c *gc.C) {
