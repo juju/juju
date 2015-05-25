@@ -532,6 +532,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "resumer")
+	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
 	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
