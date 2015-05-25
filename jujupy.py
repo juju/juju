@@ -158,6 +158,8 @@ class EnvJujuClient:
             raise Exception('Unsupported juju: %s' % version)
         elif re.match('^1\.24[.-]', version):
             return EnvJujuClient24(env, version, full_path, debug=debug)
+        elif re.match('^1\.25[.-]', version):
+            return EnvJujuClient25(env, version, full_path, debug=debug)
         else:
             return EnvJujuClient(env, version, full_path, debug=debug)
 
@@ -473,17 +475,21 @@ class EnvJujuClient:
         return backup_file_path
 
 
-class EnvJujuClient24(EnvJujuClient):
+class EnvJujuClient25(EnvJujuClient):
 
     def _shell_environ(self, juju_home=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient24, self)._shell_environ(juju_home)
+        env = super(EnvJujuClient25, self)._shell_environ(juju_home)
         if self.env.config.get('type') == 'cloudsigma':
             env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
         return env
+
+
+class EnvJujuClient24(EnvJujuClient25):
+    """Currently, same feature set as juju 2.5"""
 
 
 def get_local_root(juju_home, env):
