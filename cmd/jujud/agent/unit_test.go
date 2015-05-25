@@ -98,7 +98,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a := NewUnitAgent(nil)
+	a := NewUnitAgent(nil, nil)
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a := NewUnitAgent(nil)
+	a := NewUnitAgent(nil, nil)
 	err := coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
@@ -119,7 +119,7 @@ func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc := NewUnitAgent(nil)
+	uc := NewUnitAgent(nil, nil)
 	err := coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
@@ -135,13 +135,13 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := coretesting.InitCommand(NewUnitAgent(nil), append(args, "--data-dir", "jc"))
+		err := coretesting.InitCommand(NewUnitAgent(nil, nil), append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	err := coretesting.InitCommand(NewUnitAgent(nil), []string{
+	err := coretesting.InitCommand(NewUnitAgent(nil, nil), []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
