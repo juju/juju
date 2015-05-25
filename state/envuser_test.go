@@ -189,7 +189,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
-	s.checkSameEnvironment(c, environments[0], env)
+	s.checkSameEnvironment(c, environments[0].Environment, env)
 }
 
 func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environment) {
@@ -215,7 +215,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
-	s.checkSameEnvironment(c, environments[0], env)
+	s.checkSameEnvironment(c, environments[0].Environment, env)
 }
 
 func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
@@ -232,9 +232,9 @@ func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, len(expected))
-	sort.Sort(UUIDOrder(environments))
+	sort.Sort(userUUIDOrder(environments))
 	for i := range expected {
-		s.checkSameEnvironment(c, environments[i], expected[i])
+		s.checkSameEnvironment(c, environments[i].Environment, expected[i])
 	}
 }
 
@@ -244,3 +244,10 @@ type UUIDOrder []*state.Environment
 func (a UUIDOrder) Len() int           { return len(a) }
 func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }
+
+// userUUIDOrder is used to sort the UserEnvironments into a stable order
+type userUUIDOrder []*state.UserEnvironment
+
+func (a userUUIDOrder) Len() int           { return len(a) }
+func (a userUUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a userUUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }

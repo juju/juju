@@ -72,8 +72,8 @@ func (c *Client) CreateEnvironment(owner string, account, config map[string]inte
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (c *Client) ListEnvironments(user string) ([]params.Environment, error) {
-	var result params.EnvironmentList
+func (c *Client) ListEnvironments(user string) ([]params.UserEnvironment, error) {
+	var result params.UserEnvironmentList
 	if !names.IsValidUser(user) {
 		return nil, fmt.Errorf("invalid user name %q", user)
 	}
@@ -82,5 +82,5 @@ func (c *Client) ListEnvironments(user string) ([]params.Environment, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return result.Environments, nil
+	return result.UserEnvironments, nil
 }

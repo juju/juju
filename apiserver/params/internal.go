@@ -116,9 +116,17 @@ type Environment struct {
 	ServerUUID string
 }
 
-// EnvironmentList holds information about a list of environments.
-type EnvironmentList struct {
-	Environments []Environment
+// UserEnvironment holds information about an environment and the last
+// time the environment was accessed for a particular user.
+type UserEnvironment struct {
+	Environment
+	LastConnection *time.Time
+}
+
+// UserEnvironmentList holds information about a list of environments
+// for a particular user.
+type UserEnvironmentList struct {
+	UserEnvironments []UserEnvironment
 }
 
 // ResolvedModeResult holds a resolved mode or an error.

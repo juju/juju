@@ -39,7 +39,7 @@ func getCurrentEnvironmentFilePath() string {
 // Read the file $JUJU_HOME/current-environment and return the value stored
 // there.  If the file doesn't exist, or there is a problem reading the file,
 // an empty string is returned.
-func ReadCurrentEnvironment() string {
+func readCurrentEnvironment() string {
 	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
 	// The file not being there, or not readable isn't really an error for us
 	// here.  We treat it as "can't tell, so you get the default".
@@ -49,18 +49,18 @@ func ReadCurrentEnvironment() string {
 	return strings.TrimSpace(string(current))
 }
 
-// GetDefaultEnvironment returns the name of the Juju default environment.
+// getDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
 // JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
 // set, look in the $JUJU_HOME/current-environment file.  If neither are
 // available, read environments.yaml and use the default environment therein.
 // If no default is specified in the environments file, an empty string is returned.
 // Not having a default environment specified is not an error.
-func GetDefaultEnvironment() (string, error) {
+func getDefaultEnvironment() (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return defaultEnv, nil
 	}
-	if currentEnv := ReadCurrentEnvironment(); currentEnv != "" {
+	if currentEnv := readCurrentEnvironment(); currentEnv != "" {
 		return currentEnv, nil
 	}
 	envs, err := environs.ReadEnvirons("")
@@ -98,34 +98,34 @@ func (c *SysCommandBase) SetEnvName(envName string) {
 	c.envName = envName
 }
 
-// NewEnvMgrAPIClient returns an API client for the EnvironmentManager on the
+// NewEnvironmentManagerAPIClient returns an API client for the EnvironmentManager on the
 // current system using the current credentials.
-func (c *SysCommandBase) NewEnvMgrAPIClient() (*environmentmanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *SysCommandBase) NewEnvironmentManagerAPIClient() (*environmentmanager.Client, error) {
+	root, err := c.newAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return environmentmanager.NewClient(root), nil
 }
 
-// NewUserMgrAPIClient returns an API client for the UserManager on the
+// NewUserManagerAPIClient returns an API client for the UserManager on the
 // current system using the current credentials.
-func (c *SysCommandBase) NewUserMgrAPIClient() (*usermanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *SysCommandBase) NewUserManagerAPIClient() (*usermanager.Client, error) {
+	root, err := c.newAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return usermanager.NewClient(root), nil
 }
 
-// NewAPIRoot returns a restricted API for the current system using the current
+// newAPIRoot returns a restricted API for the current system using the current
 // credentials.  Only the UserManager and EnvironmentManager may be accessed
 // through this API connection.
-func (c *SysCommandBase) NewAPIRoot() (*api.State, error) {
+func (c *SysCommandBase) newAPIRoot() (*api.State, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoSystemSpecified)
 	}
-	return juju.NewSystemAPIFromName(c.envName)
+	return juju.NewAPIFromName(c.envName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -137,7 +137,7 @@ func (c *SysCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	if c.envName == "" {
 		return emptyCreds, errors.Trace(ErrNoSystemSpecified)
 	}
-	info, err := ConnectionInfoForName(c.envName)
+	info, err := connectionInfoForName(c.envName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
@@ -152,9 +152,9 @@ func getConfigStore() (configstore.Storage, error) {
 	return store, nil
 }
 
-// ConnectionInfoForName reads the environment information for the named
+// connectionInfoForName reads the environment information for the named
 // environment (envName) and returns it.
-func ConnectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -188,7 +188,7 @@ func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 func (w *sysCommandWrapper) Init(args []string) error {
 	if w.envName == "" {
 		// Look for the default.
-		defaultEnv, err := GetDefaultEnvironment()
+		defaultEnv, err := getDefaultEnvironment()
 		if err != nil {
 			return err
 		}

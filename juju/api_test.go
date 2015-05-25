@@ -220,7 +220,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	// Give NewAPIFromStore a store interface that can report when the
 	// config was written to, to check if the cache is updated.
 	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -235,7 +235,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	mockStore.written = false
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -278,7 +278,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		called++
 		return expectState, nil
 	}
-	st, err := juju.NewAPIFromStore("myenv", store, apiOpen, false)
+	st, err := juju.NewAPIFromStore("myenv", store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -296,7 +296,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	expectErr := fmt.Errorf("an error")
 	store := newConfigStoreWithError(expectErr)
-	client, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen, false)
+	client, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
 	c.Assert(err, gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -308,7 +308,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 			CACert:    "certificated",
 		},
 	})
-	st, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
 	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
 	c.Assert(st, gc.IsNil)
 }
@@ -388,7 +388,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	// Give NewAPIFromStore a store interface that can report when the
 	// config was written to, to check if the cache is updated.
 	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -407,7 +407,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 		return true
 	})
 	expectState = mockedAPIState(mockedHostPort | mockedEnvironTag | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -436,7 +436,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	}
 
 	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -465,7 +465,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	}
 
 	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -483,7 +483,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 		return true
 	})
 	expectState = mockedAPIState(mockedHostPort | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen, false)
+	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -507,7 +507,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen, false)
+	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
 	// We expect to  get the isNotFound error as it is more important than the
 	// infoConnectError "an error"
 	c.Assert(err, gc.ErrorMatches, "environment \"noconfig\" not found")
@@ -543,7 +543,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen, false)
+	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -632,7 +632,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen, false)
+		st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -682,7 +682,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen, false)
+	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -708,7 +708,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
 		return mockedAPIState(noFlags), nil
 	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen, false)
+	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
 	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 }
@@ -738,7 +738,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
 		return mockedAPIState(noFlags), nil
 	}
-	st, err := juju.NewAPIFromStore(envName2, store, apiOpen, false)
+	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
 	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 
