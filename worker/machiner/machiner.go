@@ -112,6 +112,12 @@ func (mr *Machiner) Handle() error {
 	// If the machine is Dying, it has no units,
 	// and can be safely set to Dead.
 	if err := mr.machine.EnsureDead(); err != nil {
+		// The machine may have a unit assigned that is
+		// in the process of dying. So we'll wait till it's
+		// dead before removing this machine.
+		if params.IsCodeHasAssignedUnits(err) {
+			return nil
+		}
 		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)
 	}
 	return worker.ErrTerminateAgent

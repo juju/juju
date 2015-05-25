@@ -531,17 +531,20 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
-	advanceAsserts := bson.D{
-		{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
-		{"$or", []bson.D{
+	// noUnits asserts that the machine has no principal units.
+	noUnits := bson.DocElem{
+		"$or", []bson.D{
 			{{"principals", bson.D{{"$size", 0}}}},
 			{{"principals", bson.D{{"$exists", false}}}},
-		}},
-		{"hasvote", bson.D{{"$ne", true}}},
+		},
 	}
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		advanceAsserts := bson.D{
+			{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
+			{"hasvote", bson.D{{"$ne", true}}},
+		}
 		// If the transaction was aborted, grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
@@ -562,12 +565,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			if m.doc.Life != Alive {
 				return nil, jujutxn.ErrNoOperations
 			}
-			op.Assert = append(advanceAsserts, isAliveDoc...)
+			advanceAsserts = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			op.Assert = append(advanceAsserts, notDeadDoc...)
+			advanceAsserts = append(advanceAsserts, notDeadDoc...)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
@@ -586,7 +589,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
-		if len(m.doc.Principals) == 1 {
+		if len(m.doc.Principals) == 1 && life == Dying {
 			// Get the sole unit and service on the machine.
 			u, err := m.st.Unit(m.doc.Principals[0])
 			if err != nil {
@@ -597,15 +600,16 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
 			}
 			// If the service is dead/dying and there are no containers
-			// being hosted, we return a no-op. There are no transactions
-			// to run because the cleanup worker will destroy the machine.
+			// being hosted, we still allow te machine to transition to dying.
+			// The cleanup worker will destroy the machine after the unit is dead.
 			isServiceAlive := svc.Life() == Alive
 			containers, err := m.Containers()
 			if err != nil {
 				return nil, errors.Annotatef(err, "reading machine %s containers", m)
 			}
 			if !isServiceAlive && len(containers) == 0 {
-				return nil, nil
+				op.Assert = advanceAsserts
+				return []txn.Op{op}, nil
 			}
 		}
 		if len(m.doc.Principals) > 0 {
@@ -614,6 +618,8 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				UnitNames: m.doc.Principals,
 			}
 		}
+		// Add the additional asserts needed for this transaction.
+		op.Assert = append(advanceAsserts, noUnits)
 		return []txn.Op{op}, nil
 	}
 	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {

@@ -374,11 +374,11 @@ func (s *MachineSuite) TestDestroyWithCleanupPending(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	// Machine is not destroyed because cleanup worker will do it.
+	// Machine is still advanced to Dying.
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	life := s.machine.Life()
-	c.Assert(life, gc.Equals, state.Alive)
+	c.Assert(life, gc.Equals, state.Dying)
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
