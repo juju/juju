@@ -4,8 +4,13 @@
 package featuretests
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
+	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
@@ -56,4 +61,26 @@ func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
 		"dummyenv  user-dummy-admin@local  just now\n"+
 		"new-env   user-dummy-admin@local  never connected\n"+
 		"\n")
+}
+
+func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		NoEnvUser: true,
+		Password:  "super-secret",
+	})
+	apiInfo := s.APIInfo(c)
+	serverFile := system.ServerFile{
+		Addresses: apiInfo.Addrs,
+		CACert:    apiInfo.CACert,
+		Username:  user.Name(),
+		Password:  "super-secret",
+	}
+	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
+	content, err := goyaml.Marshal(serverFile)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.RunCommand(c, &system.LoginCommand{}, "--server", serverFilePath, "--new-password", "just-a-system")
+	c.Assert(err, jc.ErrorIsNil)
 }

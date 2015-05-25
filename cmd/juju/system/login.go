@@ -19,9 +19,11 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// ServerFile format
-// This will need to move when the user manager commands generate
-// this file format.  The file format is expected to be YAML.
+// ServerFile describes the information that is needed for a user
+// to connect to an api server.
+//
+// TODO(thumper): This will need to move when the user manager commands
+// generate this file format.  The file format is expected to be YAML.
 type ServerFile struct {
 	Addresses []string `yaml:"addresses"`
 	CACert    string   `yaml:"ca-cert,omitempty"`
@@ -117,11 +119,12 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("changing passwords is not supported for non-local users")
 	}
 
-	var info api.Info
-	info.Addrs = serverDetails.Addresses
-	info.CACert = serverDetails.CACert
-	info.Tag = userTag
-	info.Password = serverDetails.Password
+	info := api.Info{
+		Addrs:    serverDetails.Addresses,
+		CACert:   serverDetails.CACert,
+		Tag:      userTag,
+		Password: serverDetails.Password,
+	}
 
 	apiState, err := c.apiOpen(&info, api.DefaultDialOpts())
 	if err != nil {
@@ -222,6 +225,8 @@ func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn APIConnection, user
 	return nil
 }
 
+// APIConnection defines the calls that the Login command makes to the api
+// client. It is returned by a helper function that is overridden in tests.
 type APIConnection interface {
 	Close() error
 	Addr() string
@@ -233,6 +238,9 @@ func apiOpen(info *api.Info, opts api.DialOpts) (APIConnection, error) {
 	return api.Open(info, opts)
 }
 
+// UserManager defines the calls that the Login command makes to the user
+// manager client. It is returned by a helper function that is overridden in
+// tests.
 type UserManager interface {
 	SetPassword(username, password string) error
 }
