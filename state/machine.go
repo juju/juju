@@ -589,7 +589,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
+			var principalUnitnames []string
 			for _, principalUnit := range m.doc.Principals {
+				principalUnitnames = append(principalUnitnames, principalUnit)
 				u, err := m.st.Unit(principalUnit)
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
@@ -613,7 +615,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			if canDie {
 				checkUnits := bson.DocElem{
 					"$or", []bson.D{
-						{{"principals", bson.D{{"$size", len(m.doc.Principals)}}}},
+						// Sadly mgo doesn't support $eq so we need to hack around that.
+						{{"principals", bson.D{{"$not", bson.D{{"$ne", principalUnitnames}}}}}},
+						{{"principals", bson.D{{"$size", 0}}}},
 						{{"principals", bson.D{{"$exists", false}}}},
 					},
 				}
