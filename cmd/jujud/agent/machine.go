@@ -1009,13 +1009,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
 			})
 
-			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
-				// The action of resumer is so subtle that it is not tested,
-				// because we can't figure out how to do so without brutalising
-				// the transaction log.
-				return resumer.NewResumer(st), nil
-			})
-
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
 			})
@@ -1100,6 +1093,12 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 
 	// Start workers that use an API connection.
+	singularRunner.StartWorker("resumer", func() (worker.Worker, error) {
+		// The action of resumer is so subtle that it is not tested,
+		// because we can't figure out how to do so without
+		// brutalising the transaction log.
+		return resumer.NewResumer(apiSt.Resumer()), nil
+	})
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})

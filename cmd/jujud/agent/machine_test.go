@@ -244,6 +244,7 @@ var perEnvSingularWorkers = []string{
 	"cleaner",
 	"minunitsworker",
 	"addresserworker",
+	"resumer",
 	"environ-provisioner",
 	"charm-revision-updater",
 	"firewaller",
@@ -530,7 +531,6 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
-	r0.waitForWorker(c, "resumer")
 	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
@@ -694,21 +694,24 @@ func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
-	// Wait for the resumer to be started. This is started just after
+	// Wait for the txnpruner to be started. This is started just after
 	// dblogpruner would be started.
 	runner := s.singularRecord.nextRunner(c)
-	started := set.NewStrings(runner.waitForWorker(c, "resumer")...)
+	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
 	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
 }
 
-func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
+func (s *MachineSuite) TestManageEnvironDoesNotRunResumertRunDbLogPrunerByDefault(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
+	// Wait for the txnpruner to be started. This is started just after
+	// dblogpruner would be started.
 	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "statushistorypruner")
+	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
+	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
