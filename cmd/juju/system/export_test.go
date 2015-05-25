@@ -25,8 +25,9 @@ func NewEnvironmentsCommand(api EnvironmentManagerAPI, userCreds *configstore.AP
 
 // NewLoginCommand returns a LoginCommand with the function used to open
 // the API connection mocked out.
-func NewLoginCommand(apiOpen APIOpenFunc) *LoginCommand {
+func NewLoginCommand(apiOpen APIOpenFunc, getUserManager GetUserManagerFunc) *LoginCommand {
 	return &LoginCommand{
-		apiOpen: apiOpen,
+		apiOpen:        apiOpen,
+		getUserManager: getUserManager,
 	}
 }

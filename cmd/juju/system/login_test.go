@@ -47,12 +47,16 @@ func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (system.APIConne
 	return s.apiConnection, nil
 }
 
+func (s *LoginSuite) getUserManager(conn system.APIConnection) (system.UserManager, error) {
+	return s.apiConnection, nil
+}
+
 func (s *LoginSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewLoginCommand(s.apiOpen)
+	command := system.NewLoginCommand(s.apiOpen, s.getUserManager)
 	return testing.RunCommand(c, command, args...)
 }
 
-func (s *LoginSuite) runServerFile(c *gc.C) (*cmd.Context, error) {
+func (s *LoginSuite) runServerFile(c *gc.C, args ...string) (*cmd.Context, error) {
 	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
 	content := `
 addresses: ["192.168.2.1:1234", "192.168.2.2:1234"]
@@ -62,11 +66,13 @@ password: sekrit
 `
 	err := ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	return s.run(c, "foo", "--server", serverFilePath)
+	allArgs := []string{"foo", "--server", serverFilePath}
+	allArgs = append(allArgs, args...)
+	return s.run(c, allArgs...)
 }
 
 func (s *LoginSuite) TestInit(c *gc.C) {
-	loginCommand := system.NewLoginCommand(nil)
+	loginCommand := system.NewLoginCommand(nil, nil)
 
 	err := testing.InitCommand(loginCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "no name specified")
@@ -161,6 +167,8 @@ type mockAPIConnection struct {
 	addr         string
 	apiHostPorts [][]network.HostPort
 	serverTag    names.EnvironTag
+	username     string
+	password     string
 }
 
 var _ system.APIConnection = (*mockAPIConnection)(nil)
@@ -182,4 +190,10 @@ func (m *mockAPIConnection) ServerTag() (names.EnvironTag, error) {
 		return m.serverTag, errors.New("no server tag")
 	}
 	return m.serverTag, nil
+}
+
+func (m *mockAPIConnection) SetPassword(username, password string) error {
+	m.username = username
+	m.password = password
+	return nil
 }
