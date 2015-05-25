@@ -17,6 +17,7 @@ const (
 	logDir
 	dataDir
 	jujuRun
+	certDir
 )
 
 var nixVals = map[osVarType]string{
@@ -24,6 +25,7 @@ var nixVals = map[osVarType]string{
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
 	jujuRun: "/usr/bin/juju-run",
+	certDir: "/etc/juju/certs.d",
 }
 
 var winVals = map[osVarType]string{
@@ -31,6 +33,7 @@ var winVals = map[osVarType]string{
 	logDir:  "C:/Juju/log",
 	dataDir: "C:/Juju/lib/juju",
 	jujuRun: "C:/Juju/bin/juju-run.exe",
+	certDir: "C:/Juju/certs",
 }
 
 // osVal will lookup the value of the key valname
@@ -66,6 +69,13 @@ func LogDir(series string) (string, error) {
 // DataDir returns a filesystem path to the folder used by juju to
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
+	return osVal(series, dataDir)
+}
+
+// CertDir returns a filesystem path to the folder used by juju to
+// store certificates that are added by default to the Juju client
+// api certificate pool.
+func CertDir(series string) (string, error) {
 	return osVal(series, dataDir)
 }
 

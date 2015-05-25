@@ -19,7 +19,6 @@ import (
 	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -217,12 +216,10 @@ func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*w
 		return nil, errors.New(`path tail must start with "/"`)
 	}
 
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(info.CACert)
+	pool, err := CreateCertPool(info.CACert)
 	if err != nil {
 		return nil, errors.Annotate(err, "cert pool creation failed")
 	}
-	pool.AddCert(xcert)
 
 	// If they exist, only use localhost addresses.
 	var addrs []string
