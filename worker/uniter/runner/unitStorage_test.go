@@ -60,6 +60,9 @@ func (s *unitStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.unit.SetCharmURL(ch.URL())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {

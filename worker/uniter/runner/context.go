@@ -548,6 +548,18 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		}
 	}
 
+	// add storage to unit dynamically
+	if len(ctx.storageAddConstraints) > 0 {
+		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot add storage")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
+
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
@@ -603,22 +615,6 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
-
-	fmt.Printf("Got 1")
-	// add storage to unit dynamically
-	if len(ctx.storageAddConstraints) > 0 {
-		fmt.Printf("Got 2")
-		e := ctx.unit.AddStorage(ctx.storageAddConstraints)
-		if e != nil {
-			fmt.Printf("Got err")
-			e = errors.Annotatef(err, "cannot add storage")
-			logger.Errorf("%v", e)
-			if ctxErr == nil {
-				ctxErr = e
-			}
-		}
-	}
-	fmt.Printf("Got 3")
 
 	return ctxErr
 }

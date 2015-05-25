@@ -245,8 +245,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = runner.NewContextRelation(relUnit, cache)
 	}
 
+	env, _ := s.State.Environment()
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
+		env.Name(), relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
