@@ -25,6 +25,7 @@ type LoginSuite struct {
 	apiConnection *mockAPIConnection
 	openError     error
 	store         configstore.Storage
+	username      string
 }
 
 var _ = gc.Suite(&LoginSuite{})
@@ -36,7 +37,11 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 		return s.store, nil
 	})
 	s.openError = nil
-	s.apiConnection = &mockAPIConnection{}
+	s.apiConnection = &mockAPIConnection{
+		serverTag: testing.EnvironmentTag,
+		addr:      "192.168.2.1:1234",
+	}
+	s.username = "valid-user"
 }
 
 func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (system.APIConnection, error) {
@@ -61,7 +66,7 @@ func (s *LoginSuite) runServerFile(c *gc.C, args ...string) (*cmd.Context, error
 	content := `
 addresses: ["192.168.2.1:1234", "192.168.2.2:1234"]
 ca-cert: a-cert
-username: valid-user@local
+username: ` + s.username + `
 password: sekrit
 `
 	err := ioutil.WriteFile(serverFilePath, []byte(content), 0644)
@@ -124,20 +129,19 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 }
 
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
+	s.apiConnection.serverTag = names.EnvironTag{}
 	_, err := s.runServerFile(c)
 	c.Assert(err, gc.ErrorMatches, `juju system too old to support login`)
 }
 
 func (s *LoginSuite) TestWritesConfig(c *gc.C) {
-	s.apiConnection.serverTag = testing.EnvironmentTag
-	s.apiConnection.addr = "192.168.2.1:1234"
 	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := s.store.ReadInfo("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	creds := info.APICredentials()
-	c.Assert(creds.User, gc.Equals, "valid-user@local")
+	c.Assert(creds.User, gc.Equals, "valid-user")
 	c.Assert(creds.Password, gc.Equals, "sekrit")
 	endpoint := info.APIEndpoint()
 	c.Assert(endpoint.CACert, gc.Equals, "a-cert")
@@ -147,9 +151,30 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, []string{"192.168.2.1:1234"})
 }
 
+func (s *LoginSuite) TestNewPassword(c *gc.C) {
+	ctx, err := s.runServerFile(c, "--new-password")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.apiConnection.username, gc.Equals, "valid-user")
+	c.Assert(s.apiConnection.password, gc.Not(gc.Equals), "sekrit")
+
+	info, err := s.store.ReadInfo("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	creds := info.APICredentials()
+	c.Assert(creds.User, gc.Equals, "valid-user")
+	c.Assert(creds.Password, gc.Not(gc.Equals), "sekrit")
+
+	c.Assert(testing.Stderr(ctx), gc.Equals, "password updated\n")
+}
+
+func (s *LoginSuite) TestNewPasswordNonLocalFails(c *gc.C) {
+	s.username = "user@remote"
+	_, err := s.runServerFile(c, "--new-password")
+	c.Assert(err, gc.ErrorMatches, "changing passwords is not supported for non-local users")
+}
+
 func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
-	s.apiConnection.serverTag = testing.EnvironmentTag
-	s.apiConnection.addr = "192.168.2.1:1234"
+	s.username = "valid-user@local"
 	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
 
