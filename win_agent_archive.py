@@ -13,7 +13,8 @@ import traceback
 # The S3 container and path to add to and get from.
 S3_CONTAINER = 's3://juju-qa-data/win-agents'
 # The set of agents to make.
-WIN_AGENT_TEMPLATES = (
+AGENT_TEMPLATES = (
+    'juju-{}-centos7-amd64.tgz',
     'juju-{}-win2012hvr2-amd64.tgz',
     'juju-{}-win2012hv-amd64.tgz',
     'juju-{}-win2012r2-amd64.tgz',
@@ -25,7 +26,8 @@ WIN_AGENT_TEMPLATES = (
 # The versions of agent that may or will exist. The agents will
 # always start with juju, the series will start with "win" and the
 # arch is always amd64.
-AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
+AGENT_VERSION_PATTERN = re.compile('juju-(.+)-(win|centos)[^-]+-amd64.tgz')
+AGENT_OS_PATTERN = re.compile('juju-.+-(win|centos)[^-]+-amd64.tgz')
 
 
 def run(args, config=None, verbose=False, dry_run=False):
@@ -50,6 +52,12 @@ def get_source_agent_version(source_agent):
     if match:
         return match.group(1)
     return None
+
+def get_source_agent_os(source_agent):
+    match = AGENT_OS_PATTERN.match(source_agent)
+    if match:
+        return match.group(1)
+    raise ValueError('The unknown OS version: %s' % source_agent)
 
 
 def get_input(prompt):
@@ -82,7 +90,7 @@ def add_agents(args):
     version = get_source_agent_version(source_agent)
     if version is None:
         raise ValueError('%s does not look like a agent.' % source_agent)
-    agent_versions = [t.format(version) for t in WIN_AGENT_TEMPLATES]
+    agent_versions = [t.format(version) for t in AGENT_TEMPLATES]
     if source_agent not in agent_versions:
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
@@ -105,6 +113,8 @@ def add_agents(args):
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
+    os_name = get_source_agent_os(source_agent)
+    agent_versions = [a for a in agent_versions if os_name in a]
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
         if args.verbose:
