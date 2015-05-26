@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -14,21 +16,26 @@ import (
 )
 
 type leaseEntity struct {
-	LastUpdate time.Time
-	lease.Token
+	LastUpdate  time.Time `bson:"lastupdate"`
+	lease.Token `bson:"token"`
+	TxnRevno    int64 `bson:"txn-revno"`
 }
 
 // NewLeasePersistor returns a new LeasePersistor. It should be passed
 // functions it can use to run transactions and get collections.
 func NewLeasePersistor(
 	collectionName string,
-	runTransaction func([]txn.Op) error,
+	runTransaction func(jujutxn.TransactionSource) error,
 	getCollection func(string) (_ stateCollection, closer func()),
 ) *LeasePersistor {
+	getLeaseCollection := func(name string) (_ leaseCollection, closer func()) {
+		sc, closer := getCollection(name)
+		return &genericLeaseCollection{sc}, closer
+	}
 	return &LeasePersistor{
 		collectionName: collectionName,
 		runTransaction: runTransaction,
-		getCollection:  getCollection,
+		getCollection:  getLeaseCollection,
 	}
 }
 
@@ -36,35 +43,66 @@ func NewLeasePersistor(
 // data store.
 type LeasePersistor struct {
 	collectionName string
-	runTransaction func([]txn.Op) error
-	getCollection  func(string) (_ stateCollection, closer func())
+	runTransaction func(jujutxn.TransactionSource) error
+	getCollection  func(string) (_ leaseCollection, closer func())
+}
+
+// leaseCollection provides bespoke lease methods on top of a standard
+// state collection.
+type leaseCollection interface {
+	stateCollection
+
+	// FindById finds the lease with the specified id.
+	FindById(id string) (*leaseEntity, error)
+}
+
+type genericLeaseCollection struct {
+	stateCollection
+}
+
+// FindById finds the lease with the specified id.
+func (lf *genericLeaseCollection) FindById(id string) (*leaseEntity, error) {
+	var lease leaseEntity
+	if err := lf.FindId(id).One(&lease); err != nil {
+		return nil, err
+	}
+	return &lease, nil
 }
 
 // WriteToken writes the given token to the data store with the given
 // ID.
 func (p *LeasePersistor) WriteToken(id string, tok lease.Token) error {
 
-	entity := leaseEntity{time.Now(), tok}
+	collection, closer := p.getCollection(p.collectionName)
+	defer closer()
 
-	// Write's should always overwrite anything that's there. The
+	// Writes should always overwrite anything that's there. The
 	// business-logic of managing leases is handled elsewhere.
-	ops := []txn.Op{
-		// First remove anything that's there.
-		{
-			C:      p.collectionName,
-			Id:     id,
-			Remove: true,
-		},
-		// Then insert the token.
-		{
-			Assert: txn.DocMissing,
-			C:      p.collectionName,
-			Id:     id,
-			Insert: entity,
-		},
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		existing, err := collection.FindById(id)
+		if err == mgo.ErrNotFound {
+			entity := leaseEntity{LastUpdate: time.Now(), Token: tok}
+			return []txn.Op{
+				{
+					C:      p.collectionName,
+					Id:     id,
+					Assert: txn.DocMissing,
+					Insert: entity,
+				},
+			}, nil
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "reading existing lease for token %v", tok)
+		}
+		return []txn.Op{
+			{
+				C:      p.collectionName,
+				Id:     id,
+				Assert: bson.D{{"txn-revno", existing.TxnRevno}},
+				Update: bson.M{"$set": bson.M{"lastupdate": time.Now(), "token": tok}},
+			},
+		}, nil
 	}
-
-	if err := p.runTransaction(ops); err != nil {
+	if err := p.runTransaction(buildTxn); err != nil {
 		return errors.Annotatef(err, `could not add token "%s" to data-store`, tok.Id)
 	}
 
@@ -75,8 +113,20 @@ func (p *LeasePersistor) WriteToken(id string, tok lease.Token) error {
 // store.
 func (p *LeasePersistor) RemoveToken(id string) error {
 
-	ops := []txn.Op{{C: p.collectionName, Id: id, Remove: true}}
-	if err := p.runTransaction(ops); err != nil {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt == 0 {
+			return []txn.Op{
+				{
+					C:      p.collectionName,
+					Id:     id,
+					Assert: txn.DocExists,
+					Remove: true,
+				},
+			}, nil
+		}
+		return nil, jujutxn.ErrNoOperations
+	}
+	if err := p.runTransaction(buildTxn); err != nil {
 		return errors.Annotatef(err, `could not remove token "%s"`, id)
 	}
 
