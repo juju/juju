@@ -280,8 +280,8 @@ func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints
 			map[string]params.StorageConstraints,
 			len(cons))
 	}
-	for k, v := range cons {
-		ctx.storageAddConstraints[k] = v
+	for storage, constraints := range cons {
+		ctx.storageAddConstraints[storage] = constraints
 	}
 }
 
