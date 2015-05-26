@@ -146,7 +146,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	context, err := s.run(c, "other")
+	_, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
 	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
@@ -158,7 +158,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
 	filename := filepath.Join(c.MkDir(), "test.result")
-	context, err := s.run(c, "other", "-o", filename)
+	_, err := s.run(c, "other", "-o", filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
 	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")

@@ -117,7 +117,7 @@ func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
 
 func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {
 	s.mockAPI.failMessage = "failed to create user, chaos ensues"
-	context, err := s.run(c, "foobar")
+	_, err := s.run(c, "foobar")
 	c.Assert(err, gc.ErrorMatches, "failed to create user, chaos ensues")
 }
 

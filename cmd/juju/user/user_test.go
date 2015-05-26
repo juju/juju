@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	"github.com/juju/juju/cmd/envcmd"
 	"os"
 
 	jc "github.com/juju/testing/checkers"
@@ -40,11 +41,11 @@ func (s *UserCommandSuite) TestHelp(c *gc.C) {
 }
 
 type BaseSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
@@ -67,4 +68,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.ReadPassword, func() (string, error) {
 		return "sekrit", nil
 	})
+	err = envcmd.WriteCurrentSystem("testing")
+	c.Assert(err, jc.ErrorIsNil)
 }
