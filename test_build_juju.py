@@ -61,7 +61,8 @@ class JujuBuildTestCase(TestCase):
             {'dry_run': True, 'verbose': True}, rc_mock.call_args[1])
         globs = [
             'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz',
-            'juju-*-osx.tar.gz']
+            'juju-*-osx.tar.gz', 'juju-*-centos7-amd64.tgz',
+            'juju-*-centos7.tar.gz']
         self.assertEqual((work_dir, globs), aa_mock.call_args[0])
         self.assertEqual(
             {'dry_run': True, 'verbose': True}, aa_mock.call_args[1])
