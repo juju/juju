@@ -83,4 +83,10 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 
 	_, err = testing.RunCommand(c, &system.LoginCommand{}, "--server", serverFilePath, "--new-password", "just-a-system")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure that the saved server details are sufficient to connect
+	// to the api server.
+	api, err := juju.NewAPIFromName("just-a-system")
+	c.Assert(err, jc.ErrorIsNil)
+	api.Close()
 }

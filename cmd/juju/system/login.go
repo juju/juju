@@ -54,7 +54,35 @@ type LoginCommand struct {
 	NewPassword bool
 }
 
-var loginDoc = `TODO: add more documentation...`
+var loginDoc = `
+login connects to a juju system and caches the information that juju
+needs to connect to the api server in the $(JUJU_HOME)/environments directory.
+
+In order to login to a system, you need to have a user already created for you
+in that system. The way that this occurs is for an existing user on the system
+to create you as a user. This will generate a file that contains the
+information needed to connect.
+
+If you have been sent one of these server files, you can login by doing the
+following:
+
+    # if you have saved the server file as ~/erica.server
+    juju system login --server=~/erica.server test-system --new-password
+
+By specifying '--new-password' a new strong random password is generated
+to replace the password defined in the server file. The 'test-system' will
+also become the current system that the juju command will talk to by default.
+
+If you have used the 'api-info' command to generate a copy of your current
+credentials for a system, you should not use the --new-password option as it
+will mean that the source of the information will not be able to connect to
+the api server any more.
+
+See Also:
+    juju user help add
+    juju help api-info
+    juju help switch
+`
 
 // Info implements Command.Info
 func (c *LoginCommand) Info() *cmd.Info {
@@ -150,11 +178,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if err := envcmd.WriteCurrentSystem(c.Name); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return errors.Trace(envcmd.WriteCurrentSystem(c.Name))
 }
 
 func (c *LoginCommand) cacheConnectionInfo(serverDetails ServerFile, apiState APIConnection) (configstore.EnvironInfo, error) {
