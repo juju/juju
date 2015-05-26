@@ -164,7 +164,7 @@ func (s *leaseSuite) TestClaimLeaseError(c *gc.C) {
 	mgr := Manager()
 
 	_, err := mgr.ClaimLease(testNamespace, "error", testDuration)
-	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, LeaseManagerErr)
 }
 
 func (s *leaseSuite) TestClaimLeaseRaces(c *gc.C) {
@@ -240,7 +240,7 @@ func (s *leaseSuite) TestReleaseLeaseError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mgr.ReleaseLease(testNamespace, testId)
-	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, LeaseManagerErr)
 }
 
 func (s *leaseSuite) TestReleaseLeaseNotOwned(c *gc.C) {

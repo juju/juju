@@ -15,10 +15,14 @@ import (
 	"github.com/juju/juju/lease"
 )
 
+// leaseEntity represents a lease in mongo.
 type leaseEntity struct {
 	LastUpdate  time.Time `bson:"lastupdate"`
 	lease.Token `bson:"token"`
-	TxnRevno    int64 `bson:"txn-revno"`
+
+	// TxnRevNo is used to ensure no other client has
+	// updated the same lease while a write is being done.
+	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // NewLeasePersistor returns a new LeasePersistor. It should be passed
@@ -76,9 +80,13 @@ func (p *LeasePersistor) WriteToken(id string, tok lease.Token) error {
 	collection, closer := p.getCollection(p.collectionName)
 	defer closer()
 
-	// Writes should always overwrite anything that's there. The
-	// business-logic of managing leases is handled elsewhere.
+	// TODO(wallyworld) - this logic is a stop-gap until a proper refactoring is done
+	// We'll be especially paranoid here - to avoid potentially overwriting lease info
+	// from another client, if the txn fails to apply, we'll abort instead of retrying.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			return nil, errors.New("simultaneous lease updates occurred")
+		}
 		existing, err := collection.FindById(id)
 		if err == mgo.ErrNotFound {
 			entity := leaseEntity{LastUpdate: time.Now(), Token: tok}

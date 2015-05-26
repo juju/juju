@@ -24,7 +24,11 @@ var (
 	singleton           *leaseManager
 	LeaseClaimDeniedErr = errors.New("lease claim denied")
 	NotLeaseOwnerErr    = errors.Unauthorizedf("caller did not own lease for namespace")
-	logger              = loggo.GetLogger("juju.lease")
+
+	// TODO(Wallyworld) - a stop-gap error until we refactor using a tomb.
+	LeaseManagerErr = errors.New("lease manager restarted due to error")
+
+	logger = loggo.GetLogger("juju.lease")
 )
 
 func init() {
@@ -197,7 +201,7 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 			lease := claimLease(leaseCache, claim.Token)
 			if lease.Id == claim.Token.Id {
 				if err := m.leasePersistor.WriteToken(lease.Namespace, lease); err != nil {
-					claim.Response <- claimLeaseResponse{err: err}
+					claim.Response <- claimLeaseResponse{err: LeaseManagerErr}
 					return err
 				}
 				if lease.Expiration.Before(nextExpiration) {
@@ -211,7 +215,7 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 			if err == nil {
 				namespace := release.Token.Namespace
 				if err := m.leasePersistor.RemoveToken(namespace); err != nil {
-					release.Response <- err
+					release.Response <- LeaseManagerErr
 					return err
 				}
 				notifyOfRelease(releaseSubs[namespace], namespace)

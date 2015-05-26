@@ -110,6 +110,28 @@ func (s *leaseSuite) TestWriteTokenReplaceExisting(c *gc.C) {
 	c.Assert(closerCallCount, gc.Equals, 1)
 }
 
+func (s *leaseSuite) TestWriteTokenConflict(c *gc.C) {
+
+	tok := lease.Token{testNamespace, testId, time.Now().Add(testDuration)}
+
+	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
+		// Any attempt to build txns with attempt>1 is rejected.
+		_, err := txns(1)
+		c.Assert(err, gc.NotNil)
+		return err
+	}
+
+	closerCallCount := 0
+	stubGetCollection := func(collectionName string) (leaseCollection, func()) {
+		c.Check(collectionName, gc.Equals, testCollectionName)
+		return &stubLeaseCollection{&genericStateCollection{}, nil}, func() { closerCallCount++ }
+	}
+	persistor := LeasePersistor{testCollectionName, stubRunTransaction, stubGetCollection}
+	err := persistor.WriteToken(testId, tok)
+	c.Assert(err, gc.NotNil)
+	c.Assert(closerCallCount, gc.Equals, 1)
+}
+
 func (s *leaseSuite) TestRemoveToken(c *gc.C) {
 
 	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
