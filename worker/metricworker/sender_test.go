@@ -4,6 +4,7 @@
 package metricworker_test
 
 import (
+	"sync"
 	"time"
 
 	gc "gopkg.in/check.v1"
@@ -43,13 +44,18 @@ func (s *SenderSuite) TestSender(c *gc.C) {
 
 type mockClient struct {
 	calls []string
+	lock  sync.RWMutex
 }
 
 func (m *mockClient) CleanupOldMetrics() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.calls = append(m.calls, "CleanupOldMetrics")
 	return nil
 }
 func (m *mockClient) SendMetrics() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.calls = append(m.calls, "SendMetrics")
 	return nil
 }
