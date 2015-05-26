@@ -70,7 +70,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons params.StorageConstraints) {
+func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...params.StorageConstraints) {
 	before, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(before, gc.HasLen, 1)
@@ -79,7 +79,9 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons params.StorageCo
 	ctx := s.getHookContext(c, s.State.EnvironUUID(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 
-	ctx.AddUnitStorage(map[string]params.StorageConstraints{"allecto": cons})
+	for _, one := range cons {
+		ctx.AddUnitStorage(map[string]params.StorageConstraints{"allecto": one})
+	}
 
 	// Flush the context with a success.
 	err = ctx.FlushContext("success", nil)
@@ -103,4 +105,11 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	size := uint64(1)
 	s.assertUnitStorageAdded(c, params.StorageConstraints{Size: &size})
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
+	n := uint64(1)
+	s.assertUnitStorageAdded(c,
+		params.StorageConstraints{Size: &n},
+		params.StorageConstraints{Count: &n})
 }

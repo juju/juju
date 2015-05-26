@@ -270,7 +270,19 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, boo
 }
 
 func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
-	ctx.storageAddConstraints = cons
+	// Storage constraints are accumulative before context is flushed.
+	// TODO (anastasiamac 2015-05-26):
+	//     what happens if more than one call is made about the same store?
+	//     with this implementation, the latest call arrived will be taken
+	//     into consideration.
+	if ctx.storageAddConstraints == nil {
+		ctx.storageAddConstraints = make(
+			map[string]params.StorageConstraints,
+			len(cons))
+	}
+	for k, v := range cons {
+		ctx.storageAddConstraints[k] = v
+	}
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
