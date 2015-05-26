@@ -6,6 +6,7 @@ from win_agent_archive import (
     add_agents,
     delete_agents,
     get_agents,
+    get_source_agent_os,
     get_source_agent_version,
     listing_to_files,
     main,
@@ -93,6 +94,16 @@ class WinAgentArchive(TestCase):
             None,
             get_source_agent_version('1.21.0-win2012-amd64.tgz'))
 
+    def test_get_source_agent_os(self):
+        self.assertEqual(
+            'win',
+            get_source_agent_os('juju-1.21.0-win2012-amd64.tgz'))
+        self.assertEqual(
+            'centos',
+            get_source_agent_os('juju-1.24-centos7-amd64.tgz'))
+        with self.assertRaises(ValueError):
+            get_source_agent_os('juju-1.24.footu-amd64.tgz')
+
     def test_listing_to_files(self):
         start = '2014-10-23 22:11   9820182   s3://juju-qa-data/win-agents/%s'
         listing = []
@@ -136,7 +147,7 @@ class WinAgentArchive(TestCase):
             args)
         self.assertIs(None, kwargs['config'])
 
-    def test_add_agent_puts_and_copies(self):
+    def test_add_agent_puts_and_copies_win(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
         with patch('win_agent_archive.run', return_value='') as mock:
             add_agents(cmd_args)
@@ -164,6 +175,22 @@ class WinAgentArchive(TestCase):
             (['cp',
              's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz',
              's3://juju-qa-data/win-agents/juju-1.21.0-win81-amd64.tgz'], ),
+            args)
+
+    def test_add_agent_puts_centos(self):
+        cmd_args = FakeArgs(source_agent='juju-1.24.0-centos7-amd64.tgz')
+        with patch('win_agent_archive.run', return_value='') as mock:
+            add_agents(cmd_args)
+        self.assertEqual(2, mock.call_count)
+        output, args, kwargs = mock.mock_calls[0]
+        self.assertEqual(
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.24.0*'], ),
+            args)
+        output, args, kwargs = mock.mock_calls[1]
+        agent_path = os.path.abspath(cmd_args.source_agent)
+        self.assertEqual(
+            (['put', agent_path,
+              's3://juju-qa-data/win-agents/juju-1.24.0-centos7-amd64.tgz'], ),
             args)
 
     def test_get_agent(self):
