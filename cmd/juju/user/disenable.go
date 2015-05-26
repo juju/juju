@@ -88,7 +88,7 @@ type DisenableUserAPI interface {
 }
 
 func (c *DisenableUserBase) getDisableUserAPI() (DisenableUserAPI, error) {
-	return c.NewUserManagerClient()
+	return c.NewUserManagerAPIClient()
 }
 
 var getDisableUserAPI = (*DisenableUserBase).getDisableUserAPI

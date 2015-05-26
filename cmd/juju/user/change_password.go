@@ -4,8 +4,6 @@
 package user
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -25,15 +23,16 @@ Examples:
   # Change the password to a random strong password.
   juju user change-password --generate
 
-  # Change the password for bob
-  juju user change-password bob --generate
+  # Change the password for bob, this always uses a random password
+  juju user change-password bob
 
 `
 
 // ChangePasswordCommand changes the password for a user.
 type ChangePasswordCommand struct {
 	UserCommandBase
-	Password string
+	api      ChangePasswordAPI
+	writer   EnvironInfoCredsWriter
 	Generate bool
 	OutPath  string
 	User     string
@@ -63,6 +62,12 @@ func (c *ChangePasswordCommand) Init(args []string) error {
 	if c.User == "" && c.OutPath != "" {
 		return errors.New("output is only a valid option when changing another user's password")
 	}
+	if c.User != "" {
+		c.Generate = true
+		if c.OutPath == "" {
+			c.OutPath = c.User + ".server"
+		}
+	}
 	return err
 }
 
@@ -77,97 +82,68 @@ type ChangePasswordAPI interface {
 // are used to change the password.
 type EnvironInfoCredsWriter interface {
 	Write() error
+	APICredentials() configstore.APICredentials
 	SetAPICredentials(creds configstore.APICredentials)
-	Location() string
 }
-
-func (c *ChangePasswordCommand) getChangePasswordAPI() (ChangePasswordAPI, error) {
-	return c.NewUserManagerClient()
-}
-
-func (c *ChangePasswordCommand) getEnvironInfoWriter() (EnvironInfoCredsWriter, error) {
-	return c.ConnectionWriter()
-}
-
-func (c *ChangePasswordCommand) getConnectionCredentials() (configstore.APICredentials, error) {
-	return c.ConnectionCredentials()
-}
-
-var (
-	getChangePasswordAPI     = (*ChangePasswordCommand).getChangePasswordAPI
-	getEnvironInfoWriter     = (*ChangePasswordCommand).getEnvironInfoWriter
-	getConnectionCredentials = (*ChangePasswordCommand).getConnectionCredentials
-)
 
 // Run implements Command.Run.
 func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
-	var err error
+	if c.api == nil {
+		api, err := c.NewUserManagerAPIClient()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.api = api
+	}
+	defer c.api.Close()
 
-	c.Password, err = c.generateOrReadPassword(ctx, c.Generate)
+	password, err := c.generateOrReadPassword(ctx, c.Generate)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var credsWriter EnvironInfoCredsWriter
+	var writer EnvironInfoCredsWriter
+
 	var creds configstore.APICredentials
 
 	if c.User == "" {
 		// We get the creds writer before changing the password just to
 		// minimise the things that could go wrong after changing the password
 		// in the server.
-		credsWriter, err = getEnvironInfoWriter(c)
-		if err != nil {
-			return errors.Trace(err)
+		if c.writer == nil {
+			writer, err = c.ConnectionInfo()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			writer = c.writer
 		}
 
-		creds, err = getConnectionCredentials(c)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		creds = writer.APICredentials()
 	} else {
 		creds.User = c.User
 	}
 
-	client, err := getChangePasswordAPI(c)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
 	oldPassword := creds.Password
-	creds.Password = c.Password
-	err = client.SetPassword(creds.User, c.Password)
-	if err != nil {
+	creds.Password = password
+	if err = c.api.SetPassword(creds.User, password); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	if c.User != "" {
-		return c.writeEnvironmentFile(ctx)
+		return writeServerFile(c, ctx, c.User, password, c.OutPath)
 	}
 
-	credsWriter.SetAPICredentials(creds)
-	if err := credsWriter.Write(); err != nil {
-		logger.Errorf("updating the environments file failed, reverting to original password")
-		setErr := client.SetPassword(creds.User, oldPassword)
+	writer.SetAPICredentials(creds)
+	if err := writer.Write(); err != nil {
+		logger.Errorf("updating the cached credentials failed, reverting to original password")
+		setErr := c.api.SetPassword(creds.User, oldPassword)
 		if setErr != nil {
-			logger.Errorf("failed to set password back, you will need to edit your environments file by hand to specify the password: %q", c.Password)
+			logger.Errorf("failed to set password back, you will need to edit your environments file by hand to specify the password: %q", password)
 			return errors.Annotate(setErr, "failed to set password back")
 		}
 		return errors.Annotate(err, "failed to write new password to environments file")
 	}
 	ctx.Infof("Your password has been updated.")
-	return nil
-}
-
-func (c *ChangePasswordCommand) writeEnvironmentFile(ctx *cmd.Context) error {
-	outPath := c.OutPath
-	if outPath == "" {
-		outPath = c.User + ".jenv"
-	}
-	outPath = normaliseJenvPath(ctx, outPath)
-	if err := generateUserJenv(c.ConnectionName(), c.User, c.Password, outPath); err != nil {
-		return err
-	}
-	fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
 	return nil
 }

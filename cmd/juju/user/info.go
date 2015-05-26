@@ -107,7 +107,7 @@ func (c *InfoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewUserManagerClient()
+	return c.NewUserManagerAPIClient()
 }
 
 // Run implements Command.Run.

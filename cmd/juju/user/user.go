@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/readpass"
 
-	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -34,29 +33,19 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     userCommandPurpose,
 	})
-	usercmd.Register(envcmd.Wrap(&AddCommand{}))
-	usercmd.Register(envcmd.Wrap(&ChangePasswordCommand{}))
-	usercmd.Register(envcmd.Wrap(&InfoCommand{}))
-	usercmd.Register(envcmd.Wrap(&DisableCommand{}))
-	usercmd.Register(envcmd.Wrap(&EnableCommand{}))
-	usercmd.Register(envcmd.Wrap(&ListCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&AddCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&ChangePasswordCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&InfoCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&DisableCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&EnableCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&ListCommand{}))
 	return usercmd
 }
 
 // UserCommandBase is a helper base structure that has a method to get the
 // user manager client.
 type UserCommandBase struct {
-	envcmd.EnvCommandBase
-}
-
-// NewUserManagerClient returns a usermanager client for the root api endpoint
-// that the environment command returns.
-func (c *UserCommandBase) NewUserManagerClient() (*usermanager.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, err
-	}
-	return usermanager.NewClient(root), nil
+	envcmd.SysCommandBase
 }
 
 var readPassword = readpass.ReadPassword

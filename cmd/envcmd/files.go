@@ -29,6 +29,15 @@ var (
 	lockTimeout = 5 * time.Second
 )
 
+// ServerFile describes the information that is needed for a user
+// to connect to an api server.
+type ServerFile struct {
+	Addresses []string `yaml:"addresses"`
+	CACert    string   `yaml:"ca-cert,omitempty"`
+	Username  string   `yaml:"username"`
+	Password  string   `yaml:"password"`
+}
+
 // NOTE: synchronisation across functions in this file.
 //
 // Each of the read and write functions use a fslock to synchronise calls

@@ -69,7 +69,7 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 		Password:  "super-secret",
 	})
 	apiInfo := s.APIInfo(c)
-	serverFile := system.ServerFile{
+	serverFile := envcmd.ServerFile{
 		Addresses: apiInfo.Addrs,
 		CACert:    apiInfo.CACert,
 		Username:  user.Name(),
