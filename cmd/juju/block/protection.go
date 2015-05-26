@@ -5,7 +5,6 @@ package block
 
 import (
 	"fmt"
-	//	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"

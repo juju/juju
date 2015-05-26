@@ -47,6 +47,17 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 			"allecto": params.StorageConstraints{Count: &count}})
 }
 
+func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
+	s.createStorageBlockUnit(c)
+	count := uint64(1)
+	s.BlockDestroyEnvironment(c, "TestAddUnitStorageIgnoresBlocks")
+	s.BlockRemoveObject(c, "TestAddUnitStorageIgnoresBlocks")
+	s.BlockAllChanges(c, "TestAddUnitStorageIgnoresBlocks")
+	s.assertUnitStorageAdded(c,
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Count: &count}})
+}
+
 func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	size := uint64(1)
