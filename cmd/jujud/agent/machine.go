@@ -113,6 +113,7 @@ var (
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
+	newResumer               = resumer.NewResumer
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedAPI          = func(io.Closer) {}
@@ -1097,7 +1098,7 @@ func (a *MachineAgent) startEnvWorkers(
 		// The action of resumer is so subtle that it is not tested,
 		// because we can't figure out how to do so without
 		// brutalising the transaction log.
-		return resumer.NewResumer(apiSt.Resumer()), nil
+		return newResumer(apiSt.Resumer()), nil
 	})
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
