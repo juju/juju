@@ -71,7 +71,6 @@ func (c *EnvironmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatTabular,
 	})
-
 }
 
 // Run implements Command.Run
