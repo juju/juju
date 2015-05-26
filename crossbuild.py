@@ -149,14 +149,15 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(
             gopath, 'bin', 'windows_amd64', 'jujud.exe')
-        make_win_agent_tarball(
-            built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
+        make_agent_tarball(
+            'win2012', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 
-def make_win_agent_tarball(built_agent_path, version, dest_dir,
-                           dry_run=False, verbose=False):
-    """Create a win agent tgz for a jujud."""
-    agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
+def make_agent_tarball(series, built_agent_path, version, dest_dir,
+                       dry_run=False, verbose=False):
+    """Create a agent tgz for a jujud."""
+    agent_tarball_name = 'juju-%s-%s-amd64.tgz' % (version, series)
     agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
     if not dry_run:
         if verbose:
@@ -164,7 +165,8 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
         with tarfile.open(name=agent_tarball_path, mode='w:gz') as tar:
             if verbose:
                 print('Adding %s' % built_agent_path)
-            tar.add(built_agent_path, arcname='jujud.exe')
+            arcname = os.path.basename(built_agent_path)
+            tar.add(built_agent_path, arcname=arcname)
 
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
@@ -187,22 +189,22 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
             os.path.join(gopath, ISS_DIR, 'README.txt'),
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
-        make_osx_tarball(
-            binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
+        make_client_tarball(
+            'osx', binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_osx_tarball(binary_paths, version, dest_dir,
+def make_client_tarball(os_name, binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
     """Create a tarball of the built binaries and files."""
-    osx_tarball_name = 'juju-%s-osx.tar.gz' % version
-    osx_tarball_path = os.path.join(dest_dir, osx_tarball_name)
+    os_tarball_name = 'juju-%s-%s.tar.gz' % (version, os_name)
+    os_tarball_path = os.path.join(dest_dir, os_tarball_name)
     if not dry_run:
         if verbose:
-            print('Creating %s' % osx_tarball_path)
-        with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
+            print('Creating %s' % os_tarball_path)
+        with tarfile.open(name=os_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
-            ti.mode = int('775', 8)  # Py2/3 compatible octal.
+            ti.mode = 0o775
             tar.addfile(ti)
             for binary_path in binary_paths:
                 if verbose:
@@ -210,6 +212,32 @@ def make_osx_tarball(binary_paths, version, dest_dir,
                 arcname = 'juju-bin/%s' % os.path.basename(binary_path)
                 tar.add(binary_path, arcname=arcname)
 
+
+def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build an Centos client, plugins and agent from a tarball."""
+    cwd = os.getcwd()
+    cmd_package = '%s/cmd/...' % JUJU_PACKAGE_PATH
+    goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    with go_tarball(tarball_path) as (gopath, version):
+        # This command always executes in a tmp dir, it does not make changes.
+        go_build(
+            cmd_package, goroot, gopath, 'amd64', 'linux',
+            dry_run=False, verbose=verbose)
+        bin_path = os.path.join(gopath, 'bin')
+        built_agent_path = os.path.join(bin_path, 'jujud')
+        binary_paths = [
+            os.path.join(bin_path, 'juju'),
+            built_agent_path,
+            os.path.join(bin_path, 'juju-metadata'),
+            os.path.join(gopath, ISS_DIR, 'README.txt'),
+            os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
+        ]
+        make_client_tarball(
+            'centos7', binary_paths, version, cwd,
+            dry_run=dry_run, verbose=verbose)
+        make_agent_tarball(
+            'centos7', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
@@ -253,6 +281,14 @@ def parse_args(args=None):
         help='The path cross build dir.')
     parser_osx_client.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
+    # ./crossbuild centos juju-core-1.2.3.tar.gz
+    parser_centos = subparsers.add_parser(
+        'centos', help='Build an amd64 Centos client, plugins, and agent.')
+    parser_centos.add_argument(
+        '-b', '--build-dir', default='$HOME/crossbuild',
+        help='The path cross build dir.')
+    parser_centos.add_argument(
+        'tarball_path', help='The path to the juju source tarball.')
     return parser.parse_args(args)
 
 
@@ -274,6 +310,10 @@ def main(argv):
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'osx-client':
             build_osx_client(
+                args.tarball_path, args.build_dir,
+                dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'centos':
+            build_centos(
                 args.tarball_path, args.build_dir,
                 dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:

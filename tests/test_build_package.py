@@ -22,7 +22,10 @@ from build_package import (
     SourceFile,
     teardown_lxc,
 )
-from utils import temp_dir
+from utils import (
+    autopatch,
+    temp_dir,
+)
 
 
 DSC_CONTENT = dedent("""\
@@ -72,10 +75,6 @@ def make_source_files(workspace, dsc_name):
             else:
                 f.write(sf.name)
     return source_files
-
-
-def autopatch(target, **kwargs):
-    return patch(target, autospec=True, **kwargs)
 
 
 class BuildPackageTestCase(unittest.TestCase):

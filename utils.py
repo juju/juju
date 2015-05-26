@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
+from mock import patch
 import random
 import shutil
 import string
@@ -44,3 +45,7 @@ class until_timeout:
 
 def get_random_hex_string(size=64):
     return ''.join(random.choice(string.hexdigits) for n in range(size))
+
+
+def autopatch(target, **kwargs):
+    return patch(target, autospec=True, **kwargs)

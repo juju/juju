@@ -6,6 +6,7 @@ import tarfile
 from unittest import TestCase
 
 from crossbuild import (
+    build_centos,
     build_osx_client,
     build_win_agent,
     build_win_client,
@@ -14,13 +15,16 @@ from crossbuild import (
     ISCC_CMD,
     ISS_DIR,
     make_installer,
-    make_osx_tarball,
-    make_win_agent_tarball,
+    make_client_tarball,
+    make_agent_tarball,
     main,
     run_command,
     working_directory,
 )
-from utils import temp_dir
+from utils import (
+    autopatch,
+    temp_dir,
+)
 
 
 @contextmanager
@@ -62,6 +66,13 @@ class CrossBuildTestCase(TestCase):
     def test_main_win_agent(self):
         with patch('crossbuild.build_win_agent') as mock:
             main(['win-agent', '--build-dir', './foo', 'bar.1.2.3.tar.gz'])
+        args, kwargs = mock.call_args
+        self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+
+    def test_main_centos_both(self):
+        with patch('crossbuild.build_centos') as mock:
+            main(['centos', '--build-dir', './foo', 'bar.1.2.3.tar.gz'])
         args, kwargs = mock.call_args
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
@@ -184,7 +195,7 @@ class CrossBuildTestCase(TestCase):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.make_win_agent_tarball') as mt_mock:
+                with patch('crossbuild.make_agent_tarball') as mt_mock:
                     build_win_agent('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
@@ -195,36 +206,36 @@ class CrossBuildTestCase(TestCase):
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            ('baz/bar_1.2.3/bin/windows_amd64/jujud.exe',
+            ('win2012', 'baz/bar_1.2.3/bin/windows_amd64/jujud.exe',
              '1.2.3',
              os.getcwd()),
             mt_mock.call_args[0])
 
-    def test_make_win_agent_tarball(self):
+    def test_make_agent_tarball(self):
         with temp_dir() as base_dir:
             agent_dir = os.path.join(base_dir, 'foo')
             os.makedirs(agent_dir)
             jujud_binary = os.path.join(agent_dir,  'jujud.exe')
             with open(jujud_binary, 'w') as jb:
                 jb.write('jujud')
-            make_win_agent_tarball(jujud_binary, '1.2.3', base_dir)
+            make_agent_tarball('win2012', jujud_binary, '1.2.3', base_dir)
             agent_tarball_path = os.path.join(
                 base_dir, 'juju-1.2.3-win2012-amd64.tgz')
             self.assertTrue(os.path.isfile(agent_tarball_path))
             with tarfile.open(agent_tarball_path, 'r:gz') as tar:
                 self.assertEqual(['jujud.exe'], tar.getnames())
 
-    def test_make_win_agent_tarball_with_dry_run(self):
+    def test_make_agent_tarball_with_dry_run(self):
         with patch('tarfile.open') as mock:
-            make_win_agent_tarball(
-                'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
+            make_agent_tarball(
+                'win2012', 'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
         self.assertEqual(0, mock.call_count)
 
     def test_build_osx_client(self):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.make_osx_tarball') as mt_mock:
+                with patch('crossbuild.make_client_tarball') as mt_mock:
                     build_osx_client('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
@@ -235,7 +246,8 @@ class CrossBuildTestCase(TestCase):
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            (['baz/bar_1.2.3/bin/darwin_amd64/juju',
+            ('osx',
+             ['baz/bar_1.2.3/bin/darwin_amd64/juju',
               'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata',
               'baz/bar_1.2.3/src/github.com/juju/juju/'
                 'scripts/win-installer/README.txt',
@@ -244,9 +256,7 @@ class CrossBuildTestCase(TestCase):
              '1.2.3', os.getcwd()),
             mt_mock.call_args[0])
 
-    def test_make_osx_tarball(self):
-        oct_775 = int('775', 8)
-        oct_664 = int('664', 8)
+    def test_make_client_tarball(self):
         with temp_dir() as base_dir:
             cmd_dir = os.path.join(base_dir, 'foo')
             os.makedirs(cmd_dir)
@@ -255,9 +265,10 @@ class CrossBuildTestCase(TestCase):
             for path in [juju_binary, readme_file]:
                 with open(path, 'w') as jb:
                     jb.write('juju')
-            os.chmod(juju_binary, oct_775)
-            os.chmod(readme_file, oct_664)
-            make_osx_tarball([juju_binary, readme_file], '1.2.3', base_dir)
+            os.chmod(juju_binary, 0o775)
+            os.chmod(readme_file, 0o664)
+            make_client_tarball(
+                'osx', [juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
             self.assertTrue(os.path.isfile(osx_tarball_path))
             with tarfile.open(osx_tarball_path, 'r:gz') as tar:
@@ -265,8 +276,34 @@ class CrossBuildTestCase(TestCase):
                     ['juju-bin', 'juju-bin/juju', 'juju-bin/README.txt'],
                     tar.getnames())
                 self.assertEqual(
-                    oct_775, tar.getmember('juju-bin').mode)
+                    0o775, tar.getmember('juju-bin').mode)
                 self.assertEqual(
-                    oct_775, tar.getmember('juju-bin/juju').mode)
+                    0o775, tar.getmember('juju-bin/juju').mode)
                 self.assertEqual(
-                    oct_664, tar.getmember('juju-bin/README.txt').mode)
+                    0o664, tar.getmember('juju-bin/README.txt').mode)
+
+    @autopatch('crossbuild.make_agent_tarball')
+    @autopatch('crossbuild.make_client_tarball')
+    @autopatch('crossbuild.go_build')
+    @autopatch('crossbuild.go_tarball', side_effect=fake_go_tarball)
+    def test_build_centos(self, gt_mock, gb_mock, mt_mock, at_mock):
+        build_centos('baz/bar_1.2.3.tar.gz', '/foo')
+        gt_mock.assert_called_once_with('baz/bar_1.2.3.tar.gz')
+        gb_mock.assert_called_once_with(
+            'github.com/juju/juju/cmd/...',
+            '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'linux',
+            dry_run=False, verbose=False)
+        bin_paths = [
+            'baz/bar_1.2.3/bin/juju',
+            'baz/bar_1.2.3/bin/jujud',
+            'baz/bar_1.2.3/bin/juju-metadata',
+            'baz/bar_1.2.3/src/github.com/juju/juju/'
+                'scripts/win-installer/README.txt',
+            'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
+            ]
+        mt_mock.assert_called_once_with(
+            'centos7', bin_paths, '1.2.3', os.getcwd(),
+            dry_run=False, verbose=False)
+        at_mock.assert_called_once_with(
+            'centos7', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd(),
+            dry_run=False, verbose=False)
