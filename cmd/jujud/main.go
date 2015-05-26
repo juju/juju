@@ -125,9 +125,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	a := NewUnitAgent()
-	a.ctx = ctx
-	jujud.Register(a)
+	jujud.Register(agentcmd.NewUnitAgent(ctx))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

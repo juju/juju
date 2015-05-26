@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -63,7 +62,6 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -284,32 +282,6 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
 }
-
-type FakeConfig struct {
-	agent.Config
-}
-
-func (FakeConfig) LogDir() string {
-	return filepath.FromSlash("/var/log/juju/")
-}
-
-func (FakeConfig) Tag() names.Tag {
-	return names.NewMachineTag("42")
-}
-
-type FakeAgentConfig struct {
-	AgentConfigWriter
-	apiaddressupdater.APIAddressSetter
-	AgentInitializer
-}
-
-func (FakeAgentConfig) ReadConfig(string) error { return nil }
-
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
-}
-
-func (FakeAgentConfig) CheckArgs([]string) error { return nil }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx, err := cmd.DefaultContext()
@@ -1649,7 +1621,7 @@ func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 	a.apiStateUpgrader = &machineAgentUpgrader{}
 
 	closedAPI := make(chan io.Closer, 1)
-	s.AgentSuite.PatchValue(&reportClosedAPI, func(st io.Closer) {
+	s.AgentSuite.PatchValue(&reportClosedMachineAPI, func(st io.Closer) {
 		select {
 		case closedAPI <- st:
 			close(closedAPI)
@@ -2003,13 +1975,6 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 	}
 }
 
-func newDummyWorker() worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		<-stop
-		return nil
-	})
-}
-
 type mockMetricAPI struct {
 	stop          chan struct{}
 	cleanUpCalled chan struct{}
@@ -2077,25 +2042,4 @@ func mktemp(prefix string, content string) string {
 	}
 	f.Close()
 	return f.Name()
-}
-
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
