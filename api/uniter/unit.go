@@ -742,7 +742,11 @@ func (u *Unit) AddStorage(cons map[string]params.StorageConstraints) error {
 	}
 
 	all := make([]params.StorageAddParams, 0, len(cons))
+	min := uint64(1)
 	for k, v := range cons {
+		if v.Count == nil {
+			v.Count = &min
+		}
 		all = append(all, params.StorageAddParams{u.Tag().String(), k, v})
 	}
 

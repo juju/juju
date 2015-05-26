@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -69,24 +70,37 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
-	// Get the context.
-	uuid, err := utils.NewUUID()
+func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons params.StorageConstraints) {
+	before, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(before, gc.HasLen, 1)
+	c.Assert(before[0].StorageName(), gc.DeepEquals, "data")
+	// Get the context.
+	ctx := s.getHookContext(c, s.State.EnvironUUID(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 
-	size := uint64(1)
-	ctx.AddUnitStorage(
-		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size},
-		})
+	ctx.AddUnitStorage(map[string]params.StorageConstraints{"allecto": cons})
 
 	// Flush the context with a success.
 	err = ctx.FlushContext("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	all, err := s.State.AllStorageInstances()
+	after, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 2)
+	c.Assert(len(after)-len(before), gc.Equals, 1)
+
+	expected := set.NewStrings("data", "allecto")
+	for _, one := range after {
+		c.Assert(expected.Contains(one.StorageName()), jc.IsTrue)
+	}
+}
+
+func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
+	count := uint64(1)
+	s.assertUnitStorageAdded(c, params.StorageConstraints{Count: &count})
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
+	size := uint64(1)
+	s.assertUnitStorageAdded(c, params.StorageConstraints{Size: &size})
 }
