@@ -115,7 +115,7 @@ var (
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
-	reportClosedAPI          = func(io.Closer) {}
+	reportClosedMachineAPI   = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -623,7 +623,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	defer func() {
 		if err != nil {
 			st.Close()
-			reportClosedAPI(st)
+			reportClosedMachineAPI(st)
 		}
 	}()
 
