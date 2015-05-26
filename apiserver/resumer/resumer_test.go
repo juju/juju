@@ -4,47 +4,73 @@
 package resumer_test
 
 import (
+	"errors"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/resumer"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ResumerSuite struct {
-	jujutesting.JujuConnSuite
+	coretesting.BaseSuite
 
-	resumer    *resumer.ResumerAPI
-	resources  *common.Resources
+	st         *mockState
+	api        *resumer.ResumerAPI
 	authoriser apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&ResumerSuite{})
 
 func (s *ResumerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		EnvironManager: true,
 	}
+	s.st = &mockState{&testing.Stub{}}
+	resumer.PatchState(s, s.st)
 	var err error
-	s.resumer, err = resumer.NewResumerAPI(s.State, s.resources, s.authoriser)
+	s.api, err = resumer.NewResumerAPI(nil, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ResumerSuite) TestNewResumerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.EnvironManager = false
-	resumer, err := resumer.NewResumerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(resumer, gc.IsNil)
+	api, err := resumer.NewResumerAPI(nil, nil, anAuthoriser)
+	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *ResumerSuite) TestResumeTransactions(c *gc.C) {
-	err := s.resumer.ResumeTransactions()
+func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {
+	s.st.SetErrors(errors.New("boom!"))
+
+	err := s.api.ResumeTransactions()
+	c.Assert(err, gc.ErrorMatches, "boom!")
+	s.st.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ResumeTransactions",
+		Args:     nil,
+	}})
+}
+
+func (s *ResumerSuite) TestResumeTransactionsSuccess(c *gc.C) {
+	err := s.api.ResumeTransactions()
 	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ResumeTransactions",
+		Args:     nil,
+	}})
+}
+
+type mockState struct {
+	*testing.Stub
+}
+
+func (st *mockState) ResumeTransactions() error {
+	st.MethodCall(st, "ResumeTransactions")
+	return st.NextErr()
 }

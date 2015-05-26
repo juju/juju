@@ -4,34 +4,57 @@
 package resumer_test
 
 import (
+	"errors"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ResumerSuite struct {
-	testing.JujuConnSuite
-
-	st      *api.State
-	resumer *resumer.API
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&ResumerSuite{})
 
-func (s *ResumerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+func (s *ResumerSuite) TestResumeTransactionsSuccess(c *gc.C) {
+	var callCount int
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, results interface{}) error {
+			c.Check(objType, gc.Equals, "Resumer")
+			// Since we're not logging in and getting the supported
+			// facades and their versions, the client will always send
+			// version 0.
+			c.Check(version, gc.Equals, 0)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ResumeTransactions")
+			c.Check(args, gc.IsNil)
+			c.Check(results, gc.IsNil)
+			callCount++
+			return nil
+		},
+	)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	// Create the machiner API facade.
-	s.resumer = apiState.Resumer()
-	c.Assert(s.resumer, gc.NotNil)
+	st := resumer.NewAPI(apiCaller)
+	err := st.ResumeTransactions()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *ResumerSuite) TestResumeTransactions(c *gc.C) {
-	err := s.resumer.ResumeTransactions()
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {
+	var callCount int
+	apiCaller := apitesting.APICallerFunc(
+		func(_ string, _ int, _, _ string, _, _ interface{}) error {
+			callCount++
+			return errors.New("boom!")
+		},
+	)
+
+	st := resumer.NewAPI(apiCaller)
+	err := st.ResumeTransactions()
+	c.Check(err, gc.ErrorMatches, "boom!")
+	c.Check(callCount, gc.Equals, 1)
 }

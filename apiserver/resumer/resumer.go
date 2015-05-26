@@ -20,7 +20,7 @@ var logger = loggo.GetLogger("juju.apiserver.resumer")
 
 // ResumerAPI implements the API used by the resumer worker.
 type ResumerAPI struct {
-	st   *state.State
+	st   stateInterface
 	auth common.Authorizer
 }
 
@@ -30,7 +30,7 @@ func NewResumerAPI(st *state.State, _ *common.Resources, authorizer common.Autho
 		return nil, common.ErrPerm
 	}
 	return &ResumerAPI{
-		st:   st,
+		st:   getState(st),
 		auth: authorizer,
 	}, nil
 }
