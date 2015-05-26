@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -116,3 +117,60 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 
 func u(unit string) names.Tag    { return names.NewUnitTag(unit) }
 func m(machine string) names.Tag { return names.NewMachineTag(machine) }
+
+func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
+	// TODO(dimitern): This list of all supported tags and kinds needs
+	// to live in juju/names.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	allTags := []names.Tag{
+		nil, // invalid tag
+		names.NewActionTag(uuid.String()),
+		names.NewCharmTag("cs:precise/missing"),
+		names.NewEnvironTag(uuid.String()),
+		names.NewFilesystemTag("20/20"),
+		names.NewLocalUserTag("user"),
+		names.NewMachineTag("42"),
+		names.NewNetworkTag("public"),
+		names.NewRelationTag("wordpress:mysql mysql:db"),
+		names.NewServiceTag("wordpress"),
+		names.NewSpaceTag("apps"),
+		names.NewStorageTag("foo/42"),
+		names.NewUnitTag("wordpress/5"),
+		names.NewUserTag("joe"),
+		names.NewVolumeTag("80/20"),
+	}
+	for i, allowedTag := range allTags {
+		c.Logf("test #%d: allowedTag: %v", i, allowedTag)
+
+		var allowedKind string
+		if allowedTag != nil {
+			allowedKind = allowedTag.Kind()
+		}
+		getAuthFunc := common.AuthFuncForTagKind(allowedKind)
+
+		authFunc, err := getAuthFunc()
+		if allowedKind == "" {
+			c.Check(err, gc.ErrorMatches, "tag kind cannot be empty")
+			c.Check(authFunc, gc.IsNil)
+			continue
+		} else if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+
+		for j, givenTag := range allTags {
+			c.Logf("test #%d.%d: givenTag: %v", i, j, givenTag)
+
+			var givenKind string
+			if givenTag != nil {
+				givenKind = givenTag.Kind()
+			}
+			if allowedKind == givenKind {
+				c.Check(authFunc(givenTag), jc.IsTrue)
+			} else {
+				c.Check(authFunc(givenTag), jc.IsFalse)
+			}
+		}
+	}
+}
