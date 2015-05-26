@@ -70,8 +70,6 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
 	tests := []tstData{
 		{[]string{"data=676"}, 0, ""},
-		{[]string{"errFail=676"}, 1, "error: cannot add storage: errFail individual errors\n"},
-		{[]string{"a=676", "errFail=676"}, 1, "error: cannot add storage: errFail individual errors\n"},
 	}
 
 	for i, t := range tests {

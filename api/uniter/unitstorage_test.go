@@ -31,9 +31,11 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 	args := map[string]params.StorageConstraints{
 		"data": params.StorageConstraints{Pool: "loop"},
 	}
+
+	count := uint64(1)
 	expected := params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
+			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop", Count: &count}},
 		},
 	}
 
@@ -60,9 +62,11 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 	args := map[string]params.StorageConstraints{
 		"data": params.StorageConstraints{Pool: "loop"},
 	}
+
+	count := uint64(1)
 	expected := params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
+			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop", Count: &count}},
 		},
 	}
 

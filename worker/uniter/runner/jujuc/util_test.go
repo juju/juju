@@ -9,10 +9,8 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -167,18 +165,7 @@ func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	return storage, ok
 }
 
-func (c *Context) AddUnitStorage(all map[string]params.StorageConstraints) error {
-	var errorStrings []string
-	for k, _ := range all {
-		if strings.HasPrefix(k, "err") {
-			errorStrings = append(errorStrings, k+" individual errors")
-		}
-	}
-	if errorStrings != nil {
-		return errors.New(strings.Join(errorStrings, "\n"))
-	}
-	return nil
-}
+func (c *Context) AddUnitStorage(all map[string]params.StorageConstraints) {}
 
 func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
 	return c.Storage(c.storageTag)
