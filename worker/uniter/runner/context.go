@@ -561,7 +561,7 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	}
 
 	// add storage to unit dynamically
-	if len(ctx.storageAddConstraints) > 0 {
+	if len(ctx.storageAddConstraints) > 0 && writeChanges {
 		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
 		if err != nil {
 			err = errors.Annotatef(err, "cannot add storage")
