@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,6 +88,15 @@ func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
 	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "allecto", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, 2)
+}
+
+func (s *StorageAddSuite) TestAddStorageZeroCount(c *gc.C) {
+	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
+	s.assertStorageCount(c, 1)
+
+	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "allecto", state.StorageConstraints{Pool: "loop-pool", Size: 1024})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "adding storage where instance count is 0 not valid")
+	s.assertStorageCount(c, 1)
 }
 
 func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
