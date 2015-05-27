@@ -189,7 +189,7 @@ retrieve_packages() {
             rm -r $DEST_DEBS/juju-core
         fi
         if [[ -e $JUJU_DIR/juju-qa.s3cfg ]]; then
-            echo "checking s3://juju-qa-data/win-agents for $RELEASE."
+            echo "checking s3://juju-qa-data/agent-archive for $RELEASE."
             $SCRIPT_DIR/agent_archive.py --config $JUJU_DIR/juju-qa.s3cfg \
                 get $RELEASE $DEST_DEBS
         fi

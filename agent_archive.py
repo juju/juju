@@ -78,7 +78,7 @@ def listing_to_files(listing):
 
 
 def add_agents(args):
-    """Upload agents to the S3 win-agent location.
+    """Upload agents to the S3 agent-archive location.
 
     It is an error to overwrite an existing agent, or pass an agent that
     does not appear to be a win agent.
@@ -164,7 +164,7 @@ def delete_agents(args):
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
-    parser = ArgumentParser("Manage win agents in the archive.")
+    parser = ArgumentParser("Manage released agents in the agent-archive.")
     parser.add_argument(
         '-d', '--dry-run', action="store_true", default=False,
         help='Do not make changes.')
@@ -176,28 +176,30 @@ def parse_args(args=None):
         help='The S3 config file.')
     subparsers = parser.add_subparsers(help='sub-command help')
     # add juju-1.21.0-win2012-amd64.tgz
-    parser_add = subparsers.add_parser('add', help='Add win-agents')
+    parser_add = subparsers.add_parser(
+        'add', help='Add an agent to the archive')
     parser_add.add_argument(
         'source_agent',
-        help="The win-agent to create all the agents from.")
+        help="The agent to add (and copy to other series).")
     parser_add.set_defaults(func=add_agents)
     # get 1.21.0 ./workspace
-    parser_get = subparsers.add_parser('get', help='get win-agents')
+    parser_get = subparsers.add_parser(
+        'get', help='get agents from the archive')
     parser_get.add_argument(
-        'version', help="The version of win-agent to download")
+        'version', help="The version of agents to download")
     parser_get.add_argument(
         'destination', help="The path to download the files to.")
     parser_get.set_defaults(func=get_agents)
     # delete 1.21.0
-    parser_delete = subparsers.add_parser('delete', help='delete win-agents')
+    parser_delete = subparsers.add_parser('delete', help='delete agent-archive')
     parser_delete.add_argument(
-        'version', help="The version of win-agent to delete")
+        'version', help="The version of agents to delete")
     parser_delete.set_defaults(func=delete_agents)
     return parser.parse_args(args)
 
 
 def main(argv):
-    """Manage win-agents in the archive."""
+    """Manage agent-archive in the archive."""
     args = parse_args(argv)
     try:
         args.func(args)
