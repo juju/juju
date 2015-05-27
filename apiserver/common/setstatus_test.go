@@ -122,7 +122,7 @@ func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 			{"unit-x-5", params.StatusError, "blarg", nil},
 		},
 	}
-	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag)
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, fakeIsLeaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
