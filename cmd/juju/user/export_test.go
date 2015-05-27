@@ -4,7 +4,8 @@
 package user
 
 var (
-	ReadPassword = &readPassword
+	RandomPasswordNotify = &randomPasswordNotify
+	ReadPassword         = &readPassword
 )
 
 // NewAddCommand returns an AddCommand with the api provided as specified.

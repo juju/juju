@@ -4,13 +4,21 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/readpass"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/configstore"
 )
+
+// randomPasswordNotify is called if non-nil when a random password
+// is generated.
+var randomPasswordNotify func(string)
 
 const userChangePasswordDoc = `
 Change the password for the user you are currently logged in as,
@@ -146,4 +154,39 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Your password has been updated.")
 	return nil
+}
+
+var readPassword = readpass.ReadPassword
+
+func (*ChangePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
+	if generate {
+		password, err := utils.RandomPassword()
+		if err != nil {
+			return "", errors.Annotate(err, "failed to generate random password")
+		}
+		if randomPasswordNotify != nil {
+			randomPasswordNotify(password)
+		}
+		return password, nil
+	}
+
+	// Don't add the carriage returns before readPassword, but add
+	// them directly after the readPassword so any errors are output
+	// on their own lines.
+	fmt.Fprint(ctx.Stdout, "password: ")
+	password, err := readPassword()
+	fmt.Fprint(ctx.Stdout, "\n")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	fmt.Fprint(ctx.Stdout, "type password again: ")
+	verify, err := readPassword()
+	fmt.Fprint(ctx.Stdout, "\n")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if password != verify {
+		return "", errors.New("Passwords do not match")
+	}
+	return password, nil
 }

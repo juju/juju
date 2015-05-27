@@ -21,6 +21,7 @@ type ChangePasswordCommandSuite struct {
 	BaseSuite
 	mockAPI         *mockChangePasswordAPI
 	mockEnvironInfo *mockEnvironInfo
+	randomPassword  string
 }
 
 var _ = gc.Suite(&ChangePasswordCommandSuite{})
@@ -31,6 +32,10 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.mockEnvironInfo = &mockEnvironInfo{
 		creds: configstore.APICredentials{"user-name", "password"},
 	}
+	s.randomPassword = ""
+	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
+		s.randomPassword = pwd
+	})
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -46,39 +51,35 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		generate    bool
 		errorString string
 	}{
-		//TODO(thumper) check init tested fully
 		{
 		// no args is fine
 		}, {
 			args:     []string{"--generate"},
 			generate: true,
 		}, {
+			args:     []string{"foobar"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "foobar.server",
+		}, {
+			args:     []string{"foobar", "--generate"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "foobar.server",
+		}, {
+			args:     []string{"foobar", "--output", "somefile"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "somefile",
+		}, {
 			args:        []string{"--foobar"},
 			errorString: "flag provided but not defined: --foobar",
-		}, {
-			args: []string{"foobar"},
-			user: "foobar",
 		}, {
 			args:        []string{"foobar", "extra"},
 			errorString: `unrecognized args: \["extra"\]`,
 		}, {
 			args:        []string{"--output", "somefile"},
 			errorString: "output is only a valid option when changing another user's password",
-		}, {
-			args:        []string{"-o", "somefile"},
-			errorString: "output is only a valid option when changing another user's password",
-		}, {
-			args:     []string{"foobar", "--generate"},
-			user:     "foobar",
-			generate: true,
-		}, {
-			args:    []string{"foobar", "--output", "somefile"},
-			user:    "foobar",
-			outPath: "somefile",
-		}, {
-			args:    []string{"foobar", "-o", "somefile"},
-			user:    "foobar",
-			outPath: "somefile",
 		},
 	} {
 		c.Logf("test %d", i)
@@ -94,14 +95,23 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
+func (s *ChangePasswordCommandSuite) assertRandomPassword(c *gc.C) {
+	c.Assert(s.mockAPI.password, gc.Equals, s.randomPassword)
+	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+}
+
+func (s *ChangePasswordCommandSuite) assertPasswordFromReadPass(c *gc.C) {
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+}
+
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
-	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	s.assertPasswordFromReadPass(c)
 	expected := `
-password:
-type password again:
+password: 
+type password again: 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
@@ -111,8 +121,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
 	context, err := s.run(c, "--generate")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
-	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
-	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+	s.assertRandomPassword(c)
 	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
 }
 
@@ -149,8 +158,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	_, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
-	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
-	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+	s.assertRandomPassword(c)
 	// TODO(thumper) assert output file
 }
 
@@ -160,8 +168,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
 	filename := filepath.Join(c.MkDir(), "test.result")
 	_, err := s.run(c, "other", "-o", filename)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.username, gc.Equals, "other")
-	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	s.assertRandomPassword(c)
 	// TODO(thumper): assert file contents
 }
 
