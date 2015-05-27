@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -25,16 +24,6 @@ type InterfaceSuite struct {
 }
 
 var _ = gc.Suite(&InterfaceSuite{})
-
-func (s *InterfaceSuite) GetContext(
-	c *gc.C, relId int, remoteName string,
-) jujuc.Context {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	return s.HookContextSuite.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies,
-	)
-}
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")

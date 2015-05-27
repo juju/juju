@@ -128,6 +128,9 @@ type Context interface {
 	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook if it was found, and whether it was found.
 	HookStorage() (ContextStorage, bool)
+
+	// AddUnitStorage saves storage constraints in the context.
+	AddUnitStorage(map[string]params.StorageConstraints)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
