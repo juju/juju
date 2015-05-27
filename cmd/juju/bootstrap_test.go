@@ -245,10 +245,10 @@ var bootstrapTests = []bootstrapTest{{
 	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
-	version:  "1.3.3-saucy-arm64",
-	hostArch: "arm64",
+	version:  "1.3.3-saucy-mips64",
+	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "arm64"`,
+	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -230,6 +231,10 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
 			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
 		}
+		if lxcDefaultMTU, ok := config.LXCDefaultMTU(); ok {
+			logger.Debugf("using default MTU %v for all LXC containers NICs", lxcDefaultMTU)
+			cfg[container.ConfigLXCDefaultMTU] = fmt.Sprintf("%d", lxcDefaultMTU)
+		}
 	}
 
 	if !environs.AddressAllocationEnabled() {
@@ -254,6 +259,11 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 			// We log the error, but it's safe to ignore as it's not
 			// critical.
 			logger.Debugf("address allocation not supported (%v)", err)
+		}
+		// AWS requires NAT in place in order for hosted containers to
+		// reach outside.
+		if config.Type() == provider.EC2 {
+			cfg[container.ConfigEnableNAT] = "true"
 		}
 	}
 
