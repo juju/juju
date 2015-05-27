@@ -23,3 +23,10 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
+
+func (s *steps124Suite) TestStepsFor124(c *gc.C) {
+	expected := []string{
+		"move syslog config from LogDir to DataDir",
+	}
+	assertSteps(c, version.MustParse("1.24.0"), expected)
+}

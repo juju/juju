@@ -60,6 +60,10 @@ func stepsFor124() []Step {
 					newpath := filepath.Join(datadir, f)
 					if err := copy(newpath, oldpath); err != nil {
 						errs = append(errs, err.Error())
+						continue
+					}
+					if err := os.Remove(oldpath); err != nil {
+						errs = append(errs, err.Error())
 					}
 				}
 				if len(errs) > 0 {
@@ -72,8 +76,10 @@ func stepsFor124() []Step {
 }
 
 func copy(to, from string) error {
+	logger.Debugf("Moving %q to %q", from, to)
 	orig, err := os.Open(from)
 	if os.IsNotExist(err) {
+		logger.Debugf("Old file %q does not exist, skipping.", from)
 		// original doesn't exist, that's fine.
 		return nil
 	}
@@ -87,6 +93,7 @@ func copy(to, from string) error {
 	}
 	target, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, info.Mode())
 	if os.IsExist(err) {
+		logger.Debugf("New file %q already exists, deleting old file %q", to, from)
 		// don't overwrite an existing target
 		orig.Close()
 
