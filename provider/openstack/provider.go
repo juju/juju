@@ -1013,6 +1013,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
+
 	var networks = []nova.ServerNetworks{}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
@@ -1034,6 +1035,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			logger.Infof("allocated public IP %s", publicIP.IP)
 		}
 	}
+
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
@@ -1043,6 +1045,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
+
+	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
+	metadata := make(map[string]string)
+	if uuid, ok := e.Config().UUID(); ok {
+		metadata[common.TagJujuEnv] = uuid
+	}
+	if stateServer {
+		metadata[common.TagJujuStateServer] = "true"
+	}
+
 	var server *nova.Entity
 	for _, availZone := range availabilityZones {
 		var opts = nova.RunServerOpts{
@@ -1053,6 +1065,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			SecurityGroupNames: groupNames,
 			Networks:           networks,
 			AvailabilityZone:   availZone,
+			Metadata:           metadata,
 		}
 		for a := shortAttempt.Start(); a.Next(); {
 			server, err = e.nova().RunServer(opts)
@@ -1091,7 +1104,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
+	if stateServer {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

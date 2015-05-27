@@ -14,6 +14,7 @@ import (
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -44,7 +45,11 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
-	return &cinderVolumeSource{storageAdapter}, nil
+	source := &cinderVolumeSource{storageAdapter: storageAdapter}
+	if uuid, ok := environConfig.UUID(); ok {
+		source.uuid = &uuid
+	}
+	return source, nil
 }
 
 // FilesystemSource implements storage.Provider.
@@ -80,6 +85,7 @@ func (p *cinderProvider) Dynamic() bool {
 
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
+	uuid           *string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -137,6 +143,11 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
+	var metadata interface{}
+	if s.uuid != nil {
+		metadata = map[string]string{common.TagJujuEnv: *s.uuid}
+	}
+
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
@@ -144,6 +155,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 		Name: arg.Tag.String(),
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
+		Metadata:         metadata,
 	})
 	if err != nil {
 		return storage.Volume{}, errors.Trace(err)
