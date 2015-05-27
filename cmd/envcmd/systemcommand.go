@@ -84,19 +84,43 @@ func (c *SysCommandBase) newAPIRoot() (*api.State, error) {
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
-// the specified environment.
+// the specified system.
 func (c *SysCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
 	// TODO: the user may soon be specified through the command line
 	// or through an environment setting, so return these when they are ready.
 	var emptyCreds configstore.APICredentials
-	if c.systemName == "" {
-		return emptyCreds, errors.Trace(ErrNoSystemSpecified)
-	}
-	info, err := ConnectionInfoForName(c.systemName)
+	info, err := c.ConnectionInfo()
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
 	return info.APICredentials(), nil
+}
+
+// ConnectionEndpoint returns the endpoint details used to connect to the API for
+// the specified system.
+func (c *SysCommandBase) ConnectionEndpoint() (configstore.APIEndpoint, error) {
+	// TODO: the user may soon be specified through the command line
+	// or through an environment setting, so return these when they are ready.
+	var empty configstore.APIEndpoint
+	info, err := c.ConnectionInfo()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	return info.APIEndpoint(), nil
+}
+
+// ConnectionInfo returns the environ info from the cached config store.
+func (c *SysCommandBase) ConnectionInfo() (configstore.EnvironInfo, error) {
+	// TODO: the user may soon be specified through the command line
+	// or through an environment setting, so return these when they are ready.
+	if c.systemName == "" {
+		return nil, errors.Trace(ErrNoSystemSpecified)
+	}
+	info, err := ConnectionInfoForName(c.systemName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return info, nil
 }
 
 // Wrap wraps the specified SystemCommand, returning a Command

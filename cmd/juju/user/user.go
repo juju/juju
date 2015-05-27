@@ -4,15 +4,9 @@
 package user
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
-	"github.com/juju/utils/readpass"
 
-	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -34,54 +28,17 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     userCommandPurpose,
 	})
-	usercmd.Register(envcmd.Wrap(&AddCommand{}))
-	usercmd.Register(envcmd.Wrap(&ChangePasswordCommand{}))
-	usercmd.Register(envcmd.Wrap(&InfoCommand{}))
-	usercmd.Register(envcmd.Wrap(&DisableCommand{}))
-	usercmd.Register(envcmd.Wrap(&EnableCommand{}))
-	usercmd.Register(envcmd.Wrap(&ListCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&AddCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&ChangePasswordCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&InfoCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&DisableCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&EnableCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&ListCommand{}))
 	return usercmd
 }
 
 // UserCommandBase is a helper base structure that has a method to get the
 // user manager client.
 type UserCommandBase struct {
-	envcmd.EnvCommandBase
-}
-
-// NewUserManagerClient returns a usermanager client for the root api endpoint
-// that the environment command returns.
-func (c *UserCommandBase) NewUserManagerClient() (*usermanager.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, err
-	}
-	return usermanager.NewClient(root), nil
-}
-
-var readPassword = readpass.ReadPassword
-
-func (*UserCommandBase) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
-	if generate {
-		password, err := utils.RandomPassword()
-		if err != nil {
-			return "", errors.Annotate(err, "failed to generate random password")
-		}
-		return password, nil
-	}
-
-	fmt.Fprintln(ctx.Stdout, "password:")
-	password, err := readPassword()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	fmt.Fprintln(ctx.Stdout, "type password again:")
-	verify, err := readPassword()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if password != verify {
-		return "", errors.New("Passwords do not match")
-	}
-	return password, nil
+	envcmd.SysCommandBase
 }

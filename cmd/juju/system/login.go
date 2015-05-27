@@ -19,18 +19,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// ServerFile describes the information that is needed for a user
-// to connect to an api server.
-//
-// TODO(thumper): This will need to move when the user manager commands
-// generate this file format.  The file format is expected to be YAML.
-type ServerFile struct {
-	Addresses []string `yaml:"addresses"`
-	CACert    string   `yaml:"ca-cert,omitempty"`
-	Username  string   `yaml:"username"`
-	Password  string   `yaml:"password"`
-}
-
 // APIOpenFunc defines a function that opens the api connection
 // and returns the defined interface.
 type APIOpenFunc func(*api.Info, api.DialOpts) (APIConnection, error)
@@ -131,7 +119,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var serverDetails ServerFile
+	var serverDetails envcmd.ServerFile
 	if err := goyaml.Unmarshal(serverYAML, &serverDetails); err != nil {
 		return errors.Trace(err)
 	}
@@ -181,7 +169,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(envcmd.WriteCurrentSystem(c.Name))
 }
 
-func (c *LoginCommand) cacheConnectionInfo(serverDetails ServerFile, apiState APIConnection) (configstore.EnvironInfo, error) {
+func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState APIConnection) (configstore.EnvironInfo, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
