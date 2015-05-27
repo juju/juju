@@ -271,7 +271,7 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, boo
 
 func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
 	// Storage constraints are accumulative before context is flushed.
-	// TODO (anastasiamac 2015-05-26):
+	// TODO (anastasiamac 2015-05-26) Bug 1459057:
 	//     what happens if more than one call is made about the same store?
 	//     with this implementation, the latest call arrived will be taken
 	//     into consideration.

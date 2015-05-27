@@ -988,7 +988,7 @@ func (st *State) addStorageForUnit(
 	// This can happen for charm stores that specify instances range from 0,
 	// and no count was specified at deploy as storage constraints for this store,
 	// and no count was specified to storage add as a contraint either.
-	if cons.Count == uint64(0) {
+	if cons.Count == 0 {
 		return errors.NotValidf("adding storage where instance count is 0")
 	}
 

@@ -20,11 +20,11 @@ import (
 
 type unitStorageSuite struct {
 	HookContextSuite
-	expectedStorageNames set.Strings
-	charmName            string
-	initCons             map[string]state.StorageConstraints
-	ch                   *state.Charm
-	iCount               int
+	expectedStorageNames         set.Strings
+	charmName                    string
+	initCons                     map[string]state.StorageConstraints
+	ch                           *state.Charm
+	initialStorageInstancesCount int
 }
 
 var _ = gc.Suite(&unitStorageSuite{})
@@ -121,7 +121,7 @@ func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	s.iCount = len(all)
+	s.initialStorageInstancesCount = len(all)
 	s.expectedStorageNames = set.NewStrings()
 	for _, one := range all {
 		s.expectedStorageNames.Add(one.StorageName())
@@ -165,7 +165,7 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 
 	after, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-s.iCount, gc.Equals, len(cons))
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, len(cons))
 	s.assertExistingStorage(c, after)
 }
 

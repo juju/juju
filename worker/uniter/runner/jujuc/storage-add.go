@@ -66,6 +66,10 @@ func (s *StorageAddCommand) Init(args []string) error {
 		return errors.New("storage add requires a storage directive")
 	}
 
+	// TODO (anastasiamac 2015-5-27) Bug 1459060:
+	//     For store names that already have constraints,
+	//     add support for "storage-add <name>".
+	//     This is equivalent to "storage-add <name>=1".
 	cons, err := keyvalues.Parse(args, true)
 	if err != nil {
 		return errors.Trace(err)
