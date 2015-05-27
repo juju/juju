@@ -86,16 +86,14 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
+		defer c.api.Close()
 	}
-	defer c.api.Close()
 
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Annotate(err, "failed to generate random password")
 	}
-	if randomPasswordNotify != nil {
-		randomPasswordNotify(password)
-	}
+	randomPasswordNotify(password)
 
 	if _, err := c.api.AddUser(c.User, c.DisplayName, password); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)

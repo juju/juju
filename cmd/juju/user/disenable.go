@@ -111,8 +111,8 @@ func (c *DisableCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
+		defer c.api.Close()
 	}
-	defer c.api.Close()
 
 	if err := c.api.DisableUser(c.User); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
@@ -129,8 +129,8 @@ func (c *EnableCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
+		defer c.api.Close()
 	}
-	defer c.api.Close()
 
 	if err := c.api.EnableUser(c.User); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)

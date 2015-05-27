@@ -16,9 +16,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// randomPasswordNotify is called if non-nil when a random password
-// is generated.
-var randomPasswordNotify func(string)
+// randomPasswordNotify is called when a random password is generated.
+var randomPasswordNotify = func(string) {}
 
 const userChangePasswordDoc = `
 Change the password for the user you are currently logged in as,
@@ -102,8 +101,8 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
+		defer c.api.Close()
 	}
-	defer c.api.Close()
 
 	password, err := c.generateOrReadPassword(ctx, c.Generate)
 	if err != nil {
@@ -164,9 +163,7 @@ func (*ChangePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		if err != nil {
 			return "", errors.Annotate(err, "failed to generate random password")
 		}
-		if randomPasswordNotify != nil {
-			randomPasswordNotify(password)
-		}
+		randomPasswordNotify(password)
 		return password, nil
 	}
 
