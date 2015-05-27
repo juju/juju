@@ -93,6 +93,9 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to generate random password")
 	}
+	if randomPasswordNotify != nil {
+		randomPasswordNotify(password)
+	}
 
 	if _, err := c.api.AddUser(c.User, c.DisplayName, password); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
@@ -105,7 +108,5 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("user %q added", user)
 
-	outPath := ctx.AbsPath(c.OutPath)
-	return writeServerFile(c, ctx, user, password, outPath)
-
+	return writeServerFile(c, ctx, user, password, c.OutPath)
 }

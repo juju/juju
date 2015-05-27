@@ -22,6 +22,7 @@ type ChangePasswordCommandSuite struct {
 	mockAPI         *mockChangePasswordAPI
 	mockEnvironInfo *mockEnvironInfo
 	randomPassword  string
+	serverFilename  string
 }
 
 var _ = gc.Suite(&ChangePasswordCommandSuite{})
@@ -33,8 +34,12 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 		creds: configstore.APICredentials{"user-name", "password"},
 	}
 	s.randomPassword = ""
+	s.serverFilename = ""
 	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
 		s.randomPassword = pwd
+	})
+	s.PatchValue(user.ServerFileNotify, func(filename string) {
+		s.serverFilename = filename
 	})
 }
 
@@ -155,11 +160,15 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	_, err := s.run(c, "other")
+	context, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
 	s.assertRandomPassword(c)
-	// TODO(thumper) assert output file
+	s.assertServerFileMatches(c, s.serverFilename, "other", s.randomPassword)
+	expected := `
+server file written to .*other.server
+`[1:]
+	c.Assert(testing.Stderr(context), gc.Matches, expected)
 }
 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
@@ -169,7 +178,8 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
 	_, err := s.run(c, "other", "-o", filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRandomPassword(c)
-	// TODO(thumper): assert file contents
+	c.Assert(filepath.Base(s.serverFilename), gc.Equals, "test.result")
+	s.assertServerFileMatches(c, s.serverFilename, "other", s.randomPassword)
 }
 
 type mockEnvironInfo struct {

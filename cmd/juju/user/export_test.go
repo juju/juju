@@ -6,6 +6,8 @@ package user
 var (
 	RandomPasswordNotify = &randomPasswordNotify
 	ReadPassword         = &readPassword
+	ServerFileNotify     = &serverFileNotify
+	WriteServerFile      = writeServerFile
 )
 
 // NewAddCommand returns an AddCommand with the api provided as specified.

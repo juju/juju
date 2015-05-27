@@ -13,6 +13,10 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
+// serverFileNotify is called if non-nil with the absolute path of the
+// written server file.
+var serverFileNotify func(string)
+
 // EndpointProvider defines the method used by the WriteServerFile
 // in order
 type EndpointProvider interface {
@@ -20,6 +24,7 @@ type EndpointProvider interface {
 }
 
 func writeServerFile(endpointProvider EndpointProvider, ctx *cmd.Context, username, password, outPath string) error {
+	outPath = ctx.AbsPath(outPath)
 	endpoint, err := endpointProvider.ConnectionEndpoint()
 	if err != nil {
 		return errors.Trace(err)
@@ -37,6 +42,9 @@ func writeServerFile(endpointProvider EndpointProvider, ctx *cmd.Context, userna
 	}
 	if err := ioutil.WriteFile(outPath, yaml, 0644); err != nil {
 		return errors.Trace(err)
+	}
+	if serverFileNotify != nil {
+		serverFileNotify(outPath)
 	}
 	ctx.Infof("server file written to %s", outPath)
 	return nil

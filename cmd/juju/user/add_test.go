@@ -22,7 +22,9 @@ import (
 // This suite provides basic tests for the "user add" command
 type UserAddCommandSuite struct {
 	BaseSuite
-	mockAPI *mockAddUserAPI
+	mockAPI        *mockAddUserAPI
+	randomPassword string
+	serverFilename string
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
@@ -30,6 +32,14 @@ var _ = gc.Suite(&UserAddCommandSuite{})
 func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockAddUserAPI{}
+	s.randomPassword = ""
+	s.serverFilename = ""
+	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
+		s.randomPassword = pwd
+	})
+	s.PatchValue(user.ServerFileNotify, func(filename string) {
+		s.serverFilename = filename
+	})
 }
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -82,6 +92,12 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
+func (s *UserAddCommandSuite) TestRandomPassword(c *gc.C) {
+	_, err := s.run(c, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.randomPassword, gc.HasLen, 24)
+}
+
 func (s *UserAddCommandSuite) TestUsername(c *gc.C) {
 	context, err := s.run(c, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,6 +108,7 @@ user "foobar" added
 server file written to .*foobar.server
 `[1:]
 	c.Assert(testing.Stderr(context), gc.Matches, expected)
+	s.assertServerFileMatches(c, s.serverFilename, "foobar", s.randomPassword)
 }
 
 func (s *UserAddCommandSuite) TestUsernameAndDisplayname(c *gc.C) {
