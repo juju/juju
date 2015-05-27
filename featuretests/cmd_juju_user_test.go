@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package featuretests
 
 import (
 	"fmt"
@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/user"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -26,21 +28,20 @@ type UserSuite struct {
 
 var _ = gc.Suite(&UserSuite{})
 
-func (s *UserSuite) RunUserCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
-	args := []string{"user"}
-	args = append(args, commands...)
-	context := testing.Context(c)
-	juju := NewJujuCommand(context)
-	if err := testing.InitCommand(juju, args); err != nil {
-		return context, err
-	}
-	return context, juju.Run(context)
+func (s *UserSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	envcmd.WriteCurrentEnvironment("dummyenv")
+}
+
+func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	command := user.NewSuperCommand()
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *UserSuite) TestUserAdd(c *gc.C) {
-	ctx, err := s.RunUserCommand(c, "add", "test", "--generate")
+	ctx, err := s.RunUserCommand(c, "add", "test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `user "test" added`)
+	c.Assert(testing.Stderr(ctx), jc.HasPrefix, `user "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
