@@ -84,7 +84,7 @@ fi
 # These agents are built while the debs are built. This is safe to do because
 # the debs take 45 minutes. When this script is dismantled, the job
 # that publishes the revision will require build-centos, build-win-agen,
-and the new build-packages job.
+# and the new build-packages job.
 $SCRIPTS/jujuci.py get -b lastBuild \
     build-centos juju-*centos7-amd64.tgz $WORKSPACE
 WIN2012=$($SCRIPTS/jujuci.py get -b lastBuild \
