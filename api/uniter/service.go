@@ -161,7 +161,7 @@ func (s *Service) ownerTag() (names.UserTag, error) {
 
 // SetStatus sets the status of the service.
 func (s *Service) SetStatus(unitTag string, status params.Status, info string, data map[string]interface{}) error {
-	//TODO(perrto666) bump api version for this?
+	//TODO(perrito666) bump api version for this?
 	if s.st.facade.BestAPIVersion() < 2 {
 		return errors.NotImplementedf("SetStatus")
 	}

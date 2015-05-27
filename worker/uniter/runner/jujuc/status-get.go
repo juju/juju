@@ -91,9 +91,7 @@ func (c *StatusGetCommand) ServiceStatus(ctx *cmd.Context) error {
 
 	units := make(map[string]interface{}, len(serviceStatus.Units))
 	for _, unit := range serviceStatus.Units {
-		unitDetails := toDetails(unit, c.includeData)
-		//TODO(perrito666) I am sure there is a nicer way to put this
-		units[unit.Tag] = unitDetails
+		units[unit.Tag] = toDetails(unit, c.includeData)
 	}
 	details["units"] = units
 	statusDetails["service-status"] = details
@@ -120,7 +118,6 @@ func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
 	if !c.includeData && c.out.Name() == "smart" {
 		return c.out.Write(ctx, unitStatus.Status)
 	}
-	statusDetails := toDetails(*unitStatus, c.includeData)
-	c.out.Write(ctx, statusDetails)
+	c.out.Write(ctx, toDetails(*unitStatus, c.includeData))
 	return nil
 }
