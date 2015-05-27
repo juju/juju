@@ -36,6 +36,10 @@ func fakeServiceFromUnitTag(st state.EntityFinder, unitTag string) (common.Statu
 	return service, nil
 }
 
+func fakeIsLeaderCheck(_ state.EntityFinder, _ string) (bool, error) {
+	return true, nil
+}
+
 type fakeService struct {
 	tag         names.Tag
 	status      state.StatusInfo
@@ -146,7 +150,7 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 	}
 
 	sg := common.NewServiceStatusGetter(st, getCanAccess)
-	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag)
+	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag, fakeIsLeaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
 }

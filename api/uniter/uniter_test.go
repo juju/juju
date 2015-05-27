@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -13,7 +15,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -28,6 +33,9 @@ type uniterSuite struct {
 	wordpressService   *state.Service
 	wordpressCharm     *state.Charm
 	wordpressUnit      *state.Unit
+
+	leaseWorker       worker.Worker
+	leadershipManager leadership.LeadershipManager
 
 	uniter *uniter.State
 }
@@ -70,6 +78,20 @@ func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, service, charm, unit
+}
+
+func (s *uniterSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {
+	// If we don't have a lease manager running somewhere, the API calls hang.
+	workerLoop := lease.WorkerLoop(s.State)
+	if s.leaseWorker == nil {
+		s.leaseWorker = worker.NewSimpleWorker(workerLoop)
+	}
+	if s.leadershipManager == nil {
+		s.leadershipManager = leadership.NewLeadershipManager(lease.Manager())
+	}
+
+	err := s.leadershipManager.ClaimLeadership(service.Name(), unit.Name(), time.Duration(60)*time.Second)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {

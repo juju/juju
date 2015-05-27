@@ -24,6 +24,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
+var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -233,11 +234,18 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 
 func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	var err error
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return jujuc.ServiceStatusInfo{}, ErrIsNotLeader
+	}
 	service, err := ctx.unit.Service()
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
-	status, err := service.Status(ctx.unit.Name())
+	status, err := service.Status(ctx.unit.Tag().String())
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
@@ -275,12 +283,20 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 
 func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
+
 	service, err := ctx.unit.Service()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return service.SetStatus(
-		ctx.unit.Name(),
+		ctx.unit.Tag().String(),
 		params.Status(status.Status),
 		status.Info,
 		status.Data,

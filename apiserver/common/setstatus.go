@@ -30,10 +30,10 @@ func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *Se
 
 // SetStatus sets the status on the service given by the unit in args if the unit is the leader.
 func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
-	return serviceSetStatus(s, args, serviceFromUnitTag)
+	return serviceSetStatus(s, args, serviceFromUnitTag, isLeader)
 }
 
-func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService serviceGetter) (params.ErrorResults, error) {
+func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService serviceGetter, isLeaderCheck isLeaderFunc) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -45,6 +45,15 @@ func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService 
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Entities {
+		leader, err := isLeaderCheck(s.st, arg.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		if !leader {
+			result.Results[i].Error = ServerError(ErrIsNotLeader)
+			continue
+		}
 		service, err := getService(s.st, arg.Tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)

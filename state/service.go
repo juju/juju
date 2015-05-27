@@ -1141,39 +1141,45 @@ func (s *Service) Status() (StatusInfo, error) {
 
 // SetStatus sets the status for the service.
 func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	oldDoc, err := getStatus(s.st, s.globalKey())
-	insert := false
-	if IsStatusNotFound(err) {
-		insert = true
-		logger.Debugf("there is no state for %q yet", s.globalKey())
-	} else if err != nil {
-		logger.Debugf("cannot get state for %q yet", s.globalKey())
-	}
-
-	doc, err := newServiceStatusDoc(status, info, data)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var ops []txn.Op
-	if insert {
-		doc.statusDoc.EnvUUID = s.st.EnvironUUID()
-		ops = []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}
-	} else {
-		ops = []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}
-	}
-
-	err = s.st.runTransaction(ops)
-	if err != nil {
-		return errors.Errorf("cannot set status of service %q: %v", s, onAbort(err, ErrDead))
-	}
-
-	if oldDoc.Status != "" {
-		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
-			logger.Errorf("could not record status history before change to %q: %v", status, err)
+	var err error
+	for i := 0; i < 10; i++ {
+		var oldDoc statusDoc
+		oldDoc, err = getStatus(s.st, s.globalKey())
+		insert := false
+		if IsStatusNotFound(err) {
+			insert = true
+			logger.Debugf("there is no state for %q yet", s.globalKey())
+		} else if err != nil {
+			logger.Debugf("cannot get state for %q yet", s.globalKey())
 		}
+
+		doc, err := newServiceStatusDoc(status, info, data)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		if insert {
+			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
+			ops = []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}
+		} else {
+			ops = []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}
+		}
+
+		err = s.st.runTransaction(ops)
+		if err != nil {
+			err = errors.Errorf("cannot set status of service %q: %v", s, onAbort(err, ErrDead))
+			continue
+		}
+
+		if oldDoc.Status != "" {
+			if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
+				logger.Errorf("could not record status history before change to %q: %v", status, err)
+			}
+		}
+		return nil
 	}
-	return nil
+	return err
 }
 
 // MembersStatus returns the status for all units in this service.

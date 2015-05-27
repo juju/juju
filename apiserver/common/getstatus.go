@@ -6,11 +6,16 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 )
+
+var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // StatusGetter implements a common Status method for use by
 // various facades.
@@ -99,7 +104,9 @@ type StatusService interface {
 
 type serviceGetter func(state.EntityFinder, string) (StatusService, error)
 
-func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, error) {
+type isLeaderFunc func(state.EntityFinder, string) (bool, error)
+
+func getUnit(st state.EntityFinder, unitTag string) (*state.Unit, error) {
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
@@ -113,7 +120,14 @@ func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, e
 	if !ok {
 		return nil, err
 	}
+	return unit, nil
+}
 
+func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, error) {
+	unit, err := getUnit(st, unitTag)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot obtain unit %q to obtain service", unitTag)
+	}
 	var service StatusService
 	service, err = unit.Service()
 	if err != nil {
@@ -122,12 +136,27 @@ func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, e
 	return service, nil
 }
 
-// Status returns the status of each given entity.
-func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
-	return serviceStatus(s, args, serviceFromUnitTag)
+func isLeader(st state.EntityFinder, unitTag string) (bool, error) {
+	unit, err := getUnit(st, unitTag)
+	if err != nil {
+		return false, errors.Annotatef(err, "cannot obtain unit %q to check leadership", unitTag)
+	}
+	service, err := unit.Service()
+	if err != nil {
+		return false, err
+	}
+
+	leaseManager := lease.Manager()
+	leadershipManager := leadership.NewLeadershipManager(leaseManager)
+	return leadershipManager.Leader(service.Name(), unit.Name()), nil
 }
 
-func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serviceGetter) (params.ServiceStatusResults, error) {
+// Status returns the status of each given entity.
+func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
+	return serviceStatus(s, args, serviceFromUnitTag, isLeader)
+}
+
+func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serviceGetter, isLeaderCheck isLeaderFunc) (params.ServiceStatusResults, error) {
 	results := params.ServiceStatusResults{
 		Results: make([]params.ServiceStatusResult, len(args.Entities)),
 	}
@@ -137,11 +166,19 @@ func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serv
 	}
 
 	for i, serviceUnit := range args.Entities {
-		//TODO(perrito666) IsLeader check for unit.
+		leader, err := isLeaderCheck(s.st, serviceUnit.Tag)
+		if err != nil {
+			results.Results[i].Error = ServerError(err)
+			continue
+		}
+		if !leader {
+			results.Results[i].Error = ServerError(ErrIsNotLeader)
+			continue
+		}
 		var service StatusService
 		service, err = getService(s.st, serviceUnit.Tag)
 		if err != nil {
-			results.Results[i].Error = ServerError(ErrPerm)
+			results.Results[i].Error = ServerError(err)
 			continue
 		}
 		if !canAccess(service.Tag()) {
