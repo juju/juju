@@ -261,7 +261,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
 
 	// Create DB indexes.
 	for _, item := range indexes {
