@@ -142,8 +142,12 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-no-bootstrap", "--yes")
-	c.Check(<-errc, gc.ErrorMatches, "cannot destroy server environment without bootstrap infomation")
-	c.Check(<-opc, gc.IsNil)
+	c.Check(<-errc, gc.IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
+
+	// Verify that the environment information has been removed.
+	_, err = s.ConfigStore.ReadInfo("dummyenv")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
@@ -260,8 +264,8 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
 	op, ok := (<-opc).(dummy.OpDestroy)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(op.Error, gc.ErrorMatches, "dummy.Destroy is broken")
-	c.Check(<-errc, gc.Equals, op.Error)
+	c.Assert(op.Error, gc.ErrorMatches, ".*dummy.Destroy is broken")
+	c.Check(<-errc, gc.ErrorMatches, ".*dummy.Destroy is broken")
 	c.Check(<-opc, gc.IsNil)
 }
 
