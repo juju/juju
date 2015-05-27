@@ -323,6 +323,25 @@ type MachineAddresses struct {
 	Addresses []Address `json:"Addresses"`
 }
 
+// SetMachinesAddresses holds the parameters for making an
+// API call to update machine addresses.
+type SetMachinesAddresses struct {
+	MachineAddresses []MachineAddresses `json:"MachineAddresses"`
+}
+
+// MachineAddressesResult holds a list of machine addresses or an
+// error.
+type MachineAddressesResult struct {
+	Error     *Error    `json:"Error"`
+	Addresses []Address `json:"Addresses"`
+}
+
+// MachineAddressesResults holds the results of calling an API method
+// returning a list of addresses per machine.
+type MachineAddressesResults struct {
+	Results []MachineAddressesResult `json:"Results"`
+}
+
 // MachinePortRange holds a single port range open on a machine for
 // the given unit and relation tags.
 type MachinePortRange struct {

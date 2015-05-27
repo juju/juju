@@ -345,6 +345,18 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
+// InstanceStatus holds an entity tag and instance status.
+type InstanceStatus struct {
+	Tag    string
+	Status string
+}
+
+// SetInstancesStatus holds parameters for making a
+// SetInstancesStatus() call.
+type SetInstancesStatus struct {
+	Entities []InstanceStatus
+}
+
 type HistoryKind string
 
 const (
@@ -375,11 +387,6 @@ type StatusResult struct {
 // StatusResults holds multiple status results.
 type StatusResults struct {
 	Results []StatusResult
-}
-
-// SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
-type SetMachinesAddresses struct {
-	MachineAddresses []MachineAddresses
 }
 
 // ConstraintsResult holds machine constraints or an error.
