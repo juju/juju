@@ -38,6 +38,6 @@ func writeServerFile(endpointProvider EndpointProvider, ctx *cmd.Context, userna
 	if err := ioutil.WriteFile(outPath, yaml, 0644); err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("server file written to %s\n", outPath)
+	ctx.Infof("server file written to %s", outPath)
 	return nil
 }

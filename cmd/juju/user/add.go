@@ -103,7 +103,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		user = fmt.Sprintf("%s (%s)", c.DisplayName, user)
 	}
 
-	fmt.Fprintf(ctx.Stdout, "user %q added\n", user)
+	ctx.Infof("user %q added", user)
 
 	outPath := ctx.AbsPath(c.OutPath)
 	return writeServerFile(c, ctx, user, password, outPath)

@@ -45,22 +45,20 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		outPath     string
 		errorString string
 	}{
-		//TODO(thumper) check init tested fully
 		{
 			errorString: "no username supplied",
 		}, {
-			args: []string{"foobar"},
-			user: "foobar",
+			args:    []string{"foobar"},
+			user:    "foobar",
+			outPath: "foobar.server",
 		}, {
 			args:        []string{"foobar", "Foo Bar"},
 			user:        "foobar",
 			displayname: "Foo Bar",
+			outPath:     "foobar.server",
 		}, {
 			args:        []string{"foobar", "Foo Bar", "extra"},
 			errorString: `unrecognized args: \["extra"\]`,
-		}, {
-			args: []string{"foobar", "--generate"},
-			user: "foobar",
 		}, {
 			args:    []string{"foobar", "--output", "somefile"},
 			user:    "foobar",
@@ -91,7 +89,7 @@ func (s *UserAddCommandSuite) TestUsername(c *gc.C) {
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
 	expected := `
 user "foobar" added
-environment file written to .*foobar.server
+server file written to .*foobar.server
 `[1:]
 	c.Assert(testing.Stderr(context), gc.Matches, expected)
 }
