@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/feature"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
+	"github.com/juju/utils/featureflag"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -28,6 +31,42 @@ type LogRecord struct {
 // LogRecordCh defines the channel type used to send log message
 // structs within the unit and machine agents.
 type LogRecordCh chan *LogRecord
+
+const writerName = "buffered-logs"
+
+// InstallBufferedLogWriter creates a new BufferedLogWriter, registers
+// it with Loggo and returns its output channel.
+func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
+	if !featureflag.Enabled(feature.DbLog) {
+		return nil, nil
+	}
+
+	writer := NewBufferedLogWriter(maxLen)
+	err := loggo.RegisterWriter(writerName, writer, loggo.TRACE)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to set up log buffering")
+	}
+	return writer.Logs(), nil
+}
+
+// UninstallBufferedLogWriter removes the BufferedLogWriter previously
+// installed by InstallBufferedLogWriter and closes it.
+func UninstallBufferedLogWriter() error {
+	if !featureflag.Enabled(feature.DbLog) {
+		return nil
+	}
+
+	writer, _, err := loggo.RemoveWriter(writerName)
+	if err != nil {
+		return errors.Annotate(err, "failed to uninstall log buffering")
+	}
+	bufWriter, ok := writer.(*BufferedLogWriter)
+	if !ok {
+		return errors.New("unexpected writer installed as buffered log writer")
+	}
+	bufWriter.Close()
+	return nil
+}
 
 // BufferedLogWriter is a loggo.Writer which buffers log messages in
 // memory. These messages are retrieved by reading from the channel
