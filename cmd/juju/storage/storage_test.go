@@ -10,6 +10,7 @@ import (
 )
 
 var expectedSubCommmandNames = []string{
+	"add",
 	"help",
 	"list",
 	"pool",

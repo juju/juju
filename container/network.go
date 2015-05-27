@@ -18,6 +18,7 @@ const (
 type NetworkConfig struct {
 	NetworkType string
 	Device      string
+	MTU         int
 
 	Interfaces []network.InterfaceInfo
 }
@@ -25,17 +26,17 @@ type NetworkConfig struct {
 // BridgeNetworkConfig returns a valid NetworkConfig to use the
 // specified device as a network bridge for the container. It also
 // allows passing in specific configuration for the container's
-// network interfaces. If interfaces is nil the default configuration
-// is used for the respective container type.
-func BridgeNetworkConfig(device string, interfaces []network.InterfaceInfo) *NetworkConfig {
-	return &NetworkConfig{BridgeNetwork, device, interfaces}
+// network interfaces and default MTU to use. If interfaces is nil the
+// default configuration is used for the respective container type.
+func BridgeNetworkConfig(device string, mtu int, interfaces []network.InterfaceInfo) *NetworkConfig {
+	return &NetworkConfig{BridgeNetwork, device, mtu, interfaces}
 }
 
 // PhysicalNetworkConfig returns a valid NetworkConfig to use the
 // specified device as the network device for the container. It also
 // allows passing in specific configuration for the container's
-// network interfaces. If interfaces is nil the default configuration
-// is used for the respective container type.
-func PhysicalNetworkConfig(device string, interfaces []network.InterfaceInfo) *NetworkConfig {
-	return &NetworkConfig{PhysicalNetwork, device, interfaces}
+// network interfaces and default MTU to use. If interfaces is nil the
+// default configuration is used for the respective container type.
+func PhysicalNetworkConfig(device string, mtu int, interfaces []network.InterfaceInfo) *NetworkConfig {
+	return &NetworkConfig{PhysicalNetwork, device, mtu, interfaces}
 }

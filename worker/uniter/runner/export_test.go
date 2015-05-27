@@ -187,7 +187,6 @@ func NewHookContext(
 		code: statusCode,
 		info: statusInfo,
 	}
-
 	return ctx, nil
 }
 

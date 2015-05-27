@@ -88,6 +88,11 @@ const (
 	// Only prevent all-changes from running
 	// if user specifically requests it. Otherwise, let them run.
 	DefaultPreventAllChanges = false
+
+	// DefaultLXCDefaultMTU is the default value for "lxc-default-mtu"
+	// config setting. Only non-zero, positive integer values will
+	// have effect.
+	DefaultLXCDefaultMTU = 0
 )
 
 // TODO(katco-): Please grow this over time.
@@ -154,6 +159,11 @@ const (
 	// devices. A theoretical security issue, so must be explicitly
 	// allowed by the user.
 	AllowLXCLoopMounts = "allow-lxc-loop-mounts"
+
+	// LXCDefaultMTU, when set to a positive integer, overrides the
+	// Machine Transmission Unit (MTU) setting of all network
+	// interfaces created for LXC containers. See also bug #1442257.
+	LXCDefaultMTU = "lxc-default-mtu"
 
 	//
 	// Deprecated Settings Attributes
@@ -617,6 +627,12 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 	}
+
+	// Check LXCDefaultMTU is a positive integer, when set.
+	if lxcDefaultMTU, ok := cfg.LXCDefaultMTU(); ok && lxcDefaultMTU < 0 {
+		return errors.Errorf("%s: expected positive integer, got %v", LXCDefaultMTU, lxcDefaultMTU)
+	}
+
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
@@ -1099,6 +1115,16 @@ func (c *Config) LXCUseCloneAUFS() (bool, bool) {
 	return v, ok
 }
 
+// LXCDefaultMTU reports whether the LXC provisioner should create a
+// containers with a specific MTU value for all network intefaces.
+func (c *Config) LXCDefaultMTU() (int, bool) {
+	v, ok := c.defined[LXCDefaultMTU].(int)
+	if !ok {
+		return DefaultLXCDefaultMTU, false
+	}
+	return v, ok
+}
+
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1201,6 +1227,7 @@ var fields = schema.Fields{
 	"proxy-ssh":                  schema.Bool(),
 	LxcClone:                     schema.Bool(),
 	"lxc-clone-aufs":             schema.Bool(),
+	LXCDefaultMTU:                schema.ForceInt(),
 	"prefer-ipv6":                schema.Bool(),
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
@@ -1250,6 +1277,7 @@ var alwaysOptional = schema.Defaults{
 	AptFtpProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	LxcClone:                     schema.Omit,
+	LXCDefaultMTU:                schema.Omit,
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
@@ -1361,6 +1389,7 @@ var immutableAttributes = []string{
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
 	LxcClone,
+	LXCDefaultMTU,
 	"lxc-clone-aufs",
 	"syslog-port",
 	"prefer-ipv6",

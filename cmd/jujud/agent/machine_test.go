@@ -4,13 +4,14 @@
 package agent
 
 import (
-	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,7 +62,6 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -283,32 +283,6 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "some error")
 }
 
-type FakeConfig struct {
-	agent.Config
-}
-
-func (FakeConfig) LogDir() string {
-	return filepath.FromSlash("/var/log/juju/")
-}
-
-func (FakeConfig) Tag() names.Tag {
-	return names.NewMachineTag("42")
-}
-
-type FakeAgentConfig struct {
-	AgentConfigWriter
-	apiaddressupdater.APIAddressSetter
-	AgentInitializer
-}
-
-func (FakeAgentConfig) ReadConfig(string) error { return nil }
-
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
-}
-
-func (FakeAgentConfig) CheckArgs([]string) error { return nil }
-
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, gc.IsNil)
@@ -529,6 +503,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "resumer")
+	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
 	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
@@ -857,7 +832,7 @@ func (s *MachineSuite) assertJobWithState(
 // passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
-	reportOpened *func(interface{}),
+	reportOpened *func(io.Closer),
 	job state.MachineJob,
 	test func(agent.Config, interface{}),
 ) {
@@ -869,8 +844,8 @@ func (s *MachineSuite) assertAgentOpensState(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 
-	agentAPIs := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(reportOpened, func(st interface{}) {
+	agentAPIs := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(reportOpened, func(st io.Closer) {
 		select {
 		case agentAPIs <- st:
 		default:
@@ -1318,9 +1293,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	machineWorkerStarted := false
-	environWorkerStarted := false
-	numWorkers := 0
+	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
 	newWorker := func(
 		scope names.Tag,
@@ -1333,15 +1306,15 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			c.Check(scope, gc.Equals, s.State.EnvironTag())
-			environWorkerStarted = true
-			numWorkers = numWorkers + 1
+			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
+			atomic.AddUint32(&numWorkers, 1)
 		}
 		if storageDir != "" {
 			c.Check(scope, gc.Equals, m.Tag())
-			machineWorkerStarted = true
-			numWorkers = numWorkers + 1
+			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
+			atomic.AddUint32(&numWorkers, 1)
 		}
-		if environWorkerStarted && machineWorkerStarted {
+		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
 			close(started)
 		}
 		return worker.NewNoOpWorker()
@@ -1351,7 +1324,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	// Wait for worker to be started.
 	select {
 	case <-started:
-		c.Assert(numWorkers, gc.Equals, 2)
+		c.Assert(atomic.LoadUint32(&numWorkers), gc.Equals, uint32(2))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for storage worker to start")
 	}
@@ -1572,7 +1545,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	})
 
 	stateOpened := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st interface{}) {
+	s.AgentSuite.PatchValue(&reportOpenedState, func(st io.Closer) {
 		select {
 		case stateOpened <- st:
 		default:
@@ -1641,9 +1614,83 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
+func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	a.apiStateUpgrader = &machineAgentUpgrader{}
+
+	closedAPI := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(&reportClosedMachineAPI, func(st io.Closer) {
+		select {
+		case closedAPI <- st:
+			close(closedAPI)
+		default:
+		}
+	})
+
+	worker, err := a.APIWorker()
+
+	select {
+	case closed := <-closedAPI:
+		c.Assert(closed, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("API not opened")
+	}
+
+	c.Assert(worker, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
+}
+
+type machineAgentUpgrader struct{}
+
+func (m *machineAgentUpgrader) SetVersion(s string, v version.Binary) error {
+	return errors.New("test failure")
+}
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
-	expectedWorkers := make([]string, 0, len(perEnvSingularWorkers)+1)
+	_, expectedWorkers, closer := s.setUpNewEnvironment(c)
+	defer closer()
+
+	r1 := s.singularRecord.nextRunner(c)
+	workers := r1.waitForWorker(c, "firewaller")
+	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+}
+
+func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
+	st, _, closer := s.setUpNewEnvironment(c)
+	defer closer()
+
+	// Check that newStorageWorker is called and the environ tag is scoped to
+	// that of the new environment tag.
+	started := make(chan struct{})
+	newWorker := func(
+		scope names.Tag,
+		storageDir string,
+		_ storageprovisioner.VolumeAccessor,
+		_ storageprovisioner.FilesystemAccessor,
+		_ storageprovisioner.LifecycleManager,
+		_ storageprovisioner.EnvironAccessor,
+	) worker.Worker {
+		// storageDir is empty for environ storage provisioners
+		if storageDir == "" {
+			c.Check(scope, gc.Equals, st.EnvironTag())
+			close(started)
+		}
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Wait for newStorageWorker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for storage worker to start")
+	}
+}
+
+func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expectedWorkers []string, closer func()) {
+	expectedWorkers = make([]string, 0, len(perEnvSingularWorkers)+1)
 	for _, w := range perEnvSingularWorkers {
 		expectedWorkers = append(expectedWorkers, w)
 		if w == "environ-provisioner" {
@@ -1655,7 +1702,6 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	_ = s.singularRecord.nextRunner(c) // Don't care about this one for this test.
 
@@ -1665,16 +1711,17 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	workers := r0.waitForWorker(c, "firewaller")
 	c.Assert(workers, jc.DeepEquals, expectedWorkers)
 
-	// Now create a new environment and see the workers start for it.
-	factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+	// Create a new environment, tests can now watch if workers start for it.
+	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		ConfigAttrs: map[string]interface{}{
 			"state-server": false,
 		},
 		Prepare: true,
-	}).Close()
-	r1 := s.singularRecord.nextRunner(c)
-	workers = r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+	})
+	return newSt, expectedWorkers, func() {
+		newSt.Close()
+		c.Check(a.Stop(), jc.ErrorIsNil)
+	}
 }
 
 func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
@@ -1969,13 +2016,6 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 	}
 }
 
-func newDummyWorker() worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		<-stop
-		return nil
-	})
-}
-
 type mockMetricAPI struct {
 	stop          chan struct{}
 	cleanUpCalled chan struct{}
@@ -2043,25 +2083,4 @@ func mktemp(prefix string, content string) string {
 	}
 	f.Close()
 	return f.Name()
-}
-
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }

@@ -276,7 +276,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
-	c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 	err1 := s.machine.EnsureDead()
 	c.Assert(err1, gc.DeepEquals, err)
@@ -345,7 +345,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
 	err = s.machine.Destroy()
-	c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
@@ -361,6 +361,86 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 
 	err = s.machine.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
+}
+
+func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Machine is still advanced to Dying.
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Dying)
+}
+
+func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		anotherSvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+		anotherUnit, err := anotherSvc.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = anotherUnit.AssignToMachine(s.machine)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Alive)
+}
+
+func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Machine is still advanced to Dying.
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Dying)
+}
+
+func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}, s.machine.Id(), instance.LXC)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	life := s.machine.Life()
+	c.Assert(life, gc.Equals, state.Alive)
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
@@ -384,6 +464,51 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(ifaces, gc.HasLen, 0)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
+	err := s.machine.SetProvisioned("fake", "totally-fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr1.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr2, err := s.State.AddIPAddress(network.NewAddress("10.0.0.2"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr2.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3"), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr3.AllocateTo(s.machine0.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr4.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr4.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr1.Life(), gc.Equals, state.Dead)
+	err = addr2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr2.Life(), gc.Equals, state.Dead)
+	err = addr3.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr3.Life(), gc.Equals, state.Alive)
+	err = addr4.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr4.Life(), gc.Equals, state.Dead)
 }
 
 func (s *MachineSuite) TestHasVote(c *gc.C) {

@@ -1,11 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"encoding/json"
-	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -98,7 +98,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a := NewUnitAgent()
+	a := NewUnitAgent(nil)
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a := NewUnitAgent()
+	a := NewUnitAgent(nil)
 	err := coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
@@ -119,7 +119,7 @@ func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc := NewUnitAgent()
+	uc := NewUnitAgent(nil)
 	err := coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
@@ -135,13 +135,13 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := coretesting.InitCommand(NewUnitAgent(), append(args, "--data-dir", "jc"))
+		err := coretesting.InitCommand(NewUnitAgent(nil), append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	err := coretesting.InitCommand(NewUnitAgent(), []string{
+	err := coretesting.InitCommand(NewUnitAgent(nil), []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -263,7 +263,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	s.RunTestOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }
 
-func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd agentcmd.Agent, initialPassword string) {
+func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -273,7 +273,7 @@ func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd
 
 	// Check that it starts initially and changes the password
 	assertOpen := func(conf agent.Config) {
-		st, gotEnt, err := agentcmd.OpenAPIState(conf, agentCmd)
+		st, gotEnt, err := OpenAPIState(conf, agentCmd)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
@@ -296,7 +296,7 @@ func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
-	_, _, err := agentcmd.OpenAPIState(conf, nil)
+	_, _, err := OpenAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -316,7 +316,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = agentcmd.OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
+	_, _, err = OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -407,57 +407,38 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
+func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	a.apiStateUpgrader = &unitAgentUpgrader{}
 
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
-}
-
-func newDummyWorker() worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		<-stop
-		return nil
+	closedAPI := make(chan io.Closer, 1)
+	s.AgentSuite.PatchValue(&reportClosedUnitAPI, func(st io.Closer) {
+		select {
+		case closedAPI <- st:
+			close(closedAPI)
+		default:
+		}
 	})
+
+	worker, err := a.APIWorkers()
+
+	select {
+	case closed := <-closedAPI:
+		c.Assert(closed, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("API not opened")
+	}
+
+	c.Assert(worker, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
 }
 
-type FakeConfig struct {
-	agent.Config
+type unitAgentUpgrader struct{}
+
+func (u *unitAgentUpgrader) SetVersion(s string, v version.Binary) error {
+	return errors.New("test failure")
 }
-
-func (FakeConfig) LogDir() string {
-	return filepath.FromSlash("/var/log/juju/")
-}
-
-func (FakeConfig) Tag() names.Tag {
-	return names.NewMachineTag("42")
-}
-
-type FakeAgentConfig struct {
-	agentcmd.AgentConf
-}
-
-func (FakeAgentConfig) ReadConfig(string) error { return nil }
-
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
-}
-
-func (FakeAgentConfig) CheckArgs([]string) error { return nil }
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
 	ctx, err := cmd.DefaultContext()

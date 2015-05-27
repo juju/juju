@@ -368,6 +368,18 @@ func (s *MultiEnvRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
+}
+
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
+	s.testRunner.pruneTransactionsErr = errors.New("boom")
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 // recordingRunner is fake transaction running that implements the
 // jujutxn.Runner interface. Instead of doing anything with a database
 // it simply records the transaction operations passed to it for later
@@ -380,6 +392,8 @@ type recordingRunner struct {
 	seenOps                  []txn.Op
 	resumeTransactionsCalled bool
 	resumeTransactionsErr    error
+	pruneTransactionsCalled  bool
+	pruneTransactionsErr     error
 }
 
 func (r *recordingRunner) RunTransaction(ops []txn.Op) error {
@@ -395,4 +409,9 @@ func (r *recordingRunner) Run(transactions jujutxn.TransactionSource) (err error
 func (r *recordingRunner) ResumeTransactions() error {
 	r.resumeTransactionsCalled = true
 	return r.resumeTransactionsErr
+}
+
+func (r *recordingRunner) MaybePruneTransactions(float32) error {
+	r.pruneTransactionsCalled = true
+	return r.pruneTransactionsErr
 }

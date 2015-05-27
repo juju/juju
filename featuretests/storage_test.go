@@ -55,10 +55,7 @@ func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName strin
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-
-	return machineId
+	return unit.Tag().Id()
 }
 
 type cmdStorageSuite struct {
@@ -411,4 +408,43 @@ MACHINE  UNIT             STORAGE  DEVICE  VOLUME  ID  SIZE
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func runAddToUnit(c *gc.C, args ...string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.AddCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
+	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
+	before, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageExist(c, before, "data")
+
+	context := runAddToUnit(c, u, "allecto=1")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-len(before), gc.Equals, 1)
+	s.assertStorageExist(c, after, "data", "allecto")
+}
+
+func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
+	all []state.StorageInstance,
+	expected ...string) {
+
+	names := make([]string, len(all))
+	for i, one := range all {
+		names[i] = one.StorageName()
+	}
+	c.Assert(names, jc.SameContents, expected)
+}
+
+func (s *cmdStorageSuite) TestStorageAddToUnitFailure(c *gc.C) {
+	context := runAddToUnit(c, "fluffyunit/0", "allecto=1")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"allecto\": permission denied\n")
 }

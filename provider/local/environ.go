@@ -395,7 +395,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 // Override for testing.
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
-	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
+	network := container.BridgeNetworkConfig(env.config.networkBridge(), 0, args.NetworkInfo)
 	allowLoopMounts, _ := env.config.AllowLXCLoopMounts()
 	isLXC := env.config.container() == instance.LXC
 	storage := &container.StorageConfig{

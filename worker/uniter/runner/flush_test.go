@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -335,4 +336,49 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	unitRanges, err = s.unit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
+}
+
+func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with an error.
+	msg := "test fail run hook"
+	err = ctx.FlushContext("test fail run hook", errors.New(msg))
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with a success.
+	err = ctx.FlushContext("success", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*charm storage "allecto" not found.*`)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
 }

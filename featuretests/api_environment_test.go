@@ -122,8 +122,8 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	toolStrg, err := otherState.ToolsStorage()
 	defer toolStrg.Close()
 	c.Assert(err, jc.ErrorIsNil)
-
-	meta, _, err := toolStrg.Tools(newVersion)
+	meta, closer, err := toolStrg.Tools(newVersion)
+	defer closer.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.SHA256, gc.Equals, checksum)
 	c.Assert(meta.Version, gc.Equals, newVersion)

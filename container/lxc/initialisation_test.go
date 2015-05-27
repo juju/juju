@@ -50,8 +50,8 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
-		paccmder.InstallCmd("--target-release precise-updates/cloud-tools lxc"),
-		paccmder.InstallCmd("--target-release precise-updates/cloud-tools cloud-image-utils"),
+		paccmder.InstallCmd("--target-release", "precise-updates/cloud-tools", "lxc"),
+		paccmder.InstallCmd("--target-release", "precise-updates/cloud-tools", "cloud-image-utils"),
 	})
 }
 
