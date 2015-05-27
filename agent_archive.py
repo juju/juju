@@ -11,7 +11,7 @@ import traceback
 
 
 # The S3 container and path to add to and get from.
-S3_CONTAINER = 's3://juju-qa-data/win-agents'
+S3_CONTAINER = 's3://juju-qa-data/agent-archive'
 # The set of agents to make.
 AGENT_TEMPLATES = (
     'juju-{}-centos7-amd64.tgz',
