@@ -96,6 +96,7 @@ type Request struct {
 	Dir         string
 	CommandName string
 	Args        []string
+	Stdin       []byte
 }
 
 // CmdGetter looks up a Command implementation connected to a particular Context.
@@ -125,10 +126,10 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	if err != nil {
 		return badReqErrorf("%s", err)
 	}
-	var stdin, stdout, stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
 		Dir:    req.Dir,
-		Stdin:  &stdin,
+		Stdin:  bytes.NewBuffer(req.Stdin),
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
