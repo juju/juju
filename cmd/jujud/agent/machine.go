@@ -1104,7 +1104,7 @@ func (a *MachineAgent) startEnvWorkers(
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-		scope := agentConfig.Environment()
+		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
 		return newStorageWorker(scope, "", api, api, api, api), nil
 	})
