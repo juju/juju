@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -59,7 +60,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
-	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
+	c.Assert(stateServer.SetMongoPassword(password), jc.ErrorIsNil)
 
 	// Create a machine to host some units.
 	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
@@ -108,14 +109,14 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 }
 
 func (s *leadershipSuite) TearDownTest(c *gc.C) {
 	c.Log("Stopping machine agent...")
 	err := s.machineAgent.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 
 	s.AgentSuite.TearDownTest(c)
@@ -124,15 +125,21 @@ func (s *leadershipSuite) TearDownTest(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := client.Close(); c.Assert(err, jc.ErrorIsNil) }()
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.State.LeasePersistor.PersistedTokens()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	c.Assert(tokens[0].Namespace, gc.Equals, "mysql-leadership")
+	c.Assert(tokens[0].Id, gc.Equals, "mysql/0")
 
 	unblocked := make(chan struct{})
 	go func() {
 		err := client.BlockUntilLeadershipReleased(s.serviceId)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		unblocked <- struct{}{}
 	}()
 
@@ -148,34 +155,38 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := client.Close(); c.Assert(err, jc.ErrorIsNil) }()
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.ReleaseLeadership(s.serviceId, s.unitId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.State.LeasePersistor.PersistedTokens()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 0)
 }
 
 func (s *leadershipSuite) TestUnblock(c *gc.C) {
 
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := client.Close(); c.Assert(err, jc.ErrorIsNil) }()
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	unblocked := make(chan struct{})
 	go func() {
 		err := client.BlockUntilLeadershipReleased(s.serviceId)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		unblocked <- struct{}{}
 	}()
 
 	time.Sleep(coretesting.ShortWait)
 
 	err = client.ReleaseLeadership(s.serviceId, s.unitId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case <-time.After(coretesting.LongWait):
@@ -199,9 +210,9 @@ func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := leaderClient.Close(); c.Assert(err, jc.ErrorIsNil) }()
 	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
@@ -212,10 +223,10 @@ func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 	}
 
 	err = client.LeadershipSettings.Merge(s.serviceId, desiredSettings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	settings, err := client.LeadershipSettings.Read(s.serviceId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(settings, gc.DeepEquals, desiredSettings)
 }
 
@@ -223,15 +234,15 @@ func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := leaderClient.Close(); c.Assert(err, jc.ErrorIsNil) }()
 	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Grab what settings exist.
 	settings, err := client.LeadershipSettings.Read(s.serviceId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Double check that it's empty so that we don't pass the test by
 	// happenstance.
 	c.Assert(settings, gc.HasLen, 0)
@@ -241,10 +252,10 @@ func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 	settings["baz"] = "biz"
 
 	err = client.LeadershipSettings.Merge(s.serviceId, settings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	settings, err = client.LeadershipSettings.Read(s.serviceId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(settings["foo"], gc.Equals, "bar")
 	c.Check(settings["baz"], gc.Equals, "biz")
 }
@@ -253,15 +264,15 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leadershipClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leadershipClient.Close(); c.Assert(err, gc.IsNil) }()
+	defer func() { err := leadershipClient.Close(); c.Assert(err, jc.ErrorIsNil) }()
 	err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Listen for changes
 	watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer statetesting.AssertStop(c, watcher)
 
@@ -271,21 +282,21 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 
 	// Make some changes
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	leadershipC.AssertOneChange()
 
 	// And check that the changes were actually applied
 	settings, err := client.LeadershipSettings.Read(s.serviceId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(settings["foo"], gc.Equals, "bar")
 
 	// Make a couple of changes, and then check that they have been
 	// coalesced into a single event
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "baz"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"bing": "bong"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	leadershipC.AssertOneChange()
 }
 
@@ -309,7 +320,7 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
-	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
+	c.Assert(stateServer.SetMongoPassword(password), jc.ErrorIsNil)
 
 	// Create a machine to host some units.
 	unitHostMachine := s.factory.MakeMachine(c, &factory.MachineParams{
@@ -358,7 +369,7 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 }
 
@@ -368,17 +379,17 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 func createMockJujudExecutable(c *gc.C, dir, tag string) string {
 	toolsDir := filepath.Join(dir, "tools")
 	err := os.MkdirAll(filepath.Join(toolsDir, tag), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(toolsDir, tag, "jujud.exe"),
 		[]byte("echo 1"), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return toolsDir
 }
 
 func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {
 	c.Log("Stopping machine agent...")
 	err := s.machineAgent.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.AgentSuite.TearDownTest(c)
 }
@@ -414,8 +425,8 @@ func writeStateAgentConfig(
 			StatePort:    gitjujutesting.MgoServer.Port(),
 			APIPort:      port,
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
-	c.Assert(conf.Write(), gc.IsNil)
+	c.Assert(conf.Write(), jc.ErrorIsNil)
 	return conf
 }
