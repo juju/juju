@@ -285,12 +285,12 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 		AfterStopped: "cloud-final",
 		ExecStart:    execStart,
 	}
-	svc, err := service.NewService(name, conf, initSystem)
+	svc, err := service.NewTemplateShutdownService(name, conf, initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cmds, err := svc.InstallCommands()
+	cmds, err := svc.InstallTemplateContainerCommands()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
