@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
-	"github.com/juju/utils/featureflag"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -37,7 +36,7 @@ const writerName = "buffered-logs"
 // InstallBufferedLogWriter creates a new BufferedLogWriter, registers
 // it with Loggo and returns its output channel.
 func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
-	if !featureflag.Enabled(feature.DbLog) {
+	if !feature.IsDbLogEnabled() {
 		return nil, nil
 	}
 
@@ -52,7 +51,7 @@ func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
 // UninstallBufferedLogWriter removes the BufferedLogWriter previously
 // installed by InstallBufferedLogWriter and closes it.
 func UninstallBufferedLogWriter() error {
-	if !featureflag.Enabled(feature.DbLog) {
+	if !feature.IsDbLogEnabled() {
 		return nil
 	}
 

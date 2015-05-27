@@ -18,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -43,7 +42,7 @@ type logsinkSuite struct {
 var _ = gc.Suite(&logsinkSuite{})
 
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DbLog)
+	s.SetInitialFeatureFlags("db-log")
 	s.logsinkBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{

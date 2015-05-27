@@ -46,7 +46,6 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -715,7 +714,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
-	s.SetFeatureFlags(feature.DbLog)
+	s.SetFeatureFlags("db-log")
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)

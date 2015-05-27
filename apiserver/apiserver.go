@@ -18,7 +18,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
@@ -317,7 +316,7 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
-	if featureflag.Enabled(feature.DbLog) {
+	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
 			&logSinkHandler{
 				httpHandler: httpHandler{ssState: srv.state},
