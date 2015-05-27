@@ -18,11 +18,13 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -110,11 +112,15 @@ type HookContextSuite struct {
 	meteredApiUnit *uniter.Unit
 	meteredCharm   *state.Charm
 	apiRelunits    map[int]*uniter.RelationUnit
+	BlockHelper
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.JujuConnSuite.SetUpTest(c)
+	s.BlockHelper = NewBlockHelper(s.APIState)
+	c.Assert(s.BlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	// reset
 	s.machine = nil
@@ -167,6 +173,16 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+}
+
+func (s *HookContextSuite) GetContext(
+	c *gc.C, relId int, remoteName string,
+) jujuc.Context {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.getHookContext(
+		c, uuid.String(), relId, remoteName, noProxies,
+	)
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
@@ -235,8 +251,11 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = runner.NewContextRelation(relUnit, cache)
 	}
 
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
+		env.Name(), relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
@@ -356,4 +375,44 @@ func (c *contextStorage) Kind() storage.StorageKind {
 
 func (c *contextStorage) Location() string {
 	return c.location
+}
+
+type BlockHelper struct {
+	blockClient *block.Client
+}
+
+// NewBlockHelper creates a block switch used in testing
+// to manage desired juju blocks.
+func NewBlockHelper(st *api.State) BlockHelper {
+	return BlockHelper{
+		blockClient: block.NewClient(st),
+	}
+}
+
+// on switches on desired block and
+// asserts that no errors were encountered.
+func (s *BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
+	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), gc.IsNil)
+}
+
+// BlockAllChanges switches changes block on.
+// This prevents all changes to juju environment.
+func (s *BlockHelper) BlockAllChanges(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockChange, msg)
+}
+
+// BlockRemoveObject switches remove block on.
+// This prevents any object/entity removal on juju environment
+func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockRemove, msg)
+}
+
+// BlockDestroyEnvironment switches destroy block on.
+// This prevents juju environment destruction.
+func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockDestroy, msg)
+}
+
+func (s *BlockHelper) Close() {
+	s.blockClient.Close()
 }
