@@ -707,7 +707,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
 
-	if featureflag.Enabled(feature.DbLog) {
+	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
 			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
 		})
@@ -1012,7 +1012,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
 
-			if featureflag.Enabled(feature.DbLog) {
+			if feature.IsDbLogEnabled() {
 				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})

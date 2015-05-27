@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
 )
@@ -131,7 +130,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags(feature.DbLog)
+	s.SetFeatureFlags("db-log")
 
 	logsCh, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +153,7 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags(feature.DbLog)
+	s.SetFeatureFlags("db-log")
 
 	_, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)

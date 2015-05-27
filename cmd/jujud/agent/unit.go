@@ -196,7 +196,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
-	if featureflag.Enabled(feature.DbLog) {
+	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
 			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
 		})

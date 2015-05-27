@@ -13,7 +13,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -28,7 +27,7 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DbLog)
+	s.SetInitialFeatureFlags("db-log")
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Create a machine for the client to log in as.
