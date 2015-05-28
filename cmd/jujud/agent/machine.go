@@ -707,6 +707,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
 
+	if isEnvironManager {
+		runner.StartWorker("resumer", func() (worker.Worker, error) {
+			// The action of resumer is so subtle that it is not tested,
+			// because we can't figure out how to do so without
+			// brutalising the transaction log.
+			return newResumer(st.Resumer()), nil
+		})
+	}
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -1094,12 +1103,6 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 
 	// Start workers that use an API connection.
-	singularRunner.StartWorker("resumer", func() (worker.Worker, error) {
-		// The action of resumer is so subtle that it is not tested,
-		// because we can't figure out how to do so without
-		// brutalising the transaction log.
-		return newResumer(apiSt.Resumer()), nil
-	})
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})

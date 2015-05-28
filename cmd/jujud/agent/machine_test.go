@@ -245,7 +245,6 @@ var perEnvSingularWorkers = []string{
 	"cleaner",
 	"minunitsworker",
 	"addresserworker",
-	"resumer",
 	"environ-provisioner",
 	"charm-revision-updater",
 	"firewaller",
@@ -600,7 +599,7 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "charm-revision-updater")
 
-	// Now make sure the firewaller doesn't start.
+	// Now make sure the resumer starts.
 	select {
 	case <-started:
 	case <-time.After(coretesting.LongWait):
