@@ -215,6 +215,7 @@ type machineInfo struct {
 
 type mockMachine struct {
 	*testing.Stub
+	instancepoller.StateMachine
 
 	mu sync.Mutex
 
@@ -222,36 +223,6 @@ type mockMachine struct {
 }
 
 var _ instancepoller.StateMachine = (*mockMachine)(nil)
-
-// Tag implements StateMachine.
-func (m *mockMachine) Tag() names.Tag {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "Tag")
-	m.NextErr() // consume the unused error
-	return names.NewMachineTag(m.id)
-}
-
-// Id implements StateMachine.
-func (m *mockMachine) Id() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "Id")
-	m.NextErr() // consume the unused error
-	return m.id
-}
-
-// String implements StateMachine.
-func (m *mockMachine) String() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "String")
-	m.NextErr() // consume the unused error
-	return m.id
-}
 
 // InstanceId implements StateMachine.
 func (m *mockMachine) InstanceId() (instance.Id, error) {
@@ -317,15 +288,6 @@ func (m *mockMachine) SetInstanceStatus(status string) error {
 	return nil
 }
 
-// Refresh implements StateMachine.
-func (m *mockMachine) Refresh() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "Refresh")
-	return m.NextErr()
-}
-
 // Life implements StateMachine.
 func (m *mockMachine) Life() state.Life {
 	m.mu.Lock()
@@ -354,32 +316,76 @@ func (m *mockMachine) Status() (state.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
+type mockBaseWatcher struct {
+	err error
+
+	closeChanges func()
+	done         chan struct{}
+}
+
+var _ state.Watcher = (*mockBaseWatcher)(nil)
+
+func NewMockBaseWatcher(err error, closeChanges func()) *mockBaseWatcher {
+	w := &mockBaseWatcher{
+		err:          err,
+		closeChanges: closeChanges,
+		done:         make(chan struct{}),
+	}
+	if err != nil {
+		// Don't start the loop if we should fail.
+		w.Stop()
+	}
+	return w
+}
+
+// Kill implements state.Watcher.
+func (m *mockBaseWatcher) Kill() {}
+
+// Stop implements state.Watcher.
+func (m *mockBaseWatcher) Stop() error {
+	if m.done != nil {
+		// Signal the loop we want to stop.
+		close(m.done)
+		// Signal the clients we've closed.
+		m.closeChanges()
+		m.done = nil
+	}
+	return m.err
+}
+
+// Wait implements state.Watcher.
+func (m *mockBaseWatcher) Wait() error {
+	return m.Stop()
+}
+
+// Err implements state.Watcher.
+func (m *mockBaseWatcher) Err() error {
+	return m.err
+}
+
 type mockConfigWatcher struct {
-	err      error
+	*mockBaseWatcher
+
 	incoming chan struct{}
 	changes  chan struct{}
-	done     chan struct{}
 }
 
 var _ state.NotifyWatcher = (*mockConfigWatcher)(nil)
 
 func NewMockConfigWatcher(err error) *mockConfigWatcher {
+	changes := make(chan struct{})
 	w := &mockConfigWatcher{
-		err:      err,
-		incoming: make(chan struct{}),
-		changes:  make(chan struct{}),
-		done:     make(chan struct{}),
+		changes:         changes,
+		incoming:        make(chan struct{}),
+		mockBaseWatcher: NewMockBaseWatcher(err, func() { close(changes) }),
 	}
-	go w.loop()
+	if err == nil {
+		go w.loop()
+	}
 	return w
 }
 
 func (m *mockConfigWatcher) loop() {
-	// If there's an error, don't even start.
-	if m.err != nil {
-		m.Stop()
-		return
-	}
 	// Prepare initial event.
 	outChanges := m.changes
 	// Forward any incoming changes until stopped.
@@ -396,62 +402,34 @@ func (m *mockConfigWatcher) loop() {
 	}
 }
 
-// Kill implements state.NotifyWatcher.
-func (m *mockConfigWatcher) Kill() {}
-
-// Stop implements state.NotifyWatcher.
-func (m *mockConfigWatcher) Stop() error {
-	if m.done != nil {
-		// Signal the loop we want to stop.
-		close(m.done)
-		// Signal the clients we've closed.
-		close(m.changes)
-		m.done = nil
-	}
-	return m.err
-}
-
-// Wait implements state.NotifyWatcher.
-func (m *mockConfigWatcher) Wait() error {
-	return m.Stop()
-}
-
-// Err implements state.NotifyWatcher.
-func (m *mockConfigWatcher) Err() error {
-	return m.err
-}
-
 // Changes implements state.NotifyWatcher.
 func (m *mockConfigWatcher) Changes() <-chan struct{} {
 	return m.changes
 }
 
 type mockMachinesWatcher struct {
-	err      error
+	*mockBaseWatcher
+
 	initial  []string
 	incoming chan []string
 	changes  chan []string
-	done     chan struct{}
 }
 
 func NewMockMachinesWatcher(initial []string, err error) *mockMachinesWatcher {
+	changes := make(chan []string)
 	w := &mockMachinesWatcher{
-		err:      err,
-		initial:  initial,
-		incoming: make(chan []string),
-		changes:  make(chan []string),
-		done:     make(chan struct{}),
+		initial:         initial,
+		changes:         changes,
+		incoming:        make(chan []string),
+		mockBaseWatcher: NewMockBaseWatcher(err, func() { close(changes) }),
 	}
-	go w.loop()
+	if err == nil {
+		go w.loop()
+	}
 	return w
 }
 
 func (m *mockMachinesWatcher) loop() {
-	// If there's an error, don't even start.
-	if m.err != nil {
-		m.Stop()
-		return
-	}
 	// Prepare initial event.
 	unsent := m.initial
 	outChanges := m.changes
@@ -469,31 +447,6 @@ func (m *mockMachinesWatcher) loop() {
 			outChanges = m.changes
 		}
 	}
-}
-
-// Kill implements state.StringsWatcher.
-func (m *mockMachinesWatcher) Kill() {}
-
-// Stop implements state.StringsWatcher.
-func (m *mockMachinesWatcher) Stop() error {
-	if m.done != nil {
-		// Signal the loop we want to stop.
-		close(m.done)
-		// Signal the clients we've closed.
-		close(m.changes)
-		m.done = nil
-	}
-	return m.err
-}
-
-// Wait implements state.StringsWatcher.
-func (m *mockMachinesWatcher) Wait() error {
-	return m.Stop()
-}
-
-// Err implements state.StringsWatcher.
-func (m *mockMachinesWatcher) Err() error {
-	return m.err
 }
 
 // Changes implements state.StringsWatcher.
