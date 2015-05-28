@@ -22,12 +22,12 @@ func (s Service) NoConf() bool {
 }
 
 // Validate checks the service's values for correctness.
-func (s Service) Validate() error {
+func (s Service) Validate(os string) error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
 
-	if err := s.Conf.Validate(); err != nil {
+	if err := s.Conf.Validate(os); err != nil {
 		return errors.Trace(err)
 	}
 

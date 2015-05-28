@@ -65,16 +65,16 @@ func (c Conf) IsZero() bool {
 }
 
 // Validate checks the conf's values for correctness.
-func (c Conf) Validate() error {
+func (c Conf) Validate(os string) error {
 	if c.Desc == "" {
 		return errors.New("missing Desc")
 	}
 
-	if err := c.checkExecStart(); err != nil {
+	if err := c.checkExecStart(os); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.checkExecStopPost(); err != nil {
+	if err := c.checkExecStopPost(os); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -107,9 +107,12 @@ func Unquote(str string) string {
 	return str
 }
 
-func (c Conf) checkExecStart() error {
+func (c Conf) checkExecStart(os string) error {
 	if c.ExecStart == "" {
 		return errors.New("missing ExecStart")
+	}
+	if os == "windows" {
+		return nil
 	}
 
 	path := executable(c.ExecStart)
@@ -120,8 +123,11 @@ func (c Conf) checkExecStart() error {
 	return nil
 }
 
-func (c Conf) checkExecStopPost() error {
+func (c Conf) checkExecStopPost(os string) error {
 	if c.ExecStopPost == "" {
+		return nil
+	}
+	if os == "windows" {
 		return nil
 	}
 

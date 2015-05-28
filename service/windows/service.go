@@ -75,7 +75,7 @@ func (s Service) Conf() common.Conf {
 
 // Validate checks the service for invalid values.
 func (s Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate("windows"); err != nil {
 		return errors.Trace(err)
 	}
 
