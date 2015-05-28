@@ -135,7 +135,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 			Count: 1,
 		},
 		"allecto": state.StorageConstraints{
-			Pool:  "default-block",
+			Pool:  "loop",
 			Size:  1024,
 			Count: 0,
 		},
