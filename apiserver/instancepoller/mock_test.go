@@ -42,6 +42,22 @@ func NewMockState() *mockState {
 
 var _ instancepoller.StateInterface = (*mockState)(nil)
 
+// CheckFindEntityCall is a helper wrapper aroud
+// testing.Stub.CheckCall for FindEntity.
+func (m *mockState) CheckFindEntityCall(c *gc.C, index int, machineId string) {
+	m.CheckCall(c, index, "FindEntity", interface{}(names.NewMachineTag(machineId)))
+}
+
+// CheckSetProviderAddressesCall is a helper wrapper aroud
+// testing.Stub.CheckCall for SetProviderAddresses.
+func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []network.Address) {
+	args := make([]interface{}, len(addrs))
+	for i, addr := range addrs {
+		args[i] = addr
+	}
+	m.CheckCall(c, index, "SetProviderAddresses", args...)
+}
+
 // WatchForEnvironConfigChanges implements StateInterface.
 func (m *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
 	m.mu.Lock()

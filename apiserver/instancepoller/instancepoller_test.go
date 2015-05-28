@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,6 +27,12 @@ type InstancePollerSuite struct {
 	api        *instancepoller.InstancePollerAPI
 	authoriser apiservertesting.FakeAuthorizer
 	resources  *common.Resources
+
+	machineEntities     params.Entities
+	machineErrorResults params.ErrorResults
+
+	mixedEntities     params.Entities
+	mixedErrorResults params.ErrorResults
 }
 
 var _ = gc.Suite(&InstancePollerSuite{})
@@ -48,6 +52,42 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.machineEntities = params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-1"},
+			{Tag: "machine-2"},
+			{Tag: "machine-3"},
+		}}
+	s.machineErrorResults = params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("pow!")},
+			{Error: apiservertesting.ServerError("FAIL")},
+			{Error: apiservertesting.NotProvisionedError("42")},
+		}}
+
+	s.mixedEntities = params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-1"},
+			{Tag: "machine-2"},
+			{Tag: "machine-42"},
+			{Tag: "service-unknown"},
+			{Tag: "invalid-tag"},
+			{Tag: "unit-missing-1"},
+			{Tag: ""},
+			{Tag: "42"},
+		}}
+	s.mixedErrorResults = params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
+			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
+			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
+		}}
 }
 
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
@@ -192,27 +232,13 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
-	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dead})
 
-	result, err := s.api.Life(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.Life(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: params.Alive},
 			{Life: params.Dying},
-			{Life: params.Dead},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -222,28 +248,11 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "Life",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "Life",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}, {
-		FuncName: "Life",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "Life")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "Life")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
@@ -257,13 +266,7 @@ func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dead})
 	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dying})
 
-	result, err := s.api.Life(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.Life(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -273,37 +276,17 @@ func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "Life",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "Life")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: "i-foo"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: ""})
 
-	result, err := s.api.InstanceId(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.InstanceId(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -318,22 +301,11 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "InstanceId",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "InstanceId",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "InstanceId")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "InstanceId")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
@@ -346,13 +318,7 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: ""})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: "i-bar"})
 
-	result, err := s.api.InstanceId(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.InstanceId(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -362,19 +328,10 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "InstanceId",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "InstanceId")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
@@ -393,18 +350,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", status: s1})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
 
-	result, err := s.api.Status(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.Status(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -424,22 +370,11 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "Status",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "Status",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "Status")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "Status")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
@@ -452,13 +387,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
-	result, err := s.api.Status(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.Status(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -468,19 +397,10 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "Status",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "Status")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
@@ -489,18 +409,7 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
-	result, err := s.api.ProviderAddresses(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.ProviderAddresses(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{
@@ -515,22 +424,11 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "ProviderAddresses",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "ProviderAddresses",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "ProviderAddresses")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "ProviderAddresses")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
@@ -543,13 +441,7 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
-	result, err := s.api.ProviderAddresses(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.ProviderAddresses(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{
@@ -559,19 +451,10 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "ProviderAddresses",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "ProviderAddresses")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
@@ -593,35 +476,14 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: nil},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
-		}},
-	)
+	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "SetProviderAddresses",
-		Args:     []interface{}{},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "SetProviderAddresses",
-		Args:     []interface{}{newAddrs[0], newAddrs[1], newAddrs[2]},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckSetProviderAddressesCall(c, 1, []network.Address{})
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
+	s.st.CheckFindEntityCall(c, 4, "42")
+
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,27 +514,13 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
+	c.Assert(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "SetProviderAddresses",
-		Args:     []interface{}{newAddrs[0], newAddrs[1], newAddrs[2]},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckSetProviderAddressesCall(c, 2, newAddrs)
+	s.st.CheckFindEntityCall(c, 3, "3")
+
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -683,18 +531,7 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
 
-	result, err := s.api.InstanceStatus(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.InstanceStatus(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -709,22 +546,11 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "InstanceStatus",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "InstanceStatus",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "InstanceStatus")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "InstanceStatus")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
@@ -737,13 +563,7 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
 
-	result, err := s.api.InstanceStatus(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.InstanceStatus(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -753,19 +573,10 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "InstanceStatus",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "InstanceStatus")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
@@ -785,35 +596,14 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: nil},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
-		}},
-	)
+	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "SetInstanceStatus",
-		Args:     []interface{}{""},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "SetInstanceStatus",
-		Args:     []interface{}{"new status"},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "SetInstanceStatus", "")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "SetInstanceStatus", "new status")
+	s.st.CheckFindEntityCall(c, 4, "42")
+
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -846,45 +636,19 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
+	c.Assert(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "SetInstanceStatus",
-		Args:     []interface{}{"invalid"},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "SetInstanceStatus", "invalid")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
+	result, err := s.api.AreManuallyProvisioned(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -899,22 +663,11 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "IsManual",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "IsManual",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("42")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckCall(c, 1, "IsManual")
+	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "IsManual")
+	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
@@ -927,13 +680,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-1"},
-			{Tag: "machine-2"},
-			{Tag: "machine-3"},
-		}},
-	)
+	result, err := s.api.AreManuallyProvisioned(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -943,17 +690,8 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("1")},
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("2")},
-	}, {
-		FuncName: "IsManual",
-		Args:     nil,
-	}, {
-		FuncName: "FindEntity",
-		Args:     []interface{}{names.NewMachineTag("3")},
-	}})
+	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "IsManual")
+	s.st.CheckFindEntityCall(c, 3, "3")
 }
