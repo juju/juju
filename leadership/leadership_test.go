@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/lease"
 )
@@ -30,8 +32,8 @@ type leadershipSuite struct{}
 type leaseStub struct {
 	ClaimLeaseFn            func(string, string, time.Duration) (string, error)
 	ReleaseLeaseFn          func(string, string) error
-	LeaseReleasedNotifierFn func(string) <-chan struct{}
-	RetrieveLeaseFn         func(string) lease.Token
+	LeaseReleasedNotifierFn func(string) (<-chan struct{}, error)
+	RetrieveLeaseFn         func(string) (lease.Token, error)
 }
 
 func (s *leaseStub) ClaimLease(namespace, id string, forDur time.Duration) (string, error) {
@@ -48,18 +50,62 @@ func (s *leaseStub) ReleaseLease(namespace, id string) error {
 	return nil
 }
 
-func (s *leaseStub) LeaseReleasedNotifier(namespace string) <-chan struct{} {
+func (s *leaseStub) LeaseReleasedNotifier(namespace string) (<-chan struct{}, error) {
 	if s.LeaseReleasedNotifierFn != nil {
 		return s.LeaseReleasedNotifierFn(namespace)
 	}
-	return nil
+	return nil, nil
 }
 
-func (s *leaseStub) RetrieveLease(namespace string) lease.Token {
+func (s *leaseStub) RetrieveLease(namespace string) (lease.Token, error) {
 	if s.RetrieveLeaseFn != nil {
 		return s.RetrieveLeaseFn(namespace)
 	}
-	return lease.Token{}
+	return lease.Token{}, errors.NotFoundf("lease for %s", namespace)
+}
+
+func (s *leadershipSuite) TestLeaderSelf(c *gc.C) {
+	leader, err := s.leader(c, lease.Token{
+		Namespace: leadershipNamespace(StubServiceNm),
+		Id:        StubUnitNm,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leader, jc.IsTrue)
+}
+
+func (s *leadershipSuite) TestLeaderOther(c *gc.C) {
+	leader, err := s.leader(c, lease.Token{
+		Namespace: leadershipNamespace(StubServiceNm),
+		Id:        "someone else",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leader, jc.IsFalse)
+}
+
+func (s *leadershipSuite) TestLeaderNone(c *gc.C) {
+	leader, err := s.leader(c, lease.Token{}, errors.NotFoundf("lease"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leader, jc.IsFalse)
+}
+
+func (s *leadershipSuite) TestLeaderError(c *gc.C) {
+	_, err := s.leader(c, lease.Token{}, errors.NotImplementedf("important things"))
+	c.Assert(err, gc.ErrorMatches, "important things not implemented")
+}
+
+func (s *leadershipSuite) leader(c *gc.C, result lease.Token, resultErr error) (bool, error) {
+	numStubCalls := 0
+	stub := &leaseStub{
+		RetrieveLeaseFn: func(namespace string) (lease.Token, error) {
+			numStubCalls++
+			c.Check(namespace, gc.Equals, leadershipNamespace(StubServiceNm))
+			return result, resultErr
+		},
+	}
+	leaderMgr := NewLeadershipManager(stub)
+	leader, err := leaderMgr.Leader(StubServiceNm, StubUnitNm)
+	c.Check(numStubCalls, gc.Equals, 1)
+	return leader, err
 }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
@@ -105,13 +151,13 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 
 	numStubCalls := 0
 	stub := &leaseStub{
-		LeaseReleasedNotifierFn: func(namespace string) <-chan struct{} {
+		LeaseReleasedNotifierFn: func(namespace string) (<-chan struct{}, error) {
 			numStubCalls++
 			c.Check(namespace, gc.Equals, leadershipNamespace(StubServiceNm))
 			// Send something pre-emptively so test doesn't block.
 			released := make(chan struct{}, 1)
 			released <- struct{}{}
-			return released
+			return released, nil
 		},
 	}
 
@@ -120,4 +166,19 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *leadershipSuite) TestBlockUntilLeadershipChannelClosed(c *gc.C) {
+
+	stub := &leaseStub{
+		LeaseReleasedNotifierFn: func(namespace string) (<-chan struct{}, error) {
+			released := make(chan struct{})
+			close(released)
+			return released, nil
+		},
+	}
+
+	leaderMgr := NewLeadershipManager(stub)
+	err := leaderMgr.BlockUntilLeadershipReleased(StubServiceNm)
+	c.Check(err, gc.Equals, tomb.ErrDying)
 }

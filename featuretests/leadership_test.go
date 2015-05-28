@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -44,6 +45,13 @@ type leadershipSuite struct {
 func (s *leadershipSuite) SetUpTest(c *gc.C) {
 
 	s.AgentSuite.SetUpTest(c)
+
+	leaseManager, err := lease.NewLeaseManager(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		leaseManager.Kill()
+		c.Assert(leaseManager.Wait(), jc.ErrorIsNil)
+	})
 
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
@@ -296,6 +304,13 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 
 	s.AgentSuite.SetUpTest(c)
+
+	leaseManager, err := lease.NewLeaseManager(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		leaseManager.Kill()
+		c.Assert(leaseManager.Wait(), jc.ErrorIsNil)
+	})
 
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
