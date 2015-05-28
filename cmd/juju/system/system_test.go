@@ -22,6 +22,8 @@ var expectedCommmandNames = []string{
 	"help",
 	"list",
 	"login",
+	"use-env", // aliase for use-environment
+	"use-environment",
 }
 
 func (s *SystemCommandSuite) TestHelp(c *gc.C) {
