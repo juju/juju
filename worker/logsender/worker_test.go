@@ -51,7 +51,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		c.Check(worker.Wait(), jc.ErrorIsNil)
 	}()
 
-	// Send somes logs, also building up what should appear in the
+	// Send some logs, also building up what should appear in the
 	// database.
 	var expectedDocs []bson.M
 	for i := 0; i < logCount; i++ {
@@ -96,4 +96,67 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		delete(doc, "_id")
 		c.Assert(doc, gc.DeepEquals, expectedDocs[i])
 	}
+}
+
+func (s *workerSuite) TestDroppedLogs(c *gc.C) {
+	logsCh := make(logsender.LogRecordCh)
+
+	// Start the logsender worker.
+	worker := logsender.New(logsCh, s.apiInfo)
+	defer func() {
+		worker.Kill()
+		c.Check(worker.Wait(), jc.ErrorIsNil)
+	}()
+
+	// Send a log record which indicates some messages after it were
+	// dropped.
+	ts := time.Now().Truncate(time.Millisecond)
+	logsCh <- &logsender.LogRecord{
+		Time:         ts,
+		Module:       "aaa",
+		Location:     "loc",
+		Level:        loggo.INFO,
+		Message:      "message0",
+		DroppedAfter: 42,
+	}
+
+	// Send another log record with no drops indicated.
+	logsCh <- &logsender.LogRecord{
+		Time:     time.Now(),
+		Module:   "zzz",
+		Location: "loc",
+		Level:    loggo.INFO,
+		Message:  "message1",
+	}
+
+	// Wait for the logs to appear in the database.
+	var docs []bson.M
+	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for logs")
+		}
+		err := logsColl.Find(nil).Sort("m").All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+		// Expect the 2 messages sent along with a message about
+		// dropped messages.
+		if len(docs) == 3 {
+			break
+		}
+	}
+
+	// Check that the log records sent are present as well as an additional
+	// message in between indicating that some messages were dropped.
+	c.Assert(docs[0]["x"], gc.Equals, "message0")
+	delete(docs[1], "_id")
+	c.Assert(docs[1], gc.DeepEquals, bson.M{
+		"t": ts, // Should share timestamp with previous message.
+		"e": s.State.EnvironUUID(),
+		"n": s.apiInfo.Tag.String(),
+		"m": "juju.worker.logsender",
+		"l": "",
+		"v": int(loggo.WARNING),
+		"x": "42 log messages dropped due to lack of API connectivity",
+	})
+	c.Assert(docs[2]["x"], gc.Equals, "message1")
 }
