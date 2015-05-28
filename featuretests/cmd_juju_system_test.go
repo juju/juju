@@ -57,9 +57,9 @@ func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
 	context, err := testing.RunCommand(c, envcmd.WrapSystem(&system.EnvironmentsCommand{}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME      OWNER                   LAST CONNECTION\n"+
-		"dummyenv  user-dummy-admin@local  just now\n"+
-		"new-env   user-dummy-admin@local  never connected\n"+
+		"NAME      OWNER              LAST CONNECTION\n"+
+		"dummyenv  dummy-admin@local  just now\n"+
+		"new-env   dummy-admin@local  never connected\n"+
 		"\n")
 }
 
