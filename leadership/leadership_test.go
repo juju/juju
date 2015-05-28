@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/lease"
 )
@@ -180,5 +179,5 @@ func (s *leadershipSuite) TestBlockUntilLeadershipChannelClosed(c *gc.C) {
 
 	leaderMgr := NewLeadershipManager(stub)
 	err := leaderMgr.BlockUntilLeadershipReleased(StubServiceNm)
-	c.Check(err, gc.Equals, tomb.ErrDying)
+	c.Check(err, gc.ErrorMatches, "worker stopped")
 }

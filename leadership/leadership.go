@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/lease"
 )
@@ -15,6 +14,8 @@ import (
 const (
 	leadershipNamespaceSuffix = "-leadership"
 )
+
+var errWorkerStopped = errors.New("worker stopped")
 
 // NewLeadershipManager returns a new Manager.
 func NewLeadershipManager(leaseMgr LeadershipLeaseManager) *Manager {
@@ -68,7 +69,7 @@ func (m *Manager) BlockUntilLeadershipReleased(serviceId string) error {
 	}
 	_, ok := <-notifier
 	if !ok {
-		return tomb.ErrDying
+		return errWorkerStopped
 	}
 	return nil
 }

@@ -161,7 +161,7 @@ func (s *leaseSuite) TestClaimLeaseError(c *gc.C) {
 	manager, err := NewLeaseManager(s.persistor)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = manager.ClaimLease(testNamespace, "error", testDuration)
-	c.Assert(err, gc.ErrorMatches, "writing lease token: error")
+	c.Assert(err, gc.ErrorMatches, "worker stopped")
 	err = manager.Wait()
 	c.Assert(err, gc.ErrorMatches, "writing lease token: error")
 }
@@ -227,12 +227,12 @@ func (s *leaseSuite) TestReleaseLeaseError(c *gc.C) {
 	manager, err := NewLeaseManager(&stubLeasePersistorRemoveError{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = manager.ClaimLease(testNamespace, testId, testDuration)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.manager.ReleaseLease(testNamespace, testId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
+	err = manager.ReleaseLease(testNamespace, testId)
+	c.Check(err, gc.ErrorMatches, "worker stopped")
 	manager.Kill()
 	err = manager.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "removing lease token: error")
 }
 
 func (s *leaseSuite) TestReleaseLeaseNotOwned(c *gc.C) {

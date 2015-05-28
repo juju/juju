@@ -24,6 +24,7 @@ const (
 var (
 	LeaseClaimDeniedErr = errors.New("lease claim denied")
 	NotLeaseOwnerErr    = errors.Unauthorizedf("caller did not own lease for namespace")
+	errWorkerStopped    = errors.New("worker stopped")
 
 	logger = loggo.GetLogger("juju.lease")
 )
@@ -72,6 +73,13 @@ type leaseManager struct {
 	copyOfTokens     chan copyTokensMsg
 }
 
+// NewLeaseManager returns a new leaseManager, a worker that manages leases.
+// Users may interact with the lease manager while it is running, but will
+// receive an error if the manager has stopped.
+//
+// Starting a lease manager updates a singleton in this package, so an error
+// will result if NewLeaseManager is called while another lease manager is
+// still active.
 func NewLeaseManager(leasePersistor leasePersistor) (*leaseManager, error) {
 	m := &leaseManager{
 		leasePersistor:   leasePersistor,
@@ -102,17 +110,17 @@ func (m *leaseManager) Wait() error {
 // CopyOfLeaseTokens returns a copy of the lease tokens currently held
 // by the manager.
 func (m *leaseManager) CopyOfLeaseTokens() ([]Token, error) {
-	reqch := m.copyOfTokens
-	respch := make(chan []Token, 1)
-	for {
-		select {
-		case <-m.tomb.Dead():
-			return nil, m.tomb.Err()
-		case reqch <- copyTokensMsg{respch}:
-			reqch = nil
-		case resp := <-respch:
-			return resp, nil
-		}
+	ch := make(chan []Token, 1)
+	select {
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
+	case m.copyOfTokens <- copyTokensMsg{ch}:
+	}
+	select {
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
+	case resp := <-ch:
+		return resp, nil
 	}
 }
 
@@ -136,41 +144,39 @@ func (m *leaseManager) RetrieveLease(namespace string) (Token, error) {
 // LeaseClaimDeniedErr will be returned. Either way the current lease
 // owner's ID will be returned.
 func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (leaseOwnerId string, err error) {
-	reqch := m.claimLease
-	respch := make(chan Token, 1)
+	ch := make(chan Token, 1)
 	token := Token{namespace, id, time.Now().Add(forDur)}
-	for {
-		select {
-		case <-m.tomb.Dead():
-			return "", m.tomb.Err()
-		case reqch <- claimLeaseMsg{token, respch}:
-			reqch = nil
-		case lease := <-respch:
-			leaseOwnerId = lease.Id
-			if id != leaseOwnerId {
-				err = LeaseClaimDeniedErr
-			}
-			return leaseOwnerId, err
+	select {
+	case <-m.tomb.Dying():
+		return "", errWorkerStopped
+	case m.claimLease <- claimLeaseMsg{token, ch}:
+	}
+	select {
+	case <-m.tomb.Dying():
+		return "", errWorkerStopped
+	case lease := <-ch:
+		leaseOwnerId = lease.Id
+		if id != leaseOwnerId {
+			err = LeaseClaimDeniedErr
 		}
+		return leaseOwnerId, err
 	}
 }
 
 // ReleaseLease releases the lease held for namespace by id.
 func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 
-	reqch := m.releaseLease
-	respch := make(chan error, 1)
+	ch := make(chan error, 1)
 	token := Token{Namespace: namespace, Id: id}
-loop:
-	for {
-		select {
-		case <-m.tomb.Dead():
-			return m.tomb.Err()
-		case reqch <- releaseLeaseMsg{token, respch}:
-			reqch = nil
-		case err = <-respch:
-			break loop
-		}
+	select {
+	case <-m.tomb.Dying():
+		return errWorkerStopped
+	case m.releaseLease <- releaseLeaseMsg{token, ch}:
+	}
+	select {
+	case <-m.tomb.Dying():
+		return errWorkerStopped
+	case err = <-ch:
 	}
 
 	if err != nil {
@@ -196,8 +202,8 @@ loop:
 func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan struct{}, err error) {
 	watcher := make(chan struct{}, 1)
 	select {
-	case <-m.tomb.Dead():
-		return nil, m.tomb.Err()
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
 	case m.leaseReleasedSub <- leaseReleasedMsg{watcher, namespace}:
 		return watcher, nil
 	}
