@@ -112,8 +112,8 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 		// TODO(ericsnow) lp:1457122
 		// dataDir should come from the series or be passed in.
 		// Until the proper fix is in place, we use paths.DataDir here
-		// with a non-windows series (e.g. trusty).
-		dataDir, err := paths.DataDir("trusty")
+		// with a non-windows series (e.g. vivid).
+		dataDir, err := paths.DataDir("vivid")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
