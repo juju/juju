@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/environs/configstore"
@@ -54,27 +54,21 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	envs := []params.UserEnvironment{
+	envs := []environmentmanager.UserEnvironment{
 		{
-			Environment: params.Environment{
-				Name:     "test-env1",
-				OwnerTag: "user-admin@local",
-				UUID:     "test-env1-UUID",
-			},
+			Name:           "test-env1",
+			Owner:          "user-admin@local",
+			UUID:           "test-env1-UUID",
 			LastConnection: &last1,
 		}, {
-			Environment: params.Environment{
-				Name:     "test-env2",
-				OwnerTag: "user-admin@local",
-				UUID:     "test-env2-UUID",
-			},
+			Name:           "test-env2",
+			Owner:          "user-admin@local",
+			UUID:           "test-env2-UUID",
 			LastConnection: &last2,
 		}, {
-			Environment: params.Environment{
-				Name:     "test-env3",
-				OwnerTag: "user-admin@local",
-				UUID:     "test-env3-UUID",
-			},
+			Name:  "test-env3",
+			Owner: "user-admin@local",
+			UUID:  "test-env3-UUID",
 		},
 	}
 	s.api = &fakeEnvMgrAPIClient{envs: envs}

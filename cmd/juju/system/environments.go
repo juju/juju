@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs/configstore"
@@ -36,7 +36,7 @@ var envsDoc = `List all the environments the user can access on the current syst
 // environments command calls.
 type EnvironmentManagerAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]params.UserEnvironment, error)
+	ListEnvironments(user string) ([]environmentmanager.UserEnvironment, error)
 }
 
 // Info implements Command.Info
@@ -127,7 +127,7 @@ func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 		if env.LastConnection != nil {
 			lastConn = user.UserFriendlyDuration(*env.LastConnection, time.Now())
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\n", env.OwnerTag, lastConn)
+		fmt.Fprintf(tw, "\t%s\t%s\n", env.Owner, lastConn)
 	}
 	tw.Flush()
 	return out.Bytes(), nil
