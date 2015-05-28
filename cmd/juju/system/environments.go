@@ -99,7 +99,7 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]params.UserEnvironment)
+	envs, ok := value.([]environmentmanager.UserEnvironment)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}

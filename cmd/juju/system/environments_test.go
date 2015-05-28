@@ -29,14 +29,14 @@ var _ = gc.Suite(&EnvironmentsSuite{})
 type fakeEnvMgrAPIClient struct {
 	err  error
 	user string
-	envs []params.UserEnvironment
+	envs []environmentmanager.UserEnvironment
 }
 
 func (f *fakeEnvMgrAPIClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]params.UserEnvironment, error) {
+func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]environmentmanager.UserEnvironment, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
