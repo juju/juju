@@ -103,6 +103,11 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 			Size:  1024,
 			Count: 1,
 		},
+		"allecto": state.StorageConstraints{
+			Pool:  "loop",
+			Size:  1024,
+			Count: 0,
+		},
 	})
 }
 
@@ -128,6 +133,11 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 			Pool:  "default-block",
 			Size:  1024,
 			Count: 1,
+		},
+		"allecto": state.StorageConstraints{
+			Pool:  "loop",
+			Size:  1024,
+			Count: 0,
 		},
 	})
 }

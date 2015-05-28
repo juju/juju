@@ -1010,7 +1010,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
 func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 	cons, err := s.storageSvc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons, gc.HasLen, 2)
 
 	unit, err := s.storageSvc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)

@@ -311,3 +311,63 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	}
 	return s.st.RemoveStorageAttachment(storageTag, unitTag)
 }
+
+// AddUnitStorage validates and creates additional storage instances for units.
+// Failures on an individual storage instance do not block remaining
+// instances from being processed.
+func (a *StorageAPI) AddUnitStorage(
+	args params.StoragesAddParams,
+) (params.ErrorResults, error) {
+	canAccess, err := a.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if len(args.Storages) == 0 {
+		return params.ErrorResults{}, nil
+	}
+
+	serverErr := func(err error) params.ErrorResult {
+		return params.ErrorResult{common.ServerError(err)}
+	}
+
+	storageErr := func(err error, s, u string) params.ErrorResult {
+		return serverErr(errors.Annotatef(err, "adding storage %v for %v", s, u))
+	}
+
+	cons := func(p params.StorageConstraints) state.StorageConstraints {
+		s := state.StorageConstraints{Pool: p.Pool}
+		if p.Size != nil {
+			s.Size = *p.Size
+		}
+		if p.Count != nil {
+			s.Count = *p.Count
+		}
+		return s
+	}
+
+	result := make([]params.ErrorResult, len(args.Storages))
+	for i, one := range args.Storages {
+		u, err := accessUnitTag(one.UnitTag, canAccess)
+		if err != nil {
+			result[i] = serverErr(err)
+			continue
+		}
+
+		err = a.st.AddStorageForUnit(u, one.StorageName, cons(one.Constraints))
+		if err != nil {
+			result[i] = storageErr(err, one.StorageName, one.UnitTag)
+		}
+	}
+	return params.ErrorResults{Results: result}, nil
+}
+
+func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, error) {
+	u, err := names.ParseUnitTag(tag)
+	if err != nil {
+		return names.UnitTag{}, errors.Annotatef(err, "parsing unit tag %v", tag)
+	}
+	if !canAccess(u) {
+		return names.UnitTag{}, common.ErrPerm
+	}
+	return u, nil
+}

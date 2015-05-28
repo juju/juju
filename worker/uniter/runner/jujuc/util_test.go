@@ -97,6 +97,10 @@ func (s *ContextSuite) GetStatusHookContext(c *gc.C) *Context {
 	return &Context{}
 }
 
+func (s *ContextSuite) GetStorageAddHookContext(c *gc.C) *Context {
+	return &Context{}
+}
+
 func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{}) {
 	node, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,6 +164,8 @@ func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	storage, ok := c.storage[tag]
 	return storage, ok
 }
+
+func (c *Context) AddUnitStorage(all map[string]params.StorageConstraints) {}
 
 func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
 	return c.Storage(c.storageTag)

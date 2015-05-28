@@ -49,6 +49,7 @@ var baseCommands = map[string]creator{
 }
 
 var storageCommands = map[string]creator{
+	"storage-add" + cmdSuffix: NewStorageAddCommand,
 	"storage-get" + cmdSuffix: NewStorageGetCommand,
 }
 

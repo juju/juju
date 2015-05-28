@@ -219,6 +219,7 @@ var newCommandTests = []struct {
 	{"relation-list", ""},
 	{"relation-set", ""},
 	{"unit-get", ""},
+	{"storage-add", ""},
 	{"storage-get", ""},
 	{"status-get", ""},
 	{"status-set", ""},
