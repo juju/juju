@@ -3,6 +3,10 @@
 
 package process
 
+import (
+	"github.com/juju/errors"
+)
+
 // LaunchDetails holds information about an existing process as provided by
 // a workload process plugin.
 type LaunchDetails struct {
@@ -16,6 +20,7 @@ type LaunchDetails struct {
 
 // ParseDetails parses the input string in to a LaunchDetails struct.
 func ParseDetails(input string) (LaunchDetails, error) {
+	var details LaunchDetails
 	// TODO(ericsnow) Finish!
-	return LaunchDetails{}, nil
+	return details, errors.Errorf("not finished")
 }

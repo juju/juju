@@ -7,6 +7,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
+const ComponentName = "process"
+
 // Status represents the status of a worload process.
 type Status string
 
