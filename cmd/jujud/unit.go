@@ -54,6 +54,7 @@ type UnitAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
 	initialAgentUpgradeCheckComplete chan struct{}
 }
 

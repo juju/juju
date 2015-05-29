@@ -312,6 +312,7 @@ type MachineAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
 	initialAgentUpgradeCheckComplete chan struct{}
 
 	mongoInitMutex   sync.Mutex
@@ -1599,13 +1600,6 @@ func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Statu
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
-}
-
-// InitialAgentUpgradeCheckComplete returns a channel that's closed once
-// the initial checks to see if an agent upgrade is required are complete.
-// This is provided for testing purposes.
-func (a *MachineAgent) InitialAgentUpgradeCheckComplete() <-chan struct{} {
-	return a.initialAgentUpgradeCheckComplete
 }
 
 func (a *MachineAgent) Tag() names.Tag {
