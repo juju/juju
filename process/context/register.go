@@ -12,7 +12,12 @@ import (
 )
 
 const registerDoc = `
-"register" doc ....
+"register" is used while a hook is running to let Juju know that
+a workload process has been manually started. The information used
+to start the process must be provided when "register" is run.
+
+The process name must correspond to one of the processes defined in
+the charm's metadata.yaml.
 `
 
 func init() {
