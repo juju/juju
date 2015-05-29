@@ -15,18 +15,17 @@ func init() {
 	runner.RegisterComponentFunc("process", NewContext)
 }
 
-func NewContext() jujuc.ContextComponent {
-	return &Context{}
-}
-
+// Context is the workload process portion of the hook context.
 type Context struct {
 	processes map[string]process.Info
 }
 
-func (c *Context) Flush() error {
-	return nil
+// NewContext returns a new jujuc.ContextComponent for workload processes.
+func NewContext() jujuc.ContextComponent {
+	return &Context{}
 }
 
+// Get implements jujuc.ContextComponent.
 func (c *Context) Get(id string, result interface{}) error {
 	if _, ok := result.(*process.Info); !ok {
 		return errors.Errorf("invalid type: expected process.Info, got %T", result)
@@ -40,6 +39,7 @@ func (c *Context) Get(id string, result interface{}) error {
 	return nil
 }
 
+// Set implements jujuc.ContextComponent.
 func (c *Context) Set(id string, value interface{}) error {
 	pInfo, ok := value.(*process.Info)
 	if !ok {
@@ -52,4 +52,10 @@ func (c *Context) Set(id string, value interface{}) error {
 
 	c.processes[id] = *pInfo
 	return nil
+}
+
+// Flush implements jujuc.ContextComponent.
+func (c *Context) Flush() error {
+	// TODO(ericsnow) finish
+	return errors.Errorf("not finished")
 }
