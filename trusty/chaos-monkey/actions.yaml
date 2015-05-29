@@ -18,15 +18,21 @@ start:
     params:
         exclude-command:
             type: string
+            enum: [deny-all, deny-incoming, deny-outgoing, deny-state-server,
+            deny-api-server, deny-sys-log, kill-jujud, kill-mongod]
             description: Exclude commands from the test list.
         exclude-group:
             type: string
+            enum: [net, kill]
             description: Exclude groups from the test list.
         include-command:
             type: string
+            enum: [deny-all, deny-incoming, deny-outgoing, deny-state-server,
+            deny-api-server, deny-sys-log, kill-jujud, kill-mongod]
             description: Include only these commands in the test list.
         include-group:
             type: string
+            enum: [net, kill]
             description: Include only these groups in the test list.
         total-timeout:
             type: integer
@@ -34,3 +40,7 @@ start:
         enablement-timeout:
             type: integer
             description: Timeout in seconds to run each chaos operation.
+        mode:
+            type: string
+            enum: [single, continuous]
+            description: Execution mode either single or continuous.
