@@ -3,13 +3,18 @@
 
 package process
 
-// ProcessDetails holds information about an existing process as provided by
+// LaunchDetails holds information about an existing process as provided by
 // a workload process plugin.
-type ProcessDetails struct {
+type LaunchDetails struct {
 	// UniqueID is provided by the plugin as a guaranteed way
 	// to identify the process to the plugin.
 	UniqueID string
 
 	// Status is the status of the process as reported by the plugin.
 	Status string
+}
+
+// ParseDetails parses the input string in to a LaunchDetails struct.
+func ParseDetails(input string) (LaunchDetails, error) {
+	return LaunchDetails{}, nil
 }

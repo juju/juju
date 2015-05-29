@@ -18,8 +18,8 @@ const (
 	StatusStopped Status = "stopped"
 )
 
-// ProcessInfo holds information about a process that Juju needs.
-type ProcessInfo struct {
+// Info holds information about a process that Juju needs.
+type Info struct {
 	charm.Process
 
 	// Status is the overall Juju status of the workload process.
@@ -33,5 +33,5 @@ type ProcessInfo struct {
 	EnvVars map[string]string
 
 	// Details is the information about the process which the plugin provided.
-	Details ProcessDetails
+	Details LaunchDetails
 }
