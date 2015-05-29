@@ -70,6 +70,7 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -502,7 +503,6 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
-	r0.waitForWorker(c, "resumer")
 	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
@@ -549,6 +549,33 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
+	}
+}
+
+func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+		close(started)
+		return resumer.NewResumer(st)
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the resumer to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "charm-revision-updater")
+
+	// Now make sure the resumer starts.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("resumer worker not started as expected")
 	}
 }
 
@@ -666,21 +693,11 @@ func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
-	// Wait for the resumer to be started. This is started just after
+	// Wait for the txnpruner to be started. This is started just after
 	// dblogpruner would be started.
 	runner := s.singularRecord.nextRunner(c)
-	started := set.NewStrings(runner.waitForWorker(c, "resumer")...)
+	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
 	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
-}
-
-func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "statushistorypruner")
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {

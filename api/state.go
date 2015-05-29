@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
@@ -235,6 +236,12 @@ func (st *State) Client() *Client {
 // required by the machiner worker.
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// Resumer returns a version of the state that provides functionality
+// required by the resumer worker.
+func (st *State) Resumer() *resumer.API {
+	return resumer.NewAPI(st)
 }
 
 // Networker returns a version of the state that provides functionality

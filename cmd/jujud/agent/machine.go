@@ -114,6 +114,7 @@ var (
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
+	newResumer               = resumer.NewResumer
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -715,6 +716,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
 
+	if isEnvironManager {
+		runner.StartWorker("resumer", func() (worker.Worker, error) {
+			// The action of resumer is so subtle that it is not tested,
+			// because we can't figure out how to do so without
+			// brutalising the transaction log.
+			return newResumer(st.Resumer()), nil
+		})
+	}
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -1031,13 +1041,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			}
 			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
 				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
-			})
-
-			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
-				// The action of resumer is so subtle that it is not tested,
-				// because we can't figure out how to do so without brutalising
-				// the transaction log.
-				return resumer.NewResumer(st), nil
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
