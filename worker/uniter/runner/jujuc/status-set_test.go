@@ -57,7 +57,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 		"\n" +
 		"options:\n" +
 		"--service  (= false)\n" +
-		"    set this status for the service to which the unit belongs\n" +
+		"    set this status for the service to which the unit belongs if the unit is the leader\n" +
 		"\n" +
 		"Sets the workload status of the charm. Message is optional.\n" +
 		"The \"last updated\" attribute of the status is set, even if the\n" +

@@ -40,7 +40,7 @@ If the --include-data flag is passed, the associated data are printed also.
 func (c *StatusGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.includeData, "include-data", false, "print all status data")
-	f.BoolVar(&c.serviceWide, "service", false, "print status for all units of this service")
+	f.BoolVar(&c.serviceWide, "service", false, "print status for all units of this service if this unit is the leader")
 }
 
 func (c *StatusGetCommand) Init(args []string) error {
@@ -101,7 +101,7 @@ func (c *StatusGetCommand) ServiceStatus(ctx *cmd.Context) error {
 
 }
 
-func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
+func (c *StatusGetCommand) unitOrServiceStatus(ctx *cmd.Context) error {
 	var err error
 
 	if c.serviceWide {
@@ -120,4 +120,8 @@ func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
 	}
 	c.out.Write(ctx, toDetails(*unitStatus, c.includeData))
 	return nil
+}
+
+func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
+	return c.unitOrServiceStatus(ctx)
 }

@@ -216,6 +216,7 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+// UnitStatus will return the status for the current Unit.
 func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
@@ -232,6 +233,9 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
+// ServiceStatus returns the status for the service and all the units on
+// the service to which this context unit belongs, only if this unit is
+// the leader.
 func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
@@ -245,7 +249,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
-	status, err := service.Status(ctx.unit.Tag().String())
+	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
@@ -262,7 +266,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	}
 	return jujuc.ServiceStatusInfo{
 		Service: jujuc.StatusInfo{
-			Tag:    service.Name(),
+			Tag:    service.Tag().String(),
 			Status: string(status.Service.Status),
 			Info:   status.Service.Info,
 			Data:   status.Service.Data,
@@ -271,6 +275,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 	}, nil
 }
 
+// SetUnitStatus will set the given status for this unit.
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
@@ -281,6 +286,8 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	)
 }
 
+// SetServiceStatus will set the given status to the service to which this
+// unit's belong, only if this unit is the leader.
 func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
 	isLeader, err := ctx.IsLeader()
@@ -296,7 +303,7 @@ func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 		return errors.Trace(err)
 	}
 	return service.SetStatus(
-		ctx.unit.Tag().String(),
+		ctx.unit.Name(),
 		params.Status(status.Status),
 		status.Info,
 		status.Data,

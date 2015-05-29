@@ -20,7 +20,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	//	"github.com/juju/juju/lease"
 )
 
 // Service represents the state of a service.
@@ -1142,8 +1141,18 @@ func (s *Service) Status() (StatusInfo, error) {
 // SetStatus sets the status for the service.
 func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
 	var err error
-	for i := 0; i < 10; i++ {
-		var oldDoc statusDoc
+
+	var oldDoc statusDoc
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := s.Refresh(); errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
+
 		oldDoc, err = getStatus(s.st, s.globalKey())
 		insert := false
 		if IsStatusNotFound(err) {
@@ -1155,34 +1164,29 @@ func (s *Service) SetStatus(status Status, info string, data map[string]interfac
 
 		doc, err := newServiceStatusDoc(status, info, data)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
-		var ops []txn.Op
 		if insert {
 			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
-			ops = []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}
-		} else {
-			ops = []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}
+			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
 		}
-
-		err = s.st.runTransaction(ops)
-		if err != nil {
-			err = errors.Errorf("cannot set status of service %q: %v", s, onAbort(err, ErrDead))
-			continue
-		}
-
-		if oldDoc.Status != "" {
-			if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
-				logger.Errorf("could not record status history before change to %q: %v", status, err)
-			}
-		}
-		return nil
+		return []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
 	}
-	return err
+	if err = s.st.run(buildTxn); err != nil {
+		return errors.Errorf("cannot set status of service %q to %q: %v", s, status, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
+	return nil
 }
 
-// MembersStatus returns the status for all units in this service.
+// UnitsStatus returns the status for all units in this service.
 func (s *Service) UnitsStatus() (map[string]StatusInfo, error) {
 	units, err := s.AllUnits()
 	if err != nil {

@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ErrIsNotLeader is an error for operations that reqruired for a
+// unit to be the leader but it was not the case.
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // StatusGetter implements a common Status method for use by
@@ -136,7 +138,13 @@ func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, e
 	return service, nil
 }
 
+// isLeader will return true if the unitTag passed corresponds to the leader.
+// TODO(perrito666): this must go in 1.25, it is not a fault proof approach
+// it cannot guarantee that the unit will be leader during the duration of
+// wathever operation we are doing nor has a sane approach to obtaining a
+// lease manager.
 func isLeader(st state.EntityFinder, unitTag string) (bool, error) {
+
 	unit, err := getUnit(st, unitTag)
 	if err != nil {
 		return false, errors.Annotatef(err, "cannot obtain unit %q to check leadership", unitTag)
@@ -151,7 +159,7 @@ func isLeader(st state.EntityFinder, unitTag string) (bool, error) {
 	return leadershipManager.Leader(service.Name(), unit.Name()), nil
 }
 
-// Status returns the status of each given entity.
+// Status returns the status of the Service for each given Unit tag.
 func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
 	return serviceStatus(s, args, serviceFromUnitTag, isLeader)
 }
