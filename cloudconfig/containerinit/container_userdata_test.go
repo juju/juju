@@ -225,5 +225,5 @@ EOC
   /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
-	test.CheckInstallTemplateContainerCommands(c, commands)
+	test.CheckInstallAndStartCommands(c, commands)
 }

@@ -48,31 +48,6 @@ func (s *serviceSuite) TestNewServiceKnown(c *gc.C) {
 	}
 }
 
-func (s *serviceSuite) TestNewTemplateShutdownService(c *gc.C) {
-	initSystems := []string{
-		service.InitSystemSystemd,
-		service.InitSystemUpstart,
-		service.InitSystemWindows,
-	}
-	for _, initSystem := range initSystems {
-		svc, err := service.NewTemplateShutdownService(s.Name, s.Conf, initSystem)
-
-		switch initSystem {
-		case service.InitSystemSystemd:
-			c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
-			c.Check(err, jc.ErrorIsNil)
-		case service.InitSystemUpstart:
-			c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
-			c.Check(err, jc.ErrorIsNil)
-		case service.InitSystemWindows:
-			c.Check(err, gc.ErrorMatches, "unsupported init system for container template: \"windows\"")
-			continue
-		}
-		c.Check(svc.Name(), gc.Equals, s.Name)
-		c.Check(svc.Conf(), jc.DeepEquals, s.Conf)
-	}
-}
-
 func (s *serviceSuite) TestNewServiceMissingName(c *gc.C) {
 	_, err := service.NewService("", s.Conf, service.InitSystemUpstart)
 
