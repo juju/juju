@@ -27,7 +27,7 @@ type baseCommand struct {
 }
 
 func newCommand(ctx jujuc.Context) baseCommand {
-	compCtx, err := contextComponent(ctx)
+	compCtx, err := ContextComponent(ctx)
 	if err != nil {
 		// The component wasn't registered properly.
 		panic(err)

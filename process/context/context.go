@@ -25,7 +25,15 @@ func NewContext() jujuc.ContextComponent {
 	return &Context{}
 }
 
-func contextComponent(ctx jujuc.Context) (*Context, error) {
+// HookContext is the portion of jujuc.Context used in this package.
+type HookContext interface {
+	// Component implements jujuc.Context.
+	Component(string) (jujuc.ContextComponent, bool)
+}
+
+// ContextComponent returns the hook context for the workload
+// process component.
+func ContextComponent(ctx HookContext) (*Context, error) {
 	found, ok := ctx.Component(process.ComponentName)
 	if !ok {
 		return nil, errors.Errorf("component %q not registered", process.ComponentName)
