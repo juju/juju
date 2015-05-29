@@ -26,6 +26,12 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 type creator func(Context) cmd.Command
 
+var registeredCommands = map[string]creator{}
+
+func RegisterCommand(name string, f creator) {
+	registeredCommands[name+cmdSuffix] = f
+}
+
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
 	"close-port" + cmdSuffix:    NewClosePortCommand,
@@ -69,6 +75,7 @@ func allEnabledCommands() map[string]creator {
 	add(baseCommands)
 	add(storageCommands)
 	add(leaderCommands)
+	add(registeredCommands)
 	return all
 }
 
