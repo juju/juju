@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -19,6 +22,8 @@ type serviceSuite struct {
 	uniterSuite
 
 	apiService *uniter.Service
+
+	leadershipManager leadership.LeadershipManager
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -152,7 +157,7 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
+	//s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
 	err = s.apiService.SetStatus(s.wordpressUnit.Tag().String(), params.StatusActive, message, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,7 +182,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Equals, message)
 
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
+	//s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err := s.apiService.Status(s.wordpressUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
