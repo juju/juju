@@ -36,6 +36,24 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
+	ctx := context.NewContext()
+	procs := ctx.Processes()
+
+	c.Check(procs, gc.HasLen, 0)
+}
+
+func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
+	expected := []process.Info{{}, {}}
+	expected[0].Name = "A"
+	expected[1].Name = "B"
+
+	ctx := context.NewContext(expected...)
+	procs := ctx.Processes()
+
+	c.Check(procs, jc.DeepEquals, expected)
+}
+
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 	expected := context.NewContext()
 	s.ctx.components[process.ComponentName] = expected

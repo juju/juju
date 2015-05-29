@@ -12,7 +12,9 @@ import (
 )
 
 func init() {
-	runner.RegisterComponentFunc("process", NewContext)
+	runner.RegisterComponentFunc("process", func() jujuc.ContextComponent {
+		return NewContext()
+	})
 }
 
 // Context is the workload process portion of the hook context.
@@ -21,8 +23,14 @@ type Context struct {
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext() jujuc.ContextComponent {
-	return &Context{}
+func NewContext(procs ...process.Info) *Context {
+	processes := make(map[string]process.Info)
+	for _, proc := range procs {
+		processes[proc.Name] = proc
+	}
+	return &Context{
+		processes: processes,
+	}
 }
 
 // HookContext is the portion of jujuc.Context used in this package.
@@ -46,6 +54,15 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 		return nil, errors.Errorf("wrong component context type registered: %T", found)
 	}
 	return compCtx, nil
+}
+
+// Processes returns the processes known to the context.
+func (c *Context) Processes() []process.Info {
+	var procs []process.Info
+	for _, info := range c.processes {
+		procs = append(procs, info)
+	}
+	return procs
 }
 
 // Get implements jujuc.ContextComponent.
