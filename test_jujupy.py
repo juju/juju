@@ -806,14 +806,13 @@ class TestEnvJujuClient(ClientTest):
         extra_env = {'JUJU': '/juju'}
         with patch('sys.stdout'):
             with patch('subprocess.check_call') as mock:
-                client.juju('foo', ('bar', 'baz'), extra_env=extra_env)
+                client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         env = dict(os.environ)
         env.update(extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'),
+            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'),
             env=env)
-        self.assertEqual(
-            mock.mock_calls[0][2]['env']['JUJU'], '/juju')
+        self.assertEqual('/juju', mock.call_args[1]['env']['JUJU'])
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
@@ -1847,7 +1846,7 @@ class TestEnvironment(TestCase):
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G arch=amd64', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': None}
         )
 
     def test_quickstart_local(self):
@@ -1858,7 +1857,7 @@ class TestEnvironment(TestCase):
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), True
+             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': None}
         )
 
     def test_quickstart_nonlocal(self):
@@ -1869,7 +1868,7 @@ class TestEnvironment(TestCase):
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': None}
         )
 
     def test_set_testing_tools_metadata_url(self):

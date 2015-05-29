@@ -341,7 +341,8 @@ class EnvJujuClient:
         if upload_tools:
             args = ('--upload-tools',) + args
         args = args + ('--no-browser', bundle,)
-        self.juju('quickstart', args, self.env.needs_sudo())
+        self.juju('quickstart', args, self.env.needs_sudo(),
+                  extra_env={'JUJU': self.full_path})
 
     def status_until(self, timeout, start=None):
         """Call and yield status until the timeout is reached.
