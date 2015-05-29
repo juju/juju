@@ -131,6 +131,16 @@ type Context interface {
 
 	// AddUnitStorage saves storage constraints in the context.
 	AddUnitStorage(map[string]params.StorageConstraints)
+
+	// Component returns the ContextComponent with the supplied name if
+	// it was found, and whether it was found.
+	Component(name string) (ContextComponent, bool)
+}
+
+type ContextComponent interface {
+	Flush() error
+	Set(id string, value interface{}) error
+	Get(id string, result interface{}) error
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

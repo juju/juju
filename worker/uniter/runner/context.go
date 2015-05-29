@@ -25,6 +25,18 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 
+type ComponentFunc func() jujuc.ContextComponent
+
+var registeredComponentFuncs = map[string]ComponentFunc{}
+
+func RegisterComponentFunc(name string, f ComponentFunc) error {
+	if _, ok := registeredComponentFuncs[name]; ok {
+		return errors.AlreadyExistsf("%s", name)
+	}
+	registeredComponentFuncs[name] = f
+	return nil
+}
+
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
 	code string
@@ -166,6 +178,17 @@ type HookContext struct {
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
 	storageAddConstraints map[string]params.StorageConstraints
+
+	componentFuncs map[string]ComponentFunc
+}
+
+// Component implements jujuc.Context.
+func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, bool) {
+	compCtxFunc, ok := ctx.componentFuncs[name]
+	if !ok {
+		return nil, false
+	}
+	return compCtxFunc(), true
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
