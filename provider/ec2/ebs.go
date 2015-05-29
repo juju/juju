@@ -184,7 +184,7 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	source := &ebsVolumeSource{ec2: ec2}
+	source := &ebsVolumeSource{ec2: ec2, envName: environConfig.Name()}
 	if uuid, ok := environConfig.UUID(); ok {
 		source.uuid = &uuid
 	}
@@ -201,6 +201,7 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 
 type ebsVolumeSource struct {
 	ec2          *ec2.EC2
+	envName      string // non-unique, informational only
 	uuid         *string
 	resourceTags map[string]string
 }
@@ -288,7 +289,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 		for k, v := range v.resourceTags {
 			tags[k] = v
 		}
-		tags[tagName] = p.Tag.String()
+		tags[tagName] = resourceName(p.Tag, v.envName)
 		if v.uuid != nil {
 			tags[common.TagJujuEnv] = *v.uuid
 		}

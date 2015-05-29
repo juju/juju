@@ -84,9 +84,9 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: requestedSize / 1024,
-				Name: "volume-123",
+				Name: "juju-testenv-volume-123",
 				Metadata: map[string]string{
-					"JujuEnv": testing.EnvironmentTag.Id(),
+					"juju-env-uuid": testing.EnvironmentTag.Id(),
 				},
 			})
 			return &cinder.Volume{
@@ -160,11 +160,11 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 			created = true
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: 1,
-				Name: "volume-123",
+				Name: "juju-testenv-volume-123",
 				Metadata: map[string]string{
-					"JujuEnv":      testing.EnvironmentTag.Id(),
-					"ResourceTag1": "Value1",
-					"ResourceTag2": "Value2",
+					"juju-env-uuid": testing.EnvironmentTag.Id(),
+					"ResourceTag1":  "Value1",
+					"ResourceTag2":  "Value2",
 				},
 			})
 			return &cinder.Volume{ID: mockVolId}, nil

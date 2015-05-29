@@ -973,13 +973,13 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	ec2Inst := ec2.InstanceEC2(bootstrapInst)
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0"},
-		{"JujuEnv", coretesting.EnvironmentTag.Id()},
-		{"JujuStateServer", "true"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-is-state", "true"},
 	})
 	ec2Inst = ec2.InstanceEC2(inst)
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-1"},
-		{"JujuEnv", coretesting.EnvironmentTag.Id()},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 		{"User", "Specified"},
 	})
 }

@@ -1632,16 +1632,16 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(bootstrapInst).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"JujuEnv":         coretesting.EnvironmentTag.Id(),
-			"JujuStateServer": "true",
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state": "true",
 		},
 	)
 	c.Assert(
 		openstack.InstanceServerDetail(inst).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"JujuEnv": coretesting.EnvironmentTag.Id(),
-			"User":    "Specified",
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"User":          "Specified",
 		},
 	)
 }

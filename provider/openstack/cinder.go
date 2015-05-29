@@ -45,7 +45,10 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
-	source := &cinderVolumeSource{storageAdapter: storageAdapter}
+	source := &cinderVolumeSource{
+		storageAdapter: storageAdapter,
+		envName:        environConfig.Name(),
+	}
 	if uuid, ok := environConfig.UUID(); ok {
 		source.uuid = &uuid
 	}
@@ -88,6 +91,7 @@ func (p *cinderProvider) Dynamic() bool {
 
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
+	envName        string // non unique, informational only
 	uuid           *string
 	resourceTags   map[string]string
 }
@@ -159,7 +163,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
 		Size: int(math.Ceil(float64(arg.Size / 1024))),
-		Name: arg.Tag.String(),
+		Name: resourceName(arg.Tag, s.envName),
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
 		Metadata:         metadata,

@@ -1058,10 +1058,15 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		metadata[common.TagJujuStateServer] = "true"
 	}
 
+	machineName := resourceName(
+		names.NewMachineTag(args.InstanceConfig.MachineId),
+		e.Config().Name(),
+	)
+
 	var server *nova.Entity
 	for _, availZone := range availabilityZones {
 		var opts = nova.RunServerOpts{
-			Name:               e.machineFullName(args.InstanceConfig.MachineId),
+			Name:               machineName,
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -1340,8 +1345,8 @@ func (e *environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
 }
 
-func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Config().Name(), names.NewMachineTag(machineId))
+func resourceName(tag names.Tag, envName string) string {
+	return fmt.Sprintf("juju-%s-%s", envName, tag)
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.
