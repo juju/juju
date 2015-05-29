@@ -800,6 +800,21 @@ class TestEnvJujuClient(ClientTest):
                 self.assertEqual(cc_mock.mock_calls[1][2]['env']['JUJU_HOME'],
                                  'asdf')
 
+    def test_juju_extra_env(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, None)
+        extra_env = {'JUJU': '/juju'}
+        with patch('sys.stdout'):
+            with patch('subprocess.check_call') as mock:
+                client.juju('foo', ('bar', 'baz'), extra_env=extra_env)
+        env = dict(os.environ)
+        env.update(extra_env)
+        mock.assert_called_with(
+            ('juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'),
+            env=env)
+        self.assertEqual(
+            mock.mock_calls[0][2]['env']['JUJU'], '/juju')
+
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
