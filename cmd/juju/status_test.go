@@ -2618,7 +2618,7 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 			}
 			timeFormat := "02 Jan 2006 15:04:05 MST"
 			if expectIsoTime {
-				timeFormat = "2006-01-02T15:04:05Z07:00"
+				timeFormat = "2006-01-02 15:04:05Z"
 			}
 			_, err := time.Parse(timeFormat, matches[i])
 			c.Assert(err, jc.ErrorIsNil)
