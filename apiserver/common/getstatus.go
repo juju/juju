@@ -156,7 +156,7 @@ func isLeader(st state.EntityFinder, unitTag string) (bool, error) {
 
 	leaseManager := lease.Manager()
 	leadershipManager := leadership.NewLeadershipManager(leaseManager)
-	return leadershipManager.Leader(service.Name(), unit.Name()), nil
+	return leadershipManager.Leader(service.Name(), unit.Name())
 }
 
 // Status returns the status of the Service for each given Unit tag.
