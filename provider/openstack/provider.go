@@ -1047,7 +1047,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	metadata := make(map[string]string)
+	metadata, ok := e.Config().ResourceTags()
+	if !ok {
+		metadata = make(map[string]string)
+	}
 	if uuid, ok := e.Config().UUID(); ok {
 		metadata[common.TagJujuEnv] = uuid
 	}

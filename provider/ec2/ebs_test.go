@@ -211,6 +211,9 @@ func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
+	s.TestConfig["resource-tags"] = "User=Specified"
+	defer func() { delete(s.TestConfig, "resource-tags") }()
+
 	vs := s.volumeSource(c, nil)
 	vols, err := s.createVolumes(vs, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,14 +248,17 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "volume-0"},
 		{"JujuEnv", testing.EnvironmentTag.Id()},
+		{"User", "Specified"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "volume-1"},
 		{"JujuEnv", testing.EnvironmentTag.Id()},
+		{"User", "Specified"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "volume-2"},
 		{"JujuEnv", testing.EnvironmentTag.Id()},
+		{"User", "Specified"},
 	})
 }
 

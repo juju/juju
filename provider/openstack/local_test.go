@@ -1604,6 +1604,15 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Set resource tags after bootstrapping.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"resource-tags": "User=Specified",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 
 	instances, err := env.AllInstances()
@@ -1632,6 +1641,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		jc.DeepEquals,
 		map[string]string{
 			"JujuEnv": coretesting.EnvironmentTag.Id(),
+			"User":    "Specified",
 		},
 	)
 }
