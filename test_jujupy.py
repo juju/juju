@@ -1840,35 +1840,35 @@ class TestEnvironment(TestCase):
 
     def test_quickstart_maas(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'maas'}),
-                               '1.23-series-arch', None)
+                               '1.23-series-arch', '/juju')
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G arch=amd64', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': None}
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
     def test_quickstart_local(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
-                               '1.23-series-arch', None)
+                               '1.23-series-arch', '/juju')
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': None}
+             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': '/juju'}
         )
 
     def test_quickstart_nonlocal(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'nonlocal'}),
-                               '1.23-series-arch', None)
+                               '1.23-series-arch', '/juju')
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
             ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': None}
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
     def test_set_testing_tools_metadata_url(self):
