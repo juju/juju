@@ -92,24 +92,35 @@ func (c *registeringCommand) init(name string) error {
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
 	}
-	env, err := c.parseEnv()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	env := c.parseEnv()
+
 	c.Env = env
 	return nil
 }
 
+// checkSpace ensures that the requested network space is available
+// to the hook.
 func (c *registeringCommand) checkSpace() error {
 	// TODO(ericsnow) Finish!
 	return errors.Errorf("not finished")
 }
 
-func (c *registeringCommand) parseEnv() (map[string]string, error) {
-	// TODO(ericsnow) Finish! (incl. merging with c.info.Process.Env)
-	return nil, errors.Errorf("not finished")
+// parseEnv parses the provided env vars and merges them with the ones
+// in the charm metadata.
+func (c *registeringCommand) parseEnv() map[string]string {
+	envVars := make(map[string]string, len(c.info.Process.Env)+len(c.env))
+	for k, v := range c.info.Process.Env {
+		envVars[k] = v
+	}
+	for k, v := range c.env {
+		envVars[k] = v
+	}
+	return envVars
 }
 
+// register updates the hook context with the information for the
+// registered workload process. An error is returned if the process
+// was already registered.
 func (c *registeringCommand) register() error {
 	if c.info.Status != process.StatusPending {
 		return errors.Errorf("already registered")
