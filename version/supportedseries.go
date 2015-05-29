@@ -56,11 +56,11 @@ var seriesVersions = map[string]string{
 	"win7":        "win7",
 	"win8":        "win8",
 	"win81":       "win81",
-	"centos7":     "7",
+	"centos7":     "centos7",
 }
 
 var centosSeries = map[string]string{
-	"centos7": "7",
+	"centos7": "centos7",
 }
 
 var ubuntuSeries = map[string]string{
