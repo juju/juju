@@ -47,7 +47,7 @@ var validStatus = []params.Status{
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.service, "service", false, "set this status for the service to which the unit belongs")
+	f.BoolVar(&c.service, "service", false, "set this status for the service to which the unit belongs if the unit is the leader")
 }
 
 func (c *StatusSetCommand) Init(args []string) error {
@@ -77,9 +77,9 @@ func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
 		Status: c.status,
 		Info:   c.message,
 	}
-	if !c.service {
-		return c.ctx.SetUnitStatus(statusInfo)
+	if c.service {
+		return c.ctx.SetServiceStatus(statusInfo)
 	}
-	return c.ctx.SetServiceStatus(statusInfo)
+	return c.ctx.SetUnitStatus(statusInfo)
 
 }

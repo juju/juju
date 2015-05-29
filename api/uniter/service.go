@@ -159,24 +159,29 @@ func (s *Service) ownerTag() (names.UserTag, error) {
 	return names.ParseUserTag(result.Result)
 }
 
-// SetStatus sets the status of the service.
-func (s *Service) SetStatus(unitTag string, status params.Status, info string, data map[string]interface{}) error {
+// SetStatus sets the status of the service if the passed unitName,
+// corresponding to the calling unit, is of the leader.
+func (s *Service) SetStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
 	//TODO(perrito666) bump api version for this?
 	if s.st.facade.BestAPIVersion() < 2 {
 		return errors.NotImplementedf("SetStatus")
+	}
+	tag, err := names.ParseUnitTag(unitName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{
-				Tag:    unitTag,
+				Tag:    tag.String(),
 				Status: status,
 				Info:   info,
 				Data:   data,
 			},
 		},
 	}
-	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
+	err = s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return errors.NotImplementedf("SetServiceStatus")
@@ -186,18 +191,22 @@ func (s *Service) SetStatus(unitTag string, status params.Status, info string, d
 	return result.OneError()
 }
 
-// ServiceStatus returns the status of the service if the passed unitTag,
+// ServiceStatus returns the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
-func (s *Service) Status(unitTag string) (params.ServiceStatusResult, error) {
+func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
+	tag, err := names.ParseUnitTag(unitName)
+	if err != nil {
+		return params.ServiceStatusResult{}, errors.Trace(err)
+	}
 	var results params.ServiceStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{
-				Tag: unitTag,
+				Tag: tag.String(),
 			},
 		},
 	}
-	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
+	err = s.st.facade.FacadeCall("ServiceStatus", args, &results)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")

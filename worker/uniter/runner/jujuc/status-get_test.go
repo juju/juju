@@ -100,7 +100,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 		"-o, --output (= \"\")\n" +
 		"    specify an output file\n" +
 		"--service  (= false)\n" +
-		"    print status for all units of this service\n" +
+		"    print status for all units of this service if this unit is the leader\n" +
 		"\n" +
 		"By default, only the status value is printed.\n" +
 		"If the --include-data flag is passed, the associated data are printed also.\n"

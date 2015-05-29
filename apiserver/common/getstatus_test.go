@@ -153,6 +153,31 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag, fakeIsLeaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
+
+	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
+		return false, nil
+	}
+
+	expected = params.ServiceStatusResults{
+		Results: []params.ServiceStatusResult{
+			{
+				Service: params.StatusResult{
+					Error:  nil,
+					Id:     "",
+					Life:   "",
+					Status: "",
+					Info:   "",
+					Data:   nil,
+					Since:  nil},
+				Units: map[string]params.StatusResult(nil),
+				Error: &params.Error{"this unit is not the leader", ""},
+			},
+		},
+	}
+	result, err = common.ServiceStatus(sg, args, fakeServiceFromUnitTag, leaderCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expected)
+
 }
 
 func (*statusGetterSuite) TestStatus(c *gc.C) {

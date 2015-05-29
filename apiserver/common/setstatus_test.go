@@ -119,10 +119,16 @@ func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 			{"unit-x-2", params.StatusStopping, "", nil},
 			{"unit-x-3", params.StatusAllocating, "not really", nil},
 			{"unit-x-4", params.StatusStopping, "", nil},
-			{"unit-x-5", params.StatusError, "blarg", nil},
+			{"unit-x-5", params.StatusStopping, "blah", nil},
 		},
 	}
-	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, fakeIsLeaderCheck)
+	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
+		if tag == "unit-x-5" {
+			return false, nil
+		}
+		return true, nil
+	}
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, leaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -131,7 +137,7 @@ func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{&params.Error{Message: "x3 error"}},
-			{nil},
+			{&params.Error{"this unit is not the leader", ""}},
 		},
 	})
 	get := func(tag names.Tag) *fakeService {
@@ -143,8 +149,8 @@ func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(get(u("x/2")).serviceStatus.Message, gc.Equals, "")
 	c.Assert(get(u("x/3")).serviceStatus.Status, gc.Equals, state.StatusAllocating)
 	c.Assert(get(u("x/3")).serviceStatus.Message, gc.Equals, "not really")
-	c.Assert(get(u("x/5")).serviceStatus.Status, gc.Equals, state.StatusError)
-	c.Assert(get(u("x/5")).serviceStatus.Message, gc.Equals, "blarg")
+	c.Assert(get(u("x/5")).serviceStatus.Status, gc.Equals, state.StatusStopping)
+	c.Assert(get(u("x/5")).serviceStatus.Message, gc.Equals, "blah")
 
 }
 
