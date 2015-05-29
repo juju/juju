@@ -67,15 +67,16 @@ func (c *Context) Processes() []process.Info {
 
 // Get implements jujuc.ContextComponent.
 func (c *Context) Get(id string, result interface{}) error {
-	if _, ok := result.(*process.Info); !ok {
+	info, ok := result.(*process.Info)
+	if !ok {
 		return errors.Errorf("invalid type: expected process.Info, got %T", result)
 	}
 
-	pInfo, ok := c.processes[id]
+	actual, ok := c.processes[id]
 	if !ok {
 		return errors.NotFoundf("%s", id)
 	}
-	result = &pInfo
+	*info = actual
 	return nil
 }
 

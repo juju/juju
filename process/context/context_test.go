@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -51,7 +52,14 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 	ctx := context.NewContext(expected...)
 	procs := ctx.Processes()
 
-	c.Check(procs, jc.DeepEquals, expected)
+	c.Assert(procs, gc.HasLen, 2)
+	if procs[0].Name == "A" {
+		c.Check(procs[0], jc.DeepEquals, expected[0])
+		c.Check(procs[1], jc.DeepEquals, expected[1])
+	} else {
+		c.Check(procs[0], jc.DeepEquals, expected[1])
+		c.Check(procs[1], jc.DeepEquals, expected[0])
+	}
 }
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
@@ -89,6 +97,94 @@ func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `component "process" disabled`)
 	s.stub.CheckCallNames(c, "Component")
+}
+
+func (s *contextSuite) TestGetOkay(c *gc.C) {
+	var info, expected, extra process.Info
+	expected.Name = "A"
+
+	ctx := context.NewContext(expected, extra)
+	err := ctx.Get("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(info, jc.DeepEquals, expected)
+}
+
+func (s *contextSuite) TestGetWrongType(c *gc.C) {
+	ctx := context.NewContext()
+	err := ctx.Get("A", nil)
+
+	c.Check(err, gc.ErrorMatches, "invalid type: expected process.Info, got .*")
+}
+
+func (s *contextSuite) TestGetNotFound(c *gc.C) {
+	var info process.Info
+	ctx := context.NewContext()
+	err := ctx.Get("A", &info)
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *contextSuite) TestSetOkay(c *gc.C) {
+	var info process.Info
+	info.Name = "A"
+	ctx := context.NewContext()
+	before := ctx.Processes()
+	err := ctx.Set("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+	after := ctx.Processes()
+
+	c.Check(before, gc.HasLen, 0)
+	c.Check(after, jc.DeepEquals, []process.Info{info})
+}
+
+func (s *contextSuite) TestSetOverwrite(c *gc.C) {
+	var info, other process.Info
+	info.Name = "A"
+	other.Status = process.StatusFailed
+	other.Name = "A"
+	other.Status = process.StatusPending
+	ctx := context.NewContext(other)
+	before := ctx.Processes()
+	err := ctx.Set("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+	after := ctx.Processes()
+
+	c.Check(before, jc.DeepEquals, []process.Info{other})
+	c.Check(after, jc.DeepEquals, []process.Info{info})
+}
+
+func (s *contextSuite) TestSetWrongType(c *gc.C) {
+	ctx := context.NewContext()
+	before := ctx.Processes()
+	err := ctx.Set("A", nil)
+	after := ctx.Processes()
+
+	c.Check(err, gc.ErrorMatches, "invalid type: expected process.Info, got .*")
+	c.Check(before, gc.HasLen, 0)
+	c.Check(after, gc.HasLen, 0)
+}
+
+func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
+	var info, other process.Info
+	info.Name = "B"
+	other.Name = "A"
+	ctx := context.NewContext(other)
+	before := ctx.Processes()
+	err := ctx.Set("A", &info)
+	after := ctx.Processes()
+
+	c.Check(err, gc.ErrorMatches, "mismatch on name: A != B")
+	c.Check(before, jc.DeepEquals, []process.Info{other})
+	c.Check(after, jc.DeepEquals, []process.Info{other})
+}
+
+func (s *contextSuite) TestFlush(c *gc.C) {
+	ctx := context.NewContext()
+	err := ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(ericsnow) Check calls here.
 }
 
 type fakeContextComponent struct {
