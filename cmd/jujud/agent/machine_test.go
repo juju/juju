@@ -771,6 +771,22 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
+	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
+}
+
+func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() { done <- a.Run(nil) }()
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for upgrade check")
+	}
+	defer a.Stop() // in case of failure
+	s.waitStopped(c, state.JobManageEnviron, a, done)
+	c.Assert(a.isAgentUpgradePending(), jc.IsFalse)
 }
 
 var fastDialOpts = api.DialOpts{
@@ -1640,6 +1656,7 @@ func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 
 	c.Assert(worker, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
+	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
 }
 
 type machineAgentUpgrader struct{}
