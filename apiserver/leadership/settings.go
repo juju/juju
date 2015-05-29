@@ -45,7 +45,7 @@ type MergeSettingsChunkFn func(serviceId string, settings map[string]string) err
 
 // IsLeaderFn declares a function-type which will return whether the
 // given service-unit-id combination is currently the leader.
-type IsLeaderFn func(serviceId, unitId string) bool
+type IsLeaderFn func(serviceId, unitId string) (bool, error)
 
 // LeadershipSettingsAccessor provides a type which can read, write,
 // and watch leadership settings.
@@ -74,7 +74,12 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 		}
 
 		// Check to ensure we can write settings.
-		if !lsa.isLeaderFn(serviceTag.Id(), callerUnitId) || !lsa.authorizer.AuthUnitAgent() {
+		isLeader, err := lsa.isLeaderFn(serviceTag.Id(), callerUnitId)
+		if err != nil {
+			currErr.Error = common.ServerError(err)
+			continue
+		}
+		if !isLeader || !lsa.authorizer.AuthUnitAgent() {
 			currErr.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -87,7 +92,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 		// overwritten by this request. This will be addressed in a
 		// future PR.
 
-		err := lsa.mergeSettingsChunkFn(serviceTag.Id(), arg.Settings)
+		err = lsa.mergeSettingsChunkFn(serviceTag.Id(), arg.Settings)
 		if err != nil {
 			currErr.Error = common.ServerError(err)
 		}

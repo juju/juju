@@ -28,7 +28,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -42,7 +41,6 @@ import (
 type UnitSuite struct {
 	coretesting.GitSuite
 	agenttesting.AgentSuite
-	leaseWorker worker.Worker
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -60,16 +58,9 @@ func (s *UnitSuite) TearDownSuite(c *gc.C) {
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.AgentSuite.SetUpTest(c)
-	// If we don't have a lease manager running somewhere, the API calls hang.
-	workerLoop := lease.WorkerLoop(s.State)
-	s.leaseWorker = worker.NewSimpleWorker(workerLoop)
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
-	if s.leaseWorker != nil {
-		c.Check(worker.Stop(s.leaseWorker), jc.ErrorIsNil)
-		s.leaseWorker = nil
-	}
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }

@@ -1007,8 +1007,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
-				workerLoop := lease.WorkerLoop(st)
-				return worker.NewSimpleWorker(workerLoop), nil
+				return lease.NewLeaseManager(st)
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
