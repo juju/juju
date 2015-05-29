@@ -400,11 +400,7 @@ def add_juju_args(parser):
 
 
 def get_juju_path(args):
-    if args.new_juju_bin is None:
-        raise Exception('Either --new-juju-bin or --run-startup must be'
-                        ' supplied.')
-    else:
-        juju_path = os.path.join(args.new_juju_bin, 'juju')
+    juju_path = os.path.join(args.new_juju_bin, 'juju')
     return juju_path
 
 
