@@ -108,11 +108,11 @@ func (c *registeringCommand) checkSpace() error {
 // parseEnv parses the provided env vars and merges them with the ones
 // in the charm metadata.
 func (c *registeringCommand) parseEnv() map[string]string {
-	envVars := make(map[string]string, len(c.info.Process.Env)+len(c.env))
-	for k, v := range c.info.Process.Env {
+	envVars := make(map[string]string, len(c.info.Process.EnvVars)+len(c.env))
+	for k, v := range c.info.Process.EnvVars {
 		envVars[k] = v
 	}
-	for k, v := range c.env {
+	for k, v := range process.ParseEnv(c.env) {
 		envVars[k] = v
 	}
 	return envVars
