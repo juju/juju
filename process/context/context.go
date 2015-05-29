@@ -38,6 +38,9 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 	if !ok {
 		return nil, errors.Errorf("component %q not registered", process.ComponentName)
 	}
+	if found == nil {
+		return nil, errors.Errorf("component %q disabled", process.ComponentName)
+	}
 	compCtx, ok := found.(*Context)
 	if !ok {
 		return nil, errors.Errorf("wrong component context type registered: %T", found)

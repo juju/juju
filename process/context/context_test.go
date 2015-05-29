@@ -64,6 +64,15 @@ func (s *contextSuite) TestContextComponentWrong(c *gc.C) {
 	s.stub.CheckCallNames(c, "Component")
 }
 
+func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
+	s.ctx.components[process.ComponentName] = nil
+
+	_, err := context.ContextComponent(s.ctx)
+
+	c.Check(err, gc.ErrorMatches, `component "process" disabled`)
+	s.stub.CheckCallNames(c, "Component")
+}
+
 type fakeContextComponent struct {
 	*testing.Stub
 }
