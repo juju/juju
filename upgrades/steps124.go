@@ -38,45 +38,50 @@ func stepsFor124() []Step {
 		&upgradeStep{
 			description: "move syslog config from LogDir to DataDir",
 			targets:     []Target{AllMachines},
-			run: func(context Context) error {
-				config := context.AgentConfig()
-				logdir := config.LogDir()
-				datadir := config.DataDir()
-
-				// these values were copied from
-				// github.com/juju/juju/utils/syslog/config.go
-				// Yes this is bad, but it is only needed once every for an
-				// upgrade, so it didn't seem worth exporting those values.
-				files := []string{
-					"ca-cert.pem",
-					"rsyslog-cert.pem",
-					"rsyslog-key.pem",
-					"logrotate.conf",
-					"logrotate.run",
-				}
-				var errs []string
-				for _, f := range files {
-					oldpath := filepath.Join(logdir, f)
-					newpath := filepath.Join(datadir, f)
-					if err := copy(newpath, oldpath); err != nil {
-						errs = append(errs, err.Error())
-						continue
-					}
-					if err := os.Remove(oldpath); err != nil {
-						errs = append(errs, err.Error())
-					}
-				}
-				if len(errs) > 0 {
-					return fmt.Errorf("error(s) while moving old syslog config files: ", strings.Join(errs, "\n"))
-				}
-				return nil
-			},
+			run:         moveSyslogConfig,
 		},
 	}
 }
 
-func copy(to, from string) error {
-	logger.Debugf("Moving %q to %q", from, to)
+func moveSyslogConfig(context Context) error {
+	config := context.AgentConfig()
+	logdir := config.LogDir()
+	datadir := config.DataDir()
+
+	// these values were copied from
+	// github.com/juju/juju/utils/syslog/config.go
+	// Yes this is bad, but it is only needed once every for an
+	// upgrade, so it didn't seem worth exporting those values.
+	files := []string{
+		"ca-cert.pem",
+		"rsyslog-cert.pem",
+		"rsyslog-key.pem",
+		"logrotate.conf",
+		"logrotate.run",
+	}
+	var errs []string
+	for _, f := range files {
+		oldpath := filepath.Join(logdir, f)
+		newpath := filepath.Join(datadir, f)
+		if err := copyFile(newpath, oldpath); err != nil {
+			errs = append(errs, err.Error())
+			continue
+		}
+		if err := os.Remove(oldpath); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("error(s) while moving old syslog config files: %s", strings.Join(errs, "\n"))
+	}
+	return nil
+}
+
+// copyFile copies a file from one location to another.  It won't overwrite
+// existing files and will return nil in this case.  This is used instead of
+// os.Rename because os.Rename won't work across partitions.
+func copyFile(to, from string) error {
+	logger.Debugf("Copying %q to %q", from, to)
 	orig, err := os.Open(from)
 	if os.IsNotExist(err) {
 		logger.Debugf("Old file %q does not exist, skipping.", from)
@@ -91,14 +96,8 @@ func copy(to, from string) error {
 	if err != nil {
 		return err
 	}
-	target, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, info.Mode())
+	target, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_EXCL, info.Mode())
 	if os.IsExist(err) {
-		logger.Debugf("New file %q already exists, deleting old file %q", to, from)
-		// don't overwrite an existing target
-		orig.Close()
-
-		// this may fail, but there's not much we can do about it.
-		_ = os.Remove(from)
 		return nil
 	}
 	defer target.Close()
