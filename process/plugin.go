@@ -16,5 +16,6 @@ type LaunchDetails struct {
 
 // ParseDetails parses the input string in to a LaunchDetails struct.
 func ParseDetails(input string) (LaunchDetails, error) {
+	// TODO(ericsnow) Finish!
 	return LaunchDetails{}, nil
 }
