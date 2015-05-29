@@ -45,9 +45,15 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
-	source := &cinderVolumeSource{storageAdapter: storageAdapter}
+	source := &cinderVolumeSource{
+		storageAdapter: storageAdapter,
+		envName:        environConfig.Name(),
+	}
 	if uuid, ok := environConfig.UUID(); ok {
 		source.uuid = &uuid
+	}
+	if tags, ok := environConfig.ResourceTags(); ok {
+		source.resourceTags = tags
 	}
 	return source, nil
 }
@@ -85,7 +91,9 @@ func (p *cinderProvider) Dynamic() bool {
 
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
+	envName        string // non unique, informational only
 	uuid           *string
+	resourceTags   map[string]string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -143,16 +151,19 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
-	var metadata interface{}
+	metadata := make(map[string]string)
+	for k, v := range s.resourceTags {
+		metadata[k] = v
+	}
 	if s.uuid != nil {
-		metadata = map[string]string{common.TagJujuEnv: *s.uuid}
+		metadata[common.TagJujuEnv] = *s.uuid
 	}
 
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
 		Size: int(math.Ceil(float64(arg.Size / 1024))),
-		Name: arg.Tag.String(),
+		Name: resourceName(arg.Tag, s.envName),
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
 		Metadata:         metadata,

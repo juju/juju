@@ -6,9 +6,9 @@ package common
 const (
 	// TagJujuEnv is the tag name used for identifying the
 	// Juju environment a resource is part of.
-	TagJujuEnv = "JujuEnv"
+	TagJujuEnv = "juju-env-uuid"
 
 	// TagJujuStateServer is the tag name used for determining
 	// whether a machine instance is a state server or not.
-	TagJujuStateServer = "JujuStateServer"
+	TagJujuStateServer = "juju-is-state"
 )

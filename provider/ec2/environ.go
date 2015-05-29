@@ -427,6 +427,12 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
 
+// resourceName returns the string to use for a resource's Name tag,
+// to help users identify Juju-managed resources in the AWS console.
+func resourceName(tag names.Tag, envName string) string {
+	return fmt.Sprintf("juju-%s-%s", envName, tag)
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
 	var inst *ec2Instance
@@ -555,9 +561,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag instance, for accounting and identification.
 	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	tags := map[string]string{
-		tagName: names.NewMachineTag(args.InstanceConfig.MachineId).String(),
+	tags, ok := e.Config().ResourceTags()
+	if !ok {
+		tags = make(map[string]string)
 	}
+	tags[tagName] = resourceName(
+		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
+	)
 	if stateServer {
 		// It's a state server; tag it as such. We don't currently use
 		// this tag for anything, but we can use this to migrate away

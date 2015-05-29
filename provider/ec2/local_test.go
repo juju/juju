@@ -945,6 +945,15 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Set resource tags after bootstrapping.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"resource-tags": "User=Specified",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -963,14 +972,15 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 
 	ec2Inst := ec2.InstanceEC2(bootstrapInst)
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
-		{"Name", "machine-0"},
-		{"JujuEnv", coretesting.EnvironmentTag.Id()},
-		{"JujuStateServer", "true"},
+		{"Name", "juju-sample-machine-0"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-is-state", "true"},
 	})
 	ec2Inst = ec2.InstanceEC2(inst)
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
-		{"Name", "machine-1"},
-		{"JujuEnv", coretesting.EnvironmentTag.Id()},
+		{"Name", "juju-sample-machine-1"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"User", "Specified"},
 	})
 }
 

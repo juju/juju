@@ -6,11 +6,13 @@ package gce
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/provider/common"
 )
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState = "juju-is-state"
+	metadataKeyIsState = common.TagJujuEnv
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/
