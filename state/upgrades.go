@@ -830,12 +830,16 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 	defer iter.Close()
 	for iter.Next(&doc) {
 		zone, ok := doc["availzone"]
-		if ok {
+		if ok || ParentId(doc["machineid"].(string)) != "" {
 			continue
 		}
 
 		zone, err := azFunc(st, instance.Id(doc["instanceid"].(string)))
 		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+
 			if !errors.IsNotSupported(err) {
 				return errors.Trace(err)
 			}
