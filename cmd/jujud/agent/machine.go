@@ -35,6 +35,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -282,6 +283,7 @@ func NewMachineAgent(
 		workersStarted:       make(chan struct{}),
 		upgradeWorkerContext: upgradeWorkerContext,
 		runner:               runner,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
 }
 
@@ -307,6 +309,12 @@ type MachineAgent struct {
 	restoring            bool
 	workersStarted       chan struct{}
 
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
+
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
@@ -330,6 +338,15 @@ func (a *MachineAgent) IsRestorePreparing() bool {
 // and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
+}
+
+func (a *MachineAgent) isAgentUpgradePending() bool {
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // Wait waits for the machine agent to finish.
@@ -657,17 +674,9 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
-	// Run the upgrader and the upgrade-steps worker without waiting for
+	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
-			st.Upgrader(),
-			agentConfig,
-			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
-		), nil
-	})
-
+	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
@@ -830,6 +839,21 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
+}
+
+func (a *MachineAgent) agentUpgraderWorkerStarter(
+	st *apiupgrader.State,
+	agentConfig agent.Config,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return upgrader.NewAgentUpgrader(
+			st,
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+			a.initialAgentUpgradeCheckComplete,
+		), nil
 	}
 }
 
@@ -1192,7 +1216,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 }
 
 // limitLogins is called by the API server for each login attempt.
-// it returns an error if upgrads or restore are running.
+// it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
@@ -1234,7 +1258,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() {
+	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1529,11 +1553,16 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
 func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// Wait for the upgrade to complete (or for us to be stopped).
-		select {
-		case <-stop:
-			return nil
-		case <-a.upgradeWorkerContext.UpgradeComplete:
+		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
+		for _, ch := range []chan struct{}{
+			a.upgradeWorkerContext.UpgradeComplete,
+			a.initialAgentUpgradeCheckComplete,
+		} {
+			select {
+			case <-stop:
+				return nil
+			case <-ch:
+			}
 		}
 		// Upgrades are done, start the worker.
 		worker, err := start()
