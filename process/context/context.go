@@ -25,6 +25,18 @@ func NewContext() jujuc.ContextComponent {
 	return &Context{}
 }
 
+func contextComponent(ctx jujuc.Context) (*Context, error) {
+	found, ok := ctx.Component(process.ComponentName)
+	if !ok {
+		return nil, errors.Errorf("component %q not registered", process.ComponentName)
+	}
+	compCtx, ok := found.(*Context)
+	if !ok {
+		return nil, errors.Errorf("wrong component context type registered: %T", found)
+	}
+	return compCtx, nil
+}
+
 // Get implements jujuc.ContextComponent.
 func (c *Context) Get(id string, result interface{}) error {
 	if _, ok := result.(*process.Info); !ok {

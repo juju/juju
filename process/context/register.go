@@ -6,15 +6,14 @@ package context
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var registerDoc = `
-register doc ....
-`[1:]
+const registerDoc = `
+"register" doc ....
+`
 
 func init() {
 	jujuc.RegisterCommand("register", NewRegisterCommand)
@@ -22,30 +21,17 @@ func init() {
 
 // RegisterCommand implements the register command.
 type RegisterCommand struct {
-	cmd.CommandBase
-	ctx jujuc.Context
-	out cmd.Output
-
-	// Name is the name of the process in charm metadata.
-	Name string
-	// Id is the unique ID for the launched process.
-	Id string
-	// Details is the launch details returned from the process plugin.
-	Details process.LaunchDetails
-	// Space is the network space.
-	Space string
-	// Env is the environment variables for inside the process environment.
-	Env map[string]string
-
-	env []string
+	registeringCommand
 }
 
 // NewRegisterCommand returns a new RegisterCommand.
 func NewRegisterCommand(ctx jujuc.Context) cmd.Command {
-	return &RegisterCommand{ctx: ctx}
+	return &RegisterCommand{
+		registeringCommand: newRegisteringCommand(ctx),
+	}
 }
 
-// Info implements cmd.Command.Info.
+// Info implements cmd.Command.
 func (c *RegisterCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
@@ -55,71 +41,38 @@ func (c *RegisterCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags implements Command.SetFlags.
-func (c *RegisterCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Space, "space", "", "network space")
-	f.Var(cmd.NewAppendStringsValue(&c.env), "env", "environment variables")
-}
-
-// Init implements cmd.Command.Init.
+// Init implements cmd.Command.
 func (c *RegisterCommand) Init(args []string) error {
-	var details process.LaunchDetails
-
 	switch len(args) {
 	case 0, 1:
 		return errors.Errorf("expected at least 2 args, got: %v", args)
 	case 2:
-		// Nothing to do.
+		return c.init(args[0], args[1], "")
 	case 3:
-		var err error
-		if details, err = process.ParseDetails(args[2]); err != nil {
-			return errors.Trace(err)
-		}
+		return c.init(args[0], args[1], args[2])
 	default:
 		return errors.Errorf("expected at most 3 args, got: %v", args)
 	}
+}
 
-	env, err := parseEnv(c.env)
+func (c *RegisterCommand) init(name, id, detailsStr string) error {
+	details, err := process.ParseDetails(detailsStr)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	c.Name = args[0]
-	c.Id = args[1]
+	if err := c.registeringCommand.init(name); err != nil {
+		return errors.Trace(err)
+	}
+	c.Id = id
 	c.Details = details
-	c.Env = env
-
 	return nil
 }
 
-func parseEnv(e []string) (map[string]string, error) {
-	return nil, nil
-}
-
-// Run implements cmd.Command.Run.
+// Run implements cmd.Command.
 func (c *RegisterCommand) Run(ctx *cmd.Context) error {
-	compCtx, err := c.ctx.Component("process")
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var pInfo *process.Info
-	if err := compCtx.Get(c.Name, pInfo); err != nil {
-		return errors.Trace(err)
-	}
-
-	if pInfo.Status != process.StatusPending {
-		return errors.Errorf("already registered")
-	}
-
-	pInfo.Space = c.Space
-	pInfo.Details = c.Details
-	pInfo.EnvVars = c.Env
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
-
-	if err := compCtx.Set(c.Name, pInfo); err != nil {
+	if err := c.register(); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
