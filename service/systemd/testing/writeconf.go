@@ -50,7 +50,7 @@ func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
 	wct.checkWriteConf(c, commands)
 }
 
-func (wct WriteConfTest) CheckInstallTemplateContainerCommands(c *gc.C, commands []string) {
+func (wct WriteConfTest) CheckInstallAndStartCommands(c *gc.C, commands []string) {
 	wct.CheckCommands(c, commands[:len(commands)-1])
 	c.Check(commands[len(commands)-1], gc.Equals, "/bin/systemctl start "+wct.servicename())
 }
