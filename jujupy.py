@@ -686,6 +686,17 @@ class Status:
                 return service['units'][unit_name]
         raise KeyError(unit_name)
 
+    def get_subordinate_units(self, service_name):
+        """Return subordinate metadata for a service_name."""
+        subordinates = []
+        services = self.status.get('services', {})
+        if service_name in services.keys():
+            for unit in sorted(services[service_name].get(
+                    'units', {}).values()):
+                subordinates.append(unit.get('subordinates', {}))
+            return subordinates
+        raise KeyError(service_name)
+
     def get_open_ports(self, unit_name):
         """List the open ports for the specified unit.
 

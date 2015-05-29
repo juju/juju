@@ -1413,6 +1413,57 @@ class TestStatus(TestCase):
         with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
             status.get_unit('jenkins/3')
 
+    def test_get_subordinate_units(self):
+        status = Status({
+            'machines': {
+                '1': {},
+            },
+            'services': {
+                'ubuntu': {},
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'subordinates': {
+                                'chaos-monkey/0': {'agent-state': 'started'},
+                            }
+                        }
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {
+                            'subordinates': {
+                                'chaos-monkey/1': {'agent-state': 'started'}
+                            }
+                        },
+                        'jenkins/3': {
+                            'subordinates': {
+                                'chaos-monkey/2': {'agent-state': 'started'}
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(
+            status.get_subordinate_units('ubuntu'),
+            [])
+        self.assertEqual(
+            status.get_subordinate_units('jenkins'),
+            [{'chaos-monkey/0': {'agent-state': 'started'}}])
+        self.assertEqual(
+            status.get_subordinate_units('dummy-sink'), [
+                {'chaos-monkey/1': {'agent-state': 'started'}},
+                {'chaos-monkey/2': {'agent-state': 'started'}}]
+            )
+        with self.assertRaisesRegexp(KeyError, 'foo'):
+            status.get_subordinate_units('foo')
+
+    def test_get_subordinate_units_no_services(self):
+        status = Status({}, '')
+        with self.assertRaisesRegexp(KeyError, 'ubuntu'):
+            status.get_subordinate_units('ubuntu')
+
     def test_get_open_ports(self):
         status = Status({
             'machines': {
