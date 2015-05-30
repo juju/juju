@@ -100,6 +100,6 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
 	for _, dialTag := range s.dialTags {
-		c.Assert(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
+		c.Check(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
 	}
 }

@@ -107,14 +107,19 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Ta
 }
 
 func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (*RsyslogConfigHandler, error) {
-	var syslogConfig *syslog.SyslogConfig
-	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
-	} else {
-		syslogConfig = syslog.NewForwardConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
+	syslogConfig := &syslog.SyslogConfig{
+		LogFileName:          tag.String(),
+		LogDir:               logDir,
+		JujuConfigDir:        jujuConfigDir,
+		Port:                 0,
+		Namespace:            namespace,
+		StateServerAddresses: stateServerAddrs,
 	}
-
-	syslogConfig.JujuConfigDir = jujuConfigDir
+	if mode == RsyslogModeAccumulate {
+		syslog.NewAccumulateConfig(syslogConfig)
+	} else {
+		syslog.NewForwardConfig(syslogConfig)
+	}
 
 	// Historically only machine-0 includes the namespace in the log
 	// dir/file; for backwards compatibility we continue the tradition.
@@ -200,7 +205,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			host = j
 		}
 		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
-		logTag := "juju" + h.syslogConfig.Namespace + "-" + h.tag.String()
+		logTag := "juju" + "-" + h.syslogConfig.Namespace + "-" + h.tag.String()
 		logger.Debugf("making syslog connection for %q to %s", logTag, target)
 		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, logTag, tlsConf)
 		if err != nil {

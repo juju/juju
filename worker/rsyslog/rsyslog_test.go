@@ -119,7 +119,16 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	syslogPort := s.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", []string{})
+
+	syslogConfig := &syslog.SyslogConfig{
+		LogFileName:          m.Tag().String(),
+		LogDir:               *rsyslog.LogDir,
+		Port:                 syslogPort,
+		Namespace:            "",
+		StateServerAddresses: []string{},
+	}
+
+	syslog.NewAccumulateConfig(syslogConfig)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	syslogConfig.JujuConfigDir = s.DataDir()
 	rendered, err := syslogConfig.Render()
@@ -135,7 +144,16 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 	m := s.machine
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, 6541, "", []string{"192.168.1", "127.0.0.1"})
+
+	syslogConfig := &syslog.SyslogConfig{
+		LogFileName:          m.Tag().String(),
+		LogDir:               *rsyslog.LogDir,
+		Port:                 6541,
+		Namespace:            "",
+		StateServerAddresses: []string{"192.168.1", "127.0.0.1"},
+	}
+
+	syslog.NewAccumulateConfig(syslogConfig)
 	syslogConfig.JujuConfigDir = s.DataDir()
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)

@@ -230,34 +230,14 @@ type SyslogConfig struct {
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
 // to the state server nodes.
-func NewForwardConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
-	conf := &SyslogConfig{
-		configTemplate:       nodeRsyslogTemplate,
-		StateServerAddresses: stateServerAddresses,
-		LogFileName:          logFile,
-		Port:                 port,
-		LogDir:               logDir,
-	}
-	if namespace != "" {
-		conf.Namespace = "-" + namespace
-	}
-	return conf
+func NewForwardConfig(cfg *SyslogConfig) {
+	cfg.configTemplate = nodeRsyslogTemplate
 }
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
-	conf := &SyslogConfig{
-		configTemplate:       stateServerRsyslogTemplate,
-		LogFileName:          logFile,
-		Port:                 port,
-		LogDir:               logDir,
-		StateServerAddresses: stateServerAddresses,
-	}
-	if namespace != "" {
-		conf.Namespace = "-" + namespace
-	}
-	return conf
+func NewAccumulateConfig(cfg *SyslogConfig) {
+	cfg.configTemplate = stateServerRsyslogTemplate
 }
 
 func either(a, b string) string {
@@ -265,6 +245,13 @@ func either(a, b string) string {
 		return a
 	}
 	return b
+}
+
+func (slConfig *SyslogConfig) renderNamespace() string {
+	if slConfig.Namespace == "" {
+		return ""
+	}
+	return "-" + slConfig.Namespace
 }
 
 func (slConfig *SyslogConfig) ConfigFilePath() string {
@@ -339,8 +326,8 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		"logfilePath":         logFilePath,
 		"portNumber":          func() int { return slConfig.Port },
 		"logDir":              func() string { return slConfig.LogDir },
-		"namespace":           func() string { return slConfig.Namespace },
-		"tagStart":            func() int { return tagOffset + len(slConfig.Namespace) },
+		"namespace":           slConfig.renderNamespace,
+		"tagStart":            func() int { return tagOffset + len(slConfig.renderNamespace()) },
 		"tlsCACertPath":       slConfig.CACertPath,
 		"tlsCertPath":         slConfig.ServerCertPath,
 		"tlsKeyPath":          slConfig.ServerKeyPath,
