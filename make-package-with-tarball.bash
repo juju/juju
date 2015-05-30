@@ -134,7 +134,8 @@ RELEASE=$(cat $SCRIPT_DIR/supported-releases.txt |
     grep $SERIES | cut -d ' ' -f 1)
 UBUNTU_VERSION="${VERSION}-0ubuntu1~${RELEASE}.${PPATCH}~juju1"
 
-TMP_DIR=$(mktemp -d --tmpdir=$HERE)
+TMP_DIR="$HERE/juju-build-$RELEASE"
+mkdir -p $TMP_DIR
 PACKAGING_DIR="$TMP_DIR/packaging"
 BUILD_DIR="$TMP_DIR/build"
 
