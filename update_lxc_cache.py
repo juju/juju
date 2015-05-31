@@ -5,12 +5,13 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from collections import namedtuple
+import errno
 import os
 import sys
 import traceback
-import requests
 import shutil
 import subprocess
+import urllib2
 
 
 SITE = 'https://images.linuxcontainers.org'
@@ -32,8 +33,8 @@ scp {rootfs_path} {meta_path} {user_host}:~/
 INSTALL_SCRIPT = """\
 ssh {user_host} bash <<"EOT"
 sudo mkdir -p {lxc_cache}
-sudo mv {rootfs} {meta} {lxc_cache}
-sudo chown root:root  {lxc_cache}/*
+sudo mv ~/{rootfs} ~/{meta} {lxc_cache}
+sudo chown -R root:root  {lxc_cache}
 sudo tar -C {lxc_cache} -xf {lxc_cache}/meta.tar.xz
 EOT
 """
@@ -47,57 +48,97 @@ class LxcCache:
         self.verbose = verbose
         self.dry_run = dry_run
         local_path = os.path.join(self.workspace, INDEX_PATH, INDEX)
-        self.systems = self.init_systems(local_path)
+        self.systems, ignore = self.init_systems(local_path)
 
     def init_systems(self, location):
         systems = {}
         if location.startswith('http'):
-            data = requests(location).text
+            request = urllib2.Request(location)
+            response = urllib2.urlopen(request)
+            data = response.read()
         else:
-            with open(location) as f:
-                data = f.read()
+            try:
+                with open(location) as f:
+                    data = f.read()
+            except IOError as e:
+                if e.errno == errno.ENOENT:
+                    if self.verbose:
+                        print('Local cache is empty.')
+                    return systems, None
         for line in data.splitlines():
             system = System(*line.split(';'))
             key = (system.dist, system.release, system.arch, system.variant)
             systems[key] = system
-        return systems
+        return systems, data
 
     def get_updates(self, dist, release, arch, variant):
-        old_system = self.systems[(dist, release, arch, variant)]
+        key = (dist, release, arch, variant)
+        old_system = self.systems.get(key)
         url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
-        new_systems = self.init_systems(url)
-        new_system = new_systems[(dist, release, arch, variant)]
-        if new_system.version > old_system.version:
-            return new_system
-        return None
+        new_systems, data = self.init_systems(url)
+        new_system = new_systems[key]
+        if not old_system or new_system.version > old_system.version:
+            if self.verbose:
+                print('Found new version for %s' % str(key))
+                print(new_system.version)
+            return new_system, data
+        if self.verbose:
+            print('Version is current for %s' % str(key))
+            print(old_system.version)
+        return None, None
 
     def get_lxc_data(self, system):
-        image_path = os.path.join(self.workspace, system.path)
-        os.makedirs(image_path)
-        rootfs_path = os.path.join(self.workspace, system.path. ROOTFS)
-        rootfs_url = '%s/%s/%s' % (SITE, system.path, ROOTFS)
+        image_path = os.path.join(self.workspace, system.path[1:])
+        if not self.dry_run:
+            if self.verbose:
+                print('creating %s' % image_path)
+            if not os.path.isdir(image_path):
+                os.makedirs()
+        rootfs_path = os.path.join(image_path, ROOTFS)
+        rootfs_url = '%s%s%s' % (SITE, system.path, ROOTFS)
         self.download(rootfs_url, rootfs_path)
-        meta_path = os.path.join(self.workspace, system.path. META)
-        meta_url = '%s/%s/%s' % (SITE, system.path, META)
+        meta_path = os.path.join(image_path, META)
+        meta_url = '%s%s%s' % (SITE, system.path, META)
         self.download(meta_url, meta_path)
         return rootfs_path, meta_path
 
-    @staticmethod
-    def download(url, path):
-        request = requests.get(url, stream=True)
-        if request.status_code == 200:
-            with open(path, 'wb') as f:
-                request.raw.decode_content = True
-                shutil.copyfileobj(request.raw, f)
+    def download(self, location, path):
+        chunk = 16 * 1024
+        if not self.dry_run:
+            request = urllib2.Request(location)
+            response = urllib2.urlopen(request)
+            if response.getcode() == 200:
+                with open(path, 'wb') as f:
+                    shutil.copyfileobj(response, f, chunk)
+                if self.verbose:
+                    print('Downloaded %s' % location)
 
     def put_lxc_data(self, user_host, system, rootfs_path, meta_path):
-        pass
+        lxc_cache = os.path.join(
+            LXC_CACHE, system.dist, system.release, system.arch,
+            system.variant)
         put_script = PUT_SCRIPT.format(
             user_host=user_host, rootfs_path=rootfs_path, meta_path=meta_path)
-        subprocess.check_call([put_script], shell=True)
+        if not self.dry_run:
+            subprocess.check_call([put_script], shell=True)
+            if self.verbose:
+                print("Uploaded %s and %s" % (ROOTFS, META))
         install_script = INSTALL_SCRIPT.format(
-            suer_host=user_host, lxc_cache=LXC_CACHE, rootfs=ROOTFS, meta=META)
-        subprocess.check_call([install_script], shell=True)
+            user_host=user_host, lxc_cache=lxc_cache, rootfs=ROOTFS, meta=META)
+        if not self.dry_run:
+            subprocess.check_call([install_script], shell=True)
+            if self.verbose:
+                print("Installed %s and %s" % (ROOTFS, META))
+
+    def save_index(self, data):
+        index_dir = os.path.join(self.workspace, INDEX_PATH)
+        if not os.path.isdir(index_dir):
+            os.makedirs(index_dir)
+        index_path = os.path.join(self.workspace, INDEX_PATH, INDEX)
+        with open(index_path, 'w') as f:
+            f.write(data)
+        if self.verbose:
+            print('saved index: %s' % INDEX)
 
 
 def parse_args(argv=None):
@@ -115,7 +156,7 @@ def parse_args(argv=None):
     parser.add_argument(
         '--variant', default="default", help="The variant to update.")
     parser.add_argument(
-        'user-host', help='The user@host to update.')
+        'user_host', help='The user@host to update.')
     parser.add_argument(
         'release', help='The release to update.')
     parser.add_argument(
@@ -132,12 +173,13 @@ def main(argv):
     try:
         lxc_cache = LxcCache(
             args.workspace, verbose=args.verbose, dry_run=args.dry_run)
-        new_system = lxc_cache.get_updates(
+        new_system, data = lxc_cache.get_updates(
             args.dist, args.release, args.arch, args.variant)
         if new_system:
             rootfs_path, meta_path = lxc_cache.get_lxc_data(new_system)
             lxc_cache.put_lxc_data(
                 args.user_host, new_system, rootfs_path, meta_path)
+            lxc_cache.save_index(data)
     except Exception as e:
         print(e)
         print(getattr(e, 'output', ''))
