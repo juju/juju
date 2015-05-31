@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Build and package juju for an non-debian OS."""
+"""Update the lxc 'download' template cache for hosts on private networks."""
 
 from __future__ import print_function
 
