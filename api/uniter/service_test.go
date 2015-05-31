@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -22,8 +23,6 @@ type serviceSuite struct {
 	uniterSuite
 
 	apiService *uniter.Service
-
-	leadershipManager leadership.LeadershipManager
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -34,6 +33,13 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
 	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := lease.NewLeaseManager(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		m.Kill()
+		c.Assert(m.Wait(), jc.ErrorIsNil)
+	})
 }
 
 func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
@@ -157,7 +163,7 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	//s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
+	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
 	err = s.apiService.SetStatus(s.wordpressUnit.Tag().String(), params.StatusActive, message, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,8 +188,14 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Equals, message)
 
-	//s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
+	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err := s.apiService.Status(s.wordpressUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
+}
+
+func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {
+	leadership := leadership.NewLeadershipManager(lease.Manager())
+	err := leadership.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 }
