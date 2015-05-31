@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/juju/errors"
@@ -270,6 +271,11 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	return modeAbideAliveLoop(u)
 }
 
+func runUpdateStatusOnce(u *Uniter) error {
+	creator := newSimpleRunHookOp(hooks.UpdateStatus)
+	return errors.Trace(u.runOperation(creator))
+}
+
 // idleWaitTime is the time after which, if there are no uniter events,
 // the agent state becomes idle.
 var idleWaitTime = 2 * time.Second
@@ -278,6 +284,14 @@ var idleWaitTime = 2 * time.Second
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	var leaderElected, leaderDeposed <-chan struct{}
+
+	// run update-status at least once after entering mode abide loop
+	if err := runUpdateStatusOnce(u); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	for {
 		// We expect one or none of these vars to be non-nil; and if none
 		// are, we set the one that should trigger when our leadership state
@@ -300,6 +314,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 
 		// update-status hook
 		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
+		lastUpdateStatus = time.Time(lastUpdateStatus).Add(time.Duration(r.Intn(120)) * time.Second)
 		updateStatusSignal := u.updateStatusAt(
 			time.Now(), lastUpdateStatus, statusPollInterval,
 		)
@@ -308,6 +323,11 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		select {
 		case <-time.After(idleWaitTime):
 			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// run update status hook after becoming idle which should account for
+			// a batch of hooks being run.
+			if err := runUpdateStatusOnce(u); err != nil {
 				return nil, errors.Trace(err)
 			}
 			continue
