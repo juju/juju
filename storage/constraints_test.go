@@ -118,10 +118,10 @@ func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 			Count: 1,
 		}})
 	s.testParseStorageConstraints(c,
-		[]string{"data", "cache"},
+		[]string{"data=3", "cache"},
 		map[string]storage.Constraints{
 			"data": storage.Constraints{
-				Count: 1,
+				Count: 3,
 			},
 			"cache": storage.Constraints{
 				Count: 1,
