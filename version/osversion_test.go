@@ -57,7 +57,7 @@ VERSION_ID='12.04'
 }, {
 	`NAME="CentOS Linux"
 ID="centos"
-VERSION_ID="7"
+VERSION_ID="centos7"
 `,
 	"centos7",
 	"",

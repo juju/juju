@@ -160,6 +160,12 @@ type HookContext struct {
 	// execution so that the uniter can ultimately decide if it needs to update
 	// a charm's workload status, or if the charm has already taken care of it.
 	hasRunStatusSet bool
+
+	// storageAddConstraints is a collection of storage constraints
+	// keyed on storage name as specified in the charm.
+	// This collection will be added to the unit on successful
+	// hook run, so the actual add will happen in a flush.
+	storageAddConstraints map[string]params.StorageConstraints
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -261,6 +267,22 @@ func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
 
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	return ctx.storage.Storage(tag)
+}
+
+func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
+	// Storage constraints are accumulative before context is flushed.
+	// TODO (anastasiamac 2015-05-26) Bug 1459057:
+	//     what happens if more than one call is made about the same store?
+	//     with this implementation, the latest call arrived will be taken
+	//     into consideration.
+	if ctx.storageAddConstraints == nil {
+		ctx.storageAddConstraints = make(
+			map[string]params.StorageConstraints,
+			len(cons))
+	}
+	for storage, constraints := range cons {
+		ctx.storageAddConstraints[storage] = constraints
+	}
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -538,6 +560,18 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		}
 	}
 
+	// add storage to unit dynamically
+	if len(ctx.storageAddConstraints) > 0 && writeChanges {
+		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot add storage")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
+
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
@@ -593,6 +627,7 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
+
 	return ctxErr
 }
 

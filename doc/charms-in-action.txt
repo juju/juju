@@ -122,6 +122,7 @@ All hooks can directly use the following tools:
   * relation-set (write the local unit's relation settings)
   * relation-ids (list all relations using a given charm relation)
   * relation-list (list all units of a related service)
+  * storage-add (add storage instances)
   * storage-get (get storage instance values)
   * status-get (get unit workload status information)
   * status-set (set unit workload status information)

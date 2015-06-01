@@ -41,6 +41,7 @@ var facadeVersions = map[string]int{
 	"Provisioner":                  0,
 	"Reboot":                       1,
 	"RelationUnitsWatcher":         0,
+	"Resumer":                      1,
 	"Rsyslog":                      0,
 	"Service":                      1,
 	"Storage":                      1,

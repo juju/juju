@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -89,10 +90,19 @@ func (s *StorageAddSuite) TestAddStorageMinCount(c *gc.C) {
 	s.assertStorageCount(c, 2)
 }
 
+func (s *StorageAddSuite) TestAddStorageZeroCount(c *gc.C) {
+	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
+	s.assertStorageCount(c, 1)
+
+	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "allecto", state.StorageConstraints{Pool: "loop-pool", Size: 1024})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "adding storage where instance count is 0 not valid")
+	s.assertStorageCount(c, 1)
+}
+
 func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{})
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -100,7 +110,7 @@ func (s *StorageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Pool: "loop-pool"})
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Pool: "loop-pool", Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -108,7 +118,7 @@ func (s *StorageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Size: 2048})
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Size: 2048, Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 }
@@ -116,7 +126,7 @@ func (s *StorageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi2up", state.StorageConstraints{Size: 2})
+	err := s.State.AddStorageForUnit(s.unitTag, "multi2up", state.StorageConstraints{Size: 2, Count: 1})
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 2.0MB specified.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 }
@@ -132,7 +142,7 @@ func (s *StorageAddSuite) TestAddStorageWrongName(c *gc.C) {
 func (s *StorageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	s.setupMultipleStoragesForAdd(c)
 	addStorage := func() {
-		err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{})
+		err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
