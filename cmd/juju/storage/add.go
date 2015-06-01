@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -18,17 +17,47 @@ import (
 
 const (
 	addCommandDoc = `
-Add storage instances to a unit dynamically.
+Add storage instances to a unit dynamically using provided storage directives.
 Specify a unit and a storage specification in the same format 
 as passed to juju deploy --storage=”...”.
 
+A storage directive consists of a storage name as per charm specification
+and storage constraints, for e.g. pool, count, size.
+
+The acceptable format for storage constraints is a comma separated
+sequence of: POOL, COUNT, and SIZE, where
+
+    POOL identifies the storage pool. POOL can be a string
+    starting with a letter, followed by zero or more digits
+    or letters optionally separated by hyphens.
+
+    COUNT is a positive integer indicating how many instances
+    of the storage to create. If unspecified, and SIZE is
+    specified, COUNT defaults to 1.
+
+    SIZE describes the minimum size of the storage instances to
+    create. SIZE is a floating point number and multiplier from
+    the set (M, G, T, P, E, Z, Y), which are all treated as
+    powers of 1024.
+
+Storage constraints can be optionally ommitted.
+Environment default values will be used for all ommitted constraint values.
+There is no need to comma-separate ommitted constraints. 
+
 Example:
     juju storage add u/0 data=ebs,1024,3 
+    juju storage add u/0 data=ebs,1024,3, 
     Add 3 ebs storage instances for "data" storage to unit u/0. 
+    
+    juju storage add u/0 data=1 
+    juju storage add u/0 data 
+    Add 1 storage instances for "data" storage to unit u/0 
+        using default environment provider pool. 
 `
 	addCommandAgs = `
 <unit name> <storage directive> ...
-    where storage directive is <charm storage name=<storage constraints>
+    where storage directive is <charm storage name>=<storage constraints> or
+        <charm storage name>
 `
 )
 
@@ -54,20 +83,8 @@ func (c *AddCommand) Init(args []string) (err error) {
 	}
 	c.unitTag = names.NewUnitTag(u).String()
 
-	options, err := keyvalues.Parse(args[1:], true)
-	if err != nil {
-		return err
-	}
-	c.storageCons = make(map[string]storage.Constraints, len(options))
-	for key, value := range options {
-		cons, err := storage.ParseConstraints(value)
-		if err != nil {
-			return errors.Annotatef(err, "cannot parse constraints for storage %q", key)
-		}
-		c.storageCons[key] = cons
-	}
-
-	return nil
+	c.storageCons, err = storage.ParseStorageConstraints(args[1:])
+	return
 }
 
 // Info implements Command.Info.

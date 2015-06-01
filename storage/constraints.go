@@ -98,6 +98,46 @@ func IsValidPoolName(s string) bool {
 	return poolRE.MatchString(s)
 }
 
+// ParseStorageConstraints parses string representation of
+// storage constraints into a map keyed on storage names
+// with constraints as values.
+//
+// Storage constraints may be specified as
+//     <name>=<constraints>
+// or as
+//     <name>
+// where latter is equivalent to <name>=1.
+//
+// Duplicate storage names cause an error to be returned.
+func ParseStorageConstraints(args []string) (map[string]Constraints, error) {
+	results := make(map[string]Constraints, len(args))
+	for _, kv := range args {
+		parts := strings.SplitN(kv, "=", -1)
+		if len(parts) > 2 || len(parts[0]) == 0 {
+			return nil, errors.Errorf(`expected "name=constraints" or "name", got %q`, kv)
+		}
+
+		if _, exists := results[parts[0]]; exists {
+			return nil, errors.Errorf("storage %q specified more than once", parts[0])
+		}
+		if len(parts) == 1 {
+			// This will happen if only <name> is supplied.
+			parts = append(parts, "")
+		}
+		if len(parts[1]) == 0 {
+			//<name> is equivalent to <name>=1
+			parts[1] = "1"
+		}
+		cons, err := ParseConstraints(parts[1])
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot parse constraints for storage %q", parts[0])
+		}
+
+		results[parts[0]] = cons
+	}
+	return results, nil
+}
+
 func parseCount(s string) (uint64, bool, error) {
 	if !countRE.MatchString(s) {
 		return 0, false, nil

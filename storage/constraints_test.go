@@ -103,3 +103,62 @@ func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
 	c.Assert(storage.IsValidPoolName("-00l"), jc.IsFalse)
 	c.Assert(storage.IsValidPoolName("*00l"), jc.IsFalse)
 }
+
+func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
+	s.testParseStorageConstraints(c,
+		[]string{"data=p,1M,"},
+		map[string]storage.Constraints{"data": storage.Constraints{
+			Pool:  "p",
+			Count: 1,
+			Size:  1,
+		}})
+	s.testParseStorageConstraints(c,
+		[]string{"data"},
+		map[string]storage.Constraints{"data": storage.Constraints{
+			Count: 1,
+		}})
+	s.testParseStorageConstraints(c,
+		[]string{"data="},
+		map[string]storage.Constraints{"data": storage.Constraints{
+			Count: 1,
+		}})
+	s.testParseStorageConstraints(c,
+		[]string{"data=", "cache"},
+		map[string]storage.Constraints{
+			"data": storage.Constraints{
+				Count: 1,
+			},
+			"cache": storage.Constraints{
+				Count: 1,
+			},
+		})
+}
+
+func (s *ConstraintsSuite) TestParseStorageConstraintsErrors(c *gc.C) {
+	s.testStorageConstraintsError(c,
+		[]string{"data=p,=1M,"},
+		`.*expected "name=constraints" or "name", got .*`)
+	s.testStorageConstraintsError(c,
+		[]string{"data", "data"},
+		`storage "data" specified more than once`)
+	s.testStorageConstraintsError(c,
+		[]string{"data=-1"},
+		`.*cannot parse constraints for storage "data".*`)
+}
+
+func (*ConstraintsSuite) testParseStorageConstraints(c *gc.C,
+	s []string,
+	expect map[string]storage.Constraints,
+) {
+	cons, err := storage.ParseStorageConstraints(s)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(cons), gc.Equals, len(expect))
+	for k, v := range expect {
+		c.Check(cons[k], gc.DeepEquals, v)
+	}
+}
+
+func (*ConstraintsSuite) testStorageConstraintsError(c *gc.C, s []string, e string) {
+	_, err := storage.ParseStorageConstraints(s)
+	c.Check(err, gc.ErrorMatches, e)
+}

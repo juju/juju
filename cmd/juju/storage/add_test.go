@@ -46,9 +46,8 @@ type tstData struct {
 var errorTsts = []tstData{
 	{nil, ".*storage add requires a unit and a storage directive.*"},
 	{[]string{"tst/123"}, ".*storage add requires a unit and a storage directive.*"},
-	{[]string{"tst/123", "data"}, `.*expected "key=value", got "data".*`},
-	{[]string{"tst/123", "data="}, `.*storage constraints require at least one field to be specified`},
 	{[]string{"tst/123", "data=-676"}, `.*count must be greater than zero, got "-676".*`},
+	{[]string{"tst/123", "data=676", "data=676"}, `.*storage "data" specified more than once.*`},
 }
 
 func (s *addSuite) TestAddArgs(c *gc.C) {
@@ -73,9 +72,18 @@ func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
 	s.assertAddErrorOutput(c, `.*unit name "tst-123" not valid.*`)
 }
 
+var successTsts = []tstData{
+	{[]string{"tst/123", "data=676"}, ""},
+	{[]string{"tst/123", "data"}, ``},
+	{[]string{"tst/123", "data="}, ``},
+}
+
 func (s *addSuite) TestAddSuccess(c *gc.C) {
-	s.args = []string{"tst/123", "data=676"}
-	s.assertAddOutput(c, "", "")
+	for i, t := range successTsts {
+		c.Logf("test %d for %q", i, t.args)
+		s.args = t.args
+		s.assertAddOutput(c, "", "")
+	}
 }
 
 func (s *addSuite) TestAddOperationAborted(c *gc.C) {
