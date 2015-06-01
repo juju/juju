@@ -57,6 +57,33 @@ type CommonProvisionerSuite struct {
 	provisioner *apiprovisioner.State
 }
 
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p provisioner.Provisioner) {
+	// Inject our observer into the provisioner
+	cfgObserver := make(chan *config.Config, 1)
+	provisioner.SetObserver(p, cfgObserver)
+
+	// Switch to reaping on All machines.
+	attrs := map[string]interface{}{
+		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
+	}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.BackingState.StartSync()
+
+	// Wait for the PA to load the new configuration.
+	select {
+	case newCfg := <-cfgObserver:
+		c.Assert(
+			newCfg.ProvisionerHarvestMode().String(),
+			gc.Equals,
+			config.HarvestAll.String(),
+		)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("PA did not action config change")
+	}
+}
+
 type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
@@ -1129,34 +1156,10 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
+func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-
-	// Inject our observer into the provisioner
-	cfgObserver := make(chan *config.Config, 1)
-	provisioner.SetObserver(p, cfgObserver)
-
-	// Switch to reaping on All machines.
-	attrs := map[string]interface{}{
-		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
-	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BackingState.StartSync()
-
-	// Wait for the PA to load the new configuration.
-	select {
-	case newCfg := <-cfgObserver:
-		c.Assert(
-			newCfg.ProvisionerHarvestMode().String(),
-			gc.Equals,
-			config.HarvestAll.String(),
-		)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("PA did not action config change")
-	}
+	s.assertProvisionerObservesConfigChanges(c, p)
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(

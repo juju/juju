@@ -290,3 +290,9 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
 }
+
+func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
+	p := s.newKvmProvisioner(c)
+	defer stop(c, p)
+	s.assertProvisionerObservesConfigChanges(c, p)
+}
