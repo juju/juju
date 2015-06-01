@@ -1,5 +1,6 @@
 from mock import patch
 import os
+from StringIO import StringIO
 from unittest import TestCase
 
 from update_lxc_cache import (
@@ -41,17 +42,16 @@ def make_local_cache(workspace):
     return index_path
 
 
-class FakeResponse:
+class FakeResponse(StringIO):
 
-    def __init__(self, data, code=200):
-        self.data = data
+    def __init__(self, code, data, *args, **kwargs):
+        StringIO.__init__(self, *args, **kwargs)
         self.code = code
+        self.write(data)
+        self.seek(0)
 
     def getcode(self):
         return self.code
-
-    def read(self):
-        return self.data
 
 
 class UpdateLxcCacheTestCase(TestCase):
@@ -125,7 +125,7 @@ class LxcCacheTestCase(TestCase):
 
     def test_init_systems_with_remote_location(self):
         url = 'https://images.linuxcontainers.org/meta/1.0/index-system'
-        response = FakeResponse(INDEX_DATA)
+        response = FakeResponse(200, INDEX_DATA)
         with patch('urllib2.Request', autospec=True,
                    return_value='request') as r_mock:
             with patch('urllib2.urlopen', autospec=True,
@@ -221,3 +221,20 @@ class LxcCacheTestCase(TestCase):
             with open(index_path) as f:
                 data = f.read()
         self.assertEqual(INDEX_DATA, data)
+
+    def test_download(self):
+        response = FakeResponse(200, 'rootfs.tar.xz')
+        with temp_dir() as workspace:
+            with patch('urllib2.Request', autospec=True,
+                       return_value='request') as r_mock:
+                with patch('urllib2.urlopen', autospec=True,
+                           return_value=response) as ul_mock:
+                    lxc_cache = LxcCache(workspace)
+                    file_path = os.path.join(workspace, 'rootfs.tar.xz')
+                    lxc_cache.download('url', file_path)
+            self.assertTrue(os.path.isfile(file_path))
+            with open(file_path) as f:
+                data = f.read()
+        self.assertEqual('rootfs.tar.xz', data)
+        r_mock.assert_called_with('url')
+        ul_mock.assert_called_with('request')
