@@ -650,6 +650,11 @@ class Status:
             states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
 
+    def check_item_listed(self, item_name):
+        if item_name in [k for k, v in self.agent_items()]:
+            return True
+        return False
+
     def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
 
