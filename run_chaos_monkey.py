@@ -51,9 +51,10 @@ class MonkeyRunner:
         except KeyError as err:
             raise KeyError('Service not found: {}'.format(err))
         for unit in units:
-            logging.info('Starting the chaos monkey on: {}'.format(unit))
+            unit_name = unit.keys().pop()
+            logging.info('Starting the chaos monkey on: {}'.format(unit_name))
             action_out = self.client.get_juju_output(
-                'action', 'do', unit, 'start', 'mode=single')
+                'action do', unit_name, 'start', 'mode=single')
             if not action_out.startswith('Action queued with id'):
                 raise Exception(
                     'Unexpected output from "juju action do": {}'.format(
@@ -78,6 +79,10 @@ def main():
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)
     monkey_runner.deploy_chaos_monkey()
+    # Juju add-relation returns before a subordinate is listed in the status
+    # output. This means that additional logic is needed to wait for the
+    # subordinate before trying to unleash a monkey.
+    # monkey_runner.unleash_once()
 
 if __name__ == '__main__':
     main()

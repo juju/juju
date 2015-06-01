@@ -226,6 +226,17 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual((
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
+    def test_full_args_action(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        full = client._full_args('action bar', False, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
+            full)
+        with self.assertRaisesRegexp(
+                Exception, 'Unexpected action command length, expected 2'):
+            client._full_args('action', False, ('bar', 'baz', 'qux'))
+
     def test_bootstrap_hpcloud(self):
         env = Environment('hp', '')
         with patch.object(env, 'hpcloud', lambda: True):
@@ -404,7 +415,7 @@ class TestEnvJujuClient(ClientTest):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, '/foobar/bar')
         with patch('subprocess.check_output') as sco_mock:
-            client.get_juju_output(env, 'baz')
+            client.get_juju_output('cmd', 'baz')
         self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
 
@@ -1329,13 +1340,19 @@ class TestStatus(TestCase):
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/1': {'baz': 'qux'}
+                        'jenkins/1': {
+                            'subordinates': {
+                                'sub': {'baz': 'qux'}
+                            }
+                        }
                     }
                 }
             }
         }, '')
         expected = [
-            ('1', {'foo': 'bar'}), ('jenkins/1', {'baz': 'qux'})]
+            ('1', {'foo': 'bar'}),
+            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
+            ('sub', {'baz': 'qux'})]
         self.assertItemsEqual(expected, status.agent_items())
 
     def test_agent_items_containers(self):
@@ -1534,7 +1551,14 @@ class TestStatus(TestCase):
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/1': {'agent-state': 'started'},
+                        'jenkins/1': {
+                            'agent-state': 'started',
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-state': 'started'
+                                }
+                            }
+                        },
                         'jenkins/2': {'agent-state': 'started'},
                     }
                 }

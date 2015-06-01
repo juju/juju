@@ -79,17 +79,32 @@ class TestRunChaosMonkey(TestCase):
     def test_unleash_once(self):
         def output(args, **kwargs):
             status = yaml.safe_dump({
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {'jenkins': {
-                    'units': {'foo': {'subordinates': 'chaos-monkey/0'},
-                             'bar': {'subordinates': 'chaos-monkey/1'},
-                              }}}})
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                }
+                            },
+                            'bar': {
+                                'subordinates': {
+                                    'chaos-monkey/1': {'abc': '123'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'action', '-e', 'foo', 'do',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single'
                  ): 'Action queued with id: unit0-foo',
-                ('juju', '--show-log', 'action', '-e', 'foo', 'do',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single'
                  ): 'Action queued with id: unit1-foo',
                 }
@@ -100,7 +115,7 @@ class TestRunChaosMonkey(TestCase):
                    autospec=True) as co_mock:
                 monkey_runner.unleash_once()
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'action', '-e', 'foo', 'do',
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
             'chaos-monkey/0', 'start', 'mode=single'), 1, True)
         self.assertEqual(['unit0-foo', 'unit1-foo'], monkey_runner.monkey_ids)
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
@@ -109,13 +124,24 @@ class TestRunChaosMonkey(TestCase):
     def test_unleash_once_raises_for_unexpected_action_output(self):
         def output(args, **kwargs):
             status = yaml.safe_dump({
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {'jenkins': {
-                    'units': {'foo': {'subordinates': 'chaos-monkey/0'},
-                              }}}})
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'action', '-e', 'foo', 'do',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single'
                  ): 'Action fail',
                 }
