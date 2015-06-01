@@ -33,6 +33,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -576,6 +577,34 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 	case <-started:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("resumer worker not started as expected")
+	}
+}
+
+func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) worker.Worker {
+		close(started)
+		return instancepoller.NewWorker(st)
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the instancepoller to
+	// start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "charm-revision-updater")
+
+	// Now make sure the resumer starts.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("instancepoller worker not started as expected")
 	}
 }
 

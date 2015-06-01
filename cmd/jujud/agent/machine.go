@@ -115,6 +115,7 @@ var (
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
+	newInstancePoller        = instancepoller.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -538,9 +539,9 @@ func (a *MachineAgent) EndRestore() {
 	a.restoring = false
 }
 
-// newrestorestatewatcherworker will return a worker or err if there is a failure,
-// the worker takes care of watching the state of restoreInfo doc and put the
-// agent in the different restore modes.
+// newRestoreStateWatcherWorker will return a worker or err if there
+// is a failure, the worker takes care of watching the state of
+// restoreInfo doc and put the agent in the different restore modes.
 func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
@@ -722,6 +723,9 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			// because we can't figure out how to do so without
 			// brutalising the transaction log.
 			return newResumer(st.Resumer()), nil
+		})
+		runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+			return newInstancePoller(st.InstancePoller()), nil
 		})
 	}
 
@@ -1113,9 +1117,6 @@ func (a *MachineAgent) startEnvWorkers(
 	// Start workers that depend on a *state.State.
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
-	runner.StartWorker("instancepoller", func() (worker.Worker, error) {
-		return instancepoller.NewWorker(st), nil
-	})
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		return cleaner.NewCleaner(st), nil
 	})
