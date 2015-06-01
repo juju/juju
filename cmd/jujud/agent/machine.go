@@ -724,9 +724,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			// brutalising the transaction log.
 			return newResumer(st.Resumer()), nil
 		})
-		runner.StartWorker("instancepoller", func() (worker.Worker, error) {
-			return newInstancePoller(st.InstancePoller()), nil
-		})
 	}
 
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
@@ -1141,6 +1138,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+	})
+	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
+		return newInstancePoller(apiSt.InstancePoller()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
