@@ -117,7 +117,9 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
-	logCh, err := logsender.InstallBufferedLogWriter(20000)
+	// Assuming an average of 200 bytes per log message, use up to
+	// 200MB for the log buffer.
+	logCh, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
 	}
