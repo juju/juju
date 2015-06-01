@@ -950,6 +950,12 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.waitRemoved(c, container)
 }
 
+func (s *lxcProvisionerSuite) TestLXCProvisionerObservesConfigChanges(c *gc.C) {
+	p := s.newLxcProvisioner(c)
+	defer stop(c, p)
+	s.assertProvisionerObservesConfigChanges(c, p)
+}
+
 type fakeAPI struct {
 	c            *gc.C
 	suite        *lxcBrokerSuite
