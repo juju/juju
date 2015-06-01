@@ -300,14 +300,11 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// The service should be explicitly started with systemd
-	if initSystem == service.InitSystemSystemd {
-		startCommands, err := svc.StartCommands()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cmds = append(cmds, startCommands...)
+	startCommands, err := svc.StartCommands()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	cmds = append(cmds, startCommands...)
 
 	return cmds, nil
 }
