@@ -26,7 +26,7 @@ func NewStorageAddCommand(ctx Context) cmd.Command {
 var StorageAddDoc = `
 Storage add adds storage instances to unit using provided storage directives.
 A storage directive consists of a storage name as per charm specification
-and storage constraints, for e.g. pool, count, size.
+and storage constraints, e.g. pool, count, size.
 
 The acceptable format for storage constraints is a comma separated
 sequence of: POOL, COUNT, and SIZE, where

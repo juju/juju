@@ -22,7 +22,7 @@ Specify a unit and a storage specification in the same format
 as passed to juju deploy --storage=”...”.
 
 A storage directive consists of a storage name as per charm specification
-and storage constraints, for e.g. pool, count, size.
+and storage constraints, e.g. pool, count, size.
 
 The acceptable format for storage constraints is a comma separated
 sequence of: POOL, COUNT, and SIZE, where
@@ -45,18 +45,27 @@ Environment default values will be used for all ommitted constraint values.
 There is no need to comma-separate ommitted constraints. 
 
 Example:
-    juju storage add u/0 data=ebs,1024,3 
-    juju storage add u/0 data=ebs,1024,3, 
-    Add 3 ebs storage instances for "data" storage to unit u/0. 
+    Add 3 ebs storage instances for "data" storage to unit u/0:     
+
+      juju storage add u/0 data=ebs,1024,3 
+    or
+      juju storage add u/0 data=ebs,3
+    or
+      juju storage add u/0 data=ebs,,3 
     
-    juju storage add u/0 data=1 
-    juju storage add u/0 data 
+    
     Add 1 storage instances for "data" storage to unit u/0 
-        using default environment provider pool. 
+    using default environment provider pool: 
+
+      juju storage add u/0 data=1 
+    or
+      juju storage add u/0 data 
 `
 	addCommandAgs = `
 <unit name> <storage directive> ...
-    where storage directive is <charm storage name>=<storage constraints> or
+    where storage directive is 
+        <charm storage name>=<storage constraints> 
+    or
         <charm storage name>
 `
 )
