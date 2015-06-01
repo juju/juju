@@ -359,5 +359,4 @@ func assertStorageAddInContext(c *gc.C,
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])
 	}
-
 }
