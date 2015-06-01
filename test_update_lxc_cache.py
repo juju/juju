@@ -125,24 +125,29 @@ class LxcCacheTestCase(TestCase):
     def test_init_systems_with_remote_location(self):
         url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
         response = FakeResponse(INDEX_DATA)
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=response) as ul_mock:
-            with temp_dir() as workspace:
-                lxc_cache = LxcCache(workspace)
-                systems, data = lxc_cache.init_systems(url)
+        with patch('urllib2.Request', autospec=True,
+                   return_value='request') as r_mock:
+            with patch('urllib2.urlopen', autospec=True,
+                       return_value=response) as ul_mock:
+                with temp_dir() as workspace:
+                    lxc_cache = LxcCache(workspace)
+                    systems, data = lxc_cache.init_systems(url)
         expected_systems = make_systems()
         self.assertEqual(expected_systems, systems)
         self.assertEqual(INDEX_DATA, data)
-        self.assertEqual(1, ul_mock.call_count)
+        ul_mock.assert_called_with('request')
+        r_mock.assert_called_with(url)
 
     def test_get_updates_none(self):
-        response = FakeResponse(INDEX_DATA)
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=response) as ul_mock:
-            with temp_dir() as workspace:
-                make_local_cache(workspace)
-                lxc_cache = LxcCache(workspace)
+        systems = make_systems()
+        with temp_dir() as workspace:
+            make_local_cache(workspace)
+            lxc_cache = LxcCache(workspace)
+            with patch.object(lxc_cache, 'init_systems', autospec=True,
+                              return_value=(systems, INDEX_DATA)) as is_mock:
                 new_system, data = lxc_cache.get_updates(
                     'ubuntu', 'trusty', 'ppc64el', 'default')
         self.assertIsNone(new_system)
         self.assertIsNone(data)
+        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
+        is_mock.assert_called_with(url)
