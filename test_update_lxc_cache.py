@@ -8,6 +8,7 @@ from update_lxc_cache import (
     LxcCache,
     main,
     parse_args,
+    SITE,
     System
     )
 from utility import temp_dir
@@ -28,6 +29,19 @@ def make_systems():
         key = (system.dist, system.release, system.arch, system.variant)
         systems[key] = system
     return systems
+
+
+class FakeResponse:
+
+    def __init__(self, data, code=200):
+        self.data = data
+        self.code = code
+
+    def getcode(self):
+        return self.code
+
+    def read(self):
+        return self.data
 
 
 class UpdateLxcCacheTestCase(TestCase):
@@ -95,3 +109,16 @@ class LxcCacheTestCase(TestCase):
         expected_systems = make_systems()
         self.assertEqual(expected_systems, systems)
         self.assertEqual(INDEX_DATA, data)
+
+    def test_init_systems_with_remote_location(self):
+        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
+        response = FakeResponse(INDEX_DATA)
+        with patch('urllib2.urlopen', autospec=True,
+                   return_value=response) as ul_mock:
+            with temp_dir() as workspace:
+                lxc_cache = LxcCache(workspace)
+                systems, data = lxc_cache.init_systems(url)
+        expected_systems = make_systems()
+        self.assertEqual(expected_systems, systems)
+        self.assertEqual(INDEX_DATA, data)
+        self.assertEqual(1, ul_mock.call_count)
