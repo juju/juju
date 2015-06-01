@@ -24,6 +24,9 @@ type API struct {
 
 // NewAPI creates a new client-side InstancePoller facade.
 func NewAPI(caller base.APICaller) *API {
+	if caller == nil {
+		panic("caller is nil")
+	}
 	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade)
 	return &API{
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
@@ -41,6 +44,8 @@ func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
 	return &Machine{api.facade, tag, life}, nil
 }
 
+var newStringsWatcher = watcher.NewStringsWatcher
+
 // WatchEnvironMachines return a StringsWatcher reporting waiting for the
 // environment configuration to change.
 func (api *API) WatchEnvironMachines() (watcher.StringsWatcher, error) {
@@ -49,5 +54,8 @@ func (api *API) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return watcher.NewStringsWatcher(api.facade.RawAPICaller(), result), nil
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return newStringsWatcher(api.facade.RawAPICaller(), result), nil
 }

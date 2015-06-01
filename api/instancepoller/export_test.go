@@ -14,3 +14,5 @@ func NewMachine(caller base.APICaller, tag names.MachineTag, life params.Life) *
 	facade := base.NewFacadeCaller(caller, instancePollerFacade)
 	return &Machine{facade, tag, life}
 }
+
+var NewStringsWatcher = &newStringsWatcher
