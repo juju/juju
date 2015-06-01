@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"fmt"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
@@ -35,31 +34,39 @@ import (
 )
 
 var (
-	agentLogger     = loggo.GetLogger("juju.jujud")
-	reportClosedAPI = func(io.Closer) {}
+	agentLogger         = loggo.GetLogger("juju.jujud")
+	reportClosedUnitAPI = func(io.Closer) {}
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
-	agentcmd.AgentConf
+	AgentConf
 	UnitName         string
 	runner           worker.Runner
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
 	ctx              *cmd.Context
-	apiStateUpgrader agentcmd.APIStateUpgrader
+	apiStateUpgrader APIStateUpgrader
+
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
-func NewUnitAgent() *UnitAgent {
+func NewUnitAgent(ctx *cmd.Context) *UnitAgent {
 	return &UnitAgent{
-		AgentConf: agentcmd.NewAgentConf(""),
+		AgentConf: NewAgentConf(""),
+		ctx:       ctx,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
 }
 
-func (a *UnitAgent) getUpgrader(st *api.State) agentcmd.APIStateUpgrader {
+func (a *UnitAgent) getUpgrader(st *api.State) APIStateUpgrader {
 	if a.apiStateUpgrader != nil {
 		return a.apiStateUpgrader
 	}
@@ -144,7 +151,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	if err != nil {
 		return nil, err
 	}
-	st, entity, err := agentcmd.OpenAPIState(agentConfig, a)
+	st, entity, err := OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +181,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	defer func() {
 		if err != nil {
 			st.Close()
-			reportClosedAPI(st)
+			reportClosedUnitAPI(st)
 		}
 	}()
 
@@ -192,11 +199,12 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
+		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
 			agentConfig,
 			agentConfig.UpgradedToVersion(),
 			func() bool { return false },
+			a.initialAgentUpgradeCheckComplete,
 		), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {

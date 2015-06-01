@@ -24,7 +24,11 @@ var (
 	singleton           *leaseManager
 	LeaseClaimDeniedErr = errors.New("lease claim denied")
 	NotLeaseOwnerErr    = errors.Unauthorizedf("caller did not own lease for namespace")
-	logger              = loggo.GetLogger("juju.lease")
+
+	// TODO(Wallyworld) - a stop-gap error until we refactor using a tomb.
+	LeaseManagerErr = errors.New("lease manager restarted due to error")
+
+	logger = loggo.GetLogger("juju.lease")
 )
 
 func init() {
@@ -66,9 +70,14 @@ func Manager() *leaseManager {
 // Messages for channels.
 //
 
+type claimLeaseResponse struct {
+	token Token
+	err   error
+}
+
 type claimLeaseMsg struct {
 	Token    Token
-	Response chan<- Token
+	Response chan<- claimLeaseResponse
 }
 type releaseLeaseMsg struct {
 	Token    Token
@@ -117,13 +126,16 @@ func (m *leaseManager) RetrieveLease(namespace string) Token {
 // owner's ID will be returned.
 func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (leaseOwnerId string, err error) {
 
-	ch := make(chan Token)
+	ch := make(chan claimLeaseResponse)
 	token := Token{namespace, id, time.Now().Add(forDur)}
 	message := claimLeaseMsg{token, ch}
 	m.claimLease <- message
-	activeClaim := <-ch
+	claimResponse := <-ch
+	if claimResponse.err != nil {
+		return "", claimResponse.err
+	}
 
-	leaseOwnerId = activeClaim.Id
+	leaseOwnerId = claimResponse.token.Id
 	if id != leaseOwnerId {
 		err = LeaseClaimDeniedErr
 	}
@@ -169,10 +181,6 @@ func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan 
 
 // workerLoop serializes all requests into a single thread.
 func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
-	// TODO(fwereade): this method never returns any errors after it's
-	// entered the loop. This is bad; it may poison its cache and continue
-	// to operate, serving unhelpful results.
-
 	// These data-structures are local to ensure they're only utilized
 	// within this thread-safe context.
 
@@ -192,21 +200,24 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 		case claim := <-m.claimLease:
 			lease := claimLease(leaseCache, claim.Token)
 			if lease.Id == claim.Token.Id {
-				// TODO(fwereade): we should *definitely* not be ignoring this error.
-				m.leasePersistor.WriteToken(lease.Namespace, lease)
+				if err := m.leasePersistor.WriteToken(lease.Namespace, lease); err != nil {
+					claim.Response <- claimLeaseResponse{err: LeaseManagerErr}
+					return err
+				}
 				if lease.Expiration.Before(nextExpiration) {
 					nextExpiration = lease.Expiration
 				}
 			}
-			claim.Response <- lease
+			claim.Response <- claimLeaseResponse{lease, err}
 		case release := <-m.releaseLease:
 			// Unwind our layers from most volatile to least.
 			err := releaseLease(leaseCache, release.Token)
 			if err == nil {
 				namespace := release.Token.Namespace
-				err = m.leasePersistor.RemoveToken(namespace)
-				// TODO(fwereade): if the above error is non-nil, we should
-				// not be continuing as if nothing had happened.
+				if err := m.leasePersistor.RemoveToken(namespace); err != nil {
+					release.Response <- LeaseManagerErr
+					return err
+				}
 				notifyOfRelease(releaseSubs[namespace], namespace)
 			}
 			release.Response <- err

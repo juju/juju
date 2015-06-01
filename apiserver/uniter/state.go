@@ -25,6 +25,7 @@ type storageStateInterface interface {
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
 }
 
 type storageStateShim struct {
