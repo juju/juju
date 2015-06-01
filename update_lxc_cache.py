@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Update the lxc 'download' template cache for hosts on private networks."""
+"""Update the lxc 'download' template cache for hosts on closed networks."""
 
 from __future__ import print_function
 
@@ -44,6 +44,7 @@ class LxcCache:
     """Manage the LXC download template cache."""
 
     def __init__(self, workspace, verbose=False, dry_run=False):
+        """Set the workspace for the local cache."""
         self.workspace = os.path.abspath(workspace)
         self.verbose = verbose
         self.dry_run = dry_run
@@ -51,6 +52,12 @@ class LxcCache:
         self.systems, ignore = self.init_systems(local_path)
 
     def init_systems(self, location):
+        """Return a tuple of the dict of lxc Systems and the source data.
+
+        A System has these attributes: 'dist', 'release', 'arch', 'variant',
+        'version', and 'path'.  The dict keys are a tuple of
+        (dist, release, arch, variant).
+        """
         systems = {}
         if location.startswith('http'):
             request = urllib2.Request(location)
@@ -72,6 +79,12 @@ class LxcCache:
         return systems, data
 
     def get_updates(self, dist, release, arch, variant):
+        """Return a tuple of the new system and the source data that match.
+
+        The new system and source data will be None, None when there are
+        no updates. The dist, release, arch, and variant args identify the
+        system to return.∏
+        """
         key = (dist, release, arch, variant)
         old_system = self.systems.get(key)
         url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
@@ -88,6 +101,10 @@ class LxcCache:
         return None, None
 
     def get_lxc_data(self, system):
+        """Download the system image and meta data.
+
+        Return a tuple of the image and meta data paths.
+        """
         image_path = os.path.join(self.workspace, system.path[1:])
         if not self.dry_run:
             if self.verbose:
@@ -103,6 +120,7 @@ class LxcCache:
         return rootfs_path, meta_path
 
     def download(self, location, path):
+        """Download a large binary from location to the specified path."""
         chunk = 16 * 1024
         if not self.dry_run:
             request = urllib2.Request(location)
@@ -114,6 +132,10 @@ class LxcCache:
                     print('Downloaded %s' % location)
 
     def put_lxc_data(self, user_host, system, rootfs_path, meta_path):
+        """Install the lxc image and meta data on the host.
+
+        The user on the host must have password-less sudo.
+        """
         lxc_cache = os.path.join(
             LXC_CACHE, system.dist, system.release, system.arch,
             system.variant)
@@ -131,6 +153,7 @@ class LxcCache:
                 print("Installed %s and %s" % (ROOTFS, META))
 
     def save_index(self, data):
+        "Save the (current) index data for future calls to get_updates()."
         index_dir = os.path.join(self.workspace, INDEX_PATH)
         if not os.path.isdir(index_dir):
             os.makedirs(index_dir)
@@ -160,7 +183,7 @@ def parse_args(argv=None):
     parser.add_argument(
         'release', help='The release to update.')
     parser.add_argument(
-        'arch', help='The architcture of the remote host')
+        'arch', help='The architecture of the remote host')
     parser.add_argument(
         'workspace', help='The path to the local dir to stage the update.')
     args = parser.parse_args(argv)
@@ -168,7 +191,7 @@ def parse_args(argv=None):
 
 
 def main(argv):
-    """Build and package juju for an non-debian OS."""
+    """Update the lxc download template cache for hosts on closed networks."""
     args = parse_args(argv)
     try:
         lxc_cache = LxcCache(
