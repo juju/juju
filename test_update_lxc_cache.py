@@ -5,9 +5,11 @@ from unittest import TestCase
 from update_lxc_cache import (
     INDEX,
     INDEX_PATH,
+    INSTALL_SCRIPT,
     LxcCache,
     main,
     parse_args,
+    PUT_SCRIPT,
     System
     )
 from utility import temp_dir
@@ -192,3 +194,30 @@ class LxcCacheTestCase(TestCase):
             'https://images.linuxcontainers.org'
             '/images/ubuntu/trusty/ppc64el/default/20154/meta.tar.xz',
             meta_path)
+
+    def test_put_lxc_data(self):
+        systems = make_systems()
+        system = systems[('ubuntu', 'trusty', 'ppc64el', 'default')]
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            lxc_cache = LxcCache('workspace')
+            lxc_cache.put_lxc_data(
+                'user@host', system, '/rootfs_path', '/meta_path')
+        put_script = PUT_SCRIPT.format(
+            user_host='user@host', rootfs_path='/rootfs_path',
+            meta_path='/meta_path')
+        cc_mock.assert_any_call([put_script], shell=True)
+        cache_path = '/var/cache/lxc/download/ubuntu/trusty/ppc64el/default'
+        install_script = INSTALL_SCRIPT.format(
+            user_host='user@host', lxc_cache=cache_path,
+            rootfs='rootfs.tar.xz', meta='meta.tar.xz')
+        cc_mock.assert_any_call([install_script], shell=True)
+
+    def test_save_index(self):
+        with temp_dir() as workspace:
+            lxc_cache = LxcCache(workspace)
+            lxc_cache.save_index(INDEX_DATA)
+            index_path = os.path.join(workspace, 'meta/1.0/index-system')
+            self.assertTrue(os.path.isfile(index_path))
+            with open(index_path) as f:
+                data = f.read()
+        self.assertEqual(INDEX_DATA, data)
