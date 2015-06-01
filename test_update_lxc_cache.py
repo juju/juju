@@ -3,10 +3,14 @@ import os
 from unittest import TestCase
 
 from update_lxc_cache import (
+    INDEX,
+    INDEX_PATH,
     LxcCache,
     main,
     parse_args,
+    System
     )
+from utility import temp_dir
 
 
 INDEX_DATA = """\
@@ -15,6 +19,15 @@ ubuntu;trusty;armhf;default;201505;/images/ubuntu/trusty/armhf/default/201505/
 ubuntu;trusty;i386;default;201505;/images/ubuntu/trusty/i386/default/201505/
 ubuntu;trusty;ppc64el;default;20150;/images/ubuntu/trusty/ppc64el/default/20150/
 """
+
+
+def make_systems():
+    systems = {}
+    for line in INDEX_DATA.splitlines():
+        system = System(*line.split(';'))
+        key = (system.dist, system.release, system.arch, system.variant)
+        systems[key] = system
+    return systems
 
 
 class UpdateLxcCacheTestCase(TestCase):
@@ -64,7 +77,21 @@ class LxcCacheTestCase(TestCase):
         self.assertEqual({}, lxc_cache.systems)
 
     def test_init_systems_without_local_cache(self):
-        lxc_cache = LxcCache('./workspace')
-        systems, data = lxc_cache.init_systems('workspace')
+        with temp_dir() as workspace:
+            lxc_cache = LxcCache(workspace)
+            systems, data = lxc_cache.init_systems('workspace')
         self.assertEqual({}, systems)
         self.assertIsNone(data)
+
+    def test_init_systems_with_local_cache(self):
+        with temp_dir() as workspace:
+            meta_dir = os.path.join(workspace, INDEX_PATH)
+            os.makedirs(meta_dir)
+            index_path = os.path.join(meta_dir, INDEX)
+            with open(index_path, 'w') as f:
+                f.write(INDEX_DATA)
+            lxc_cache = LxcCache(workspace)
+            systems, data = lxc_cache.init_systems(index_path)
+        expected_systems = make_systems()
+        self.assertEqual(expected_systems, systems)
+        self.assertEqual(INDEX_DATA, data)
