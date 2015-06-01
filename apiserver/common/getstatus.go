@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ErrIsNotLeader is an error for operations that reqruired for a
+// ErrIsNotLeader is an error for operations that require for a
 // unit to be the leader but it was not the case.
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
@@ -95,12 +95,12 @@ func NewServiceStatusGetter(st state.EntityFinder, getcanAccess GetAuthFunc) *Se
 	}
 }
 
-// StatusService interface represents an Entity that can return Status for itself
+// StatusService interface represents an Service that can return Status for itself
 // and its Units.
 type StatusService interface {
 	state.Entity
 	Status() (state.StatusInfo, error)
-	UnitsStatus() (map[string]state.StatusInfo, error)
+	ServiceAndUnitsStatus() (state.StatusInfo, map[string]state.StatusInfo, error)
 	SetStatus(state.Status, string, map[string]interface{}) error
 }
 
@@ -194,7 +194,7 @@ func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serv
 			continue
 		}
 
-		serviceStatus, err := service.Status()
+		serviceStatus, unitStatuses, err := service.ServiceAndUnitsStatus()
 		if err != nil {
 			results.Results[i].Service.Error = ServerError(err)
 			results.Results[i].Error = ServerError(err)
@@ -205,11 +205,6 @@ func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serv
 		results.Results[i].Service.Data = serviceStatus.Data
 		results.Results[i].Service.Since = serviceStatus.Since
 
-		unitStatuses, err := service.UnitsStatus()
-		if err != nil {
-			results.Results[i].Error = ServerError(err)
-			continue
-		}
 		results.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
 		for uTag, r := range unitStatuses {
 			ur := params.StatusResult{

@@ -56,8 +56,8 @@ func (s *fakeService) Status() (state.StatusInfo, error) {
 	return s.status, s.statusError
 }
 
-func (s *fakeService) UnitsStatus() (map[string]state.StatusInfo, error) {
-	return s.unitsStatus, s.unitsStatusError
+func (s *fakeService) ServiceAndUnitsStatus() (state.StatusInfo, map[string]state.StatusInfo, error) {
+	return s.status, s.unitsStatus, s.unitsStatusError
 }
 
 func (s *fakeService) Tag() names.Tag {
@@ -153,12 +153,46 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag, fakeIsLeaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
+}
 
+func (*statusGetterSuite) TestServiceStatusNotLeader(c *gc.C) {
+	now := time.Now()
 	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
 		return false, nil
 	}
 
-	expected = params.ServiceStatusResults{
+	getCanAccess := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool { return true }, nil
+	}
+
+	st := &fakeState{
+		entities: map[names.Tag]entityWithError{
+			u("x/1"): &fakeService{
+				tag: serviceTag("wordpress-1"),
+				status: state.StatusInfo{
+					Status:  state.StatusActive,
+					Message: "foo service",
+					Since:   &now,
+				},
+				statusError: nil,
+				unitsStatus: map[string]state.StatusInfo{
+					"unit-x-1": state.StatusInfo{
+						Status:  state.StatusActive,
+						Message: "foo",
+						Since:   &now,
+					},
+					"unit-x-2": state.StatusInfo{
+						Status:  state.StatusActive,
+						Message: "foo 2",
+						Since:   &now,
+					},
+				},
+				unitsStatusError: nil,
+			},
+		},
+	}
+
+	expected := params.ServiceStatusResults{
 		Results: []params.ServiceStatusResult{
 			{
 				Service: params.StatusResult{
@@ -174,7 +208,16 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 			},
 		},
 	}
-	result, err = common.ServiceStatus(sg, args, fakeServiceFromUnitTag, leaderCheck)
+	args := params.Entities{
+		Entities: []params.Entity{
+			params.Entity{
+				Tag: "unit-x-1",
+			},
+		},
+	}
+
+	sg := common.NewServiceStatusGetter(st, getCanAccess)
+	result, err := common.ServiceStatus(sg, args, fakeServiceFromUnitTag, leaderCheck)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
 

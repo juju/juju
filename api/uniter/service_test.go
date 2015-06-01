@@ -163,9 +163,12 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
+	c.Assert(err, gc.ErrorMatches, "this unit is not the leader")
+
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Tag().String(), params.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
@@ -188,8 +191,11 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Equals, message)
 
+	result, err := s.apiService.Status(s.wordpressUnit.Name())
+	c.Assert(err, gc.ErrorMatches, "this unit is not the leader")
+
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
-	result, err := s.apiService.Status(s.wordpressUnit.Tag().String())
+	result, err = s.apiService.Status(s.wordpressUnit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
 }

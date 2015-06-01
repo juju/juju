@@ -88,7 +88,8 @@ func (s *StatusAPI) UnitStatus(args params.Entities) (params.StatusResults, erro
 	return s.unitGetter.Status(args)
 }
 
-// ServiceStatus returns the status of the Services and its workloads.
+// ServiceStatus returns the status of the Services and its workloads
+// if the given unit is the leader.
 func (s *StatusAPI) ServiceStatus(args params.Entities) (params.ServiceStatusResults, error) {
 	return s.serviceGetter.Status(args)
 }

@@ -154,6 +154,42 @@ func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 
 }
 
+func (*statusSetterSuite) TestSetServiceStatusNotLeader(c *gc.C) {
+	st := &fakeState{
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeService{
+				tag: serviceTag("x/0"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusAllocating,
+					Message: "blah",
+				},
+				err: fmt.Errorf("x0 fails"),
+			},
+		},
+	}
+
+	getCanModify := func() (common.AuthFunc, error) {
+		return func(_ names.Tag) bool { return true }, nil
+	}
+	s := common.NewServiceStatusSetter(st, getCanModify)
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{"unit-x-0", params.StatusInstalling, "bar", nil},
+		},
+	}
+	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
+		return false, nil
+	}
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, leaderCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{"this unit is not the leader", ""}},
+		},
+	})
+
+}
+
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
