@@ -224,38 +224,20 @@ type SyslogConfig struct {
 	LogDir string
 	// namespace is used when there are multiple environments on one machine
 	Namespace string
+	// directory where juju stores its config files
+	JujuConfigDir string
 }
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
 // to the state server nodes.
-func NewForwardConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
-	conf := &SyslogConfig{
-		configTemplate:       nodeRsyslogTemplate,
-		StateServerAddresses: stateServerAddresses,
-		LogFileName:          logFile,
-		Port:                 port,
-		LogDir:               logDir,
-	}
-	if namespace != "" {
-		conf.Namespace = "-" + namespace
-	}
-	return conf
+func NewForwardConfig(cfg *SyslogConfig) {
+	cfg.configTemplate = nodeRsyslogTemplate
 }
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
-	conf := &SyslogConfig{
-		configTemplate:       stateServerRsyslogTemplate,
-		LogFileName:          logFile,
-		Port:                 port,
-		LogDir:               logDir,
-		StateServerAddresses: stateServerAddresses,
-	}
-	if namespace != "" {
-		conf.Namespace = "-" + namespace
-	}
-	return conf
+func NewAccumulateConfig(cfg *SyslogConfig) {
+	cfg.configTemplate = stateServerRsyslogTemplate
 }
 
 func either(a, b string) string {
@@ -265,6 +247,13 @@ func either(a, b string) string {
 	return b
 }
 
+func (slConfig *SyslogConfig) renderNamespace() string {
+	if slConfig.Namespace == "" {
+		return ""
+	}
+	return "-" + slConfig.Namespace
+}
+
 func (slConfig *SyslogConfig) ConfigFilePath() string {
 	dir := either(slConfig.ConfigDir, defaultConfigDir)
 	return filepath.Join(dir, slConfig.ConfigFileName)
@@ -272,29 +261,29 @@ func (slConfig *SyslogConfig) ConfigFilePath() string {
 
 func (slConfig *SyslogConfig) CACertPath() string {
 	filename := either(slConfig.CACertFileName, defaultCACertFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 func (slConfig *SyslogConfig) ServerCertPath() string {
 	filename := either(slConfig.ServerCertFileName, defaultServerCertFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 func (slConfig *SyslogConfig) ServerKeyPath() string {
 	filename := either(slConfig.ServerCertFileName, defaultServerKeyFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateConfPath returns the the the entire logrotate.conf path including filename.
 func (slConfig *SyslogConfig) LogrotateConfPath() string {
 	filename := either(slConfig.LogrotateConfFileName, defaultLogrotateConfFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateHelperPath returns the entire logrotate.helper path including filename.
 func (slConfig *SyslogConfig) LogrotateHelperPath() string {
 	filename := either(slConfig.LogrotateHelperFileName, defaultLogrotateHelperFileName)
-	return filepath.Join(slConfig.LogDir, filename)
+	return filepath.Join(slConfig.JujuConfigDir, filename)
 }
 
 // LogrotateConfFile returns a ready to write to disk byte array of the logrotate.conf file.
@@ -337,8 +326,8 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		"logfilePath":         logFilePath,
 		"portNumber":          func() int { return slConfig.Port },
 		"logDir":              func() string { return slConfig.LogDir },
-		"namespace":           func() string { return slConfig.Namespace },
-		"tagStart":            func() int { return tagOffset + len(slConfig.Namespace) },
+		"namespace":           slConfig.renderNamespace,
+		"tagStart":            func() int { return tagOffset + len(slConfig.renderNamespace()) },
 		"tlsCACertPath":       slConfig.CACertPath,
 		"tlsCertPath":         slConfig.ServerCertPath,
 		"tlsKeyPath":          slConfig.ServerKeyPath,

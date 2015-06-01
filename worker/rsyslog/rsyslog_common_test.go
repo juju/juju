@@ -93,14 +93,14 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "foo", addrs)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "foo", addrs, s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// We should get a ca-cert.pem with the contents introduced into state config.
-	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
+	waitForFile(c, filepath.Join(s.DataDir(), "ca-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "ca-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
@@ -108,6 +108,6 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	s.mu.Lock()
 	s.mu.Unlock() // assert read barrier before accessing s.dialTags
 	for _, dialTag := range s.dialTags {
-		c.Assert(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
+		c.Check(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
 	}
 }

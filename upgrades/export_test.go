@@ -42,4 +42,8 @@ var (
 	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
 	AddDefaultStoragePools          = addDefaultStoragePools
 	MoveBlocksFromEnvironToState    = moveBlocksFromEnvironToState
+
+	// 124 upgrade functions
+	MoveSyslogConfig = moveSyslogConfig
+	CopyFile         = copyFile
 )
