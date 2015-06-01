@@ -34,24 +34,52 @@ func (s *syslogConfigSuite) assertRsyslogConfigPath(c *gc.C, slConfig *syslog.Sy
 	c.Assert(slConfig.ConfigFilePath(), gc.Equals, filepath.Join(s.configDir, "rsyslog.conf"))
 }
 
-func (s *syslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig,
-	expectedConf string) {
+func (s *syslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig, expectedConf string) {
 	data, err := slConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, expectedConf)
+	if len(data) == 0 {
+		c.Fatal("got empty data from render")
+	}
+	d := string(data)
+	if d != expectedConf {
+		diff(c, d, expectedConf)
+		c.Fail()
+	}
+}
+
+func args() syslogtesting.TemplateArgs {
+	return syslogtesting.TemplateArgs{
+		MachineTag: "some-machine",
+		LogDir:     agent.DefaultLogDir,
+		DataDir:    agent.DefaultDataDir,
+		Port:       8888,
+		Server:     "server",
+	}
+}
+
+func cfg() *syslog.SyslogConfig {
+	return &syslog.SyslogConfig{
+		LogFileName:          "some-machine",
+		LogDir:               agent.DefaultLogDir,
+		JujuConfigDir:        agent.DefaultDataDir,
+		Port:                 8888,
+		StateServerAddresses: []string{"server"},
+	}
 }
 
 func (s *syslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
+	cfg := cfg()
+	syslog.NewAccumulateConfig(cfg)
 	s.assertRsyslogConfigContents(
 		c,
-		syslogConfigRenderer,
-		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
+		cfg,
+		syslogtesting.ExpectedAccumulateSyslogConf(c, args()),
 	)
 }
 
 func (s *syslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
+	syslogConfigRenderer := cfg()
+	syslog.NewAccumulateConfig(syslogConfigRenderer)
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
@@ -62,48 +90,54 @@ func (s *syslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	c.Assert(
 		string(syslogConfData),
 		gc.Equals,
-		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
+		syslogtesting.ExpectedAccumulateSyslogConf(c, args()),
 	)
 }
 
 func (s *syslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace", []string{"foo"})
-	syslogConfigRenderer.LogDir += "-namespace"
+	cfg := cfg()
+	cfg.Namespace = "namespace"
+	cfg.JujuConfigDir = cfg.JujuConfigDir + "-" + cfg.Namespace
+	cfg.LogDir = cfg.LogDir + "-" + cfg.Namespace
+
+	args := args()
+	args.Namespace = "namespace"
+	syslog.NewAccumulateConfig(cfg)
 	s.assertRsyslogConfigContents(
-		c, syslogConfigRenderer, syslogtesting.ExpectedAccumulateSyslogConf(
-			c, "some-machine", "namespace", 8888,
-		),
+		c,
+		cfg,
+		syslogtesting.ExpectedAccumulateSyslogConf(c, args),
 	)
 }
 
 func (s *syslogConfigSuite) TestForwardConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
-	)
+	cfg := cfg()
+	syslog.NewForwardConfig(cfg)
 	s.assertRsyslogConfigContents(
-		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
-			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
-		),
+		c,
+		cfg,
+		syslogtesting.ExpectedForwardSyslogConf(c, args()),
 	)
 }
 
 func (s *syslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine", agent.DefaultLogDir, 999, "namespace", []string{"server"},
-	)
+	cfg := cfg()
+	cfg.Namespace = "namespace"
+	args := args()
+	args.Namespace = "namespace"
+	syslog.NewForwardConfig(cfg)
 	s.assertRsyslogConfigContents(
-		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
-			c, "some-machine", agent.DefaultLogDir, "namespace", "server", 999,
-		),
+		c,
+		cfg,
+		syslogtesting.ExpectedForwardSyslogConf(c, args),
 	)
 }
 
 func (s *syslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
-	)
+	syslogConfigRenderer := cfg()
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
+	syslog.NewForwardConfig(syslogConfigRenderer)
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
 	err := syslogConfigRenderer.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,8 +146,33 @@ func (s *syslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	c.Assert(
 		string(syslogConfData),
 		gc.Equals,
-		syslogtesting.ExpectedForwardSyslogConf(
-			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
-		),
+		syslogtesting.ExpectedForwardSyslogConf(c, args()),
 	)
+}
+
+func diff(c *gc.C, got, exp string) {
+	expR := []rune(exp)
+	gotR := []rune(got)
+	for x := 0; x < len(expR); x++ {
+		if x >= len(gotR) {
+			c.Log("String obtained is truncated version of expected.")
+			c.Errorf("Expected: %#s, got: %#s", exp, got)
+			return
+		}
+		if expR[x] != gotR[x] {
+			c.Logf("Diff at offset %d", x)
+			gotDiff := string(gotR[x:min(x+50, len(gotR)-x)])
+			expDiff := string(expR[x:min(x+50, len(expR)-x)])
+			c.Logf("Diff at offset - obtained: %#v\nexpected: %#v", gotDiff, expDiff)
+			c.Assert(got, gc.Equals, exp)
+			return
+		}
+	}
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }

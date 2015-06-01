@@ -94,11 +94,11 @@ func syslogUser() string {
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
-func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
+func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
 	if version.Current.OS == version.Windows && mode == RsyslogModeAccumulate {
 		return worker.NewNoOpWorker(), nil
 	}
-	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs)
+	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs, jujuConfigDir)
 	if err != nil {
 		return nil, err
 	}
@@ -106,12 +106,19 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Ta
 	return worker.NewNotifyWorker(handler), nil
 }
 
-func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
-	var syslogConfig *syslog.SyslogConfig
+func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (*RsyslogConfigHandler, error) {
+	syslogConfig := &syslog.SyslogConfig{
+		LogFileName:          tag.String(),
+		LogDir:               logDir,
+		JujuConfigDir:        jujuConfigDir,
+		Port:                 0,
+		Namespace:            namespace,
+		StateServerAddresses: stateServerAddrs,
+	}
 	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
+		syslog.NewAccumulateConfig(syslogConfig)
 	} else {
-		syslogConfig = syslog.NewForwardConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
+		syslog.NewForwardConfig(syslogConfig)
 	}
 
 	// Historically only machine-0 includes the namespace in the log
@@ -198,7 +205,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			host = j
 		}
 		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
-		logTag := "juju" + h.syslogConfig.Namespace + "-" + h.tag.String()
+		logTag := "juju" + "-" + h.syslogConfig.Namespace + "-" + h.tag.String()
 		logger.Debugf("making syslog connection for %q to %s", logTag, target)
 		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, logTag, tlsConf)
 		if err != nil {
