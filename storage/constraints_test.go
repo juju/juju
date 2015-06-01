@@ -118,12 +118,7 @@ func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 			Count: 1,
 		}})
 	s.testParseStorageConstraints(c,
-		[]string{"data="},
-		map[string]storage.Constraints{"data": storage.Constraints{
-			Count: 1,
-		}})
-	s.testParseStorageConstraints(c,
-		[]string{"data=", "cache"},
+		[]string{"data", "cache"},
 		map[string]storage.Constraints{
 			"data": storage.Constraints{
 				Count: 1,
@@ -143,6 +138,9 @@ func (s *ConstraintsSuite) TestParseStorageConstraintsErrors(c *gc.C) {
 		`storage "data" specified more than once`)
 	s.testStorageConstraintsError(c,
 		[]string{"data=-1"},
+		`.*cannot parse constraints for storage "data".*`)
+	s.testStorageConstraintsError(c,
+		[]string{"data="},
 		`.*cannot parse constraints for storage "data".*`)
 }
 

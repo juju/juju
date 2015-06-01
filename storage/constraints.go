@@ -121,12 +121,9 @@ func ParseStorageConstraints(args []string) (map[string]Constraints, error) {
 			return nil, errors.Errorf("storage %q specified more than once", parts[0])
 		}
 		if len(parts) == 1 {
-			// This will happen if only <name> is supplied.
-			parts = append(parts, "")
-		}
-		if len(parts[1]) == 0 {
-			//<name> is equivalent to <name>=1
-			parts[1] = "1"
+			// This will happen if only <name> is supplied which is
+			//  equivalent to <name>=1
+			parts = append(parts, "1")
 		}
 		cons, err := ParseConstraints(parts[1])
 		if err != nil {
