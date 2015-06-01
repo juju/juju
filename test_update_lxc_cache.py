@@ -8,7 +8,6 @@ from update_lxc_cache import (
     LxcCache,
     main,
     parse_args,
-    SITE,
     System
     )
 from utility import temp_dir
@@ -123,7 +122,7 @@ class LxcCacheTestCase(TestCase):
         self.assertEqual(INDEX_DATA, data)
 
     def test_init_systems_with_remote_location(self):
-        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
+        url = 'https://images.linuxcontainers.org/meta/1.0/index-system'
         response = FakeResponse(INDEX_DATA)
         with patch('urllib2.Request', autospec=True,
                    return_value='request') as r_mock:
@@ -149,8 +148,8 @@ class LxcCacheTestCase(TestCase):
                     'ubuntu', 'trusty', 'ppc64el', 'default')
         self.assertIsNone(new_system)
         self.assertIsNone(new_data)
-        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
-        is_mock.assert_called_with(url)
+        is_mock.assert_called_with(
+            'https://images.linuxcontainers.org/meta/1.0/index-system')
 
     def test_get_updates_found(self):
         remote_data = INDEX_DATA.replace(
@@ -167,8 +166,8 @@ class LxcCacheTestCase(TestCase):
         key = ('ubuntu', 'trusty', 'ppc64el', 'default')
         self.assertEqual(remote_systems[key], new_system)
         self.assertEqual(remote_data, new_data)
-        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
-        is_mock.assert_called_with(url)
+        is_mock.assert_called_with(
+            'https://images.linuxcontainers.org/meta/1.0/index-system')
 
     def test_get_lxc_data(self):
         systems = make_systems()
