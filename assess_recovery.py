@@ -20,7 +20,7 @@ from deploy_stack import (
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    )
+)
 from jujupy import (
     temp_bootstrap_env,
     until_timeout,
@@ -29,7 +29,7 @@ from jujupy import (
 )
 from substrate import (
     terminate_instances,
-    )
+)
 from utility import (
     ensure_deleted,
     print_now,
@@ -37,6 +37,15 @@ from utility import (
 
 
 running_instance_pattern = re.compile('\["([^"]+)"\]')
+
+
+def setup_juju_path(juju_path):
+    """Ensure the binaries and scripts under test are found first."""
+    full_path = os.path.abspath(juju_path)
+    if not os.path.isdir(full_path):
+        raise ValueError("The juju_path does not exist: %s" % full_path)
+    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
+    sys.path.insert(0, full_path)
 
 
 def deploy_stack(client, charm_prefix):
@@ -154,6 +163,7 @@ def main():
     args = parse_args()
     log_dir = args.logs
     try:
+        setup_juju_path(args.juju_path)
         client = make_client(args.juju_path, args.debug, args.env_name,
                              args.temp_env_name)
         juju_home = get_juju_home()

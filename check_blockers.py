@@ -52,9 +52,9 @@ def parse_args(args=None):
     check_parser = subparsers.add_parser(
         'check', help='Check if merges are blocked for a branch.')
     check_parser.add_argument('branch', default='master', nargs='?',
-        help='The branch to merge into.')
+                              help='The branch to merge into.')
     check_parser.add_argument('pull_request', default=None, nargs='?',
-        help='The pull request to be merged')
+                              help='The pull request to be merged')
     update_parser = subparsers.add_parser(
         'update', help='Update blocking for a branch that passed CI.')
     update_parser.add_argument(

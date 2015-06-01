@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 from datetime import datetime
 import logging
 import re
-import sys
 
 from deploy_stack import (
     dump_env_logs,
@@ -15,12 +14,11 @@ from deploy_stack import (
 )
 from jujuconfig import (
     get_juju_home,
- )
+)
 from jujupy import (
-    CannotConnectEnv,
-    temp_bootstrap_env,
     make_client,
     parse_new_state_server_from_error,
+    temp_bootstrap_env,
     yaml_loads,
 )
 from utility import (
@@ -28,18 +26,43 @@ from utility import (
 )
 
 
+class LogRotateError(Exception):
+
+    ''' LogRotate test Exception base class. '''
+
+    def __init__(self, message):
+        super(LogRotateError, self).__init__(message)
+
+
 def test_unit_rotation(client):
-    test_rotation(client, "/var/log/juju/unit-fill-logs-0.log", "unit-fill-logs-0", "fill-unit", "unit-size", "megs=300")
+    """Tests unit log rotation."""
+    test_rotation(client,
+                  "/var/log/juju/unit-fill-logs-0.log",
+                  "unit-fill-logs-0",
+                  "fill-unit",
+                  "unit-size",
+                  "megs=300")
 
 
 def test_machine_rotation(client):
-    test_rotation(client, "/var/log/juju/machine-1.log", "machine-1", "fill-machine", "machine-size", "megs=300", "machine=1")
+    """Tests machine log rotation."""
+    test_rotation(client,
+                  "/var/log/juju/machine-1.log",
+                  "machine-1",
+                  "fill-machine",
+                  "machine-size", "megs=300", "machine=1")
 
 
 def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
+    """A reusable help for testing log rotation.log
+
+    Deploys the fill-logs charm and uses it to fill the machine or unit log and
+    test that the logs roll over correctly.
+    """
+
     # the rotation point should be 300 megs, so let's make sure we hit that.hit
-    # we'll obviously already have some data in the logs, so adding exactly 300megs
-    # should do the trick.
+    # we'll obviously already have some data in the logs, so adding exactly
+    # 300megs should do the trick.
 
     # we run do_fetch here so that we wait for fill-logs to finish.
     client.action_do_fetch("fill-logs/0", fill_action, *args)
@@ -84,6 +107,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
 
 def check_for_extra_backup(logname, action_output):
+    """Check that there are no extra backup files left behind."""
     log = action_output["results"]["result-map"].get(logname)
     if log is None:
         # this is correct
@@ -92,24 +116,31 @@ def check_for_extra_backup(logname, action_output):
     name = log.get("name")
     if name is None:
         name = "(no name)"
-    raise Exception("Extra backup log after rotation: " + name)
+    raise LogRotateError("Extra backup log after rotation: " + name)
 
 
 def check_expected_backup(key, logprefix, action_output):
+    """Check that there the expected backup files exists and is close to 300MB.
+    """
     log = action_output["results"]["result-map"].get(key)
     if log is None:
-        raise Exception("Missing backup log '{}' after rotation.".format(key))
+        raise LogRotateError(
+            "Missing backup log '{}' after rotation.".format(key))
 
     backup_pattern = "/var/log/juju/%s-(.+?)\.log" % logprefix
 
     log_name = log["name"]
     matches = re.match(backup_pattern, log_name)
     if matches is None:
-        raise Exception("Rotated log name '{}' does not match pattern '{}'.".format(log_name, backup_pattern))
+        raise LogRotateError(
+            "Rotated log '%s' does not match pattern '%s'." %
+            (log_name, backup_pattern))
 
     size = int(log["size"])
     if size < 299 or size > 301:
-        raise Exception("Backup log '{}' should be close to 300MB, but is {}MB.".format(log_name, size))
+        raise LogRotateError(
+            "Backup log '%s' should be ~300MB, but is %sMB." %
+            (log_name, size))
 
     dt = matches.groups()[0]
     dt_pattern = "%Y-%m-%dT%H-%M-%S.%f"
@@ -119,82 +150,77 @@ def check_expected_backup(key, logprefix, action_output):
         # support partial seconds.
         dt = datetime.strptime(dt, dt_pattern)
     except Exception:
-        raise Exception("Rotated log name for {} has invalid datetime appended: {}".format(log_name, dt))
+        raise LogRotateError(
+            "Log for %s has invalid datetime appended: %s" % (log_name, dt))
 
 
 def check_log0(expected, action_output):
+    """Check that log0 exists and is not over 299MB"""
     log = action_output["results"]["result-map"].get("log0")
     if log is None:
-        raise Exception("No log returned from size action.")
+        raise LogRotateError("No log returned from size action.")
 
     name = log["name"]
     if name != expected:
-        raise Exception("Wrong unit name from action result. Expected: {}, actual: {}".format(expected, name))
+        raise LogRotateError(
+            "Wrong unit name: Expected: %s, actual: %s" % (expected, name))
 
     size = int(log["size"])
     if size > 299:
-        raise Exception("Primary log '{}' not rolled. Expected size < 300MB, got: {}MB".format(name, size))
+        raise LogRotateError(
+            "Log0 too big. Expected < 300MB, got: %sMB" % size)
 
 
 def parse_args(argv=None):
+    """Parse all arguments."""
     parser = ArgumentParser('Test log rotation.')
     parser.add_argument(
         '--debug', action='store_true', default=False,
         help='Use --debug juju logging.')
-    parser.add_argument('agent', help='Which agent log rotation to test - machine or unit.')
-    parser.add_argument('juju_path', help='Directory your juju binary lives in.')
-    parser.add_argument('env_name', help='Juju environment name to run tests in.')
+    parser.add_argument(
+        'agent',
+        help='Which agent log rotation to test.',
+        choices=['machine', 'unit'])
+    parser.add_argument(
+        'juju_path', help='Directory your juju binary lives in.')
+    parser.add_argument(
+        'env_name', help='Juju environment name to run tests in.')
     parser.add_argument('logs', help='Directory to store logs in.')
     parser.add_argument(
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
-    args = parser.parse_args(argv)
-    if args.agent != "machine" and args.agent != "unit":
-        print("invalid value for agent, must be 'machine' or 'unit'.")
-        parser.print_usage()
-        sys.exit(1)
-    return args
-
-
-def try_cleanup(bootstrap_host, e, client, log_dir):
-    try:
-        if bootstrap_host is None:
-            bootstrap_host = parse_new_state_server_from_error(e)
-        dump_env_logs(client, bootstrap_host, log_dir)
-    except Exception as e2:
-        # Swallow the exception so we don't obscure the original exception.
-        print_now("exception while dumping logs:\n")
-        logging.exception(e2)
+    return parser.parse_args(argv)
 
 
 def main():
     args = parse_args()
     log_dir = args.logs
 
-    client = make_client(args.juju_path, args.debug, args.env_name,
-                         args.temp_env_name)
+    client = make_client(
+        args.juju_path, args.debug, args.env_name, args.temp_env_name)
     client.destroy_environment()
     juju_home = get_juju_home()
-    with temp_bootstrap_env(juju_home, client):
-        client.bootstrap()
-    bootstrap_host = get_machine_dns_name(client, 0)
     try:
-        try:
-            client.get_status(60)
-        except CannotConnectEnv:
-            print("Status got Unable to connect to env.  Retrying...")
-            client.get_status(60)
+        with temp_bootstrap_env(juju_home, client):
+            client.bootstrap()
+        bootstrap_host = get_machine_dns_name(client, 0)
+        client.get_status(60)
         client.wait_for_started()
         client.juju("deploy", ('local:trusty/fill-logs',))
-        client.wait_for_started(60)
 
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":
             test_machine_rotation(client)
     except Exception as e:
-        try_cleanup(bootstrap_host, e, client, log_dir)
-        raise
+        logging.exception(e)
+        try:
+            if bootstrap_host is None:
+                bootstrap_host = parse_new_state_server_from_error(e)
+            dump_env_logs(client, bootstrap_host, log_dir)
+        except Exception as e:
+            print_now("exception while dumping logs:\n")
+            logging.exception(e)
     finally:
         client.destroy_environment()
 

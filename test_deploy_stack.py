@@ -1,7 +1,7 @@
 from argparse import (
     ArgumentParser,
     Namespace,
-    )
+)
 from contextlib import contextmanager
 import json
 import logging
@@ -15,7 +15,7 @@ from unittest import TestCase
 from mock import (
     call,
     patch,
-    )
+)
 import yaml
 
 from deploy_stack import (
@@ -51,7 +51,7 @@ from jujupy import (
 )
 from test_jujupy import (
     assert_juju_call,
-    )
+)
 from utility import temp_dir
 
 
@@ -291,7 +291,7 @@ class DeployStackTestCase(TestCase):
                        side_effect=subprocess.CalledProcessError('', '')):
                 with patch('subprocess.call', autospec=True) as c_mock:
                     with self.assertRaises(subprocess.CalledProcessError):
-                            run_instances(1, 'qux')
+                        run_instances(1, 'qux')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_assess_juju_run(self):
@@ -541,7 +541,7 @@ class TestDeployDummyStack(TestCase):
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
                  GET_TOKEN_SCRIPT): 'fake-token',
-                }
+            }
             return output[args]
 
         with patch('subprocess.check_output', side_effect=output,
@@ -599,7 +599,7 @@ class TestTestUpgrade(TestCase):
             cls.RUN_UNAME: juju_run_out,
             cls.VERSION: '1.38',
             cls.GET_ENV: 'testing'
-            }
+        }
         return output[args]
 
     @contextmanager
@@ -607,11 +607,11 @@ class TestTestUpgrade(TestCase):
         with patch('subprocess.check_output', side_effect=self.upgrade_output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
-                    with patch('deploy_stack.check_token', autospec=True):
-                        with patch('deploy_stack.get_random_string',
-                                   return_value="FAKETOKEN", autospec=True):
-                            with patch('sys.stdout', autospec=True):
-                                yield (co_mock, cc_mock)
+                with patch('deploy_stack.check_token', autospec=True):
+                    with patch('deploy_stack.get_random_string',
+                               return_value="FAKETOKEN", autospec=True):
+                        with patch('sys.stdout', autospec=True):
+                            yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
         env = SimpleEnvironment('foo', {'type': 'foo'})
@@ -660,7 +660,7 @@ class TestPrepareEnvironment(TestCase):
     status = yaml.dump({
         'machines': {0: {'agent-version': '1.18.17'}},
         'services': {},
-        })
+    })
 
     def test_prepare_environment(self):
         client = self.get_client()
@@ -716,7 +716,7 @@ class TestBootContext(TestCase):
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
-                        return_value='foo'))
+                              return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=False):
@@ -735,7 +735,7 @@ class TestBootContext(TestCase):
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
-                        return_value='foo'))
+                              return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=True, upload_tools=False):
@@ -752,7 +752,7 @@ class TestBootContext(TestCase):
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
-                        return_value='foo'))
+                              return_value='foo'))
         self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=True):
@@ -766,12 +766,12 @@ class TestBootContext(TestCase):
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
-                        return_value='foo'))
+                              return_value='foo'))
         self.addContext(patch('subprocess.call'))
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
-                           None, keep_env=False, upload_tools=False):
+                          None, keep_env=False, upload_tools=False):
             pass
         ue_mock.assert_called_with(
             client.env, 'bar', series='wacky', bootstrap_host=None,
@@ -801,7 +801,7 @@ class TestDeployJobParseArgs(TestCase):
             upgrade=False,
             verbose=False,
             upload_tools=False,
-            ))
+        ))
 
     def test_upload_tools(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz', '--upload-tools'])
@@ -811,5 +811,3 @@ class TestDeployJobParseArgs(TestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar', 'baz', '--agent-stream', 'wacky'])
         self.assertEqual('wacky', args.agent_stream)
-
-

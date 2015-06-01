@@ -6,7 +6,7 @@ from collections import defaultdict
 from contextlib import (
     contextmanager,
     nested,
-    )
+)
 from cStringIO import StringIO
 from datetime import timedelta
 import errno
@@ -25,7 +25,7 @@ from jujuconfig import (
     get_jenv_path,
     get_juju_home,
     get_selected_environment,
-    )
+)
 from utility import (
     check_free_disk_space,
     ensure_deleted,
@@ -34,7 +34,7 @@ from utility import (
     scoped_environ,
     temp_dir,
     until_timeout,
-    )
+)
 
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
@@ -173,6 +173,8 @@ class EnvJujuClient:
             full_path = os.path.abspath(juju_path)
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
+        elif re.match('^1\.22[.-]', version):
+            return EnvJujuClient24(env, version, full_path, debug=debug)
         elif re.match('^1\.24[.-]', version):
             return EnvJujuClient24(env, version, full_path, debug=debug)
         else:
@@ -215,6 +217,7 @@ class EnvJujuClient:
                                          env['PATH'])
         if juju_home is not None:
             env['JUJU_HOME'] = juju_home
+
         return env
 
     def get_bootstrap_args(self, upload_tools):
@@ -506,7 +509,9 @@ class EnvJujuClient:
             name = ""
             if action is not None:
                 name = " " + action
-            raise Exception("timed out waiting for action%s to complete during fetch" % name)
+            raise Exception(
+                "timed out waiting for action%s to complete during fetch" %
+                name)
         return out
 
     def action_do(self, unit, action, *args):
@@ -517,7 +522,8 @@ class EnvJujuClient:
         """
         args = ("do", unit, action) + args
         output = self.get_juju_output("action", *args)
-        action_id_pattern = re.compile('Action queued with id: ([a-f0-9\-]{36})')
+        action_id_pattern = re.compile(
+            'Action queued with id: ([a-f0-9\-]{36})')
         match = action_id_pattern.search(output)
         if match is None:
             raise Exception("Action id not found in output: %s" %
@@ -534,6 +540,21 @@ class EnvJujuClient:
         return self.action_fetch(id, action)
 
 
+class EnvJujuClient22(EnvJujuClient):
+
+    def _shell_environ(self, juju_home=None):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = super(EnvJujuClient22, self)._shell_environ(juju_home)
+        if env.get(JUJU_DEV_FEATURE_FLAGS, '') == '':
+            env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
+        else:
+            env[JUJU_DEV_FEATURE_FLAGS] += ',actions'
+        return env
+
+
 class EnvJujuClient24(EnvJujuClient):
 
     def _shell_environ(self, juju_home=None):
@@ -543,7 +564,10 @@ class EnvJujuClient24(EnvJujuClient):
         """
         env = super(EnvJujuClient24, self)._shell_environ(juju_home)
         if self.env.config.get('type') == 'cloudsigma':
-            env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
+            if env.get(JUJU_DEV_FEATURE_FLAGS, '') == '':
+                env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
+            else:
+                env[JUJU_DEV_FEATURE_FLAGS] += ',cloudsigma'
         return env
 
 
@@ -855,16 +879,6 @@ class Environment(SimpleEnvironment):
             testing_url = url.replace('/tools', '/testing/tools')
             self.client.set_env_option(self, 'tools-metadata-url',
                                        testing_url)
-
-    def action_fetch(self, id):
-        return self.client.get_env_client(self).action_fetch(id)
-
-    def action_do(self, unit, action, *args):
-        return self.client.get_env_client(self).action_do(unit, action, *args)
-
-    def action_do_fetch(self, unit, action, *args):
-        return self.client.get_env_client(self).action_do_fetch(unit,
-                                                                action, *args)
 
 
 class GroupReporter:

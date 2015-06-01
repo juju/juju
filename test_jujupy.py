@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-    )
+)
 import os
 import shutil
 import StringIO
@@ -24,11 +24,12 @@ from jujuconfig import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
-    )
+)
 from jujupy import (
     CannotConnectEnv,
     Environment,
     EnvJujuClient,
+    EnvJujuClient22,
     EnvJujuClient24,
     ErroredUnit,
     GroupReporter,
@@ -46,7 +47,7 @@ from jujupy import (
 from utility import (
     scoped_environ,
     temp_dir,
-    )
+)
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
@@ -95,10 +96,26 @@ class TestEnvJujuClient24(ClientTest):
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
             '1.24-foobar', 'path')
         env = client._shell_environ()
-        self.assertEqual(env[JUJU_DEV_FEATURE_FLAGS], 'cloudsigma')
+        "".split()
+        self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_juju_home(self):
         client = EnvJujuClient24(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        env = client._shell_environ(juju_home='asdf')
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestEnvJujuClient22(ClientTest):
+
+    def test__shell_environ(self):
+        client = EnvJujuClient22(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        env = client._shell_environ()
+        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS), 'actions')
+
+    def test__shell_environ_juju_home(self):
+        client = EnvJujuClient22(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
@@ -240,8 +257,11 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
             mock.assert_called_once_with(client,
-                'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'), False,
-                juju_home=None)
+                                         'bootstrap',
+                                         ('--constraints',
+                                          'mem=2G cpu-cores=1'),
+                                         False,
+                                         juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -557,9 +577,9 @@ class TestEnvJujuClient(ClientTest):
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
                 '2': {'state-server-member-status': 'has-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_ha()
@@ -570,9 +590,9 @@ class TestEnvJujuClient(ClientTest):
                 '0': {'state-server-member-status': 'no-vote'},
                 '1': {'state-server-member-status': 'no-vote'},
                 '2': {'state-server-member-status': 'no-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('sys.stdout'):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -586,9 +606,9 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -601,7 +621,7 @@ class TestEnvJujuClient(ClientTest):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
-                },
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -618,9 +638,9 @@ class TestEnvJujuClient(ClientTest):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -947,7 +967,7 @@ class TestTempJujuEnv(TestCase):
                     'root-dir': get_local_root(fake_home, client.env),
                     'agent-version': agent_version,
                     'test-mode': True,
-                    }}})
+                }}})
                 stub_bootstrap()
 
     def test_temp_bootstrap_env_provides_dir(self):
@@ -1018,7 +1038,7 @@ class TestTempJujuEnv(TestCase):
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/lxc', 2000000, 'LXC containers'),
-            ])
+        ])
 
     def test_check_space_local_kvm(self):
         env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
@@ -1030,7 +1050,7 @@ class TestTempJujuEnv(TestCase):
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
-            ])
+        ])
 
     def test_error_on_jenv(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -1303,7 +1323,7 @@ class TestStatus(TestCase):
         self.assertEqual(list(status.iter_machines(containers=True)), [
             ('1', status.status['machines']['1']),
             ('1/lxc/0', {'baz': 'qux'}),
-            ])
+        ])
 
     def test_agent_items_empty(self):
         status = Status({'machines': {}, 'services': {}}, '')
@@ -1489,7 +1509,7 @@ class TestStatus(TestCase):
             'machines': {'0': {
                 'agent-state-info': failure}},
             'services': {},
-            }, '')
+        }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
             status.check_agents_started()
         e = e_cxt.exception
@@ -1549,14 +1569,14 @@ class TestStatus(TestCase):
         old_status = Status({
             'machines': {
                 'bar': 'bar_info',
-                }
-            }, '')
+            }
+        }, '')
         new_status = Status({
             'machines': {
                 'foo': 'foo_info',
                 'bar': 'bar_info',
-                }
-            }, '')
+            }
+        }, '')
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
 
@@ -1565,8 +1585,8 @@ class TestStatus(TestCase):
             'machines': {
                 '0': {'instance-id': 'foo-bar'},
                 '1': {},
-                }
-            }, '')
+            }
+        }, '')
         self.assertEqual(status.get_instance_id('0'), 'foo-bar')
         with self.assertRaises(KeyError):
             status.get_instance_id('1')
@@ -1859,7 +1879,7 @@ class TestEnvironment(TestCase):
                 "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
-        mock.assert_called_with(
+        mock.assert_called_once_with(
             'action', 'do', 'foo/0', 'myaction', "param=5"
         )
 
@@ -1868,11 +1888,9 @@ class TestEnvironment(TestCase):
                                '1.23-series-arch', None)
         with patch.object(EnvJujuClient, 'get_juju_output') as mock:
             mock.return_value = "some bad text"
-            try:
+            with self.assertRaisesRegexp(Exception,
+                                         "Action id not found in output"):
                 client.action_do("foo/0", "myaction", "param=5")
-                self.fail("bad return should have caused exception")
-            except Exception:
-                pass  # yay, this is correct
 
     def test_action_fetch(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
@@ -1882,29 +1900,30 @@ class TestEnvironment(TestCase):
             mock.return_value = ret
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
-        mock.assert_called_with(
+        mock.assert_called_once_with(
             'action', 'fetch', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
                                '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
-            ret = "status: pending\nfoo: bar"
-            mock.return_value = ret
-            try:
+        ret = "status: pending\nfoo: bar"
+        with patch.object(EnvJujuClient,
+                          'get_juju_output', return_value=ret):
+            with self.assertRaisesRegexp(Exception,
+                                         "timed out waiting for action"):
                 client.action_fetch("123")
-                self.fail("expected exception from call timeout")
-            except Exception:
-                pass  # yay, this is correct
 
     def test_action_do_fetch(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
                                '1.23-series-arch', None)
         with patch.object(EnvJujuClient, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
-            mock.side_effect = ["Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9", 
-                                ret]
+            # setting side_effect to an iterable will return the next value
+            # from the list each time the function is called.
+            mock.side_effect = [
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9",
+                ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
@@ -2078,6 +2097,7 @@ class TestMakeClient(TestCase):
         self.assertEqual(client.env.config['orig-name'], 'foo')
         self.assertEqual(client.env.config['name'], 'foo')
         self.assertEqual(client.env.environment, 'foo')
+
 
 class AssessParseStateServerFromErrorTestCase(TestCase):
 
