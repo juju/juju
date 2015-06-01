@@ -134,3 +134,15 @@ class LxcCacheTestCase(TestCase):
         self.assertEqual(expected_systems, systems)
         self.assertEqual(INDEX_DATA, data)
         self.assertEqual(1, ul_mock.call_count)
+
+    def test_get_updates_none(self):
+        response = FakeResponse(INDEX_DATA)
+        with patch('urllib2.urlopen', autospec=True,
+                   return_value=response) as ul_mock:
+            with temp_dir() as workspace:
+                make_local_cache(workspace)
+                lxc_cache = LxcCache(workspace)
+                new_system, data = lxc_cache.get_updates(
+                    'ubuntu', 'trusty', 'ppc64el', 'default')
+        self.assertIsNone(new_system)
+        self.assertIsNone(data)
