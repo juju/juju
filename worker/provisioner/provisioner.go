@@ -50,6 +50,7 @@ type containerProvisioner struct {
 	provisioner
 	containerType instance.ContainerType
 	machine       *apiprovisioner.Machine
+	configObserver
 }
 
 // provisioner providers common behaviour for a running provisioning worker.
@@ -268,7 +269,21 @@ func NewContainerProvisioner(
 }
 
 func (p *containerProvisioner) loop() error {
-	task, err := p.getStartTask(config.HarvestDestroyed)
+	var environConfigChanges <-chan struct{}
+	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	if err != nil {
+		return err
+	}
+	environConfigChanges = environWatcher.Changes()
+	defer watcher.Stop(environWatcher, &p.tomb)
+
+	environ, err := worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+	if err != nil {
+		return err
+	}
+	harvestMode := environ.Config().ProvisionerHarvestMode()
+
+	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return err
 	}
@@ -282,6 +297,17 @@ func (p *containerProvisioner) loop() error {
 			err := task.Err()
 			logger.Errorf("%s provisioner died: %v", p.containerType, err)
 			return err
+		case _, ok := <-environConfigChanges:
+			if !ok {
+				return watcher.EnsureErr(environWatcher)
+			}
+			environConfig, err := p.st.EnvironConfig()
+			if err != nil {
+				logger.Errorf("cannot load environment configuration: %v", err)
+				return err
+			}
+			p.configObserver.notify(environConfig)
+			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
 		}
 	}
 }
