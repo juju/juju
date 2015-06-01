@@ -229,3 +229,7 @@ func SetEnvironmentHookContextRelation(
 		},
 	}
 }
+
+func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
+	return ctx.storageAddConstraints
+}
