@@ -31,6 +31,15 @@ def make_systems():
     return systems
 
 
+def make_local_cache(workspace):
+    meta_dir = os.path.join(workspace, INDEX_PATH)
+    os.makedirs(meta_dir)
+    index_path = os.path.join(meta_dir, INDEX)
+    with open(index_path, 'w') as f:
+        f.write(INDEX_DATA)
+    return index_path
+
+
 class FakeResponse:
 
     def __init__(self, data, code=200):
@@ -90,6 +99,13 @@ class LxcCacheTestCase(TestCase):
         self.assertTrue(lxc_cache.dry_run)
         self.assertEqual({}, lxc_cache.systems)
 
+    def test_init_with_local_cache(self):
+        with temp_dir() as workspace:
+            make_local_cache(workspace)
+            lxc_cache = LxcCache(workspace)
+        expected_systems = make_systems()
+        self.assertEqual(expected_systems, lxc_cache.systems)
+
     def test_init_systems_without_local_cache(self):
         with temp_dir() as workspace:
             lxc_cache = LxcCache(workspace)
@@ -99,11 +115,7 @@ class LxcCacheTestCase(TestCase):
 
     def test_init_systems_with_local_cache(self):
         with temp_dir() as workspace:
-            meta_dir = os.path.join(workspace, INDEX_PATH)
-            os.makedirs(meta_dir)
-            index_path = os.path.join(meta_dir, INDEX)
-            with open(index_path, 'w') as f:
-                f.write(INDEX_DATA)
+            index_path = make_local_cache(workspace)
             lxc_cache = LxcCache(workspace)
             systems, data = lxc_cache.init_systems(index_path)
         expected_systems = make_systems()
