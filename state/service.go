@@ -1168,6 +1168,8 @@ func (s *Service) SetStatus(status Status, info string, data map[string]interfac
 		}
 
 		if insert {
+			// TODO(perrito666) we need a leader assertion added to this
+			// Op starting in 1.25.
 			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
 			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
 		}
@@ -1186,21 +1188,25 @@ func (s *Service) SetStatus(status Status, info string, data map[string]interfac
 	return nil
 }
 
-// UnitsStatus returns the status for all units in this service.
-func (s *Service) UnitsStatus() (map[string]StatusInfo, error) {
+// ServiceAndUnitsStatus returns the status for this service and all its units.
+func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+	serviceStatus, err := s.Status()
+	if err != nil {
+		return StatusInfo{}, nil, errors.Trace(err)
+	}
 	units, err := s.AllUnits()
 	if err != nil {
-		return nil, err
+		return StatusInfo{}, nil, err
 	}
 	results := make(map[string]StatusInfo, len(units))
 	for _, unit := range units {
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return nil, err
+			return StatusInfo{}, nil, err
 		}
 		results[unit.Name()] = unitStatus
 	}
-	return results, nil
+	return serviceStatus, results, nil
 
 }
 
