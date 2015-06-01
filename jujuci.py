@@ -397,7 +397,7 @@ def get_credentials(args):
     return Credentials(args.user, args.password)
 
 
-class PackageNamer:
+class Namer:
 
     @classmethod
     def factory(cls):
@@ -406,6 +406,9 @@ class PackageNamer:
     def __init__(self, arch, distro_release):
         self.arch = arch
         self.distro_release = distro_release
+
+
+class PackageNamer(Namer):
 
     def get_release_package(self, version):
         return (
