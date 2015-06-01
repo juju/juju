@@ -15,10 +15,10 @@ from utility import temp_dir
 
 
 INDEX_DATA = """\
-ubuntu;trusty;arm64;default;201501;/images/ubuntu/trusty/arm64/default/201505/
-ubuntu;trusty;armhf;default;201502;/images/ubuntu/trusty/armhf/default/201505/
-ubuntu;trusty;i386;default;201503;/images/ubuntu/trusty/i386/default/201505/
-ubuntu;trusty;ppc64el;default;20154;/images/ubuntu/trusty/ppc64el/default/20150/
+ubuntu;trusty;arm64;default;201501;/images/ubuntu/trusty/arm64/default/201501/
+ubuntu;trusty;armhf;default;201502;/images/ubuntu/trusty/armhf/default/201502/
+ubuntu;trusty;i386;default;201503;/images/ubuntu/trusty/i386/default/201503/
+ubuntu;trusty;ppc64el;default;20154;/images/ubuntu/trusty/ppc64el/default/20154/
 """
 
 
@@ -169,3 +169,27 @@ class LxcCacheTestCase(TestCase):
         self.assertEqual(remote_data, new_data)
         url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
         is_mock.assert_called_with(url)
+
+    def test_get_lxc_data(self):
+        systems = make_systems()
+        system = systems[('ubuntu', 'trusty', 'ppc64el', 'default')]
+        with temp_dir() as workspace:
+            make_local_cache(workspace)
+            lxc_cache = LxcCache(workspace)
+            with patch.object(lxc_cache, 'download', autospec=True) as d_mock:
+                rootfs_path, meta_path = lxc_cache.get_lxc_data(system)
+            image_path = os.path.join(
+                workspace, 'images/ubuntu/trusty/ppc64el/default/20154/')
+            self.assertTrue(os.path.isdir(image_path))
+        expected_rootfs_path = os.path.join(image_path, 'rootfs.tar.xz')
+        expected_meta_path = os.path.join(image_path, 'meta.tar.xz')
+        self.assertEqual(expected_rootfs_path, rootfs_path)
+        self.assertEqual(expected_meta_path, meta_path)
+        d_mock.assert_any_call(
+            'https://images.linuxcontainers.org'
+            '/images/ubuntu/trusty/ppc64el/default/20154/rootfs.tar.xz',
+            rootfs_path)
+        d_mock.assert_any_call(
+            'https://images.linuxcontainers.org'
+            '/images/ubuntu/trusty/ppc64el/default/20154/meta.tar.xz',
+            meta_path)

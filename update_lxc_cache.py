@@ -93,7 +93,7 @@ class LxcCache:
             if self.verbose:
                 print('creating %s' % image_path)
             if not os.path.isdir(image_path):
-                os.makedirs()
+                os.makedirs(image_path)
         rootfs_path = os.path.join(image_path, ROOTFS)
         rootfs_url = '%s%s%s' % (SITE, system.path, ROOTFS)
         self.download(rootfs_url, rootfs_path)
