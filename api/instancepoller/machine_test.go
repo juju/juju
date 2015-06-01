@@ -226,7 +226,7 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	}
-	apiCaller := successAPICaller(c, "SetInstancesStatus", expectArgs, results, &called)
+	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	err := machine.SetInstanceStatus("RUNNING")
 	c.Check(err, jc.ErrorIsNil)

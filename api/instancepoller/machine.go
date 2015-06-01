@@ -143,7 +143,7 @@ func (m *Machine) SetInstanceStatus(status string) error {
 	args := params.SetInstancesStatus{Entities: []params.InstanceStatus{
 		{Tag: m.tag.String(), Status: status},
 	}}
-	err := m.facade.FacadeCall("SetInstancesStatus", args, &result)
+	err := m.facade.FacadeCall("SetInstanceStatus", args, &result)
 	if err != nil {
 		return err
 	}

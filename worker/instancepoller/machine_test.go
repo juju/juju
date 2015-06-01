@@ -12,14 +12,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -37,10 +36,10 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
-		life:       state.Alive,
+		life:       params.Alive,
 	}
 	died := make(chan machine)
 	// Change the poll intervals to be short, so that we know
@@ -61,28 +60,28 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, nil, "i1234", "running", state.StatusStarted)
+	count := countPolls(c, nil, "i1234", "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "", state.StatusStarted)
+	count := countPolls(c, testAddrs, "i1234", "", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "pending", state.StatusPending)
+	count := countPolls(c, testAddrs, "i1234", "pending", params.StatusPending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotProvisioned(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "", "pending", state.StatusPending)
+	count := countPolls(c, testAddrs, "", "pending", params.StatusPending)
 	c.Assert(count, gc.Equals, 0)
 }
 
@@ -96,7 +95,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
 	// sleep for at least the requested interval.
 	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
-	count := countPolls(c, nil, "i1234", "", state.StatusStarted)
+	count := countPolls(c, nil, "i1234", "", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 	c.Assert(count, jc.LessThan, maxCount)
 	c.Logf("actual count: %v; max %v", count, maxCount)
@@ -105,7 +104,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 	s.PatchValue(&ShortPoll, coretesting.LongWait)
 	s.PatchValue(&LongPoll, 1*time.Millisecond)
-	count := countPolls(c, testAddrs, "i1234", "running", state.StatusStarted)
+	count := countPolls(c, testAddrs, "i1234", "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -113,7 +112,7 @@ func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 // addresses and status to be returned from getInstanceInfo,
 // waits for coretesting.ShortWait, and returns the
 // number of times the instance is polled.
-func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus state.Status) int {
+func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus params.Status) int {
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(string(id), gc.Equals, instId)
@@ -128,11 +127,11 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: instance.Id(instId),
 		refresh:    func() error { return nil },
 		addresses:  addrs,
-		life:       state.Alive,
+		life:       params.Alive,
 		status:     machineStatus,
 	}
 	died := make(chan machine)
@@ -152,17 +151,21 @@ func (s *machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
 		atomic.AddInt32(&count, 1)
-		return instanceInfo{}, errors.NotImplementedf("instance address")
+		err := &params.Error{
+			Code:    params.CodeNotImplemented,
+			Message: "instance address not implemented",
+		}
+		return instanceInfo{}, err
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,
 		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
-		life:       state.Alive,
+		life:       params.Alive,
 	}
 	died := make(chan machine)
 
@@ -181,14 +184,14 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	}
 	refreshc := make(chan struct{})
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "i1234",
 		refresh: func() error {
 			refreshc <- struct{}{}
 			return nil
 		},
 		addresses: testAddrs,
-		life:      state.Dead,
+		life:      params.Dead,
 	}
 	died := make(chan machine)
 	changed := make(chan struct{})
@@ -261,10 +264,10 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	}
 	expectErr := stderrors.New("a very unusual error")
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
-		life:       state.Alive,
+		life:       params.Alive,
 	}
 	mutate(m, expectErr)
 	died := make(chan machine)
@@ -323,44 +326,50 @@ func (context *testMachineContext) dying() <-chan struct{} {
 type testMachine struct {
 	instanceId      instance.Id
 	instanceIdErr   error
-	id              string
+	tag             names.MachineTag
 	instStatus      string
-	status          state.Status
+	status          params.Status
 	refresh         func() error
 	setAddressesErr error
 	// mu protects the following fields.
 	mu              sync.Mutex
-	life            state.Life
+	life            params.Life
 	addresses       []network.Address
 	setAddressCount int
 }
 
-func (m *testMachine) Id() string {
-	if m.id == "" {
-		panic("Id called but not set")
-	}
-	return m.id
+func (m *testMachine) Tag() names.MachineTag {
+	return m.tag
 }
 
-func (m *testMachine) ProviderAddresses() []network.Address {
+func (m *testMachine) Id() string {
+	return m.tag.Id()
+}
+
+func (m *testMachine) ProviderAddresses() ([]network.Address, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.addresses
+
+	return m.addresses, nil
 }
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
 	if m.instanceId == "" {
-		return "", errors.NotProvisionedf("machine %v", m.Id())
+		err := &params.Error{
+			Code:    params.CodeNotProvisioned,
+			Message: fmt.Sprintf("machine %v not provisioned", m.Id()),
+		}
+		return "", err
 	}
 	return m.instanceId, m.instanceIdErr
 }
 
 // This is stubbed out for testing.
-var MachineStatus = func(m *testMachine) (state.StatusInfo, error) {
-	return state.StatusInfo{m.status, "", nil, nil}, nil
+var MachineStatus = func(m *testMachine) (params.StatusResult, error) {
+	return params.StatusResult{Status: m.status}, nil
 }
 
-func (m *testMachine) Status() (state.StatusInfo, error) {
+func (m *testMachine) Status() (params.StatusResult, error) {
 	return MachineStatus(m)
 }
 
@@ -393,20 +402,20 @@ func (m *testMachine) SetProviderAddresses(addrs ...network.Address) error {
 }
 
 func (m *testMachine) String() string {
-	return m.id
+	return m.tag.Id()
 }
 
 func (m *testMachine) Refresh() error {
 	return m.refresh()
 }
 
-func (m *testMachine) Life() state.Life {
+func (m *testMachine) Life() params.Life {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.life
 }
 
-func (m *testMachine) setLife(life state.Life) {
+func (m *testMachine) setLife(life params.Life) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.life = life

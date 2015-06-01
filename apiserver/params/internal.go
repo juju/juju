@@ -352,7 +352,7 @@ type InstanceStatus struct {
 }
 
 // SetInstancesStatus holds parameters for making a
-// SetInstancesStatus() call.
+// SetInstanceStatus() call.
 type SetInstancesStatus struct {
 	Entities []InstanceStatus
 }

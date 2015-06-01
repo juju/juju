@@ -6,13 +6,12 @@ package instancepoller
 import (
 	"fmt"
 	"time"
-
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -33,15 +32,16 @@ var (
 
 type machine interface {
 	Id() string
+	Tag() names.MachineTag
 	InstanceId() (instance.Id, error)
-	ProviderAddresses() []network.Address
+	ProviderAddresses() ([]network.Address, error)
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (string, error)
 	SetInstanceStatus(status string) error
 	String() string
 	Refresh() error
-	Life() state.Life
-	Status() (state.StatusInfo, error)
+	Life() params.Life
+	Status() (params.StatusResult, error)
 	IsManual() (bool, error)
 }
 
@@ -61,8 +61,6 @@ type machineAddress struct {
 	addresses []network.Address
 }
 
-var _ machine = (*state.Machine)(nil)
-
 type machinesWatcher interface {
 	Changes() <-chan []string
 	Err() error
@@ -71,24 +69,24 @@ type machinesWatcher interface {
 
 type updaterContext interface {
 	newMachineContext() machineContext
-	getMachine(id string) (machine, error)
+	getMachine(tag names.MachineTag) (machine, error)
 	dying() <-chan struct{}
 }
 
 type updater struct {
 	context     updaterContext
-	machines    map[string]chan struct{}
+	machines    map[names.MachineTag]chan struct{}
 	machineDead chan machine
 }
 
 // watchMachinesLoop watches for changes provided by the given
-// machinesWatcher and starts machine goroutines to deal
-// with them, using the provided newMachineContext
-// function to create the appropriate context for each new machine id.
+// machinesWatcher and starts machine goroutines to deal with them,
+// using the provided newMachineContext function to create the
+// appropriate context for each new machine tag.
 func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 	p := &updater{
 		context:     context,
-		machines:    make(map[string]chan struct{}),
+		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
 	}
 	defer func() {
@@ -100,7 +98,7 @@ func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 			}
 		}
 		for len(p.machines) > 0 {
-			delete(p.machines, (<-p.machineDead).Id())
+			delete(p.machines, (<-p.machineDead).Tag())
 		}
 	}()
 	for {
@@ -109,25 +107,29 @@ func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 			if !ok {
 				return watcher.EnsureErr(w)
 			}
-			if err := p.startMachines(ids); err != nil {
+			tags := make([]names.MachineTag, len(ids))
+			for i := range ids {
+				tags[i] = names.NewMachineTag(ids[i])
+			}
+			if err := p.startMachines(tags); err != nil {
 				return err
 			}
 		case m := <-p.machineDead:
-			delete(p.machines, m.Id())
+			delete(p.machines, m.Tag())
 		case <-p.context.dying():
 			return nil
 		}
 	}
 }
 
-func (p *updater) startMachines(ids []string) error {
-	for _, id := range ids {
-		if c := p.machines[id]; c == nil {
+func (p *updater) startMachines(tags []names.MachineTag) error {
+	for _, tag := range tags {
+		if c := p.machines[tag]; c == nil {
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
-			m, err := p.context.getMachine(id)
-			if errors.IsNotFound(err) {
-				logger.Warningf("watcher gave notification of non-existent machine %q", id)
+			m, err := p.context.getMachine(tag)
+			if params.IsCodeNotFound(err) {
+				logger.Warningf("watcher gave notification of non-existent machine %q", tag.Id())
 				continue
 			}
 			if err != nil {
@@ -142,7 +144,7 @@ func (p *updater) startMachines(ids []string) error {
 				continue
 			}
 			c = make(chan struct{})
-			p.machines[id] = c
+			p.machines[tag] = c
 			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
 		} else {
 			c <- struct{}{}
@@ -180,7 +182,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
-			if err != nil && !errors.IsNotProvisioned(err) {
+			if err != nil && !params.IsCodeNotProvisioned(err) {
 				// If the provider doesn't implement Addresses/Status now,
 				// it never will until we're upgraded, so don't bother
 				// asking any more. We could use less resources
@@ -188,13 +190,13 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				// (and hopefully the local provider will implement
 				// Addresses/Status in the not-too-distant future),
 				// so we won't need to worry about this case at all.
-				if errors.IsNotImplemented(err) {
+				if params.IsCodeNotImplemented(err) {
 					pollInterval = 365 * 24 * time.Hour
 				} else {
 					return err
 				}
 			}
-			machineStatus := state.StatusPending
+			machineStatus := params.StatusPending
 			if err == nil {
 				if statusInfo, err := m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
@@ -202,7 +204,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					machineStatus = statusInfo.Status
 				}
 			}
-			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == state.StatusStarted {
+			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {
@@ -221,7 +223,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 			if err := m.Refresh(); err != nil {
 				return err
 			}
-			if m.Life() == state.Dead {
+			if m.Life() == params.Dead {
 				return nil
 			}
 		}
@@ -234,7 +236,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
 	// We can't ask the machine for its addresses if it isn't provisioned yet.
-	if errors.IsNotProvisioned(err) {
+	if params.IsCodeNotProvisioned(err) {
 		return instInfo, err
 	}
 	if err != nil {
@@ -242,7 +244,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
-		if errors.IsNotImplemented(err) {
+		if params.IsCodeNotImplemented(err) {
 			return instInfo, err
 		}
 		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)
@@ -262,7 +264,11 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			}
 		}
 	}
-	if !addressesEqual(m.ProviderAddresses(), instInfo.addresses) {
+	providerAddresses, err := m.ProviderAddresses()
+	if err != nil {
+		return instInfo, err
+	}
+	if !addressesEqual(providerAddresses, instInfo.addresses) {
 		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
 		if err = m.SetProviderAddresses(instInfo.addresses...); err != nil {
 			logger.Errorf("cannot set addresses on %q: %v", m, err)
