@@ -174,18 +174,8 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
-        # Actions are a two part command, they start with 'action' followed
-        # by an action specific command.
-        if command.startswith('action'):
-            action_command = command.split()
-            if len(action_command) != 2:
-                raise Exception(
-                    'Unexpected action command length, expected 2 but '
-                    'found %d: \'%s\'' % (len(action_command), command))
-            command = action_command.pop()
-            return prefix + (
-                'juju', logging, 'action', command,) + e_arg + args
-        return prefix + ('juju', logging, command,) + e_arg + args
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, debug=False):
         if env is None:

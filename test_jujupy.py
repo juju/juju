@@ -233,9 +233,6 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual((
             'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
             full)
-        with self.assertRaisesRegexp(
-                Exception, 'Unexpected action command length, expected 2'):
-            client._full_args('action', False, ('bar', 'baz', 'qux'))
 
     def test_bootstrap_hpcloud(self):
         env = Environment('hp', '')
