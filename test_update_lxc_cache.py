@@ -15,16 +15,16 @@ from utility import temp_dir
 
 
 INDEX_DATA = """\
-ubuntu;trusty;arm64;default;201505;/images/ubuntu/trusty/arm64/default/201505/
-ubuntu;trusty;armhf;default;201505;/images/ubuntu/trusty/armhf/default/201505/
-ubuntu;trusty;i386;default;201505;/images/ubuntu/trusty/i386/default/201505/
-ubuntu;trusty;ppc64el;default;20150;/images/ubuntu/trusty/ppc64el/default/20150/
+ubuntu;trusty;arm64;default;201501;/images/ubuntu/trusty/arm64/default/201505/
+ubuntu;trusty;armhf;default;201502;/images/ubuntu/trusty/armhf/default/201505/
+ubuntu;trusty;i386;default;201503;/images/ubuntu/trusty/i386/default/201505/
+ubuntu;trusty;ppc64el;default;20154;/images/ubuntu/trusty/ppc64el/default/20150/
 """
 
 
-def make_systems():
+def make_systems(data=INDEX_DATA):
     systems = {}
-    for line in INDEX_DATA.splitlines():
+    for line in data.splitlines():
         system = System(*line.split(';'))
         key = (system.dist, system.release, system.arch, system.variant)
         systems[key] = system
@@ -145,9 +145,27 @@ class LxcCacheTestCase(TestCase):
             lxc_cache = LxcCache(workspace)
             with patch.object(lxc_cache, 'init_systems', autospec=True,
                               return_value=(systems, INDEX_DATA)) as is_mock:
-                new_system, data = lxc_cache.get_updates(
+                new_system, new_data = lxc_cache.get_updates(
                     'ubuntu', 'trusty', 'ppc64el', 'default')
         self.assertIsNone(new_system)
-        self.assertIsNone(data)
+        self.assertIsNone(new_data)
+        url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
+        is_mock.assert_called_with(url)
+
+    def test_get_updates_found(self):
+        remote_data = INDEX_DATA.replace(
+            'ppc64el;default;20154', 'ppc64el;default;20159')
+        remote_systems = make_systems(remote_data)
+        remote_updates = (remote_systems, remote_data)
+        with temp_dir() as workspace:
+            make_local_cache(workspace)
+            lxc_cache = LxcCache(workspace)
+            with patch.object(lxc_cache, 'init_systems', autospec=True,
+                              return_value=remote_updates) as is_mock:
+                new_system, new_data = lxc_cache.get_updates(
+                    'ubuntu', 'trusty', 'ppc64el', 'default')
+        key = ('ubuntu', 'trusty', 'ppc64el', 'default')
+        self.assertEqual(remote_systems[key], new_system)
+        self.assertEqual(remote_data, new_data)
         url = '%s/%s/%s' % (SITE, INDEX_PATH, INDEX)
         is_mock.assert_called_with(url)
