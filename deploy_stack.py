@@ -604,6 +604,7 @@ def run_deployer():
     if host is None:
         raise Exception('Could not get machine 0 host')
     try:
+        safe_print_status(client)
         client.deployer(args.bundle_path, args.bundle_name)
     except BaseException as e:
         logging.exception(e)
