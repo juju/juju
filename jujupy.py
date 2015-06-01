@@ -174,7 +174,8 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
-        return prefix + ('juju', logging, command,) + e_arg + args
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, debug=False):
         if env is None:
@@ -639,6 +640,8 @@ class Status:
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
+                for sub_name, sub in unit.get('subordinates', {}).items():
+                    yield sub_name, sub
 
     def agent_states(self):
         """Map agent states to the units and machines in those states."""
@@ -685,6 +688,17 @@ class Status:
             if unit_name in service.get('units', {}):
                 return service['units'][unit_name]
         raise KeyError(unit_name)
+
+    def get_subordinate_units(self, service_name):
+        """Return subordinate metadata for a service_name."""
+        subordinates = []
+        services = self.status.get('services', {})
+        if service_name in services.keys():
+            for unit in sorted(services[service_name].get(
+                    'units', {}).values()):
+                subordinates.append(unit.get('subordinates', {}))
+            return subordinates
+        raise KeyError(service_name)
 
     def get_open_ports(self, unit_name):
         """List the open ports for the specified unit.
