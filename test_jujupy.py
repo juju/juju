@@ -581,7 +581,7 @@ class TestEnvJujuClient(ClientTest):
                 units:
                   jenkins/0:
                     subordinates:
-                      sub1:
+                      sub1/0:
                         agent-state: started
         """)
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
@@ -590,6 +590,30 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client, 'get_juju_output', return_value=value):
                 client.wait_for_subordinate_units('jenkins', 'sub1',
                                                   start=now - timedelta(1200))
+
+    def test_wait_for_subordinate_units_checks_slash_in_unit_name(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    with patch('logging.error'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_subordinate_units_no_subordinate(self):
         value = dedent("""\

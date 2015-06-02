@@ -393,7 +393,7 @@ class EnvJujuClient:
             service_unit_count = status.get_service_unit_count(service)
             subordinate_unit_count = 0
             for name, unit in status.service_subordinate_units(service):
-                if name.startswith(unit_prefix):
+                if name.startswith(unit_prefix + '/'):
                     subordinate_unit_count += 1
             if subordinate_unit_count == service_unit_count:
                 break
