@@ -87,3 +87,26 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 		c.Assert(status.Info, gc.Equals, args[1])
 	}
 }
+
+func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
+	for i, args := range [][]string{
+		[]string{"--service", "maintenance", "doing some work"},
+		[]string{"--service", "active", ""},
+	} {
+		c.Logf("test %d: %#v", i, args)
+		hctx := s.GetStatusHookContext(c)
+		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		c.Assert(err, jc.ErrorIsNil)
+		ctx := testing.Context(c)
+		code := cmd.Main(com, ctx, args)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+		status, err := hctx.ServiceStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(status.Service.Status, gc.Equals, args[1])
+		c.Assert(status.Service.Info, gc.Equals, args[2])
+		c.Assert(status.Units, gc.DeepEquals, []jujuc.StatusInfo{})
+
+	}
+}

@@ -53,6 +53,19 @@ func setFakeStatus(ctx *Context) {
 	})
 }
 
+func setFakeServiceStatus(ctx *Context) {
+	ctx.SetTestingServiceStatus(jujuc.StatusInfo{
+		Status: "active",
+		Info:   "this is a service status",
+		Data:   nil,
+	},
+		[]jujuc.StatusInfo{{
+			Status: "active",
+			Info:   "this is a unit status",
+			Data:   nil,
+		}})
+}
+
 func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 	for i, t := range statusGetTests {
 		c.Logf("test %d: %#v", i, t.args)
@@ -125,4 +138,20 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	var out map[string]interface{}
 	c.Assert(json.Unmarshal(content, &out), gc.IsNil)
 	c.Assert(out, gc.DeepEquals, statusAttributes)
+}
+
+func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
+	expected := map[string]interface{}{"service-status": map[interface{}]interface{}{"status-data": map[interface{}]interface{}{}, "units": map[interface{}]interface{}{"": map[interface{}]interface{}{"message": "this is a unit status", "status": "active", "status-data": map[interface{}]interface{}{}}}, "message": "this is a service status", "status": "active"}}
+	hctx := s.GetStatusHookContext(c)
+	setFakeServiceStatus(hctx)
+	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--service"})
+	c.Assert(code, gc.Equals, 0)
+
+	var out map[string]interface{}
+	c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), gc.IsNil)
+	c.Assert(out, gc.DeepEquals, expected)
+
 }
