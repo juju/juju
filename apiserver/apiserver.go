@@ -337,10 +337,7 @@ func (srv *Server) run(lis net.Listener) {
 	)
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			&logSinkHandler{
-				httpHandler: httpHandler{ssState: srv.state},
-			},
-		)
+			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
