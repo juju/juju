@@ -35,8 +35,8 @@ func (APICallerFunc) Close() error {
 // fields non empty fields will be checked to match the arguments
 // recieved by the APICall() method of the returned APICallerFunc. If
 // Id is empty, but IdIsEmpty is true, the id argument is checked to
-// be empty. The same applies to Version being empty, but
-// VersionIsZero set to true - the version is checked to be 0.
+// be empty. The same applies to Version being empty, but if
+// VersionIsZero set to true the version is checked to be 0.
 type CheckArgs struct {
 	Facade  string
 	Version int
