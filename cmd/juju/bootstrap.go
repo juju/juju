@@ -17,6 +17,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
@@ -320,8 +321,8 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		if err == nil {
 			return nil
 		}
-		ctx.Infof("Waiting for API to become available.")
-		if strings.Contains(err.Error(), "upgrade is in progress") {
+		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
+			ctx.Infof("Waiting for API to become available: %v", err.Error())
 			continue
 		}
 		return err
