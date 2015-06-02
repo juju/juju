@@ -65,7 +65,7 @@ func (s *ApiManifoldSuite) TestStartFailure(c *gc.C) {
 	getResource := dt.StubGetResource(dt.StubResources{
 		"api-caller-name": dt.StubResource{Output: expectApiCaller},
 	})
-	s.Errors = []error{errors.New("some error")}
+	s.SetErrors(errors.New("some error"))
 
 	worker, err := s.manifold.Start(getResource)
 	c.Check(worker, gc.IsNil)

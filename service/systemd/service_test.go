@@ -95,7 +95,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reset any incidental calls.
-	s.stub.Calls = nil
+	s.stub.ResetCalls()
 }
 
 func (s *initSystemSuite) newConfStr(name string) string {
@@ -157,7 +157,7 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 		content = s.newConfStr(name)
 	}
 
-	call := s.stub.Calls[index]
+	call := s.stub.Calls()[index]
 	if !c.Check(call.FuncName, gc.Equals, "CreateFile") {
 		return
 	}
@@ -632,7 +632,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	filename := fmt.Sprintf("%s/%s.service", dirname, s.name)
-	createFileOutput := s.stub.Calls[2].Args[1]
+	createFileOutput := s.stub.Calls()[2].Args[1] // gross
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommand",
 		Args: []interface{}{

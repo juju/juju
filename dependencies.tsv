@@ -27,7 +27,7 @@ github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-3
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/schema	git	1c4e902df91bd058b84029533bf4ce92e6ef87ab	2015-03-30T01:12:23Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
-github.com/juju/testing	git	49fe9a53afc9a162d31e7e5ea2b18d888e65cf4d	2015-05-19T10:32:42Z
+github.com/juju/testing	git	f521911d9a79aeb62c051fe18e689796369c5564	2015-05-29T10:32:42Z
 github.com/juju/txn	git	5c38fee875d088643ebe2074f308d79680578ba7	2015-05-21T12:30:32Z
 github.com/juju/utils	git	752486724a6c0a8e316c47f9b4382be1126285b0	2015-05-26T23:59:59Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
