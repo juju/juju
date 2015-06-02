@@ -205,7 +205,6 @@ def main():
             client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)
         client.get_status(60)
-        client.wait_for_started()
         client.juju("deploy", ('local:trusty/fill-logs',))
 
         if args.agent == "unit":
