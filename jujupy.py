@@ -289,13 +289,15 @@ class EnvJujuClient:
             self.set_env_option('tools-metadata-url', testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
-             timeout=None, juju_home=None):
+             timeout=None, juju_home=None, extra_env=None):
         """Run a command under juju for the current environment."""
         args = self._full_args(command, sudo, args, include_e=include_e,
                                timeout=timeout)
         print(' '.join(args))
         sys.stdout.flush()
         env = self._shell_environ(juju_home)
+        if extra_env is not None:
+            env.update(extra_env)
         if check:
             return subprocess.check_call(args, env=env)
         return subprocess.call(args, env=env)
@@ -340,7 +342,8 @@ class EnvJujuClient:
         if upload_tools:
             args = ('--upload-tools',) + args
         args = args + ('--no-browser', bundle,)
-        self.juju('quickstart', args, self.env.needs_sudo())
+        self.juju('quickstart', args, self.env.needs_sudo(),
+                  extra_env={'JUJU': self.full_path})
 
     def status_until(self, timeout, start=None):
         """Call and yield status until the timeout is reached.
@@ -667,7 +670,7 @@ class Status:
             return None
         for state, entries in states.items():
             if 'error' in state:
-                raise ErroredUnit(entries[0],  state)
+                raise ErroredUnit(entries[0], state)
         return states
 
     def get_service_count(self):

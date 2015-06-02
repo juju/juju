@@ -165,7 +165,8 @@ def get_release_package_filename(credentials, build_data):
 
 
 def get_juju_bin(credentials, workspace):
-    build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
+    binary_job = JobNamer.factory().get_build_binary_job()
+    build_data = get_build_data(JENKINS_URL, credentials, binary_job,
                                 'lastBuild')
     file_name = get_release_package_filename(credentials, build_data)
     return get_juju_binary(credentials, file_name, build_data, workspace)
@@ -397,15 +398,22 @@ def get_credentials(args):
     return Credentials(args.user, args.password)
 
 
-class PackageNamer:
+class Namer:
+    """A base class that has distro and arch info used to name things."""
 
     @classmethod
     def factory(cls):
-        return cls(get_deb_arch(), get_distro_information()['RELEASE'])
+        dist_info = get_distro_information()
+        return cls(get_deb_arch(), dist_info['RELEASE'], dist_info['CODENAME'])
 
-    def __init__(self, arch, distro_release):
+    def __init__(self, arch, distro_release, distro_series):
         self.arch = arch
         self.distro_release = distro_release
+        self.distro_series = distro_series
+
+
+class PackageNamer(Namer):
+    """A class knows the names of packages."""
 
     def get_release_package(self, version):
         return (
@@ -418,6 +426,14 @@ class PackageNamer:
             'juju-core_{version}.{distro_release}.1_{arch}.deb'
             ).format(version=version, distro_release=self.distro_release,
                      arch=self.arch)
+
+
+class JobNamer(Namer):
+    """A class knows the names of jobs."""
+
+    def get_build_binary_job(self):
+        return 'build-binary-{distro_series}-{arch}'.format(
+            distro_series=self.distro_series, arch=self.arch)
 
 
 def main(argv):
