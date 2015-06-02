@@ -571,7 +571,7 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_started(0)
         le_mock.assert_called_once_with(value)
 
-    def test_wait_for_subordinate_unit(self):
+    def test_wait_for_subordinate_units(self):
         value = dedent("""\
             machines:
               "0":
@@ -588,10 +588,10 @@ class TestEnvJujuClient(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                client.wait_for_subordinate_unit('jenkins', 'sub1',
-                                                 start=now - timedelta(1200))
+                client.wait_for_subordinate_units('jenkins', 'sub1',
+                                                  start=now - timedelta(1200))
 
-    def test_wait_for_subordinate_unit_no_subordinate(self):
+    def test_wait_for_subordinate_units_no_subordinate(self):
         value = dedent("""\
             machines:
               "0":
@@ -610,7 +610,7 @@ class TestEnvJujuClient(ClientTest):
                         Exception,
                         'Timed out waiting for agents to start in local'):
                     with patch('logging.error'):
-                        client.wait_for_subordinate_unit(
+                        client.wait_for_subordinate_units(
                             'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_ha(self):
@@ -1443,6 +1443,33 @@ class TestStatus(TestCase):
             }
         }, '')
         self.assertEqual(3, status.get_service_count())
+
+    def test_get_service_unit_count_zero(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_unit_count('jenkins'))
+
+    def test_get_service_unit_count(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'bad'},
+                        'jenkins/3': {'agent-state': 'bad'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_unit_count('jenkins'))
 
     def test_get_unit(self):
         status = Status({

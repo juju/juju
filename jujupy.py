@@ -379,23 +379,23 @@ class EnvJujuClient:
             reporter.finish()
         return status
 
-    def wait_for_subordinate_unit(self, service, unit_prefix, timeout=1200,
-                                  start=None):
-        """Wait until a subordinate unit with unit_prefix appears for
-        service."""
+    def wait_for_subordinate_units(self, service, unit_prefix, timeout=1200,
+                                   start=None):
+        """Wait until all service units have a subordinate with
+        unit_prefix."""
         status = None
         for ignored in chain([None], until_timeout(timeout, start=start)):
-            found = False
             try:
                 status = self.get_status()
             except CannotConnectEnv:
                 print('Supressing "Unable to connect to environment"')
                 continue
+            service_unit_count = status.get_service_unit_count(service)
+            subordinate_unit_count = 0
             for name, unit in status.service_subordinate_units(service):
                 if name.startswith(unit_prefix):
-                    found = True
-                    break
-            if found:
+                    subordinate_unit_count += 1
+            if subordinate_unit_count == service_unit_count:
                 break
         else:
             logging.error(status.status_text)
@@ -695,6 +695,10 @@ class Status:
 
     def get_service_count(self):
         return len(self.status.get('services', {}))
+
+    def get_service_unit_count(self, service):
+        return len(
+            self.status.get('services', {}).get(service, {}).get('units', {}))
 
     def get_agent_versions(self):
         versions = defaultdict(set)
