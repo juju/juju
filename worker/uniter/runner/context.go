@@ -165,7 +165,7 @@ type HookContext struct {
 	// keyed on storage name as specified in the charm.
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
-	storageAddConstraints map[string]params.StorageConstraints
+	storageAddConstraints map[string][]params.StorageConstraints
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -270,18 +270,17 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, boo
 }
 
 func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
-	// Storage constraints are accumulative before context is flushed.
-	// TODO (anastasiamac 2015-05-26) Bug 1459057:
-	//     what happens if more than one call is made about the same store?
-	//     with this implementation, the latest call arrived will be taken
-	//     into consideration.
+	// All storage constraints are accumulated before context is flushed.
 	if ctx.storageAddConstraints == nil {
 		ctx.storageAddConstraints = make(
-			map[string]params.StorageConstraints,
+			map[string][]params.StorageConstraints,
 			len(cons))
 	}
-	for storage, constraints := range cons {
-		ctx.storageAddConstraints[storage] = constraints
+	for storage, newConstraints := range cons {
+		// Multiple calls for the same storage are accumulated as well.
+		ctx.storageAddConstraints[storage] = append(
+			ctx.storageAddConstraints[storage],
+			newConstraints)
 	}
 }
 

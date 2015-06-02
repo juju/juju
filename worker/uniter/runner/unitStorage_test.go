@@ -90,6 +90,17 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 			"multi1to10": params.StorageConstraints{Count: &count}})
 }
 
+func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
+	s.createStorageBlock2Unit(c)
+	count := uint64(1)
+	size := uint64(2048)
+	s.assertUnitStorageAdded(c,
+		map[string]params.StorageConstraints{
+			"multi2up": params.StorageConstraints{Size: &size, Count: &count}},
+		map[string]params.StorageConstraints{
+			"multi2up": params.StorageConstraints{Count: &count}})
+}
+
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)

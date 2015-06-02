@@ -736,14 +736,16 @@ func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
 }
 
 // AddStorage adds desired storage instances to a unit.
-func (u *Unit) AddStorage(constraints map[string]params.StorageConstraints) error {
+func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
 	if u.st.facade.BestAPIVersion() < 2 {
 		return errors.NotImplementedf("AddStorage() (need V2+)")
 	}
 
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
-		all = append(all, params.StorageAddParams{u.Tag().String(), storage, cons})
+		for _, one := range cons {
+			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})
+		}
 	}
 
 	args := params.StoragesAddParams{Storages: all}

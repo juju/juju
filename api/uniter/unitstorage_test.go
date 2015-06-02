@@ -28,8 +28,9 @@ func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesti
 }
 
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
-	args := map[string]params.StorageConstraints{
-		"data": params.StorageConstraints{Pool: "loop"},
+	args := map[string][]params.StorageConstraints{
+		"data": []params.StorageConstraints{
+			params.StorageConstraints{Pool: "loop"}},
 	}
 
 	expected := params.StoragesAddParams{
@@ -58,8 +59,8 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
-	args := map[string]params.StorageConstraints{
-		"data": params.StorageConstraints{Pool: "loop"},
+	args := map[string][]params.StorageConstraints{
+		"data": []params.StorageConstraints{params.StorageConstraints{Pool: "loop"}},
 	}
 
 	expected := params.StoragesAddParams{
