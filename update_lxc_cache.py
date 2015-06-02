@@ -81,9 +81,9 @@ class LxcCache:
     def get_updates(self, dist, release, arch, variant):
         """Return a tuple of the new system and the source data that match.
 
-        The new system and source data will be None, None when there are
+        The new system and source data will be None when there are
         no updates. The dist, release, arch, and variant args identify the
-        system to return.∏
+        system to return.
         """
         key = (dist, release, arch, variant)
         old_system = self.systems.get(key)
