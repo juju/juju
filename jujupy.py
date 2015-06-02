@@ -177,6 +177,8 @@ class EnvJujuClient:
             return EnvJujuClient24(env, version, full_path, debug=debug)
         elif re.match('^1\.24[.-]', version):
             return EnvJujuClient24(env, version, full_path, debug=debug)
+        elif re.match('^1\.25[.-]', version):
+            return EnvJujuClient25(env, version, full_path, debug=debug)
         else:
             return EnvJujuClient(env, version, full_path, debug=debug)
 
@@ -191,11 +193,12 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
-        if command == "action":
+		command = command.split()
+        if command[0] == "action":
             # action requires the -e after the action subcommand, so just
             # put it at the end.
-            return prefix + ('juju', logging, command,) + args + e_arg
-        return prefix + ('juju', logging, command,) + e_arg + args
+            return prefix + ('juju', logging,) + tuple(command) + args + e_arg
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, debug=False):
         if env is None:
@@ -341,13 +344,15 @@ class EnvJujuClient:
             args.extend(['--repository', repository])
         return self.juju('deploy', tuple(args))
 
-    def deployer(self, bundle):
+    def deployer(self, bundle, name=None):
         """deployer, using sudo if necessary."""
         args = (
             '--debug',
             '--deploy-delay', '10',
             '--config', bundle,
         )
+        if name:
+            args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
 
     def quickstart(self, bundle, upload_tools=False):
@@ -555,20 +560,24 @@ class EnvJujuClient22(EnvJujuClient):
         return env
 
 
-class EnvJujuClient24(EnvJujuClient):
+class EnvJujuClient25(EnvJujuClient):
 
     def _shell_environ(self, juju_home=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient24, self)._shell_environ(juju_home)
+        env = super(EnvJujuClient25, self)._shell_environ(juju_home)
         if self.env.config.get('type') == 'cloudsigma':
             if env.get(JUJU_DEV_FEATURE_FLAGS, '') == '':
                 env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
             else:
                 env[JUJU_DEV_FEATURE_FLAGS] += ',cloudsigma'
         return env
+
+
+class EnvJujuClient24(EnvJujuClient25):
+    """Currently, same feature set as juju 25"""
 
 
 def get_local_root(juju_home, env):
@@ -718,6 +727,8 @@ class Status:
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
+                for sub_name, sub in unit.get('subordinates', {}).items():
+                    yield sub_name, sub
 
     def agent_states(self):
         """Map agent states to the units and machines in those states."""
@@ -764,6 +775,17 @@ class Status:
             if unit_name in service.get('units', {}):
                 return service['units'][unit_name]
         raise KeyError(unit_name)
+
+    def get_subordinate_units(self, service_name):
+        """Return subordinate metadata for a service_name."""
+        subordinates = []
+        services = self.status.get('services', {})
+        if service_name in services.keys():
+            for unit in sorted(services[service_name].get(
+                    'units', {}).values()):
+                subordinates.append(unit.get('subordinates', {}))
+            return subordinates
+        raise KeyError(service_name)
 
     def get_open_ports(self, unit_name):
         """List the open ports for the specified unit.

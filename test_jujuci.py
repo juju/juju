@@ -18,6 +18,7 @@ from jujuci import (
     find_artifacts,
     get_artifacts,
     get_build_data,
+    get_buildvars,
     get_certification_bin,
     get_credentials,
     get_juju_bin,
@@ -27,6 +28,7 @@ from jujuci import (
     JENKINS_URL,
     list_artifacts,
     PackageNamer,
+    parse_args,
     PUBLISH_REVISION,
     main,
     retrieve_artifact,
@@ -34,6 +36,7 @@ from jujuci import (
 )
 import jujupy
 from utility import temp_dir
+from test_utility import parse_error
 
 
 def make_build_data(number='lastSuccessfulBuild'):
@@ -150,6 +153,46 @@ class JujuCITestCase(TestCase):
             self.assertEqual('bar', kwargs['env'])
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
+
+    def test_main_get_buildvars(self):
+        with patch('jujuci.get_buildvars', autospec=True) as mock:
+            main(
+                ['get-build-vars', '--env', 'foo', '--summary',
+                 '--revision-build', '--version', '--short-branch',
+                 '--short-revision', '--branch', '--revision', '123',
+                 '--user', 'jrandom', '--password', '1password'])
+        args, kwargs = mock.call_args
+        self.assertEqual((Credentials('jrandom', '1password'), '123'), args)
+        self.assertEqual('foo', kwargs['env'])
+        self.assertTrue(kwargs['summary'])
+        self.assertTrue(kwargs['revision_build'])
+        self.assertTrue(kwargs['version'])
+        self.assertTrue(kwargs['short_revision'])
+        self.assertTrue(kwargs['short_branch'])
+        self.assertTrue(kwargs['branch'])
+        self.assertTrue(kwargs['revision'])
+
+    def test_parse_arg_buildvars_common_options(self):
+        args, credentials = parse_args(
+            ['get-build-vars', '--env', 'foo', '--summary',
+             '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertEqual(Credentials('jrandom', '1password'), credentials)
+        self.assertEqual('foo', args.env)
+        self.assertTrue(args.summary)
+        args, credentials = parse_args(
+            ['get-build-vars', '--version',
+             '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertTrue(args.version)
+        args, credentials = parse_args(
+            ['get-build-vars', '--short-branch',
+             '--user', 'jrandom', '--password', '1password', '1234'])
+        self.assertTrue(args.short_branch)
+
+    def test_parse_arg_buildvars_error(self):
+        with parse_error(self) as stderr:
+            parse_args(['get-build-vars', '1234'])
+        self.assertIn(
+            'Expected --summary or one or more of:', stderr.getvalue())
 
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
@@ -494,6 +537,38 @@ class JujuCITestCase(TestCase):
                 workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
             artifacts = os.listdir(artifacts_dir)
             self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
+
+    def test_get_buildvars(self):
+        buildvars = {
+            'revision_id': '1234567abcdef',
+            'version': '1.22.4',
+            'revision_build': '1234',
+            'branch': 'gitbranch:1.22:github.com/juju/juju',
+            }
+        credentials = Credentials('bar', 'baz')
+        with patch('jujuci.retrieve_buildvars', autospec=True,
+                   return_value=buildvars) as rb_mock:
+            # The summary case for deploy and upgrade jobs.
+            text = get_buildvars(
+                credentials, 1234, env='foo',
+                summary=True, revision_build=False, version=False,
+                short_branch=False, short_revision=False,
+                branch=False, revision=False)
+            rb_mock.assert_called_once_with(credentials, 1234)
+            self.assertEqual(
+                'Testing gitbranch:1.22:github.com/juju/juju 1234567 '
+                'on foo for 1234',
+                text)
+            # The version case used to skip jobs testing old versions.
+            text = get_buildvars(
+                credentials, 1234,
+                summary=False, revision_build=True, version=True,
+                branch=True, short_branch=True,
+                revision=True, short_revision=True)
+            self.assertEqual(
+                '1234 1.22.4 1.22 1234567 '
+                'gitbranch:1.22:github.com/juju/juju 1234567abcdef',
+                text)
 
 
 class TestPackageNamer(TestCase):

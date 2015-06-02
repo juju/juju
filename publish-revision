@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eux
 
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
 BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 BUILD_i386=${BUILD_i386:-true}
 TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
@@ -79,6 +80,17 @@ do
     fi
 done
 fi
+
+# These agents are built while the debs are built. This is safe to do because
+# the debs take 45 minutes. When this script is dismantled, the job
+# that publishes the revision will require build-centos, build-win-agen,
+# and the new build-packages job.
+$SCRIPTS/jujuci.py get -b lastBuild \
+    build-centos juju-*centos7-amd64.tgz $WORKSPACE
+WIN2012=$($SCRIPTS/jujuci.py get -b lastBuild \
+    build-win-agent juju-*win2012-amd64.tgz $WORKSPACE)
+WIN2012R2=$(echo $WIN2012 | sed -e 's,win2012-,win2012r2-,')
+cp $WIN2012 $WIN2012R2
 
 $RELEASE_TOOLS/assemble-streams.bash -n -t $WORKSPACE/ testing $VERSION $STREAMS
 PUBLISH_ARGS="testing $STREAMS/juju-dist cpc"

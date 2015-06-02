@@ -31,6 +31,7 @@ from jujupy import (
     EnvJujuClient,
     EnvJujuClient22,
     EnvJujuClient24,
+    EnvJujuClient25,
     ErroredUnit,
     GroupReporter,
     get_local_root,
@@ -59,8 +60,10 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     test_case.assertEqual(args, (expected_args,))
     kwarg_keys = ['env']
     if assign_stderr:
-        kwarg_keys = ['stderr'] + kwarg_keys
-        test_case.assertEqual(type(kwargs['stderr']), file)
+        with tempfile.TemporaryFile() as example:
+            # 'example' is a pragmatic way of checking file types in py2 and 3.
+            kwarg_keys = ['stderr'] + kwarg_keys
+            test_case.assertIsInstance(kwargs['stderr'], type(example))
     test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
@@ -83,25 +86,27 @@ class ClientTest(TestCase):
         self.pause_mock = patcher.start()
 
 
-class TestEnvJujuClient24(ClientTest):
+class TestEnvJujuClient25(ClientTest):
+
+    client_class = EnvJujuClient25
 
     def test__shell_environ_not_cloudsigma(self):
-        client = EnvJujuClient24(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ()
         self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
 
     def test__shell_environ_cloudsigma(self):
-        client = EnvJujuClient24(
+        client = self.client_class(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.24-foobar', 'path')
+            '1.25-foobar', 'path')
         env = client._shell_environ()
         "".split()
         self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_juju_home(self):
         client = EnvJujuClient24(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
@@ -116,9 +121,14 @@ class TestEnvJujuClient22(ClientTest):
 
     def test__shell_environ_juju_home(self):
         client = EnvJujuClient22(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestEnvJujuClient24(TestEnvJujuClient25):
+
+    client_class = EnvJujuClient25
 
 
 class TestEnvJujuClient(ClientTest):
@@ -177,6 +187,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.24-alpha1'
             yield '1.24.7'
             yield '1.25.1'
+            yield '1.26.1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -199,8 +210,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24.7')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient25)
             self.assertEqual(client.version, '1.25.1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '1.26.1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
@@ -231,6 +245,14 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual((
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
+    def test_full_args_action(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        full = client._full_args('action bar', False, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
+            full)
+
     def test_bootstrap_hpcloud(self):
         env = Environment('hp', '')
         with patch.object(env, 'hpcloud', lambda: True):
@@ -256,12 +278,9 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
-            mock.assert_called_once_with(client,
-                                         'bootstrap',
-                                         ('--constraints',
-                                          'mem=2G cpu-cores=1'),
-                                         False,
-                                         juju_home=None)
+            mock.assert_called_once_with(
+                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
+                False, juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -412,7 +431,7 @@ class TestEnvJujuClient(ClientTest):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, '/foobar/bar')
         with patch('subprocess.check_output') as sco_mock:
-            client.get_juju_output(env, 'baz')
+            client.get_juju_output('cmd', 'baz')
         self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
 
@@ -1337,13 +1356,19 @@ class TestStatus(TestCase):
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/1': {'baz': 'qux'}
+                        'jenkins/1': {
+                            'subordinates': {
+                                'sub': {'baz': 'qux'}
+                            }
+                        }
                     }
                 }
             }
         }, '')
         expected = [
-            ('1', {'foo': 'bar'}), ('jenkins/1', {'baz': 'qux'})]
+            ('1', {'foo': 'bar'}),
+            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
+            ('sub', {'baz': 'qux'})]
         self.assertItemsEqual(expected, status.agent_items())
 
     def test_agent_items_containers(self):
@@ -1398,6 +1423,9 @@ class TestStatus(TestCase):
 
     def test_get_unit(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -1418,8 +1446,62 @@ class TestStatus(TestCase):
         with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
             status.get_unit('jenkins/3')
 
+    def test_get_subordinate_units(self):
+        status = Status({
+            'machines': {
+                '1': {},
+            },
+            'services': {
+                'ubuntu': {},
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'subordinates': {
+                                'chaos-monkey/0': {'agent-state': 'started'},
+                            }
+                        }
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {
+                            'subordinates': {
+                                'chaos-monkey/1': {'agent-state': 'started'}
+                            }
+                        },
+                        'jenkins/3': {
+                            'subordinates': {
+                                'chaos-monkey/2': {'agent-state': 'started'}
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(
+            status.get_subordinate_units('ubuntu'),
+            [])
+        self.assertEqual(
+            status.get_subordinate_units('jenkins'),
+            [{'chaos-monkey/0': {'agent-state': 'started'}}])
+        self.assertEqual(
+            status.get_subordinate_units('dummy-sink'), [
+                {'chaos-monkey/1': {'agent-state': 'started'}},
+                {'chaos-monkey/2': {'agent-state': 'started'}}]
+            )
+        with self.assertRaisesRegexp(KeyError, 'foo'):
+            status.get_subordinate_units('foo')
+
+    def test_get_subordinate_units_no_services(self):
+        status = Status({}, '')
+        with self.assertRaisesRegexp(KeyError, 'ubuntu'):
+            status.get_subordinate_units('ubuntu')
+
     def test_get_open_ports(self):
         status = Status({
+            'machines': {
+                '1': {},
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -1485,7 +1567,14 @@ class TestStatus(TestCase):
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/1': {'agent-state': 'started'},
+                        'jenkins/1': {
+                            'agent-state': 'started',
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-state': 'started'
+                                }
+                            }
+                        },
                         'jenkins/2': {'agent-state': 'started'},
                     }
                 }
@@ -1814,6 +1903,16 @@ class TestEnvironment(TestCase):
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--config',
                          'bundle:~juju-qa/some-bundle'), True
+        )
+
+    def test_deployer_with_bundle_name(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-bundle', 'name')
+        mock.assert_called_with(
+            'deployer', ('--debug', '--deploy-delay', '10', '--config',
+                         'bundle:~juju-qa/some-bundle', 'name'), True
         )
 
     def test_quickstart_maas(self):

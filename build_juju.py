@@ -55,7 +55,8 @@ def build_juju(credentials, product, workspace_dir, build,
         crossbuild, product, '-b', '~/crossbuild', tar_artifact.file_name]
     run_command(command, dry_run=dry_run, verbose=verbose)
     globs = [
-        'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz', 'juju-*-osx.tar.gz']
+        'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz', 'juju-*-osx.tar.gz',
+        'juju-*-centos7-amd64.tgz', 'juju-*-centos7.tar.gz']
     add_artifacts(workspace_dir, globs, dry_run=dry_run, verbose=verbose)
 
 
@@ -76,7 +77,7 @@ def parse_args(args=None):
         help='The path to the juju-release-tools dir, default: %s' %
               DEFAULT_JUJU_RELEASE_TOOLS)
     parser.add_argument(
-        'product', choices=['win-client', 'win-agent', 'osx-client'],
+        'product', choices=['win-client', 'win-agent', 'osx-client', 'centos'],
         help='the kind of juju to make and package.')
     parser.add_argument(
         'workspace',  help='The path to the workspace to build in.')

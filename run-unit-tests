@@ -9,10 +9,10 @@ shift; shift
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
-SAFE="false"
 REVISION_BUILD=${revision_build:-}
 USE_PPA=""
 USE_TMPFS="false"
+GOTESTCMD="go test"
 LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
 LOG_TXT="17.04,Angsty Antelope,angsty,2016-10-23,2017-04-30,2018-01-29"
 
@@ -25,7 +25,7 @@ while [[ "${1-}" != "" ]]; do
             RETRY="true"
             ;;
         --safe)
-            SAFE="true"
+            GOTESTCMD="$GOTESTCMD -p 2"
             ;;
         --local)
             IS_LOCAL="true"
@@ -47,6 +47,9 @@ while [[ "${1-}" != "" ]]; do
         --use-tmpfs)
             USE_TMPFS="true"
             ;;
+        --race)
+            GOTESTCMD="$GOTESTCMD -race"
+            ;;
     esac
     shift
 done
@@ -56,9 +59,8 @@ if [[ $IS_LOCAL == "false" ]]; then
     # Download the buildvars and tartfile and lean the tarfile name.
     downloaded=$($SCRIPTS/jujuci.py get build-revision '*' ./)
     tarfile=$(basename $(echo "$downloaded" | grep -F tar.gz))
-    source buildvars.bash
-    rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-    echo "Testing $BRANCH $rev"
+    $SCRIPTS/jujuci.py get-build-vars \
+        --summary --env $AMI_IMAGE $REVISION_BUILD
 fi
 tarfile_path=$(readlink -f $tarfile)
 tarfile_basename=$(basename $tarfile)
@@ -161,9 +163,9 @@ if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
 fi
 
 if [[ "$RETRY" == "true" ]]; then
-    go test ./... || go test -p 2 ./...
-elif [[  "$SAFE" == "true"  ]]; then
-    go test -p 2 ./...
+    $GOTESTCMD ./... || $GOTESTCMD ./...
+elif [[  "$GOTESTCMD" != "go test"  ]]; then
+    $GOTESTCMD ./...
 else
     make check
 fi
@@ -181,6 +183,7 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     set -eux
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
+    sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     rm -rf /home/ubuntu/$juju_version
     rm -rf /tmp/adduser-*
     rm -rf /tmp/go-*
