@@ -1272,7 +1272,7 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
 	} else {
 		return nil // allow all logins
 	}
