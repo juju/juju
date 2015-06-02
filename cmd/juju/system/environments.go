@@ -26,6 +26,7 @@ type EnvironmentsCommand struct {
 	out       cmd.Output
 	user      string
 	listUUID  bool
+	exactTime bool
 	api       EnvironmentManagerAPI
 	userCreds *configstore.APICredentials
 }
@@ -65,12 +66,21 @@ func (c *EnvironmentsCommand) getConnectionCredentials() (configstore.APICredent
 // SetFlags implements Command.SetFlags.
 func (c *EnvironmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "the user to list environments for.  Only administrative users can list environments for other users.")
-	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for environments")
+	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for environments")
+	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": c.formatTabular,
 	})
+}
+
+// Local structure that controls the output structure.
+type UserEnvironment struct {
+	Name           string `json:"name"`
+	UUID           string `json:"env-uuid" yaml:"env-uuid"`
+	Owner          string `json:"owner"`
+	LastConnection string `json:"last-connection" yaml:"last-connection"`
 }
 
 // Run implements Command.Run
@@ -94,12 +104,23 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list environments")
 	}
 
-	return c.out.Write(ctx, envs)
+	output := make([]UserEnvironment, len(envs))
+	now := time.Now()
+	for i, env := range envs {
+		output[i] = UserEnvironment{
+			Name:           env.Name,
+			UUID:           env.UUID,
+			Owner:          env.Owner,
+			LastConnection: user.LastConnection(env.LastConnection, now, c.exactTime),
+		}
+	}
+
+	return c.out.Write(ctx, output)
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]environmentmanager.UserEnvironment)
+	envs, ok := value.([]UserEnvironment)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}
@@ -123,11 +144,7 @@ func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", env.UUID)
 		}
-		lastConn := "never connected"
-		if env.LastConnection != nil {
-			lastConn = user.UserFriendlyDuration(*env.LastConnection, time.Now())
-		}
-		fmt.Fprintf(tw, "\t%s\t%s\n", env.Owner, lastConn)
+		fmt.Fprintf(tw, "\t%s\t%s\n", env.Owner, env.LastConnection)
 	}
 	tw.Flush()
 	return out.Bytes(), nil

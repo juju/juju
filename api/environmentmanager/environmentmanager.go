@@ -76,7 +76,6 @@ type UserEnvironment struct {
 	Name           string
 	UUID           string
 	Owner          string
-	ServerUUID     string
 	LastConnection *time.Time
 }
 
@@ -98,13 +97,12 @@ func (c *Client) ListEnvironments(user string) ([]UserEnvironment, error) {
 	for i, env := range environments.UserEnvironments {
 		owner, err := names.ParseUserTag(env.OwnerTag)
 		if err != nil {
-			return nil, errors.Errorf("OwnerTag %q at position %d is not a valid user tag", env.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
 		}
 		result[i] = UserEnvironment{
 			Name:           env.Name,
 			UUID:           env.UUID,
 			Owner:          owner.Username(),
-			ServerUUID:     env.ServerUUID,
 			LastConnection: env.LastConnection,
 		}
 	}

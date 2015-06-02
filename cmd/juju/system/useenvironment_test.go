@@ -42,29 +42,27 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 	err := envcmd.WriteCurrentSystem("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envs := []environmentmanager.UserEnvironment{
-		{
-			Name:  "unique",
-			Owner: "tester@local",
-			UUID:  "some-uuid",
-		}, {
-			Name:  "test",
-			Owner: "tester@local",
-			UUID:  env1UUID,
-		}, {
-			Name:  "test",
-			Owner: "bob@local",
-			UUID:  env2UUID,
-		}, {
-			Name:  "other",
-			Owner: "bob@local",
-			UUID:  env3UUID,
-		}, {
-			Name:  "other",
-			Owner: "bob@remote",
-			UUID:  env4UUID,
-		},
-	}
+	envs := []environmentmanager.UserEnvironment{{
+		Name:  "unique",
+		Owner: "tester@local",
+		UUID:  "some-uuid",
+	}, {
+		Name:  "test",
+		Owner: "tester@local",
+		UUID:  env1UUID,
+	}, {
+		Name:  "test",
+		Owner: "bob@local",
+		UUID:  env2UUID,
+	}, {
+		Name:  "other",
+		Owner: "bob@local",
+		UUID:  env3UUID,
+	}, {
+		Name:  "other",
+		Owner: "bob@remote",
+		UUID:  env4UUID,
+	}}
 	s.api = &fakeEnvMgrAPIClient{envs: envs}
 	s.creds = configstore.APICredentials{User: "tester", Password: "password"}
 	s.endpoint = configstore.APIEndpoint{
@@ -88,43 +86,41 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		owner       string
 		envName     string
 		envUUID     string
-	}{
-		{
-			errorString: "no environment supplied",
-		}, {
-			args:        []string{""},
-			errorString: "no environment supplied",
-		}, {
-			args:    []string{"env-name"},
-			envName: "env-name",
-		}, {
-			args:      []string{"env-name", "--name", "foo"},
-			localName: "foo",
-			envName:   "env-name",
-		}, {
-			args:    []string{"user/foobar"},
-			envName: "foobar",
-			owner:   "user",
-		}, {
-			args:    []string{"user@local/foobar"},
-			envName: "foobar",
-			owner:   "user@local",
-		}, {
-			args:    []string{"user@remote/foobar"},
-			envName: "foobar",
-			owner:   "user@remote",
-		}, {
-			args:        []string{"user+name/foobar"},
-			errorString: `"user\+name" is not a valid user`,
-		}, {
-			args:    []string{env1UUID},
-			envUUID: env1UUID,
-		}, {
-			args:    []string{"user/" + env1UUID},
-			owner:   "user",
-			envUUID: env1UUID,
-		},
-	} {
+	}{{
+		errorString: "no environment supplied",
+	}, {
+		args:        []string{""},
+		errorString: "no environment supplied",
+	}, {
+		args:    []string{"env-name"},
+		envName: "env-name",
+	}, {
+		args:      []string{"env-name", "--name", "foo"},
+		localName: "foo",
+		envName:   "env-name",
+	}, {
+		args:    []string{"user/foobar"},
+		envName: "foobar",
+		owner:   "user",
+	}, {
+		args:    []string{"user@local/foobar"},
+		envName: "foobar",
+		owner:   "user@local",
+	}, {
+		args:    []string{"user@remote/foobar"},
+		envName: "foobar",
+		owner:   "user@remote",
+	}, {
+		args:        []string{"user+name/foobar"},
+		errorString: `"user\+name" is not a valid user`,
+	}, {
+		args:    []string{env1UUID},
+		envUUID: env1UUID,
+	}, {
+		args:    []string{"user/" + env1UUID},
+		owner:   "user",
+		envUUID: env1UUID,
+	}} {
 		c.Logf("test %d", i)
 		command := &system.UseEnvironmentCommand{}
 		err := testing.InitCommand(command, test.args)
