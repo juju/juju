@@ -5,9 +5,9 @@ package instancepoller
 
 import (
 	"fmt"
-	"time"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"time"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"

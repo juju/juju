@@ -6,11 +6,11 @@ package instancepoller
 
 import (
 	"fmt"
-	"reflect"
-	"time"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"reflect"
+	"time"
 
 	"github.com/juju/juju/api"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
