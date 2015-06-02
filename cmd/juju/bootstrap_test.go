@@ -98,12 +98,15 @@ type mockBlockClient struct {
 }
 
 func (c *mockBlockClient) List() ([]params.Block, error) {
+	c.retry_count += 1
+	if c.retry_count == 5 {
+		return nil, fmt.Errorf("upgrade in progress")
+	}
 	if c.num_retries < 0 {
 		return nil, fmt.Errorf("other error")
 	}
 	if c.retry_count < c.num_retries {
-		c.retry_count += 1
-		return nil, fmt.Errorf("upgrade is in progress")
+		return nil, fmt.Errorf("upgrade in progress")
 	}
 	return []params.Block{}, nil
 }
@@ -125,10 +128,10 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		num_retries int
 		err         string
 	}{
-		{0, ""}, // agent ready immediately
-		{2, ""}, // agent ready after 2 polls
-		{6, "upgrade is in progress"}, // agent ready after 6 polls but that's too long
-		{-1, "other error"},           // another error is returned
+		{0, ""},                    // agent ready immediately
+		{2, ""},                    // agent ready after 2 polls
+		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
+		{-1, "other error"},        // another error is returned
 	} {
 		resetJujuHome(c, "devenv")
 
@@ -140,9 +143,9 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		} else {
 			c.Check(err, gc.ErrorMatches, t.err)
 		}
-		expectedRetries := 0
-		if t.num_retries > 0 {
-			expectedRetries = t.num_retries
+		expectedRetries := t.num_retries
+		if t.num_retries <= 0 {
+			expectedRetries = 1
 		}
 		// Only retry maximum of bootstrapReadyPollCount times.
 		if expectedRetries > 5 {

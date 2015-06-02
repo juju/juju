@@ -308,21 +308,23 @@ func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 // command which will fail until the state server is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
-	client, err := blockAPI(&c.EnvCommandBase)
-	if err != nil {
-		return err
-	}
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
+	var client block.BlockListAPI
 	for attempt := attempts.Start(); attempt.Next(); {
+		client, err = blockAPI(&c.EnvCommandBase)
+		if err != nil {
+			return err
+		}
 		_, err = client.List()
+		client.Close()
 		if err == nil {
 			return nil
 		}
 		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
-			ctx.Infof("Waiting for API to become available: %v", err.Error())
+			ctx.Infof("Waiting for API to become available")
 			continue
 		}
 		return err
