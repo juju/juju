@@ -98,7 +98,7 @@ func IsValidPoolName(s string) bool {
 	return poolRE.MatchString(s)
 }
 
-// ParseStorageConstraints parses string representation of
+// ParseConstraintsMap parses string representation of
 // storage constraints into a map keyed on storage names
 // with constraints as values.
 //
@@ -109,13 +109,18 @@ func IsValidPoolName(s string) bool {
 // where latter is equivalent to <name>=1.
 //
 // Duplicate storage names cause an error to be returned.
-func ParseStorageConstraints(args []string) (map[string]Constraints, error) {
+// Constraints presence can be enforced.
+func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Constraints, error) {
 	results := make(map[string]Constraints, len(args))
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", -1)
 		name := parts[0]
 		if len(parts) > 2 || len(name) == 0 {
 			return nil, errors.Errorf(`expected "name=constraints" or "name", got %q`, kv)
+		}
+
+		if mustHaveConstraints && len(parts) == 1 {
+			return nil, errors.Errorf(`expected "name=constraints" where "constraints" must be specified, got %q`, kv)
 		}
 
 		if _, exists := results[name]; exists {

@@ -92,7 +92,7 @@ func (c *AddCommand) Init(args []string) (err error) {
 	}
 	c.unitTag = names.NewUnitTag(u).String()
 
-	c.storageCons, err = storage.ParseStorageConstraints(args[1:])
+	c.storageCons, err = storage.ParseConstraintsMap(args[1:], false)
 	return
 }
 

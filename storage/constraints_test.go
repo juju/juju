@@ -106,19 +106,19 @@ func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
 
 func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 	s.testParseStorageConstraints(c,
-		[]string{"data=p,1M,"},
+		[]string{"data=p,1M,"}, true,
 		map[string]storage.Constraints{"data": storage.Constraints{
 			Pool:  "p",
 			Count: 1,
 			Size:  1,
 		}})
 	s.testParseStorageConstraints(c,
-		[]string{"data"},
+		[]string{"data"}, false,
 		map[string]storage.Constraints{"data": storage.Constraints{
 			Count: 1,
 		}})
 	s.testParseStorageConstraints(c,
-		[]string{"data=3", "cache"},
+		[]string{"data=3", "cache"}, false,
 		map[string]storage.Constraints{
 			"data": storage.Constraints{
 				Count: 3,
@@ -131,24 +131,28 @@ func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 
 func (s *ConstraintsSuite) TestParseStorageConstraintsErrors(c *gc.C) {
 	s.testStorageConstraintsError(c,
-		[]string{"data=p,=1M,"},
+		[]string{"data"}, true,
+		`.*where "constraints" must be specified.*`)
+	s.testStorageConstraintsError(c,
+		[]string{"data=p,=1M,"}, false,
 		`.*expected "name=constraints" or "name", got .*`)
 	s.testStorageConstraintsError(c,
-		[]string{"data", "data"},
+		[]string{"data", "data"}, false,
 		`storage "data" specified more than once`)
 	s.testStorageConstraintsError(c,
-		[]string{"data=-1"},
+		[]string{"data=-1"}, false,
 		`.*cannot parse constraints for storage "data".*`)
 	s.testStorageConstraintsError(c,
-		[]string{"data="},
+		[]string{"data="}, false,
 		`.*cannot parse constraints for storage "data".*`)
 }
 
 func (*ConstraintsSuite) testParseStorageConstraints(c *gc.C,
 	s []string,
+	mustHave bool,
 	expect map[string]storage.Constraints,
 ) {
-	cons, err := storage.ParseStorageConstraints(s)
+	cons, err := storage.ParseConstraintsMap(s, mustHave)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(cons), gc.Equals, len(expect))
 	for k, v := range expect {
@@ -156,7 +160,7 @@ func (*ConstraintsSuite) testParseStorageConstraints(c *gc.C,
 	}
 }
 
-func (*ConstraintsSuite) testStorageConstraintsError(c *gc.C, s []string, e string) {
-	_, err := storage.ParseStorageConstraints(s)
+func (*ConstraintsSuite) testStorageConstraintsError(c *gc.C, s []string, mustHave bool, e string) {
+	_, err := storage.ParseConstraintsMap(s, mustHave)
 	c.Check(err, gc.ErrorMatches, e)
 }

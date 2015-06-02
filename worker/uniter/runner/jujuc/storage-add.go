@@ -65,7 +65,7 @@ func (s *StorageAddCommand) Init(args []string) error {
 		return errors.New("storage add requires a storage directive")
 	}
 
-	cons, err := storage.ParseStorageConstraints(args)
+	cons, err := storage.ParseConstraintsMap(args, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
