@@ -367,9 +367,6 @@ func IsVersionInconsistentError(e interface{}) bool {
 }
 
 func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
-	db, closer := st.newDB()
-	defer closer()
-
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
@@ -382,7 +379,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection := db.C(name)
+		collection, closer := st.getCollection(name)
+		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
 		}
@@ -417,10 +415,18 @@ func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == UpgradeInProgressError
 }
 
-// SetEnvironAgentVersion changes the agent version for the
-// environment to the given version, only if the environment is in a
-// stable state (all agents are running the current version).
+// SetEnvironAgentVersion changes the agent version for the environment to the
+// given version, only if the environment is in a stable state (all agents are
+// running the current version). If this is a hosted environment, newVersion
+// cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
+	if newVersion.Compare(version.Current.Number) > 0 && !st.IsStateServer() {
+		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+			newVersion.String(),
+			version.Current.Number,
+		)
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
@@ -453,7 +459,9 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				C:      settingsC,
 				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
-				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
+				Update: bson.D{
+					{"$set", bson.D{{"agent-version", newVersion.String()}}},
+				},
 			},
 		}
 		return ops, nil
