@@ -5,8 +5,11 @@ package apiserver_test
 
 import (
 	"bufio"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/loggo"
@@ -104,7 +107,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	errResult := readJSONErrorLine(c, reader)
 	c.Assert(errResult.Error, gc.IsNil)
 
-	t0 := time.Now().Truncate(time.Millisecond)
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
 	err := websocket.JSON.Send(conn, &apiserver.LogMessage{
 		Time:     t0,
 		Module:   "some.where",
@@ -114,7 +117,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	t1 := t0.Add(time.Second)
+	t1 := time.Date(2015, time.June, 1, 23, 2, 2, 0, time.UTC)
 	err = websocket.JSON.Send(conn, &apiserver.LogMessage{
 		Time:     t1,
 		Module:   "else.where",
@@ -142,16 +145,17 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	c.Assert(docs[0]["t"], gc.Equals, t0)
-	c.Assert(docs[0]["e"], gc.Equals, s.State.EnvironUUID())
+	envUUID := s.State.EnvironUUID()
+	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
+	c.Assert(docs[0]["e"], gc.Equals, envUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"], gc.Equals, t1)
-	c.Assert(docs[1]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[1]["t"].(time.Time).Sub(t1), gc.Equals, time.Duration(0))
+	c.Assert(docs[1]["e"], gc.Equals, envUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")
@@ -173,6 +177,18 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 			c.Assert(log, jc.LessThan, loggo.ERROR)
 		}
 	}
+
+	// Check that the logsink log file was populated as expected
+	logPath := filepath.Join(s.LogDir, "logsink.log")
+	logContents, err := ioutil.ReadFile(logPath)
+	c.Assert(err, jc.ErrorIsNil)
+	line0 := envUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
+	line1 := envUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
+	c.Assert(string(logContents), gc.Equals, line0+line1)
+
+	info, err := os.Stat(logPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
