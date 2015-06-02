@@ -26,6 +26,7 @@ from jujuci import (
     get_juju_bin_artifact,
     get_release_package_filename,
     JENKINS_URL,
+    JobNamer,
     list_artifacts,
     Namer,
     PackageNamer,
@@ -285,7 +286,7 @@ class JujuCITestCase(TestCase):
         self.assertEqual((auth_location, local_path), args)
 
     def test_get_juju_bin_artifact(self):
-        package_namer = PackageNamer('foo', 'bar')
+        package_namer = PackageNamer('foo', 'bar', 'baz')
         bin_filename = 'juju-core_1.27.32-0ubuntu1~bar.1~juju1_foo.deb'
         artifact = get_juju_bin_artifact(package_namer, '1.27.32', {
             'url': 'http://asdf/',
@@ -298,7 +299,7 @@ class JujuCITestCase(TestCase):
         self.assertEqual(artifact.file_name, bin_filename)
 
     def test_get_release_package_filename(self):
-        package_namer = PackageNamer('foo', 'bar')
+        package_namer = PackageNamer('foo', 'bar', 'baz')
         credentials = ('jrandom', 'password1')
         publish_build_data = {'actions': [], }
         build_revision_data = json.dumps({
@@ -347,7 +348,7 @@ class JujuCITestCase(TestCase):
             JENKINS_URL, credentials, PUBLISH_REVISION, 'lastBuild')
 
     def test_get_certification_bin(self):
-        package_namer = PackageNamer('foo', 'bar')
+        package_namer = PackageNamer('foo', 'bar', 'baz')
         build_data = {
             'url': 'http://foo/',
             'artifacts': [{
@@ -577,21 +578,32 @@ class TestNamer(TestCase):
     def test_factory(self):
         with patch('subprocess.check_output', return_value=' amd42 \n'):
             with patch('jujuci.get_distro_information',
-                       return_value={'RELEASE': '42.42'}):
-                package_namer = PackageNamer.factory()
-        self.assertIs(type(package_namer), PackageNamer)
-        self.assertEqual(package_namer.arch, 'amd42')
-        self.assertEqual(package_namer.distro_release, '42.42')
+                       return_value={'RELEASE': '42.42', 'CODENAME': 'wacky'}):
+                namer = Namer.factory()
+        self.assertIs(type(namer), Namer)
+        self.assertEqual(namer.arch, 'amd42')
+        self.assertEqual(namer.distro_release, '42.42')
+        self.assertEqual(namer.distro_series, 'wacky')
 
 
 class TestPackageNamer(TestNamer):
 
     def test_get_release_package(self):
+        package_namer = PackageNamer('amd42', '42.34', 'wacky')
         self.assertEqual(
-            PackageNamer('amd42', '42.34').get_release_package('27.6'),
+            package_namer.get_release_package('27.6'),
             'juju-core_27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
 
     def test_get_certification_package(self):
+        package_namer = PackageNamer('amd42', '42.34', 'wacky')
         self.assertEqual(
-            PackageNamer('amd42', '42.34').get_certification_package('27.6'),
+            package_namer.get_certification_package('27.6'),
             'juju-core_27.6.42.34.1_amd42.deb')
+
+
+class TestJobNamer(TestNamer):
+
+    def test_get_build_binary(self):
+        self.assertEqual(
+            JobNamer('ppc64el', '42.34', 'wacky').get_build_binary(),
+            'build-binary-wacky-ppc64el')

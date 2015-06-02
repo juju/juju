@@ -401,11 +401,13 @@ class Namer:
 
     @classmethod
     def factory(cls):
-        return cls(get_deb_arch(), get_distro_information()['RELEASE'])
+        dist_info = get_distro_information()
+        return cls(get_deb_arch(), dist_info['RELEASE'], dist_info['CODENAME'])
 
-    def __init__(self, arch, distro_release):
+    def __init__(self, arch, distro_release, distro_series):
         self.arch = arch
         self.distro_release = distro_release
+        self.distro_series = distro_series
 
 
 class PackageNamer(Namer):
@@ -421,6 +423,13 @@ class PackageNamer(Namer):
             'juju-core_{version}.{distro_release}.1_{arch}.deb'
             ).format(version=version, distro_release=self.distro_release,
                      arch=self.arch)
+
+
+class JobNamer(Namer):
+
+    def get_build_binary(self):
+        return 'build-binary-{distro_series}-{arch}'.format(
+            distro_series=self.distro_series, arch=self.arch)
 
 
 def main(argv):
