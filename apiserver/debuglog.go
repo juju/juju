@@ -98,6 +98,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.Close()
 				return
 			}
+			if req.URL.Query().Get("cat") != "" {
+				io.Copy(socket, logFile)
+				socket.Close()
+				return
+			}
 
 			stream.start(logFile, socket)
 			go func() {
