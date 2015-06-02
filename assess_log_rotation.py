@@ -65,7 +65,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     # 300megs should do the trick.
 
     # we run do_fetch here so that we wait for fill-logs to finish.
-    client.action_do_fetch("fill-logs/0", fill_action, *args)
+    client.action_do_fetch("fill-logs/0", fill_action, "3m", *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
     action_output = yaml_loads(out)
 
@@ -81,7 +81,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
     # do it all again, this should generate a second backup.
 
-    client.action_do_fetch("fill-logs/0", fill_action, *args)
+    client.action_do_fetch("fill-logs/0", fill_action, "3m", *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
     action_output = yaml_loads(out)
 
@@ -94,7 +94,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
     # one more time... we should still only have 2 backups and primary
 
-    client.action_do_fetch("fill-logs/0", fill_action, *args)
+    client.action_do_fetch("fill-logs/0", fill_action, "3m", *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
     action_output = yaml_loads(out)
 

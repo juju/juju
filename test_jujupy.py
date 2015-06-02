@@ -250,7 +250,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('action bar', False, ('baz', 'qux'))
         self.assertEqual((
-            'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
+            'juju', '--show-log', 'action', 'bar', 'baz', 'qux', '-e', 'foo',),
             full)
 
     def test_bootstrap_hpcloud(self):

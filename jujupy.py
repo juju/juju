@@ -193,7 +193,7 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
-		command = command.split()
+        command = command.split()
         if command[0] == "action":
             # action requires the -e after the action subcommand, so just
             # put it at the end.
@@ -500,7 +500,7 @@ class EnvJujuClient:
         print_now("State-Server backup at %s" % backup_file_path)
         return backup_file_path
 
-    def action_fetch(self, id, action=None):
+    def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
 
         Will wait for up to 1 minute for the action results.
@@ -508,7 +508,7 @@ class EnvJujuClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("action", "fetch", id, "--wait", "1m")
+        out = self.get_juju_output("action", "fetch", id, "--wait", timeout)
         status = yaml_loads(out)["status"]
         if status != "completed":
             name = ""
@@ -535,14 +535,14 @@ class EnvJujuClient:
                             output)
         return match.group(1)
 
-    def action_do_fetch(self, unit, action, *args):
+    def action_do_fetch(self, unit, action, timeout="1m", *args):
         """Performs the given action on the given unit and waits for the results.
 
         Action params should be given as args in the form foo=bar.
         Returns the yaml output of the action.
         """
         id = self.action_do(unit, action, *args)
-        return self.action_fetch(id, action)
+        return self.action_fetch(id, action, timeout)
 
 
 class EnvJujuClient22(EnvJujuClient):
@@ -577,6 +577,7 @@ class EnvJujuClient25(EnvJujuClient):
 
 
 class EnvJujuClient24(EnvJujuClient25):
+
     """Currently, same feature set as juju 25"""
 
 
