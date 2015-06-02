@@ -315,6 +315,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
+	// TODO(ericsnow) Add clarification about why transient services are not started.
 	if s.Service.Conf.Transient {
 		return nil, nil
 	}

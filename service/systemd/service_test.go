@@ -837,11 +837,13 @@ After=syslog.target
 After=network.target
 After=systemd-user-sessions.service
 After=cloud-final
-Conflicts=cloud-final
 
 [Service]
 ExecStart=/sbin/shutdown -h now
 ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
+
+[Install]
+WantedBy=multi-user.target
 `[1:],
 	}
 	test.CheckCommands(c, commands)
