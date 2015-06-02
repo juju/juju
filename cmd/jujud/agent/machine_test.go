@@ -389,7 +389,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(watcher.Period * 5 / 4):
 		// TODO(rog) Fix this so it doesn't wait for so long.
-		// https://bugs.github.com/juju/juju/+bug/1163983
+		// https://bugs.launchpad.net/juju-core/+bug/1163983
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()

@@ -646,7 +646,7 @@ func isEmpty(val interface{}) bool {
 	case int:
 		// TODO(rog) fix this to return false when
 		// we can lose backward compatibility.
-		// https://bugs.github.com/juju/juju/+bug/1224492
+		// https://bugs.launchpad.net/juju-core/+bug/1224492
 		return val == 0
 	case string:
 		return val == ""
