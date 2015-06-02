@@ -141,7 +141,19 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 }
 
 func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
-	expected := map[string]interface{}{"service-status": map[interface{}]interface{}{"status-data": map[interface{}]interface{}{}, "units": map[interface{}]interface{}{"": map[interface{}]interface{}{"message": "this is a unit status", "status": "active", "status-data": map[interface{}]interface{}{}}}, "message": "this is a service status", "status": "active"}}
+	expected := map[string]interface{}{
+		"service-status": map[interface{}]interface{}{
+			"status-data": map[interface{}]interface{}{},
+			"units": map[interface{}]interface{}{
+				"": map[interface{}]interface{}{
+					"message":     "this is a unit status",
+					"status":      "active",
+					"status-data": map[interface{}]interface{}{},
+				},
+			},
+			"message": "this is a service status",
+			"status":  "active"},
+	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeServiceStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
