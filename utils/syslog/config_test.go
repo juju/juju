@@ -156,7 +156,7 @@ func diff(c *gc.C, got, exp string) {
 	for x := 0; x < len(expR); x++ {
 		if x >= len(gotR) {
 			c.Log("String obtained is truncated version of expected.")
-			c.Errorf("Expected: %#s, got: %#s", exp, got)
+			c.Errorf("Expected: %v, got: %v", exp, got)
 			return
 		}
 		if expR[x] != gotR[x] {
