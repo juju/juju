@@ -743,7 +743,9 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
-		all = append(all, params.StorageAddParams{u.Tag().String(), storage, cons})
+		for _, one := range cons {
+			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})
+		}
 	}
 
 	args := params.StoragesAddParams{Storages: all}
