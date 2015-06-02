@@ -379,6 +379,29 @@ class EnvJujuClient:
             reporter.finish()
         return status
 
+    def wait_for_subordinate_unit(self, service, unit_prefix, timeout=1200,
+                                  start=None):
+        """Wait until a subordinate unit with unit_prefix appears for
+        service."""
+        status = None
+        for ignored in chain([None], until_timeout(timeout, start=start)):
+            found = False
+            try:
+                status = self.get_status()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
+            for name, unit in status.service_subordinate_units(service):
+                if name.startswith(unit_prefix):
+                    found = True
+                    break
+            if found:
+                break
+        else:
+            logging.error(status.status_text)
+            raise AgentsNotStarted(self.env.environment, status)
+        return status
+
     def wait_for_version(self, version, timeout=300):
         reporter = GroupReporter(sys.stdout, version)
         try:
@@ -650,11 +673,6 @@ class Status:
             states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
 
-    def check_item_listed(self, item_name):
-        if item_name in [k for k, v in self.agent_items()]:
-            return True
-        return False
-
     def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
 
@@ -694,16 +712,14 @@ class Status:
                 return service['units'][unit_name]
         raise KeyError(unit_name)
 
-    def get_subordinate_units(self, service_name):
+    def service_subordinate_units(self, service_name):
         """Return subordinate metadata for a service_name."""
-        subordinates = []
         services = self.status.get('services', {})
         if service_name in services.keys():
             for unit in sorted(services[service_name].get(
                     'units', {}).values()):
-                subordinates.append(unit.get('subordinates', {}))
-            return subordinates
-        raise KeyError(service_name)
+                for sub_name, sub in unit.get('subordinates', {}).items():
+                    yield sub_name, sub
 
     def get_open_ports(self, unit_name):
         """List the open ports for the specified unit.
