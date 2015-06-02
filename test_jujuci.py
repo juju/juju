@@ -605,5 +605,5 @@ class TestJobNamer(TestNamer):
 
     def test_get_build_binary(self):
         self.assertEqual(
-            JobNamer('ppc64el', '42.34', 'wacky').get_build_binary(),
+            JobNamer('ppc64el', '42.34', 'wacky').get_build_binary_job(),
             'build-binary-wacky-ppc64el')

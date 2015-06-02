@@ -398,6 +398,7 @@ def get_credentials(args):
 
 
 class Namer:
+    """A base class that has distro and arch info used to name things."""
 
     @classmethod
     def factory(cls):
@@ -411,6 +412,7 @@ class Namer:
 
 
 class PackageNamer(Namer):
+    """A class knows the names of packages."""
 
     def get_release_package(self, version):
         return (
@@ -426,8 +428,9 @@ class PackageNamer(Namer):
 
 
 class JobNamer(Namer):
+    """A class knows the names of jobs."""
 
-    def get_build_binary(self):
+    def get_build_binary_job(self):
         return 'build-binary-{distro_series}-{arch}'.format(
             distro_series=self.distro_series, arch=self.arch)
 
