@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
@@ -331,6 +332,11 @@ func (st *State) Logger() *apilogger.State {
 // KeyUpdater returns access to the KeyUpdater API
 func (st *State) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
+}
+
+// InstancePoller returns access to the InstancePoller API
+func (st *State) InstancePoller() *instancepoller.API {
+	return instancepoller.NewAPI(st)
 }
 
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API

@@ -9,10 +9,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -56,9 +57,9 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	// when it unblocks.
 	waitRefresh := make(chan struct{})
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "i1234",
-		life:       state.Alive,
+		life:       params.Alive,
 		refresh: func() error {
 			// Signal that we're in Refresh.
 			waitRefresh <- struct{}{}
@@ -76,8 +77,8 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 				dyingc:          dyingc,
 			}
 		},
-		getMachineFunc: func(id string) (machine, error) {
-			c.Check(id, gc.Equals, m.id)
+		getMachineFunc: func(tag names.MachineTag) (machine, error) {
+			c.Check(tag, jc.DeepEquals, m.tag)
 			return m, nil
 		},
 	}
@@ -120,15 +121,20 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 
 func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	waitStatus := make(chan struct{})
-	s.PatchValue(&MachineStatus, func(m *testMachine) (state.StatusInfo, error) {
+	s.PatchValue(&MachineStatus, func(m *testMachine) (params.StatusResult, error) {
 		// Signal that we're in Status.
 		waitStatus <- struct{}{}
-		return state.StatusInfo{state.StatusPending, "", map[string]interface{}{}, nil}, nil
+		return params.StatusResult{
+			Status: params.StatusPending,
+			Info:   "",
+			Data:   map[string]interface{}{},
+			Since:  nil,
+		}, nil
 	})
 	m := &testMachine{
-		id:         "99",
+		tag:        names.NewMachineTag("99"),
 		instanceId: "manual:1234",
-		life:       state.Alive,
+		life:       params.Alive,
 	}
 	dyingc := make(chan struct{})
 	context := &testUpdaterContext{
@@ -139,8 +145,8 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 				dyingc:          dyingc,
 			}
 		},
-		getMachineFunc: func(id string) (machine, error) {
-			c.Check(id, gc.Equals, m.id)
+		getMachineFunc: func(tag names.MachineTag) (machine, error) {
+			c.Check(tag, jc.DeepEquals, m.tag)
 			return m, nil
 		},
 	}
@@ -171,7 +177,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 
 type testUpdaterContext struct {
 	newMachineContextFunc func() machineContext
-	getMachineFunc        func(id string) (machine, error)
+	getMachineFunc        func(tag names.MachineTag) (machine, error)
 	dyingc                chan struct{}
 }
 
@@ -179,8 +185,8 @@ func (context *testUpdaterContext) newMachineContext() machineContext {
 	return context.newMachineContextFunc()
 }
 
-func (context *testUpdaterContext) getMachine(id string) (machine, error) {
-	return context.getMachineFunc(id)
+func (context *testUpdaterContext) getMachine(tag names.MachineTag) (machine, error) {
+	return context.getMachineFunc(tag)
 }
 
 func (context *testUpdaterContext) dying() <-chan struct{} {
