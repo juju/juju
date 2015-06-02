@@ -379,10 +379,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// DataDir is the default data directory.  Tests can override this
-// where needed, so they don't need to mess with global system state.
-var DataDir = agent.DefaultDataDir
-
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))

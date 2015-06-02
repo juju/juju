@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -108,7 +109,16 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		svc, err := systemd.NewService(name, conf)
+		// TODO(ericsnow) lp:1457122
+		// dataDir should come from the series or be passed in.
+		// Until the proper fix is in place, we use paths.DataDir here
+		// with a non-windows series (e.g. vivid).
+		dataDir, err := paths.DataDir("vivid")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		svc, err := systemd.NewService(name, conf, dataDir)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
