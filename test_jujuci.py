@@ -27,6 +27,7 @@ from jujuci import (
     get_release_package_filename,
     JENKINS_URL,
     list_artifacts,
+    Namer,
     PackageNamer,
     parse_args,
     PUBLISH_REVISION,
@@ -571,7 +572,7 @@ class JujuCITestCase(TestCase):
                 text)
 
 
-class TestPackageNamer(TestCase):
+class TestNamer(TestCase):
 
     def test_factory(self):
         with patch('subprocess.check_output', return_value=' amd42 \n'):
@@ -581,6 +582,9 @@ class TestPackageNamer(TestCase):
         self.assertIs(type(package_namer), PackageNamer)
         self.assertEqual(package_namer.arch, 'amd42')
         self.assertEqual(package_namer.distro_release, '42.42')
+
+
+class TestPackageNamer(TestNamer):
 
     def test_get_release_package(self):
         self.assertEqual(
