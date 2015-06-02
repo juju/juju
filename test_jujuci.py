@@ -31,7 +31,6 @@ from jujuci import (
     Namer,
     PackageNamer,
     parse_args,
-    PUBLISH_REVISION,
     main,
     retrieve_artifact,
     setup_workspace,
@@ -333,6 +332,7 @@ class JujuCITestCase(TestCase):
                 }]
             }
         credentials = Credentials('jrandom', 'password1')
+        job_namer = JobNamer('a64', '42.34', 'wacky')
 
         with self.get_juju_binary_mocks() as (workspace, cc_mock, uo_mock):
             with patch('jujuci.get_build_data', return_value=build_data,
@@ -340,12 +340,16 @@ class JujuCITestCase(TestCase):
                 with patch(
                         'jujuci.get_release_package_filename',
                         return_value='steve', autospec=True) as grpf_mock:
-                    bin_loc = get_juju_bin(credentials, workspace)
+                    with patch.object(
+                            JobNamer, 'factory', spec=JobNamer.factory,
+                            return_value=job_namer) as jnf_mock:
+                        bin_loc = get_juju_bin(credentials, workspace)
         self.assertEqual(bin_loc, os.path.join(
             workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
         grpf_mock.assert_called_once_with(credentials, build_data)
         gbd_mock.assert_called_once_with(
-            JENKINS_URL, credentials, PUBLISH_REVISION, 'lastBuild')
+            JENKINS_URL, credentials, 'build-binary-wacky-a64', 'lastBuild')
+        self.assertEqual(1, jnf_mock.call_count)
 
     def test_get_certification_bin(self):
         package_namer = PackageNamer('foo', 'bar', 'baz')

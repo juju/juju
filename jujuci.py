@@ -165,7 +165,8 @@ def get_release_package_filename(credentials, build_data):
 
 
 def get_juju_bin(credentials, workspace):
-    build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
+    binary_job = JobNamer.factory().get_build_binary_job()
+    build_data = get_build_data(JENKINS_URL, credentials, binary_job,
                                 'lastBuild')
     file_name = get_release_package_filename(credentials, build_data)
     return get_juju_binary(credentials, file_name, build_data, workspace)
