@@ -56,9 +56,8 @@ type tstData struct {
 func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 	tests := []tstData{
 		{[]string{}, 1, "storage add requires a storage directive"},
-		{[]string{"data"}, 1, `expected "key=value", got "data"`},
-		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
 		{[]string{"data=-676"}, 1, `.*cannot parse count: count must be gre.*`},
+		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
 	}
 	for i, t := range tests {
 		c.Logf("test %d: %#v", i, t.args)
@@ -70,6 +69,7 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
 	tests := []tstData{
 		{[]string{"data=676"}, 0, ""},
+		{[]string{"data"}, 0, ``},
 	}
 
 	for i, t := range tests {
