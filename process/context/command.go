@@ -101,8 +101,12 @@ func (c *registeringCommand) init(name string) error {
 // checkSpace ensures that the requested network space is available
 // to the hook.
 func (c *registeringCommand) checkSpace() error {
-	// TODO(ericsnow) Finish!
-	return errors.Errorf("not finished")
+	if c.Space == "" {
+		return nil
+	}
+	// TODO(wwitzel3) This should be implemented when network space support
+	// is added to the jujuc.Context.
+	return errors.NotImplementedf("support for network spaces")
 }
 
 // parseEnv parses the provided env vars and merges them with the ones
