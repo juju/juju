@@ -3676,3 +3676,15 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
 }
+
+func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
+	// The full tests for DestroyEnvironment are in environmentmanager.
+	// Here we just test that things are hooked up such that we can destroy
+	// the environment through the client endpoint to support older juju clients.
+	err := s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}

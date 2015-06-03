@@ -19,6 +19,7 @@ type stateInterface interface {
 	Close() error
 	Environment() (*state.Environment, error)
 	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
+	EnvironmentUser(names.UserTag) (*state.EnvironmentUser, error)
 	EnvironConfig() (*config.Config, error)
 	EnvironUUID() string
 	ForEnviron(names.EnvironTag) (*state.State, error)

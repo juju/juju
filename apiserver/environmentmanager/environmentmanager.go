@@ -367,6 +367,29 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 	return result, nil
 }
 
+func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) error {
+	authTag := em.authorizer.GetAuthTag()
+	apiUserTag, ok := authTag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+	}
+
+	stateServerEnv, err := st.StateServerEnvironment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	adminUserTag := stateServerEnv.Owner()
+
+	// The user may destroy the environment if they are the admin user
+	// or any user with access to the environment.
+	_, err = st.EnvironmentUser(apiUserTag)
+	if err != nil && apiUserTag != adminUserTag {
+		return common.ErrPerm
+	}
+
+	return nil
+}
+
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment.
 func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) {
@@ -379,11 +402,14 @@ func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) 
 		defer st.Close()
 	}
 
-	if checkSt, ok := st.(*state.State); ok {
-		check := common.NewBlockChecker(checkSt)
-		if err = check.DestroyAllowed(); err != nil {
-			return errors.Trace(err)
-		}
+	err = em.destroyEnvironmentAuthCheck(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	check := common.NewBlockChecker(st)
+	if err = check.DestroyAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 
 	env, err := st.Environment()
