@@ -271,7 +271,7 @@ class EnvJujuClient:
 
         Sub process will be called as 'juju <command> <args> <kwargs>'. Note
         that <command> may be a space delimited list of arguments. The -e
-        <environment> flag will be placed after <command> and before args.     
+        <environment> flag will be placed after <command> and before args.
         """
         args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'),
