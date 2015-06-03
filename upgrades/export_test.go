@@ -18,6 +18,7 @@ var (
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
+	OsRemove       = &osRemove
 
 	// 118 upgrade functions
 	StepsFor118                            = stepsFor118

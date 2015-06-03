@@ -156,6 +156,31 @@ func (s *steps124Suite) TestMoveSyslogConfig(c *gc.C) {
 
 }
 
+func (s *steps124Suite) TestMoveSyslogConfigCantDeleteOld(c *gc.C) {
+	logdir := c.MkDir()
+	datadir := c.MkDir()
+	data := []byte("data!")
+	file := filepath.Join(logdir, "logrotate.conf")
+
+	// ensure that we don't error out if we can't remove the old file.
+	// error out if one of the files exists in datadir but not logdir.
+	*upgrades.OsRemove = func(string) error { return os.ErrPermission }
+	defer func() { *upgrades.OsRemove = os.Remove }()
+
+	err := ioutil.WriteFile(file, data, 0644)
+	c.Assert(err, gc.IsNil)
+
+	ctx := fakeContext{cfg: fakeConfig{logdir: logdir, datadir: datadir}}
+	err = upgrades.MoveSyslogConfig(ctx)
+	c.Assert(err, gc.IsNil)
+
+	// should still exist in both places (i.e. check we didn't screw up the test)
+	_, err = os.Stat(file)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(filepath.Join(logdir, "logrotate.conf"))
+	c.Assert(err, gc.IsNil)
+}
+
 type fakeContext struct {
 	upgrades.Context
 	cfg fakeConfig
