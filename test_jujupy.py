@@ -113,14 +113,16 @@ class TestEnvJujuClient25(ClientTest):
 
 class TestEnvJujuClient22(ClientTest):
 
+    client_class = EnvJujuClient22
+
     def test__shell_environ(self):
-        client = EnvJujuClient22(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
         env = client._shell_environ()
         self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS), 'actions')
 
     def test__shell_environ_juju_home(self):
-        client = EnvJujuClient22(
+        client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
