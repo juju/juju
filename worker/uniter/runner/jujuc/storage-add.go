@@ -72,6 +72,11 @@ func (s *StorageAddCommand) Init(args []string) error {
 
 	s.all = make(map[string]params.StorageConstraints, len(cons))
 	for k, v := range cons {
+		// Unit should not be able to specify from which pool to add storage
+		// nor what size storage should be.
+		if v.Pool != "" || v.Size > 0 {
+			return errors.Errorf("pool or size specified for %q", k)
+		}
 		s.all[k] = params.StorageConstraints{v.Pool, &v.Size, &v.Count}
 	}
 	return nil

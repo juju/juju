@@ -28,14 +28,15 @@ func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesti
 }
 
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
+	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
 		"data": []params.StorageConstraints{
-			params.StorageConstraints{Pool: "loop"}},
+			params.StorageConstraints{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
+			{"unit-mysql-0", "data", params.StorageConstraints{Count: &count}},
 		},
 	}
 
@@ -59,13 +60,14 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
+	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{Pool: "loop"}},
+		"data": []params.StorageConstraints{params.StorageConstraints{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Pool: "loop"}},
+			{"unit-mysql-0", "data", params.StorageConstraints{Count: &count}},
 		},
 	}
 

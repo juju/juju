@@ -61,9 +61,8 @@ func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 
 func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	s.createStorageBlockUnit(c)
-	size := uint64(1)
 	cons := map[string]params.StorageConstraints{
-		"allecto": params.StorageConstraints{Size: &size}}
+		"allecto": params.StorageConstraints{}}
 
 	ctx := s.addUnitStorage(c, cons)
 
@@ -82,10 +81,9 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 	s.createStorageBlock2Unit(c)
 	count := uint64(1)
-	size := uint64(2048)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Size: &size, Count: &count}},
+			"multi2up": params.StorageConstraints{Count: &count}},
 		map[string]params.StorageConstraints{
 			"multi1to10": params.StorageConstraints{Count: &count}})
 }
@@ -93,10 +91,9 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 	s.createStorageBlock2Unit(c)
 	count := uint64(1)
-	size := uint64(2048)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Size: &size, Count: &count}},
+			"multi2up": params.StorageConstraints{Count: &count}},
 		map[string]params.StorageConstraints{
 			"multi2up": params.StorageConstraints{Count: &count}})
 }
