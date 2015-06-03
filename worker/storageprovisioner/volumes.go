@@ -635,6 +635,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 		in.Size,
 		providerType,
 		in.Attributes,
+		in.Tags,
 		attachment,
 	}, nil
 }

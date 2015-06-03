@@ -1046,18 +1046,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 
-	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	metadata, ok := e.Config().ResourceTags()
-	if !ok {
-		metadata = make(map[string]string)
-	}
-	if uuid, ok := e.Config().UUID(); ok {
-		metadata[common.TagJujuEnv] = uuid
-	}
-	if stateServer {
-		metadata[common.TagJujuStateServer] = "true"
-	}
-
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		e.Config().Name(),
@@ -1073,7 +1061,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			SecurityGroupNames: groupNames,
 			Networks:           networks,
 			AvailabilityZone:   availZone,
-			Metadata:           metadata,
+			Metadata:           args.InstanceConfig.Tags,
 		}
 		for a := shortAttempt.Start(); a.Next(); {
 			server, err = e.nova().RunServer(opts)
@@ -1112,7 +1100,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if stateServer {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

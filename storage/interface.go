@@ -152,6 +152,10 @@ type VolumeParams struct {
 	// from the storage pool configuration.
 	Attributes map[string]interface{}
 
+	// ResourceTags is a set of tags to set on the created volume, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
+
 	// Attachment identifies the machine that the volume should be attached
 	// to initially, or nil if the volume should not be attached to any
 	// machine. Some providers, such as MAAS, do not support dynamic
@@ -227,6 +231,10 @@ type FilesystemParams struct {
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
 	Attributes map[string]interface{}
+
+	// ResourceTags is a set of tags to set on the created filesystem, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
 }
 
 // FilesystemAttachmentParams is a set of parameters for filesystem attachment

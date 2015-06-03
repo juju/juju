@@ -1605,43 +1605,16 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Set resource tags after bootstrapping.
-	cfg, err := env.Config().Apply(map[string]interface{}{
-		"resource-tags": "User=Specified",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	inst, _ := testing.AssertStartInstance(c, env, "1")
-
 	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 2)
-
-	var bootstrapInst instance.Instance
-	if instances[0].Id() == inst.Id() {
-		inst = instances[0]
-		bootstrapInst = instances[1]
-	} else {
-		bootstrapInst = instances[0]
-		inst = instances[1]
-	}
+	c.Assert(instances, gc.HasLen, 1)
 
 	c.Assert(
-		openstack.InstanceServerDetail(bootstrapInst).Metadata,
+		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
 			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
 			"juju-is-state": "true",
-		},
-	)
-	c.Assert(
-		openstack.InstanceServerDetail(inst).Metadata,
-		jc.DeepEquals,
-		map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"User":          "Specified",
 		},
 	)
 }

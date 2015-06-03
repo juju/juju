@@ -518,6 +518,7 @@ func constructStartInstanceParams(
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
+			v.Tags,
 			&storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
 					Machine:  machineTag,
@@ -702,6 +703,7 @@ func assocProvInfoAndMachCfg(
 ) *provisioningInfo {
 
 	instanceConfig.Networks = provInfo.Networks
+	instanceConfig.Tags = provInfo.Tags
 
 	if len(provInfo.Jobs) > 0 {
 		instanceConfig.Jobs = provInfo.Jobs

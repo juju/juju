@@ -193,6 +193,9 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 				Attributes: map[string]interface{}{
 					"persistent": tag.String() == "volume-1",
 				},
+				Tags: map[string]string{
+					"very": "fancy",
+				},
 			}
 			volumeParams.Attachment = &params.VolumeAttachmentParams{
 				VolumeTag:  tag.String(),
@@ -232,7 +235,10 @@ func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.Er
 }
 
 func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
-	return v.setVolumeAttachmentInfo(volumeAttachments)
+	if v.setVolumeAttachmentInfo != nil {
+		return v.setVolumeAttachmentInfo(volumeAttachments)
+	}
+	return nil, nil
 }
 
 func newMockVolumeAccessor() *mockVolumeAccessor {
@@ -306,6 +312,9 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 				FilesystemTag: tag.String(),
 				Size:          1024,
 				Provider:      "dummy",
+				Tags: map[string]string{
+					"very": "fancy",
+				},
 			}
 			if _, ok := names.FilesystemMachine(tag); ok {
 				// place all volume-backed filesystems on machine-scoped
@@ -344,7 +353,10 @@ func (f *mockFilesystemAccessor) SetFilesystemInfo(filesystems []params.Filesyst
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
-	return f.setFilesystemAttachmentInfo(filesystemAttachments)
+	if f.setFilesystemAttachmentInfo != nil {
+		return f.setFilesystemAttachmentInfo(filesystemAttachments)
+	}
+	return nil, nil
 }
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
@@ -407,15 +419,18 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	volumeSourceFunc     func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
 }
 
 type dummyVolumeSource struct {
 	storage.VolumeSource
+	createVolumesArgs [][]storage.VolumeParams
 }
 
 type dummyFilesystemSource struct {
 	storage.FilesystemSource
+	createFilesystemsArgs [][]storage.FilesystemParams
 }
 
 func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
@@ -425,7 +440,10 @@ func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfi
 	return &dummyVolumeSource{}, nil
 }
 
-func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	if p.filesystemSourceFunc != nil {
+		return p.filesystemSourceFunc(environConfig, providerConfig)
+	}
 	return &dummyFilesystemSource{}, nil
 }
 
@@ -438,7 +456,11 @@ func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
-func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+	paramsCopy := make([]storage.VolumeParams, len(params))
+	copy(paramsCopy, params)
+	s.createVolumesArgs = append(s.createVolumesArgs, paramsCopy)
+
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	for _, p := range params {
@@ -492,7 +514,11 @@ func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 }
 
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
-func (*dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
+func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
+	paramsCopy := make([]storage.FilesystemParams, len(params))
+	copy(paramsCopy, params)
+	s.createFilesystemsArgs = append(s.createFilesystemsArgs, paramsCopy)
+
 	var filesystems []storage.Filesystem
 	for _, p := range params {
 		filesystems = append(filesystems, storage.Filesystem{

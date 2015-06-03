@@ -5,6 +5,8 @@ package provisioner
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -13,9 +15,11 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -30,7 +34,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
-	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -410,6 +414,10 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}
+	tags, err := p.machineTags(m, jobs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &params.ProvisioningInfo{
 		Constraints: cons,
 		Series:      m.Series(),
@@ -417,6 +425,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		Networks:    networks,
 		Jobs:        jobs,
 		Volumes:     volumes,
+		Tags:        tags,
 	}, nil
 }
 
@@ -544,6 +553,10 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
+	envConfig, err := p.st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
 	poolManager := poolmanager.New(state.NewStateSettings(p.st))
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
@@ -552,7 +565,13 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
-		volumeParams, err := common.VolumeParams(volume, poolManager)
+		storageInstance, err := common.MaybeAssignedStorageInstance(
+			volume.StorageInstance, p.st.StorageInstance,
+		)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
+		}
+		volumeParams, err := common.VolumeParams(volume, storageInstance, envConfig, poolManager)
 		if common.IsVolumeAlreadyProvisioned(err) {
 			// Already provisioned, so must be dynamic.
 			continue
@@ -1262,4 +1281,35 @@ func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo)
 		}
 	}
 	return subnet, nil
+}
+
+// machineTags returns machine-specific tags to set on the instance.
+func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.MachineJob) (map[string]string, error) {
+	// Names of all units deployed to the machine.
+	//
+	// TODO(axw) 2015-06-02 #1461358
+	// We need a worker that periodically updates
+	// instance tags with current deployment info.
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]string, 0, len(units))
+	for _, unit := range units {
+		if !unit.IsPrincipal() {
+			continue
+		}
+		unitNames = append(unitNames, unit.Name())
+	}
+	sort.Strings(unitNames)
+
+	cfg, err := p.st.EnvironConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machineTags := instancecfg.InstanceTags(cfg, jobs)
+	if len(unitNames) > 0 {
+		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
+	}
+	return machineTags, nil
 }

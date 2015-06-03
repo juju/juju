@@ -51,7 +51,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	attachments, err := volSource.AttachVolumes([]storage.VolumeAttachmentParams{{
 		Volume:   mockVolumeTag,
 		VolumeId: mockVolId,
@@ -85,9 +85,6 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
 				Size: requestedSize / 1024,
 				Name: "juju-testenv-volume-123",
-				Metadata: map[string]string{
-					"juju-env-uuid": testing.EnvironmentTag.Id(),
-				},
 			})
 			return &cinder.Volume{
 				ID: mockVolId,
@@ -117,7 +114,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumes, attachments, err := volSource.CreateVolumes([]storage.VolumeParams{{
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
@@ -162,9 +159,8 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 				Size: 1,
 				Name: "juju-testenv-volume-123",
 				Metadata: map[string]string{
-					"juju-env-uuid": testing.EnvironmentTag.Id(),
-					"ResourceTag1":  "Value1",
-					"ResourceTag2":  "Value2",
+					"ResourceTag1": "Value1",
+					"ResourceTag2": "Value2",
 				},
 			})
 			return &cinder.Volume{ID: mockVolId}, nil
@@ -186,14 +182,15 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, map[string]string{
-		"ResourceTag1": "Value1",
-		"ResourceTag2": "Value2",
-	})
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	_, _, err := volSource.CreateVolumes([]storage.VolumeParams{{
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
 		Size:     1024,
+		ResourceTags: map[string]string{
+			"ResourceTag1": "Value1",
+			"ResourceTag2": "Value2",
+		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
@@ -215,7 +212,7 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 			}}, nil
 		},
 	}
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumes, err := volSource.DescribeVolumes([]string{mockVolId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(volumes, jc.DeepEquals, []storage.VolumeInfo{{
@@ -235,7 +232,7 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	errs := volSource.DestroyVolumes([]string{mockVolId})
 	c.Assert(numCalls, gc.Equals, 1)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
@@ -268,7 +265,7 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	err := volSource.DetachVolumes([]storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("123"),
 		VolumeId: mockVolId,
@@ -333,7 +330,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 		},
 	}
 
-	volSource := openstack.NewCinderVolumeSource(mockAdapter, nil)
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumeParams := []storage.VolumeParams{{
 		Provider: openstack.CinderProviderType,
 		Tag:      names.NewVolumeTag("0"),

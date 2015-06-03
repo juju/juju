@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -781,6 +782,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Series:   "quantal",
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 			}},
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
@@ -788,11 +792,17 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-0",
 					Size:       1000,
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-0",
@@ -803,6 +813,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					Size:       2000,
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-1",
@@ -858,11 +871,17 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-1",
 					Size:       1000,
 					Provider:   "static",
 					Attributes: nil,
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-1",
@@ -899,6 +918,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Series:   "quantal",
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
