@@ -105,7 +105,7 @@ class TestEnvJujuClient25(ClientTest):
         self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_juju_home(self):
-        client = EnvJujuClient24(
+        client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
@@ -184,6 +184,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.16'
             yield '1.16.1'
             yield '1.15'
+            yield '1.22.1'
             yield '1.24-alpha1'
             yield '1.24.7'
             yield '1.25.1'
@@ -203,6 +204,8 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient.by_version(None)
             self.assertIs(EnvJujuClient, type(client))
             self.assertEqual('1.15', client.version)
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient22)
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24-alpha1')
@@ -250,7 +253,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('action bar', False, ('baz', 'qux'))
         self.assertEqual((
-            'juju', '--show-log', 'action', 'bar', 'baz', 'qux', '-e', 'foo',),
+            'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux', ),
             full)
 
     def test_bootstrap_hpcloud(self):
@@ -1488,7 +1491,7 @@ class TestStatus(TestCase):
             status.get_subordinate_units('dummy-sink'), [
                 {'chaos-monkey/1': {'agent-state': 'started'}},
                 {'chaos-monkey/2': {'agent-state': 'started'}}]
-            )
+        )
         with self.assertRaisesRegexp(KeyError, 'foo'):
             status.get_subordinate_units('foo')
 
@@ -1979,7 +1982,7 @@ class TestEnvironment(TestCase):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
         mock.assert_called_once_with(
-            'action', 'do', 'foo/0', 'myaction', "param=5"
+            'action do', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -2000,7 +2003,7 @@ class TestEnvironment(TestCase):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_once_with(
-            'action', 'fetch', '123', "--wait", "1m"
+            'action fetch', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):

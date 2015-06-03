@@ -174,7 +174,7 @@ class EnvJujuClient:
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         elif re.match('^1\.22[.-]', version):
-            return EnvJujuClient24(env, version, full_path, debug=debug)
+            return EnvJujuClient22(env, version, full_path, debug=debug)
         elif re.match('^1\.24[.-]', version):
             return EnvJujuClient24(env, version, full_path, debug=debug)
         elif re.match('^1\.25[.-]', version):
@@ -193,11 +193,11 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
+
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
         command = command.split()
-        if command[0] == "action":
-            # action requires the -e after the action subcommand, so just
-            # put it at the end.
-            return prefix + ('juju', logging,) + tuple(command) + args + e_arg
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, debug=False):
@@ -267,6 +267,12 @@ class EnvJujuClient:
             ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
+        """Call a juju command and return the output.
+
+        Sub process will be called as 'juju <command> <args> <kwargs>'. Note
+        that <command> may be a space delimited list of arguments. The -e
+        <environment> flag will be placed after <command> and before args.     
+        """
         args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'),
                                include_e=kwargs.get('include_e', True))
@@ -508,7 +514,9 @@ class EnvJujuClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("action", "fetch", id, "--wait", timeout)
+        # the command has to be "action fetch" so that the -e <env> args are
+        # placed after "fetch", since that's where action requires them to be.
+        out = self.get_juju_output("action fetch", id, "--wait", timeout)
         status = yaml_loads(out)["status"]
         if status != "completed":
             name = ""
@@ -525,8 +533,11 @@ class EnvJujuClient:
         Action params should be given as args in the form foo=bar.
         Returns the id of the queued action.
         """
-        args = ("do", unit, action) + args
-        output = self.get_juju_output("action", *args)
+        args = (unit, action) + args
+
+        # the command has to be "action do" so that the -e <env> args are
+        # placed after "do", since that's where action requires them to be.
+        output = self.get_juju_output("action do", *args)
         action_id_pattern = re.compile(
             'Action queued with id: ([a-f0-9\-]{36})')
         match = action_id_pattern.search(output)
@@ -553,10 +564,7 @@ class EnvJujuClient22(EnvJujuClient):
         Juju's directory must be in the PATH to support plugins.
         """
         env = super(EnvJujuClient22, self)._shell_environ(juju_home)
-        if env.get(JUJU_DEV_FEATURE_FLAGS, '') == '':
-            env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
-        else:
-            env[JUJU_DEV_FEATURE_FLAGS] += ',actions'
+        env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
         return env
 
 
@@ -569,10 +577,7 @@ class EnvJujuClient25(EnvJujuClient):
         """
         env = super(EnvJujuClient25, self)._shell_environ(juju_home)
         if self.env.config.get('type') == 'cloudsigma':
-            if env.get(JUJU_DEV_FEATURE_FLAGS, '') == '':
-                env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
-            else:
-                env[JUJU_DEV_FEATURE_FLAGS] += ',cloudsigma'
+            env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
         return env
 
 
