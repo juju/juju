@@ -15,9 +15,18 @@ var getState = func(st *state.State) stateInterface {
 }
 
 type stateInterface interface {
-	StateServerEnvironment() (*state.Environment, error)
-	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
+	AllMachines() ([]*state.Machine, error)
+	Close() error
+	Environment() (*state.Environment, error)
 	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
+	EnvironmentUser(names.UserTag) (*state.EnvironmentUser, error)
+	EnvironConfig() (*config.Config, error)
+	EnvironUUID() string
+	ForEnviron(names.EnvironTag) (*state.State, error)
+	GetBlockForType(state.BlockType) (state.Block, bool, error)
+	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
+	RemoveAllEnvironDocs() error
+	StateServerEnvironment() (*state.Environment, error)
 }
 
 type stateShim struct {

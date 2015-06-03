@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package environmentmanager_test
 
 import (
 	"fmt"
@@ -11,9 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/environmentmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -24,7 +23,14 @@ import (
 )
 
 type destroyEnvironmentSuite struct {
-	baseSuite
+	envManagerSuite
+	commontesting.BlockHelper
+}
+
+func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
+	s.envManagerSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
@@ -70,12 +76,18 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 	return m0, m1, m2
 }
 
+func (s *destroyEnvironmentSuite) destroyEnvironment(c *gc.C, envUUID string) error {
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	return envManager.DestroyEnvironment(envUUID)
+}
+
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	_, nonManager := s.setUpManual(c)
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +99,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = nonManager.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
+	err = s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,17 +120,18 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().DestroyEnvironment()
+	err = s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// After DestroyEnvironment returns, we should have:
-	//   - all non-manager instances stopped
+	// After DestroyEnvironment returns, check that the following 3 things
+	// have happened:
+	//   1 - all non-manager instances stopped
 	instances, err = s.Environ.Instances([]instance.Id{managerId, nonManagerId})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], jc.ErrorIsNil)
-	//   - all services in state are Dying or Dead (or removed altogether),
-	//     after running the state Cleanups.
+	//   2 - all services in state are Dying or Dead (or removed altogether),
+	//       after running the state Cleanups.
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, jc.IsTrue)
@@ -132,7 +145,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
 		}
 	}
-	//   - environment is Dying
+	//   3 - environment is Dying
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
@@ -145,7 +158,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	_, nonManager, _ := s.setUpInstances(c)
 	nonManagerId, _ := nonManager.InstanceId()
 
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	for op := range ops {
 		if op, ok := op.(dummy.OpStopInstances); ok {
@@ -159,7 +172,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
@@ -167,7 +180,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
@@ -176,21 +189,32 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 }
 
+func (s *destroyEnvironmentSuite) TestCannotDestroyUnsharedEnvironment(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 type destroyTwoEnvironmentsSuite struct {
-	testing.JujuConnSuite
-	otherState     *state.State
-	otherEnvOwner  names.UserTag
-	otherEnvClient *client.Client
+	envManagerSuite
+	commontesting.BlockHelper
+	otherState    *state.State
+	otherEnvOwner names.UserTag
+	otherEnvUUID  string
 }
 
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
 
 func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.envManagerSuite.SetUpTest(c)
+
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
 	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
 		Owner:   s.otherEnvOwner,
@@ -199,16 +223,14 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 			"state-server": false,
 		},
 	})
-	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
+	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
+	s.otherEnvUUID = s.otherState.EnvironUUID()
+}
 
-	// get the client for the other environment
-	auth := apiservertesting.FakeAuthorizer{
-		Tag:            s.otherEnvOwner,
-		EnvironManager: false,
-	}
-	var err error
-	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
+func (s *destroyTwoEnvironmentsSuite) destroyEnvironment(c *gc.C, envUUID string) error {
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
+	return envManager.DestroyEnvironment(envUUID)
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
@@ -217,7 +239,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := s.otherEnvClient.DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.otherEnvUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.otherState.Environment()
@@ -229,10 +251,18 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
-	err = s.otherEnvClient.DestroyEnvironment()
+	err = s.destroyEnvironment(c, s.otherEnvUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
+	err = s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
+	err := s.destroyEnvironment(c, s.otherEnvUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.destroyEnvironment(c, s.State.EnvironUUID())
+	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -364,4 +365,122 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 	}
 
 	return result, nil
+}
+
+func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) error {
+	authTag := em.authorizer.GetAuthTag()
+	apiUserTag, ok := authTag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+	}
+
+	stateServerEnv, err := st.StateServerEnvironment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	adminUserTag := stateServerEnv.Owner()
+
+	// The user may destroy the environment if they are the admin user
+	// or any user with access to the environment.
+	_, err = st.EnvironmentUser(apiUserTag)
+	if err != nil && apiUserTag != adminUserTag {
+		return common.ErrPerm
+	}
+
+	return nil
+}
+
+// DestroyEnvironment destroys all services and non-manager machine
+// instances in the specified environment.
+func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) {
+	st := em.state
+	if envUUID != em.state.EnvironUUID() {
+		envTag := names.NewEnvironTag(envUUID)
+		if st, err = em.state.ForEnviron(envTag); err != nil {
+			return errors.Trace(err)
+		}
+		defer st.Close()
+	}
+
+	err = em.destroyEnvironmentAuthCheck(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	check := common.NewBlockChecker(st)
+	if err = check.DestroyAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We must destroy instances server-side to support JES (Juju Environment
+	// Server), as there's no CLI to fall back on. In that case, we only ever
+	// destroy non-state machines; we leave destroying state servers in non-
+	// hosted environments to the CLI, as otherwise the API server may get cut
+	// off.
+	if err := destroyInstances(st, machines); err != nil {
+		return errors.Trace(err)
+	}
+
+	// If this is not the state server environment, remove all documents from
+	// state associated with the environment.
+	if env.UUID() != env.ServerTag().Id() {
+		return errors.Trace(st.RemoveAllEnvironDocs())
+	}
+
+	// Return to the caller. If it's the CLI, it will finish up
+	// by calling the provider's Destroy method, which will
+	// destroy the state servers, any straggler instances, and
+	// other provider-specific resources.
+	return nil
+}
+
+// destroyInstances directly destroys all non-manager,
+// non-manual machine instances.
+func destroyInstances(st stateInterface, machines []*state.Machine) error {
+	var ids []instance.Id
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
+		manual, err := m.IsManual()
+		if manual {
+			continue
+		} else if err != nil {
+			return err
+		}
+		id, err := m.InstanceId()
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	envcfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(envcfg)
+	if err != nil {
+		return err
+	}
+	return env.StopInstances(ids...)
 }
