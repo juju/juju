@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
 
 type RelationIdsSuite struct {
@@ -23,7 +24,7 @@ var _ = gc.Suite(&RelationIdsSuite{})
 
 func (s *RelationIdsSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
-	s.rels = map[int]*ContextRelation{}
+	s.rels = map[int]*jujuctesting.ContextRelation{}
 	s.AddRelatedServices(c, "x", 3)
 	s.AddRelatedServices(c, "y", 1)
 }
@@ -31,7 +32,7 @@ func (s *RelationIdsSuite) SetUpTest(c *gc.C) {
 func (s *RelationIdsSuite) AddRelatedServices(c *gc.C, relname string, count int) {
 	for i := 0; i < count; i++ {
 		id := len(s.rels)
-		s.rels[id] = &ContextRelation{id, relname, nil}
+		s.setRelation(id, relname)
 	}
 }
 

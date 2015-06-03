@@ -32,7 +32,69 @@ const (
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
 type Context interface {
+	HookContext
+	relationHookContext
+	actionHookContext
+}
 
+// HookContext represents the information and functionality that is
+// common to all charm hooks.
+type HookContext interface {
+	ContextUnit
+	ContextInstance
+	ContextNetworking
+	ContextLeadership
+	ContextMetrics
+	ContextStorage
+	ContextComponents
+	ContextRelations
+}
+
+// UnitHookContext is the context for a unit hook.
+type UnitHookContext interface {
+	HookContext
+}
+
+// RelationHookContext is the context for a relation hook.
+type RelationHookContext interface {
+	HookContext
+	relationHookContext
+}
+
+type relationHookContext interface {
+	// HookRelation returns the ContextRelation associated with the executing
+	// hook if it was found, and whether it was found.
+	HookRelation() (ContextRelation, bool)
+
+	// RemoteUnitName returns the name of the remote unit the hook execution
+	// is associated with if it was found, and whether it was found.
+	RemoteUnitName() (string, bool)
+}
+
+// ActionHookContext is the context for an action hook.
+type ActionHookContext interface {
+	HookContext
+	actionHookContext
+}
+
+type actionHookContext interface {
+	// ActionParams returns the map of params passed with an Action.
+	ActionParams() (map[string]interface{}, error)
+
+	// UpdateActionResults inserts new values for use with action-set.
+	// The results struct will be delivered to the state server upon
+	// completion of the Action.
+	UpdateActionResults(keys []string, value string) error
+
+	// SetActionMessage sets a message for the Action.
+	SetActionMessage(string) error
+
+	// SetActionFailed sets a failure state for the Action.
+	SetActionFailed() error
+}
+
+// ContextUnit is the part of a hook context related to the unit.
+type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
@@ -42,14 +104,31 @@ type Context interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
+	// OwnerTag returns the user tag of the service the executing
+	// units belongs to.
+	OwnerTag() string
+
+	// Config returns the current service configuration of the executing unit.
+	ConfigSettings() (charm.Settings, error)
+}
+
+// ContextInstace is the part of a hook context related to the unit's intance.
+type ContextInstance interface {
+	// AvailabilityZone returns the executing unit's availablilty zone.
+	AvailabilityZone() (string, bool)
+
+	// RequestReboot will set the reboot flag to true on the machine agent
+	RequestReboot(prio RebootPriority) error
+}
+
+// ContextNetworking is the part of a hook context related to network
+// interface of the unit's instance.
+type ContextNetworking interface {
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, bool)
 
 	// PrivateAddress returns the executing unit's private address.
 	PrivateAddress() (string, bool)
-
-	// AvailabilityZone returns the executing unit's availablilty zone.
-	AvailabilityZone() (string, bool)
 
 	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
@@ -64,10 +143,11 @@ type Context interface {
 	// unit on its assigned machine. The result is sorted first by
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
+}
 
-	// Config returns the current service configuration of the executing unit.
-	ConfigSettings() (charm.Settings, error)
-
+// ContextLeadership is the part of a hook context related to the
+// unit leadership.
+type ContextLeadership interface {
 	// IsLeader returns true if the local unit is known to be leader for at
 	// least the next 30s.
 	IsLeader() (bool, error)
@@ -80,29 +160,39 @@ type Context interface {
 	// WriteLeaderSettings writes the supplied settings directly to state, or
 	// fails if the local unit is not the service's leader.
 	WriteLeaderSettings(map[string]string) error
+}
 
-	// ActionParams returns the map of params passed with an Action.
-	ActionParams() (map[string]interface{}, error)
+// ContextLeadership is the part of a hook context related to metrics.
+type ContextMetrics interface {
+	// AddMetric records a metric to return after hook execution.
+	AddMetric(string, string, time.Time) error
+}
 
-	// UpdateActionResults inserts new values for use with action-set.
-	// The results struct will be delivered to the state server upon
-	// completion of the Action.
-	UpdateActionResults(keys []string, value string) error
+// ContextStorage is the part of a hook context related to storage
+// resources associated with the unit.
+type ContextStorage interface {
+	// Storage returns the ContextStorageAttachment with the supplied
+	// tag if it was found, and whether it was found.
+	Storage(names.StorageTag) (ContextStorageAttachment, bool)
 
-	// SetActionMessage sets a message for the Action.
-	SetActionMessage(string) error
+	// HookStorage returns the storage attachment associated
+	// the executing hook if it was found, and whether it was found.
+	HookStorage() (ContextStorageAttachment, bool)
 
-	// SetActionFailed sets a failure state for the Action.
-	SetActionFailed() error
+	// AddUnitStorage saves storage constraints in the context.
+	AddUnitStorage(map[string]params.StorageConstraints)
+}
 
-	// HookRelation returns the ContextRelation associated with the executing
-	// hook if it was found, and whether it was found.
-	HookRelation() (ContextRelation, bool)
+// ContextComponents exposes modular Juju components as they relate to
+// the unit in the context of the hook.
+type ContextComponents interface {
+	// Component returns the ContextComponent with the supplied name if
+	// it was found, and whether it was found.
+	Component(name string) (ContextComponent, bool)
+}
 
-	// RemoteUnitName returns the name of the remote unit the hook execution
-	// is associated with if it was found, and whether it was found.
-	RemoteUnitName() (string, bool)
-
+// ContextRelations exposes the relations associated with the unit.
+type ContextRelations interface {
 	// Relation returns the relation with the supplied id if it was found, and
 	// whether it was found.
 	Relation(id int) (ContextRelation, bool)
@@ -110,37 +200,19 @@ type Context interface {
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
 	RelationIds() []int
-
-	// OwnerTag returns the user tag of the service the executing
-	// units belongs to.
-	OwnerTag() string
-
-	// AddMetric records a metric to return after hook execution.
-	AddMetric(string, string, time.Time) error
-
-	// RequestReboot will set the reboot flag to true on the machine agent
-	RequestReboot(prio RebootPriority) error
-
-	// Storage returns the ContextStorage with the supplied tag if it was
-	// found, and whether it was found.
-	Storage(names.StorageTag) (ContextStorage, bool)
-
-	// HookStorageAttachment returns the storage attachment associated
-	// the executing hook if it was found, and whether it was found.
-	HookStorage() (ContextStorage, bool)
-
-	// AddUnitStorage saves storage constraints in the context.
-	AddUnitStorage(map[string]params.StorageConstraints)
-
-	// Component returns the ContextComponent with the supplied name if
-	// it was found, and whether it was found.
-	Component(name string) (ContextComponent, bool)
 }
 
+// ContextComponent is a single modular Juju component as it relates to
+// the current unit and hook.
 type ContextComponent interface {
-	Flush() error
-	Set(id string, value interface{}) error
+	// Get populates result with the value corresponding to the given ID.
 	Get(id string, result interface{}) error
+
+	// Set records the value for the given ID.
+	Set(id string, value interface{}) error
+
+	// Flush pushes the component's data to Juju state.
+	Flush() error
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -169,9 +241,9 @@ type ContextRelation interface {
 	ReadSettings(unit string) (params.Settings, error)
 }
 
-// ContextStorage expresses the capabilities of a hook with respect to a
-// storage attachment.
-type ContextStorage interface {
+// ContextStorageAttachment expresses the capabilities of a hook with
+// respect to a storage attachment.
+type ContextStorageAttachment interface {
 
 	// Tag returns a tag which uniquely identifies the storage attachment
 	// in the context of the unit.
