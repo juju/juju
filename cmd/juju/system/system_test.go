@@ -9,6 +9,9 @@ import (
 
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/testing"
+
+	// Bring in the dummy provider definition.
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 type SystemCommandSuite struct {
@@ -18,6 +21,7 @@ type SystemCommandSuite struct {
 var _ = gc.Suite(&SystemCommandSuite{})
 
 var expectedCommmandNames = []string{
+	"create-environment",
 	"environments",
 	"help",
 	"list",

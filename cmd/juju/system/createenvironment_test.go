@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment_test
+package system_test
 
 import (
 	"io/ioutil"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/environment"
+	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
@@ -63,8 +63,8 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewCreateCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	command := system.NewCreateEnvironmentCommand(s.fake)
+	return testing.RunCommand(c, envcmd.WrapSystem(command), args...)
 }
 
 func (s *createSuite) TestInit(c *gc.C) {
@@ -98,7 +98,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		create := &environment.CreateCommand{}
+		create := &system.CreateEnvironmentCommand{}
 		err := testing.InitCommand(create, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
@@ -230,7 +230,7 @@ type fakeCreateClient struct {
 	env     params.Environment
 }
 
-var _ environment.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
+var _ system.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
 
 func (*fakeCreateClient) Close() error {
 	return nil

@@ -1,9 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment
+package system
 
 import (
+	"github.com/juju/names"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -12,7 +13,6 @@ import (
 	"gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
@@ -20,13 +20,15 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// CreateCommand calls the API to create a new environment.
-type CreateCommand struct {
-	envcmd.EnvCommandBase
+// CreateEnvironmentCommand calls the API to create a new environment.
+type CreateEnvironmentCommand struct {
+	envcmd.SysCommandBase
+
 	api CreateEnvironmentAPI
 	// These attributes are exported only for testing purposes.
-	Name string
-	// TODO: owner string
+	Name  string
+	Owner string
+
 	ConfigFile cmd.FileVar
 	ConfValues map[string]string
 }
@@ -42,23 +44,21 @@ If configuration values are passed by both extra command line arguments and
 the --config option, the command line args take priority.
 `
 
-func (c *CreateCommand) Info() *cmd.Info {
+func (c *CreateEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-environment",
 		Args:    "<name> [key=[value] ...]",
 		Purpose: "create an environment within the Juju Environment Server",
 		Doc:     strings.TrimSpace(createEnvHelpDoc),
 	}
 }
 
-func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO: support creating environments for someone else when we work
-	// out how to have the other user login and start using the environement.
-	// f.StringVar(&c.owner, "owner", "", "the owner of the new environment if not the current user")
+func (c *CreateEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.Owner, "owner", "", "the owner of the new environment if not the current user")
 	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing environment config values")
 }
 
-func (c *CreateCommand) Init(args []string) error {
+func (c *CreateEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("environment name is required")
 	}
@@ -69,6 +69,11 @@ func (c *CreateCommand) Init(args []string) error {
 		return err
 	}
 	c.ConfValues = values
+
+	if c.Owner != "" && !names.IsValidUser(c.Owner) {
+		return errors.Errorf("%q is not a valid user", c.Owner)
+	}
+
 	return nil
 }
 
@@ -78,59 +83,70 @@ type CreateEnvironmentAPI interface {
 	CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error)
 }
 
-func (c *CreateCommand) getAPI() (CreateEnvironmentAPI, error) {
+func (c *CreateEnvironmentCommand) getAPI() (CreateEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, err
-	}
-	return environmentmanager.NewClient(root), nil
+	return c.NewEnvironmentManagerAPIClient()
 }
 
-func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
+func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	// Create the configstore entry and write it to disk, as this will error
-	// if one with the same name already exists.
 	creds, err := c.ConnectionCredentials()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	endpoint, err := c.ConnectionEndpoint(false)
-	if err != nil {
-		return errors.Trace(err)
+
+	creatingForSelf := true
+	if c.Owner != "" {
+		owner := names.NewUserTag(c.Owner)
+		user := names.NewUserTag(creds.User)
+		creatingForSelf = owner == user
 	}
 
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info := store.CreateInfo(c.Name)
-	info.SetAPICredentials(creds)
-	endpoint.EnvironUUID = ""
-	if err := info.Write(); err != nil {
-		if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
-			newErr := errors.AlreadyExistsf("environment %q", c.Name)
-			return errors.Wrap(err, newErr)
-		}
-		return errors.Trace(err)
-	}
-	defer func() {
+	var info configstore.EnvironInfo
+	var endpoint configstore.APIEndpoint
+	if creatingForSelf {
+		logger.Debugf("create cache entry for %q", c.Name)
+		// Create the configstore entry and write it to disk, as this will error
+		// if one with the same name already exists.
+		endpoint, err = c.ConnectionEndpoint()
 		if err != nil {
-			e := info.Destroy()
-			if e != nil {
-				logger.Errorf("could not remove environment file: %v", e)
-			}
+			return errors.Trace(err)
 		}
-	}()
 
-	// TODO: support provider and region.
+		store, err := configstore.Default()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info = store.CreateInfo(c.Name)
+		info.SetAPICredentials(creds)
+		endpoint.EnvironUUID = ""
+		if err := info.Write(); err != nil {
+			if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
+				newErr := errors.AlreadyExistsf("environment %q", c.Name)
+				return errors.Wrap(err, newErr)
+			}
+			return errors.Trace(err)
+		}
+		defer func() {
+			if return_err != nil {
+				logger.Debugf("error found, remove cache entry")
+				e := info.Destroy()
+				if e != nil {
+					logger.Errorf("could not remove environment file: %v", e)
+				}
+			}
+		}()
+	} else {
+		logger.Debugf("skipping cache entry for %q as owned %q", c.Name, c.Owner)
+	}
+
 	serverSkeleton, err := client.ConfigSkeleton("", "")
 	if err != nil {
 		return errors.Trace(err)
@@ -147,18 +163,22 @@ func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
 		// cleanup configstore
 		return errors.Trace(err)
 	}
-
-	// update the .jenv file with the environment uuid
-	endpoint.EnvironUUID = env.UUID
-	info.SetAPIEndpoint(endpoint)
-	if err := info.Write(); err != nil {
-		return errors.Trace(err)
+	if creatingForSelf {
+		// update the cached details with the environment uuid
+		endpoint.EnvironUUID = env.UUID
+		info.SetAPIEndpoint(endpoint)
+		if err := info.Write(); err != nil {
+			return errors.Trace(err)
+		}
+		ctx.Infof("created environment %q", c.Name)
+	} else {
+		ctx.Infof("created environment %q for %q", c.Name, c.Owner)
 	}
 
 	return nil
 }
 
-func (c *CreateCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.EnvironConfig) (map[string]interface{}, error) {
+func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.EnvironConfig) (map[string]interface{}, error) {
 	// The reading of the config YAML is done in the Run
 	// method because the Read method requires the cmd Context
 	// for the current directory.
