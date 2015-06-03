@@ -4,6 +4,8 @@
 package kvm
 
 import (
+	"bytes"
+	"os"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -42,19 +44,35 @@ var kvmTemplate = `
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
     </video>
 
+    {{range $nic := .Interfaces}}
     <interface type='network'>
-      <mac address='52:54:00:7a:ef:cf'/>
+      <mac address='[{$nic.MACAddress}}'/>
       <model type='virtio'/>
-      <source network='maas'/>
+      <source network='{{.Device}}'/>
     </interface>
+    {{end}}
   </devices>
 </domain>
 `
 
-func WriteTemplate(path string, params StartParams) error {
-	templ, err := template.New("kvm").Parse(kvmTemplate)
+func WriteTemplate(path string, params StartParams) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot write kvm container config")
+
+	tmpl, err := template.New("kvm").Parse(kvmTemplate)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
-	return nil
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, params.Network); err != nil {
+		return err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(buf.String())
+	return err
 }
