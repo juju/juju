@@ -26,7 +26,11 @@ func main() {
 	if isInteractive || commandName != names.Jujud {
 		Main(os.Args)
 	} else {
-		s := service.NewSystemService("jujud", Main, os.Args)
+		s := service.SystemService{
+			Name: "jujud",
+			Cmd:  Main,
+			Args: os.Args,
+		}
 		if err := s.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
