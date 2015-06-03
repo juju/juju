@@ -381,25 +381,34 @@ class EnvJujuClient:
 
     def wait_for_subordinate_units(self, service, unit_prefix, timeout=1200,
                                    start=None):
-        """Wait until all service units have a subordinate with
+        """Wait until all service units have a started subordinate with
         unit_prefix."""
         status = None
-        for ignored in chain([None], until_timeout(timeout, start=start)):
-            try:
-                status = self.get_status()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            service_unit_count = status.get_service_unit_count(service)
-            subordinate_unit_count = 0
-            for name, unit in status.service_subordinate_units(service):
-                if name.startswith(unit_prefix + '/'):
-                    subordinate_unit_count += 1
-            if subordinate_unit_count == service_unit_count:
-                break
-        else:
-            logging.error(status.status_text)
-            raise AgentsNotStarted(self.env.environment, status)
+        unit_states = defaultdict(list)
+        reporter = GroupReporter(sys.stdout, 'started')
+        try:
+            for ignored in chain([None], until_timeout(timeout, start=start)):
+                try:
+                    status = self.get_status()
+                except CannotConnectEnv:
+                    print('Supressing "Unable to connect to environment"')
+                    continue
+                service_unit_count = status.get_service_unit_count(service)
+                subordinate_unit_count = 0
+                for name, unit in status.service_subordinate_units(service):
+                    if name.startswith(unit_prefix + '/'):
+                        subordinate_unit_count += 1
+                    unit_states[unit.get('agent-state', 'no-agent')].append(
+                        name)
+                reporter.update(unit_states)
+                if (subordinate_unit_count == service_unit_count and
+                        unit_states.keys() == ['started']):
+                    break
+            else:
+                logging.error(status.status_text)
+                raise AgentsNotStarted(self.env.environment, status)
+        finally:
+            reporter.finish()
         return status
 
     def wait_for_version(self, version, timeout=300):
@@ -719,7 +728,7 @@ class Status:
     def service_subordinate_units(self, service_name):
         """Return subordinate metadata for a service_name."""
         services = self.status.get('services', {})
-        if service_name in services.keys():
+        if service_name in services:
             for unit in sorted(services[service_name].get(
                     'units', {}).values()):
                 for sub_name, sub in unit.get('subordinates', {}).items():

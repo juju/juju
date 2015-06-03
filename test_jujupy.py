@@ -1,5 +1,6 @@
 __metaclass__ = type
 
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import (
     datetime,
@@ -583,13 +584,58 @@ class TestEnvJujuClient(ClientTest):
                     subordinates:
                       sub1/0:
                         agent-state: started
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub2/0:
+                        agent-state: started
+                      sub3/0:
+                        agent-state: started
         """)
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                client.wait_for_subordinate_units('jenkins', 'sub1',
-                                                  start=now - timedelta(1200))
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub1/0')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_multiple_subordinate_units(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub/0:
+                        agent-state: started
+                  ubuntu/1:
+                    subordinates:
+                      sub/1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'ubuntu', 'sub', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub/0')
+        expected_states['started'].append('sub/1')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
 
     def test_wait_for_subordinate_units_checks_slash_in_unit_name(self):
         value = dedent("""\
