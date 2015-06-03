@@ -4,11 +4,11 @@
 package system
 
 import (
-	"github.com/juju/names"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/keyvalues"
 	"gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -42,6 +42,15 @@ access and secret keys.
 
 If configuration values are passed by both extra command line arguments and
 the --config option, the command line args take priority.
+
+Examples:
+
+    juju system create-environment new-env
+
+    juju system create-environment new-env --config=aws-creds.yaml
+
+See Also:
+    juju environment share
 `
 
 func (c *CreateEnvironmentCommand) Info() *cmd.Info {
@@ -50,6 +59,7 @@ func (c *CreateEnvironmentCommand) Info() *cmd.Info {
 		Args:    "<name> [key=[value] ...]",
 		Purpose: "create an environment within the Juju Environment Server",
 		Doc:     strings.TrimSpace(createEnvHelpDoc),
+		Aliases: []string{"create-env"},
 	}
 }
 
@@ -223,7 +233,8 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 
 	attrs := cfg.AllAttrs()
 	delete(attrs, "agent-version")
-	// TODO: allow version to be specified on the command line and add here.
+	// TODO(thumper): allow version to be specified on the command line and
+	// add here.
 
 	return attrs, nil
 }

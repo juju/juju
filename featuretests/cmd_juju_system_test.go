@@ -96,7 +96,7 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 	api.Close()
 }
 
-func (s *cmdSystemSuite) TestCreate(c *gc.C) {
+func (s *cmdSystemSuite) TestCreateEnvironment(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects

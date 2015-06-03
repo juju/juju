@@ -21,6 +21,7 @@ type SystemCommandSuite struct {
 var _ = gc.Suite(&SystemCommandSuite{})
 
 var expectedCommmandNames = []string{
+	"create-env", // alias for create-environment
 	"create-environment",
 	"environments",
 	"help",
