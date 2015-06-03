@@ -744,7 +744,7 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
 		for _, one := range cons {
-			if one.Pool != "" || one.Size != nil {
+			if one != (params.StorageConstraints{Count: one.Count}) {
 				return errors.Errorf("only count can be specified for %q", storage)
 			}
 			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})

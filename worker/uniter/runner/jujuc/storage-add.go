@@ -53,7 +53,7 @@ func (s *StorageAddCommand) Init(args []string) error {
 
 	s.all = make(map[string]params.StorageConstraints, len(cons))
 	for k, v := range cons {
-		if v.Pool != "" || v.Size > 0 {
+		if v != (storage.Constraints{Count: v.Count}) {
 			return errors.Errorf("only count can be specified for %q", k)
 		}
 		s.all[k] = params.StorageConstraints{Count: &v.Count}
