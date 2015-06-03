@@ -144,29 +144,34 @@ func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 	var now = time.Now()
 	for _, info := range users {
 		outInfo := UserInfo{
-			Username:    info.Username,
-			DisplayName: info.DisplayName,
-			Disabled:    info.Disabled,
+			Username:       info.Username,
+			DisplayName:    info.DisplayName,
+			Disabled:       info.Disabled,
+			LastConnection: LastConnection(info.LastConnection, now, c.exactTime),
 		}
 		if c.exactTime {
 			outInfo.DateCreated = info.DateCreated.String()
 		} else {
 			outInfo.DateCreated = UserFriendlyDuration(info.DateCreated, now)
 		}
-		if info.LastConnection != nil {
-			if c.exactTime {
-				outInfo.LastConnection = info.LastConnection.String()
-			} else {
-				outInfo.LastConnection = UserFriendlyDuration(*info.LastConnection, now)
-			}
-		} else {
-			outInfo.LastConnection = "never connected"
-		}
 
 		output = append(output, outInfo)
 	}
 
 	return output
+}
+
+// LastConnection turns the *time.Time returned from the API server
+// into a user facing string with either exact time or a user friendly
+// string based on the args.
+func LastConnection(connectionTime *time.Time, now time.Time, exact bool) string {
+	if connectionTime == nil {
+		return "never connected"
+	}
+	if exact {
+		return connectionTime.String()
+	}
+	return UserFriendlyDuration(*connectionTime, now)
 }
 
 // UserFriendlyDuration translates a time in the past into a user

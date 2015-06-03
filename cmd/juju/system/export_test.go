@@ -31,3 +31,13 @@ func NewLoginCommand(apiOpen APIOpenFunc, getUserManager GetUserManagerFunc) *Lo
 		getUserManager: getUserManager,
 	}
 }
+
+// NewUseEnvironmentCommand returns a UseEnvironmentCommand with the API and
+// userCreds provided as specified.
+func NewUseEnvironmentCommand(api EnvironmentManagerAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) *UseEnvironmentCommand {
+	return &UseEnvironmentCommand{
+		api:       api,
+		userCreds: userCreds,
+		endpoint:  endpoint,
+	}
+}
