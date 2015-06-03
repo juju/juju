@@ -10,7 +10,6 @@ import sys
 import urlparse
 
 from boto.s3.connection import S3Connection
-from jenkins import Jenkins
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -31,16 +30,16 @@ class JenkinsBuild:
     Retrieves Jenkins build information
     """
 
-    def __init__(self, credentials, job_name, jenkins, build_info):
+    def __init__(self, credentials, job_name, jenkins_url, build_info):
         """
         :param credentials: Jenkins credentials
         :param job_name:  Jenkins job name
-        :param jenkins: Jenkins object
+        :param jenkins_url: Jenkins server URL
         :param build_info: Jenkins build info
         :return: None
         """
         self.credentials = credentials
-        self.jenkins = jenkins
+        self.jenkins_url = jenkins_url
         self.job_name = job_name
         self.build_info = build_info
 
@@ -54,10 +53,9 @@ class JenkinsBuild:
         :return:
         """
         url = url or JENKINS_URL
-        jenkins = Jenkins(url, *credentials)
-        build_info = (jenkins.get_build_info(job_name, build_number)
+        build_info = (get_build_data(url, credentials, job_name, build_number)
                       if build_number else None)
-        return cls(credentials, job_name, jenkins, build_info)
+        return cls(credentials, job_name, url, build_info)
 
     def get_build_info(self, build_number=None):
         """
@@ -66,7 +64,7 @@ class JenkinsBuild:
         """
         build_number = build_number or self.get_build_number()
         return get_build_data(
-            self.jenkins.server, self.credentials, self.job_name, build_number)
+            self.jenkins_url, self.credentials, self.job_name, build_number)
 
     @property
     def result(self):
@@ -93,7 +91,7 @@ class JenkinsBuild:
         :rtype: int
         """
         job_info = get_job_data(
-            self.jenkins.server, self.credentials, self.job_name)
+            self.jenkins_url, self.credentials, self.job_name)
         if not job_info or not job_info.get('lastBuild'):
             return None
         return job_info.get('lastBuild').get('number')
