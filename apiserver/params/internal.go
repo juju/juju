@@ -376,6 +376,18 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
+// ServiceStatusResult holds results for a service Full Status
+type ServiceStatusResult struct {
+	Service StatusResult
+	Units   map[string]StatusResult
+	Error   *Error
+}
+
+// ServiceStatusResults holds multiple StatusResult.
+type ServiceStatusResults struct {
+	Results []ServiceStatusResult
+}
+
 // SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
 type SetMachinesAddresses struct {
 	MachineAddresses []MachineAddresses
