@@ -20,16 +20,16 @@ from deploy_stack import (
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    )
+)
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
     temp_bootstrap_env,
     until_timeout,
+    make_client,
+    parse_new_state_server_from_error,
 )
 from substrate import (
     terminate_instances,
-    )
+)
 from utility import (
     ensure_deleted,
     print_now,
@@ -133,14 +133,6 @@ def restore_missing_state_server(client, backup_file):
     print_now("PASS")
 
 
-def parse_new_state_server_from_error(error):
-    output = str(error) + getattr(error, 'output', '')
-    matches = re.findall(r'Attempting to connect to (.*):22', output)
-    if matches:
-        return matches[-1]
-    return None
-
-
 def parse_args(argv=None):
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -165,15 +157,6 @@ def parse_args(argv=None):
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
     return parser.parse_args(argv)
-
-
-def make_client(juju_path, debug, env_name, temp_env_name):
-    env = SimpleEnvironment.from_config(env_name)
-    if temp_env_name is not None:
-        env.environment = temp_env_name
-        env.config['name'] = temp_env_name
-    full_path = os.path.join(juju_path, 'juju')
-    return EnvJujuClient.by_version(env, full_path, debug)
 
 
 def main():

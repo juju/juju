@@ -6,7 +6,7 @@ from collections import defaultdict
 from contextlib import (
     contextmanager,
     nested,
-    )
+)
 from cStringIO import StringIO
 from datetime import timedelta
 import errno
@@ -25,7 +25,7 @@ from jujuconfig import (
     get_jenv_path,
     get_juju_home,
     get_selected_environment,
-    )
+)
 from utility import (
     check_free_disk_space,
     ensure_deleted,
@@ -34,12 +34,20 @@ from utility import (
     scoped_environ,
     temp_dir,
     until_timeout,
-    )
+)
 
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
+
+
+def parse_new_state_server_from_error(error):
+    output = str(error) + getattr(error, 'output', '')
+    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    if matches:
+        return matches[-1]
+    return None
 
 
 class ErroredUnit(Exception):
@@ -53,6 +61,15 @@ class ErroredUnit(Exception):
 
 def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
+
+
+def make_client(juju_path, debug, env_name, temp_env_name):
+    env = SimpleEnvironment.from_config(env_name)
+    if temp_env_name is not None:
+        env.environment = temp_env_name
+        env.config['name'] = temp_env_name
+    full_path = os.path.join(juju_path, 'juju')
+    return EnvJujuClient.by_version(env, full_path, debug)
 
 
 class CannotConnectEnv(subprocess.CalledProcessError):
@@ -156,6 +173,8 @@ class EnvJujuClient:
             full_path = os.path.abspath(juju_path)
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
+        elif re.match('^1\.22[.-]', version):
+            return EnvJujuClient22(env, version, full_path, debug=debug)
         elif re.match('^1\.24[.-]', version):
             return EnvJujuClient24(env, version, full_path, debug=debug)
         elif re.match('^1\.25[.-]', version):
@@ -174,6 +193,10 @@ class EnvJujuClient:
         else:
             prefix = ('timeout', '%.2fs' % timeout)
         logging = '--debug' if self.debug else '--show-log'
+
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
@@ -197,6 +220,7 @@ class EnvJujuClient:
                                          env['PATH'])
         if juju_home is not None:
             env['JUJU_HOME'] = juju_home
+
         return env
 
     def get_bootstrap_args(self, upload_tools):
@@ -243,8 +267,15 @@ class EnvJujuClient:
             ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
+        """Call a juju command and return the output.
+
+        Sub process will be called as 'juju <command> <args> <kwargs>'. Note
+        that <command> may be a space delimited list of arguments. The -e
+        <environment> flag will be placed after <command> and before args.
+        """
         args = self._full_args(command, False, args,
-                               timeout=kwargs.get('timeout'))
+                               timeout=kwargs.get('timeout'),
+                               include_e=kwargs.get('include_e', True))
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
@@ -510,6 +541,67 @@ class EnvJujuClient:
         print_now("State-Server backup at %s" % backup_file_path)
         return backup_file_path
 
+    def action_fetch(self, id, action=None, timeout="1m"):
+        """Fetches the results of the action with the given id.
+
+        Will wait for up to 1 minute for the action results.
+        The action name here is just used for an more informational error in
+        cases where it's available.
+        Returns the yaml output of the fetched action.
+        """
+        # the command has to be "action fetch" so that the -e <env> args are
+        # placed after "fetch", since that's where action requires them to be.
+        out = self.get_juju_output("action fetch", id, "--wait", timeout)
+        status = yaml_loads(out)["status"]
+        if status != "completed":
+            name = ""
+            if action is not None:
+                name = " " + action
+            raise Exception(
+                "timed out waiting for action%s to complete during fetch" %
+                name)
+        return out
+
+    def action_do(self, unit, action, *args):
+        """Performs the given action on the given unit.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the id of the queued action.
+        """
+        args = (unit, action) + args
+
+        # the command has to be "action do" so that the -e <env> args are
+        # placed after "do", since that's where action requires them to be.
+        output = self.get_juju_output("action do", *args)
+        action_id_pattern = re.compile(
+            'Action queued with id: ([a-f0-9\-]{36})')
+        match = action_id_pattern.search(output)
+        if match is None:
+            raise Exception("Action id not found in output: %s" %
+                            output)
+        return match.group(1)
+
+    def action_do_fetch(self, unit, action, timeout="1m", *args):
+        """Performs the given action on the given unit and waits for the results.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the yaml output of the action.
+        """
+        id = self.action_do(unit, action, *args)
+        return self.action_fetch(id, action, timeout)
+
+
+class EnvJujuClient22(EnvJujuClient):
+
+    def _shell_environ(self, juju_home=None):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = super(EnvJujuClient22, self)._shell_environ(juju_home)
+        env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
+        return env
+
 
 class EnvJujuClient25(EnvJujuClient):
 
@@ -525,7 +617,8 @@ class EnvJujuClient25(EnvJujuClient):
 
 
 class EnvJujuClient24(EnvJujuClient25):
-    """Currently, same feature set as juju 2.5"""
+
+    """Currently, same feature set as juju 25"""
 
 
 def get_local_root(juju_home, env):
