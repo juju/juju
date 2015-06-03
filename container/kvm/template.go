@@ -13,7 +13,7 @@ import (
 
 var kvmTemplate = `
 <domain type='kvm'>
-  <name>{{Name}}</name>
+  <name>{{.Hostname}}</name>
   <vcpu placement='static'>1</vcpu>
   <os>
     <type>hvm</type>
@@ -48,14 +48,14 @@ var kvmTemplate = `
     <interface type='network'>
       <mac address='[{$nic.MACAddress}}'/>
       <model type='virtio'/>
-      <source network='{{.Device}}'/>
+      <source network='{{.NetworkBridge}}'/>
     </interface>
     {{end}}
   </devices>
 </domain>
 `
 
-func WriteTemplate(path string, params StartParams) (err error) {
+func WriteTemplate(path string, params CreateMachineParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot write kvm container config")
 
 	tmpl, err := template.New("kvm").Parse(kvmTemplate)
@@ -64,7 +64,7 @@ func WriteTemplate(path string, params StartParams) (err error) {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, params.Network); err != nil {
+	if err := tmpl.Execute(&buf, params); err != nil {
 		return err
 	}
 

@@ -19,6 +19,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/utils"
 )
 
@@ -65,6 +67,7 @@ type CreateMachineParams struct {
 	Memory        uint64
 	CpuCores      uint64
 	RootDisk      uint64
+	Interfaces    []*network.InterfaceInfo
 }
 
 // CreateMachine creates a virtual machine and starts it.
@@ -91,7 +94,15 @@ func CreateMachine(params CreateMachineParams) error {
 	if params.RootDisk != 0 {
 		args = append(args, "--disk", fmt.Sprint(params.RootDisk))
 	}
-	// TODO add memory, cpu and disk prior to hostname
+	if len(params.Interfaces) != 0 {
+		somePath := ""
+		err := WriteTemplate(somePath, params)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		args = append(args, "--template", somePath)
+	}
+
 	args = append(args, params.Hostname)
 	if params.Series != "" {
 		args = append(args, fmt.Sprintf("release=%s", params.Series))
