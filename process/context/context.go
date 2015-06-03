@@ -20,6 +20,7 @@ func init() {
 // Context is the workload process portion of the hook context.
 type Context struct {
 	processes map[string]process.Info
+	dirty     bool
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
@@ -92,11 +93,16 @@ func (c *Context) Set(id string, value interface{}) error {
 	}
 
 	c.processes[id] = *pInfo
+	c.dirty = true
 	return nil
 }
 
 // Flush implements jujuc.ContextComponent.
 func (c *Context) Flush() error {
+	if !c.dirty {
+		return nil
+	}
 	// TODO(ericsnow) finish
+	c.dirty = false
 	return errors.Errorf("not finished")
 }

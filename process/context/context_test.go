@@ -179,12 +179,30 @@ func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
 	c.Check(after, jc.DeepEquals, []process.Info{other})
 }
 
-func (s *contextSuite) TestFlush(c *gc.C) {
+func (s *contextSuite) TestFlushDirty(c *gc.C) {
+	ctx := context.NewContext()
+	ctx.Set("A", nil)
+
+	err := ctx.Flush()
+	c.Assert(err, gc.ErrorMatches, "not finished")
+}
+
+func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
+	info := &process.Info{Name: "flush-not-dirty"}
+	ctx := context.NewContext(info)
+
+	err := ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c)
+}
+
+func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 	ctx := context.NewContext()
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check calls here.
+	s.stub.CheckCallNames(c)
 }
 
 type fakeContextComponent struct {
