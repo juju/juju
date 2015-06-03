@@ -47,17 +47,17 @@ func (s *steps124Suite) TestCopyFileNew(c *gc.C) {
 
 	newSrc := filepath.Join(src, "new")
 	err := ioutil.WriteFile(newSrc, srcdata, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newDest := filepath.Join(dest, "new")
 
 	err = upgrades.CopyFile(newDest, newSrc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	srcb, err := ioutil.ReadFile(newSrc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	destb, err := ioutil.ReadFile(newDest)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// convert to string and use Equals because we'll get a better failure message
 	c.Assert(string(destb), gc.Equals, string(srcb))
 }
@@ -72,17 +72,17 @@ func (s *steps124Suite) TestCopyFileExisting(c *gc.C) {
 	exDest := filepath.Join(dest, "existing")
 
 	err := ioutil.WriteFile(exSrc, srcdata, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(exDest, destdata, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.CopyFile(exDest, exSrc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// assert we haven't changed the destination
 	b, err := ioutil.ReadFile(exDest)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// convert to string because we'll get a better failure message
 	c.Assert(string(b), gc.Equals, string(destdata))
 }
@@ -100,16 +100,16 @@ func (s *steps124Suite) TestMoveSyslogConfigDefault(c *gc.C) {
 	}
 	for _, f := range files {
 		err := ioutil.WriteFile(filepath.Join(logdir, f), data, 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	ctx := fakeContext{cfg: fakeConfig{logdir: logdir, datadir: datadir}}
 	err := upgrades.MoveSyslogConfig(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, f := range files {
 		_, err := os.Stat(filepath.Join(datadir, f))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		_, err = os.Stat(filepath.Join(logdir, f))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
@@ -128,32 +128,55 @@ func (s *steps124Suite) TestMoveSyslogConfig(c *gc.C) {
 	// error out if one of the files exists in datadir but not logdir.
 
 	err := ioutil.WriteFile(filepath.Join(logdir, "logrotate.conf"), data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = ioutil.WriteFile(filepath.Join(datadir, "logrotate.run"), data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	differentData := []byte("different")
 	existing := filepath.Join(datadir, "logrotate.conf")
 	err = ioutil.WriteFile(existing, differentData, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := fakeContext{cfg: fakeConfig{logdir: logdir, datadir: datadir}}
 	err = upgrades.MoveSyslogConfig(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, f := range files {
 		_, err := os.Stat(filepath.Join(datadir, f))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		_, err = os.Stat(filepath.Join(logdir, f))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
 
 	b, err := ioutil.ReadFile(existing)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// convert to string because we'll get a better failure message
 	c.Assert(string(b), gc.Not(gc.Equals), string(existing))
 
+}
+
+func (s *steps124Suite) TestMoveSyslogConfigCantDeleteOld(c *gc.C) {
+	logdir := c.MkDir()
+	datadir := c.MkDir()
+	file := filepath.Join(logdir, "logrotate.conf")
+
+	// ensure that we don't error out if we can't remove the old file.
+	// error out if one of the files exists in datadir but not logdir.
+	s.PatchValue(upgrades.OsRemove, func(string) error { return os.ErrPermission })
+
+	err := ioutil.WriteFile(file, []byte("data!"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := fakeContext{cfg: fakeConfig{logdir: logdir, datadir: datadir}}
+	err = upgrades.MoveSyslogConfig(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// should still exist in both places (i.e. check we didn't screw up the test)
+	_, err = os.Stat(file)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = os.Stat(filepath.Join(datadir, "logrotate.conf"))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeContext struct {
