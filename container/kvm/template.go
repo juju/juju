@@ -58,7 +58,6 @@ var kvmTemplate = `
 func WriteTemplate(path string, params CreateMachineParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot write kvm container config")
 
-	logger.Warningf("Using params: %#v", params)
 	tmpl, err := template.New("kvm").Parse(kvmTemplate)
 	if err != nil {
 		return err
@@ -74,8 +73,6 @@ func WriteTemplate(path string, params CreateMachineParams) (err error) {
 		return err
 	}
 	defer f.Close()
-	data := buf.String()
-	logger.Warningf("generated template %#v", data)
-	_, err = f.WriteString(data)
+	_, err = f.WriteString(buf.String())
 	return err
 }

@@ -120,7 +120,6 @@ func CreateMachine(params CreateMachineParams) error {
 	}
 	output, err := run("uvt-kvm", args...)
 	logger.Debugf("is this the logged output?:\n%s", output)
-	panic("finished")
 	return err
 }
 
