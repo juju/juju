@@ -48,10 +48,20 @@ var (
 	jujuPasswdFile = "C:\\Juju\\Jujud.pass"
 )
 
-// Service represents a service running on the current system
-type Service struct {
-	common.Service
-	manager ServiceManagerInterface
+// IsRunning returns whether or not windows is the local init system.
+func IsRunning() (bool, error) {
+	return runtime.GOOS == "windows", nil
+}
+
+// ListServices returns the name of all installed services on the
+// local host.
+func ListServices() ([]string, error) {
+	return listServices()
+}
+
+// ListCommand returns a command that will list the services on a host.
+func ListCommand() string {
+	return `(Get-Service).Name`
 }
 
 // ServiceManagerInterface exposes methods needed to manage a windows service
@@ -69,6 +79,12 @@ type ServiceManagerInterface interface {
 	// Exists checks whether the config of the installed service matches the
 	// config supplied to this function
 	Exists(name string, conf common.Conf) (bool, error)
+}
+
+// Service represents a service running on the current system
+type Service struct {
+	common.Service
+	manager ServiceManagerInterface
 }
 
 func newService(name string, conf common.Conf, manager ServiceManagerInterface) *Service {
@@ -90,20 +106,60 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	return newService(name, conf, m), nil
 }
 
-// IsRunning returns whether or not windows is the local init system.
-func IsRunning() (bool, error) {
-	return runtime.GOOS == "windows", nil
+// Name implements service.Service.
+func (s *Service) Name() string {
+	return s.Service.Name
 }
 
-// ListServices returns the name of all installed services on the
-// local host.
-func ListServices() ([]string, error) {
-	return listServices()
+// Conf implements service.Service.
+func (s *Service) Conf() common.Conf {
+	return s.Service.Conf
 }
 
-// ListCommand returns a command that will list the services on a host.
-func ListCommand() string {
-	return `(Get-Service).Name`
+// Validate checks the service for invalid values.
+func (s *Service) Validate() error {
+	if err := s.Service.Validate(renderer); err != nil {
+		return errors.Trace(err)
+	}
+
+	if s.Service.Conf.Transient {
+		return errors.NotSupportedf("transient services")
+	}
+
+	if s.Service.Conf.AfterStopped != "" {
+		return errors.NotSupportedf("Conf.AfterStopped")
+	}
+
+	return nil
+}
+
+func (s *Service) Running() (bool, error) {
+	if ok, err := s.Installed(); err != nil {
+		return false, errors.Trace(err)
+	} else if !ok {
+		return false, nil
+	}
+	return s.manager.Running(s.Name())
+}
+
+// Installed returns whether the service is installed
+func (s *Service) Installed() (bool, error) {
+	services, err := ListServices()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, val := range services {
+		if s.Name() == val {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Exists returns whether the service configuration reflects the
+// desired state
+func (s *Service) Exists() (bool, error) {
+	return s.manager.Exists(s.Name(), s.Conf())
 }
 
 // Start starts the service.
@@ -134,6 +190,24 @@ func (s *Service) Stop() error {
 	return err
 }
 
+// Remove deletes the service.
+func (s *Service) Remove() error {
+	installed, err := s.Installed()
+	if err != nil {
+		return err
+	}
+	if !installed {
+		return nil
+	}
+
+	err = s.Stop()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.manager.Delete(s.Name())
+	return err
+}
+
 // Install installs and starts the service.
 func (s *Service) Install() error {
 	err := s.Validate()
@@ -153,80 +227,6 @@ func (s *Service) Install() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
-}
-
-// Remove deletes the service.
-func (s *Service) Remove() error {
-	installed, err := s.Installed()
-	if err != nil {
-		return err
-	}
-	if !installed {
-		return nil
-	}
-
-	err = s.Stop()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = s.manager.Delete(s.Name())
-	return err
-}
-
-// Name implements service.Service.
-func (s *Service) Name() string {
-	return s.Service.Name
-}
-
-// Conf implements service.Service.
-func (s *Service) Conf() common.Conf {
-	return s.Service.Conf
-}
-
-func (s *Service) Running() (bool, error) {
-	if ok, err := s.Installed(); err != nil {
-		return false, errors.Trace(err)
-	} else if !ok {
-		return false, nil
-	}
-	return s.manager.Running(s.Name())
-}
-
-// Exists returns whether the service configuration reflects the
-// desired state
-func (s *Service) Exists() (bool, error) {
-	return s.manager.Exists(s.Name(), s.Conf())
-}
-
-// Installed returns whether the service is installed
-func (s *Service) Installed() (bool, error) {
-	services, err := ListServices()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, val := range services {
-		if s.Name() == val {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// Validate checks the service for invalid values.
-func (s *Service) Validate() error {
-	if err := s.Service.Validate(renderer); err != nil {
-		return errors.Trace(err)
-	}
-
-	if s.Service.Conf.Transient {
-		return errors.NotSupportedf("transient services")
-	}
-
-	if s.Service.Conf.AfterStopped != "" {
-		return errors.NotSupportedf("Conf.AfterStopped")
-	}
-
 	return nil
 }
 

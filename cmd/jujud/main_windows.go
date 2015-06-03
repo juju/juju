@@ -7,10 +7,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"code.google.com/p/winsvc/svc"
 
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/juju/cmd/service"
+	"github.com/juju/juju/juju/names"
 )
 
 func main() {
@@ -19,14 +21,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	if isInteractive {
-		Main(os.Args)
-	}
 
-	s := windows.NewSystemService("jujud", Main, os.Args)
-	if err := s.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+	commandName := filepath.Base(os.Args[0])
+	if isInteractive || commandName != names.Jujud {
+		Main(os.Args)
+	} else {
+		s := service.NewSystemService("jujud", Main, os.Args)
+		if err := s.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
-	os.Exit(0)
 }

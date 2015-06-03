@@ -2,8 +2,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !linux windows
-
 package windows
 
 import (
@@ -23,6 +21,8 @@ import (
 	"github.com/juju/juju/service/windows/securestring"
 )
 
+//sys enumServicesStatus(h syscall.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
+
 const (
 	// logonProvider constants
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/aa378184%28v=vs.85%29.aspx
@@ -39,12 +39,6 @@ const (
 	c_LOGON32_LOGON_UNLOCK            = 7
 	c_LOGON32_LOGON_NETWORK_CLEARTEXT = 8
 	c_LOGON32_LOGON_NEW_CREDENTIALS   = 9
-)
-
-var (
-	modadvapi32             = syscall.NewLazyDLL("advapi32.dll")
-	procLogonUserW          = modadvapi32.NewProc("LogonUserW")
-	procEnumServicesStatusW = modadvapi32.NewProc("EnumServicesStatusW")
 )
 
 type enumService struct {
@@ -109,50 +103,25 @@ func newManagerConn() (mgrInterface, error) {
 
 var newConn = newManagerConn
 
-// enumServicesStatus queries the windows services database and returns a pointer
-// to a buffer that contains an array of enumService.
-func enumServicesStatus(h syscall.Handle, dwServiceType uint32,
-	dwServiceState uint32, lpServices *byte, cbBufSize uint32,
-	pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) {
-	r1, _, e1 := procEnumServicesStatusW.Call(
-		uintptr(h),
-		uintptr(dwServiceType),
-		uintptr(dwServiceState),
-		uintptr(unsafe.Pointer(lpServices)),
-		uintptr(cbBufSize),
-		uintptr(unsafe.Pointer(pcbBytesNeeded)),
-		uintptr(unsafe.Pointer(lpServicesReturned)),
-		uintptr(unsafe.Pointer(lpResumeHandle)))
-	if int(r1) == 0 {
-		err = e1
-	}
-	return
-}
-
 // enumServices casts the bytes returned by enumServicesStatus into an array of
 // enumService with all the services on the current system
 func enumServices(h syscall.Handle) ([]enumService, error) {
 	var needed uint32
 	var returned uint32
 	var resume uint32
-	var e []byte
+	var buf [256]enumService
 
-	err := enumServicesStatus(h, winapi.SERVICE_WIN32,
-		winapi.SERVICE_STATE_ALL, nil, 0, &needed, &returned, &resume)
-	if err != nil {
-		if err.(syscall.Errno) != c_ERROR_MORE_DATA {
-			return []enumService{}, err
-		}
-		e = make([]byte, needed)
-		err = enumServicesStatus(h, winapi.SERVICE_WIN32,
-			winapi.SERVICE_STATE_ALL, &e[0], needed, &needed, &returned, &resume)
+	for {
+		err := enumServicesStatus(h, winapi.SERVICE_WIN32, winapi.SERVICE_STATE_ALL,
+			uintptr(unsafe.Pointer(&buf)), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
 		if err != nil {
-			return []enumService{}, err
+			if err.(syscall.Errno) != c_ERROR_MORE_DATA {
+				return []enumService{}, err
+			}
+			continue
 		}
+		return buf[:returned], nil
 	}
-	buf := unsafe.Pointer(&e[0])
-	enum := (*[2 << 20]enumService)(buf)[:returned]
-	return enum, nil
 }
 
 // getPassword attempts to read the password for the jujud user. We define it as

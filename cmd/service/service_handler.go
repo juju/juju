@@ -2,9 +2,9 @@
 // Copyright 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 //
-// +build windows !linux
+// +build windows
 
-package windows
+package service
 
 import (
 	"os"
@@ -19,7 +19,7 @@ type systemService struct {
 }
 
 // Execute implements the svc.Handler interface
-func (s *systemService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEr bool, errno uint32) {
+func (s *systemService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
@@ -27,22 +27,17 @@ func (s *systemService) Execute(args []string, r <-chan svc.ChangeRequest, chang
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				// TODO (gabriel-samfira): Add more robust handling of service termination
-				changes <- svc.Status{State: svc.StopPending}
-				os.Exit(0)
-			default:
-				continue
-			}
+	for c := range r {
+		switch c.Cmd {
+		case svc.Interrogate:
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			// TODO (gabriel-samfira): Add more robust handling of service termination
+			changes <- svc.Status{State: svc.StopPending}
+			return true, 0
 		}
 	}
-	return
+	return true, 0
 }
 
 // Run runs the service

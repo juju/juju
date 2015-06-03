@@ -13,45 +13,8 @@ import (
 	"unsafe"
 )
 
-var (
-	cryptdll  = syscall.NewLazyDLL("Crypt32.dll")
-	kerneldll = syscall.NewLazyDLL("Kernel32.dll")
-
-	// syntax:
-	// procProtectData.Call(inputBlob *blob, dataDescription *string,
-	// 		optionalEntropy *blob, freeWorkingSpace *void, proptStruct
-	//		*CRYPTPROTECT_PROMPTSTRUCT, dwflags uint, outputBlob *blob)
-	// params:
-	// in the calls made by the ConvertFrom-SecureString commandlet;
-	// 		dataDescription, optionalEntropy, freeWorkingSpace and proptStruct
-	//		are set to their respective zero values
-	// inputBlob contains the actual input, outputBlob is set to its zero
-	//		value, and dwflags is set to the default of 1
-	// return value:
-	// a C-boolean; 1(true) if it succeeds, 0(false) if it fails
-	procProtectData = cryptdll.NewProc("CryptProtectData")
-
-	// syntax:
-	// procUnprotectData.Call(inputBlob *blob, dataDescription *string,
-	//		optionalEntropy *blob, freeWorkingSpace *void, proptStruct
-	//		*CRYPTPROTECT_PROMPTSTRUCT, dwflags uint, outputBlob *blob)
-	// params:
-	// in our case; dataDescription, optionalEntropy, freeWorkingSpace and
-	//		proptStruct are set to their respective zero values
-	// inputBlob contains the actual input, outputBlob is set to its zero value
-	//		 and dwflags is set to 1
-	// return value:
-	// a C-boolean; 1(true) if it succeeds, 0(false) if it fails
-	procUnprotectData = cryptdll.NewProc("CryptUnprotectData")
-
-	// syntax:
-	// procLocalFree.Call(ptr *uint)
-	// param:
-	// an unsafe pointer of any type, for our purposes a *uint
-	// return value:
-	// pointer value; nil if it succeeds, ptr if it fails
-	procLocalFree = kerneldll.NewProc("LocalFree")
-)
+//sys protectData(input uintptr, szDataDescr uint32, entropy uintptr, reserved uint32, prompt uint32, flags uint, output uintptr) (err error) [failretval==0] = crypt32.CryptProtectData
+//sys unprotectData(input uintptr, szDataDescr uint32, entropy uintptr, reserved uint32, prompt uint32, flags uint, output uintptr) (err error) [failretval==0] = crypt32.CryptUnprotectData
 
 // blob is the struct type we shall be making the syscalls on, it contains a
 // pointer to the start of the actual data and its respective length in bytes
@@ -89,15 +52,11 @@ func Encrypt(input string) (string, error) {
 	outputBlob := blob{}
 	dwflags := 1
 
-	res, _, err := procProtectData.Call(uintptr(unsafe.Pointer(&inputBlob)),
-		uintptr(0), uintptr(unsafe.Pointer(&entropyBlob)), uintptr(0),
-		uintptr(0), uintptr(uint(dwflags)),
-		uintptr(unsafe.Pointer(&outputBlob)))
-	// check if result is 0(C's false)
-	if res == 0 {
+	err := protectData(uintptr(unsafe.Pointer(&inputBlob)), 0, uintptr(unsafe.Pointer(&entropyBlob)), 0, 0, uint(dwflags), uintptr(unsafe.Pointer(&outputBlob)))
+	if err != nil {
 		return "", fmt.Errorf("Failed to encrypt %s, error: %s", input, err)
 	}
-	defer procLocalFree.Call(uintptr(unsafe.Pointer(outputBlob.data)))
+	defer syscall.LocalFree((syscall.Handle)(unsafe.Pointer(outputBlob.data)))
 
 	output := outputBlob.getData()
 	// the result is a slice of bytes, which we must encode into hexa
@@ -119,14 +78,12 @@ func Decrypt(input string) (string, error) {
 	outputBlob := blob{}
 	dwflags := 1
 
-	res, _, err := procUnprotectData.Call(uintptr(unsafe.Pointer(&inputBlob)),
-		uintptr(0), uintptr(unsafe.Pointer(&entropyBlob)), uintptr(0),
-		uintptr(0), uintptr(uint(dwflags)),
+	err = unprotectData(uintptr(unsafe.Pointer(&inputBlob)), 0, uintptr(unsafe.Pointer(&entropyBlob)), 0, 0, uint(dwflags),
 		uintptr(unsafe.Pointer(&outputBlob)))
-	if res == 0 {
+	if err != nil {
 		return "", fmt.Errorf("Failed to decrypt %s, error: &s", input, err)
 	}
-	defer procLocalFree.Call(uintptr(unsafe.Pointer(outputBlob.data)))
+	defer syscall.LocalFree((syscall.Handle)(unsafe.Pointer(outputBlob.data)))
 
 	output := outputBlob.getData()
 	// as mentioned, the commandlet infers working with data with interwoven

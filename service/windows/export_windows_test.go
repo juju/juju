@@ -2,7 +2,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build windows !linux
+// +build windows
 
 package windows
 
