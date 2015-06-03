@@ -89,8 +89,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment, owner: %q", owner.Username())
-	logger.Infof("info: %#v", info)
 	logger.Infof("starting presence watcher")
 	st.startPresenceWatcher()
 
