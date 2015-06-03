@@ -15,8 +15,10 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from jujuci import(
+    get_build_data,
     add_credential_args,
     get_credentials,
+    get_job_data,
     JENKINS_URL,
 )
 
@@ -63,7 +65,8 @@ class JenkinsBuild:
         :rtype: dict
         """
         build_number = build_number or self.get_build_number()
-        return self.jenkins.get_build_info(self.job_name, build_number)
+        return get_build_data(
+            self.jenkins.server, self.credentials, self.job_name, build_number)
 
     @property
     def result(self):
@@ -89,7 +92,8 @@ class JenkinsBuild:
         Returns latest Jenkins build number
         :rtype: int
         """
-        job_info = self.jenkins.get_job_info(self.job_name)
+        job_info = get_job_data(
+            self.jenkins.server, self.credentials, self.job_name)
         if not job_info or not job_info.get('lastBuild'):
             return None
         return job_info.get('lastBuild').get('number')
@@ -279,4 +283,3 @@ if __name__ == '__main__':
         print('Uploading all test results')
         u = HUploader.factory(credentials=cred)
         sys.exit(u.upload_all_test_results())
-    parser.print_help()
