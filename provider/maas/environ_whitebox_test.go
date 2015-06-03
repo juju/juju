@@ -714,6 +714,22 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
+func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Set the node status to "Failed deployment"
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
+}
+
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
