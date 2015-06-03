@@ -1,10 +1,11 @@
 __metaclass__ = type
 
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-    )
+)
 import os
 import shutil
 import StringIO
@@ -24,11 +25,12 @@ from jujuconfig import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
-    )
+)
 from jujupy import (
     CannotConnectEnv,
     Environment,
     EnvJujuClient,
+    EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
     ErroredUnit,
@@ -41,11 +43,13 @@ from jujupy import (
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
+    make_client,
+    parse_new_state_server_from_error,
 )
 from utility import (
     scoped_environ,
     temp_dir,
-    )
+)
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
@@ -98,11 +102,29 @@ class TestEnvJujuClient25(ClientTest):
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
             '1.25-foobar', 'path')
         env = client._shell_environ()
-        self.assertEqual(env[JUJU_DEV_FEATURE_FLAGS], 'cloudsigma')
+        "".split()
+        self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_juju_home(self):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
+        env = client._shell_environ(juju_home='asdf')
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestEnvJujuClient22(ClientTest):
+
+    client_class = EnvJujuClient22
+
+    def test__shell_environ(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
+        env = client._shell_environ()
+        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS), 'actions')
+
+    def test__shell_environ_juju_home(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
@@ -165,6 +187,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.16'
             yield '1.16.1'
             yield '1.15'
+            yield '1.22.1'
             yield '1.24-alpha1'
             yield '1.24.7'
             yield '1.25.1'
@@ -184,6 +207,8 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient.by_version(None)
             self.assertIs(EnvJujuClient, type(client))
             self.assertEqual('1.15', client.version)
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient22)
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24-alpha1')
@@ -571,15 +596,126 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_started(0)
         le_mock.assert_called_once_with(value)
 
+    def test_wait_for_subordinate_units(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1/0:
+                        agent-state: started
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub2/0:
+                        agent-state: started
+                      sub3/0:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub1/0')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_multiple_subordinate_units(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub/0:
+                        agent-state: started
+                  ubuntu/1:
+                    subordinates:
+                      sub/1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'ubuntu', 'sub', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub/0')
+        expected_states['started'].append('sub/1')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_subordinate_units_checks_slash_in_unit_name(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    with patch('logging.error'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+
+    def test_wait_for_subordinate_units_no_subordinate(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    with patch('logging.error'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
                 '2': {'state-server-member-status': 'has-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_ha()
@@ -590,9 +726,9 @@ class TestEnvJujuClient(ClientTest):
                 '0': {'state-server-member-status': 'no-vote'},
                 '1': {'state-server-member-status': 'no-vote'},
                 '2': {'state-server-member-status': 'no-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('sys.stdout'):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -606,9 +742,9 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -621,7 +757,7 @@ class TestEnvJujuClient(ClientTest):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
-                },
+            },
             'services': {
                 'jenkins': {
                     'units': {
@@ -638,9 +774,9 @@ class TestEnvJujuClient(ClientTest):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
-                },
+            },
             'services': {},
-            })
+        })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -981,7 +1117,7 @@ class TestTempJujuEnv(TestCase):
                     'root-dir': get_local_root(fake_home, client.env),
                     'agent-version': agent_version,
                     'test-mode': True,
-                    }}})
+                }}})
                 stub_bootstrap()
 
     def test_temp_bootstrap_env_provides_dir(self):
@@ -1052,7 +1188,7 @@ class TestTempJujuEnv(TestCase):
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/lxc', 2000000, 'LXC containers'),
-            ])
+        ])
 
     def test_check_space_local_kvm(self):
         env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
@@ -1064,7 +1200,7 @@ class TestTempJujuEnv(TestCase):
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
-            ])
+        ])
 
     def test_error_on_jenv(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -1337,7 +1473,7 @@ class TestStatus(TestCase):
         self.assertEqual(list(status.iter_machines(containers=True)), [
             ('1', status.status['machines']['1']),
             ('1/lxc/0', {'baz': 'qux'}),
-            ])
+        ])
 
     def test_agent_items_empty(self):
         status = Status({'machines': {}, 'services': {}}, '')
@@ -1416,6 +1552,33 @@ class TestStatus(TestCase):
         }, '')
         self.assertEqual(3, status.get_service_count())
 
+    def test_get_service_unit_count_zero(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_unit_count('jenkins'))
+
+    def test_get_service_unit_count(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'bad'},
+                        'jenkins/3': {'agent-state': 'bad'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_unit_count('jenkins'))
+
     def test_get_unit(self):
         status = Status({
             'machines': {
@@ -1441,7 +1604,7 @@ class TestStatus(TestCase):
         with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
             status.get_unit('jenkins/3')
 
-    def test_get_subordinate_units(self):
+    def test_service_subordinate_units(self):
         status = Status({
             'machines': {
                 '1': {},
@@ -1473,24 +1636,17 @@ class TestStatus(TestCase):
                 }
             }
         }, '')
-        self.assertEqual(
-            status.get_subordinate_units('ubuntu'),
+        self.assertItemsEqual(
+            status.service_subordinate_units('ubuntu'),
             [])
-        self.assertEqual(
-            status.get_subordinate_units('jenkins'),
-            [{'chaos-monkey/0': {'agent-state': 'started'}}])
-        self.assertEqual(
-            status.get_subordinate_units('dummy-sink'), [
-                {'chaos-monkey/1': {'agent-state': 'started'}},
-                {'chaos-monkey/2': {'agent-state': 'started'}}]
+        self.assertItemsEqual(
+            status.service_subordinate_units('jenkins'),
+            [('chaos-monkey/0', {'agent-state': 'started'},)])
+        self.assertItemsEqual(
+            status.service_subordinate_units('dummy-sink'), [
+                ('chaos-monkey/1', {'agent-state': 'started'}),
+                ('chaos-monkey/2', {'agent-state': 'started'})]
             )
-        with self.assertRaisesRegexp(KeyError, 'foo'):
-            status.get_subordinate_units('foo')
-
-    def test_get_subordinate_units_no_services(self):
-        status = Status({}, '')
-        with self.assertRaisesRegexp(KeyError, 'ubuntu'):
-            status.get_subordinate_units('ubuntu')
 
     def test_get_open_ports(self):
         status = Status({
@@ -1593,7 +1749,7 @@ class TestStatus(TestCase):
             'machines': {'0': {
                 'agent-state-info': failure}},
             'services': {},
-            }, '')
+        }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
             status.check_agents_started()
         e = e_cxt.exception
@@ -1653,14 +1809,14 @@ class TestStatus(TestCase):
         old_status = Status({
             'machines': {
                 'bar': 'bar_info',
-                }
-            }, '')
+            }
+        }, '')
         new_status = Status({
             'machines': {
                 'foo': 'foo_info',
                 'bar': 'bar_info',
-                }
-            }, '')
+            }
+        }, '')
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
 
@@ -1669,8 +1825,8 @@ class TestStatus(TestCase):
             'machines': {
                 '0': {'instance-id': 'foo-bar'},
                 '1': {},
-                }
-            }, '')
+            }
+        }, '')
         self.assertEqual(status.get_instance_id('0'), 'foo-bar')
         with self.assertRaises(KeyError):
             status.get_instance_id('1')
@@ -1965,6 +2121,62 @@ class TestEnvironment(TestCase):
         mock_get.assert_called_with(env, 'tools-metadata-url')
         self.assertEqual(0, mock_set.call_count)
 
+    def test_action_do(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = \
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
+            id = client.action_do("foo/0", "myaction", "param=5")
+            self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
+        mock.assert_called_once_with(
+            'action do', 'foo/0', 'myaction', "param=5"
+        )
+
+    def test_action_do_error(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = "some bad text"
+            with self.assertRaisesRegexp(Exception,
+                                         "Action id not found in output"):
+                client.action_do("foo/0", "myaction", "param=5")
+
+    def test_action_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            mock.return_value = ret
+            out = client.action_fetch("123")
+            self.assertEqual(out, ret)
+        mock.assert_called_once_with(
+            'action fetch', '123', "--wait", "1m"
+        )
+
+    def test_action_fetch_timeout(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        ret = "status: pending\nfoo: bar"
+        with patch.object(EnvJujuClient,
+                          'get_juju_output', return_value=ret):
+            with self.assertRaisesRegexp(Exception,
+                                         "timed out waiting for action"):
+                client.action_fetch("123")
+
+    def test_action_do_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            # setting side_effect to an iterable will return the next value
+            # from the list each time the function is called.
+            mock.side_effect = [
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9",
+                ret]
+            out = client.action_do_fetch("foo/0", "myaction", "param=5")
+            self.assertEqual(out, ret)
+
 
 class TestGroupReporter(TestCase):
 
@@ -2099,3 +2311,53 @@ working: 1 ....................................................................
         ])
         reporter.finish()
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
+
+
+class TestMakeClient(TestCase):
+
+    @contextmanager
+    def make_client_cxt(self):
+        td = temp_dir()
+        te = temp_env({'environments': {'foo': {
+            'orig-name': 'foo', 'name': 'foo'}}})
+        with td as juju_path, te, patch('subprocess.Popen',
+                                        side_effect=ValueError):
+            with patch('subprocess.check_output') as co_mock:
+                co_mock.return_value = '1.18'
+                yield juju_path
+
+    def test_make_client(self):
+        with self.make_client_cxt() as juju_path:
+            client = make_client(juju_path, False, 'foo', 'bar')
+        self.assertEqual(client.full_path, os.path.join(juju_path, 'juju'))
+        self.assertEqual(client.debug, False)
+        self.assertEqual(client.env.config['orig-name'], 'foo')
+        self.assertEqual(client.env.config['name'], 'bar')
+        self.assertEqual(client.env.environment, 'bar')
+
+    def test_make_client_debug(self):
+        with self.make_client_cxt() as juju_path:
+            client = make_client(juju_path, True, 'foo', 'bar')
+        self.assertEqual(client.debug, True)
+
+    def test_make_client_no_temp_env_name(self):
+        with self.make_client_cxt() as juju_path:
+            client = make_client(juju_path, False, 'foo', None)
+        self.assertEqual(client.full_path, os.path.join(juju_path, 'juju'))
+        self.assertEqual(client.env.config['orig-name'], 'foo')
+        self.assertEqual(client.env.config['name'], 'foo')
+        self.assertEqual(client.env.environment, 'foo')
+
+
+class AssessParseStateServerFromErrorTestCase(TestCase):
+
+    def test_parse_new_state_server_from_error(self):
+        output = dedent("""
+            Waiting for address
+            Attempting to connect to 10.0.0.202:22
+            Attempting to connect to 1.2.3.4:22
+            The fingerprint for the ECDSA key sent by the remote host is
+            """)
+        error = subprocess.CalledProcessError(1, ['foo'], output)
+        address = parse_new_state_server_from_error(error)
+        self.assertEqual('1.2.3.4', address)
