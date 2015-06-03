@@ -73,8 +73,10 @@ func moveSyslogConfig(context Context) error {
 			errs = append(errs, err.Error())
 			continue
 		}
-		if err := os.Remove(oldpath); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, err.Error())
+		if err := osRemove(oldpath); err != nil {
+			// Don't fail the step if we can't get rid of the old files.
+			// We don't actually care if they still exist or not.
+			logger.Warningf("Can't delete old config file %q: %s", oldpath, err)
 		}
 	}
 	if len(errs) > 0 {
@@ -82,6 +84,9 @@ func moveSyslogConfig(context Context) error {
 	}
 	return nil
 }
+
+// for testing... of course.
+var osRemove = os.Remove
 
 // copyFile copies a file from one location to another.  It won't overwrite
 // existing files and will return nil in this case.  This is used instead of
