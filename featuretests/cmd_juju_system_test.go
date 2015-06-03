@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/cmd"
 	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -31,6 +32,13 @@ func (s *cmdSystemSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.JES)
 }
 
+func (s *cmdSystemSuite) run(c *gc.C, args ...string) *cmd.Context {
+	command := system.NewSuperCommand()
+	context, err := testing.RunCommand(c, command, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
 func (s *cmdSystemSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -46,16 +54,14 @@ func (s *cmdSystemSuite) createEnv(c *gc.C, envname string, isServer bool) {
 }
 
 func (s *cmdSystemSuite) TestSystemListCommand(c *gc.C) {
-	context, err := testing.RunCommand(c, &system.ListCommand{})
-	c.Assert(err, jc.ErrorIsNil)
+	context := s.run(c, "list")
 	c.Assert(testing.Stdout(context), gc.Equals, "dummyenv\n")
 }
 
 func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
 	s.createEnv(c, "new-env", false)
-	envcmd.WriteCurrentSystem("dummyenv")
-	context, err := testing.RunCommand(c, envcmd.WrapSystem(&system.EnvironmentsCommand{}))
-	c.Assert(err, jc.ErrorIsNil)
+	context := s.run(c, "environments")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME      OWNER              LAST CONNECTION\n"+
 		"dummyenv  dummy-admin@local  just now\n"+
@@ -81,12 +87,27 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, &system.LoginCommand{}, "--server", serverFilePath, "--new-password", "just-a-system")
-	c.Assert(err, jc.ErrorIsNil)
+	s.run(c, "login", "--server", serverFilePath, "--new-password", "just-a-system")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
 	api, err := juju.NewAPIFromName("just-a-system")
+	c.Assert(err, jc.ErrorIsNil)
+	api.Close()
+}
+
+func (s *cmdSystemSuite) TestCreate(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
+	// so fake one on the command line.  The dummy provider also expects
+	// a config value for 'state-server'.
+	context := s.run(c, "create-environment", "new-env", "authorized-keys=fake-key", "state-server=false")
+	c.Check(testing.Stdout(context), gc.Equals, "")
+	c.Check(testing.Stderr(context), gc.Equals, `created environment "new-env"`+"\n")
+
+	// Make sure that the saved server details are sufficient to connect
+	// to the api server.
+	api, err := juju.NewAPIFromName("new-env")
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
