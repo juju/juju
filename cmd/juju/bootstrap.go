@@ -321,6 +321,7 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		_, err = client.List()
 		client.Close()
 		if err == nil {
+			ctx.Infof("Bootstrap complete")
 			return nil
 		}
 		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {

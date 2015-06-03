@@ -278,11 +278,11 @@ func (p *containerProvisioner) loop() error {
 	environConfigChanges = environWatcher.Changes()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
-	environ, err := worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+	config, err := p.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	harvestMode := environ.Config().ProvisionerHarvestMode()
+	harvestMode := config.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
