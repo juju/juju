@@ -52,6 +52,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 		Memory:        params.Memory,
 		CpuCores:      params.CpuCores,
 		RootDisk:      params.RootDisk,
+		Interfaces:    params.Network.Interfaces,
 	}); err != nil {
 		return err
 	}

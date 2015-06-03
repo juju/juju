@@ -70,7 +70,7 @@ type CreateMachineParams struct {
 	Memory        uint64
 	CpuCores      uint64
 	RootDisk      uint64
-	Interfaces    []*network.InterfaceInfo
+	Interfaces    []network.InterfaceInfo
 }
 
 // CreateMachine creates a virtual machine and starts it.
