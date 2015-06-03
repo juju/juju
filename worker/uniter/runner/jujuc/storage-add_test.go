@@ -58,11 +58,11 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 		{[]string{}, 1, "storage add requires a storage directive"},
 		{[]string{"data=-676"}, 1, `.*cannot parse count: count must be gre.*`},
 		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
-		{[]string{"data=pool"}, 1, `.*pool or size specified for "data".*`},
-		{[]string{"data=pool,1M"}, 1, `.*pool or size specified for "data".*`},
-		{[]string{"data=1M"}, 1, `.*pool or size specified for "data".*`},
-		{[]string{"data=2,1M"}, 1, `.*pool or size specified for "data".*`},
-		{[]string{"cache", "data=2,1M"}, 1, `.*pool or size specified for "data".*`},
+		{[]string{"data=pool"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=pool,1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=2,1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"cache", "data=2,1M"}, 1, `.*only count can be specified for "data".*`},
 	}
 	for i, t := range tests {
 		c.Logf("test %d: %#v", i, t.args)

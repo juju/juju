@@ -75,7 +75,7 @@ func (s *StorageAddCommand) Init(args []string) error {
 		// Unit should not be able to specify from which pool to add storage
 		// nor what size storage should be.
 		if v.Pool != "" || v.Size > 0 {
-			return errors.Errorf("pool or size specified for %q", k)
+			return errors.Errorf("only count can be specified for %q", k)
 		}
 		s.all[k] = params.StorageConstraints{v.Pool, &v.Size, &v.Count}
 	}
