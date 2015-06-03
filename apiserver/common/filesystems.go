@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -26,13 +27,23 @@ func IsFilesystemAlreadyProvisioned(err error) bool {
 }
 
 // FilesystemParams returns the parameters for creating the given filesystem.
-func FilesystemParams(f state.Filesystem, poolManager poolmanager.PoolManager) (params.FilesystemParams, error) {
+func FilesystemParams(
+	f state.Filesystem,
+	storageInstance state.StorageInstance,
+	environConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+) (params.FilesystemParams, error) {
 	stateFilesystemParams, ok := f.Params()
 	if !ok {
 		err := &filesystemAlreadyProvisionedError{fmt.Errorf(
 			"filesystem %q is already provisioned", f.Tag().Id(),
 		)}
 		return params.FilesystemParams{}, err
+	}
+
+	filesystemTags, err := storageTags(storageInstance, environConfig)
+	if err != nil {
+		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
 	providerType, cfg, err := StoragePoolConfig(stateFilesystemParams.Pool, poolManager)
@@ -45,6 +56,7 @@ func FilesystemParams(f state.Filesystem, poolManager poolmanager.PoolManager) (
 		stateFilesystemParams.Size,
 		string(providerType),
 		cfg.Attrs(),
+		filesystemTags,
 		nil, // attachment params set by the caller
 	}
 

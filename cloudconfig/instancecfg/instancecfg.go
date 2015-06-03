@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
@@ -38,6 +39,10 @@ var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
+	// Tags is a set of tags to set on the instance, if supported. This
+	// should be populated using the InstanceTags method in this package.
+	Tags map[string]string
+
 	// Bootstrap specifies whether the new instance is the bootstrap
 	// instance. When this is true, StateServingInfo should be set
 	// and filled out.
@@ -422,6 +427,7 @@ func NewInstanceConfig(
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
+		Tags:                    map[string]string{},
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -518,13 +524,14 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		return errors.Trace(err)
 	}
 
-	if isStateInstanceConfig(icfg) {
+	if multiwatcher.AnyJobNeedsState(icfg.Jobs...) {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for state server
 		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
+
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
 	// will probably change.
@@ -581,6 +588,17 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	return nil
 }
 
+// InstanceTags returns the minimum set of tags that should be set on a
+// machine instance, if the provider supports them.
+func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
+	uuid, _ := cfg.UUID()
+	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	if multiwatcher.AnyJobNeedsState(jobs...) {
+		instanceTags[tags.JujuStateServer] = "true"
+	}
+	return instanceTags
+}
+
 // bootstrapConfig returns a copy of the supplied configuration with the
 // admin-secret and ca-private-key attributes removed. If the resulting
 // config is not suitable for bootstrapping an environment, an error is
@@ -599,16 +617,4 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, fmt.Errorf("environment configuration has no agent-version")
 	}
 	return cfg, nil
-}
-
-// isStateInstanceConfig determines if given machine configuration
-// is for State Server by iterating over machine's jobs.
-// If JobManageEnviron is present, this is a state server.
-func isStateInstanceConfig(icfg *InstanceConfig) bool {
-	for _, aJob := range icfg.Jobs {
-		if aJob == multiwatcher.JobManageEnviron {
-			return true
-		}
-	}
-	return false
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -366,6 +368,9 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				VolumeTag: "volume-1",
 				Size:      2048,
 				Provider:  "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
 					VolumeTag:  "volume-1",
@@ -377,6 +382,9 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				VolumeTag: "volume-3",
 				Size:      4096,
 				Provider:  "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
 					VolumeTag:  "volume-3",
@@ -409,6 +417,9 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				FilesystemTag: "filesystem-1",
 				Size:          2048,
 				Provider:      "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},

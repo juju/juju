@@ -14,7 +14,6 @@ import (
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -48,12 +47,6 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
-	}
-	if uuid, ok := environConfig.UUID(); ok {
-		source.uuid = &uuid
-	}
-	if tags, ok := environConfig.ResourceTags(); ok {
-		source.resourceTags = tags
 	}
 	return source, nil
 }
@@ -92,8 +85,6 @@ func (p *cinderProvider) Dynamic() bool {
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
 	envName        string // non unique, informational only
-	uuid           *string
-	resourceTags   map[string]string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -151,14 +142,10 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
-	metadata := make(map[string]string)
-	for k, v := range s.resourceTags {
-		metadata[k] = v
+	var metadata interface{}
+	if len(arg.ResourceTags) > 0 {
+		metadata = arg.ResourceTags
 	}
-	if s.uuid != nil {
-		metadata[common.TagJujuEnv] = *s.uuid
-	}
-
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.

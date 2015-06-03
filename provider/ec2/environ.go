@@ -560,28 +560,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
 	// Tag instance, for accounting and identification.
-	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	tags, ok := e.Config().ResourceTags()
-	if !ok {
-		tags = make(map[string]string)
-	}
-	tags[tagName] = resourceName(
+	args.InstanceConfig.Tags[tagName] = resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
-	if stateServer {
-		// It's a state server; tag it as such. We don't currently use
-		// this tag for anything, but we can use this to migrate away
-		// from requiring S3 for recording state server instance IDs.
-		tags[common.TagJujuStateServer] = "true"
-	}
-	if uuid, ok := e.Config().UUID(); ok {
-		tags[common.TagJujuEnv] = uuid
-	}
-	if err := tagResources(e.ec2(), tags, string(inst.Id())); err != nil {
+	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, errors.Annotate(err, "tagging instance")
 	}
 
-	if stateServer {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			return nil, errors.Annotate(err, "recording instance in provider-state")
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -28,13 +29,23 @@ func IsVolumeAlreadyProvisioned(err error) bool {
 }
 
 // VolumeParams returns the parameters for creating the given volume.
-func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.VolumeParams, error) {
+func VolumeParams(
+	v state.Volume,
+	storageInstance state.StorageInstance,
+	environConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+) (params.VolumeParams, error) {
 	stateVolumeParams, ok := v.Params()
 	if !ok {
 		err := &volumeAlreadyProvisionedError{fmt.Errorf(
 			"volume %q is already provisioned", v.Tag().Id(),
 		)}
 		return params.VolumeParams{}, err
+	}
+
+	volumeTags, err := storageTags(storageInstance, environConfig)
+	if err != nil {
+		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
 	providerType, cfg, err := StoragePoolConfig(stateVolumeParams.Pool, poolManager)
@@ -46,6 +57,7 @@ func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.V
 		stateVolumeParams.Size,
 		string(providerType),
 		cfg.Attrs(),
+		volumeTags,
 		nil, // attachment params set by the caller
 	}, nil
 }

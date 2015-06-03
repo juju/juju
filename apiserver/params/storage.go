@@ -206,6 +206,7 @@ type VolumeParams struct {
 	Size       uint64                  `json:"size"`
 	Provider   string                  `json:"provider"`
 	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Tags       map[string]string       `json:"tags,omitempty"`
 	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
@@ -323,6 +324,7 @@ type FilesystemParams struct {
 	Size          uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
+	Tags          map[string]string           `json:"tags,omitempty"`
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
 
