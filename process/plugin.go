@@ -4,6 +4,7 @@
 package process
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/juju/errors"
@@ -14,17 +15,34 @@ import (
 type LaunchDetails struct {
 	// UniqueID is provided by the plugin as a guaranteed way
 	// to identify the process to the plugin.
-	UniqueID string
+	UniqueID string `json:"id"`
 
 	// Status is the status of the process as reported by the plugin.
-	Status string
+	Status string `json:"status"`
+}
+
+// Validate returns an error if LaunchDetails is not well-formed.
+func (ld LaunchDetails) Validate() error {
+	if ld.UniqueID == "" {
+		return errors.Errorf("UniqueID must be set")
+	}
+	if ld.Status == "" {
+		return errors.Errorf("Status must be set")
+	}
+	return nil
 }
 
 // ParseDetails parses the input string in to a LaunchDetails struct.
-func ParseDetails(input string) (LaunchDetails, error) {
+// ParseDetails expects the plugin to return JSON.
+func ParseDetails(input string) (*LaunchDetails, error) {
 	var details LaunchDetails
-	// TODO(ericsnow) Finish!
-	return details, errors.Errorf("not finished")
+	if err := json.Unmarshal([]byte(input), &details); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := details.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &details, nil
 }
 
 // ParseEnv converts the provided strings into a mapping of environment

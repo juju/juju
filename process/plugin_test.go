@@ -97,3 +97,41 @@ func (*pluginSuite) TestUnparseEnvMissing(c *gc.C) {
 
 	c.Check(raw, jc.DeepEquals, []string{"A=1", "B=", "C=3"})
 }
+
+func (*pluginSuite) TestParseDetailsValid(c *gc.C) {
+	input := `{"id":"1234", "status":"running"}`
+
+	ld, err := process.ParseDetails(input)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ld, jc.DeepEquals, &process.LaunchDetails{
+		UniqueID: "1234",
+		Status:   "running",
+	})
+}
+
+func (*pluginSuite) TestParseDetailsMissingID(c *gc.C) {
+	input := `{"status":"running"}`
+
+	_, err := process.ParseDetails(input)
+	c.Assert(err, gc.ErrorMatches, "UniqueID must be set")
+}
+
+func (*pluginSuite) TestParseDetailsMissingStatus(c *gc.C) {
+	input := `{"id":"1234"}`
+
+	_, err := process.ParseDetails(input)
+	c.Assert(err, gc.ErrorMatches, "Status must be set")
+}
+
+func (*pluginSuite) TestParseDetailsExtraInfo(c *gc.C) {
+	input := `{"id":"1234", "status":"running", "extra":"stuff"}`
+
+	ld, err := process.ParseDetails(input)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ld, jc.DeepEquals, &process.LaunchDetails{
+		UniqueID: "1234",
+		Status:   "running",
+	})
+}
