@@ -72,10 +72,14 @@ class TestJenkinsBuild(TestCase):
 
     def test_get_build_info(self):
         credentials = fake_credentials()
-        jenkins_mock = MagicMock()
-        jenkins_mock.get_build_info.return_value = BUILD_INFO
-        j = JenkinsBuild(credentials, JOB_NAME, jenkins_mock, None)
-        self.assertEqual(j.get_build_info(BUILD_NUM), BUILD_INFO)
+        jenkins = MagicMock(server=JENKINS_URL)
+        j = JenkinsBuild(credentials, JOB_NAME, jenkins, None)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   return_value=BUILD_INFO) as gbd_mock:
+            build_info = j.get_build_info(BUILD_NUM)
+        self.assertEqual(build_info, BUILD_INFO)
+        gbd_mock.assert_called_once_with(
+            JENKINS_URL, credentials, JOB_NAME, BUILD_NUM)
 
     def test_result(self):
         credentials = fake_credentials()
@@ -123,11 +127,16 @@ class TestJenkinsBuild(TestCase):
     def test_set_build_number(self):
         build_info = {"number": BUILD_NUM}
         credentials = fake_credentials()
-        jenkins_mock = MagicMock()
-        jenkins_mock.get_build_info.return_value = build_info
-        j = JenkinsBuild(credentials, JOB_NAME, jenkins_mock, None)
-        j.set_build_number(BUILD_NUM)
-        self.assertEqual(j.get_build_info(BUILD_NUM), build_info)
+        jenkins = MagicMock(server=JENKINS_URL)
+        j = JenkinsBuild(credentials, JOB_NAME, jenkins, None)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   return_value=BUILD_INFO) as gbd_mock:
+            j.set_build_number(BUILD_NUM)
+            build_info = j.get_build_info(BUILD_NUM)
+        self.assertEqual(build_info, BUILD_INFO)
+        gbd_mock.assert_called_with(
+            JENKINS_URL, credentials, JOB_NAME, BUILD_NUM)
+        self.assertEqual(2, gbd_mock.call_count)
 
 
 class TestS3(TestCase):
