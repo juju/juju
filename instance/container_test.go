@@ -49,7 +49,6 @@ func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.NONE)
 
-	ctype, err = instance.ParseContainerTypeOrNone("omg")
+	_, err = instance.ParseContainerTypeOrNone("omg")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
-	c.Assert(ctype, gc.Equals, instance.NONE)
 }
