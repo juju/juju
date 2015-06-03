@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
@@ -1183,7 +1184,16 @@ func (c *Config) resourceTags() (map[string]string, error) {
 	default:
 		return nil, nil
 	}
-	return keyvalues.Parse(fields, true)
+	result, err := keyvalues.Parse(fields, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k := range result {
+		if strings.HasPrefix(k, tags.JujuTagPrefix) {
+			return nil, errors.Errorf("tag %q uses reserved prefix %q", k, tags.JujuTagPrefix)
+		}
+	}
+	return result, nil
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes

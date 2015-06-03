@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -185,12 +184,6 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
 	source := &ebsVolumeSource{ec2: ec2, envName: environConfig.Name()}
-	if uuid, ok := environConfig.UUID(); ok {
-		source.uuid = &uuid
-	}
-	if tags, ok := environConfig.ResourceTags(); ok {
-		source.resourceTags = tags
-	}
 	return source, nil
 }
 
@@ -200,10 +193,8 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 }
 
 type ebsVolumeSource struct {
-	ec2          *ec2.EC2
-	envName      string // non-unique, informational only
-	uuid         *string
-	resourceTags map[string]string
+	ec2     *ec2.EC2
+	envName string // non-unique, informational only
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -285,15 +276,12 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			},
 		})
 
-		tags := make(map[string]string)
-		for k, v := range v.resourceTags {
-			tags[k] = v
+		resourceTags := make(map[string]string)
+		for k, v := range p.ResourceTags {
+			resourceTags[k] = v
 		}
-		tags[tagName] = resourceName(p.Tag, v.envName)
-		if v.uuid != nil {
-			tags[common.TagJujuEnv] = *v.uuid
-		}
-		if err := tagResources(v.ec2, tags, volumeId); err != nil {
+		resourceTags[tagName] = resourceName(p.Tag, v.envName)
+		if err := tagResources(v.ec2, resourceTags, volumeId); err != nil {
 			return nil, nil, errors.Annotate(err, "tagging volume")
 		}
 

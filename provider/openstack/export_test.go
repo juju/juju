@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -77,10 +76,9 @@ var (
 
 type OpenstackStorage openstackStorage
 
-func NewCinderVolumeSource(s OpenstackStorage, tags map[string]string) storage.VolumeSource {
+func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
-	uuid := testing.EnvironmentTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, &uuid, tags}
+	return &cinderVolumeSource{openstackStorage(s), envName}
 }
 
 var indexData = `

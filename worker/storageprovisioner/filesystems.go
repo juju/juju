@@ -648,6 +648,7 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 		in.Size,
 		providerType,
 		in.Attributes,
+		in.Tags,
 	}, nil
 }
 

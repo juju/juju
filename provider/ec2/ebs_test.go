@@ -136,6 +136,9 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 		Tag:      volume2,
 		Size:     30 * 1000,
 		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			"abc": "123",
+		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				InstanceId: instance.Id(instanceId),
@@ -211,9 +214,6 @@ func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
-	s.TestConfig["resource-tags"] = "User=Specified"
-	defer func() { delete(s.TestConfig, "resource-tags") }()
-
 	vs := s.volumeSource(c, nil)
 	vols, err := s.createVolumes(vs, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,18 +247,13 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "juju-sample-volume-0"},
-		{"juju-env-uuid", testing.EnvironmentTag.Id()},
-		{"User", "Specified"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "juju-sample-volume-1"},
-		{"juju-env-uuid", testing.EnvironmentTag.Id()},
-		{"User", "Specified"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
 		{"Name", "juju-sample-volume-2"},
-		{"juju-env-uuid", testing.EnvironmentTag.Id()},
-		{"User", "Specified"},
+		{"abc", "123"},
 	})
 }
 

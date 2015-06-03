@@ -63,6 +63,7 @@ func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
 		"name":            "whatever",
 		"type":            "anything, really",
+		"uuid":            coretesting.EnvironmentTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -102,8 +103,12 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+		expectedMcfg.Tags = map[string]string{
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state": "true",
+		}
 
-		c.Assert(icfg, gc.DeepEquals, expectedMcfg)
+		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 

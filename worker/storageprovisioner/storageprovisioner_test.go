@@ -582,6 +582,78 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `processing pending volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
+func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
+	volumeInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return nil, nil
+	}
+
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		defer close(filesystemInfoSet)
+		return nil, nil
+	}
+
+	var volumeSource dummyVolumeSource
+	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
+		return &volumeSource, nil
+	}
+
+	var filesystemSource dummyFilesystemSource
+	s.provider.filesystemSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+		return &filesystemSource, nil
+	}
+
+	lifecycleManager := &mockLifecycleManager{}
+	environAccessor := newMockEnvironAccessor(c)
+	machineAccessor := newMockMachineAccessor(c)
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+		machineAccessor,
+	)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	environAccessor.watcher.changes <- struct{}{}
+	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
+	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+	c.Assert(volumeSource.createVolumesArgs, jc.DeepEquals, [][]storage.VolumeParams{{{
+		Tag:          names.NewVolumeTag("1"),
+		Size:         1024,
+		Provider:     "dummy",
+		Attributes:   map[string]interface{}{"persistent": true},
+		ResourceTags: map[string]string{"very": "fancy"},
+		Attachment: &storage.VolumeAttachmentParams{
+			Volume: names.NewVolumeTag("1"),
+			AttachmentParams: storage.AttachmentParams{
+				Machine:    names.NewMachineTag("1"),
+				Provider:   "dummy",
+				InstanceId: "already-provisioned-1",
+				ReadOnly:   true,
+			},
+		},
+	}}})
+	c.Assert(filesystemSource.createFilesystemsArgs, jc.DeepEquals, [][]storage.FilesystemParams{{{
+		Tag:          names.NewFilesystemTag("1"),
+		Size:         1024,
+		Provider:     "dummy",
+		ResourceTags: map[string]string{"very": "fancy"},
+	}}})
+}
+
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 	select {
 	case v := <-ch:

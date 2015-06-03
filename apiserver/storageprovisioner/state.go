@@ -30,6 +30,8 @@ type provisionerState interface {
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 
