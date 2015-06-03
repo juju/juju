@@ -15,16 +15,14 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type contextSuite struct {
+type baseSuite struct {
 	coretesting.BaseSuite
 	stub    *testing.Stub
 	ctx     *fakeContext
 	compCtx *fakeContextComponent
 }
 
-var _ = gc.Suite(&contextSuite{})
-
-func (s *contextSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
@@ -36,6 +34,12 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 		Stub: s.stub,
 	}
 }
+
+type contextSuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&contextSuite{})
 
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 	ctx := context.NewContext()
