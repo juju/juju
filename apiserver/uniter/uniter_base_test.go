@@ -2255,6 +2255,7 @@ func (s *uniterBaseSuite) testWatchMeterStatus(
 	wc.AssertNoChange()
 
 	err = s.wordpressUnit.SetMeterStatus("GREEN", "No additional information.")
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 

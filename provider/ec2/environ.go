@@ -145,8 +145,7 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 		hasDefault = false
 		defaultVpcId = ""
 	} else {
-
-		defaultVpcId := resp.Attributes[0].Values[0]
+		defaultVpcId = resp.Attributes[0].Values[0]
 		if defaultVpcId == none {
 			hasDefault = false
 			defaultVpcId = ""
@@ -154,7 +153,8 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 	}
 	defaultVpc := &defaultVpc{
 		id:            network.Id(defaultVpcId),
-		hasDefaultVpc: hasDefault}
+		hasDefaultVpc: hasDefault,
+	}
 	e.cachedDefaultVpc = defaultVpc
 	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
