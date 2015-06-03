@@ -382,6 +382,38 @@ class EnvJujuClient:
             reporter.finish()
         return status
 
+    def wait_for_subordinate_units(self, service, unit_prefix, timeout=1200,
+                                   start=None):
+        """Wait until all service units have a started subordinate with
+        unit_prefix."""
+        status = None
+        unit_states = defaultdict(list)
+        reporter = GroupReporter(sys.stdout, 'started')
+        try:
+            for ignored in chain([None], until_timeout(timeout, start=start)):
+                try:
+                    status = self.get_status()
+                except CannotConnectEnv:
+                    print('Supressing "Unable to connect to environment"')
+                    continue
+                service_unit_count = status.get_service_unit_count(service)
+                subordinate_unit_count = 0
+                for name, unit in status.service_subordinate_units(service):
+                    if name.startswith(unit_prefix + '/'):
+                        subordinate_unit_count += 1
+                    unit_states[unit.get('agent-state', 'no-agent')].append(
+                        name)
+                reporter.update(unit_states)
+                if (subordinate_unit_count == service_unit_count and
+                        unit_states.keys() == ['started']):
+                    break
+            else:
+                logging.error(status.status_text)
+                raise AgentsNotStarted(self.env.environment, status)
+        finally:
+            reporter.finish()
+        return status
+
     def wait_for_version(self, version, timeout=300):
         reporter = GroupReporter(sys.stdout, version)
         try:
@@ -676,6 +708,10 @@ class Status:
     def get_service_count(self):
         return len(self.status.get('services', {}))
 
+    def get_service_unit_count(self, service):
+        return len(
+            self.status.get('services', {}).get(service, {}).get('units', {}))
+
     def get_agent_versions(self):
         versions = defaultdict(set)
         for item_name, item in self.agent_items():
@@ -692,16 +728,14 @@ class Status:
                 return service['units'][unit_name]
         raise KeyError(unit_name)
 
-    def get_subordinate_units(self, service_name):
+    def service_subordinate_units(self, service_name):
         """Return subordinate metadata for a service_name."""
-        subordinates = []
         services = self.status.get('services', {})
-        if service_name in services.keys():
+        if service_name in services:
             for unit in sorted(services[service_name].get(
                     'units', {}).values()):
-                subordinates.append(unit.get('subordinates', {}))
-            return subordinates
-        raise KeyError(service_name)
+                for sub_name, sub in unit.get('subordinates', {}).items():
+                    yield sub_name, sub
 
     def get_open_ports(self, unit_name):
         """List the open ports for the specified unit.

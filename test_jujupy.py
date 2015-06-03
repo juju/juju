@@ -1,5 +1,6 @@
 __metaclass__ = type
 
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import (
     datetime,
@@ -570,6 +571,117 @@ class TestEnvJujuClient(ClientTest):
                 with patch('logging.error') as le_mock:
                     client.wait_for_started(0)
         le_mock.assert_called_once_with(value)
+
+    def test_wait_for_subordinate_units(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1/0:
+                        agent-state: started
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub2/0:
+                        agent-state: started
+                      sub3/0:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub1/0')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_multiple_subordinate_units(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub/0:
+                        agent-state: started
+                  ubuntu/1:
+                    subordinates:
+                      sub/1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'ubuntu', 'sub', start=now - timedelta(1200))
+        expected_states = defaultdict(list)
+        expected_states['started'].append('sub/0')
+        expected_states['started'].append('sub/1')
+        update_mock.assert_called_once_with(expected_states)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_subordinate_units_checks_slash_in_unit_name(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1:
+                        agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    with patch('logging.error'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+
+    def test_wait_for_subordinate_units_no_subordinate(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    with patch('logging.error'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -1416,6 +1528,33 @@ class TestStatus(TestCase):
         }, '')
         self.assertEqual(3, status.get_service_count())
 
+    def test_get_service_unit_count_zero(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_unit_count('jenkins'))
+
+    def test_get_service_unit_count(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'bad'},
+                        'jenkins/3': {'agent-state': 'bad'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_unit_count('jenkins'))
+
     def test_get_unit(self):
         status = Status({
             'machines': {
@@ -1441,7 +1580,7 @@ class TestStatus(TestCase):
         with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
             status.get_unit('jenkins/3')
 
-    def test_get_subordinate_units(self):
+    def test_service_subordinate_units(self):
         status = Status({
             'machines': {
                 '1': {},
@@ -1473,24 +1612,17 @@ class TestStatus(TestCase):
                 }
             }
         }, '')
-        self.assertEqual(
-            status.get_subordinate_units('ubuntu'),
+        self.assertItemsEqual(
+            status.service_subordinate_units('ubuntu'),
             [])
-        self.assertEqual(
-            status.get_subordinate_units('jenkins'),
-            [{'chaos-monkey/0': {'agent-state': 'started'}}])
-        self.assertEqual(
-            status.get_subordinate_units('dummy-sink'), [
-                {'chaos-monkey/1': {'agent-state': 'started'}},
-                {'chaos-monkey/2': {'agent-state': 'started'}}]
+        self.assertItemsEqual(
+            status.service_subordinate_units('jenkins'),
+            [('chaos-monkey/0', {'agent-state': 'started'},)])
+        self.assertItemsEqual(
+            status.service_subordinate_units('dummy-sink'), [
+                ('chaos-monkey/1', {'agent-state': 'started'}),
+                ('chaos-monkey/2', {'agent-state': 'started'})]
             )
-        with self.assertRaisesRegexp(KeyError, 'foo'):
-            status.get_subordinate_units('foo')
-
-    def test_get_subordinate_units_no_services(self):
-        status = Status({}, '')
-        with self.assertRaisesRegexp(KeyError, 'ubuntu'):
-            status.get_subordinate_units('ubuntu')
 
     def test_get_open_ports(self):
         status = Status({
