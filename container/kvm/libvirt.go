@@ -85,9 +85,6 @@ func CreateMachine(params CreateMachineParams) error {
 	if params.UserDataFile != "" {
 		args = append(args, "--user-data", params.UserDataFile)
 	}
-	if params.NetworkBridge != "" {
-		args = append(args, "--bridge", params.NetworkBridge)
-	}
 	if params.Memory != 0 {
 		args = append(args, "--memory", fmt.Sprint(params.Memory))
 	}
@@ -110,6 +107,8 @@ func CreateMachine(params CreateMachineParams) error {
 			return errors.Trace(err)
 		}
 		args = append(args, "--template", templatePath)
+	} else if params.NetworkBridge != "" {
+		args = append(args, "--bridge", params.NetworkBridge)
 	}
 
 	args = append(args, params.Hostname)
@@ -121,6 +120,7 @@ func CreateMachine(params CreateMachineParams) error {
 	}
 	output, err := run("uvt-kvm", args...)
 	logger.Debugf("is this the logged output?:\n%s", output)
+	panic("finished")
 	return err
 }
 

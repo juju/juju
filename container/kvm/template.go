@@ -44,11 +44,11 @@ var kvmTemplate = `
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
     </video>
 
-    {{range $nic := .Interfaces}}
-    <interface type='network'>
-      <mac address='[{$nic.MACAddress}}'/>
+    {{$bridge := .NetworkBridge}}{{range $nic := .Interfaces}}
+    <interface type='bridge'>
+      <mac address='{{$nic.MACAddress}}'/>
       <model type='virtio'/>
-      <source network='{{.NetworkBridge}}'/>
+      <source bridge='{{$bridge}}'/>
     </interface>
     {{end}}
   </devices>
@@ -58,6 +58,7 @@ var kvmTemplate = `
 func WriteTemplate(path string, params CreateMachineParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot write kvm container config")
 
+	logger.Warningf("Using params: %#v", params)
 	tmpl, err := template.New("kvm").Parse(kvmTemplate)
 	if err != nil {
 		return err
@@ -73,6 +74,8 @@ func WriteTemplate(path string, params CreateMachineParams) (err error) {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(buf.String())
+	data := buf.String()
+	logger.Warningf("generated template %#v", data)
+	_, err = f.WriteString(data)
 	return err
 }
