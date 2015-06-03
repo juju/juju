@@ -1036,6 +1036,9 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 	return results, nil
 }
 
+// DestroyEnvironment serves as a wrapper for environmentmanager.DestroyEnvironment
+// to support older juju clients which destroy the environment through the client
+// api endpoint.
 func (c *Client) DestroyEnvironment() (err error) {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(c.api.state, c.api.resources, c.api.auth)
 	if err != nil {

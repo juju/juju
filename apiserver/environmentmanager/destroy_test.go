@@ -123,14 +123,15 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	err = s.destroyEnvironment(c, s.State.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// After DestroyEnvironment returns, we should have:
-	//   - all non-manager instances stopped
+	// After DestroyEnvironment returns, check that the following 3 things
+	// have happened:
+	//   1 - all non-manager instances stopped
 	instances, err = s.Environ.Instances([]instance.Id{managerId, nonManagerId})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], jc.ErrorIsNil)
-	//   - all services in state are Dying or Dead (or removed altogether),
-	//     after running the state Cleanups.
+	//   2 - all services in state are Dying or Dead (or removed altogether),
+	//       after running the state Cleanups.
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, jc.IsTrue)
@@ -144,7 +145,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
 		}
 	}
-	//   - environment is Dying
+	//   3 - environment is Dying
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
