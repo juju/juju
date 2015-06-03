@@ -73,6 +73,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		args   []string
 		err    string
 		name   string
+		owner  string
 		path   string
 		values map[string]string
 	}{
@@ -81,6 +82,13 @@ func (s *createSuite) TestInit(c *gc.C) {
 		}, {
 			args: []string{"new-env"},
 			name: "new-env",
+		}, {
+			args:  []string{"new-env", "--owner", "foo"},
+			name:  "new-env",
+			owner: "foo",
+		}, {
+			args: []string{"new-env", "--owner", "not=valid"},
+			err:  `"not=valid" is not a valid user`,
 		}, {
 			args:   []string{"new-env", "key=value", "key2=value2"},
 			name:   "new-env",
@@ -218,6 +226,20 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	c.Assert(endpoint.ServerUUID, gc.Equals, expected.ServerUUID)
 	c.Assert(endpoint.CACert, gc.Equals, expected.CACert)
 	c.Assert(endpoint.EnvironUUID, gc.Equals, "fake-env-uuid")
+}
+
+func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
+	s.fake.env = params.Environment{
+		Name:       "test",
+		UUID:       "fake-env-uuid",
+		OwnerTag:   "ignored-for-now",
+		ServerUUID: s.serverUUID,
+	}
+	_, err := s.run(c, "test", "--owner", "zeus")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.ReadInfo("test")
+	c.Assert(err, gc.ErrorMatches, `environment "test" not found`)
 }
 
 // fakeCreateClient is used to mock out the behavior of the real
