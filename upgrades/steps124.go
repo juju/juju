@@ -70,7 +70,7 @@ func moveSyslogConfig(context Context) error {
 		if err := osRemove(oldpath); err != nil {
 			// Don't fail the step if we can't get rid of the old files.
 			// We don't actually care if they still exist or not.
-			logger.Infof("Can't delete old config file %q: %s", oldpath, err)
+			logger.Warningf("Can't delete old config file %q: %s", oldpath, err)
 		}
 	}
 	if len(errs) > 0 {
