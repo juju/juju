@@ -407,13 +407,13 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
+		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--upload-series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
+		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
