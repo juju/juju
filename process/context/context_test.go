@@ -192,7 +192,8 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
-	info := &process.Info{Name: "flush-not-dirty"}
+	var info process.Info
+	info.Name = "flush-not-dirty"
 	ctx := context.NewContext(info)
 
 	err := ctx.Flush()
