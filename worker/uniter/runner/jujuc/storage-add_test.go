@@ -35,7 +35,7 @@ func (s *storageAddSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	help := `
-usage: storage-add <charm storage name>=<constraints> ...
+usage: storage-add <charm storage name>[=count] ...
 purpose: add storage instances
 `[1:] +
 		jujuc.StorageAddDoc

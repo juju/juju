@@ -75,7 +75,43 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
+}
 
+func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
+	s.createStorageBlockUnit(c)
+	size := uint64(1)
+	cons := map[string]params.StorageConstraints{
+		"allecto": params.StorageConstraints{Size: &size}}
+
+	ctx := s.addUnitStorage(c, cons)
+
+	// Flush the context with a success.
+	err := ctx.FlushContext("success", nil)
+	c.Assert(err, gc.ErrorMatches, `.*only count can be specified for "allecto".*`)
+
+	// Make sure no storage instances was added
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	s.assertExistingStorage(c, after)
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
+	s.createStorageBlockUnit(c)
+	cons := map[string]params.StorageConstraints{
+		"allecto": params.StorageConstraints{Pool: "loop"}}
+
+	ctx := s.addUnitStorage(c, cons)
+
+	// Flush the context with a success.
+	err := ctx.FlushContext("success", nil)
+	c.Assert(err, gc.ErrorMatches, `.*only count can be specified for "allecto".*`)
+
+	// Make sure no storage instances was added
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	s.assertExistingStorage(c, after)
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
