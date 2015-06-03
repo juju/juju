@@ -356,16 +356,17 @@ class DumpEnvLogsTestCase(TestCase):
                             'foo', {'type': 'nonlocal'}), '1.234-76', None)
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
             self.assertEqual(
-                ['0', '1', '2'], sorted(os.listdir(artifacts_dir)))
+                ['machine-0', 'machine-1', 'machine-2'],
+                sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
             (client, '10.10.0.1'), gm_mock.call_args[0])
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
-            [((client, '10.10.0.1', '%s/0' % artifacts_dir),
+            [((client, '10.10.0.1', '%s/machine-0' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.11', '%s/1' % artifacts_dir),
+             ((client, '10.10.0.11', '%s/machine-1' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.22', '%s/2' % artifacts_dir),
+             ((client, '10.10.0.22', '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
             call_list)
         self.assertEqual(
@@ -384,11 +385,11 @@ class DumpEnvLogsTestCase(TestCase):
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
-            [((client, '10.10.0.1', '%s/0' % artifacts_dir),
+            [((client, '10.10.0.1', '%s/machine-0' % artifacts_dir),
               {'local_state_server': True}),
-             ((client, '10.10.0.11', '%s/1' % artifacts_dir),
+             ((client, '10.10.0.11', '%s/machine-1' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.22', '%s/2' % artifacts_dir),
+             ((client, '10.10.0.22', '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
             call_list)
 
