@@ -90,7 +90,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"agent-stream":       "agent-stream-value",
+			"agent-stream":       "released",
 		},
 	}, {
 		about:       "Deprecated tools-stream used",
@@ -106,7 +106,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"agent-stream": "agent-stream-value",
+			"agent-stream": "released",
 			"tools-stream": "ignore-me",
 		},
 	}, {
@@ -597,7 +597,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		err: "invalid firewall mode in environment configuration: .*",
+		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
@@ -664,18 +664,14 @@ var configTests = []configTest{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			"incorrect",
-		),
+		about:       "provisioner-harvest-mode: incorrect",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
 			"provisioner-harvest-mode": "yes please",
 		},
-		err: `unknown harvesting method: yes please`,
+		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -891,7 +887,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
 		},
-		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+		err: `uuid: expected uuid, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
 	}, {
 		about:       "invalid uuid 2",
 		useDefaults: config.UseDefaults,
@@ -900,7 +896,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "uuid",
 		},
-		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+		err: `uuid: expected uuid, got string\("uuid"\)`,
 	}, {
 		about:       "blank uuid",
 		useDefaults: config.UseDefaults,
@@ -909,7 +905,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: "uuid: expected uuid, got string\\(\"\"\\)",
+		err: `empty uuid in environment configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -963,7 +959,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"resource-tags": []string{"a"},
 		},
-		err: `validating resource tags: expected "key=value", got "a"`,
+		err: `resource-tags: expected "key=value", got "a"`,
 	},
 }
 
