@@ -1062,7 +1062,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 func (a *MachineAgent) startEnvWorkers(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
-) (runner worker.Runner, err error) {
+) (_ worker.Worker, err error) {
 	envUUID := st.EnvironUUID()
 	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
 	logger.Infof("starting workers for env %s", envUUID)
@@ -1079,7 +1079,7 @@ func (a *MachineAgent) startEnvWorkers(
 	// Create a runner for workers specific to this
 	// environment. Either the State or API connection failing will be
 	// considered fatal, killing the runner and all its workers.
-	runner = newConnRunner(st, apiSt)
+	runner := newConnRunner(st, apiSt)
 	defer func() {
 		if err != nil && runner != nil {
 			runner.Kill()
