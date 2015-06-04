@@ -119,7 +119,6 @@ class TestJenkinsBuild(TestCase):
         self.assertEqual(j.get_build_number(), BUILD_NUM)
 
     def test_set_build_number(self):
-        build_info = {"number": BUILD_NUM}
         credentials = fake_credentials()
         j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, None)
         with patch('upload_hetero_control.get_build_data', autospec=True,
