@@ -369,10 +369,10 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 	})
 	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified for "data"`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified for "data"`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified for "data"`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified for "data"`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified`}},
 			{&params.Error{
 				Code:    "not found",
 				Message: "adding storage store for unit-mysql-0: storage \"store\" not found"}},

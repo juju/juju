@@ -375,11 +375,11 @@ func validConstraints(
 
 	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
 	if p.Constraints != onlyCount {
-		return emptyCons, errors.Errorf("only count can be specified for %q", p.StorageName)
+		return emptyCons, errors.New("only count can be specified")
 	}
 
 	if p.Constraints.Count == nil || *p.Constraints.Count == 0 {
-		return emptyCons, errors.Errorf("count must be specified for %q", p.StorageName)
+		return emptyCons, errors.New("count must be specified")
 	}
 
 	result.Count = *p.Constraints.Count
