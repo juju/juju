@@ -342,7 +342,7 @@ func (a *StorageAPI) AddUnitStorage(
 			continue
 		}
 
-		cons, err := a.st.UnitConstraints(u)
+		cons, err := a.st.UnitStorageConstraints(u)
 		if err != nil {
 			result[i] = serverErr(err)
 			continue
@@ -367,21 +367,22 @@ func validConstraints(
 	cons map[string]state.StorageConstraints,
 ) (state.StorageConstraints, error) {
 	emptyCons := state.StorageConstraints{}
-	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
-
-	if p.Constraints != onlyCount {
-		return emptyCons, errors.Errorf("only count can be specified for %q", p.StorageName)
-	}
 
 	result, ok := cons[p.StorageName]
 	if !ok {
 		return emptyCons, errors.NotFoundf("storage %q", p.StorageName)
 	}
 
-	result.Count = 0
-	if p.Constraints.Count != nil {
-		result.Count = *p.Constraints.Count
+	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
+	if p.Constraints != onlyCount {
+		return emptyCons, errors.Errorf("only count can be specified for %q", p.StorageName)
 	}
+
+	if p.Constraints.Count == nil || *p.Constraints.Count == 0 {
+		return emptyCons, errors.Errorf("count must be specified for %q", p.StorageName)
+	}
+
+	result.Count = *p.Constraints.Count
 	return result, nil
 }
 

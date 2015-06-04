@@ -299,13 +299,13 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 }
 
 const (
-	unitConstraintsCall = "mockConstraints"
+	unitConstraintsCall = "mockUnitStorageConstraints"
 	addStorageCall      = "mockAdd"
 )
 
 func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 	setMockConstraints := func(st *mockStorageState, f func(u names.UnitTag) (map[string]state.StorageConstraints, error)) {
-		st.unitConstraints = f
+		st.unitStorageConstraints = f
 	}
 
 	unitTag0 := names.NewUnitTag("mysql/0")
@@ -333,6 +333,7 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 	storage, err := uniter.NewStorageAPI(mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	size := uint64(10)
+	count := uint64(0)
 	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			{
@@ -345,6 +346,14 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 				Constraints: params.StorageConstraints{Size: &size},
 			}, {
 				UnitTag:     unitTag0.String(),
+				StorageName: storageName0,
+				Constraints: params.StorageConstraints{},
+			}, {
+				UnitTag:     unitTag0.String(),
+				StorageName: storageName0,
+				Constraints: params.StorageConstraints{Count: &count},
+			}, {
+				UnitTag:     unitTag0.String(),
 				StorageName: storageName1,
 				Constraints: params.StorageConstraints{},
 			},
@@ -355,11 +364,15 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 		unitConstraintsCall,
 		unitConstraintsCall,
 		unitConstraintsCall,
+		unitConstraintsCall,
+		unitConstraintsCall,
 	})
 	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified for "data"`}},
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified for "data"`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified for "data"`}},
+			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified for "data"`}},
 			{&params.Error{
 				Code:    "not found",
 				Message: "adding storage store for unit-mysql-0: storage \"store\" not found"}},
@@ -369,7 +382,7 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 
 func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	setMockConstraints := func(st *mockStorageState, f func(u names.UnitTag) (map[string]state.StorageConstraints, error)) {
-		st.unitConstraints = f
+		st.unitStorageConstraints = f
 	}
 	setMockAdd := func(st *mockStorageState, f func(tag names.UnitTag, name string, cons state.StorageConstraints) error) {
 		st.addUnitStorage = f
@@ -416,7 +429,7 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 			return errors.New("badness")
 		}
 		c.Assert(cons.Count, gc.Not(gc.Equals), unitCount)
-		c.Assert(cons.Count == testCount || cons.Count == uint64(0), jc.IsTrue)
+		c.Assert(cons.Count, jc.DeepEquals, testCount)
 		c.Assert(cons.Pool, jc.DeepEquals, unitPool)
 		c.Assert(cons.Size, jc.DeepEquals, unitSize)
 		return nil
@@ -429,15 +442,11 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 			{
 				UnitTag:     unitTag0.String(),
 				StorageName: storageName0,
-				Constraints: params.StorageConstraints{},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
 				Constraints: params.StorageConstraints{Count: &testCount},
 			}, {
 				UnitTag:     unitTag0.String(),
 				StorageName: storageName1,
-				Constraints: params.StorageConstraints{},
+				Constraints: params.StorageConstraints{Count: &testCount},
 			},
 		}},
 	)
@@ -445,11 +454,9 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	c.Assert(s.called, jc.SameContents, []string{
 		unitConstraintsCall, addStorageCall,
 		unitConstraintsCall, addStorageCall,
-		unitConstraintsCall, addStorageCall,
 	})
 	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
 			{nil},
 			{&params.Error{Message: "adding storage store for unit-mysql-0: badness"}},
 		},
@@ -469,7 +476,7 @@ type mockStorageState struct {
 	watchFilesystemAttachment     func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
-	unitConstraints               func(u names.UnitTag) (map[string]state.StorageConstraints, error)
+	unitStorageConstraints        func(u names.UnitTag) (map[string]state.StorageConstraints, error)
 }
 
 func (m *mockStorageState) DestroyUnitStorageAttachments(u names.UnitTag) error {
@@ -516,8 +523,8 @@ func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, con
 	return m.addUnitStorage(tag, name, cons)
 }
 
-func (m *mockStorageState) UnitConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
-	return m.unitConstraints(u)
+func (m *mockStorageState) UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
+	return m.unitStorageConstraints(u)
 }
 
 type mockStringsWatcher struct {
