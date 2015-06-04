@@ -20,32 +20,36 @@ type filesSuite struct {
 
 var _ = gc.Suite(&filesSuite{})
 
-func (s *filesSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
-	env, err := envcmd.ReadCurrentEnvironment()
+func (s *filesSuite) assertCurrentEnvironment(c *gc.C, environmentName string) {
+	current, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "")
+	c.Assert(current, gc.Equals, environmentName)
+}
+
+func (s *filesSuite) assertCurrentSystem(c *gc.C, systemName string) {
+	current, err := envcmd.ReadCurrentSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(current, gc.Equals, systemName)
+}
+
+func (s *filesSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
+	s.assertCurrentEnvironment(c, "")
 }
 
 func (s *filesSuite) TestReadCurrentSystemUnset(c *gc.C) {
-	env, err := envcmd.ReadCurrentSystem()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "")
+	s.assertCurrentSystem(c, "")
 }
 
 func (s *filesSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := envcmd.ReadCurrentEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "fubar")
+	s.assertCurrentEnvironment(c, "fubar")
 }
 
 func (s *filesSuite) TestReadCurrentSystemSet(c *gc.C) {
 	err := envcmd.WriteCurrentSystem("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := envcmd.ReadCurrentSystem()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "fubar")
+	s.assertCurrentSystem(c, "fubar")
 }
 
 func (s *filesSuite) TestWriteEnvironmentAddsNewline(c *gc.C) {
@@ -92,4 +96,85 @@ func (*filesSuite) TestErrorWritingCurrentSystem(c *gc.C) {
 	os.MkdirAll(envcmd.GetCurrentSystemFilePath(), 0777)
 	err := envcmd.WriteCurrentSystem("fubar")
 	c.Assert(err, gc.ErrorMatches, "unable to write to the system file: .*")
+}
+
+func (*filesSuite) TestCurrentCommenctionNameMissing(c *gc.C) {
+	name, isSystem, err := envcmd.CurrentConnectionName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSystem, jc.IsFalse)
+	c.Assert(name, gc.Equals, "")
+}
+
+func (*filesSuite) TestCurrentCommenctionNameEnvironment(c *gc.C) {
+	err := envcmd.WriteCurrentEnvironment("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	name, isSystem, err := envcmd.CurrentConnectionName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSystem, jc.IsFalse)
+	c.Assert(name, gc.Equals, "fubar")
+}
+
+func (*filesSuite) TestCurrentCommenctionNameSystem(c *gc.C) {
+	err := envcmd.WriteCurrentSystem("baz")
+	c.Assert(err, jc.ErrorIsNil)
+	name, isSystem, err := envcmd.CurrentConnectionName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSystem, jc.IsTrue)
+	c.Assert(name, gc.Equals, "baz")
+}
+
+func (s *filesSuite) TestSetCurrentEnvironment(c *gc.C) {
+	ctx := testing.Context(c)
+	err := envcmd.SetCurrentEnvironment(ctx, "new-env")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentEnvironment(c, "new-env")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-env\n")
+}
+
+func (s *filesSuite) TestSetCurrentEnvironmentExistingEnv(c *gc.C) {
+	err := envcmd.WriteCurrentEnvironment("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	err = envcmd.SetCurrentEnvironment(ctx, "new-env")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentEnvironment(c, "new-env")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-env\n")
+}
+
+func (s *filesSuite) TestSetCurrentEnvironmentExistingSystem(c *gc.C) {
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	err = envcmd.SetCurrentEnvironment(ctx, "new-env")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentEnvironment(c, "new-env")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (system) -> new-env\n")
+}
+
+func (s *filesSuite) TestSetCurrentSystem(c *gc.C) {
+	ctx := testing.Context(c)
+	err := envcmd.SetCurrentSystem(ctx, "new-sys")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentSystem(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-sys (system)\n")
+}
+
+func (s *filesSuite) TestSetCurrentSystemExistingEnv(c *gc.C) {
+	err := envcmd.WriteCurrentEnvironment("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	err = envcmd.SetCurrentSystem(ctx, "new-sys")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentSystem(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-sys (system)\n")
+}
+
+func (s *filesSuite) TestSetCurrentSystemExistingSystem(c *gc.C) {
+	err := envcmd.WriteCurrentSystem("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	err = envcmd.SetCurrentSystem(ctx, "new-sys")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCurrentSystem(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (system) -> new-sys (system)\n")
 }

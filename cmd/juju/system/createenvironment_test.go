@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment_test
+package system_test
 
 import (
 	"io/ioutil"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/environment"
+	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
@@ -63,8 +63,8 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewCreateCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	command := system.NewCreateEnvironmentCommand(s.fake)
+	return testing.RunCommand(c, envcmd.WrapSystem(command), args...)
 }
 
 func (s *createSuite) TestInit(c *gc.C) {
@@ -73,6 +73,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		args   []string
 		err    string
 		name   string
+		owner  string
 		path   string
 		values map[string]string
 	}{
@@ -81,6 +82,13 @@ func (s *createSuite) TestInit(c *gc.C) {
 		}, {
 			args: []string{"new-env"},
 			name: "new-env",
+		}, {
+			args:  []string{"new-env", "--owner", "foo"},
+			name:  "new-env",
+			owner: "foo",
+		}, {
+			args: []string{"new-env", "--owner", "not=valid"},
+			err:  `"not=valid" is not a valid user`,
 		}, {
 			args:   []string{"new-env", "key=value", "key2=value2"},
 			name:   "new-env",
@@ -98,21 +106,23 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		create := &environment.CreateCommand{}
+		create := &system.CreateEnvironmentCommand{}
 		err := testing.InitCommand(create, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
+			continue
+		}
+
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(create.Name(), gc.Equals, test.name)
+		c.Assert(create.Owner(), gc.Equals, test.owner)
+		c.Assert(create.ConfigFile().Path, gc.Equals, test.path)
+		// The config value parse method returns an empty map
+		// if there were no values
+		if len(test.values) == 0 {
+			c.Assert(create.ConfValues(), gc.HasLen, 0)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(create.Name, gc.Equals, test.name)
-			c.Assert(create.ConfigFile.Path, gc.Equals, test.path)
-			// The config value parse method returns an empty map
-			// if there were no values
-			if len(test.values) == 0 {
-				c.Assert(create.ConfValues, gc.HasLen, 0)
-			} else {
-				c.Assert(create.ConfValues, jc.DeepEquals, test.values)
-			}
+			c.Assert(create.ConfValues(), jc.DeepEquals, test.values)
 		}
 	}
 }
@@ -220,6 +230,20 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	c.Assert(endpoint.EnvironUUID, gc.Equals, "fake-env-uuid")
 }
 
+func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
+	s.fake.env = params.Environment{
+		Name:       "test",
+		UUID:       "fake-env-uuid",
+		OwnerTag:   "ignored-for-now",
+		ServerUUID: s.serverUUID,
+	}
+	_, err := s.run(c, "test", "--owner", "zeus")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.ReadInfo("test")
+	c.Assert(err, gc.ErrorMatches, `environment "test" not found`)
+}
+
 // fakeCreateClient is used to mock out the behavior of the real
 // CreateEnvironment command.
 type fakeCreateClient struct {
@@ -230,7 +254,7 @@ type fakeCreateClient struct {
 	env     params.Environment
 }
 
-var _ environment.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
+var _ system.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
 
 func (*fakeCreateClient) Close() error {
 	return nil

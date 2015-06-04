@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/fslock"
 
@@ -21,6 +22,8 @@ const (
 	CurrentSystemFilename      = "current-system"
 
 	lockName = "current.lock"
+
+	systemSuffix = " (system)"
 )
 
 var (
@@ -148,4 +151,70 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 		return nil, errors.Trace(err)
 	}
 	return lock, nil
+}
+
+// CurrentConnectionName looks at both the current environment file
+// and the current system file to determine which is active.
+// The name of the current environment or system is returned along with
+// a boolean to express whether the name refers to a system or environment.
+func CurrentConnectionName() (name string, is_system bool, err error) {
+	currentEnv, err := ReadCurrentEnvironment()
+	if err != nil {
+		return "", false, errors.Trace(err)
+	} else if currentEnv != "" {
+		return currentEnv, false, nil
+	}
+
+	currentSystem, err := ReadCurrentSystem()
+	if err != nil {
+		return "", false, errors.Trace(err)
+	} else if currentSystem != "" {
+		return currentSystem, true, nil
+	}
+
+	return "", false, nil
+}
+
+func currentName() (string, error) {
+	name, isSystem, err := CurrentConnectionName()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if isSystem {
+		name = name + systemSuffix
+	}
+	if name != "" {
+		name += " "
+	}
+	return name, nil
+}
+
+// SetCurrentEnvironment writes out the current environment file and writes a
+// standard message to the command context.
+func SetCurrentEnvironment(context *cmd.Context, environmentName string) error {
+	current, err := currentName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = WriteCurrentEnvironment(environmentName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	context.Infof("%s-> %s", current, environmentName)
+	return nil
+}
+
+// SetCurrentSystem writes out the current system file and writes a standard
+// message to the command context.
+func SetCurrentSystem(context *cmd.Context, systemName string) error {
+	current, err := currentName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = WriteCurrentSystem(systemName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	context.Infof("%s-> %s%s", current, systemName, systemSuffix)
+	return nil
 }

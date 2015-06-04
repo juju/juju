@@ -4,6 +4,8 @@
 package system
 
 import (
+	"github.com/juju/cmd"
+
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -11,6 +13,13 @@ import (
 func NewListCommand(cfgStore configstore.Storage) *ListCommand {
 	return &ListCommand{
 		cfgStore: cfgStore,
+	}
+}
+
+// NewCreateEnvironmentCommand returns a CreateEnvironmentCommand with the api provided as specified.
+func NewCreateEnvironmentCommand(api CreateEnvironmentAPI) *CreateEnvironmentCommand {
+	return &CreateEnvironmentCommand{
+		api: api,
 	}
 }
 
@@ -40,4 +49,24 @@ func NewUseEnvironmentCommand(api EnvironmentManagerAPI, userCreds *configstore.
 		userCreds: userCreds,
 		endpoint:  endpoint,
 	}
+}
+
+// Name makes the private name attribute accessible for tests.
+func (c *CreateEnvironmentCommand) Name() string {
+	return c.name
+}
+
+// Owner makes the private name attribute accessible for tests.
+func (c *CreateEnvironmentCommand) Owner() string {
+	return c.owner
+}
+
+// ConfigFile makes the private configFile attribute accessible for tests.
+func (c *CreateEnvironmentCommand) ConfigFile() cmd.FileVar {
+	return c.configFile
+}
+
+// ConfValues makes the private confValues attribute accessible for tests.
+func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
+	return c.confValues
 }

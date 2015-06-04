@@ -234,7 +234,7 @@ func (s *UseEnvironmentSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 
 	expected := `You already have environment details for "unique" cached locally.`
 	c.Assert(lines[0], gc.Equals, expected)
-	c.Assert(lines[1], gc.Equals, `Current environment now "unique".`)
+	c.Assert(lines[1], gc.Equals, `fake (system) -> unique`)
 
 	current, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, gc.IsNil)

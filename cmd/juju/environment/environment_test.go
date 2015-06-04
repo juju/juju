@@ -24,7 +24,6 @@ type EnvironmentCommandSuite struct {
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 var expectedCommmandNames = []string{
-	"create",
 	"get",
 	"get-constraints",
 	"help",
@@ -48,7 +47,7 @@ func (s *EnvironmentCommandSuite) TestHelpCommands(c *gc.C) {
 
 	// Remove "share" for the first test because the feature is not
 	// enabled.
-	devFeatures := set.NewStrings("create", "share", "unshare", "users")
+	devFeatures := set.NewStrings("share", "unshare", "users")
 
 	// Remove features behind dev_flag for the first test since they are not
 	// enabled.

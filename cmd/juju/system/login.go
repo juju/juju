@@ -154,6 +154,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	ctx.Infof("cached connection details as system %q", c.Name)
 
 	// If we get to here, we have been able to connect to the API server, and
 	// also have been able to write the cached information. Now we can change
@@ -166,7 +167,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return errors.Trace(envcmd.WriteCurrentSystem(c.Name))
+	return errors.Trace(envcmd.SetCurrentSystem(ctx, c.Name))
 }
 
 func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState APIConnection) (configstore.EnvironInfo, error) {
