@@ -277,6 +277,7 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 
 func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
+	defer watcher.Stop()
 
 	maxWait := getUpgradeStartTimeout(c.isMaster)
 	timeout := time.After(maxWait)
