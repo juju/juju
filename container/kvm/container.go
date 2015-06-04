@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/network"
 )
 
 type kvmContainer struct {
@@ -33,9 +34,11 @@ func (c *kvmContainer) Start(params StartParams) error {
 		return err
 	}
 	var bridge string
+	var interfaces []network.InterfaceInfo
 	if params.Network != nil {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
+			interfaces = params.Network.Interfaces
 		} else {
 			err := errors.New("Non-bridge network devices not yet supported")
 			logger.Infof(err.Error())
@@ -52,7 +55,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 		Memory:        params.Memory,
 		CpuCores:      params.CpuCores,
 		RootDisk:      params.RootDisk,
-		Interfaces:    params.Network.Interfaces,
+		Interfaces:    interfaces,
 	}); err != nil {
 		return err
 	}

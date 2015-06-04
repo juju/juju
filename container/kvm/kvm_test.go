@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -21,6 +22,7 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -99,6 +101,21 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	name := string(instance.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
+}
+
+func (s *KVMSuite) DONTTestCreateUsesTemplate(c *gc.C) {
+	params := kvm.CreateMachineParams{
+		Hostname:      "foo-bar",
+		NetworkBridge: "br0",
+		Interfaces: []network.InterfaceInfo{
+			{MACAddress: "00:16:3e:20:b0:11"},
+		},
+	}
+	err := kvm.CreateMachine(params)
+	if err != nil {
+		panic(err)
+	}
+	time.Sleep(100 * time.Second)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
