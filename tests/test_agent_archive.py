@@ -25,7 +25,7 @@ class FakeArgs:
         self.dry_run = dry_run
 
 
-class WinAgentArchive(TestCase):
+class AgentArchive(TestCase):
 
     def test_main_options(self):
         with patch('agent_archive.add_agents') as mock:
@@ -148,6 +148,19 @@ class WinAgentArchive(TestCase):
             (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0*'], ),
             args)
         self.assertIs(None, kwargs['config'])
+
+    def test_add_agent_appending_extra_agent(self):
+        cmd_args = FakeArgs(source_agent='juju-1.24.0-centos7-amd64.tgz')
+        output = (
+            's3://juju-qa-data/agent-archive/juju-1.24.0-win2012-amd64.tgz')
+        with patch('agent_archive.run', return_value=output) as mock:
+            add_agents(cmd_args)
+        output, args, kwargs = mock.mock_calls[1]
+        agent_path = os.path.abspath(cmd_args.source_agent)
+        self.assertEqual(
+            ['put', agent_path,
+             's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'],
+            args[0])
 
     def test_add_agent_puts_and_copies_win(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')

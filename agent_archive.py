@@ -101,7 +101,7 @@ def add_agents(args):
     if args.verbose:
         print('Checking that %s does not already exist.' % version)
     for agent_version in agent_versions:
-        if agent_version in existing_versions:
+        if source_agent in existing_versions:
             raise ValueError(
                 '%s already exists. Agents cannot be overwritten.' %
                 agent_version)
