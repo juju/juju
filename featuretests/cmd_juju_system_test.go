@@ -103,7 +103,10 @@ func (s *cmdSystemSuite) TestCreateEnvironment(c *gc.C) {
 	// a config value for 'state-server'.
 	context := s.run(c, "create-environment", "new-env", "authorized-keys=fake-key", "state-server=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, `created environment "new-env"`+"\n")
+	c.Check(testing.Stderr(context), gc.Equals, `
+created environment "new-env"
+dummyenv (system) -> new-env
+`[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
