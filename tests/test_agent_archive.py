@@ -25,7 +25,7 @@ class FakeArgs:
         self.dry_run = dry_run
 
 
-class WinAgentArchive(TestCase):
+class AgentArchive(TestCase):
 
     def test_main_options(self):
         with patch('agent_archive.add_agents') as mock:
@@ -135,17 +135,17 @@ class WinAgentArchive(TestCase):
         self.assertIn('not match an expected version', str(e.exception))
         self.assertEqual(0, mock.call_count)
 
-    def test_add_agent_with_exist_source_raises_error(self):
+    def test_add_agent_with_existing_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
         output = (
-            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz')
+            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012r2-amd64.tgz')
         with patch('agent_archive.run', return_value=output) as mock:
             with self.assertRaises(ValueError) as e:
                 add_agents(cmd_args)
         self.assertIn('Agents cannot be overwritten', str(e.exception))
         args, kwargs = mock.call_args
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0*'], ),
+            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0-win*'], ),
             args)
         self.assertIs(None, kwargs['config'])
 
@@ -156,7 +156,7 @@ class WinAgentArchive(TestCase):
         self.assertEqual(8, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0*'], ),
+            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0-win*'], ),
             args)
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
@@ -186,7 +186,7 @@ class WinAgentArchive(TestCase):
         self.assertEqual(2, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.24.0*'], ),
+            (['ls', 's3://juju-qa-data/agent-archive/juju-1.24.0-centos*'], ),
             args)
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
