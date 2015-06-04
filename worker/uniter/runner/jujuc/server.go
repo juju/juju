@@ -22,6 +22,9 @@ import (
 	"github.com/juju/juju/juju/sockets"
 )
 
+// CmdSuffix is the filename suffix to use for executables.
+const CmdSuffix = cmdSuffix
+
 var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 type creator func(Context) cmd.Command

@@ -18,16 +18,46 @@ type Storage struct {
 	StorageTag names.StorageTag
 }
 
+func (s *Storage) setAttachment(attach *ContextStorageAttachment) {
+	if attach == nil {
+		return
+	}
+	if s.Storage == nil {
+		s.Storage = make(map[names.StorageTag]*ContextStorageAttachment)
+	}
+	s.Storage[attach.Info.Tag] = attach
+}
+
 // ContextStorage is a test double for jujuc.ContextStorage.
 type ContextStorage struct {
 	Stub *testing.Stub
 	Info *Storage
 }
 
+func (c *ContextStorage) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &Storage{}
+	}
+}
+
+func (c *ContextStorage) setAttachment(name, location string, kind storage.StorageKind) {
+	c.init()
+	tag := names.NewStorageTag(name)
+	attachment := &ContextStorageAttachment{
+		Stub: c.Stub,
+		Info: &StorageAttachment{tag, kind, location},
+	}
+	c.Info.setAttachment(attachment)
+}
+
 // Storage implements jujuc.ContextStorage.
 func (cs *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	cs.Stub.AddCall("Storage")
 	cs.Stub.NextErr()
+	cs.init()
 	storage, ok := cs.Info.Storage[tag]
 	return storage, ok
 }
@@ -36,6 +66,7 @@ func (cs *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAtt
 func (cs *ContextStorage) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	cs.Stub.AddCall("HookStorage")
 	cs.Stub.NextErr()
+	cs.init()
 	return cs.Storage(cs.Info.StorageTag)
 }
 
@@ -43,6 +74,7 @@ func (cs *ContextStorage) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 func (cs *ContextStorage) AddUnitStorage(all map[string]params.StorageConstraints) {
 	cs.Stub.AddCall("AddUnitStorage", all)
 	cs.Stub.NextErr()
+	cs.init()
 }
 
 // StorageAttachment holds the data for the test double.
@@ -58,10 +90,20 @@ type ContextStorageAttachment struct {
 	Info *StorageAttachment
 }
 
+func (csa *ContextStorageAttachment) init() {
+	if csa.Stub == nil {
+		csa.Stub = &testing.Stub{}
+	}
+	if csa.Info == nil {
+		csa.Info = &StorageAttachment{}
+	}
+}
+
 // Tag implements jujuc.StorageAttachement.
 func (csa *ContextStorageAttachment) Tag() names.StorageTag {
 	csa.Stub.AddCall("Tag")
 	csa.Stub.NextErr()
+	csa.init()
 	return csa.Info.Tag
 }
 
@@ -69,6 +111,7 @@ func (csa *ContextStorageAttachment) Tag() names.StorageTag {
 func (csa *ContextStorageAttachment) Kind() storage.StorageKind {
 	csa.Stub.AddCall("Kind")
 	csa.Stub.NextErr()
+	csa.init()
 	return csa.Info.Kind
 }
 
@@ -76,5 +119,6 @@ func (csa *ContextStorageAttachment) Kind() storage.StorageKind {
 func (csa *ContextStorageAttachment) Location() string {
 	csa.Stub.AddCall("Location")
 	csa.Stub.NextErr()
+	csa.init()
 	return csa.Info.Location
 }

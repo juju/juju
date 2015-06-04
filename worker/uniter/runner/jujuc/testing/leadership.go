@@ -20,12 +20,22 @@ type ContextLeader struct {
 	Info *Leadership
 }
 
+func (c *ContextLeader) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &Leadership{}
+	}
+}
+
 // IsLeader implements jujuc.ContextLeader.
 func (c *ContextLeader) IsLeader() (bool, error) {
 	c.Stub.AddCall("IsLeader")
 	if err := c.Stub.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
+	c.init()
 	return c.Info.IsLeader, nil
 }
 
@@ -35,6 +45,7 @@ func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
 	if err := c.Stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	c.init()
 	return c.Info.LeaderSettings, nil
 }
 
@@ -44,6 +55,7 @@ func (c *ContextLeader) WriteLeaderSettings(settings map[string]string) error {
 	if err := c.Stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
+	c.init()
 	c.Info.LeaderSettings = settings
 	return nil
 }

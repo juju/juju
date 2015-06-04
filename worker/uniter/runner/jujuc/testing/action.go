@@ -19,6 +19,15 @@ type ContextAction struct {
 	Info *Action
 }
 
+func (c *ContextAction) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &Action{}
+	}
+}
+
 // ActionParams implements jujuc.ActionHookContext.
 func (c *ContextAction) ActionParams() (map[string]interface{}, error) {
 	c.Stub.AddCall("ActionParams")
@@ -26,6 +35,7 @@ func (c *ContextAction) ActionParams() (map[string]interface{}, error) {
 		return nil, errors.Trace(err)
 	}
 
+	c.init()
 	if c.Info.ActionParams == nil {
 		return nil, errors.Errorf("not running an action")
 	}
@@ -39,6 +49,7 @@ func (c *ContextAction) UpdateActionResults(keys []string, value string) error {
 		return errors.Trace(err)
 	}
 
+	c.init()
 	if c.Info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}
@@ -52,6 +63,7 @@ func (c *ContextAction) SetActionMessage(message string) error {
 		return errors.Trace(err)
 	}
 
+	c.init()
 	if c.Info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}
@@ -65,6 +77,7 @@ func (c *ContextAction) SetActionFailed() error {
 		return errors.Trace(err)
 	}
 
+	c.init()
 	if c.Info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}

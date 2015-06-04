@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
@@ -41,27 +40,18 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
-	s.rels = map[int]*jujuctesting.ContextRelation{}
-	s.setRelation(0, "peer0")
-	s.setRelation(1, "peer1")
-	for _, rel := range s.rels {
-		rel.Info.Units = map[string]jujuctesting.Settings{
-			"u/0": {"private-address": "u-0.testing.invalid"},
-		}
-		rel.Info.UnitName = "u/0"
+	unit := "u/0"
+	settings := jujuctesting.Settings{
+		"private-address": "u-0.testing.invalid",
 	}
 
-	storageData0 := names.NewStorageTag("data/0")
-	s.storage = map[names.StorageTag]*jujuctesting.ContextStorageAttachment{
-		storageData0: &jujuctesting.ContextStorageAttachment{
-			Stub: s.Stub,
-			Info: &jujuctesting.StorageAttachment{
-				storageData0,
-				storage.StorageKindBlock,
-				"/dev/sda",
-			},
-		},
-	}
+	ctx := s.NewHookContext(nil)
+	ctx.SetRelation(0, "peer0", unit, settings).UnitName = unit
+	ctx.SetRelation(1, "peer1", unit, settings).UnitName = unit
+	ctx.SetBlockStorage("data/0", "/dev/sda")
+
+	s.rels = ctx.ContextRelations.Relations.Relations
+	s.storage = ctx.ContextStorage.Info.Storage
 }
 
 func (s *ContextSuite) relUnits(id int) map[string]jujuctesting.Settings {
@@ -79,7 +69,7 @@ func (s *ContextSuite) setRelation(id int, name string) {
 }
 
 func (s *ContextSuite) newHookContext(c *gc.C) *Context {
-	ctx := s.ContextSuite.GetHookContext(c, nil)
+	ctx := s.ContextSuite.NewHookContext(nil).Context
 	return &Context{Context: *ctx}
 }
 
@@ -89,26 +79,23 @@ func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Contex
 		c.Assert(found, jc.IsTrue)
 	}
 
-	info := jujuctesting.NewContextInfo()
-	info.Name = "u/0"
-	info.ConfigSettings = charm.Settings{
+	ctx := s.HookContext("u/0", charm.Settings{
 		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45.0,
 		"title":               "My Title",
 		"username":            "admin001",
-	}
-	info.OwnerTag = "test-owner"
-	info.AvailabilityZone = "us-east-1a"
-	info.PublicAddress = "gimli.minecraft.testing.invalid"
-	info.PrivateAddress = "192.168.0.99"
-	info.HookRelation = relid
-	info.RemoteUnitName = remote
-	info.Relations = &jujuctesting.Relations{Relations: s.rels}
-	info.Storage.Storage = s.storage
+	})
+	ctx.Info.OwnerTag = "test-owner"
+	ctx.Info.AvailabilityZone = "us-east-1a"
+	ctx.Info.PublicAddress = "gimli.minecraft.testing.invalid"
+	ctx.Info.PrivateAddress = "192.168.0.99"
 
-	ctx := s.ContextSuite.GetHookContext(c, info)
-	return &Context{Context: *ctx}
+	ctx.SetAsRelationHook(relid, remote)
+	ctx.Info.Relations.Relations = s.rels
+	ctx.Info.Storage.Storage = s.storage
+
+	return &Context{Context: *ctx.Context}
 }
 
 func (s *ContextSuite) GetStorageHookContext(c *gc.C, storageId string) *Context {

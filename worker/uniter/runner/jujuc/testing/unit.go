@@ -25,11 +25,21 @@ type ContextUnit struct {
 	Info *Unit
 }
 
+func (cu *ContextUnit) init() {
+	if cu.Stub == nil {
+		cu.Stub = &testing.Stub{}
+	}
+	if cu.Info == nil {
+		cu.Info = &Unit{}
+	}
+}
+
 // UnitName implements jujuc.ContextUnit.
 func (cu *ContextUnit) UnitName() string {
 	cu.Stub.AddCall("UnitName")
 	cu.Stub.NextErr()
 
+	cu.init()
 	return cu.Info.Name
 }
 
@@ -40,6 +50,7 @@ func (cu *ContextUnit) UnitStatus() (*jujuc.StatusInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
+	cu.init()
 	return &cu.Info.Status, nil
 }
 
@@ -50,6 +61,7 @@ func (cu *ContextUnit) SetUnitStatus(status jujuc.StatusInfo) error {
 		return errors.Trace(err)
 	}
 
+	cu.init()
 	cu.Info.Status = status
 	return nil
 }
@@ -59,6 +71,7 @@ func (cu *ContextUnit) OwnerTag() string {
 	cu.Stub.AddCall("OwnerTag")
 	cu.Stub.NextErr()
 
+	cu.init()
 	return cu.Info.OwnerTag
 }
 
@@ -69,5 +82,6 @@ func (cu *ContextUnit) ConfigSettings() (charm.Settings, error) {
 		return nil, errors.Trace(err)
 	}
 
+	cu.init()
 	return cu.Info.ConfigSettings, nil
 }

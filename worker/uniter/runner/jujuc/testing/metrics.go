@@ -15,8 +15,16 @@ type ContextMetrics struct {
 	Stub *testing.Stub
 }
 
+func (c *ContextMetrics) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+}
+
 // AddMetric implements jujuc.ContextMetrics.
 func (c *ContextMetrics) AddMetric(key, value string, created time.Time) error {
 	c.Stub.AddCall("AddMetric", key, value, created)
-	return errors.Trace(c.Stub.NextErr())
+	err := c.Stub.NextErr()
+	c.init()
+	return errors.Trace(err)
 }

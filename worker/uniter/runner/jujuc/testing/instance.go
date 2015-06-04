@@ -21,15 +21,27 @@ type ContextInstance struct {
 	Info *Instance
 }
 
+func (c *ContextInstance) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &Instance{}
+	}
+}
+
 // AvailabilityZone implements jujuc.ContextInstance.
 func (ci *ContextInstance) AvailabilityZone() (string, bool) {
 	ci.Stub.AddCall("AvailabilityZone")
 	ci.Stub.NextErr()
+	ci.init()
 	return ci.Info.AvailabilityZone, true
 }
 
 // RequestReboot implements jujuc.ContextInstance.
 func (ci *ContextInstance) RequestReboot(priority jujuc.RebootPriority) error {
 	ci.Stub.AddCall("RequestReboot", priority)
-	return errors.Trace(ci.Stub.NextErr())
+	err := ci.Stub.NextErr()
+	ci.init()
+	return errors.Trace(err)
 }

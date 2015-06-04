@@ -141,6 +141,9 @@ var relationGetTests = []struct {
 
 func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
+		if i != 10 {
+			continue
+		}
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))

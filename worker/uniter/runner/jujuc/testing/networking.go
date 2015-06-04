@@ -25,8 +25,18 @@ type ContextNetworking struct {
 	Info *NetworkInterface
 }
 
+func (c *ContextNetworking) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &NetworkInterface{}
+	}
+}
+
 // CheckPorts checks the current ports.
 func (cn *ContextNetworking) CheckPorts(c *gc.C, expected []network.PortRange) {
+	cn.init()
 	c.Check(cn.Info.Ports, jc.DeepEquals, expected)
 }
 
@@ -34,6 +44,7 @@ func (cn *ContextNetworking) CheckPorts(c *gc.C, expected []network.PortRange) {
 func (cn *ContextNetworking) PublicAddress() (string, bool) {
 	cn.Stub.AddCall("PublicAddress")
 	cn.Stub.NextErr()
+	cn.init()
 	if cn.Info.PublicAddress == "" {
 		return "", false
 	}
@@ -44,6 +55,7 @@ func (cn *ContextNetworking) PublicAddress() (string, bool) {
 func (cn *ContextNetworking) PrivateAddress() (string, bool) {
 	cn.Stub.AddCall("PrivateAddress")
 	cn.Stub.NextErr()
+	cn.init()
 	if cn.Info.PrivateAddress == "" {
 		return "", false
 	}
@@ -57,6 +69,7 @@ func (cn *ContextNetworking) OpenPorts(protocol string, from, to int) error {
 		return errors.Trace(err)
 	}
 
+	cn.init()
 	cn.Info.Ports = append(cn.Info.Ports, network.PortRange{
 		Protocol: protocol,
 		FromPort: from,
@@ -73,6 +86,7 @@ func (cn *ContextNetworking) ClosePorts(protocol string, from, to int) error {
 		return errors.Trace(err)
 	}
 
+	cn.init()
 	portRange := network.PortRange{
 		Protocol: protocol,
 		FromPort: from,
@@ -92,5 +106,6 @@ func (cn *ContextNetworking) ClosePorts(protocol string, from, to int) error {
 func (cn *ContextNetworking) OpenedPorts() []network.PortRange {
 	cn.Stub.AddCall("OpenedPorts")
 	cn.Stub.NextErr()
+	cn.init()
 	return cn.Info.Ports
 }

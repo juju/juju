@@ -11,24 +11,35 @@ import (
 
 // Components holds the values for the hook context.
 type Components struct {
-	Components map[string]*ContextComponent
+	Components map[string]jujuc.ContextComponent
 }
 
-// SetDefault returns the named component if found or adds a new one and
-// returns it.
-func (c *Components) SetDefault(name string) *ContextComponent {
-	if component, ok := c.Components[name]; ok {
-		return component
+// SetComponent sets the component on the registry.
+func (c *Components) SetComponent(name string, comp jujuc.ContextComponent) {
+	if c.Components == nil {
+		c.Components = make(map[string]jujuc.ContextComponent)
 	}
-	component := &ContextComponent{}
-	c.Components[name] = component
-	return component
+	c.Components[name] = comp
 }
 
 // ContextComponents is a test double for jujuc.ContextComponents.
 type ContextComponents struct {
-	Stub       *testing.Stub
-	Components *Components
+	Stub *testing.Stub
+	Info *Components
+}
+
+func (c *ContextComponents) init() {
+	if c.Stub == nil {
+		c.Stub = &testing.Stub{}
+	}
+	if c.Info == nil {
+		c.Info = &Components{}
+	}
+}
+
+func (c *ContextComponents) setComponent(name string, comp jujuc.ContextComponent) {
+	c.init()
+	c.Info.SetComponent(name, comp)
 }
 
 // ContextComponents implements jujuc.ContextComponents.
@@ -36,8 +47,9 @@ func (cc ContextComponents) Component(name string) (jujuc.ContextComponent, bool
 	cc.Stub.AddCall("Component", name)
 	cc.Stub.NextErr()
 
-	component, found := cc.Components.Components[name]
-	return *component, found
+	cc.init()
+	component, found := cc.Info.Components[name]
+	return component, found
 }
 
 // ContextComponent is a test double for jujuc.ContextComponent.
