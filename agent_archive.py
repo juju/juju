@@ -95,16 +95,16 @@ def add_agents(args):
     if source_agent not in agent_versions:
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
-    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    os_name = get_source_agent_os(source_agent)
+    agent_glob = '%s/juju-%s-%s*' % (S3_CONTAINER, version, os_name)
     existing_versions = run(
         ['ls', agent_glob], config=args.config, verbose=args.verbose)
     if args.verbose:
         print('Checking that %s does not already exist.' % version)
-    for agent_version in agent_versions:
-        if source_agent in existing_versions:
-            raise ValueError(
-                '%s already exists. Agents cannot be overwritten.' %
-                agent_version)
+    if existing_versions:
+        raise ValueError(
+            '%s already exists. Agents cannot be overwritten.' %
+            existing_versions)
     # The fastest way to put the files in place is to upload the source_agent
     # then use the s3cmd cp to make remote versions.
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
@@ -114,7 +114,6 @@ def add_agents(args):
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
-    os_name = get_source_agent_os(source_agent)
     agent_versions = [a for a in agent_versions if os_name in a]
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
