@@ -6,9 +6,9 @@ package kvm_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -103,7 +103,7 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
-func (s *KVMSuite) DONTTestCreateUsesTemplate(c *gc.C) {
+func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 	params := kvm.CreateMachineParams{
 		Hostname:      "foo-bar",
 		NetworkBridge: "br0",
@@ -111,11 +111,20 @@ func (s *KVMSuite) DONTTestCreateUsesTemplate(c *gc.C) {
 			{MACAddress: "00:16:3e:20:b0:11"},
 		},
 	}
-	err := kvm.CreateMachine(params)
-	if err != nil {
-		panic(err)
-	}
-	time.Sleep(100 * time.Second)
+	tempDir, err := ioutil.TempDir("", "kvm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.RemoveAll(tempDir)
+
+	templatePath := filepath.Join(tempDir, "kvm.xml")
+	err = kvm.WriteTemplate(templatePath, params)
+	c.Assert(err, jc.ErrorIsNil)
+	template, err := ioutil.ReadFile(templatePath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(string(template), jc.Contains, "<name>foo-bar</name>")
+	c.Assert(string(template), jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
+	c.Assert(string(template), jc.Contains, "<source bridge='br0'/>")
+	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
