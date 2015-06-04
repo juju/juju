@@ -1108,7 +1108,8 @@ class TestTempJujuEnv(TestCase):
                 self.assertNotEqual(temp_home, fake_home)
                 symlink_path = get_jenv_path(fake_home, 'qux')
                 symlink_target = os.path.realpath(symlink_path)
-                expected_target = get_jenv_path(temp_home, 'qux')
+                expected_target = os.path.realpath(
+                    get_jenv_path(temp_home, 'qux'))
                 self.assertEqual(symlink_target, expected_target)
                 config = yaml.safe_load(
                     open(get_environments_path(temp_home)))
