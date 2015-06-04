@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from mock import patch
 import os
 import subprocess
+import sys
 import tarfile
 from unittest import TestCase
 
@@ -128,7 +129,7 @@ class CrossBuildTestCase(TestCase):
             new_dir = os.path.join(base_dir, 'juju-core_1.2.3')
             os.makedirs(new_dir)
             with working_directory(new_dir):
-                self.assertEqual(new_dir, os.getcwd())
+                self.assertEqual(os.path.realpath(new_dir), os.getcwd())
         self.assertEqual(this_dir, os.getcwd())
 
     def test_build_win_client(self):
@@ -215,7 +216,7 @@ class CrossBuildTestCase(TestCase):
         with temp_dir() as base_dir:
             agent_dir = os.path.join(base_dir, 'foo')
             os.makedirs(agent_dir)
-            jujud_binary = os.path.join(agent_dir,  'jujud.exe')
+            jujud_binary = os.path.join(agent_dir, 'jujud.exe')
             with open(jujud_binary, 'w') as jb:
                 jb.write('jujud')
             make_agent_tarball('win2012', jujud_binary, '1.2.3', base_dir)
@@ -245,12 +246,16 @@ class CrossBuildTestCase(TestCase):
              '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'darwin'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        if sys.platform == 'darwin':
+            cross_bin = 'bin'
+        else:
+            cross_bin = 'bin/darwin_amd64'
         self.assertEqual(
             ('osx',
-             ['baz/bar_1.2.3/bin/darwin_amd64/juju',
-              'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata',
+             ['baz/bar_1.2.3/%s/juju' % cross_bin,
+              'baz/bar_1.2.3/%s/juju-metadata' % cross_bin,
               'baz/bar_1.2.3/src/github.com/juju/juju/'
-                'scripts/win-installer/README.txt',
+              'scripts/win-installer/README.txt',
               'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
               ],
              '1.2.3', os.getcwd()),
@@ -298,7 +303,7 @@ class CrossBuildTestCase(TestCase):
             'baz/bar_1.2.3/bin/jujud',
             'baz/bar_1.2.3/bin/juju-metadata',
             'baz/bar_1.2.3/src/github.com/juju/juju/'
-                'scripts/win-installer/README.txt',
+            'scripts/win-installer/README.txt',
             'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
             ]
         mt_mock.assert_called_once_with(
