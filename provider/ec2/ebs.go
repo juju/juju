@@ -55,6 +55,12 @@ const (
 )
 
 const (
+	volumeStatusAvailable = "available"
+	volumeStatusInUse     = "in-use"
+	volumeStatusCreating  = "creating"
+)
+
+const (
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
@@ -423,10 +429,37 @@ func (v *ebsVolumeSource) attachOneVolume(
 	volumeId, instId string,
 	deleteOnTermination bool,
 ) (string, string, error) {
-	// Wait for the volume to be "available".
-	if err := v.waitVolumeAvailable(volumeId); err != nil {
+	// Wait for the volume to move out of "creating".
+	volume, err := v.waitVolumeCreated(volumeId)
+	if err != nil {
 		return "", "", errors.Trace(err)
 	}
+
+	// Possible statuses:
+	//    creating | available | in-use | deleting | deleted | error
+	switch volume.Status {
+	default:
+		return "", "", errors.Errorf("cannot attach to volume with status %q", volume.Status)
+
+	case volumeStatusInUse:
+		// Volume is already attached; see if it's attached to the
+		// instance requested.
+		attachments := volume.Attachments
+		if len(attachments) != 1 {
+			return "", "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
+		}
+		if attachments[0].InstanceId != instId {
+			return "", "", errors.Annotatef(err, "volume %v is attached to %v", volumeId, attachments[0].InstanceId)
+		}
+		requestDeviceName := attachments[0].Device
+		actualDeviceName := renamedDevicePrefix + requestDeviceName[len(devicePrefix):]
+		return requestDeviceName, actualDeviceName, nil
+
+	case volumeStatusAvailable:
+		// Attempt to attach below.
+		break
+	}
+
 	for {
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
@@ -449,27 +482,6 @@ func (v *ebsVolumeSource) attachOneVolume(
 				// deviceInUse means that the requested device name
 				// is in use already. Try again with the next name.
 				continue
-
-			case volumeInUse:
-				// volumeInUse means this volume is already attached.
-				// query the volume and verify that the attachment is
-				// for this machine.
-				volume, err := v.describeVolume(volumeId)
-				if err != nil {
-					return "", "", errors.Trace(err)
-				}
-				attachments := volume.Attachments
-				if len(attachments) != 1 {
-					return "", "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
-				}
-				if attachments[0].InstanceId != instId {
-					return "", "", errors.Annotatef(err, "volume %v is attached to %v", volumeId, attachments[0].InstanceId)
-				}
-				if requestDeviceName != attachments[0].Device {
-					requestDeviceName = attachments[0].Device
-					actualDeviceName = renamedDevicePrefix + requestDeviceName[len(devicePrefix):]
-				}
-				return requestDeviceName, actualDeviceName, nil
 			}
 		}
 		if err != nil {
@@ -479,7 +491,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 	}
 }
 
-func (v *ebsVolumeSource) waitVolumeAvailable(volumeId string) error {
+func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error) {
 	var attempt = utils.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
@@ -487,13 +499,13 @@ func (v *ebsVolumeSource) waitVolumeAvailable(volumeId string) error {
 	for a := attempt.Start(); a.Next(); {
 		volume, err := v.describeVolume(volumeId)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		if volume.Status == "available" {
-			return nil
+		if volume.Status != volumeStatusCreating {
+			return volume, nil
 		}
 	}
-	return errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+	return nil, errors.Errorf("timed out waiting for volume %v to become available", volumeId)
 }
 
 func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
