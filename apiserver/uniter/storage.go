@@ -334,17 +334,6 @@ func (a *StorageAPI) AddUnitStorage(
 		return serverErr(errors.Annotatef(err, "adding storage %v for %v", s, u))
 	}
 
-	cons := func(p params.StorageConstraints) state.StorageConstraints {
-		s := state.StorageConstraints{Pool: p.Pool}
-		if p.Size != nil {
-			s.Size = *p.Size
-		}
-		if p.Count != nil {
-			s.Count = *p.Count
-		}
-		return s
-	}
-
 	result := make([]params.ErrorResult, len(args.Storages))
 	for i, one := range args.Storages {
 		u, err := accessUnitTag(one.UnitTag, canAccess)
@@ -353,12 +342,47 @@ func (a *StorageAPI) AddUnitStorage(
 			continue
 		}
 
-		err = a.st.AddStorageForUnit(u, one.StorageName, cons(one.Constraints))
+		cons, err := a.st.UnitConstraints(u)
+		if err != nil {
+			result[i] = serverErr(err)
+			continue
+		}
+
+		oneCons, err := validConstraints(one, cons)
+		if err != nil {
+			result[i] = storageErr(err, one.StorageName, one.UnitTag)
+			continue
+		}
+
+		err = a.st.AddStorageForUnit(u, one.StorageName, oneCons)
 		if err != nil {
 			result[i] = storageErr(err, one.StorageName, one.UnitTag)
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+func validConstraints(
+	p params.StorageAddParams,
+	cons map[string]state.StorageConstraints,
+) (state.StorageConstraints, error) {
+	emptyCons := state.StorageConstraints{}
+	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
+
+	if p.Constraints != onlyCount {
+		return emptyCons, errors.Errorf("only count can be specified for %q", p.StorageName)
+	}
+
+	result, ok := cons[p.StorageName]
+	if !ok {
+		return emptyCons, errors.NotFoundf("storage %q", p.StorageName)
+	}
+
+	result.Count = 0
+	if p.Constraints.Count != nil {
+		result.Count = *p.Constraints.Count
+	}
+	return result, nil
 }
 
 func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, error) {
