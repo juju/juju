@@ -72,6 +72,12 @@ def get_build_data(jenkins_url, credentials, job_name,
     return get_jenkins_json(credentials, url)
 
 
+def get_job_data(jenkins_url, credentials, job_name):
+    """Return a dict of the job data for a job name."""
+    url = '%s/job/%s/api/json' % (jenkins_url, job_name)
+    return get_jenkins_json(credentials, url)
+
+
 def make_artifact(build_data, artifact):
     location = '%sartifact/%s' % (build_data['url'], artifact['relativePath'])
     return Artifact(artifact['fileName'], location)
