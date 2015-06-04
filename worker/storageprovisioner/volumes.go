@@ -440,6 +440,7 @@ func createVolumes(
 	var allVolumes []storage.Volume
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("creating volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
 		volumes, volumeAttachments, err := volumeSource.CreateVolumes(params)
 		if err != nil {
@@ -479,6 +480,7 @@ func createVolumeAttachments(
 	}
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("attaching volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
 		volumeAttachments, err := volumeSource.AttachVolumes(params)
 		if err != nil {

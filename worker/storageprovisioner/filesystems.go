@@ -499,6 +499,7 @@ func createFilesystems(ctx *context, params []storage.FilesystemParams) ([]stora
 
 	var allFilesystems []storage.Filesystem
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("creating filesystems: %v", params)
 		filesystemSource := filesystemSources[sourceName]
 		filesystems, err := filesystemSource.CreateFilesystems(params)
 		if err != nil {
@@ -541,6 +542,7 @@ func createFilesystemAttachments(
 	}
 	var allFilesystemAttachments []storage.FilesystemAttachment
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("attaching filesystems: %v", params)
 		filesystemSource := filesystemSources[sourceName]
 		filesystemAttachments, err := filesystemSource.AttachFilesystems(params)
 		if err != nil {
