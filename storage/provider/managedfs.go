@@ -161,7 +161,13 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
-	// TODO(axw) check if the mount already exists, and do nothing if so.
+	if source, err := dirFuncs.mountPointSource(mountPoint); err != nil {
+		return errors.Trace(err)
+	} else if source != "" {
+		// Already mounted.
+		logger.Debugf("filesystem on %q already mounted at %q", source, mountPoint)
+		return nil
+	}
 	var args []string
 	if readOnly {
 		args = append(args, "-o", "ro")

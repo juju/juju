@@ -100,21 +100,33 @@ func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 }
 
 func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
-	s.testAttachFilesystems(c, false)
+	s.testAttachFilesystems(c, false, false)
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *gc.C) {
-	s.testAttachFilesystems(c, true)
+	s.testAttachFilesystems(c, true, false)
 }
 
-func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
+func (s *managedfsSuite) TestAttachFilesystemsReattach(c *gc.C) {
+	s.testAttachFilesystems(c, true, true)
+}
+
+func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool) {
+	const testMountPoint = "/in/the/place"
+
 	source := s.initSource(c)
-	var args []string
-	if readOnly {
-		args = append(args, "-o", "ro")
+	cmd := s.commands.expect("df", "--output=source", testMountPoint)
+	if reattach {
+		cmd.respond("headers\n/src/of/root", nil)
+	} else {
+		cmd.respond("headers\n", nil)
+		var args []string
+		if readOnly {
+			args = append(args, "-o", "ro")
+		}
+		args = append(args, "/dev/sda", testMountPoint)
+		s.commands.expect("mount", args...)
 	}
-	args = append(args, "/dev/sda", "/in/the/place")
-	s.commands.expect("mount", args...)
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
@@ -134,14 +146,14 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
 			InstanceId: "inst-ance",
 			ReadOnly:   readOnly,
 		},
-		Path: "/in/the/place",
+		Path: testMountPoint,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, jc.DeepEquals, []storage.FilesystemAttachment{{
 		names.NewFilesystemTag("0/0"),
 		names.NewMachineTag("0"),
 		storage.FilesystemAttachmentInfo{
-			Path:     "/in/the/place",
+			Path:     testMountPoint,
 			ReadOnly: readOnly,
 		},
 	}})
