@@ -228,42 +228,6 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 	s.stub.CheckCalls(c, nil)
 }
 
-func (s *initSystemSuite) TestNewTemplateShutdownService(c *gc.C) {
-	s.conf.AfterStopped = "cloud-final"
-	service, err := systemd.NewTemplateShutdownService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.conf.AfterStopped = "cloud-config.target"
-
-	c.Check(service, jc.DeepEquals, &systemd.Service{
-		Service: common.Service{
-			Name: s.name,
-			Conf: s.conf,
-		},
-		ConfName: s.name + ".service",
-		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
-	})
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestNewTemplateWithUnexpectedAfterStopped(c *gc.C) {
-	s.conf.AfterStopped = "foobar"
-	service, err := systemd.NewTemplateShutdownService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(service, jc.DeepEquals, &systemd.Service{
-		Service: common.Service{
-			Name: s.name,
-			Conf: s.conf,
-		},
-		ConfName: s.name + ".service",
-		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
-	})
-	s.stub.CheckCalls(c, nil)
-}
-
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
@@ -895,21 +859,6 @@ func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `.*missing conf.*`)
 	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestInstallTemplateContainerCommands(c *gc.C) {
-	s.dataDir = "/tmp"
-	s.service.Dirname = "/tmp/init/" + s.name
-
-	commands, err := s.service.InstallTemplateContainerCommands()
-	c.Assert(err, jc.ErrorIsNil)
-
-	test := systemdtesting.WriteConfTest{
-		Service:  s.name,
-		DataDir:  s.dataDir,
-		Expected: s.newConfStr(s.name),
-	}
-	test.CheckInstallTemplateContainerCommands(c, commands)
 }
 
 func (s *initSystemSuite) TestStartCommands(c *gc.C) {

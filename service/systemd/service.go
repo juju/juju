@@ -117,15 +117,6 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	return service, nil
 }
 
-// NewTemplateShutdownService returns a new value that implements
-// TemplateShutdownService for systemd.
-func NewTemplateShutdownService(name string, conf common.Conf) (*Service, error) {
-	if conf.AfterStopped == "cloud-final" {
-		conf.AfterStopped = "cloud-config.target"
-	}
-	return NewService(name, conf)
-}
-
 var findDataDir = func() (string, error) {
 	return paths.DataDir(version.Current.Series)
 }
@@ -591,22 +582,6 @@ func (s *Service) InstallCommands() ([]string, error) {
 		cmds.enableLinked(name, dirname),
 	}...)
 	return cmdList, nil
-}
-
-// InstallTempalteContainerCommands returns shell commands to install
-// and start the shutdown service required for template containers.
-func (s *Service) InstallTemplateContainerCommands() ([]string, error) {
-	installCmds, err := s.InstallCommands()
-	if err != nil {
-		return nil, err
-	}
-
-	startCmds, err := s.StartCommands()
-	if err != nil {
-		return nil, err
-	}
-
-	return append(installCmds, startCmds...), nil
 }
 
 // StartCommands implements Service.

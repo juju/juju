@@ -104,12 +104,6 @@ func NewService(name string, conf common.Conf) *Service {
 	}
 }
 
-// NewTemplateShutdownService returns a new value that implements
-// TemplateShutdownService for upstart.
-func NewTemplateShutdownService(name string, conf common.Conf) *Service {
-	return NewService(name, conf)
-}
-
 // Name implements service.Service.
 func (s Service) Name() string {
 	return s.Service.Name
@@ -319,14 +313,9 @@ func (s *Service) InstallCommands() ([]string, error) {
 	return []string{cmd}, nil
 }
 
-// InstallTempalteContainerCommands returns shell commands to install
-// and start the shutdown service required for template containers.
-func (s *Service) InstallTemplateContainerCommands() ([]string, error) {
-	return s.InstallCommands()
-}
-
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
+	// TODO(ericsnow) Add clarification about why transient services are not started.
 	if s.Service.Conf.Transient {
 		return nil, nil
 	}

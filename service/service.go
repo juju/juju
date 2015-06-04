@@ -86,17 +86,6 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
-// TemplateShutdownService represents a service which can be used to halt a
-// template lxc container after cloud-init completes.
-type TemplateShutdownService interface {
-	Service
-
-	// InstallTemplateContainerCommands returns the commands to install
-	// and start the service which will halt the template container after
-	// cloud-init completes.
-	InstallTemplateContainerCommands() ([]string, error)
-}
-
 // RestartableService is a service that directly supports restarting.
 type RestartableService interface {
 	// Restart restarts the service.
@@ -126,23 +115,6 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 		return svc, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
-	}
-}
-
-// NewTemplateShutdownService returns a new TemplateService that can be used to create
-// the shutdown service used in container templates
-func NewTemplateShutdownService(name string, conf common.Conf, initSystem string) (TemplateShutdownService, error) {
-	switch initSystem {
-	case InitSystemUpstart:
-		return upstart.NewTemplateShutdownService(name, conf), nil
-	case InitSystemSystemd:
-		svc, err := systemd.NewTemplateShutdownService(name, conf)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
-		}
-		return svc, nil
-	default:
-		return nil, errors.Errorf("unsupported init system for container template: %q", initSystem)
 	}
 }
 
