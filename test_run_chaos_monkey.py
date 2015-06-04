@@ -58,7 +58,7 @@ class TestRunChaosMonkey(TestCase):
                     '0': {'agent-state': 'started'}
                 },
                 'services': {
-                    'foo': {
+                    'ser1': {
                         'units': {
                             'bar': {
                                 'agent-state': 'started',
@@ -73,21 +73,21 @@ class TestRunChaosMonkey(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'env'): status,
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 }
             return output[args]
-        client = EnvJujuClient(SimpleEnvironment('env', {}), None, '/foo/juju')
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
-                monkey_runner = MonkeyRunner('env', 'foo', 'checker', client)
+                monkey_runner = MonkeyRunner('foo', 'ser1', 'checker', client)
                 with patch('sys.stdout', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'env', 'local:chaos-monkey'),
+            'juju', '--show-log', 'deploy', '-e', 'foo', 'local:chaos-monkey'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-e', 'env', 'foo',
+            'juju', '--show-log', 'add-relation', '-e', 'foo', 'ser1',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
         self.assertEqual(co_mock.call_count, 2)
