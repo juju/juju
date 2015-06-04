@@ -55,16 +55,6 @@ func NewInvalidConfigValue(key string, value, reason interface{}) error {
 		Value:  value,
 		Reason: underlying,
 	}
-	msg := "config value for " + key
-	if value != nil {
-		if strValue, ok := value.(string); ok {
-			if strValue != "" {
-				msg = fmt.Sprintf("%s %q", msg, strValue)
-			}
-		} else {
-			msg = fmt.Sprintf("%s (%v)", msg, value)
-		}
-	}
 	err.Err = errors.NewErr("config value")
 	err.Err.SetLocation(1)
 	return err
