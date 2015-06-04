@@ -213,19 +213,16 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
 	var result []params.VolumeAttachmentParamsResult
 	for _, id := range ids {
-		if _, ok := v.provisionedAttachments[id]; ok {
-			result = append(result, params.VolumeAttachmentParamsResult{
-				Error: &params.Error{Message: "already provisioned"},
-			})
-		} else {
-			instanceId, _ := v.provisionedMachines[id.MachineTag]
-			result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
-				MachineTag: id.MachineTag,
-				VolumeTag:  id.AttachmentTag,
-				InstanceId: string(instanceId),
-				Provider:   "dummy",
-			}})
-		}
+		// Parameters are returned regardless of whether the attachment
+		// exists; this is to support reattachment.
+		instanceId, _ := v.provisionedMachines[id.MachineTag]
+		result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
+			MachineTag: id.MachineTag,
+			VolumeTag:  id.AttachmentTag,
+			InstanceId: string(instanceId),
+			Provider:   "dummy",
+			ReadOnly:   id.AttachmentTag == "volume-1",
+		}})
 	}
 	return result, nil
 }
@@ -330,20 +327,16 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
 	var result []params.FilesystemAttachmentParamsResult
 	for _, id := range ids {
-		if _, ok := f.provisionedAttachments[id]; ok {
-			result = append(result, params.FilesystemAttachmentParamsResult{
-				Error: &params.Error{Message: "already provisioned"},
-			})
-		} else {
-			instanceId := f.provisionedMachines[id.MachineTag]
-			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
-				MachineTag:    id.MachineTag,
-				FilesystemTag: id.AttachmentTag,
-				InstanceId:    string(instanceId),
-				Provider:      "dummy",
-				ReadOnly:      true,
-			}})
-		}
+		// Parameters are returned regardless of whether the attachment
+		// exists; this is to support reattachment.
+		instanceId := f.provisionedMachines[id.MachineTag]
+		result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
+			MachineTag:    id.MachineTag,
+			FilesystemTag: id.AttachmentTag,
+			InstanceId:    string(instanceId),
+			Provider:      "dummy",
+			ReadOnly:      true,
+		}})
 	}
 	return result, nil
 }
@@ -474,7 +467,7 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 				Persistent: persistent,
 			},
 		})
-		if p.Attachment != nil {
+		if p.Attachment != nil && false {
 			volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
 				p.Tag,
 				p.Attachment.Machine,
@@ -503,6 +496,7 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 			p.Machine,
 			storage.VolumeAttachmentInfo{
 				DeviceName: "/dev/sda" + p.Volume.Id(),
+				ReadOnly:   p.ReadOnly,
 			},
 		})
 	}

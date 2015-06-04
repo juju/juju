@@ -219,7 +219,7 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 	}
 	for i, result := range paramsResults {
 		if result.Error != nil {
-			return errors.Annotate(err, "getting filesystem parameters")
+			return errors.Annotate(result.Error, "getting filesystem parameters")
 		}
 		params, err := filesystemParamsFromParams(result.Result)
 		if err != nil {
@@ -250,6 +250,7 @@ func maybeAddPendingVolumeBlockDevice(ctx *context, v names.VolumeTag) {
 // as possible, first ensuring that their prerequisites have been met.
 func processPendingFilesystems(ctx *context) error {
 	if len(ctx.pendingFilesystems) == 0 {
+		logger.Tracef("no pending filesystems")
 		return nil
 	}
 	ready := make([]storage.FilesystemParams, 0, len(ctx.pendingFilesystems))
@@ -300,7 +301,7 @@ func setFilesystemInfo(ctx *context, filesystems []storage.Filesystem) error {
 	for i, result := range errorResults {
 		if result.Error != nil {
 			return errors.Annotatef(
-				err, "publishing filesystem %s to state",
+				result.Error, "publishing filesystem %s to state",
 				filesystems[i].Tag.Id(),
 			)
 		}
@@ -324,28 +325,31 @@ func processAliveFilesystemAttachments(
 	// limit this to machine-scoped filesystems to start with.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range filesystemAttachmentResults {
-		switch {
-		case result.Error != nil && params.IsCodeNotProvisioned(result.Error):
-			// The filesystem has not yet been attached, so
-			// record its tag to enquire about parameters below.
-			pending = append(pending, ids[i])
-		case result.Error == nil:
-			// Filesystem is already attached: skip.
-			logger.Debugf(
-				"%s is already attached to %s, nothing to do",
-				ids[i].AttachmentTag, ids[i].MachineTag,
-			)
-			filesystemAttachment, err := filesystemAttachmentFromParams(result.Result)
-			if err != nil {
-				return errors.Annotate(err, "getting filesystem attachment info")
-			}
-			ctx.filesystemAttachments[ids[i]] = filesystemAttachment
+		if result.Error == nil {
 			delete(ctx.pendingFilesystemAttachments, ids[i])
-		case result.Error != nil:
+			// Filesystem attachment is already provisioned: if we
+			// didn't (re)attach in this session, then we must do
+			// so now.
+			action := "nothing to do"
+			if _, ok := ctx.filesystemAttachments[ids[i]]; !ok {
+				// Not yet (re)attached in this session.
+				pending = append(pending, ids[i])
+				action = "will reattach"
+			}
+			logger.Debugf(
+				"%s is already attached to %s, %s",
+				ids[i].AttachmentTag, ids[i].MachineTag, action,
+			)
+			continue
+		}
+		if !params.IsCodeNotProvisioned(result.Error) {
 			return errors.Annotatef(
 				result.Error, "getting information for attachment %v", ids[i],
 			)
 		}
+		// The filesystem has not yet been attached, so
+		// record its tag to enquire about parameters below.
+		pending = append(pending, ids[i])
 	}
 	if len(pending) == 0 {
 		return nil
@@ -356,7 +360,7 @@ func processAliveFilesystemAttachments(
 	}
 	for i, result := range paramsResults {
 		if result.Error != nil {
-			return errors.Annotate(err, "getting filesystem attachment parameters")
+			return errors.Annotate(result.Error, "getting filesystem attachment parameters")
 		}
 		params, err := filesystemAttachmentParamsFromParams(result.Result)
 		if err != nil {
@@ -372,6 +376,7 @@ func processAliveFilesystemAttachments(
 
 func processPendingFilesystemAttachments(ctx *context) error {
 	if len(ctx.pendingFilesystemAttachments) == 0 {
+		logger.Tracef("no pending filesystem attachments")
 		return nil
 	}
 	ready := make([]storage.FilesystemAttachmentParams, 0, len(ctx.pendingFilesystemAttachments))
