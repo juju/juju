@@ -5,6 +5,8 @@ package kvm
 
 var KVMPath = &kvmPath
 
+var KVMRun = &run
+
 // Used to export the parameters used to call Start on the KVM Container
 var TestStartParams = &startParams
 

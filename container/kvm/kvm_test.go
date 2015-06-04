@@ -118,13 +118,50 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 	templatePath := filepath.Join(tempDir, "kvm.xml")
 	err = kvm.WriteTemplate(templatePath, params)
 	c.Assert(err, jc.ErrorIsNil)
-	template, err := ioutil.ReadFile(templatePath)
+	templateBytes, err := ioutil.ReadFile(templatePath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(string(template), jc.Contains, "<name>foo-bar</name>")
-	c.Assert(string(template), jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
-	c.Assert(string(template), jc.Contains, "<source bridge='br0'/>")
+	template := string(templateBytes)
+
+	c.Assert(template, jc.Contains, "<name>foo-bar</name>")
+	c.Assert(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
+	c.Assert(template, jc.Contains, "<source bridge='br0'/>")
 	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
+}
+
+func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
+	var runArgs []string
+	mockRun := func(command string, args ...string) (string, error) {
+		c.Assert(args, gc.HasLen, 5)
+		c.Assert(args[3], jc.Contains, "kvm.xml")
+
+		// this asserts the template file exists
+		_, err := os.Stat(args[3])
+		c.Assert(err, jc.ErrorIsNil)
+
+		runArgs = args
+		c.Assert(command, gc.Equals, "uvt-kvm")
+		return "", nil
+	}
+	s.PatchValue(kvm.KVMRun, mockRun)
+	params := kvm.CreateMachineParams{
+		Hostname:      "foo-bar",
+		NetworkBridge: "br0",
+		Interfaces: []network.InterfaceInfo{
+			{MACAddress: "00:16:3e:20:b0:11"},
+		},
+	}
+
+	err := kvm.CreateMachine(params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// this asserts that mockRun was called
+	c.Assert(runArgs, gc.HasLen, 5)
+	c.Assert(runArgs[0:3], jc.DeepEquals, []string{"create", "--log-console-output", "--template"})
+	c.Assert(runArgs[4], gc.Equals, "foo-bar")
+
+	_, err = os.Stat(filepath.Dir(runArgs[3]))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {

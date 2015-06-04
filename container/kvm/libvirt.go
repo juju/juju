@@ -36,7 +36,7 @@ var (
 )
 
 // run the command and return the combined output.
-func run(command string, args ...string) (output string, err error) {
+var run = func(command string, args ...string) (output string, err error) {
 	logger.Tracef("%s %v", command, args)
 	output, err = utils.RunCommand(command, args...)
 	logger.Tracef("output: %v", output)
