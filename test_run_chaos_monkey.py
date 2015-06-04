@@ -54,24 +54,118 @@ class TestRunChaosMonkey(TestCase):
     def test_deploy_chaos_monkey(self):
         def output(args, **kwargs):
             status = yaml.safe_dump({
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {}})
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'foo': {
+                        'units': {
+                            'bar': {
+                                'agent-state': 'started',
+                                'subordinates': {
+                                    'chaos-monkey/1': {
+                                        'agent-state': 'started'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'status', '-e', 'env'): status,
                 }
             return output[args]
-        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        client = EnvJujuClient(SimpleEnvironment('env', {}), None, '/foo/juju')
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
-                monkey_runner = MonkeyRunner('foo', 'bar', 'checker', client)
+                monkey_runner = MonkeyRunner('env', 'foo', 'checker', client)
                 with patch('sys.stdout', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'foo', 'local:chaos-monkey'),
+            'juju', '--show-log', 'deploy', '-e', 'env', 'local:chaos-monkey'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-e', 'foo', 'bar',
+            'juju', '--show-log', 'add-relation', '-e', 'env', 'foo',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
-        self.assertEqual(co_mock.call_count, 1)
+        self.assertEqual(co_mock.call_count, 2)
+
+    def test_unleash_once(self):
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                }
+                            },
+                            'bar': {
+                                'subordinates': {
+                                    'chaos-monkey/1': {'abc': '123'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/0', 'start', 'mode=single'
+                 ): 'Action queued with id: unit0-foo',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/1', 'start', 'mode=single'
+                 ): 'Action queued with id: unit1-foo',
+                }
+            return output[args]
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        monkey_runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True) as co_mock:
+                monkey_runner.unleash_once()
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/0', 'start', 'mode=single'), 1, True)
+        self.assertEqual(['unit0-foo', 'unit1-foo'], monkey_runner.monkey_ids)
+        self.assertEqual(len(monkey_runner.monkey_ids), 2)
+        self.assertEqual(co_mock.call_count, 3)
+
+    def test_unleash_once_raises_for_unexpected_action_output(self):
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/0', 'start', 'mode=single'
+                 ): 'Action fail',
+                }
+            return output[args]
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        monkey_runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True):
+            with self.assertRaisesRegexp(
+                    Exception, 'Unexpected output from "juju action do":'):
+                monkey_runner.unleash_once()

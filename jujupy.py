@@ -418,7 +418,6 @@ class EnvJujuClient:
         """Wait until all service units have a started subordinate with
         unit_prefix."""
         status = None
-        unit_states = defaultdict(list)
         reporter = GroupReporter(sys.stdout, 'started')
         try:
             for ignored in chain([None], until_timeout(timeout, start=start)):
@@ -429,11 +428,12 @@ class EnvJujuClient:
                     continue
                 service_unit_count = status.get_service_unit_count(service)
                 subordinate_unit_count = 0
+                unit_states = defaultdict(list)
                 for name, unit in status.service_subordinate_units(service):
                     if name.startswith(unit_prefix + '/'):
                         subordinate_unit_count += 1
-                    unit_states[unit.get('agent-state', 'no-agent')].append(
-                        name)
+                        unit_states[unit.get(
+                            'agent-state', 'no-agent')].append(name)
                 reporter.update(unit_states)
                 if (subordinate_unit_count == service_unit_count and
                         unit_states.keys() == ['started']):
