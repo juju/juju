@@ -23,14 +23,12 @@ import (
 // CreateEnvironmentCommand calls the API to create a new environment.
 type CreateEnvironmentCommand struct {
 	envcmd.SysCommandBase
-
 	api CreateEnvironmentAPI
-	// These attributes are exported only for testing purposes.
-	Name  string
-	Owner string
 
-	ConfigFile cmd.FileVar
-	ConfValues map[string]string
+	name       string
+	owner      string
+	configFile cmd.FileVar
+	confValues map[string]string
 }
 
 const createEnvHelpDoc = `
@@ -64,24 +62,24 @@ func (c *CreateEnvironmentCommand) Info() *cmd.Info {
 }
 
 func (c *CreateEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Owner, "owner", "", "the owner of the new environment if not the current user")
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing environment config values")
+	f.StringVar(&c.owner, "owner", "", "the owner of the new environment if not the current user")
+	f.Var(&c.configFile, "config", "path to yaml-formatted file containing environment config values")
 }
 
 func (c *CreateEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("environment name is required")
 	}
-	c.Name, args = args[0], args[1:]
+	c.name, args = args[0], args[1:]
 
 	values, err := keyvalues.Parse(args, true)
 	if err != nil {
 		return err
 	}
-	c.ConfValues = values
+	c.confValues = values
 
-	if c.Owner != "" && !names.IsValidUser(c.Owner) {
-		return errors.Errorf("%q is not a valid user", c.Owner)
+	if c.owner != "" && !names.IsValidUser(c.owner) {
+		return errors.Errorf("%q is not a valid user", c.owner)
 	}
 
 	return nil
@@ -114,17 +112,17 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 
 	creatingForSelf := true
 	envOwner := creds.User
-	if c.Owner != "" {
-		owner := names.NewUserTag(c.Owner)
+	if c.owner != "" {
+		owner := names.NewUserTag(c.owner)
 		user := names.NewUserTag(creds.User)
 		creatingForSelf = owner == user
-		envOwner = c.Owner
+		envOwner = c.owner
 	}
 
 	var info configstore.EnvironInfo
 	var endpoint configstore.APIEndpoint
 	if creatingForSelf {
-		logger.Debugf("create cache entry for %q", c.Name)
+		logger.Debugf("create cache entry for %q", c.name)
 		// Create the configstore entry and write it to disk, as this will error
 		// if one with the same name already exists.
 		endpoint, err = c.ConnectionEndpoint()
@@ -136,12 +134,12 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info = store.CreateInfo(c.Name)
+		info = store.CreateInfo(c.name)
 		info.SetAPICredentials(creds)
 		endpoint.EnvironUUID = ""
 		if err := info.Write(); err != nil {
 			if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
-				newErr := errors.AlreadyExistsf("environment %q", c.Name)
+				newErr := errors.AlreadyExistsf("environment %q", c.name)
 				return errors.Wrap(err, newErr)
 			}
 			return errors.Trace(err)
@@ -156,7 +154,7 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 			}
 		}()
 	} else {
-		logger.Debugf("skipping cache entry for %q as owned %q", c.Name, c.Owner)
+		logger.Debugf("skipping cache entry for %q as owned %q", c.name, c.owner)
 	}
 
 	serverSkeleton, err := client.ConfigSkeleton("", "")
@@ -182,10 +180,10 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err := info.Write(); err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("created environment %q", c.Name)
-		return envcmd.SetCurrentEnvironment(ctx, c.Name)
+		ctx.Infof("created environment %q", c.name)
+		return envcmd.SetCurrentEnvironment(ctx, c.name)
 	} else {
-		ctx.Infof("created environment %q for %q", c.Name, c.Owner)
+		ctx.Infof("created environment %q for %q", c.name, c.owner)
 	}
 
 	return nil
@@ -196,8 +194,8 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 	// method because the Read method requires the cmd Context
 	// for the current directory.
 	fileConfig := make(map[string]interface{})
-	if c.ConfigFile.Path != "" {
-		configYAML, err := c.ConfigFile.Read(ctx)
+	if c.configFile.Path != "" {
+		configYAML, err := c.configFile.Read(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -214,10 +212,10 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 	for key, value := range fileConfig {
 		configValues[key] = value
 	}
-	for key, value := range c.ConfValues {
+	for key, value := range c.confValues {
 		configValues[key] = value
 	}
-	configValues["name"] = c.Name
+	configValues["name"] = c.name
 
 	cfg, err := config.New(config.UseDefaults, configValues)
 	if err != nil {

@@ -114,14 +114,15 @@ func (s *createSuite) TestInit(c *gc.C) {
 		}
 
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(create.Name, gc.Equals, test.name)
-		c.Assert(create.ConfigFile.Path, gc.Equals, test.path)
+		c.Assert(create.Name(), gc.Equals, test.name)
+		c.Assert(create.Owner(), gc.Equals, test.owner)
+		c.Assert(create.ConfigFile().Path, gc.Equals, test.path)
 		// The config value parse method returns an empty map
 		// if there were no values
 		if len(test.values) == 0 {
-			c.Assert(create.ConfValues, gc.HasLen, 0)
+			c.Assert(create.ConfValues(), gc.HasLen, 0)
 		} else {
-			c.Assert(create.ConfValues, jc.DeepEquals, test.values)
+			c.Assert(create.ConfValues(), jc.DeepEquals, test.values)
 		}
 	}
 }
