@@ -190,11 +190,12 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
             os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
         make_client_tarball(
-            'osx', binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
+            'osx', binary_paths, version, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 
 def make_client_tarball(os_name, binary_paths, version, dest_dir,
-                     dry_run=False, verbose=False):
+                        dry_run=False, verbose=False):
     """Create a tarball of the built binaries and files."""
     os_tarball_name = 'juju-%s-%s.tar.gz' % (version, os_name)
     os_tarball_path = os.path.join(dest_dir, os_tarball_name)
@@ -238,6 +239,7 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
         make_agent_tarball(
             'centos7', built_agent_path, version, cwd,
             dry_run=dry_run, verbose=verbose)
+
 
 def parse_args(args=None):
     """Return the argument parser for this program."""

@@ -53,6 +53,7 @@ def get_source_agent_version(source_agent):
         return match.group(1)
     return None
 
+
 def get_source_agent_os(source_agent):
     match = AGENT_OS_PATTERN.match(source_agent)
     if match:
@@ -191,7 +192,8 @@ def parse_args(args=None):
         'destination', help="The path to download the files to.")
     parser_get.set_defaults(func=get_agents)
     # delete 1.21.0
-    parser_delete = subparsers.add_parser('delete', help='delete agent-archive')
+    parser_delete = subparsers.add_parser(
+        'delete', help='delete agent-archive')
     parser_delete.add_argument(
         'version', help="The version of agents to delete")
     parser_delete.set_defaults(func=delete_agents)

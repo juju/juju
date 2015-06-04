@@ -105,7 +105,7 @@ class WinAgentArchive(TestCase):
             get_source_agent_os('juju-1.24.footu-amd64.tgz')
 
     def test_listing_to_files(self):
-        start = '2014-10-23 22:11   9820182   s3://juju-qa-data/agent-archive/%s'
+        start = '2014-10-23 22:11  9820182  s3://juju-qa-data/agent-archive/%s'
         listing = []
         expected_agents = []
         agents = [
@@ -114,7 +114,8 @@ class WinAgentArchive(TestCase):
         ]
         for agent in agents:
             listing.append(start % agent)
-            expected_agents.append('s3://juju-qa-data/agent-archive/%s' % agent)
+            expected_agents.append(
+                's3://juju-qa-data/agent-archive/%s' % agent)
         agents = listing_to_files('\n'.join(listing))
         self.assertEqual(expected_agents, agents)
 
@@ -136,7 +137,8 @@ class WinAgentArchive(TestCase):
 
     def test_add_agent_with_exist_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
-        output = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
+        output = (
+            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz')
         with patch('agent_archive.run', return_value=output) as mock:
             with self.assertRaises(ValueError) as e:
                 add_agents(cmd_args)
@@ -159,23 +161,23 @@ class WinAgentArchive(TestCase):
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
-            (['put', agent_path,
-              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'], ),
-            args)
+            ['put', agent_path,
+             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
+            args[0])
         # The remaining calls after the put is a fast cp to the other names.
         output, args, kwargs = mock.mock_calls[2]
         self.assertEqual(
-            (['cp',
+            ['cp',
              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012hvr2-amd64.tgz'
-              ], ),
-            args)
+             's3://juju-qa-data/agent-archive/'
+             'juju-1.21.0-win2012hvr2-amd64.tgz'],
+            args[0])
         output, args, kwargs = mock.mock_calls[7]
         self.assertEqual(
-            (['cp',
+            ['cp',
              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-data/agent-archive/juju-1.21.0-win81-amd64.tgz'], ),
-            args)
+             's3://juju-qa-data/agent-archive/juju-1.21.0-win81-amd64.tgz'],
+            args[0])
 
     def test_add_agent_puts_centos(self):
         cmd_args = FakeArgs(source_agent='juju-1.24.0-centos7-amd64.tgz')
@@ -189,9 +191,9 @@ class WinAgentArchive(TestCase):
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
-            (['put', agent_path,
-              's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'], ),
-            args)
+            ['put', agent_path,
+             's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'],
+            args[0])
 
     def test_get_agent(self):
         cmd_args = FakeArgs(version='1.21.0', destination='./')
@@ -230,7 +232,7 @@ class WinAgentArchive(TestCase):
 
     def test_delete_agent_with_yes(self):
         cmd_args = FakeArgs(version='1.21.0')
-        start = '2014-10-23 22:11   9820182   s3://juju-qa-data/agent-archive/%s'
+        start = '2014-10-23 22:11  9820182  s3://juju-qa-data/agent-archive/%s'
         listing = []
         agents = [
             'juju-1.21.0-win2012-amd64.tgz',
@@ -245,17 +247,17 @@ class WinAgentArchive(TestCase):
         self.assertEqual(3, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0*'], ),
-            args)
+            ['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0*'],
+            args[0])
         output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
-            (['del',
-             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'], ),
-            args)
+            ['del',
+             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
+            args[0])
         output, args, kwargs = mock.mock_calls[2]
         self.assertEqual(
-            (['del',
-             's3://juju-qa-data/agent-archive/juju-1.21.0-win8.1-amd64.tgz'], ),
-            args)
+            ['del',
+             's3://juju-qa-data/agent-archive/juju-1.21.0-win8.1-amd64.tgz'],
+            args[0])
         self.assertIs(None, kwargs['config'])
         self.assertFalse(kwargs['dry_run'])

@@ -9,7 +9,6 @@ from __future__ import print_function
 import os
 import sys
 
-#from azure import *
 from azure.servicemanagement import (
     AZURE_MANAGEMENT_CERTFILE,
     AZURE_MANAGEMENT_SUBSCRIPTIONID,
