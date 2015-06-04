@@ -113,10 +113,12 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	}
 
 	creatingForSelf := true
+	envOwner := creds.User
 	if c.Owner != "" {
 		owner := names.NewUserTag(c.Owner)
 		user := names.NewUserTag(creds.User)
 		creatingForSelf = owner == user
+		envOwner = c.Owner
 	}
 
 	var info configstore.EnvironInfo
@@ -168,7 +170,7 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	}
 
 	// We pass nil through for the account details until we implement that bit.
-	env, err := client.CreateEnvironment(creds.User, nil, attrs)
+	env, err := client.CreateEnvironment(envOwner, nil, attrs)
 	if err != nil {
 		// cleanup configstore
 		return errors.Trace(err)
@@ -181,6 +183,7 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 			return errors.Trace(err)
 		}
 		ctx.Infof("created environment %q", c.Name)
+		return envcmd.SetCurrentEnvironment(ctx, c.Name)
 	} else {
 		ctx.Infof("created environment %q for %q", c.Name, c.Owner)
 	}

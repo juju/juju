@@ -136,7 +136,7 @@ func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
 }
 
 func (s *LoginSuite) TestWritesConfig(c *gc.C) {
-	_, err := s.runServerFile(c)
+	ctx, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := s.store.ReadInfo("foo")
@@ -150,6 +150,8 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(endpoint.ServerUUID, gc.Equals, testing.EnvironmentTag.Id())
 	c.Assert(endpoint.Addresses, jc.DeepEquals, []string{"192.168.2.1:1234"})
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, []string{"192.168.2.1:1234"})
+
+	c.Assert(testing.Stderr(ctx), jc.Contains, "cached connection details as system \"foo\"\n")
 }
 
 func (s *LoginSuite) TestNewPassword(c *gc.C) {
@@ -165,7 +167,7 @@ func (s *LoginSuite) TestNewPassword(c *gc.C) {
 	c.Assert(creds.User, gc.Equals, "valid-user")
 	c.Assert(creds.Password, gc.Not(gc.Equals), "sekrit")
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, "password updated\n")
+	c.Assert(testing.Stderr(ctx), jc.Contains, "password updated\n")
 }
 
 func (s *LoginSuite) TestNewPasswordNonLocalFails(c *gc.C) {

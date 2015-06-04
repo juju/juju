@@ -108,6 +108,17 @@ func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.OwnerTag, gc.Equals, owner.String())
 	c.Assert(env.Name, gc.Equals, "test-env")
+	// Make sure that the environment created does actually have the correct
+	// owner, and that owner is actually allowed to use the environment.
+	newState, err := s.State.ForEnviron(names.NewEnvironTag(env.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer newState.Close()
+
+	newEnv, err := newState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newEnv.Owner(), gc.Equals, owner)
+	_, err = newState.EnvironmentUser(owner)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *gc.C) {

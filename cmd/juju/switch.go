@@ -117,30 +117,21 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	currentEnv, err := envcmd.ReadCurrentEnvironment()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if currentEnv == "" {
-		currentEnv, err = envcmd.ReadCurrentSystem()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if currentEnv == "" {
-			currentEnv = environments.Default
-		} else {
-			currentEnv += systemSuffix
-		}
+	current, isSystem, err := envcmd.CurrentConnectionName()
+	if current == "" {
+		current = environments.Default
+	} else if isSystem {
+		current += systemSuffix
 	}
 
 	// Handle the different operation modes.
 	switch {
-	case c.EnvName == "" && currentEnv == "":
+	case c.EnvName == "" && current == "":
 		// Nothing specified and nothing to switch to.
 		return errors.New("no currently specified environment")
 	case c.EnvName == "":
 		// Simply print the current environment.
-		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
+		fmt.Fprintf(ctx.Stdout, "%s\n", current)
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
@@ -152,19 +143,13 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		logger.Debugf("environs: %v", configEnvirons)
 		newEnv := c.EnvName
 		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			if err := envcmd.WriteCurrentSystem(newEnv); err != nil {
+			if err := envcmd.SetCurrentSystem(ctx, newEnv); err != nil {
 				return err
 			}
-			newEnv += systemSuffix
 		} else {
-			if err := envcmd.WriteCurrentEnvironment(newEnv); err != nil {
+			if err := envcmd.SetCurrentEnvironment(ctx, newEnv); err != nil {
 				return err
 			}
-		}
-		if currentEnv == "" {
-			fmt.Fprintf(ctx.Stdout, "-> %s\n", newEnv)
-		} else {
-			fmt.Fprintf(ctx.Stdout, "%s -> %s\n", currentEnv, newEnv)
 		}
 	}
 	return nil

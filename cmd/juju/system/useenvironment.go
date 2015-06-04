@@ -174,7 +174,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 		existingUsername := names.NewUserTag(existingCreds.User).Username()
 		if endpoint.EnvironUUID == env.UUID && existingUsername == username {
 			ctx.Infof("You already have environment details for %q cached locally.", c.LocalName)
-			return c.setCurrentEnvironment(ctx)
+			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 		}
 		ctx.Infof("You have an existing environment called %q, use --name to specify a different local name.", c.LocalName)
 		return errors.New("existing environment")
@@ -185,15 +185,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "failed to cache environment details")
 	}
 
-	return c.setCurrentEnvironment(ctx)
-}
-
-func (c *UseEnvironmentCommand) setCurrentEnvironment(ctx *cmd.Context) error {
-	if err := envcmd.WriteCurrentEnvironment(c.LocalName); err != nil {
-		return errors.Annotatef(err, "could not set %q to be the current environment", c.LocalName)
-	}
-	ctx.Infof("Current environment now %q.", c.LocalName)
-	return nil
+	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 }
 
 func (c *UseEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, envUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
