@@ -118,6 +118,9 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	}
 
 	current, isSystem, err := envcmd.CurrentConnectionName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if current == "" {
 		current = environments.Default
 	} else if isSystem {
@@ -132,6 +135,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	case c.EnvName == "":
 		// Simply print the current environment.
 		fmt.Fprintf(ctx.Stdout, "%s\n", current)
+		return nil
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
@@ -143,14 +147,8 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		logger.Debugf("environs: %v", configEnvirons)
 		newEnv := c.EnvName
 		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			if err := envcmd.SetCurrentSystem(ctx, newEnv); err != nil {
-				return err
-			}
-		} else {
-			if err := envcmd.SetCurrentEnvironment(ctx, newEnv); err != nil {
-				return err
-			}
+			return envcmd.SetCurrentSystem(ctx, newEnv)
 		}
+		return envcmd.SetCurrentEnvironment(ctx, newEnv)
 	}
-	return nil
 }
