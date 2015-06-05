@@ -6,14 +6,20 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
+	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -273,7 +279,58 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
-	return c.SetBootstrapEndpointAddress(environ)
+	err = c.SetBootstrapEndpointAddress(environ)
+	if err != nil {
+		return errors.Annotate(err, "saving bootstrap endpoint address")
+	}
+	// To avoid race conditions when running scripted bootstraps, wait
+	// for the state server's machine agent to be ready to accept commands
+	// before exiting this bootstrap command.
+	return c.waitForAgentInitialisation(ctx)
+}
+
+var (
+	bootstrapReadyPollDelay = 1 * time.Second
+	bootstrapReadyPollCount = 60
+	blockAPI                = getBlockAPI
+)
+
+// getBlockAPI returns a block api for listing blocks.
+func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return apiblock.NewClient(root), nil
+}
+
+// waitForAgentInitialisation polls the bootstrapped state server with a read-only
+// command which will fail until the state server is fully initialised.
+// TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
+func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+	attempts := utils.AttemptStrategy{
+		Min:   bootstrapReadyPollCount,
+		Delay: bootstrapReadyPollDelay,
+	}
+	var client block.BlockListAPI
+	for attempt := attempts.Start(); attempt.Next(); {
+		client, err = blockAPI(&c.EnvCommandBase)
+		if err != nil {
+			return err
+		}
+		_, err = client.List()
+		client.Close()
+		if err == nil {
+			ctx.Infof("Bootstrap complete")
+			return nil
+		}
+		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
+			ctx.Infof("Waiting for API to become available")
+			continue
+		}
+		return err
+	}
+	return err
 }
 
 var environType = func(envName string) (string, error) {

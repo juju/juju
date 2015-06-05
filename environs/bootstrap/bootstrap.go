@@ -169,7 +169,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := finalizer(ctx, instanceConfig); err != nil {
 		return err
 	}
-	ctx.Infof("Bootstrap complete")
+	ctx.Infof("Bootstrap agent installed")
 	return nil
 }
 

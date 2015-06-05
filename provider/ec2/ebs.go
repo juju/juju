@@ -38,13 +38,6 @@ const (
 	// Specifies whether the volume should be encrypted.
 	EBS_Encrypted = "encrypted"
 
-	// The availability zone in which the volume will be created.
-	//
-	// Setting the availability-zone is an error for non-persistent
-	// volumes, as the volume will be created in the zone of the
-	// instance it is bound to.
-	EBS_AvailabilityZone = "availability-zone"
-
 	volumeTypeMagnetic        = "magnetic"         // standard
 	volumeTypeSsd             = "ssd"              // gp2
 	volumeTypeProvisionedIops = "provisioned-iops" // io1
@@ -112,28 +105,25 @@ var ebsConfigFields = schema.Fields{
 		schema.Const(volumeTypeGp2),
 		schema.Const(volumeTypeIo1),
 	),
-	EBS_IOPS:             schema.ForceInt(),
-	EBS_Encrypted:        schema.Bool(),
-	EBS_AvailabilityZone: schema.String(),
+	EBS_IOPS:      schema.ForceInt(),
+	EBS_Encrypted: schema.Bool(),
 }
 
 var ebsConfigChecker = schema.FieldMap(
 	ebsConfigFields,
 	schema.Defaults{
-		storage.Persistent:   false,
-		EBS_VolumeType:       volumeTypeMagnetic,
-		EBS_IOPS:             schema.Omit,
-		EBS_Encrypted:        false,
-		EBS_AvailabilityZone: schema.Omit,
+		storage.Persistent: false,
+		EBS_VolumeType:     volumeTypeMagnetic,
+		EBS_IOPS:           schema.Omit,
+		EBS_Encrypted:      false,
 	},
 )
 
 type ebsConfig struct {
-	persistent       bool
-	volumeType       string
-	iops             int
-	encrypted        bool
-	availabilityZone string
+	persistent bool
+	volumeType string
+	iops       int
+	encrypted  bool
 }
 
 func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
@@ -143,14 +133,12 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	}
 	coerced := out.(map[string]interface{})
 	iops, _ := coerced[EBS_IOPS].(int)
-	availabilityZone, _ := coerced[EBS_AvailabilityZone].(string)
 	volumeType := coerced[EBS_VolumeType].(string)
 	ebsConfig := &ebsConfig{
-		persistent:       coerced[storage.Persistent].(bool),
-		volumeType:       volumeType,
-		iops:             iops,
-		encrypted:        coerced[EBS_Encrypted].(bool),
-		availabilityZone: availabilityZone,
+		persistent: coerced[storage.Persistent].(bool),
+		volumeType: volumeType,
+		iops:       iops,
+		encrypted:  coerced[EBS_Encrypted].(bool),
 	}
 	switch ebsConfig.volumeType {
 	case volumeTypeMagnetic:
@@ -195,7 +183,8 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	return &ebsVolumeSource{ec2}, nil
+	source := &ebsVolumeSource{ec2: ec2, envName: environConfig.Name()}
+	return source, nil
 }
 
 // FilesystemSource is defined on the Provider interface.
@@ -204,7 +193,8 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 }
 
 type ebsVolumeSource struct {
-	ec2 *ec2.EC2
+	ec2     *ec2.EC2
+	envName string // non-unique, informational only
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -219,7 +209,6 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 		// Juju size is MiB, AWS size is GiB.
 		VolumeSize: int(mibToGib(size)),
 		VolumeType: ebsConfig.volumeType,
-		AvailZone:  ebsConfig.availabilityZone,
 		Encrypted:  ebsConfig.encrypted,
 		IOPS:       int64(ebsConfig.iops),
 	}
@@ -259,9 +248,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 		if err := v.ValidateVolumeParams(p); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		if p.Attachment != nil && p.Attachment.InstanceId != "" {
-			instanceIds.Add(string(p.Attachment.InstanceId))
-		}
+		instanceIds.Add(string(p.Attachment.InstanceId))
 	}
 	instances, err := v.instances(instanceIds.Values())
 	if err != nil {
@@ -269,68 +256,71 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 	}
 
 	for _, p := range params {
-		var instId string
+		instId := string(p.Attachment.InstanceId)
 		vol, persistent, _ := parseVolumeOptions(p.Size, p.Attributes)
-		if !persistent {
-			instId = string(p.Attachment.InstanceId)
-			vol.AvailZone = instances[instId].AvailZone
-		}
+		vol.AvailZone = instances[instId].AvailZone
 		resp, err := v.ec2.CreateVolume(vol)
 		if err != nil {
 			return nil, nil, err
 		}
 		volumeId := resp.Id
 		volumes = append(volumes, storage.Volume{
-			Tag:        p.Tag,
-			VolumeId:   volumeId,
-			Size:       gibToMib(uint64(resp.Size)),
-			Persistent: persistent,
+			p.Tag,
+			storage.VolumeInfo{
+				VolumeId: volumeId,
+				Size:     gibToMib(uint64(resp.Size)),
+				// TODO(axw) Later, when we handle destruction of
+				// volumes within Juju, we should not mark any
+				// EBS volumes as persistent.
+				Persistent: persistent,
+			},
 		})
 
-		// Persistent volumes' attachments are created independently.
-		// We must create the attachments for non-persistent volumes
-		// immediately, as the "non-persistence" is a property of the
-		// attachment.
-		if persistent {
-			continue
+		resourceTags := make(map[string]string)
+		for k, v := range p.ResourceTags {
+			resourceTags[k] = v
 		}
+		resourceTags[tagName] = resourceName(p.Tag, v.envName)
+		if err := tagResources(v.ec2, resourceTags, volumeId); err != nil {
+			return nil, nil, errors.Annotate(err, "tagging volume")
+		}
+
 		nextDeviceName := blockDeviceNamer(instances[instId])
 		requestDeviceName, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId, false)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "attaching %v to %v", resp.Volume.Id, instId)
 		}
-		if !persistent {
-			_, err := v.ec2.ModifyInstanceAttribute(&ec2.ModifyInstanceAttribute{
-				InstanceId: instId,
-				BlockDeviceMappings: []ec2.InstanceBlockDeviceMapping{{
-					DeviceName:          requestDeviceName,
-					VolumeId:            volumeId,
-					DeleteOnTermination: true,
-				}},
-			}, nil)
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "binding termination of %v to %v", resp.Volume.Id, instId)
-			}
+		_, err = v.ec2.ModifyInstanceAttribute(&ec2.ModifyInstanceAttribute{
+			InstanceId: instId,
+			BlockDeviceMappings: []ec2.InstanceBlockDeviceMapping{{
+				DeviceName:          requestDeviceName,
+				VolumeId:            volumeId,
+				DeleteOnTermination: !persistent,
+			}},
+		}, nil)
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "binding termination of %v to %v", resp.Volume.Id, instId)
 		}
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-			Volume:     p.Tag,
-			Machine:    p.Attachment.Machine,
-			DeviceName: actualDeviceName,
+			p.Tag,
+			p.Attachment.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: actualDeviceName,
+			},
 		})
 	}
 	return volumes, volumeAttachments, nil
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
+func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.VolumeInfo, error) {
 	resp, err := v.ec2.Volumes(volIds, nil)
 	if err != nil {
 		return nil, err
 	}
-	vols := make([]storage.Volume, len(resp.Volumes))
+	vols := make([]storage.VolumeInfo, len(resp.Volumes))
 	for i, vol := range resp.Volumes {
-		vols[i] = storage.Volume{
-			// TODO(wallyworld) - fill in tag when interface is fixed
+		vols[i] = storage.VolumeInfo{
 			Size:     gibToMib(uint64(vol.Size)),
 			VolumeId: vol.Id,
 		}
@@ -357,15 +347,9 @@ func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	vol, persistent, err := parseVolumeOptions(params.Size, params.Attributes)
+	vol, _, err := parseVolumeOptions(params.Size, params.Attributes)
 	if err != nil {
 		return err
-	}
-	if !persistent && (params.Attachment == nil || params.Attachment.InstanceId == "") {
-		// Non-persistent volumes require an instance before they can
-		// be created, in order to set the appropriate availability
-		// zone and to bind the volume to the instance's lifetime.
-		return storage.ErrVolumeNeedsInstance
 	}
 	if vol.VolumeSize > volumeSizeMaxGiB {
 		return errors.Errorf("%d GiB exceeds the maximum of %d GiB", vol.VolumeSize, volumeSizeMaxGiB)
@@ -387,13 +371,6 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 				vol.VolumeSize, minSize, vol.IOPS,
 			)
 		}
-	}
-	// TODO(axw) we should always attach volumes to a machine initially, so the user should not
-	// have an option to specify the AZ.
-	if persistent && vol.AvailZone == "" {
-		return errors.New("missing availability zone for persistent volume")
-	} else if !persistent && vol.AvailZone != "" {
-		return errors.New("cannot specify availability zone for non-persistent volume")
 	}
 	return nil
 }
@@ -431,9 +408,11 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 		}
 		attached = append(attached, params)
 		attachments = append(attachments, storage.VolumeAttachment{
-			Volume:     params.Volume,
-			Machine:    params.Machine,
-			DeviceName: deviceName,
+			params.Volume,
+			params.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: deviceName,
+			},
 		})
 	}
 	return attachments, nil

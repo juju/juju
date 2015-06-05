@@ -70,6 +70,11 @@ type configTest struct {
 	err         string
 }
 
+var testResourceTags = []string{"a=b", "c=", "d=e"}
+var testResourceTagsMap = map[string]string{
+	"a": "b", "c": "", "d": "e",
+}
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -932,6 +937,34 @@ var configTests = []configTest{
 			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
+	{
+		about:       "Resource tags as space-separated string",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": strings.Join(testResourceTags, " "),
+		},
+	},
+	{
+		about:       "Resource tags as list of strings",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": testResourceTags,
+		},
+	},
+	{
+		about:       "Resource tags contains non-keyvalues",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": []string{"a"},
+		},
+		err: `validating resource tags: expected "key=value", got "a"`,
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1313,6 +1346,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(useLxcCloneAufs, gc.Equals, v)
 	} else {
 		c.Assert(useLxcCloneAufs, jc.IsFalse)
+	}
+
+	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
+	if _, ok := test.attrs["resource-tags"]; ok {
+		c.Assert(cfgHasResourceTags, jc.IsTrue)
+		c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+	} else {
+		c.Assert(cfgHasResourceTags, jc.IsFalse)
 	}
 }
 

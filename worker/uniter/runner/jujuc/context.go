@@ -42,6 +42,12 @@ type Context interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
+	// SetServiceStatus updates the status for the unit's service.
+	SetServiceStatus(StatusInfo) error
+
+	// ServiceStatus returns the executing unit's service status (including all units).
+	ServiceStatus() (ServiceStatusInfo, error)
+
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, bool)
 

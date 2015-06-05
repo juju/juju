@@ -77,7 +77,8 @@ var (
 type OpenstackStorage openstackStorage
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
-	return &cinderVolumeSource{openstackStorage(s)}
+	const envName = "testenv"
+	return &cinderVolumeSource{openstackStorage(s), envName}
 }
 
 var indexData = `

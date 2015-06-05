@@ -39,7 +39,7 @@ var facadeVersions = map[string]int{
 	"Networker":                    0,
 	"NotifyWatcher":                0,
 	"Pinger":                       0,
-	"Provisioner":                  0,
+	"Provisioner":                  1,
 	"Reboot":                       1,
 	"RelationUnitsWatcher":         0,
 	"Resumer":                      1,

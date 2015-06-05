@@ -35,7 +35,7 @@ func (s *storageAddSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	help := `
-usage: storage-add <charm storage name>=<constraints> ...
+usage: storage-add <charm storage name>[=count] ...
 purpose: add storage instances
 `[1:] +
 		jujuc.StorageAddDoc
@@ -56,9 +56,13 @@ type tstData struct {
 func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 	tests := []tstData{
 		{[]string{}, 1, "storage add requires a storage directive"},
-		{[]string{"data"}, 1, `expected "key=value", got "data"`},
-		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
 		{[]string{"data=-676"}, 1, `.*cannot parse count: count must be gre.*`},
+		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
+		{[]string{"data=pool"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=pool,1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"data=2,1M"}, 1, `.*only count can be specified for "data".*`},
+		{[]string{"cache", "data=2,1M"}, 1, `.*only count can be specified for "data".*`},
 	}
 	for i, t := range tests {
 		c.Logf("test %d: %#v", i, t.args)
@@ -70,6 +74,7 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
 	tests := []tstData{
 		{[]string{"data=676"}, 0, ""},
+		{[]string{"data"}, 0, ``},
 	}
 
 	for i, t := range tests {

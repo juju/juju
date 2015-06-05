@@ -272,6 +272,6 @@ func formatStatusTime(t *time.Time, formatISO bool) string {
 		return t.UTC().Format("2006-01-02 15:04:05Z")
 	} else {
 		// Otherwise use local time.
-		return t.Local().Format("02 Jan 2006 15:04:05 MST")
+		return t.Local().Format("02 Jan 2006 15:04:05Z07:00")
 	}
 }
