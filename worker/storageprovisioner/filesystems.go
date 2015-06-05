@@ -319,10 +319,6 @@ func processAliveFilesystemAttachments(
 	filesystemAttachmentResults []params.FilesystemAttachmentResult,
 ) error {
 	// Filter out the already-attached.
-	//
-	// TODO(axw) record locally which filesystems have been attached this
-	// session, and issue a reattach each time we restart. We should
-	// limit this to machine-scoped filesystems to start with.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range filesystemAttachmentResults {
 		if result.Error == nil {

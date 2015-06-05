@@ -296,10 +296,6 @@ func processAliveVolumeAttachments(
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
 	// Filter out the already-attached.
-	//
-	// TODO(axw) record locally which volumes have been attached this
-	// session, and issue a reattach each time we restart. We should
-	// limit this to machine-scoped volumes to start with.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
 		if result.Error == nil {

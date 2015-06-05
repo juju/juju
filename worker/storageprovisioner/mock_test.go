@@ -467,16 +467,6 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 				Persistent: persistent,
 			},
 		})
-		if p.Attachment != nil && false {
-			volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-				p.Tag,
-				p.Attachment.Machine,
-				storage.VolumeAttachmentInfo{
-					DeviceName: "/dev/sda" + p.Tag.Id(),
-					ReadOnly:   p.Attachment.ReadOnly,
-				},
-			})
-		}
 	}
 	return volumes, volumeAttachments, nil
 }
