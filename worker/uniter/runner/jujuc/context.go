@@ -127,13 +127,13 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// Storage returns the ContextStorage with the supplied tag if it was
-	// found, and whether it was found.
-	Storage(names.StorageTag) (ContextStorage, bool)
+	// Storage returns the ContextStorageAttachment with the supplied
+	// tag if it was found, and whether it was found.
+	Storage(names.StorageTag) (ContextStorageAttachment, bool)
 
 	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook if it was found, and whether it was found.
-	HookStorage() (ContextStorage, bool)
+	HookStorage() (ContextStorageAttachment, bool)
 
 	// AddUnitStorage saves storage constraints in the context.
 	AddUnitStorage(map[string]params.StorageConstraints)
@@ -165,9 +165,9 @@ type ContextRelation interface {
 	ReadSettings(unit string) (params.Settings, error)
 }
 
-// ContextStorage expresses the capabilities of a hook with respect to a
-// storage attachment.
-type ContextStorage interface {
+// ContextStorageAttachment expresses the capabilities of a hook with
+// respect to a storage attachment.
+type ContextStorageAttachment interface {
 
 	// Tag returns a tag which uniquely identifies the storage attachment
 	// in the context of the unit.

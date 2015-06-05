@@ -330,11 +330,11 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	return ctx.storage.Storage(tag)
 }
 
