@@ -114,7 +114,7 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 	tempDir := c.MkDir()
 
 	templatePath := filepath.Join(tempDir, "kvm.xml")
-	err = kvm.WriteTemplate(templatePath, params)
+	err := kvm.WriteTemplate(templatePath, params)
 	c.Assert(err, jc.ErrorIsNil)
 	templateBytes, err := ioutil.ReadFile(templatePath)
 	c.Assert(err, jc.ErrorIsNil)
