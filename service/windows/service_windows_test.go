@@ -64,7 +64,7 @@ func (s *serviceManagerSuite) TestCreate(c *gc.C) {
 	err := s.mgr.Create(s.name, s.conf)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+	c.Assert(s.getPasswd.Calls, gc.HasLen, 1)
 
 	exists := s.conn.Exists(s.name)
 	c.Assert(exists, jc.IsTrue)
@@ -91,7 +91,7 @@ func (s *serviceManagerSuite) TestCreateInvalidPassword(c *gc.C) {
 	err := s.mgr.Create(s.name, s.conf)
 	c.Assert(errors.Cause(err), gc.Equals, passwdError)
 
-	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+	c.Assert(s.getPasswd.Calls, gc.HasLen, 1)
 
 	exists := s.conn.Exists(s.name)
 	c.Assert(exists, jc.IsFalse)
@@ -103,7 +103,7 @@ func (s *serviceManagerSuite) TestCreateInvalidUser(c *gc.C) {
 	err := s.mgr.Create(s.name, s.conf)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+	c.Assert(s.getPasswd.Calls, gc.HasLen, 1)
 
 	m, ok := s.mgr.(*windows.SvcManager)
 	c.Assert(ok, jc.IsTrue)
