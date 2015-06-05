@@ -6,7 +6,7 @@ package process_test
 import (
 	"fmt"
 
-	//jc "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/process"
@@ -18,6 +18,20 @@ type statusSuite struct {
 }
 
 var _ = gc.Suite(&statusSuite{})
+
+func (*statusSuite) TestIsKnownTrue(c *gc.C) {
+	status := process.StatusActive
+	isUnknown := status.IsUnknown()
+
+	c.Check(isUnknown, jc.IsFalse)
+}
+
+func (*statusSuite) TestIsKnownFalse(c *gc.C) {
+	status := process.StatusActive
+	isUnknown := status.IsUnknown()
+
+	c.Check(isUnknown, jc.IsFalse)
+}
 
 func (*statusSuite) TestStringKnown(c *gc.C) {
 	expected := map[process.Status]string{
@@ -36,7 +50,7 @@ func (*statusSuite) TestStringKnown(c *gc.C) {
 }
 
 func (*statusSuite) TestStringUnknown(c *gc.C) {
-	status := process.Status(0)
+	status := process.Status(-1)
 	str := fmt.Sprintf("%s", status)
 
 	c.Check(str, gc.Equals, "unknown")

@@ -9,14 +9,14 @@ import (
 
 // Status values specific to workload processes.
 const (
-	StatusPending Status = 1 << iota
+	StatusPending Status = iota
 	StatusActive
 	StatusFailed
 	StatusStopped
 )
 
-// KnownStatuses defines the statuses supported by Juju.
-var KnownStatuses = []Status{
+// knownStatuses defines the statuses supported by Juju.
+var knownStatuses = []Status{
 	StatusPending,
 	StatusActive,
 	StatusFailed,
@@ -25,6 +25,11 @@ var KnownStatuses = []Status{
 
 // Status represents the status of a worload process.
 type Status int
+
+// IsUnnown returns true if the status is not known to Juju.
+func (s Status) IsUnknown() bool {
+	return s.String() == "unknown"
+}
 
 // String implements fmt.Stringer.
 func (s Status) String() string {
