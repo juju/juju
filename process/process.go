@@ -4,6 +4,7 @@
 package process
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
@@ -36,4 +37,26 @@ type Info struct {
 
 	// Details is the information about the process which the plugin provided.
 	Details LaunchDetails
+}
+
+// NewInfo builds a new Info object with the provided values.
+func NewInfo(name, pType string) *Info {
+	return &Info{
+		Process: charm.Process{
+			Name: name,
+			Type: pType,
+		},
+	}
+}
+
+// CheckStatus ensures that the provided status is supported.
+func CheckStatus(status Status) error {
+	switch status {
+	case StatusPending, StatusActive, StatusFailed, StatusStopped:
+		return nil
+	case "":
+		return errors.Errorf("missing Status")
+	default:
+		return errors.Errorf("unknown status %q", status)
+	}
 }
