@@ -3,12 +3,24 @@
 
 package process
 
+import (
+	"github.com/juju/utils/set"
+)
+
 // Status values specific to workload processes.
 const (
 	StatusPending Status = iota
 	StatusActive
 	StatusFailed
 	StatusStopped
+)
+
+// KnownStatuses defines the statuses supported by Juju.
+var KnownStatuses = set.NewInts(
+	StatusPending,
+	StatusActive,
+	StatusFailed,
+	StatusStopped,
 )
 
 // Status represents the status of a worload process.
