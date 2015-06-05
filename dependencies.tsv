@@ -1,6 +1,3 @@
-bitbucket.org/kardianos/osext	hg	44140c5fc69ecf1102c5ef451d73cd98ef59b178	14
-bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	58
-code.google.com/p/winsvc	hg	d6f79143ccd1138cc9d86c9fc75b1d6f8b1b95fb	10
 github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04T21:11:59Z
 github.com/altoros/gosigma	git	31228935eec685587914528585da4eb9b073c76d	2015-04-08T14:52:32Z
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	2014-04-29T04:34:05Z
@@ -20,7 +17,7 @@ github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-0
 github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/jujusvg	git	28683402583926ce903491c14a07cdc5cb371adb	2015-04-10T08:55:05Z
-github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T01:06:43Z
+github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/names	git	a597dd52044cc5a702844642b5cb6e09870422db	2015-04-28T12:56:57Z
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
@@ -32,8 +29,9 @@ github.com/juju/txn	git	5c38fee875d088643ebe2074f308d79680578ba7	2015-05-21T12:3
 github.com/juju/utils	git	16d187c1d8218c9b97bdbb8a17ff31705f72c1cf	2015-05-26T23:59:59Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
-golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T00:00:00Z
+golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T01:39:50Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
+golang.org/x/sys	git	3dec8fc77cf0b9e8ecfbc701285a63360b05b71c	2015-05-12T03:31:30Z
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	fde8680aa89d800cb0a0b37e9b13f714e96a4992	2015-05-22T04:15:18Z

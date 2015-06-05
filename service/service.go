@@ -105,7 +105,11 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 
 	switch initSystem {
 	case InitSystemWindows:
-		return windows.NewService(name, conf), nil
+		svc, err := windows.NewService(name, conf)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
+		}
+		return svc, nil
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
