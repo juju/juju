@@ -4,6 +4,7 @@
 package process
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
 )
 
@@ -23,4 +24,17 @@ type ProcessInfo struct {
 
 	// Details is the information about the process which the plugin provided.
 	Details ProcessDetails
+}
+
+// Validate checks the process info to ensure it is correct.
+func (pi ProcessInfo) Validate() error {
+	if err := pi.Process.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if pi.Status.IsUnknown() {
+		return errors.Errorf("bad status %#v", pi.Status)
+	}
+
+	return nil
 }
