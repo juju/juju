@@ -107,3 +107,80 @@ func (s *statusSuite) TestStatusNotFoundError(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `status for key "foo" not found`)
 	c.Assert(state.IsStatusNotFound(errors.New("foo")), jc.IsFalse)
 }
+
+func (s *statusSuite) TestAgentStatusDocValidation(c *gc.C) {
+	for i, test := range []struct {
+		status   state.Status
+		info     string
+		expected string
+	}{
+		{
+			status:   state.StatusPending,
+			info:     "",
+			expected: `status "pending" is deprecated and invalid`,
+		},
+		{
+			status:   state.StatusDown,
+			info:     "",
+			expected: `cannot set invalid status "down"`,
+		},
+		{
+			status:   state.StatusStarted,
+			info:     "",
+			expected: `status "started" is deprecated and invalid`,
+		},
+		{
+			status:   state.StatusStopped,
+			info:     "",
+			expected: `status "stopped" is deprecated and invalid`,
+		},
+		{
+			status:   state.StatusAllocating,
+			info:     state.StorageReadyMessage,
+			expected: "",
+		},
+		{
+			status:   state.StatusAllocating,
+			info:     state.PreparingStorageMessage,
+			expected: "",
+		},
+		{
+			status:   state.StatusAllocating,
+			info:     "an unexpected or invalid message",
+			expected: `cannot set status "allocating"`,
+		},
+		{
+			status:   state.StatusLost,
+			info:     state.StorageReadyMessage,
+			expected: `cannot set status "lost"`,
+		},
+		{
+			status:   state.StatusLost,
+			info:     state.PreparingStorageMessage,
+			expected: `cannot set status "lost"`,
+		},
+		{
+			status:   state.StatusError,
+			info:     "",
+			expected: `cannot set status "error" without info`,
+		},
+		{
+			status:   state.StatusError,
+			info:     "some error info",
+			expected: "",
+		},
+		{
+			status:   state.Status("bogus"),
+			info:     "",
+			expected: `cannot set invalid status "bogus"`,
+		},
+	} {
+		c.Logf("test %d", i)
+		r := state.ValidateUnitAgentDocDocSet(test.status, test.info)
+		if test.expected != "" {
+			c.Assert(r, gc.ErrorMatches, test.expected)
+		} else {
+			c.Assert(r, gc.IsNil)
+		}
+	}
+}

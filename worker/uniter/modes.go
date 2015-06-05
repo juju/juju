@@ -134,13 +134,13 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 				}
 				fallthrough
 			case hooks.Install:
-				if err := setAgentStatus(u, params.StatusAllocating, params.MsgPreparingStorage, nil); err != nil {
+				if err := setAgentStatus(u, params.StatusAllocating, params.PreparingStorageMessage, nil); err != nil {
 					return nil, errors.Trace(err)
 				}
 				if err := waitStorage(u); err != nil {
 					return nil, errors.Trace(err)
 				}
-				if err := setAgentStatus(u, params.StatusAllocating, params.MsgStorageReady, nil); err != nil {
+				if err := setAgentStatus(u, params.StatusAllocating, params.StorageReadyMessage, nil); err != nil {
 					return nil, errors.Trace(err)
 				}
 			}

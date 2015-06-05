@@ -858,11 +858,11 @@ const (
 )
 
 const (
-	// MsgStorageReady is the message set to the agent status when all storage
+	// StorageReadyMessage is the message set to the agent status when all storage
 	// attachments are properly done.
-	MsgStorageReady = "storage ready"
+	StorageReadyMessage = "storage ready"
 
-	// MsgPreparingStorage is the message set to the agent status before trying
+	// PreparingStorageMessage is the message set to the agent status before trying
 	// to attach storages.
-	MsgPreparingStorage = "preparing storage"
+	PreparingStorageMessage = "preparing storage"
 )
