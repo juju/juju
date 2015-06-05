@@ -41,3 +41,9 @@ func (*statusSuite) TestStringUnknown(c *gc.C) {
 
 	c.Check(str, gc.Equals, "unknown")
 }
+
+func (*statusSuite) TestGoString(c *gc.C) {
+	str := fmt.Sprintf("%#v", process.StatusPending)
+
+	c.Check(str, gc.Equals, `<process.Status "pending">`)
+}

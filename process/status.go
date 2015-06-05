@@ -3,6 +3,10 @@
 
 package process
 
+import (
+	"fmt"
+)
+
 // Status values specific to workload processes.
 const (
 	StatusPending Status = 1 << iota
@@ -35,4 +39,9 @@ func (s Status) String() string {
 		return "stopped"
 	}
 	return "unknown"
+}
+
+// String implements fmt.Gostringer.
+func (s Status) GoString() string {
+	return fmt.Sprintf("<%T %q>", s, s)
 }
