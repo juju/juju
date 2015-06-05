@@ -9,9 +9,8 @@ import "syscall"
 var (
 	modcrypt32 = syscall.NewLazyDLL("crypt32.dll")
 
-	procCryptProtectData = modcrypt32.NewProc("CryptProtectData")
+	procCryptProtectData   = modcrypt32.NewProc("CryptProtectData")
 	procCryptUnprotectData = modcrypt32.NewProc("CryptUnprotectData")
-
 )
 
 func protectData(input uintptr, szDataDescr uint32, entropy uintptr, reserved uint32, prompt uint32, flags uint, output uintptr) (err error) {
@@ -37,5 +36,3 @@ func unprotectData(input uintptr, szDataDescr uint32, entropy uintptr, reserved 
 	}
 	return
 }
-
-

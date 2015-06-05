@@ -30,10 +30,6 @@ var (
 	// we are trying to create, already exists
 	c_ERROR_SERVICE_EXISTS syscall.Errno = 0x431
 
-	// The syscall package in go 1.2.1 does not have this error defined. Remove this
-	// when we update the go version we use to build juju
-	c_ERROR_MORE_DATA syscall.Errno = 0xEA
-
 	// This is the user under which juju services start. We chose to use a
 	// normal user for this purpose because some installers require a normal
 	// user with a proper user profile to actually run. This user is created

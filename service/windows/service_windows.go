@@ -22,24 +22,6 @@ import (
 
 //sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
 
-const (
-	// logonProvider constants
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/aa378184%28v=vs.85%29.aspx
-	c_LOGON32_PROVIDER_DEFAULT = 0
-	c_LOGON32_PROVIDER_WINNT35 = 1
-	c_LOGON32_PROVIDER_WINNT40 = 2
-	c_LOGON32_PROVIDER_WINNT50 = 3
-
-	// logonType constants
-	c_LOGON32_LOGON_INTERACTIVE       = 2
-	c_LOGON32_LOGON_NETWORK           = 3
-	c_LOGON32_LOGON_BATCH             = 4
-	c_LOGON32_LOGON_SERVICE           = 5
-	c_LOGON32_LOGON_UNLOCK            = 7
-	c_LOGON32_LOGON_NETWORK_CLEARTEXT = 8
-	c_LOGON32_LOGON_NEW_CREDENTIALS   = 9
-)
-
 type enumService struct {
 	name        *uint16
 	displayName *uint16
@@ -103,14 +85,15 @@ func enumServices(h windows.Handle) ([]enumService, error) {
 	var resume uint32
 	buf := make([]enumService, 1)
 	var size uint32
+	enumServiceSize := uint32(unsafe.Sizeof(enumService{}))
 
 	for {
 		err := enumServicesStatus(h, windows.SERVICE_WIN32,
 			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), size, &needed, &returned, &resume)
 		if err != nil {
-			if err.(syscall.Errno) == c_ERROR_MORE_DATA {
+			if err == syscall.ERROR_MORE_DATA {
 				size = needed
-				sliceSize := int(size / uint32(unsafe.Sizeof(enumService{})))
+				sliceSize := int(size/enumServiceSize + 1)
 				buf = make([]enumService, sliceSize)
 				continue
 			}
@@ -225,10 +208,8 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// Parts of the string are quoted using single quotes to prevent shell expansion.
-	// This will make the service fail. We need to replace single quotes with double quotes
-	// for services. Ideally there should be a special quoting function for this purpose,
-	// but it seams overkill given we only need to do that here.
+
+	// We escape and compose BinaryPathName the same way mgr.CreateService does.
 	execStart := s.escapeExecPath(conf.ServiceBinary, conf.ServiceArgs)
 	cfg := mgr.Config{
 		// make this service dependent on WMI service. WMI is needed for almost

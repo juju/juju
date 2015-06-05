@@ -7,13 +7,14 @@
 package securestring
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"syscall"
-	"unicode/utf16"
-	"unicode/utf8"
 	"unsafe"
+
+	"github.com/juju/errors"
 )
 
 //sys protectData(input uintptr, szDataDescr uint32, entropy uintptr, reserved uint32, prompt uint32, flags uint, output uintptr) (err error) [failretval==0] = crypt32.CryptProtectData
@@ -41,22 +42,16 @@ func (b *blob) getDataAsBytes() []byte {
 }
 
 // convertToUTF16 converts the utf8 string to utf16
-func convertToUTF16(a string) []byte {
-	b := []byte(a)
-	runes := []rune{}
-	for len(b) > 0 {
-		r, l := utf8.DecodeRune(b)
-		runes = append(runes, r)
-		b = b[l:]
+func convertToUTF16(a string) ([]byte, error) {
+	u16, err := syscall.UTF16FromString(a)
+	if err != nil {
+		return nil, errors.Annotate(err, "Failed to convert string to UTF16")
 	}
-	u16 := utf16.Encode(runes)
-	be := []byte{}
-	for i := 0; i < len(u16); i++ {
-		tmp := make([]byte, 2)
-		binary.LittleEndian.PutUint16(tmp, u16[i])
-		be = append(be, tmp...)
+	buf := &bytes.Buffer{}
+	if err := binary.Write(buf, binary.LittleEndian, u16); err != nil {
+		return nil, errors.Annotate(err, "Failed to convert UTF16 to bytes")
 	}
-	return be
+	return buf.Bytes(), nil
 }
 
 // Encrypt encrypts a string provided as input into a hexadecimal string
@@ -64,11 +59,14 @@ func convertToUTF16(a string) []byte {
 func Encrypt(input string) (string, error) {
 	// we need to convert UTF8 to UTF16 before sending it into CryptProtectData
 	// to be compatible with the way powershell does it
-	data := convertToUTF16(input)
+	data, err := convertToUTF16(input)
+	if err != nil {
+		return "", err
+	}
 	inputBlob := blob{uint32(len(data)), &data[0]}
 	outputBlob := blob{}
 
-	err := protectData(uintptr(unsafe.Pointer(&inputBlob)), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(&outputBlob)))
+	err = protectData(uintptr(unsafe.Pointer(&inputBlob)), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(&outputBlob)))
 	if err != nil {
 		return "", fmt.Errorf("Failed to encrypt %s, error: %s", input, err)
 	}
