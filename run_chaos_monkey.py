@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import logging
+import subprocess
 
 from jujupy import (
     EnvJujuClient,
@@ -57,6 +58,16 @@ class MonkeyRunner:
                         action_out))
             logging.info(action_out)
             self.monkey_ids.append(action_out.split().pop())
+
+    def is_healthy(self):
+        """Returns a boolean after running the registerd health_checker."""
+        try:
+            return True if subprocess.call(self.health_checker) == 0 else False
+        except OSError as e:
+            logging.error(
+                'The health check script failed to execute with: {}'.format(
+                    e))
+            raise
 
 
 def get_args(argv=None):
