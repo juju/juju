@@ -131,7 +131,7 @@ func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
 	var runArgs []string
 	mockRun := func(command string, args ...string) (string, error) {
 		c.Assert(args, gc.HasLen, 5)
-		c.Assert(args[3], jc.Contains, "kvm.xml")
+		c.Assert(args[3], jc.Contains, "kvm-template.xml")
 
 		// this asserts the template file exists
 		_, err := os.Stat(args[3])
@@ -157,9 +157,6 @@ func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
 	c.Assert(runArgs, gc.HasLen, 5)
 	c.Assert(runArgs[0:3], jc.DeepEquals, []string{"create", "--log-console-output", "--template"})
 	c.Assert(runArgs[4], gc.Equals, "foo-bar")
-
-	_, err = os.Stat(filepath.Dir(runArgs[3]))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {

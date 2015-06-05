@@ -16,8 +16,6 @@ package kvm
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -96,14 +94,10 @@ func CreateMachine(params CreateMachineParams) error {
 	}
 	if params.NetworkBridge != "" {
 		if len(params.Interfaces) != 0 {
-			tempDir, err := ioutil.TempDir("", "kvm")
-			if err != nil {
-				return errors.Trace(err)
-			}
-			defer os.RemoveAll(tempDir)
+			templateDir := filepath.Dir(params.UserDataFile)
 
-			templatePath := filepath.Join(tempDir, "kvm.xml")
-			err = WriteTemplate(templatePath, params)
+			templatePath := filepath.Join(templateDir, "kvm-template.xml")
+			err := WriteTemplate(templatePath, params)
 			if err != nil {
 				return errors.Trace(err)
 			}
