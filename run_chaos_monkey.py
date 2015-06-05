@@ -29,6 +29,7 @@ class MonkeyRunner:
         self.service = service
         self.health_checker = health_checker
         self.client = client
+        self.monkey_ids = []
 
     def deploy_chaos_monkey(self):
         """Juju deploy chaos-monkey and add a relation.
@@ -42,6 +43,20 @@ class MonkeyRunner:
         self.client.juju('add-relation', (self.service, 'chaos-monkey'))
         logging.debug('Waiting for services to start.')
         self.client.wait_for_started()
+        self.client.wait_for_subordinate_units(self.service, 'chaos-monkey')
+
+    def unleash_once(self):
+        status = self.client.get_status()
+        for unit_name, unit in status.service_subordinate_units(self.service):
+            logging.info('Starting the chaos monkey on: {}'.format(unit_name))
+            action_out = self.client.get_juju_output(
+                'action do', unit_name, 'start', 'mode=single')
+            if not action_out.startswith('Action queued with id'):
+                raise Exception(
+                    'Unexpected output from "juju action do": {}'.format(
+                        action_out))
+            logging.info(action_out)
+            self.monkey_ids.append(action_out.split().pop())
 
 
 def get_args(argv=None):
@@ -60,6 +75,7 @@ def main():
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)
     monkey_runner.deploy_chaos_monkey()
+    monkey_runner.unleash_once()
 
 if __name__ == '__main__':
     main()
