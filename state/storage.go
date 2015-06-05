@@ -302,6 +302,7 @@ func createStorageOps(
 	charmMeta *charm.Meta,
 	curl *charm.URL,
 	cons map[string]StorageConstraints,
+	machineOpsNeeded bool,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
@@ -381,6 +382,15 @@ func createStorageOps(
 				Assert: txn.DocMissing,
 				Insert: doc,
 			})
+			if machineOpsNeeded {
+				machineOps, err := createValidMachineOps(st, entity,
+					charmMeta, cons, &storageInstance{st, *doc},
+				)
+				if err != nil {
+					return nil, -1, errors.Annotate(err, "could not create volumes nor filesystems")
+				}
+				ops = append(ops, machineOps...)
+			}
 		}
 	}
 
@@ -392,6 +402,42 @@ func createStorageOps(
 	// is when units are added to said service.
 
 	return ops, numStorageAttachments, nil
+}
+
+func createValidMachineOps(
+	st *State,
+	entity names.Tag,
+	charmMeta *charm.Meta,
+	cons map[string]StorageConstraints,
+	storage StorageInstance,
+) (ops []txn.Op, err error) {
+	storageParams, err := machineStorageParamsForInstance(st, charmMeta, entity, cons, storage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	tag, ok := entity.(names.UnitTag)
+	if !ok {
+		// TODO (anastasiamac 2015-06-05) Deal with service here
+		return nil, errors.NotSupportedf("storage volumes not on unit")
+	}
+
+	u, err := st.Unit(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	m, err := u.machine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps, err := st.machineStorageOps(&m.doc, storageParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storageOps, nil
 }
 
 // createStorageAttachmentOps returns a txn.Op for creating a storage attachment.
@@ -1045,7 +1091,9 @@ func (st *State) constructAddUnitStorageOps(
 		u.Tag(),
 		ch.Meta(),
 		ch.URL(),
-		map[string]StorageConstraints{name: cons})
+		map[string]StorageConstraints{name: cons},
+		true,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
