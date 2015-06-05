@@ -37,7 +37,9 @@ func (ld LaunchDetails) Validate() error {
 func ParseDetails(input string) (*LaunchDetails, error) {
 	var details LaunchDetails
 	if err := json.Unmarshal([]byte(input), &details); err != nil {
-		return nil, errors.Trace(err)
+		if strings.TrimSpace(input) != "" {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := details.Validate(); err != nil {
 		return nil, errors.Trace(err)
