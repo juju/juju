@@ -9,19 +9,18 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
-	"unicode/utf16"
 	"unsafe"
 
-	"code.google.com/p/winsvc/mgr"
-	"code.google.com/p/winsvc/svc"
-	"code.google.com/p/winsvc/winapi"
 	"github.com/juju/errors"
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows/securestring"
 )
 
-//sys enumServicesStatus(h syscall.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
+//sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
 
 const (
 	// logonProvider constants
@@ -44,27 +43,20 @@ const (
 type enumService struct {
 	name        *uint16
 	displayName *uint16
-	Status      winapi.SERVICE_STATUS
+	Status      windows.SERVICE_STATUS
 }
 
 // Name returns the name of the service stored in enumService.
 func (s *enumService) Name() string {
 	if s.name != nil {
-		name := make([]uint16, 0, 256)
-		for p := uintptr(unsafe.Pointer(s.name)); ; p += 2 {
-			u := *(*uint16)(unsafe.Pointer(p))
-			if u == 0 {
-				return string(utf16.Decode(name))
-			}
-			name = append(name, u)
-		}
+		return syscall.UTF16ToString((*[1 << 16]uint16)(unsafe.Pointer(s.name))[:])
 	}
 	return ""
 }
 
 // mgrInterface exposes Mgr methods needed by the windows service package.
 type mgrInterface interface {
-	CreateService(name, exepath string, c mgr.Config) (svcInterface, error)
+	CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error)
 	OpenService(name string) (svcInterface, error)
 }
 
@@ -74,7 +66,7 @@ type svcInterface interface {
 	Control(c svc.Cmd) (svc.Status, error)
 	Delete() error
 	Query() (svc.Status, error)
-	Start(args []string) error
+	Start(...string) error
 }
 
 // manager is meant to help stub out winsvc for testing
@@ -83,8 +75,8 @@ type manager struct {
 }
 
 // CreateService wraps Mgr.CreateService method.
-func (m *manager) CreateService(name, exepath string, c mgr.Config) (svcInterface, error) {
-	return m.m.CreateService(name, exepath, c)
+func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error) {
+	return m.m.CreateService(name, exepath, c, args...)
 }
 
 // CreateService wraps Mgr.OpenService method. It returns a svcInterface object.
@@ -105,20 +97,24 @@ var newConn = newManagerConn
 
 // enumServices casts the bytes returned by enumServicesStatus into an array of
 // enumService with all the services on the current system
-func enumServices(h syscall.Handle) ([]enumService, error) {
+func enumServices(h windows.Handle) ([]enumService, error) {
 	var needed uint32
 	var returned uint32
 	var resume uint32
-	var buf [256]enumService
+	buf := make([]enumService, 1)
+	var size uint32
 
 	for {
-		err := enumServicesStatus(h, winapi.SERVICE_WIN32, winapi.SERVICE_STATE_ALL,
-			uintptr(unsafe.Pointer(&buf)), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
+		err := enumServicesStatus(h, windows.SERVICE_WIN32,
+			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), size, &needed, &returned, &resume)
 		if err != nil {
-			if err.(syscall.Errno) != c_ERROR_MORE_DATA {
-				return []enumService{}, err
+			if err.(syscall.Errno) == c_ERROR_MORE_DATA {
+				size = needed
+				sliceSize := int(size / uint32(unsafe.Sizeof(enumService{})))
+				buf = make([]enumService, sliceSize)
+				continue
 			}
-			continue
+			return []enumService{}, err
 		}
 		return buf[:returned], nil
 	}
@@ -129,12 +125,12 @@ func enumServices(h syscall.Handle) ([]enumService, error) {
 var getPassword = func() (string, error) {
 	f, err := ioutil.ReadFile(jujuPasswdFile)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "Failed to read password file")
 	}
 	encryptedPasswd := strings.TrimSpace(string(f))
 	passwd, err := securestring.Decrypt(encryptedPasswd)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "Failed to decrypt password")
 	}
 	return passwd, nil
 }
@@ -146,7 +142,7 @@ var listServices = func() ([]string, error) {
 	services := []string{}
 	host := syscall.StringToUTF16Ptr(".")
 
-	sc, err := winapi.OpenSCManager(host, nil, winapi.SC_MANAGER_ALL_ACCESS)
+	sc, err := windows.OpenSCManager(host, nil, windows.SC_MANAGER_ALL_ACCESS)
 	if err != nil {
 		return services, err
 	}
@@ -160,7 +156,7 @@ var listServices = func() ([]string, error) {
 	return services, nil
 }
 
-// SvcManager implements ServiceManagerInterface interface
+// SvcManager implements ServiceManager interface
 type SvcManager struct {
 	svc         svcInterface
 	mgr         mgrInterface
@@ -207,11 +203,19 @@ func (s *SvcManager) Start(name string) error {
 	if running {
 		return nil
 	}
-	err = s.svc.Start([]string{})
+	err = s.svc.Start()
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (s *SvcManager) escapeExecPath(exePath string, args []string) string {
+	ret := syscall.EscapeArg(exePath)
+	for _, v := range args {
+		ret += " " + syscall.EscapeArg(v)
+	}
+	return ret
 }
 
 // Exists checks whether the config of the installed service matches the
@@ -221,7 +225,11 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	execStart := strings.Replace(conf.ExecStart, `'`, `"`, -1)
+	// Parts of the string are quoted using single quotes to prevent shell expansion.
+	// This will make the service fail. We need to replace single quotes with double quotes
+	// for services. Ideally there should be a special quoting function for this purpose,
+	// but it seams overkill given we only need to do that here.
+	execStart := s.escapeExecPath(conf.ServiceBinary, conf.ServiceArgs)
 	cfg := mgr.Config{
 		// make this service dependent on WMI service. WMI is needed for almost
 		// all installers to work properly, and is needed for all of the advanced windows
@@ -292,11 +300,10 @@ func (s *SvcManager) Create(name string, conf common.Conf) error {
 		ServiceStartName: jujudUser,
 		Password:         passwd,
 	}
-	// In service definitions, single quotes make the service fail. To take
-	// care of the case where spaces might exist in the path to the binary,
-	// we use double quotes.
-	execStart := strings.Replace(conf.ExecStart, `'`, `"`, -1)
-	_, err = s.mgr.CreateService(name, execStart, cfg)
+	// mgr.CreateService actually does correct argument escaping itself. There is no
+	// need for quoted strings of any kind passed to this function. It takes in
+	// a binary name, and an array or arguments.
+	_, err = s.mgr.CreateService(name, conf.ServiceBinary, cfg, conf.ServiceArgs...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -329,7 +336,7 @@ func (s *SvcManager) Config(name string) (mgr.Config, error) {
 	return s.svc.Config()
 }
 
-var newServiceManager = func() (ServiceManagerInterface, error) {
+var newServiceManager = func() (ServiceManager, error) {
 	m, err := newConn()
 	if err != nil {
 		return nil, errors.Trace(err)

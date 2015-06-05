@@ -7,9 +7,12 @@
 package securestring
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"syscall"
+	"unicode/utf16"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -23,45 +26,58 @@ type blob struct {
 	data   *byte
 }
 
-// getData fetches all the data pointed to by blob.data
-func (b *blob) getData() []byte {
-	fetched := make([]byte, b.length)
-	// the in-built will copy the proper amount of data pointed to by blob.data
-	// and put it in the new variable
-	// 1 << 30 is the largest possible slice size; it's pretty overkill but it
-	// ensures we can read as most of very large data as physically possible
-	copy(fetched, (*[1 << 30]byte)(unsafe.Pointer(b.data))[:])
-	return fetched
+// getData returns an uint16 array that contains the data pointed to by blob.data
+// The return value of this function will be passed to syscall.UTF16ToString
+// to return the plain text result
+func (b *blob) getData() []uint16 {
+	data := (*[1 << 16]uint16)(unsafe.Pointer(b.data))[:b.length/2]
+	return data
+}
+
+// getDataAsBytes returns a byte array with the data pointed to by blob.data
+func (b *blob) getDataAsBytes() []byte {
+	data := (*[1 << 30]byte)(unsafe.Pointer(b.data))[:b.length]
+	return data
+}
+
+// convertToUTF16 converts the utf8 string to utf16
+func convertToUTF16(a string) []byte {
+	b := []byte(a)
+	runes := []rune{}
+	for len(b) > 0 {
+		r, l := utf8.DecodeRune(b)
+		runes = append(runes, r)
+		b = b[l:]
+	}
+	u16 := utf16.Encode(runes)
+	be := []byte{}
+	for i := 0; i < len(u16); i++ {
+		tmp := make([]byte, 2)
+		binary.LittleEndian.PutUint16(tmp, u16[i])
+		be = append(be, tmp...)
+	}
+	return be
 }
 
 // Encrypt encrypts a string provided as input into a hexadecimal string
 // the output corresponds to the output of ConvertFrom-SecureString:
 func Encrypt(input string) (string, error) {
-	data := []byte(input)
-
-	// for some reason the cmdlet's calls automatically encrypts the bytes
-	// with interwoven nulls, so we must account for this as follows:
-	nulled := []byte{}
-	for _, b := range data {
-		nulled = append(nulled, b)
-		nulled = append(nulled, 0)
-	}
-
-	inputBlob := blob{uint32(len(nulled)), &nulled[0]}
-	entropyBlob := blob{}
+	// we need to convert UTF8 to UTF16 before sending it into CryptProtectData
+	// to be compatible with the way powershell does it
+	data := convertToUTF16(input)
+	inputBlob := blob{uint32(len(data)), &data[0]}
 	outputBlob := blob{}
-	dwflags := 1
 
-	err := protectData(uintptr(unsafe.Pointer(&inputBlob)), 0, uintptr(unsafe.Pointer(&entropyBlob)), 0, 0, uint(dwflags), uintptr(unsafe.Pointer(&outputBlob)))
+	err := protectData(uintptr(unsafe.Pointer(&inputBlob)), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(&outputBlob)))
 	if err != nil {
 		return "", fmt.Errorf("Failed to encrypt %s, error: %s", input, err)
 	}
 	defer syscall.LocalFree((syscall.Handle)(unsafe.Pointer(outputBlob.data)))
-
-	output := outputBlob.getData()
+	output := outputBlob.getDataAsBytes()
 	// the result is a slice of bytes, which we must encode into hexa
 	// to match ConvertFrom-SecureString's output before returning it
-	return hex.EncodeToString(output), nil
+	h := hex.EncodeToString([]byte(output))
+	return h, nil
 }
 
 // Decrypt converts the output from a call to ConvertFrom-SecureString
@@ -72,28 +88,16 @@ func Decrypt(input string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	inputBlob := blob{uint32(len(data)), &data[0]}
-	entropyBlob := blob{}
 	outputBlob := blob{}
-	dwflags := 1
 
-	err = unprotectData(uintptr(unsafe.Pointer(&inputBlob)), 0, uintptr(unsafe.Pointer(&entropyBlob)), 0, 0, uint(dwflags),
+	err = unprotectData(uintptr(unsafe.Pointer(&inputBlob)), 0, 0, 0, 0, 0,
 		uintptr(unsafe.Pointer(&outputBlob)))
 	if err != nil {
 		return "", fmt.Errorf("Failed to decrypt %s, error: &s", input, err)
 	}
 	defer syscall.LocalFree((syscall.Handle)(unsafe.Pointer(outputBlob.data)))
 
-	output := outputBlob.getData()
-	// as mentioned, the commandlet infers working with data with interwoven
-	// nulls, for which we must account for by removing them now:
-	clean := []byte{}
-	for _, b := range output {
-		if b != 0 {
-			clean = append(clean, b)
-		}
-	}
-
-	return string(clean), nil
+	a := outputBlob.getData()
+	return syscall.UTF16ToString(a), nil
 }

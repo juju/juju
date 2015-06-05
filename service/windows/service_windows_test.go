@@ -7,10 +7,10 @@
 package windows_test
 
 import (
-	"code.google.com/p/winsvc/svc"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/sys/windows/svc"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
@@ -29,7 +29,7 @@ type serviceManagerSuite struct {
 	name string
 	conf common.Conf
 
-	mgr windows.ServiceManagerInterface
+	mgr windows.ServiceManager
 
 	execPath string
 }
@@ -89,7 +89,7 @@ func (s *serviceManagerSuite) TestCreateInvalidPassword(c *gc.C) {
 	s.passwdStub.SetErrors(passwdError)
 
 	err := s.mgr.Create(s.name, s.conf)
-	c.Assert(err.Error(), gc.Equals, passwdError.Error())
+	c.Assert(errors.Cause(err), gc.Equals, passwdError)
 
 	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
 
@@ -120,7 +120,7 @@ func (s *serviceManagerSuite) TestCreateAlreadyExists(c *gc.C) {
 	exists := s.conn.Exists(s.name)
 	c.Assert(exists, jc.IsTrue)
 	err = s.mgr.Create(s.name, s.conf)
-	c.Assert(err.Error(), gc.Equals, windows.ERROR_SERVICE_EXISTS.Error())
+	c.Assert(errors.Cause(err), gc.Equals, windows.ERROR_SERVICE_EXISTS)
 }
 
 func (s *serviceManagerSuite) TestCreateMultipleServices(c *gc.C) {
@@ -210,5 +210,5 @@ func (s *serviceManagerSuite) TestDeleteInexistent(c *gc.C) {
 	c.Assert(exists, jc.IsFalse)
 
 	err := s.mgr.Delete(s.name)
-	c.Assert(err.Error(), gc.Equals, windows.ERROR_SERVICE_DOES_NOT_EXIST.Error())
+	c.Assert(errors.Cause(err), gc.Equals, windows.ERROR_SERVICE_DOES_NOT_EXIST)
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-// SvcManager implements ServiceManagerInterface interface
+// SvcManager implements ServiceManager interface
 type SvcManager struct{}
 
 // Start starts a service.
@@ -48,6 +48,6 @@ var listServices = func() ([]string, error) {
 	return []string{}, nil
 }
 
-var newServiceManager = func() (ServiceManagerInterface, error) {
+var newServiceManager = func() (ServiceManager, error) {
 	return &SvcManager{}, nil
 }

@@ -7,8 +7,8 @@
 package windows
 
 import (
-	"code.google.com/p/winsvc/mgr"
-	"code.google.com/p/winsvc/svc"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 
 	"github.com/juju/testing"
 )
@@ -82,7 +82,7 @@ func (s *StubService) Query() (svc.Status, error) {
 	return s.Status, s.NextErr()
 }
 
-func (s *StubService) Start(args []string) error {
+func (s *StubService) Start(args ...string) error {
 	s.Stub.AddCall("Start", args)
 
 	s.Status = svc.Status{State: svc.Running}
@@ -93,7 +93,7 @@ type StubMgr struct {
 	*testing.Stub
 }
 
-func (m *StubMgr) CreateService(name, exepath string, c mgr.Config) (svcInterface, error) {
+func (m *StubMgr) CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error) {
 	m.Stub.AddCall("CreateService", name, exepath, c)
 
 	if _, ok := Services[name]; ok {

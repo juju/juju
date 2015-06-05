@@ -7,7 +7,6 @@
 package securestring_test
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -29,9 +28,12 @@ var _ = gc.Suite(&SecureStringSuite{})
 var testInputs []string = []string{
 	"Simple",
 	"A longer string",
-	"A!string%with(a4239lot#of$&*special@characters{[]})",
+	`A!string%with(a4239lot#of$&*special@characters{[]})`,
 	"Quite a very much longer string meant to push the envelope",
 	"fsdafsgdfgdfgdfgdfgsdfgdgdfgdmmghnh kv dfv dj fkvjjenrwenvfvvslfvnsljfvnlsfvlnsfjlvnssdwoewivdsvmxxvsdvsdv",
+	"â",
+	`âăzßșx€đ©rfvțgbyhnujmîkło§ł`,
+	`看看那些旧照片里的人们多么有趣啊`,
 }
 
 // tests whether encryption and decryption are symmetrical operations
@@ -41,32 +43,22 @@ func (s *SecureStringSuite) TestEncryptDecryptSymmetry(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		dec, err := securestring.Decrypt(enc)
 		c.Assert(err, gc.IsNil)
-
 		c.Assert(dec, gc.Equals, input)
 	}
 }
 
-var invokePowerShellParams []string = []string{
-	"-NoProfile",
-	"-NonInteractive",
-	"-Command",
-	"try{$input|iex; exit $LastExitCode}catch{Write-Error -Message $Error[0]; exit 1}",
-}
-
 func runPowerShellCommands(cmds string) (string, error) {
-	ps := exec.Command("powershell.exe", invokePowerShellParams...)
-
-	ps.Stdin = strings.NewReader(cmds)
-	stdout := &bytes.Buffer{}
-	ps.Stdout = stdout
-
-	err := ps.Run()
+	var invokePowerShellParams []string = []string{
+		"-NoProfile",
+		"-NonInteractive",
+		"-Command",
+		fmt.Sprintf(`try{%s; exit $LastExitCode}catch{Write-Error -Message $Error[0]; exit 1}`, cmds),
+	}
+	ps, err := exec.Command("powershell.exe", invokePowerShellParams...).Output()
 	if err != nil {
 		return "", err
 	}
-
-	output := string(stdout.String())
-	return strings.TrimSpace(output), nil
+	return strings.TrimSpace(string(ps)), nil
 }
 
 // tests whether the output of ConvertFrom-SecureString is compatible with the module and can be decrypted
@@ -77,8 +69,7 @@ func (s *SecureStringSuite) TestDecryptFromCFSS(c *gc.C) {
 
 		dec, err := securestring.Decrypt(psenc)
 		c.Assert(err, gc.IsNil)
-
-		c.Assert(dec, gc.Equals, input)
+		c.Assert(fmt.Sprintf("%s", dec), gc.Equals, input)
 	}
 }
 

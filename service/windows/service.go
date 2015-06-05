@@ -64,8 +64,8 @@ func ListCommand() string {
 	return `(Get-Service).Name`
 }
 
-// ServiceManagerInterface exposes methods needed to manage a windows service
-type ServiceManagerInterface interface {
+// ServiceManager exposes methods needed to manage a windows service
+type ServiceManager interface {
 	// Start starts a service.
 	Start(name string) error
 	// Stop stops a service.
@@ -84,10 +84,10 @@ type ServiceManagerInterface interface {
 // Service represents a service running on the current system
 type Service struct {
 	common.Service
-	manager ServiceManagerInterface
+	manager ServiceManager
 }
 
-func newService(name string, conf common.Conf, manager ServiceManagerInterface) *Service {
+func newService(name string, conf common.Conf, manager ServiceManager) *Service {
 	return &Service{
 		Service: common.Service{
 			Name: name,

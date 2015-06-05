@@ -7,7 +7,7 @@
 package service
 
 import (
-	"code.google.com/p/winsvc/svc"
+	"golang.org/x/sys/windows/svc"
 )
 
 // SystemService type that is responsible for managing the life-cycle of the service
