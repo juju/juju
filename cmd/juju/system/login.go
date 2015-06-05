@@ -63,8 +63,8 @@ the juju command will talk to by default.
 
 If you have used the 'api-info' command to generate a copy of your current
 credentials for a system, you should use the --keep-password option as it will
-mean that the source of the information will still be able to connect to the
-api server.
+mean that you will still be able to connect to the api server from the
+computer where you ran api-info.
 
 See Also:
     juju user help add

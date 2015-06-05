@@ -143,6 +143,8 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	creds := info.APICredentials()
 	c.Assert(creds.User, gc.Equals, "valid-user")
+	// Make sure that the password was changed, and that the new
+	// value was not "sekrit".
 	c.Assert(creds.Password, gc.Not(gc.Equals), "sekrit")
 	c.Assert(creds.Password, gc.Equals, s.apiConnection.password)
 	endpoint := info.APIEndpoint()
