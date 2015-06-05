@@ -36,7 +36,7 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 	c.Check(s.cmdCtx.Stderr.(*bytes.Buffer).String(), gc.Equals, expected)
 }
 
-func (s *commandSuite) checkRegistered(c *gc.C) {
+func (s *commandSuite) checkCommandRegistered(c *gc.C) {
 	// TODO(ericsnow) finish!
 	panic("not finished")
 	jujuc.NewCommand(s.Hctx, s.cmdName)

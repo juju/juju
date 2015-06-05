@@ -4,14 +4,11 @@
 package context_test
 
 import (
-	//"github.com/juju/cmd"
-	//"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
-	//coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -33,16 +30,14 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
-	s.registerCmd.Init([]string{s.proc.Name, ""})
-	//s.registerCmd.Name = s.proc.Name
-	s.registerCmd.Id = "abc123"
+	s.registerCmd.Init([]string{s.proc.Name, "abc123"})
 	//s.registerCmd.Details = ...
 	//s.registerCmd.Space = ...
 	//s.registerCmd.Env = ...
 }
 
-func (s *registerSuite) TestRegistered(c *gc.C) {
-	s.checkRegistered(c)
+func (s *registerSuite) TestCommandRegistered(c *gc.C) {
+	s.checkCommandRegistered(c)
 }
 
 func (s *registerSuite) TestHelp(c *gc.C) {
@@ -168,4 +163,5 @@ func (s *registerSuite) TestRun(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
+	// TODO(ericsnow) Check the underlying calls here (s.Stub.CheckCallNames).
 }

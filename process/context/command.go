@@ -138,5 +138,6 @@ func (c *registeringCommand) register() error {
 	if err := c.compCtx.Set(c.Name, c.info); err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) flush here?
 	return nil
 }
