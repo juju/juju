@@ -187,6 +187,20 @@ class TestRunChaosMonkey(TestCase):
             os.unlink(health_script.name)
             self.assertTrue(result)
 
+    def test_is_healthy_fail(self):
+        BASH_SCRIPT = """#!/bin/sh\n return 1"""
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        with NamedTemporaryFile(delete=False) as health_script:
+            health_script.write(BASH_SCRIPT)
+            health_script.flush()
+            os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
+            health_script.close()
+            monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
+                                         client)
+            result = monkey_runner.is_healthy()
+            os.unlink(health_script.name)
+            self.assertFalse(result)
+
     def test_is_healthy_with_no_execute_perms(self):
         BASH_SCRIPT = """#!/bin/sh\n return 0"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
