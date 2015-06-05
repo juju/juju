@@ -52,3 +52,9 @@ func (s *CommonSuite) TestFileContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServerFileMatches(c, s.serverFilename, "username", "password")
 }
+
+func (s *CommonSuite) TestWriteServerFileBadUser(c *gc.C) {
+	ctx := testing.Context(c)
+	err := user.WriteServerFile(s, ctx, "bad user", "password", "outfile.blah")
+	c.Assert(err, gc.ErrorMatches, `"bad user" is not a valid username`)
+}

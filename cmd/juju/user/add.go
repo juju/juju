@@ -106,5 +106,5 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("user %q added", user)
 
-	return writeServerFile(c, ctx, user, password, c.OutPath)
+	return writeServerFile(c, ctx, c.User, password, c.OutPath)
 }
