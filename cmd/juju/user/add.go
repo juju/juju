@@ -99,12 +99,12 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	user := c.User
+	displayName := c.User
 	if c.DisplayName != "" {
-		user = fmt.Sprintf("%s (%s)", c.DisplayName, user)
+		displayName = fmt.Sprintf("%s (%s)", c.DisplayName, c.User)
 	}
 
-	ctx.Infof("user %q added", user)
+	ctx.Infof("user %q added", displayName)
 
-	return writeServerFile(c, ctx, user, password, c.OutPath)
+	return writeServerFile(c, ctx, c.User, password, c.OutPath)
 }

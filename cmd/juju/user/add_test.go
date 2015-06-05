@@ -118,6 +118,7 @@ func (s *UserAddCommandSuite) TestUsernameAndDisplayname(c *gc.C) {
 	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
 	expected := `user "Foo Bar (foobar)" added`
 	c.Assert(testing.Stderr(context), jc.Contains, expected)
+	s.assertServerFileMatches(c, s.serverFilename, "foobar", s.randomPassword)
 }
 
 func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
