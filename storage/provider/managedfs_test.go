@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -115,11 +117,13 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 	const testMountPoint = "/in/the/place"
 
 	source := s.initSource(c)
-	cmd := s.commands.expect("df", "--output=source", testMountPoint)
+	cmd := s.commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
+	cmd.respond("headers\n/same/as/rootfs", nil)
+	cmd = s.commands.expect("df", "--output=source", testMountPoint)
 	if reattach {
-		cmd.respond("headers\n/src/of/root", nil)
+		cmd.respond("headers\n/different/to/rootfs", nil)
 	} else {
-		cmd.respond("headers\n", nil)
+		cmd.respond("headers\n/same/as/rootfs", nil)
 		var args []string
 		if readOnly {
 			args = append(args, "-o", "ro")
