@@ -111,9 +111,7 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 			{MACAddress: "00:16:3e:20:b0:11"},
 		},
 	}
-	tempDir, err := ioutil.TempDir("", "kvm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.RemoveAll(tempDir)
+	tempDir := c.MkDir()
 
 	templatePath := filepath.Join(tempDir, "kvm.xml")
 	err = kvm.WriteTemplate(templatePath, params)

@@ -3,12 +3,13 @@ package kvm
 // This file exports internal package implementations so that tests
 // can utilize them to mock behavior.
 
-var KVMPath = &kvmPath
+var (
+	KVMPath = &kvmPath
+	KVMRun  = &run
 
-var KVMRun = &run
-
-// Used to export the parameters used to call Start on the KVM Container
-var TestStartParams = &startParams
+	// Used to export the parameters used to call Start on the KVM Container
+	TestStartParams = &startParams
+)
 
 func NewEmptyKvmContainer() *kvmContainer {
 	return &kvmContainer{}
