@@ -47,8 +47,11 @@ func (c *baseCommand) Init(args []string) error {
 }
 
 func (c *baseCommand) init(name string) error {
+	if name == "" {
+		return errors.Errorf("got empty name")
+	}
 	var pInfo process.Info
-	if err := c.compCtx.Get(name, pInfo); err != nil {
+	if err := c.compCtx.Get(name, &pInfo); err != nil {
 		return errors.Trace(err)
 	}
 	c.info = &pInfo

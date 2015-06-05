@@ -32,7 +32,7 @@ type RegisterCommand struct {
 }
 
 // NewRegisterCommand returns a new RegisterCommand.
-func NewRegisterCommand(ctx HookContext) cmd.Command {
+func NewRegisterCommand(ctx jujuc.Context) *RegisterCommand {
 	return &RegisterCommand{
 		registeringCommand: newRegisteringCommand(ctx),
 	}
@@ -63,15 +63,23 @@ func (c *RegisterCommand) Init(args []string) error {
 }
 
 func (c *RegisterCommand) init(name, id, detailsStr string) error {
-	details, err := process.ParseDetails(detailsStr)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	if err := c.registeringCommand.init(name); err != nil {
 		return errors.Trace(err)
 	}
+
+	if id == "" {
+		return errors.Errorf("got empty id")
+	}
 	c.Id = id
-	c.Details = *details
+
+	if detailsStr != "" {
+		details, err := process.ParseDetails(detailsStr)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.Details = *details
+	}
+
 	return nil
 }
 
