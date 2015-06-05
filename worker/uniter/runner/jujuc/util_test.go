@@ -125,6 +125,7 @@ type Context struct {
 	storageTag     names.StorageTag
 	storage        map[names.StorageTag]*ContextStorage
 	status         jujuc.StatusInfo
+	serviceStatus  jujuc.ServiceStatusInfo
 }
 
 func (c *Context) AddMetric(key, value string, created time.Time) error {
@@ -145,6 +146,19 @@ func (c *Context) UnitStatus() (*jujuc.StatusInfo, error) {
 
 func (c *Context) SetUnitStatus(status jujuc.StatusInfo) error {
 	c.status = status
+	return nil
+}
+
+func (c *Context) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	return c.serviceStatus, nil
+}
+
+func (c *Context) SetTestingServiceStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
+	c.serviceStatus = jujuc.ServiceStatusInfo{Service: service, Units: units}
+}
+
+func (c *Context) SetServiceStatus(status jujuc.StatusInfo) error {
+	c.serviceStatus = jujuc.ServiceStatusInfo{Service: status, Units: []jujuc.StatusInfo{}}
 	return nil
 }
 

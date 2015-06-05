@@ -87,33 +87,41 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	c.Check(volumes, jc.DeepEquals, []storage.Volume{
 		{
 			// This volume has no id_path.
-			Tag:        names.NewVolumeTag("1"),
-			HardwareId: "",
-			VolumeId:   "volume-1",
-			Size:       476893,
-			Persistent: false,
+			names.NewVolumeTag("1"),
+			storage.VolumeInfo{
+				HardwareId: "",
+				VolumeId:   "volume-1",
+				Size:       476893,
+				Persistent: false,
+			},
 		},
 		{
-			Tag:        names.NewVolumeTag("2"),
-			HardwareId: "id_for_sdc",
-			VolumeId:   "volume-2",
-			Size:       238764,
-			Persistent: false,
+			names.NewVolumeTag("2"),
+			storage.VolumeInfo{
+				HardwareId: "id_for_sdc",
+				VolumeId:   "volume-2",
+				Size:       238764,
+				Persistent: false,
+			},
 		},
 	})
 	c.Assert(attachments, jc.DeepEquals, []storage.VolumeAttachment{
 		{
-			Volume:     names.NewVolumeTag("1"),
-			DeviceName: "sdb",
-			Machine:    mTag,
-			ReadOnly:   false,
+			names.NewVolumeTag("1"),
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "sdb",
+				ReadOnly:   false,
+			},
 		},
 		// Device name not set because there's a hardware id in the volume.
 		{
-			Volume:     names.NewVolumeTag("2"),
-			DeviceName: "",
-			Machine:    mTag,
-			ReadOnly:   false,
+			names.NewVolumeTag("2"),
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "",
+				ReadOnly:   false,
+			},
 		},
 	})
 }

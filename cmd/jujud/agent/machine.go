@@ -768,7 +768,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		scope := agentConfig.Tag()
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(scope, storageDir, api, api, api, api), nil
+		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
 	})
 
 	// Check if the network management is disabled.
@@ -1018,8 +1018,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
-				workerLoop := lease.WorkerLoop(st)
-				return worker.NewSimpleWorker(workerLoop), nil
+				return lease.NewLeaseManager(st)
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
@@ -1131,7 +1130,7 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(scope, "", api, api, api, api), nil
+		return newStorageWorker(scope, "", api, api, api, api, api), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
@@ -1277,7 +1276,7 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
 	} else {
 		return nil // allow all logins
 	}

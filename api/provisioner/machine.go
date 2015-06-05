@@ -183,7 +183,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
-	volumeAttachments []params.VolumeAttachment,
+	volumeAttachments map[string]params.VolumeAttachmentInfo,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{

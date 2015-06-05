@@ -6,7 +6,6 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -27,35 +26,16 @@ func NewStorageAddCommand(ctx Context) cmd.Command {
 var StorageAddDoc = `
 Storage add adds storage instances to unit using provided storage directives.
 A storage directive consists of a storage name as per charm specification
-and storage constraints, for e.g. pool, count, size.
+and optional storage COUNT.
 
-The acceptable format for storage constraints is a comma separated
-sequence of: POOL, COUNT, and SIZE, where
-
-    POOL identifies the storage pool. POOL can be a string
-    starting with a letter, followed by zero or more digits
-    or letters optionally separated by hyphens.
-
-    COUNT is a positive integer indicating how many instances
-    of the storage to create. If unspecified, and SIZE is
-    specified, COUNT defaults to 1.
-
-    SIZE describes the minimum size of the storage instances to
-    create. SIZE is a floating point number and multiplier from
-    the set (M, G, T, P, E, Z, Y), which are all treated as
-    powers of 1024.
-
-Storage constraints can be optionally ommitted as long as at least one 
-value is provided. 
-Environment default values will be used for all ommitted constraint values.
-There is no need to comma-separate ommitted constraints, 
-e.g. data=ebs,2, can be written as  data=ebs,2
+COUNT is a positive integer indicating how many instances
+of the storage to create. If unspecified, COUNT defaults to 1.
 `
 
 func (s *StorageAddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "storage-add",
-		Args:    "<charm storage name>=<constraints> ...",
+		Args:    "<charm storage name>[=count] ...",
 		Purpose: "add storage instances",
 		Doc:     StorageAddDoc,
 	}
@@ -66,22 +46,17 @@ func (s *StorageAddCommand) Init(args []string) error {
 		return errors.New("storage add requires a storage directive")
 	}
 
-	// TODO (anastasiamac 2015-5-27) Bug 1459060:
-	//     For store names that already have constraints,
-	//     add support for "storage-add <name>".
-	//     This is equivalent to "storage-add <name>=1".
-	cons, err := keyvalues.Parse(args, true)
+	cons, err := storage.ParseConstraintsMap(args, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	s.all = make(map[string]params.StorageConstraints, len(cons))
 	for k, v := range cons {
-		c, err := storage.ParseConstraints(v)
-		if err != nil {
-			return errors.Annotatef(err, "cannot parse constraints for %q", k)
+		if v != (storage.Constraints{Count: v.Count}) {
+			return errors.Errorf("only count can be specified for %q", k)
 		}
-		s.all[k] = params.StorageConstraints{c.Pool, &c.Size, &c.Count}
+		s.all[k] = params.StorageConstraints{Count: &v.Count}
 	}
 	return nil
 }
