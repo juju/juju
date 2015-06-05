@@ -430,6 +430,16 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = true
 
+	err := s.State.SetVolumeAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewVolumeTag("3"),
+		state.VolumeAttachmentInfo{
+			DeviceName: "xvdf1",
+			ReadOnly:   true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := s.api.VolumeAttachmentParams(params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
@@ -484,6 +494,16 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.EnvironManager = true
 
+	err := s.State.SetFilesystemAttachmentInfo(
+		names.NewMachineTag("2"),
+		names.NewFilesystemTag("3"),
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/srv",
+			ReadOnly:   true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := s.api.FilesystemAttachmentParams(params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
@@ -520,6 +540,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				MachineTag:    "machine-2",
 				FilesystemTag: "filesystem-3",
 				Provider:      "environscoped",
+				MountPoint:    "/srv",
+				ReadOnly:      true,
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},

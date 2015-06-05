@@ -235,6 +235,15 @@ func createBlockFile(run runCommandFunc, filePath string, sizeInMiB uint64) erro
 // specified path, and returns the loop device's name (e.g. "loop0").
 // losetup will create additional loop devices as necessary.
 func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
+	devices, err := associatedLoopDevices(run, filePath)
+	if err != nil {
+		return "", err
+	}
+	if len(devices) > 0 {
+		// Already attached.
+		logger.Debugf("%s already attached to %s", filePath, devices)
+		return devices[0], nil
+	}
 	// -f automatically finds the first available loop-device.
 	// -r sets up a read-only loop-device.
 	// --show returns the loop device chosen on stdout.
@@ -268,6 +277,7 @@ func associatedLoopDevices(run runCommandFunc, filePath string) ([]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	stdout = strings.TrimSpace(stdout)
 	if stdout == "" {
 		return nil, nil
 	}
