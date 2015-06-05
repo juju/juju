@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
 
 type RelationSetSuite struct {
@@ -329,17 +330,17 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 // Tests start with a relation with the settings {"base": "value"}
 var relationSetRunTests = []struct {
 	change map[string]string
-	expect Settings
+	expect jujuctesting.Settings
 }{
 	{
 		map[string]string{"base": ""},
-		Settings{},
+		jujuctesting.Settings{},
 	}, {
 		map[string]string{"foo": "bar"},
-		Settings{"base": "value", "foo": "bar"},
+		jujuctesting.Settings{"base": "value", "foo": "bar"},
 	}, {
 		map[string]string{"base": "changed"},
-		Settings{"base": "changed"},
+		jujuctesting.Settings{"base": "changed"},
 	},
 }
 
@@ -348,10 +349,10 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
 
-		pristine := Settings{"pristine": "untouched"}
-		hctx.rels[0].units["u/0"] = pristine
-		basic := Settings{"base": "value"}
-		hctx.rels[1].units["u/0"] = basic
+		pristine := jujuctesting.Settings{"pristine": "untouched"}
+		hctx.relUnits(0)["u/0"] = pristine
+		basic := jujuctesting.Settings{"base": "value"}
+		hctx.relUnits(1)["u/0"] = basic
 
 		// Run the command.
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
@@ -364,8 +365,8 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check changes.
-		c.Assert(hctx.rels[0].units["u/0"], gc.DeepEquals, pristine)
-		c.Assert(hctx.rels[1].units["u/0"], gc.DeepEquals, t.expect)
+		c.Assert(hctx.relUnits(0)["u/0"], gc.DeepEquals, pristine)
+		c.Assert(hctx.relUnits(1)["u/0"], gc.DeepEquals, t.expect)
 	}
 }
 
