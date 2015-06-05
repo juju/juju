@@ -716,20 +716,24 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
-		volumeAttachmentParams, ok := volumeAttachment.Params()
-		if !ok {
-			return params.VolumeAttachmentParams{}, errors.Errorf(
-				"volume %q is already attached to machine %q",
-				volumeAttachment.Volume().Id(),
-				volumeAttachment.Machine().Id(),
-			)
+		var readOnly bool
+		if volumeAttachmentParams, ok := volumeAttachment.Params(); ok {
+			readOnly = volumeAttachmentParams.ReadOnly
+		} else {
+			// Attachment parameters may be requested even if the
+			// attachment exists; i.e. for reattachment.
+			volumeAttachmentInfo, err := volumeAttachment.Info()
+			if err != nil {
+				return params.VolumeAttachmentParams{}, errors.Trace(err)
+			}
+			readOnly = volumeAttachmentInfo.ReadOnly
 		}
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
 			string(instanceId),
 			string(providerType),
-			volumeAttachmentParams.ReadOnly,
+			readOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {
@@ -788,13 +792,20 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}
-		filesystemAttachmentParams, ok := filesystemAttachment.Params()
-		if !ok {
-			return params.FilesystemAttachmentParams{}, errors.Errorf(
-				"filesystem %q is already attached to machine %q",
-				filesystemAttachment.Filesystem().Id(),
-				filesystemAttachment.Machine().Id(),
-			)
+		var location string
+		var readOnly bool
+		if filesystemAttachmentParams, ok := filesystemAttachment.Params(); ok {
+			location = filesystemAttachmentParams.Location
+			readOnly = filesystemAttachmentParams.ReadOnly
+		} else {
+			// Attachment parameters may be requested even if the
+			// attachment exists; i.e. for reattachment.
+			filesystemAttachmentInfo, err := filesystemAttachment.Info()
+			if err != nil {
+				return params.FilesystemAttachmentParams{}, errors.Trace(err)
+			}
+			location = filesystemAttachmentInfo.MountPoint
+			readOnly = filesystemAttachmentInfo.ReadOnly
 		}
 		return params.FilesystemAttachmentParams{
 			filesystemAttachment.Filesystem().String(),
@@ -804,8 +815,8 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different
 			// parts of the codebase.
-			filesystemAttachmentParams.Location,
-			filesystemAttachmentParams.ReadOnly,
+			location,
+			readOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {
