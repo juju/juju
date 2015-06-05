@@ -143,7 +143,8 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	creds := info.APICredentials()
 	c.Assert(creds.User, gc.Equals, "valid-user")
-	c.Assert(creds.Password, gc.Equals, "sekrit")
+	c.Assert(creds.Password, gc.Not(gc.Equals), "sekrit")
+	c.Assert(creds.Password, gc.Equals, s.apiConnection.password)
 	endpoint := info.APIEndpoint()
 	c.Assert(endpoint.CACert, gc.Equals, "a-cert")
 	c.Assert(endpoint.EnvironUUID, gc.Equals, "")
@@ -152,28 +153,30 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, []string{"192.168.2.1:1234"})
 
 	c.Assert(testing.Stderr(ctx), jc.Contains, "cached connection details as system \"foo\"\n")
+	c.Assert(testing.Stderr(ctx), jc.Contains, "password updated\n")
 }
 
-func (s *LoginSuite) TestNewPassword(c *gc.C) {
-	ctx, err := s.runServerFile(c, "--new-password")
+func (s *LoginSuite) TestKeepPassword(c *gc.C) {
+	_, err := s.runServerFile(c, "--keep-password")
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.apiConnection.username, gc.Equals, "valid-user")
-	c.Assert(s.apiConnection.password, gc.Not(gc.Equals), "sekrit")
 
 	info, err := s.store.ReadInfo("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	creds := info.APICredentials()
 	c.Assert(creds.User, gc.Equals, "valid-user")
-	c.Assert(creds.Password, gc.Not(gc.Equals), "sekrit")
-
-	c.Assert(testing.Stderr(ctx), jc.Contains, "password updated\n")
+	c.Assert(creds.Password, gc.Equals, "sekrit")
 }
 
-func (s *LoginSuite) TestNewPasswordNonLocalFails(c *gc.C) {
+func (s *LoginSuite) TestRemoteUsersKeepPassword(c *gc.C) {
 	s.username = "user@remote"
-	_, err := s.runServerFile(c, "--new-password")
-	c.Assert(err, gc.ErrorMatches, "changing passwords is not supported for non-local users")
+	_, err := s.runServerFile(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := s.store.ReadInfo("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	creds := info.APICredentials()
+	c.Assert(creds.User, gc.Equals, "user@remote")
+	c.Assert(creds.Password, gc.Equals, "sekrit")
 }
 
 func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
@@ -191,7 +194,7 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 }
 
 func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
-	_, err := s.runServerFile(c, "--new-password")
+	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
 	currentSystem, err := envcmd.ReadCurrentSystem()
 	c.Assert(err, jc.ErrorIsNil)
