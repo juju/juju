@@ -3,32 +3,28 @@
 
 package process
 
-import (
-	"github.com/juju/utils/set"
-)
-
 // Status values specific to workload processes.
 const (
-	StatusPending Status = iota
+	StatusPending Status = 1 << iota
 	StatusActive
 	StatusFailed
 	StatusStopped
 )
 
 // KnownStatuses defines the statuses supported by Juju.
-var KnownStatuses = set.NewInts(
+var KnownStatuses = []Status{
 	StatusPending,
 	StatusActive,
 	StatusFailed,
 	StatusStopped,
-)
+}
 
 // Status represents the status of a worload process.
-type Status string
+type Status int
 
 // String implements fmt.Stringer.
 func (s Status) String() string {
-	switch status {
+	switch s {
 	case StatusPending:
 		return "pending"
 	case StatusActive:
@@ -38,5 +34,5 @@ func (s Status) String() string {
 	case StatusStopped:
 		return "stopped"
 	}
-	return "Unknown"
+	return "unknown"
 }
