@@ -286,6 +286,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
+	c.Assert(err, jc.ErrorIsNil)
 	upgradeC.AssertOneValue(newCharm.URL())
 }
 

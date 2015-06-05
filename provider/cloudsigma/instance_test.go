@@ -96,6 +96,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	c.Check(a.NetworkName, gc.Equals, "")
 
 	addrs, err = s.instWithoutIP.Addresses()
+	c.Check(err, gc.IsNil)
 	c.Check(len(addrs), gc.Equals, 0)
 }
 

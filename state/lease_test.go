@@ -81,7 +81,6 @@ func (s *leaseSuite) TestWriteNewToken(c *gc.C) {
 func (s *leaseSuite) TestWriteTokenReplaceExisting(c *gc.C) {
 
 	tok := lease.Token{testNamespace, testId, time.Now().Add(testDuration)}
-	now := time.Now()
 	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
 		ops, err := txns(0)
 		c.Assert(err, jc.ErrorIsNil)
@@ -92,13 +91,11 @@ func (s *leaseSuite) TestWriteTokenReplaceExisting(c *gc.C) {
 		values := ops[0].Update.(bson.M)["$set"].(bson.M)
 		token := values["token"].(lease.Token)
 		c.Assert(token, gc.DeepEquals, tok)
-		lastUpdate := values["lastupdate"].(time.Time)
-		c.Assert(lastUpdate.After(now), jc.IsTrue)
 		return nil
 	}
 
 	existingTok := lease.Token{testNamespace, "1234", time.Now().Add(testDuration)}
-	existing := leaseEntity{now, existingTok, 10}
+	existing := leaseEntity{time.Now(), existingTok, 10}
 	closerCallCount := 0
 	stubGetCollection := func(collectionName string) (leaseCollection, func()) {
 		c.Check(collectionName, gc.Equals, testCollectionName)

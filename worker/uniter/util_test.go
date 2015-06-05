@@ -1279,7 +1279,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err = os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
-	meta, err = corecharm.ReadMeta(f)
+	_, err = corecharm.ReadMeta(f)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

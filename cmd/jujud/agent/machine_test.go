@@ -33,6 +33,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -70,6 +71,7 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -244,6 +246,7 @@ var perEnvSingularWorkers = []string{
 	"addresserworker",
 	"environ-provisioner",
 	"charm-revision-updater",
+	"instancepoller",
 	"firewaller",
 }
 
@@ -502,7 +505,6 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
-	r0.waitForWorker(c, "resumer")
 	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
@@ -549,6 +551,61 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
+	}
+}
+
+func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+		close(started)
+		return resumer.NewResumer(st)
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the resumer to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "charm-revision-updater")
+
+	// Now make sure the resumer starts.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("resumer worker not started as expected")
+	}
+}
+
+func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) worker.Worker {
+		close(started)
+		return instancepoller.NewWorker(st)
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the instancepoller to
+	// start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "charm-revision-updater")
+
+	// Now make sure the resumer starts.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("instancepoller worker not started as expected")
 	}
 }
 
@@ -666,21 +723,11 @@ func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
-	// Wait for the resumer to be started. This is started just after
+	// Wait for the txnpruner to be started. This is started just after
 	// dblogpruner would be started.
 	runner := s.singularRecord.nextRunner(c)
-	started := set.NewStrings(runner.waitForWorker(c, "resumer")...)
+	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
 	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
-}
-
-func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "statushistorypruner")
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
@@ -771,6 +818,22 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
+	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
+}
+
+func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() { done <- a.Run(nil) }()
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for upgrade check")
+	}
+	defer a.Stop() // in case of failure
+	s.waitStopped(c, state.JobManageEnviron, a, done)
+	c.Assert(a.isAgentUpgradePending(), jc.IsFalse)
 }
 
 var fastDialOpts = api.DialOpts{
@@ -1640,6 +1703,7 @@ func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 
 	c.Assert(worker, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
+	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
 }
 
 type machineAgentUpgrader struct{}

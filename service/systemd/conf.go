@@ -183,11 +183,6 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 			Name:    "After",
 			Value:   conf.AfterStopped,
 		})
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Unit",
-			Name:    "Conflicts",
-			Value:   conf.AfterStopped,
-		})
 	}
 
 	return unitOptions
@@ -254,13 +249,11 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 func serializeInstall(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Install",
-			Name:    "WantedBy",
-			Value:   "multi-user.target",
-		})
-	}
+	unitOptions = append(unitOptions, &unit.UnitOption{
+		Section: "Install",
+		Name:    "WantedBy",
+		Value:   "multi-user.target",
+	})
 
 	return unitOptions
 }

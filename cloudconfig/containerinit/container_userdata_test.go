@@ -203,12 +203,14 @@ Description=juju shutdown job
 After=syslog.target
 After=network.target
 After=systemd-user-sessions.service
-After=cloud-final
-Conflicts=cloud-final
+After=cloud-config.target
 
 [Service]
 ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
 ExecStopPost=/bin/systemctl disable juju-template-restart.service
+
+[Install]
+WantedBy=multi-user.target
 `[1:],
 		Script: `
 /bin/cat > /etc/network/interfaces << EOC
@@ -223,5 +225,5 @@ EOC
   /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
-	test.CheckCommands(c, commands)
+	test.CheckInstallAndStartCommands(c, commands)
 }

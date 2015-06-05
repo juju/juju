@@ -53,7 +53,7 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
 
 	versionNumber.Major = 0
 	versionNumber.Minor = 0
-	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	_, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
 }
 
