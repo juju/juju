@@ -87,7 +87,7 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "login", "--server", serverFilePath, "--new-password", "just-a-system")
+	s.run(c, "login", "--server", serverFilePath, "just-a-system")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
