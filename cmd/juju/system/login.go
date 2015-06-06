@@ -37,9 +37,9 @@ type LoginCommand struct {
 	// allow the use to specify the user and server address.
 	// user      string
 	// address   string
-	Server      cmd.FileVar
-	Name        string
-	NewPassword bool
+	Server       cmd.FileVar
+	Name         string
+	KeepPassword bool
 }
 
 var loginDoc = `
@@ -55,16 +55,16 @@ If you have been sent one of these server files, you can login by doing the
 following:
 
     # if you have saved the server file as ~/erica.server
-    juju system login --server=~/erica.server test-system --new-password
+    juju system login --server=~/erica.server test-system
 
-By specifying '--new-password' a new strong random password is generated
-to replace the password defined in the server file. The 'test-system' will
-also become the current system that the juju command will talk to by default.
+A new strong random password is generated to replace the password defined in
+the server file. The 'test-system' will also become the current system that
+the juju command will talk to by default.
 
 If you have used the 'api-info' command to generate a copy of your current
-credentials for a system, you should not use the --new-password option as it
-will mean that the source of the information will not be able to connect to
-the api server any more.
+credentials for a system, you should use the --keep-password option as it will
+mean that you will still be able to connect to the api server from the
+computer where you ran api-info.
 
 See Also:
     juju user help add
@@ -87,7 +87,7 @@ func (c *LoginCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *LoginCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Server, "server", "path to yaml-formatted server file")
-	f.BoolVar(&c.NewPassword, "new-password", false, "generate a new random password")
+	f.BoolVar(&c.KeepPassword, "keep-password", false, "do not generate a new random password")
 }
 
 // SetFlags implements Command.Init.
@@ -131,8 +131,10 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	}
 
 	userTag := names.NewUserTag(serverDetails.Username)
-	if userTag.Provider() != names.LocalProvider && c.NewPassword {
-		return errors.Errorf("changing passwords is not supported for non-local users")
+	if userTag.Provider() != names.LocalProvider {
+		// Remove users do not have their passwords stored in Juju
+		// so we never attempt to change them.
+		c.KeepPassword = true
 	}
 
 	info := api.Info{
@@ -161,7 +163,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	// the user's password to a new randomly generated strong password, and
 	// update the cached information knowing that the likelihood of failure is
 	// minimal.
-	if c.NewPassword {
+	if !c.KeepPassword {
 		if err := c.updatePassword(ctx, apiState, userTag, serverInfo); err != nil {
 			return errors.Trace(err)
 		}
