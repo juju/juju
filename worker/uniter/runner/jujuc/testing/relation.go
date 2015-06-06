@@ -13,89 +13,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// Relations holds the values for the hook context.
-type Relations struct {
-	Relations map[int]jujuc.ContextRelation
-}
-
-// Set adds the relation to the set of known relations.
-func (r *Relations) Set(id int, relCtx jujuc.ContextRelation) {
-	if r.Relations == nil {
-		r.Relations = make(map[int]jujuc.ContextRelation)
-	}
-	r.Relations[id] = relCtx
-}
-
-// ContextRelations is a test double for jujuc.ContextRelations.
-type ContextRelations struct {
-	contextBase
-	info *Relations
-}
-
-func (c *ContextRelations) setRelation(id int, name string) *Relation {
-	if name == "" {
-		name = fmt.Sprintf("relation-%d", id)
-	}
-	rel := &Relation{
-		Id:   id,
-		Name: name,
-	}
-	relCtx := &ContextRelation{info: rel}
-	relCtx.stub = c.stub
-
-	c.info.Set(id, relCtx)
-	return rel
-}
-
-// Relation implements jujuc.ContextRelations.
-func (c *ContextRelations) Relation(id int) (jujuc.ContextRelation, bool) {
-	c.stub.AddCall("Relation", id)
-	c.stub.NextErr()
-
-	r, found := c.info.Relations[id]
-	return r, found
-}
-
-// RelationIds implements jujuc.ContextRelations.
-func (c *ContextRelations) RelationIds() []int {
-	c.stub.AddCall("RelationIds")
-	c.stub.NextErr()
-
-	ids := []int{}
-	for id := range c.info.Relations {
-		ids = append(ids, id)
-	}
-	return ids
-}
-
-// RelationHook holds the values for the hook context.
-type RelationHook struct {
-	HookRelation   jujuc.ContextRelation
-	RemoteUnitName string
-}
-
-// ContextRelationHook is a test double for jujuc.RelationHookContext.
-type ContextRelationHook struct {
-	contextBase
-	info *RelationHook
-}
-
-// HookRelation implements jujuc.RelationHookContext.
-func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, bool) {
-	c.stub.AddCall("HookRelation")
-	c.stub.NextErr()
-
-	return c.info.HookRelation, c.info.HookRelation == nil
-}
-
-// RemoteUnitName implements jujuc.RelationHookContext.
-func (c *ContextRelationHook) RemoteUnitName() (string, bool) {
-	c.stub.AddCall("RemoteUnitName")
-	c.stub.NextErr()
-
-	return c.info.RemoteUnitName, c.info.RemoteUnitName != ""
-}
-
 // Relation holds the data for the test double.
 type Relation struct {
 	Id       int
@@ -117,10 +34,6 @@ type ContextRelation struct {
 	contextBase
 	info *Relation
 }
-
-//func (r *ContextRelation) setUnit(name string, settings Settings) {
-//	r.info.setUnit(name, settings)
-//}
 
 // Id implements jujuc.ContextRelation.
 func (r *ContextRelation) Id() int {
@@ -185,32 +98,4 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 		return nil, fmt.Errorf("unknown unit %s", name)
 	}
 	return s.Map(), nil
-}
-
-// Settings is a test double for jujuc.Settings.
-type Settings params.Settings
-
-// Get implements jujuc.Settings.
-func (s Settings) Get(k string) (interface{}, bool) {
-	v, f := s[k]
-	return v, f
-}
-
-// Set implements jujuc.Settings.
-func (s Settings) Set(k, v string) {
-	s[k] = v
-}
-
-// Delete implements jujuc.Settings.
-func (s Settings) Delete(k string) {
-	delete(s, k)
-}
-
-// Map implements jujuc.Settings.
-func (s Settings) Map() params.Settings {
-	r := params.Settings{}
-	for k, v := range s {
-		r[k] = v
-	}
-	return r
 }
