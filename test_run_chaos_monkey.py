@@ -107,6 +107,7 @@ class TestRunChaosMonkey(TestCase):
                             'foo': {
                                 'subordinates': {
                                     'chaos-monkey/0': {'baz': 'qux'},
+                                    'not-chaos/0': {'qwe': 'rty'},
                                 }
                             },
                             'bar': {
@@ -135,8 +136,11 @@ class TestRunChaosMonkey(TestCase):
                 monkey_runner.unleash_once()
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single'), 1, True)
-        self.assertEqual(['unit0-foo', 'unit1-foo'], monkey_runner.monkey_ids)
+            'chaos-monkey/1', 'start', 'mode=single'), 1, True)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/0', 'start', 'mode=single'), 2, True)
+        self.assertEqual(['unit1-foo', 'unit0-foo'], monkey_runner.monkey_ids)
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
         self.assertEqual(co_mock.call_count, 3)
 
@@ -174,39 +178,40 @@ class TestRunChaosMonkey(TestCase):
                 monkey_runner.unleash_once()
 
     def test_is_healthy(self):
-        BASH_SCRIPT = """#!/bin/sh\n return 0"""
+        SCRIPT = """#!/bin/sh\necho -n 'PASS'\nreturn 0"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
-            health_script.write(BASH_SCRIPT)
-            health_script.flush()
+            health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
             health_script.close()
             monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
                                          client)
-            result = monkey_runner.is_healthy()
+            with patch('logging.info') as lo_mock:
+                result = monkey_runner.is_healthy()
             os.unlink(health_script.name)
             self.assertTrue(result)
+            self.assertEqual(lo_mock.call_args[0][0], 'PASS')
 
     def test_is_healthy_fail(self):
-        BASH_SCRIPT = """#!/bin/sh\n return 1"""
+        SCRIPT = """#!/bin/sh\necho -n 'FAIL'\nreturn 1"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
-            health_script.write(BASH_SCRIPT)
-            health_script.flush()
+            health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
             health_script.close()
             monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
                                          client)
-            result = monkey_runner.is_healthy()
+            with patch('logging.error') as le_mock:
+                result = monkey_runner.is_healthy()
             os.unlink(health_script.name)
             self.assertFalse(result)
+            self.assertEqual(le_mock.call_args[0][0], 'FAIL')
 
     def test_is_healthy_with_no_execute_perms(self):
-        BASH_SCRIPT = """#!/bin/sh\n return 0"""
+        SCRIPT = """#!/bin/sh\nreturn 0"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
-            health_script.write(BASH_SCRIPT)
-            health_script.flush()
+            health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IREAD)
             health_script.close()
             monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
@@ -217,4 +222,4 @@ class TestRunChaosMonkey(TestCase):
             os.unlink(health_script.name)
         self.assertRegexpMatches(
             le_mock.call_args[0][0],
-            'The health check script failed to execute with: [[]Errno 13[]].*')
+            'The health check script failed to execute with: \[Errno 13\].*')
