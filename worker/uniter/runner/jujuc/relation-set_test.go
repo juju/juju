@@ -20,7 +20,7 @@ import (
 )
 
 type RelationSetSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&RelationSetSuite{})
@@ -33,7 +33,7 @@ var helpTests = []struct {
 func (s *RelationSetSuite) TestHelp(c *gc.C) {
 	for i, t := range helpTests {
 		c.Logf("test %d", i)
-		hctx := s.GetHookContext(c, t.relid, "")
+		hctx, _ := s.newHookContext(t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -75,6 +75,8 @@ type relationSetInitTest struct {
 	err      string
 	relid    int
 	settings map[string]string
+
+	info *relationInfo
 }
 
 func (t relationSetInitTest) log(c *gc.C, i int) {
@@ -99,7 +101,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
-	hctx := s.GetHookContext(c, t.ctxrelid, "")
+	hctx, info := s.newHookContext(t.ctxrelid, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -116,6 +118,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	t.info = info
 	return com, args, ctx
 }
 
@@ -345,14 +348,14 @@ var relationSetRunTests = []struct {
 }
 
 func (s *RelationSetSuite) TestRun(c *gc.C) {
-	hctx := s.GetHookContext(c, 0, "")
+	hctx, info := s.newHookContext(0, "")
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
 
 		pristine := jujuctesting.Settings{"pristine": "untouched"}
-		hctx.relUnits(0)["u/0"] = pristine
+		info.rels[0].Units["u/0"] = pristine
 		basic := jujuctesting.Settings{"base": "value"}
-		hctx.relUnits(1)["u/0"] = basic
+		info.rels[1].Units["u/0"] = basic
 
 		// Run the command.
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
@@ -365,13 +368,13 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check changes.
-		c.Assert(hctx.relUnits(0)["u/0"], gc.DeepEquals, pristine)
-		c.Assert(hctx.relUnits(1)["u/0"], gc.DeepEquals, t.expect)
+		c.Assert(info.rels[0].Units["u/0"], gc.DeepEquals, pristine)
+		c.Assert(info.rels[0].Units["u/0"], gc.DeepEquals, t.expect)
 	}
 }
 
 func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
-	hctx := s.GetHookContext(c, 0, "")
+	hctx, _ := s.newHookContext(0, "")
 	com, _ := jujuc.NewCommand(hctx, cmdString("relation-set"))
 
 	// The rel= is needed to make this a valid command.

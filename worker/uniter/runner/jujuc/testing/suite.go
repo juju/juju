@@ -37,3 +37,9 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 	info.PrivateAddress = "192.168.0.99"
 	return &info
 }
+
+// NewHookContext builds a jujuc.Context test double.
+func (s *ContextSuite) NewHookContext() (*Context, *ContextInfo) {
+	info := s.NewInfo()
+	return NewContext(s.Stub, info), info
+}

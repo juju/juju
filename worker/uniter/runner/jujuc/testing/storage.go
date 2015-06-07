@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 	"github.com/juju/testing"
 
@@ -43,6 +45,15 @@ func (s *Storage) SetNewAttachment(name, location string, kind storage.StorageKi
 // SetBlockStorage adds the attachment to the storage.
 func (s *Storage) SetBlockStorage(name, location string, stub *testing.Stub) {
 	s.SetNewAttachment(name, location, storage.StorageKindBlock, stub)
+}
+
+// SetStorageTag sets the storage tag to the given ID.
+func (s *Storage) SetStorageTag(id string) {
+	tag := names.NewStorageTag(id)
+	if _, ok := s.Storage[tag]; !ok {
+		panic(fmt.Sprintf("storage %q not added yet", id))
+	}
+	s.StorageTag = tag
 }
 
 // SetUnitStorage sets storage that should be added.

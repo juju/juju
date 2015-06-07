@@ -195,7 +195,7 @@ func (s *ServerSuite) TestBrokenCommand(c *gc.C) {
 }
 
 type NewCommandSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&NewCommandSuite{})
@@ -223,7 +223,7 @@ var newCommandTests = []struct {
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	ctx := s.GetHookContext(c, 0, "")
+	ctx, _ := s.newHookContext(0, "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
 		if t.err == "" {

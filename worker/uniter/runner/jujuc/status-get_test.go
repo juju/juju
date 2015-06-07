@@ -54,8 +54,7 @@ func setFakeStatus(ctx *Context) {
 }
 
 func setFakeServiceStatus(ctx *Context) {
-	panic(ctx.Info.Status)
-	ctx.Info.Status.SetServiceStatus(
+	ctx.info.Status.SetServiceStatus(
 		jujuc.StatusInfo{
 			Status: "active",
 			Info:   "this is a service status",
