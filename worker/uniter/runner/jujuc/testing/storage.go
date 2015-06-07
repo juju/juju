@@ -5,6 +5,7 @@ package testing
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -29,6 +30,21 @@ func (s *Storage) SetAttachment(attach jujuc.ContextStorageAttachment) {
 	s.Storage[attach.Tag()] = attach
 }
 
+// SetNewAttachment adds the attachment to the storage.
+func (s *Storage) SetNewAttachment(name, location string, kind storage.StorageKind, stub *testing.Stub) {
+	tag := names.NewStorageTag(name)
+	attachment := &ContextStorageAttachment{
+		info: &StorageAttachment{tag, kind, location},
+	}
+	attachment.stub = stub
+	s.SetAttachment(attachment)
+}
+
+// SetBlockStorage adds the attachment to the storage.
+func (s *Storage) SetBlockStorage(name, location string, stub *testing.Stub) {
+	s.SetNewAttachment(name, location, storage.StorageKindBlock, stub)
+}
+
 // SetUnitStorage sets storage that should be added.
 func (s *Storage) SetUnitStorage(name string, constraints params.StorageConstraints) {
 	if s.Added == nil {
@@ -51,15 +67,6 @@ func (s *Storage) AddUnitStorage(all map[string]params.StorageConstraints) {
 type ContextStorage struct {
 	contextBase
 	info *Storage
-}
-
-func (c *ContextStorage) setAttachment(name, location string, kind storage.StorageKind) {
-	tag := names.NewStorageTag(name)
-	attachment := &ContextStorageAttachment{
-		info: &StorageAttachment{tag, kind, location},
-	}
-	attachment.stub = c.stub
-	c.info.SetAttachment(attachment)
 }
 
 // Storage implements jujuc.ContextStorage.

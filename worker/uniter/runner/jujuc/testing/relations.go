@@ -6,6 +6,8 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/testing"
+
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -14,21 +16,16 @@ type Relations struct {
 	Relations map[int]jujuc.ContextRelation
 }
 
-// Set adds the relation to the set of known relations.
-func (r *Relations) Set(id int, relCtx jujuc.ContextRelation) {
+// SetRelation adds the relation to the set of known relations.
+func (r *Relations) SetRelation(id int, relCtx jujuc.ContextRelation) {
 	if r.Relations == nil {
 		r.Relations = make(map[int]jujuc.ContextRelation)
 	}
 	r.Relations[id] = relCtx
 }
 
-// ContextRelations is a test double for jujuc.ContextRelations.
-type ContextRelations struct {
-	contextBase
-	info *Relations
-}
-
-func (c *ContextRelations) setRelation(id int, name string) *Relation {
+// SetNewRelation adds the relation to the set of known relations.
+func (r *Relations) SetNewRelation(id int, name string, stub *testing.Stub) *Relation {
 	if name == "" {
 		name = fmt.Sprintf("relation-%d", id)
 	}
@@ -37,10 +34,22 @@ func (c *ContextRelations) setRelation(id int, name string) *Relation {
 		Name: name,
 	}
 	relCtx := &ContextRelation{info: rel}
-	relCtx.stub = c.stub
+	relCtx.stub = stub
 
-	c.info.Set(id, relCtx)
+	r.SetRelation(id, relCtx)
 	return rel
+}
+
+// SetRelated adds the provided unit information to the relation.
+func (r *Relations) SetRelated(id int, unit string, settings Settings) {
+	relation := r.Relations[id].(*ContextRelation).info
+	relation.SetRelated(unit, settings)
+}
+
+// ContextRelations is a test double for jujuc.ContextRelations.
+type ContextRelations struct {
+	contextBase
+	info *Relations
 }
 
 // Relation implements jujuc.ContextRelations.
