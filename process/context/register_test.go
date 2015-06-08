@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -154,6 +155,22 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	})
 
 	c.Check(err, gc.ErrorMatches, "unexpected end of JSON input")
+}
+
+func (s *registerSuite) TestInitSpaceKnown(c *gc.C) {
+	s.registerCmd.Space = "a space"
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+
+	c.Check(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *registerSuite) TestInitSpaceUnknown(c *gc.C) {
+	s.registerCmd.Space = "a space"
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+
+	c.Check(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *registerSuite) TestRun(c *gc.C) {
