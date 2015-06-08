@@ -235,9 +235,18 @@ func (s *registerSuite) TestInitEnvBothOverride(c *gc.C) {
 	})
 }
 
-func (s *registerSuite) TestRun(c *gc.C) {
+func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
 	s.Stub.CheckCallNames(c, "Set")
+}
+
+func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
+	s.proc.Status = process.StatusActive
+	s.init(c, s.proc.Name, "abc123", "running")
+
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "already registered")
 }

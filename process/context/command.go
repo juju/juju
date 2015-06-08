@@ -139,7 +139,7 @@ func (c *registeringCommand) parseEnv() map[string]string {
 // registered workload process. An error is returned if the process
 // was already registered.
 func (c *registeringCommand) register() error {
-	if c.info.Status != process.StatusPending {
+	if c.info.IsRegistered() {
 		return errors.Errorf("already registered")
 	}
 	c.info.Space = c.Space
