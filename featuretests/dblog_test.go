@@ -4,22 +4,29 @@
 package featuretests
 
 import (
+	"bufio"
 	"io/ioutil"
+	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/lease"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 // dblogSuite tests that logs flow correctly from the machine and unit
@@ -144,4 +151,84 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 		}
 	}
 	return false
+}
+
+// debugLogDbSuite tests that the debuglog API works when logs are
+// being read from the database.
+type debugLogDbSuite struct {
+	agenttesting.AgentSuite
+}
+
+var _ = gc.Suite(&debugLogDbSuite{})
+
+func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags("db-log")
+
+	// Restart mongod with a the replicaset enabled.
+	mongod := jujutesting.MgoServer
+	mongod.Params = []string{"--replSet", "juju"}
+	mongod.Restart()
+
+	// Initiate the replicaset.
+	info := mongod.DialInfo()
+	args := peergrouper.InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: mongod.Addr(),
+	}
+	err := peergrouper.MaybeInitiateMongoServer(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AgentSuite.SetUpSuite(c)
+}
+
+func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
+	// Restart mongod without the replicaset enabled so as not to
+	// affect other test that reply on this mongod instance in this
+	// package.
+	mongod := jujutesting.MgoServer
+	mongod.Params = []string{}
+	mongod.Restart()
+
+	s.AgentSuite.TearDownSuite(c)
+}
+
+func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"))
+	defer dbLogger.Close()
+
+	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
+	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
+	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
+
+	lines := make(chan string)
+	go func(numLines int) {
+		client := s.APIState.Client()
+		reader, err := client.WatchDebugLog(api.DebugLogParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		defer reader.Close()
+
+		bufReader := bufio.NewReader(reader)
+		for n := 0; n < numLines; n++ {
+			line, err := bufReader.ReadString('\n')
+			c.Assert(err, jc.ErrorIsNil)
+			lines <- line
+		}
+	}(3)
+
+	assertLine := func(expected string) {
+		select {
+		case actual := <-lines:
+			c.Assert(actual, gc.Equals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log line")
+		}
+	}
+
+	// Read the 2 lines that are in the logs collection.
+	assertLine("machine-99: 2015-06-23 13:08:49 INFO juju.foo code.go:42 all is well\n")
+	assertLine("machine-99: 2015-06-23 13:08:50 ERROR juju.bar go.go:99 no it isn't\n")
+
+	// Now write and observe another log. This should be read from the oplog.
+	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
+	assertLine("machine-99: 2015-06-23 13:08:51 WARNING ju.jitsu no.go:3 beep beep\n")
 }

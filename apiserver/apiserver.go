@@ -311,11 +311,14 @@ func (srv *Server) run(lis net.Listener) {
 	// registered first.
 	mux := pat.New()
 
-	handleAll(mux, "/environment/:envuuid/log",
-		newDebugLogFileHandler(srv.state, srv.logDir))
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
 			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogDBHandler(srv.state, srv.tomb.Dying()))
+	} else {
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogFileHandler(srv.state, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
@@ -350,7 +353,13 @@ func (srv *Server) run(lis net.Listener) {
 			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srv.logDir))
+
+	if feature.IsDbLogEnabled() {
+		handleAll(mux, "/log", newDebugLogDBHandler(srv.state, srv.tomb.Dying()))
+	} else {
+		handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srv.logDir))
+	}
+
 	handleAll(mux, "/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
