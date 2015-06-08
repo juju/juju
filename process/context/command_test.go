@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/process/context"
 	coretesting "github.com/juju/juju/testing"
-	//"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
