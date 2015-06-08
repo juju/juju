@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type registerSuite struct {
@@ -23,13 +22,8 @@ var _ = gc.Suite(&registerSuite{})
 func (s *registerSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
-	registerCmd := context.NewRegisterCommand(s.Ctx.Context)
-	s.Stub.CheckCallNames(c, "Component")
-	s.Stub.Calls = nil
-
-	s.cmdName = "register" + jujuc.CmdSuffix
-	s.cmd = registerCmd
-	s.registerCmd = registerCmd
+	s.registerCmd = context.NewRegisterCommand(s.Ctx.Context)
+	s.setCommand(c, "register", s.registerCmd)
 }
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {

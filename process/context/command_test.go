@@ -30,6 +30,14 @@ func (s *commandSuite) SetUpTest(c *gc.C) {
 	s.cmdCtx = coretesting.Context(c)
 }
 
+func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
+	s.Stub.CheckCallNames(c, "Component")
+	s.Stub.Calls = nil
+
+	s.cmdName = name + jujuc.CmdSuffix
+	s.cmd = cmd
+}
+
 func (s *commandSuite) checkStdout(c *gc.C, expected string) {
 	c.Check(s.cmdCtx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 }
