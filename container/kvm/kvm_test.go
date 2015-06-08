@@ -6,7 +6,6 @@ package kvm_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -128,35 +127,33 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 }
 
 func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
-	var runArgs []string
-	mockRun := func(command string, args ...string) (string, error) {
-		c.Assert(args, gc.HasLen, 5)
-		c.Assert(args[3], jc.Contains, "kvm-template.xml")
+	const uvtKvmBinName = "uvt-kvm"
+	testing.PatchExecutableAsEchoArgs(c, s, uvtKvmBinName)
 
-		// this asserts the template file exists
-		_, err := os.Stat(args[3])
-		c.Assert(err, jc.ErrorIsNil)
-
-		runArgs = args
-		c.Assert(command, gc.Equals, "uvt-kvm")
-		return "", nil
-	}
-	s.PatchValue(kvm.KVMRun, mockRun)
+	tempDir := c.MkDir()
 	params := kvm.CreateMachineParams{
 		Hostname:      "foo-bar",
 		NetworkBridge: "br0",
 		Interfaces: []network.InterfaceInfo{
 			{MACAddress: "00:16:3e:20:b0:11"},
 		},
+		UserDataFile: filepath.Join(tempDir, "something"),
 	}
 
 	err := kvm.CreateMachine(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// this asserts that mockRun was called
-	c.Assert(runArgs, gc.HasLen, 5)
-	c.Assert(runArgs[0:3], jc.DeepEquals, []string{"create", "--log-console-output", "--template"})
-	c.Assert(runArgs[4], gc.Equals, "foo-bar")
+	expectedArgs := []string{
+		"create",
+		"--log-console-output",
+		"--user-data",
+		filepath.Join(tempDir, "something"),
+		"--template",
+		filepath.Join(tempDir, "kvm-template.xml"),
+		"foo-bar",
+	}
+
+	testing.AssertEchoArgs(c, uvtKvmBinName, expectedArgs...)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
