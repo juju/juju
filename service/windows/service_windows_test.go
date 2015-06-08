@@ -7,10 +7,10 @@
 package windows_test
 
 import (
+	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"golang.org/x/sys/windows/svc"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"

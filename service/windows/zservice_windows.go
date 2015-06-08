@@ -5,7 +5,7 @@ package windows
 
 import "unsafe"
 import "syscall"
-import "golang.org/x/sys/windows"
+import "github.com/gabriel-samfira/sys/windows"
 
 var (
 	modadvapi32 = syscall.NewLazyDLL("advapi32.dll")
