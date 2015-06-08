@@ -26,6 +26,7 @@ var (
 	NewBackups            = &newBackups
 	ParseLogLine          = parseLogLine
 	AgentMatchesFilter    = agentMatchesFilter
+	NewLogTailer          = &newLogTailer
 )
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {

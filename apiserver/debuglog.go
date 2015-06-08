@@ -6,6 +6,7 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // debugLogHandler takes requests to watch the debug log.
@@ -24,10 +26,32 @@ import (
 // requests.
 type debugLogHandler struct {
 	httpHandler
-	handle func(*debugLogParams, *debugLogSocket) error
+	stop   <-chan struct{}
+	handle debugLogHandlerFunc
 }
 
-// ServeHTTP will serve up connections as a websocket.
+type debugLogHandlerFunc func(
+	state.LoggingState,
+	*debugLogParams,
+	debugLogSocket,
+	<-chan struct{},
+) error
+
+func newDebugLogHandler(
+	ssState *state.State,
+	stop <-chan struct{},
+	handle debugLogHandlerFunc,
+) *debugLogHandler {
+	return &debugLogHandler{
+		httpHandler: httpHandler{ssState: ssState},
+		stop:        stop,
+		handle:      handle,
+	}
+}
+
+// ServeHTTP will serve up connections as a websocket for the
+// debug-log API.
+//
 // Args for the HTTP request are as follows:
 //   includeEntity -> []string - lists entity tags to include in the response
 //      - tags may finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2
@@ -46,7 +70,7 @@ type debugLogHandler struct {
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
-			socket := &debugLogSocket{conn}
+			socket := &debugLogSocketImpl{conn}
 			defer socket.Close()
 
 			logger.Infof("debug log handler starting")
@@ -70,26 +94,39 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			if err := h.handle(params, socket); err != nil {
+			if err := h.handle(stateWrapper.state, params, socket, h.stop); err != nil {
 				logger.Warningf("debug-log handler error: %v", err)
 			}
 		}}
 	server.ServeHTTP(w, req)
 }
 
-// debugLogSocket wraps a websocket.Conn and provides a few debug-log
-// specific helper methods.
-type debugLogSocket struct {
+// debugLogSocket describes the functionality required for the
+// debuglog handlers to send logs to the client.
+type debugLogSocket interface {
+	io.Writer
+
+	// sendOk sends a nil error response, indicating there were no errors.
+	sendOk() error
+
+	// sendError sends a JSON-encoded error response.
+	sendError(err error) error
+}
+
+// debugLogSocketImpl implements the debugLogSocket interface. It
+// wraps a websocket.Conn and provides a few debug-log specific helper
+// methods.
+type debugLogSocketImpl struct {
 	*websocket.Conn
 }
 
-// sendOk sends a nil error response, indicating there were no errors.
-func (s *debugLogSocket) sendOk() error {
+// sendOK implements debugLogSocket.
+func (s *debugLogSocketImpl) sendOk() error {
 	return s.sendError(nil)
 }
 
-// sendError sends a JSON-encoded error response.
-func (s *debugLogSocket) sendError(err error) error {
+// sendErr implements debugLogSocket.
+func (s *debugLogSocketImpl) sendError(err error) error {
 	response := &params.ErrorResult{}
 	if err != nil {
 		response.Error = &params.Error{Message: fmt.Sprint(err)}
@@ -105,14 +142,15 @@ func (s *debugLogSocket) sendError(err error) error {
 	return err
 }
 
+// debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
 	maxLines      uint
 	fromTheStart  bool
 	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
-	includeModule []string
 	excludeEntity []string
+	includeModule []string
 	excludeModule []string
 }
 
@@ -154,8 +192,8 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	}
 
 	params.includeEntity = queryMap["includeEntity"]
-	params.includeModule = queryMap["includeModule"]
 	params.excludeEntity = queryMap["excludeEntity"]
+	params.includeModule = queryMap["includeModule"]
 	params.excludeModule = queryMap["excludeModule"]
 
 	return params, nil

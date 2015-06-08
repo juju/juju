@@ -34,7 +34,12 @@ type debugLogFileHandler struct {
 	logDir string
 }
 
-func (h *debugLogFileHandler) handle(params *debugLogParams, socket *debugLogSocket) error {
+func (h *debugLogFileHandler) handle(
+	_ state.LoggingState,
+	params *debugLogParams,
+	socket debugLogSocket,
+	stop <-chan struct{},
+) error {
 	stream := newLogFileStream(params)
 
 	// Open log file.

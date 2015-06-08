@@ -147,8 +147,8 @@ type LogTailerParams struct {
 }
 
 // This is the maximum number of log document ids that will be tracked
-// to avoid re-reporting messages when moving querying the logs
-// collection and tailing the oplog.
+// to avoid re-reporting logs when transitioning between querying the
+// logs collection and tailing the oplog.
 const maxRecentLogIds = 5192
 
 // NewLogTailer returns a LogTailer which filters according to the

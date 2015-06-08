@@ -6,72 +6,27 @@ package apiserver_test
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 )
 
 type debugLogFileSuite struct {
-	userAuthHttpSuite
+	debugLogBaseSuite
 	logFile *os.File
 	last    int
 }
 
 var _ = gc.Suite(&debugLogFileSuite{})
 
-func (s *debugLogFileSuite) TestWithHTTP(c *gc.C) {
-	uri := s.logURL(c, "http", nil).String()
-	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
-	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
-}
-
-func (s *debugLogFileSuite) TestWithHTTPS(c *gc.C) {
-	uri := s.logURL(c, "https", nil).String()
-	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-}
-
-func (s *debugLogFileSuite) TestNoAuth(c *gc.C) {
-	conn := s.dialWebsocketInternal(c, nil, nil)
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
-
-	assertJSONError(c, reader, "auth failed: invalid request format")
-	s.assertWebsocketClosed(c, reader)
-}
-
-func (s *debugLogFileSuite) TestAgentLoginsRejected(c *gc.C) {
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "foo-nonce",
-	})
-	header := utils.BasicAuthHeader(m.Tag().String(), password)
-	header.Add("X-Juju-Nonce", "foo-nonce")
-	conn := s.dialWebsocketInternal(c, nil, header)
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
-
-	assertJSONError(c, reader, "auth failed: invalid entity name or password")
-	s.assertWebsocketClosed(c, reader)
-}
-
 func (s *debugLogFileSuite) TestNoLogfile(c *gc.C) {
 	reader := s.openWebsocket(c, nil)
 	assertJSONError(c, reader, "cannot open log file: .*: "+utils.NoSuchFileErrRegexp)
-	s.assertWebsocketClosed(c, reader)
-}
-
-func (s *debugLogFileSuite) TestBadParams(c *gc.C) {
-	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
-	assertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -327,21 +282,6 @@ func (s *debugLogFileSuite) readLogLines(c *gc.C, reader *bufio.Reader, count in
 	return linesRead
 }
 
-func (s *debugLogFileSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
-	conn := s.dialWebsocket(c, values)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return bufio.NewReader(conn)
-}
-
-func (s *debugLogFileSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
-	server := s.logURL(c, "wss", nil)
-	server.Path = path
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	conn := s.dialWebsocketFromURL(c, server.String(), header)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return bufio.NewReader(conn)
-}
-
 func (s *debugLogFileSuite) ensureLogFile(c *gc.C) {
 	if s.logFile != nil {
 		return
@@ -363,20 +303,6 @@ func (s *debugLogFileSuite) writeLogLines(c *gc.C, count int) {
 		s.logFile.WriteString(logLines[s.last] + "\n")
 		s.last++
 	}
-}
-
-func (s *debugLogFileSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) *websocket.Conn {
-	server := s.logURL(c, "wss", queryParams).String()
-	return s.dialWebsocketFromURL(c, server, header)
-}
-
-func (s *debugLogFileSuite) dialWebsocket(c *gc.C, queryParams url.Values) *websocket.Conn {
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	return s.dialWebsocketInternal(c, queryParams, header)
-}
-
-func (s *debugLogFileSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
-	return s.makeURL(c, scheme, "/log", queryParams)
 }
 
 func (s *debugLogFileSuite) assertLogFollowing(c *gc.C, reader *bufio.Reader) {
