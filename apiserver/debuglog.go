@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
@@ -69,12 +70,16 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.Close()
 				return
 			}
-			stream, err := newLogStream(req.URL.Query())
+
+			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				h.sendError(socket, err)
 				socket.Close()
 				return
 			}
+
+			stream := newLogStream(params)
+
 			// Open log file.
 			logLocation := filepath.Join(h.logDir, "all-machines.log")
 			logFile, err := os.Open(logLocation)
@@ -114,56 +119,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server.ServeHTTP(w, req)
 }
 
-func newLogStream(queryMap url.Values) (*logStream, error) {
-	maxLines := uint(0)
-	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("maxLines value %q is not a valid unsigned number", value)
-		}
-		maxLines = uint(num)
-	}
-
-	fromTheStart := false
-	if value := queryMap.Get("replay"); value != "" {
-		replay, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, fmt.Errorf("replay value %q is not a valid boolean", value)
-		}
-		fromTheStart = replay
-	}
-
-	backlog := uint(0)
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("backlog value %q is not a valid unsigned number", value)
-		}
-		backlog = uint(num)
-	}
-
-	level := loggo.UNSPECIFIED
-	if value := queryMap.Get("level"); value != "" {
-		var ok bool
-		level, ok = loggo.ParseLevel(value)
-		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
-				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
-		}
-	}
-
-	return &logStream{
-		includeEntity: queryMap["includeEntity"],
-		includeModule: queryMap["includeModule"],
-		excludeEntity: queryMap["excludeEntity"],
-		excludeModule: queryMap["excludeModule"],
-		maxLines:      maxLines,
-		fromTheStart:  fromTheStart,
-		backlog:       backlog,
-		filterLevel:   level,
-	}, nil
-}
-
 // sendError sends a JSON-encoded error response.
 func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	response := &params.ErrorResult{}
@@ -179,6 +134,68 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
 	return err
+}
+
+type debugLogParams struct {
+	maxLines      uint
+	fromTheStart  bool
+	backlog       uint
+	filterLevel   loggo.Level
+	includeEntity []string
+	includeModule []string
+	excludeEntity []string
+	excludeModule []string
+}
+
+func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
+	params := new(debugLogParams)
+
+	if value := queryMap.Get("maxLines"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+		}
+		params.maxLines = uint(num)
+	}
+
+	if value := queryMap.Get("replay"); value != "" {
+		replay, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
+		}
+		params.fromTheStart = replay
+	}
+
+	if value := queryMap.Get("backlog"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+		}
+		params.backlog = uint(num)
+	}
+
+	if value := queryMap.Get("level"); value != "" {
+		var ok bool
+		level, ok := loggo.ParseLevel(value)
+		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+		}
+		params.filterLevel = level
+	}
+
+	params.includeEntity = queryMap["includeEntity"]
+	params.includeModule = queryMap["includeModule"]
+	params.excludeEntity = queryMap["excludeEntity"]
+	params.excludeModule = queryMap["excludeModule"]
+
+	return params, nil
+}
+
+func newLogStream(params *debugLogParams) *logStream {
+	return &logStream{
+		debugLogParams: params,
+	}
 }
 
 type logLine struct {
@@ -241,17 +258,10 @@ func parseLogLine(line string) *logLine {
 // logStream runs the tailer to read a log file and stream
 // it via a web socket.
 type logStream struct {
-	tomb          tomb.Tomb
-	logTailer     *tailer.Tailer
-	filterLevel   loggo.Level
-	includeEntity []string
-	includeModule []string
-	excludeEntity []string
-	excludeModule []string
-	backlog       uint
-	maxLines      uint
-	lineCount     uint
-	fromTheStart  bool
+	*debugLogParams
+	tomb      tomb.Tomb
+	logTailer *tailer.Tailer
+	lineCount uint
 }
 
 // positionLogFile will update the internal read position of the logFile to be
