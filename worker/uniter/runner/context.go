@@ -25,10 +25,12 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 
+// ComponentFunc is a factory function for Context components.
 type ComponentFunc func() jujuc.ContextComponent
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
+// Add the named component factory func to the registry.
 func RegisterComponentFunc(name string, f ComponentFunc) error {
 	if _, ok := registeredComponentFuncs[name]; ok {
 		return errors.AlreadyExistsf("%s", name)
