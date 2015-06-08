@@ -1067,7 +1067,9 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 }
 
 // setAddresses updates the machine's addresses (either Addresses or
-// MachineAddresses, depending on the field argument).
+// MachineAddresses, depending on the field argument). Changes are
+// only predicated on the machine not being Dead; concurrent address
+// changes are ignored.
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
 	var addressesToSet []network.Address
 	if !m.IsContainer() {
@@ -1119,16 +1121,16 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		if m.doc.Life == Dead {
 			return nil, ErrDead
 		}
-		op := txn.Op{
+		if addressesEqual(addressesToSet, networkAddresses(*field)) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		changed = true
+		return []txn.Op{{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
-		}
-		if !addressesEqual(addressesToSet, networkAddresses(*field)) {
-			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
-			changed = true
-		}
-		return []txn.Op{op}, nil
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+		}}, nil
 	}
 	switch err := m.st.run(buildTxn); err {
 	case nil:
@@ -1137,10 +1139,9 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	default:
 		return err
 	}
-	if !changed {
-		return nil
+	if changed {
+		*field = stateAddresses
 	}
-	*field = stateAddresses
 	return nil
 }
 

@@ -2078,10 +2078,10 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	err = machine.SetProviderAddresses(addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Doc should not have been updated, but Machine object's view should be.
+	// Doc will be updated; concurrent changes are explicitly ignored.
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno2, gc.Equals, revno1)
+	c.Assert(revno2, gc.Not(gc.Equals), revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
