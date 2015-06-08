@@ -387,6 +387,14 @@ func NewHistoricalStatusDoc(s StatusDoc, key string) *historicalStatusDoc {
 	return newHistoricalStatusDoc(sdoc, key)
 }
 
+func ValidateUnitAgentDocDocSet(status Status, info string) error {
+	doc, err := newUnitAgentStatusDoc(status, info, nil)
+	if err != nil {
+		return err
+	}
+	return doc.validateSet()
+}
+
 var StatusHistory = statusHistory
 var UpdateStatusHistory = updateStatusHistory
 

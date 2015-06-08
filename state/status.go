@@ -121,6 +121,16 @@ const (
 	StatusActive Status = "active"
 )
 
+const (
+	// StorageReadyMessage is the message set to the agent status when all storage
+	// attachments are properly done.
+	StorageReadyMessage = "storage ready"
+
+	// PreparingStorageMessage is the message set to the agent status before trying
+	// to attach storages.
+	PreparingStorageMessage = "preparing storage"
+)
+
 type statusNotFoundError struct {
 	error
 }
@@ -433,9 +443,13 @@ func (doc *unitAgentStatusDoc) validateSet() error {
 	}
 	switch doc.Status {
 	// For safety; no code will use these deprecated values.
-	case StatusPending, StatusDown, StatusStarted, StatusStopped:
+	case StatusPending, StatusStarted, StatusStopped:
 		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
 	case StatusAllocating, StatusLost:
+		isStorageMessage := doc.StatusInfo == PreparingStorageMessage || doc.StatusInfo == StorageReadyMessage
+		if doc.Status == StatusAllocating && isStorageMessage {
+			return nil
+		}
 		return errors.Errorf("cannot set status %q", doc.Status)
 	case StatusError:
 		if doc.StatusInfo == "" {

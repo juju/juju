@@ -856,3 +856,13 @@ const (
 	// been asked to offer.
 	StatusActive Status = "active"
 )
+
+const (
+	// StorageReadyMessage is the message set to the agent status when all storage
+	// attachments are properly done.
+	StorageReadyMessage = "storage ready"
+
+	// PreparingStorageMessage is the message set to the agent status before trying
+	// to attach storages.
+	PreparingStorageMessage = "preparing storage"
+)
