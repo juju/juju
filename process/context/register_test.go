@@ -24,6 +24,9 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
 	registerCmd := context.NewRegisterCommand(s.Ctx.Context)
+	s.Stub.CheckCallNames(c, "Component")
+	s.Stub.Calls = nil
+
 	s.cmdName = "register" + jujuc.CmdSuffix
 	s.cmd = registerCmd
 	s.registerCmd = registerCmd
@@ -163,5 +166,5 @@ func (s *registerSuite) TestRun(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	// TODO(ericsnow) Check the underlying calls here (s.Stub.CheckCallNames).
+	s.Stub.CheckCallNames(c, "Set")
 }
