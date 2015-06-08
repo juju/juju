@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/process/context"
 	coretesting "github.com/juju/juju/testing"
+	//"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
@@ -47,9 +48,13 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 }
 
 func (s *commandSuite) checkCommandRegistered(c *gc.C) {
-	// TODO(ericsnow) finish!
-	panic("not finished")
-	jujuc.NewCommand(s.Hctx, s.cmdName)
+	component := &context.Context{}
+	s.Hctx.ContextComponents.Info.SetComponent("process", component)
+
+	cmd, err := jujuc.NewCommand(s.Hctx, s.cmdName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cmd, gc.NotNil)
 }
 
 func (s *commandSuite) checkHelp(c *gc.C, expected string) {
