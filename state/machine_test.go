@@ -2072,7 +2072,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		revno1, err = state.TxnRevno(s.State, "machines", machineDocID)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(revno1, gc.Equals, revno0+1)
+		c.Assert(revno1, jc.GreaterThan, revno0)
 	}).Check()
 
 	err = machine.SetProviderAddresses(addr0, addr1)
@@ -2081,7 +2081,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	// Doc will be updated; concurrent changes are explicitly ignored.
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno2, gc.Not(gc.Equals), revno1)
+	c.Assert(revno2, jc.GreaterThan, revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
@@ -2109,7 +2109,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	revno1, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno1, gc.Not(gc.Equals), revno0)
+	c.Assert(revno1, jc.GreaterThan, revno0)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
 	c.Assert(machine2.Addresses(), jc.SameContents, []network.Address{addr1})
 
@@ -2117,7 +2117,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno2, gc.Not(gc.Equals), revno1)
+	c.Assert(revno2, jc.GreaterThan, revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
 }
 
