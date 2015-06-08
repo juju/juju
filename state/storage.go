@@ -302,6 +302,7 @@ func createStorageOps(
 	charmMeta *charm.Meta,
 	curl *charm.URL,
 	cons map[string]StorageConstraints,
+	machineOpsNeeded bool,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
@@ -381,6 +382,19 @@ func createStorageOps(
 				Assert: txn.DocMissing,
 				Insert: doc,
 			})
+			if machineOpsNeeded {
+				machineOps, err := unitAssignedMachineStorageOps(
+					st, entity, charmMeta, cons,
+					&storageInstance{st, *doc},
+				)
+				if err == nil {
+					ops = append(ops, machineOps...)
+				} else if !errors.IsNotAssigned(err) {
+					return nil, -1, errors.Annotatef(
+						err, "creating machine storage for storage %s", id,
+					)
+				}
+			}
 		}
 	}
 
@@ -392,6 +406,46 @@ func createStorageOps(
 	// is when units are added to said service.
 
 	return ops, numStorageAttachments, nil
+}
+
+// unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
+// and their attachments to the machine that the specified unit is assigned to,
+// corresponding to the specified storage instance.
+func unitAssignedMachineStorageOps(
+	st *State,
+	entity names.Tag,
+	charmMeta *charm.Meta,
+	cons map[string]StorageConstraints,
+	storage StorageInstance,
+) (ops []txn.Op, err error) {
+	tag, ok := entity.(names.UnitTag)
+	if !ok {
+		return nil, errors.NotSupportedf("dynamic creation of shared storage")
+	}
+	storageParams, err := machineStorageParamsForStorageInstance(
+		st, charmMeta, tag, cons, storage,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	u, err := st.Unit(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	m, err := u.machine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps, err := st.machineStorageOps(&m.doc, storageParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storageOps, nil
 }
 
 // createStorageAttachmentOps returns a txn.Op for creating a storage attachment.
@@ -1008,7 +1062,7 @@ func (st *State) addStorageForUnit(
 		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
-		return errors.Annotate(err, "while creating storage")
+		return errors.Annotatef(err, "adding storage to unit %s", u)
 	}
 	return nil
 }
@@ -1045,7 +1099,9 @@ func (st *State) constructAddUnitStorageOps(
 		u.Tag(),
 		ch.Meta(),
 		ch.URL(),
-		map[string]StorageConstraints{name: cons})
+		map[string]StorageConstraints{name: cons},
+		true, // create machine storage
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
