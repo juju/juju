@@ -124,10 +124,10 @@ func discoverLocalInitSystem() (string, error) {
 
 const discoverInitSystemScript = `
 # Use guaranteed discovery mechanisms for known init systems.
-if [[ -d /run/systemd/system ]]; then
+if [ -d /run/systemd/system ]; then
     echo -n systemd
     exit 0
-elif [[ -f /sbin/initctl ]] && /sbin/initctl --system list 2>&1 > /dev/null; then
+elif [ -f /sbin/initctl ] && /sbin/initctl --system list 2>&1 > /dev/null; then
     echo -n upstart
     exit 0
 fi

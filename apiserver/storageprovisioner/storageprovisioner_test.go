@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -87,6 +89,12 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
 			{Volume: state.VolumeParams{Pool: "environscoped", Size: 4096}},
+			{
+				Volume: state.VolumeParams{Pool: "environscoped", Size: 4096},
+				Attachment: state.VolumeAttachmentParams{
+					ReadOnly: true,
+				},
+			},
 		},
 	})
 	// Only provision the first and third volumes.
@@ -125,7 +133,10 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 		InstanceId: instance.Id("inst-id"),
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
-			Attachment: state.FilesystemAttachmentParams{Location: "/srv"},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "/srv",
+				ReadOnly: true,
+			},
 		}, {
 			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
 		}, {
@@ -171,7 +182,15 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
-			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", HardwareId: "123", Size: 1024, Persistent: true}},
+			{Result: params.Volume{
+				VolumeTag: "volume-0-0",
+				Info: params.VolumeInfo{
+					VolumeId:   "abc",
+					HardwareId: "123",
+					Size:       1024,
+					Persistent: true,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -195,7 +214,14 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 		Results: []params.VolumeResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`volume "1"`))},
-			{Result: params.Volume{VolumeTag: "volume-2", VolumeId: "def", HardwareId: "456", Size: 4096}},
+			{Result: params.Volume{
+				VolumeTag: "volume-2",
+				Info: params.VolumeInfo{
+					VolumeId:   "def",
+					HardwareId: "456",
+					Size:       4096,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -224,7 +250,13 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 		Results: []params.FilesystemResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
-			{Result: params.Filesystem{FilesystemTag: "filesystem-2", FilesystemId: "def", Size: 4096}},
+			{Result: params.Filesystem{
+				FilesystemTag: "filesystem-2",
+				Info: params.FilesystemInfo{
+					FilesystemId: "def",
+					Size:         4096,
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -257,7 +289,11 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.VolumeAttachmentResults{
 		Results: []params.VolumeAttachmentResult{
 			{Result: params.VolumeAttachment{
-				VolumeTag: "volume-0-0", MachineTag: "machine-0", DeviceName: "xvdf1",
+				VolumeTag:  "volume-0-0",
+				MachineTag: "machine-0",
+				Info: params.VolumeAttachmentInfo{
+					DeviceName: "xvdf1",
+				},
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -275,7 +311,10 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	err := s.State.SetFilesystemAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewFilesystemTag("0/0"),
-		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/srv",
+			ReadOnly:   true,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -297,7 +336,10 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 			{Result: params.FilesystemAttachment{
 				FilesystemTag: "filesystem-0-0",
 				MachineTag:    "machine-0",
-				MountPoint:    "/srv",
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "/srv",
+					ReadOnly:   true,
+				},
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -311,7 +353,12 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(params.Entities{
-		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
+		Entities: []params.Entity{
+			{"volume-0-0"},
+			{"volume-1"},
+			{"volume-3"},
+			{"volume-42"},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.VolumeParamsResults{
@@ -321,11 +368,29 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				VolumeTag: "volume-1",
 				Size:      2048,
 				Provider:  "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
 					VolumeTag:  "volume-1",
 					Provider:   "environscoped",
 					InstanceId: "inst-id",
+				},
+			}},
+			{Result: params.VolumeParams{
+				VolumeTag: "volume-3",
+				Size:      4096,
+				Provider:  "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+				Attachment: &params.VolumeAttachmentParams{
+					MachineTag: "machine-0",
+					VolumeTag:  "volume-3",
+					Provider:   "environscoped",
+					InstanceId: "inst-id",
+					ReadOnly:   true,
 				},
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
@@ -352,6 +417,9 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				FilesystemTag: "filesystem-1",
 				Size:          2048,
 				Provider:      "environscoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -370,8 +438,11 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-1",
 		}, {
-			MachineTag:    "machine-2",
+			MachineTag:    "machine-0",
 			AttachmentTag: "volume-3",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-4",
 		}, {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-42",
@@ -392,9 +463,17 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				InstanceId: "inst-id",
 				Provider:   "environscoped",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `machine 2 not provisioned`,
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-0",
+				VolumeTag:  "volume-3",
+				InstanceId: "inst-id",
+				Provider:   "environscoped",
+				ReadOnly:   true,
+			}},
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-2",
+				VolumeTag:  "volume-4",
+				Provider:   "environscoped",
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -429,6 +508,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				InstanceId:    "inst-id",
 				Provider:      "machinescoped",
 				MountPoint:    "/srv",
+				ReadOnly:      true,
 			}},
 			{Result: params.FilesystemAttachmentParams{
 				MachineTag:    "machine-0",
@@ -436,9 +516,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				InstanceId:    "inst-id",
 				Provider:      "environscoped",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `machine 2 not provisioned`,
+			{Result: params.FilesystemAttachmentParams{
+				MachineTag:    "machine-2",
+				FilesystemTag: "filesystem-3",
+				Provider:      "environscoped",
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -453,19 +534,28 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 		VolumeAttachments: []params.VolumeAttachment{{
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-0-0",
-			DeviceName: "sda",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sda",
+				ReadOnly:   true,
+			},
 		}, {
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-1",
-			DeviceName: "sdb",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdb",
+			},
 		}, {
 			MachineTag: "machine-2",
-			VolumeTag:  "volume-3",
-			DeviceName: "sdc",
+			VolumeTag:  "volume-4",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdc",
+			},
 		}, {
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-42",
-			DeviceName: "sdd",
+			Info: params.VolumeAttachmentInfo{
+				DeviceName: "sdd",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,19 +577,28 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 		FilesystemAttachments: []params.FilesystemAttachment{{
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-0-0",
-			MountPoint:    "/srv/a",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/a",
+				ReadOnly:   true,
+			},
 		}, {
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-1",
-			MountPoint:    "/srv/b",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/b",
+			},
 		}, {
 			MachineTag:    "machine-2",
 			FilesystemTag: "filesystem-3",
-			MountPoint:    "/srv/c",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/c",
+			},
 		}, {
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-42",
-			MountPoint:    "/srv/d",
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: "/srv/d",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,7 +630,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{"0/0"}},
-			{StringsWatcherId: "2", Changes: []string{"1", "2", "3"}},
+			{StringsWatcherId: "2", Changes: []string{"1", "2", "3", "4"}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -582,6 +681,9 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}, {
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-2",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-3",
 				}},
 			},
 			{
@@ -593,8 +695,11 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-2",
 				}, {
-					MachineTag:    "machine-2",
+					MachineTag:    "machine-0",
 					AttachmentTag: "volume-3",
+				}, {
+					MachineTag:    "machine-2",
+					AttachmentTag: "volume-4",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -843,7 +948,7 @@ func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 			AttachmentTag: "volume-1",
 		}, {
 			MachineTag:    "machine-2",
-			AttachmentTag: "volume-3",
+			AttachmentTag: "volume-4",
 		}, {
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-42",

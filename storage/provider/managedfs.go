@@ -89,8 +89,10 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 	return storage.Filesystem{
 		arg.Tag,
 		arg.Volume,
-		arg.Tag.String(),
-		blockDevice.Size,
+		storage.FilesystemInfo{
+			arg.Tag.String(),
+			blockDevice.Size,
+		},
 	}, nil
 }
 
@@ -124,13 +126,16 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
 	devicePath := s.devicePath(blockDevice)
-	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path); err != nil {
+	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path, arg.ReadOnly); err != nil {
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
 	return storage.FilesystemAttachment{
 		arg.Filesystem,
 		arg.Machine,
-		arg.Path,
+		storage.FilesystemAttachmentInfo{
+			arg.Path,
+			arg.ReadOnly,
+		},
 	}, nil
 }
 
@@ -151,13 +156,18 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoint string) error {
+func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoint string, readOnly bool) error {
 	logger.Debugf("attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
 	// TODO(axw) check if the mount already exists, and do nothing if so.
-	_, err := run("mount", devicePath, mountPoint)
+	var args []string
+	if readOnly {
+		args = append(args, "-o", "ro")
+	}
+	args = append(args, devicePath, mountPoint)
+	_, err := run("mount", args...)
 	if err != nil {
 		return errors.Annotate(err, "mount failed")
 	}

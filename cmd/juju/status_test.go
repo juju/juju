@@ -566,7 +566,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"exposed-service/0": M{
@@ -576,11 +576,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -594,7 +594,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "terminated",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -602,11 +602,11 @@ var statusTests = []testCase{
 								"agent-state": "stopped",
 								"workload-status": M{
 									"current": "terminated",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -665,7 +665,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"exposed-service/0": M{
@@ -675,11 +675,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -693,7 +693,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "terminated",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -702,11 +702,11 @@ var statusTests = []testCase{
 								"life":        "dying",
 								"workload-status": M{
 									"current": "terminated",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -730,7 +730,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "terminated",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -739,11 +739,11 @@ var statusTests = []testCase{
 								"agent-state": "stopped",
 								"workload-status": M{
 									"current": "terminated",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -767,7 +767,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"exposed-service/0": M{
@@ -777,11 +777,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -807,7 +807,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "terminated",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -816,11 +816,11 @@ var statusTests = []testCase{
 								"agent-state": "stopped",
 								"workload-status": M{
 									"current": "terminated",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -844,7 +844,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"exposed-service/0": M{
@@ -854,11 +854,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -885,7 +885,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "terminated",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -894,11 +894,11 @@ var statusTests = []testCase{
 								"agent-state": "stopped",
 								"workload-status": M{
 									"current": "terminated",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -910,7 +910,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"exposed-service/0": M{
@@ -920,11 +920,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -980,7 +980,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "hook failed: some-relation-changed",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"wordpress/0": M{
@@ -990,11 +990,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "hook failed: some-relation-changed for mysql:server",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1009,7 +1009,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1018,11 +1018,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1075,7 +1075,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "error",
 							"message": "hook failed: some-relation-changed",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"wordpress/0": M{
@@ -1085,11 +1085,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "error",
 									"message": "hook failed: some-relation-changed for mysql:server",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1104,7 +1104,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1113,11 +1113,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1151,7 +1151,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -1160,11 +1160,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 							},
 						},
@@ -1200,7 +1200,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"dummy-service/0": M{
@@ -1209,12 +1209,12 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "agent is lost, sorry! See 'juju status-history dummy-service/0'",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "lost",
 									"message": "agent is not communicating with the server",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 							},
 						},
@@ -1292,7 +1292,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"project/0": M{
@@ -1300,11 +1300,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1319,7 +1319,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1327,11 +1327,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-2.dns",
 							},
@@ -1346,7 +1346,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"varnish/0": M{
@@ -1355,11 +1355,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-3.dns",
 							},
@@ -1374,7 +1374,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"private/0": M{
@@ -1383,11 +1383,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-4.dns",
 							},
@@ -1448,7 +1448,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"riak/0": M{
@@ -1456,11 +1456,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1469,11 +1469,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-2.dns",
 							},
@@ -1482,11 +1482,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-3.dns",
 							},
@@ -1561,7 +1561,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"wordpress/0": M{
@@ -1569,22 +1569,22 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-status": M{
 											"current": "idle",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "dummyenv-1.dns",
 									},
@@ -1602,7 +1602,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1610,11 +1610,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"subordinates": M{
 									"logging/1": M{
@@ -1623,11 +1623,11 @@ var statusTests = []testCase{
 										"workload-status": M{
 											"current": "error",
 											"message": "somehow lost in all those logs",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-status": M{
 											"current": "idle",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "dummyenv-2.dns",
 									},
@@ -1670,7 +1670,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"wordpress/0": M{
@@ -1678,22 +1678,22 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-status": M{
 											"current": "idle",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "dummyenv-1.dns",
 									},
@@ -1711,7 +1711,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1719,11 +1719,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"subordinates": M{
 									"logging/1": M{
@@ -1731,11 +1731,11 @@ var statusTests = []testCase{
 										"workload-status": M{
 											"current": "error",
 											"message": "somehow lost in all those logs",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-status": M{
 											"current": "idle",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-state-info": "somehow lost in all those logs",
 										"public-address":   "dummyenv-2.dns",
@@ -1778,7 +1778,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"wordpress/0": M{
@@ -1786,22 +1786,22 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"agent-status": M{
 											"current": "idle",
-											"since":   "01 Apr 15 01:23 AEST",
+											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "dummyenv-1.dns",
 									},
@@ -1876,7 +1876,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1884,11 +1884,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -1897,11 +1897,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-2.dns",
 							},
@@ -1940,7 +1940,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/1": M{
@@ -1948,11 +1948,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-2.dns",
 							},
@@ -1993,7 +1993,7 @@ var statusTests = []testCase{
 						"service-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -2002,11 +2002,11 @@ var statusTests = []testCase{
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "allocating",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "dummyenv-1.dns",
 							},
@@ -2047,7 +2047,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -2055,11 +2055,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
 								"public-address": "dummyenv-1.dns",
@@ -2103,7 +2103,7 @@ var statusTests = []testCase{
 						"exposed":        true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -2111,11 +2111,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
 								"public-address": "dummyenv-1.dns",
@@ -2158,7 +2158,7 @@ var statusTests = []testCase{
 						"exposed": true,
 						"service-status": M{
 							"current": "active",
-							"since":   "01 Apr 15 01:23 AEST",
+							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -2166,11 +2166,11 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"workload-status": M{
 									"current": "active",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"agent-status": M{
 									"current": "idle",
-									"since":   "01 Apr 15 01:23 AEST",
+									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
 								"public-address": "dummyenv-1.dns",
@@ -2616,9 +2616,9 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 			if name != "timestamp" {
 				continue
 			}
-			timeFormat := "02 Jan 2006 15:04:05 MST"
+			timeFormat := "02 Jan 2006 15:04:05Z07:00"
 			if expectIsoTime {
-				timeFormat = "2006-01-02T15:04:05Z07:00"
+				timeFormat = "2006-01-02 15:04:05Z"
 			}
 			_, err := time.Parse(timeFormat, matches[i])
 			c.Assert(err, jc.ErrorIsNil)
@@ -2627,7 +2627,7 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 
 	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
-	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23 AEST", -1)
+	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23+10:00", -1)
 	return []byte(out)
 }
 
@@ -3523,7 +3523,7 @@ var statusTimeTest = test(
 					"service-status": M{
 						"current": "unknown",
 						"message": "Waiting for agent initialization to finish",
-						"since":   "01 Apr 15 01:23 AEST",
+						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"units": M{
 						"dummy-service/0": M{
@@ -3532,11 +3532,11 @@ var statusTimeTest = test(
 							"workload-status": M{
 								"current": "unknown",
 								"message": "Waiting for agent initialization to finish",
-								"since":   "01 Apr 15 01:23 AEST",
+								"since":   "01 Apr 15 01:23+10:00",
 							},
 							"agent-status": M{
 								"current": "allocating",
-								"since":   "01 Apr 15 01:23 AEST",
+								"since":   "01 Apr 15 01:23+10:00",
 							},
 							"public-address": "dummyenv-1.dns",
 						},

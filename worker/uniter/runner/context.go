@@ -24,6 +24,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
+var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -160,6 +161,12 @@ type HookContext struct {
 	// execution so that the uniter can ultimately decide if it needs to update
 	// a charm's workload status, or if the charm has already taken care of it.
 	hasRunStatusSet bool
+
+	// storageAddConstraints is a collection of storage constraints
+	// keyed on storage name as specified in the charm.
+	// This collection will be added to the unit on successful
+	// hook run, so the actual add will happen in a flush.
+	storageAddConstraints map[string][]params.StorageConstraints
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -209,6 +216,7 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+// UnitStatus will return the status for the current Unit.
 func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
@@ -225,10 +233,77 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
+// ServiceStatus returns the status for the service and all the units on
+// the service to which this context unit belongs, only if this unit is
+// the leader.
+func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	var err error
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return jujuc.ServiceStatusInfo{}, ErrIsNotLeader
+	}
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	status, err := service.Status(ctx.unit.Name())
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	us := make([]jujuc.StatusInfo, len(status.Units))
+	i := 0
+	for t, s := range status.Units {
+		us[i] = jujuc.StatusInfo{
+			Tag:    t,
+			Status: string(s.Status),
+			Info:   s.Info,
+			Data:   s.Data,
+		}
+		i++
+	}
+	return jujuc.ServiceStatusInfo{
+		Service: jujuc.StatusInfo{
+			Tag:    service.Tag().String(),
+			Status: string(status.Service.Status),
+			Info:   status.Service.Info,
+			Data:   status.Service.Data,
+		},
+		Units: us,
+	}, nil
+}
+
+// SetUnitStatus will set the given status for this unit.
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
+		params.Status(status.Status),
+		status.Info,
+		status.Data,
+	)
+}
+
+// SetServiceStatus will set the given status to the service to which this
+// unit's belong, only if this unit is the leader.
+func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
+	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
+
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return service.SetStatus(
+		ctx.unit.Name(),
 		params.Status(status.Status),
 		status.Info,
 		status.Data,
@@ -261,6 +336,21 @@ func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
 
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	return ctx.storage.Storage(tag)
+}
+
+func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
+	// All storage constraints are accumulated before context is flushed.
+	if ctx.storageAddConstraints == nil {
+		ctx.storageAddConstraints = make(
+			map[string][]params.StorageConstraints,
+			len(cons))
+	}
+	for storage, newConstraints := range cons {
+		// Multiple calls for the same storage are accumulated as well.
+		ctx.storageAddConstraints[storage] = append(
+			ctx.storageAddConstraints[storage],
+			newConstraints)
+	}
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -538,6 +628,18 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		}
 	}
 
+	// add storage to unit dynamically
+	if len(ctx.storageAddConstraints) > 0 && writeChanges {
+		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot add storage")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
+
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
@@ -593,6 +695,7 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
+
 	return ctxErr
 }
 

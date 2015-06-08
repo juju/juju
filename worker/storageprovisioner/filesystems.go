@@ -362,6 +362,9 @@ func processAliveFilesystemAttachments(
 		if err != nil {
 			return errors.Annotate(err, "getting filesystem attachment parameters")
 		}
+		if params.InstanceId == "" {
+			watchMachine(ctx, params.Machine)
+		}
 		ctx.pendingFilesystemAttachments[pending[i]] = params
 	}
 	return nil
@@ -392,7 +395,6 @@ func processPendingFilesystemAttachments(ctx *context) error {
 				continue
 			}
 		}
-		// TODO(axw) watch machines in storageprovisioner
 		if params.InstanceId == "" {
 			logger.Debugf("machine %v has not been provisioned yet", params.Machine.Id())
 			continue
@@ -558,8 +560,10 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 		paramsFilesystem := params.Filesystem{
 			f.Tag.String(),
 			"",
-			f.FilesystemId,
-			f.Size,
+			params.FilesystemInfo{
+				f.FilesystemId,
+				f.Size,
+			},
 		}
 		if f.Volume != (names.VolumeTag{}) {
 			paramsFilesystem.VolumeTag = f.Volume.String()
@@ -575,7 +579,10 @@ func filesystemAttachmentsFromStorage(in []storage.FilesystemAttachment) []param
 		out[i] = params.FilesystemAttachment{
 			f.Filesystem.String(),
 			f.Machine.String(),
-			f.Path,
+			params.FilesystemAttachmentInfo{
+				f.Path,
+				f.ReadOnly,
+			},
 		}
 	}
 	return out
@@ -596,8 +603,10 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 	return storage.Filesystem{
 		filesystemTag,
 		volumeTag,
-		in.FilesystemId,
-		in.Size,
+		storage.FilesystemInfo{
+			in.Info.FilesystemId,
+			in.Info.Size,
+		},
 	}, nil
 }
 
@@ -613,7 +622,10 @@ func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.Fil
 	return storage.FilesystemAttachment{
 		filesystemTag,
 		machineTag,
-		in.MountPoint,
+		storage.FilesystemAttachmentInfo{
+			in.Info.MountPoint,
+			in.Info.ReadOnly,
+		},
 	}, nil
 }
 
@@ -636,6 +648,7 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 		in.Size,
 		providerType,
 		in.Attributes,
+		in.Tags,
 	}, nil
 }
 
@@ -653,6 +666,7 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 			Provider:   storage.ProviderType(in.Provider),
 			Machine:    machineTag,
 			InstanceId: instance.Id(in.InstanceId),
+			ReadOnly:   in.ReadOnly,
 		},
 		Filesystem: filesystemTag,
 		Path:       in.MountPoint,

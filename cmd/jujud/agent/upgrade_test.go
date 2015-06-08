@@ -522,6 +522,22 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 	waitForUpgradeToFinish(c, machine0Conf)
 
+	// Only user and local logins are allowed even after upgrade steps because
+	// agent upgrade not finished yet.
+	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
+
+	machineAPI := s.OpenAPIAsMachine(c, machine.Tag(), initialMachinePassword, agent.BootstrapNonce)
+	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(machineAPI.Upgrader(), machine0Conf))
+	// Wait for agent upgrade worker to determine that no
+	// agent upgrades are required.
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for upgrade check")
+	}
+
 	// All logins are allowed after upgrade
 	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)

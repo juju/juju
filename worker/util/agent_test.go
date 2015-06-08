@@ -65,7 +65,7 @@ func (s *AgentManifoldSuite) TestStartFailure(c *gc.C) {
 	getResource := dt.StubGetResource(dt.StubResources{
 		"agent-name": dt.StubResource{Output: expectAgent},
 	})
-	s.Errors = []error{errors.New("some error")}
+	s.SetErrors(errors.New("some error"))
 
 	worker, err := s.manifold.Start(getResource)
 	c.Check(worker, gc.IsNil)

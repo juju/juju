@@ -311,3 +311,88 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	}
 	return s.st.RemoveStorageAttachment(storageTag, unitTag)
 }
+
+// AddUnitStorage validates and creates additional storage instances for units.
+// Failures on an individual storage instance do not block remaining
+// instances from being processed.
+func (a *StorageAPI) AddUnitStorage(
+	args params.StoragesAddParams,
+) (params.ErrorResults, error) {
+	canAccess, err := a.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if len(args.Storages) == 0 {
+		return params.ErrorResults{}, nil
+	}
+
+	serverErr := func(err error) params.ErrorResult {
+		return params.ErrorResult{common.ServerError(err)}
+	}
+
+	storageErr := func(err error, s, u string) params.ErrorResult {
+		return serverErr(errors.Annotatef(err, "adding storage %v for %v", s, u))
+	}
+
+	result := make([]params.ErrorResult, len(args.Storages))
+	for i, one := range args.Storages {
+		u, err := accessUnitTag(one.UnitTag, canAccess)
+		if err != nil {
+			result[i] = serverErr(err)
+			continue
+		}
+
+		cons, err := a.st.UnitStorageConstraints(u)
+		if err != nil {
+			result[i] = serverErr(err)
+			continue
+		}
+
+		oneCons, err := validConstraints(one, cons)
+		if err != nil {
+			result[i] = storageErr(err, one.StorageName, one.UnitTag)
+			continue
+		}
+
+		err = a.st.AddStorageForUnit(u, one.StorageName, oneCons)
+		if err != nil {
+			result[i] = storageErr(err, one.StorageName, one.UnitTag)
+		}
+	}
+	return params.ErrorResults{Results: result}, nil
+}
+
+func validConstraints(
+	p params.StorageAddParams,
+	cons map[string]state.StorageConstraints,
+) (state.StorageConstraints, error) {
+	emptyCons := state.StorageConstraints{}
+
+	result, ok := cons[p.StorageName]
+	if !ok {
+		return emptyCons, errors.NotFoundf("storage %q", p.StorageName)
+	}
+
+	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
+	if p.Constraints != onlyCount {
+		return emptyCons, errors.New("only count can be specified")
+	}
+
+	if p.Constraints.Count == nil || *p.Constraints.Count == 0 {
+		return emptyCons, errors.New("count must be specified")
+	}
+
+	result.Count = *p.Constraints.Count
+	return result, nil
+}
+
+func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, error) {
+	u, err := names.ParseUnitTag(tag)
+	if err != nil {
+		return names.UnitTag{}, errors.Annotatef(err, "parsing unit tag %v", tag)
+	}
+	if !canAccess(u) {
+		return names.UnitTag{}, common.ErrPerm
+	}
+	return u, nil
+}

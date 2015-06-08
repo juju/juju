@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -767,7 +768,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	endPoint, err := c.localCharmUploadEndpoint(curl.Series)
+	endPoint, err := c.apiEndpoint("charms", "series="+curl.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -814,30 +815,36 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
 
-func (c *Client) localCharmUploadEndpoint(series string) (string, error) {
-	var apiEndpoint string
+func (c *Client) apiEndpoint(destination, query string) (string, error) {
+	root, err := c.apiRoot()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	upURL := url.URL{
+		Scheme:   c.st.serverScheme,
+		Host:     c.st.Addr(),
+		Path:     path.Join(root, destination),
+		RawQuery: query,
+	}
+	return upURL.String(), nil
+}
+
+func (c *Client) apiRoot() (string, error) {
+	var apiRoot string
 	if _, err := c.st.ServerTag(); err == nil {
 		envTag, err := c.st.EnvironTag()
 		if err != nil {
 			return "", errors.Annotate(err, "cannot get API endpoint address")
 		}
 
-		apiEndpoint = fmt.Sprintf("/environment/%s/charms", envTag.Id())
+		apiRoot = fmt.Sprintf("/environment/%s/", envTag.Id())
 	} else {
 		// If the server tag is not set, then the agent version is < 1.23. We
 		// use the old API endpoint for backwards compatibility.
-		apiEndpoint = "/charms"
+		apiRoot = "/"
 	}
-
-	// Prepare the upload request.
-	upURL := url.URL{
-		Scheme:   c.st.serverScheme,
-		Host:     c.st.Addr(),
-		Path:     apiEndpoint,
-		RawQuery: fmt.Sprintf("series=%s", series),
-	}
-
-	return upURL.String(), nil
+	return apiRoot, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
@@ -893,16 +900,17 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
-	url := fmt.Sprintf(
-		// TODO(waigani) This is going to be a problem in the future where we
-		// want to upload tools for a particular environment. The upload root
-		// will need to be something like: <serverRoot>/environment/<UUID/tools
-		"%s/tools?binaryVersion=%s&series=%s",
-		c.st.serverRoot(),
+	query := fmt.Sprintf("binaryVersion=%s&series=%s",
 		vers,
 		strings.Join(additionalSeries, ","),
 	)
-	req, err := http.NewRequest("POST", url, r)
+
+	endPoint, err := c.apiEndpoint("tools", query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	req, err := http.NewRequest("POST", endPoint, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -921,7 +929,7 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 	// the tag and password) passed in api.Open()'s info argument.
 	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload charm")
+		return nil, errors.Annotate(err, "cannot upload tools")
 	}
 	defer resp.Body.Close()
 

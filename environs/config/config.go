@@ -16,11 +16,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
@@ -154,6 +156,10 @@ const (
 
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// ResourceTagsKey is an optional list or space-separated string
+	// of k=v pairs, defining the tags for ResourceTags.
+	ResourceTagsKey = "resource-tags"
 
 	// For LXC containers, is the container allowed to mount block
 	// devices. A theoretical security issue, so must be explicitly
@@ -599,6 +605,11 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	// Ensure the resource tags have the expected k=v format.
+	if _, err := cfg.resourceTags(); err != nil {
+		return errors.Annotate(err, "validating resource tags")
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -646,10 +657,12 @@ func isEmpty(val interface{}) bool {
 	case int:
 		// TODO(rog) fix this to return false when
 		// we can lose backward compatibility.
-		// https://bugs.github.com/juju/juju/+bug/1224492
+		// https://bugs.launchpad.net/juju-core/+bug/1224492
 		return val == 0
 	case string:
 		return val == ""
+	case []interface{}:
+		return len(val) == 0
 	}
 	panic(fmt.Errorf("unexpected type %T in configuration", val))
 }
@@ -1146,6 +1159,43 @@ func (c *Config) AllowLXCLoopMounts() (bool, bool) {
 	return v, ok
 }
 
+// ResourceTags returns a set of tags to set on environment resources
+// that Juju creates and manages, if the provider supports them. These
+// tags have no special meaning to Juju, but may be used for existing
+// chargeback accounting schemes or other identification purposes.
+func (c *Config) ResourceTags() (map[string]string, bool) {
+	tags, err := c.resourceTags()
+	if err != nil {
+		panic(err) // should be prevented by Validate
+	}
+	return tags, tags != nil
+}
+
+func (c *Config) resourceTags() (map[string]string, error) {
+	var fields []string
+	switch v := c.defined[ResourceTagsKey].(type) {
+	case string:
+		fields = strings.Fields(v)
+	case []interface{}:
+		fields = make([]string, len(v))
+		for i, f := range v {
+			fields[i] = f.(string)
+		}
+	default:
+		return nil, nil
+	}
+	result, err := keyvalues.Parse(fields, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k := range result {
+		if strings.HasPrefix(k, tags.JujuTagPrefix) {
+			return nil, errors.Errorf("tag %q uses reserved prefix %q", k, tags.JujuTagPrefix)
+		}
+	}
+	return result, nil
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1238,6 +1288,7 @@ var fields = schema.Fields{
 	PreventAllChangesKey:         schema.Bool(),
 	StorageDefaultBlockSourceKey: schema.String(),
 	AllowLXCLoopMounts:           schema.Bool(),
+	ResourceTagsKey:              schema.OneOf(schema.String(), schema.List(schema.String())),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1282,6 +1333,7 @@ var alwaysOptional = schema.Defaults{
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
+	ResourceTagsKey:              schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.

@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 )
 
@@ -74,6 +75,24 @@ func AuthNever() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return false
+		}, nil
+	}
+}
+
+// AuthFuncForTagKind returns a GetAuthFunc which creates an AuthFunc
+// allowing only the given tag kind and denies all others. Passing an
+// empty kind is an error.
+func AuthFuncForTagKind(kind string) GetAuthFunc {
+	return func() (AuthFunc, error) {
+		if kind == "" {
+			return nil, errors.Errorf("tag kind cannot be empty")
+		}
+		return func(tag names.Tag) bool {
+			// Allow only the given tag kind.
+			if tag == nil {
+				return false
+			}
+			return tag.Kind() == kind
 		}, nil
 	}
 }

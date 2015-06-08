@@ -34,7 +34,8 @@ func (s *TxnPrunerSuite) TestPrunes(c *gc.C) {
 				// Check that pruning runs at the expected interval
 				// (but not the first time around as we don't know
 				// when the worker actually started).
-				c.Assert(t1.Sub(t0), jc.GreaterThan, interval)
+				td := t1.Sub(t0)
+				c.Assert(td >= interval, jc.IsTrue, gc.Commentf("td=%s", td))
 			}
 			t0 = t1
 		case <-time.After(testing.LongWait):
