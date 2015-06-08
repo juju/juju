@@ -142,6 +142,9 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
+	if b, ok := arg.Attributes[storage.Persistent]; ok && !b.(bool) {
+		return storage.Volume{}, errors.New("cannot create a non-persistent Cinder volume")
+	}
 	var metadata interface{}
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
