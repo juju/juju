@@ -49,6 +49,8 @@ type debugLogHandler struct {
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
+			defer socket.Close()
+
 			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
@@ -56,25 +58,22 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			stateWrapper, err := h.validateEnvironUUID(req)
 			if err != nil {
 				h.sendError(socket, err)
-				socket.Close()
 				return
 			}
 			defer stateWrapper.cleanup()
 			if err := stateWrapper.authenticateUser(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
-				socket.Close()
 				return
 			}
 
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				h.sendError(socket, err)
-				socket.Close()
 				return
 			}
 
 			if err := h.handle(params, socket); err != nil {
-				logger.Errorf("debug-log handler error: %v", err)
+				logger.Warningf("debug-log handler error: %v", err)
 			}
 		}}
 	server.ServeHTTP(w, req)
@@ -110,20 +109,17 @@ func (h *debugLogHandler) handle(params *debugLogParams, socket *websocket.Conn)
 	logFile, err := os.Open(logLocation)
 	if err != nil {
 		h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
-		socket.Close()
 		return err
 	}
 	defer logFile.Close()
 
 	if err := stream.positionLogFile(logFile); err != nil {
 		h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
-		socket.Close()
 		return err
 	}
 
 	// If we get to here, no more errors to report.
 	if err := h.sendOk(socket); err != nil {
-		socket.Close()
 		return err
 	}
 
