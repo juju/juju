@@ -1,0 +1,3 @@
+#!/bin/bash
+
+go run actions/actions.go unit-size
