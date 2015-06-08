@@ -53,12 +53,12 @@ func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
 }
 
 func checkLevel(logValue, streamValue loggo.Level) bool {
-	stream := &logStream{}
-	if streamValue != loggo.UNSPECIFIED {
-		stream.filterLevel = streamValue
-	}
 	line := &logLine{level: logValue}
-	return stream.checkLevel(line)
+	params := debugLogParams{}
+	if streamValue != loggo.UNSPECIFIED {
+		params.filterLevel = streamValue
+	}
+	return newLogStream(&params).checkLevel(line)
 }
 
 func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
@@ -88,7 +88,9 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 }
 
 func checkIncludeEntity(logValue string, agent ...string) bool {
-	stream := &logStream{includeEntity: agent}
+	stream := newLogStream(&debugLogParams{
+		includeEntity: agent,
+	})
 	line := &logLine{agentTag: logValue}
 	return stream.checkIncludeEntity(line)
 }
@@ -104,7 +106,9 @@ func (s *debugInternalSuite) TestCheckIncludeEntity(c *gc.C) {
 }
 
 func checkIncludeModule(logValue string, module ...string) bool {
-	stream := &logStream{includeModule: module}
+	stream := newLogStream(&debugLogParams{
+		includeModule: module,
+	})
 	line := &logLine{module: logValue}
 	return stream.checkIncludeModule(line)
 }
@@ -120,7 +124,9 @@ func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
 }
 
 func checkExcludeEntity(logValue string, agent ...string) bool {
-	stream := &logStream{excludeEntity: agent}
+	stream := newLogStream(&debugLogParams{
+		excludeEntity: agent,
+	})
 	line := &logLine{agentTag: logValue}
 	return stream.exclude(line)
 }
@@ -136,7 +142,9 @@ func (s *debugInternalSuite) TestCheckExcludeEntity(c *gc.C) {
 }
 
 func checkExcludeModule(logValue string, module ...string) bool {
-	stream := &logStream{excludeModule: module}
+	stream := newLogStream(&debugLogParams{
+		excludeModule: module,
+	})
 	line := &logLine{module: logValue}
 	return stream.exclude(line)
 }
@@ -152,13 +160,13 @@ func (s *debugInternalSuite) TestCheckExcludeModule(c *gc.C) {
 }
 
 func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
-	stream := &logStream{
+	stream := newLogStream(&debugLogParams{
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"machine-0", "unit-mysql*"},
 		includeModule: []string{"juju"},
 		excludeEntity: []string{"unit-mysql-2"},
 		excludeModule: []string{"juju.foo"},
-	}
+	})
 	c.Check(stream.filterLine([]byte(
 		"machine-0: date time WARNING juju")), jc.IsTrue)
 	c.Check(stream.filterLine([]byte(
@@ -178,10 +186,10 @@ func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 }
 
 func (s *debugInternalSuite) TestCountedFilterLineWithLimit(c *gc.C) {
-	stream := &logStream{
+	stream := newLogStream(&debugLogParams{
 		filterLevel: loggo.INFO,
 		maxLines:    5,
-	}
+	})
 	line := []byte("machine-0: date time WARNING juju")
 	c.Check(stream.countedFilterLine(line), jc.IsTrue)
 	c.Check(stream.countedFilterLine(line), jc.IsTrue)
@@ -217,22 +225,18 @@ func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, back
 line 2
 line 3
 `)
-	stream := &logStream{
+
+	stream := newLogStream(&debugLogParams{
 		fromTheStart: fromTheStart,
 		backlog:      backlog,
 		maxLines:     maxLines,
-	}
+	})
 	err = stream.positionLogFile(logFileReader)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	writer := &chanWriter{make(chan []byte)}
 	stream.start(logFileReader, writer)
-	defer stream.logTailer.Wait()
-
-	go func() {
-		defer stream.tomb.Done()
-		stream.tomb.Kill(stream.loop())
-	}()
+	defer stream.logTailer.Stop()
 
 	logFile.WriteString("line 4\n")
 	logFile.WriteString("line 5\n")
@@ -249,7 +253,7 @@ line 3
 
 	stream.logTailer.Stop()
 
-	err = stream.tomb.Wait()
+	err = stream.wait()
 	if errMatch == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -272,7 +276,7 @@ func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
 line 2
 line 3
 `
-	s.testStreamInternal(c, true, 0, 3, expected, "max lines reached")
+	s.testStreamInternal(c, true, 0, 3, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
@@ -286,7 +290,7 @@ func (s *debugInternalSuite) TestLogStreamLoopBackOneLimitTwo(c *gc.C) {
 	expected := `line 3
 line 4
 `
-	s.testStreamInternal(c, false, 1, 2, expected, "max lines reached")
+	s.testStreamInternal(c, false, 1, 2, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
@@ -308,11 +312,7 @@ func assertStreamParams(c *gc.C, obtained, expected *logStream) {
 }
 
 func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
-	obtained, err := newLogStream(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStreamParams(c, obtained, &logStream{})
-
-	values := url.Values{
+	params, err := readDebugLogParams(url.Values{
 		"includeEntity": []string{"machine-1*", "machine-2"},
 		"includeModule": []string{"juju", "unit"},
 		"excludeEntity": []string{"machine-1-lxc*"},
@@ -322,31 +322,35 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 		"level":         []string{"INFO"},
 		// OK, just a little nonsense
 		"replay": []string{"true"},
-	}
-	expected := &logStream{
-		includeEntity: []string{"machine-1*", "machine-2"},
-		includeModule: []string{"juju", "unit"},
-		excludeEntity: []string{"machine-1-lxc*"},
-		excludeModule: []string{"juju.provisioner"},
-		maxLines:      300,
-		backlog:       100,
-		filterLevel:   loggo.INFO,
-		fromTheStart:  true,
-	}
-	obtained, err = newLogStream(values)
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertStreamParams(c, obtained, expected)
 
-	_, err = newLogStream(url.Values{"maxLines": []string{"foo"}})
+	assertStreamParams(c, newLogStream(params), &logStream{
+		debugLogParams: &debugLogParams{
+			includeEntity: []string{"machine-1*", "machine-2"},
+			includeModule: []string{"juju", "unit"},
+			excludeEntity: []string{"machine-1-lxc*"},
+			excludeModule: []string{"juju.provisioner"},
+			maxLines:      300,
+			backlog:       100,
+			filterLevel:   loggo.INFO,
+			fromTheStart:  true,
+		},
+	})
+}
+
+func (s *debugInternalSuite) TestParamErrors(c *gc.C) {
+
+	_, err := readDebugLogParams(url.Values{"maxLines": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `maxLines value "foo" is not a valid unsigned number`)
 
-	_, err = newLogStream(url.Values{"backlog": []string{"foo"}})
+	_, err = readDebugLogParams(url.Values{"backlog": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `backlog value "foo" is not a valid unsigned number`)
 
-	_, err = newLogStream(url.Values{"replay": []string{"foo"}})
+	_, err = readDebugLogParams(url.Values{"replay": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `replay value "foo" is not a valid boolean`)
 
-	_, err = newLogStream(url.Values{"level": []string{"foo"}})
+	_, err = readDebugLogParams(url.Values{"level": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `level value "foo" is not one of "TRACE", "DEBUG", "INFO", "WARNING", "ERROR"`)
 }
 

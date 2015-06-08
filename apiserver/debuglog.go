@@ -15,11 +15,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
 	"golang.org/x/net/websocket"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -29,8 +29,6 @@ type debugLogHandler struct {
 	httpHandler
 	logDir string
 }
-
-var maxLinesReached = fmt.Errorf("max lines reached")
 
 // ServeHTTP will serve up connections as a websocket.
 // Args for the HTTP request are as follows:
@@ -51,6 +49,8 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
+			defer socket.Close()
+
 			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
@@ -58,110 +58,30 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			stateWrapper, err := h.validateEnvironUUID(req)
 			if err != nil {
 				h.sendError(socket, err)
-				socket.Close()
 				return
 			}
 			defer stateWrapper.cleanup()
-			// TODO (thumper): We need to work out how we are going to filter
-			// logging information based on environment.
 			if err := stateWrapper.authenticateUser(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
-				socket.Close()
 				return
 			}
-			stream, err := newLogStream(req.URL.Query())
+
+			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				h.sendError(socket, err)
-				socket.Close()
-				return
-			}
-			// Open log file.
-			logLocation := filepath.Join(h.logDir, "all-machines.log")
-			logFile, err := os.Open(logLocation)
-			if err != nil {
-				h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
-				socket.Close()
-				return
-			}
-			defer logFile.Close()
-			if err := stream.positionLogFile(logFile); err != nil {
-				h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
-				socket.Close()
 				return
 			}
 
-			// If we get to here, no more errors to report, so we report a nil
-			// error.  This way the first line of the socket is always a json
-			// formatted simple error.
-			if err := h.sendError(socket, nil); err != nil {
-				logger.Errorf("could not send good log stream start")
-				socket.Close()
-				return
-			}
-
-			stream.start(logFile, socket)
-			go func() {
-				defer stream.tomb.Done()
-				defer socket.Close()
-				stream.tomb.Kill(stream.loop())
-			}()
-			if err := stream.tomb.Wait(); err != nil {
-				if err != maxLinesReached {
-					logger.Errorf("debug-log handler error: %v", err)
-				}
+			if err := h.handle(params, socket); err != nil {
+				logger.Warningf("debug-log handler error: %v", err)
 			}
 		}}
 	server.ServeHTTP(w, req)
 }
 
-func newLogStream(queryMap url.Values) (*logStream, error) {
-	maxLines := uint(0)
-	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("maxLines value %q is not a valid unsigned number", value)
-		}
-		maxLines = uint(num)
-	}
-
-	fromTheStart := false
-	if value := queryMap.Get("replay"); value != "" {
-		replay, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, fmt.Errorf("replay value %q is not a valid boolean", value)
-		}
-		fromTheStart = replay
-	}
-
-	backlog := uint(0)
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("backlog value %q is not a valid unsigned number", value)
-		}
-		backlog = uint(num)
-	}
-
-	level := loggo.UNSPECIFIED
-	if value := queryMap.Get("level"); value != "" {
-		var ok bool
-		level, ok = loggo.ParseLevel(value)
-		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
-				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
-		}
-	}
-
-	return &logStream{
-		includeEntity: queryMap["includeEntity"],
-		includeModule: queryMap["includeModule"],
-		excludeEntity: queryMap["excludeEntity"],
-		excludeModule: queryMap["excludeModule"],
-		maxLines:      maxLines,
-		fromTheStart:  fromTheStart,
-		backlog:       backlog,
-		filterLevel:   level,
-	}, nil
+// sendOk sends a nil error response, indicating there were no errors.
+func (h *debugLogHandler) sendOk(w io.Writer) error {
+	return h.sendError(w, nil)
 }
 
 // sendError sends a JSON-encoded error response.
@@ -179,6 +99,95 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
 	return err
+}
+
+func (h *debugLogHandler) handle(params *debugLogParams, socket *websocket.Conn) error {
+	stream := newLogStream(params)
+
+	// Open log file.
+	logLocation := filepath.Join(h.logDir, "all-machines.log")
+	logFile, err := os.Open(logLocation)
+	if err != nil {
+		h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
+		return err
+	}
+	defer logFile.Close()
+
+	if err := stream.positionLogFile(logFile); err != nil {
+		h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
+		return err
+	}
+
+	// If we get to here, no more errors to report.
+	if err := h.sendOk(socket); err != nil {
+		return err
+	}
+
+	stream.start(logFile, socket)
+	return stream.wait()
+}
+
+type debugLogParams struct {
+	maxLines      uint
+	fromTheStart  bool
+	backlog       uint
+	filterLevel   loggo.Level
+	includeEntity []string
+	includeModule []string
+	excludeEntity []string
+	excludeModule []string
+}
+
+func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
+	params := new(debugLogParams)
+
+	if value := queryMap.Get("maxLines"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+		}
+		params.maxLines = uint(num)
+	}
+
+	if value := queryMap.Get("replay"); value != "" {
+		replay, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
+		}
+		params.fromTheStart = replay
+	}
+
+	if value := queryMap.Get("backlog"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+		}
+		params.backlog = uint(num)
+	}
+
+	if value := queryMap.Get("level"); value != "" {
+		var ok bool
+		level, ok := loggo.ParseLevel(value)
+		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+		}
+		params.filterLevel = level
+	}
+
+	params.includeEntity = queryMap["includeEntity"]
+	params.includeModule = queryMap["includeModule"]
+	params.excludeEntity = queryMap["excludeEntity"]
+	params.excludeModule = queryMap["excludeModule"]
+
+	return params, nil
+}
+
+func newLogStream(params *debugLogParams) *logStream {
+	return &logStream{
+		debugLogParams:  params,
+		maxLinesReached: make(chan bool),
+	}
 }
 
 type logLine struct {
@@ -241,17 +250,10 @@ func parseLogLine(line string) *logLine {
 // logStream runs the tailer to read a log file and stream
 // it via a web socket.
 type logStream struct {
-	tomb          tomb.Tomb
-	logTailer     *tailer.Tailer
-	filterLevel   loggo.Level
-	includeEntity []string
-	includeModule []string
-	excludeEntity []string
-	excludeModule []string
-	backlog       uint
-	maxLines      uint
-	lineCount     uint
-	fromTheStart  bool
+	*debugLogParams
+	logTailer       *tailer.Tailer
+	lineCount       uint
+	maxLinesReached chan bool
 }
 
 // positionLogFile will update the internal read position of the logFile to be
@@ -270,12 +272,13 @@ func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
 	stream.logTailer = tailer.NewTailer(logFile, writer, stream.countedFilterLine)
 }
 
-// loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop() error {
+// wait blocks until the logTailer is done or the maximum line count
+// has been reached.
+func (stream *logStream) wait() error {
 	select {
 	case <-stream.logTailer.Dead():
 		return stream.logTailer.Err()
-	case <-stream.tomb.Dying():
+	case <-stream.maxLinesReached:
 		stream.logTailer.Stop()
 	}
 	return nil
@@ -299,7 +302,7 @@ func (stream *logStream) countedFilterLine(line []byte) bool {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
 		if stream.lineCount == stream.maxLines {
-			stream.tomb.Kill(maxLinesReached)
+			close(stream.maxLinesReached)
 		}
 	}
 	return result
