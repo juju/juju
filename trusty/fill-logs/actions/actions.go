@@ -18,8 +18,8 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) < 2 {
-		return fmt.Errorf("no action name specified")
+	if len(args) != 2 {
+		return fmt.Errorf("expected exactly one argument, the action name")
 	}
 	switch args[1] {
 	case "fill-unit":
@@ -33,7 +33,6 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown action: %q", args[1])
 	}
-	return nil
 }
 
 func fillUnit() error {
