@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import logging
+import subprocess
 
 from jujupy import (
     EnvJujuClient,
@@ -48,6 +49,8 @@ class MonkeyRunner:
     def unleash_once(self):
         status = self.client.get_status()
         for unit_name, unit in status.service_subordinate_units(self.service):
+            if not unit_name.startswith('chaos-monkey'):
+                continue
             logging.info('Starting the chaos monkey on: {}'.format(unit_name))
             action_out = self.client.get_juju_output(
                 'action do', unit_name, 'start', 'mode=single')
@@ -57,6 +60,23 @@ class MonkeyRunner:
                         action_out))
             logging.info(action_out)
             self.monkey_ids.append(action_out.split().pop())
+
+    def is_healthy(self):
+        """Returns a boolean after running the health_checker."""
+        try:
+            sub_output = subprocess.check_output(self.health_checker)
+            logging.info(sub_output)
+        except OSError as e:
+            logging.error(
+                'The health check script failed to execute with: {}'.format(
+                    e))
+            raise
+        except subprocess.CalledProcessError as e:
+            logging.error('Non-zero exit code returned from {}: {}'.format(
+                self.health_checker, e))
+            logging.error(e.output)
+            return False
+        return True
 
 
 def get_args(argv=None):
@@ -71,6 +91,11 @@ def get_args(argv=None):
 
 
 def main():
+    """ Deploy and run chaos monkey, while checking env health.
+
+    The Chaos Monkey is deployed into the environment and related to
+    the specified service. Juju actions are then used to run one choas
+    operation at a time. Once the operchaos monkey"""
     configure_logging(logging.DEBUG)
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)
