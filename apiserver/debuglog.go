@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
 	"golang.org/x/net/websocket"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -30,8 +29,6 @@ type debugLogHandler struct {
 	httpHandler
 	logDir string
 }
-
-var maxLinesReached = fmt.Errorf("max lines reached")
 
 // ServeHTTP will serve up connections as a websocket.
 // Args for the HTTP request are as follows:
@@ -63,8 +60,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			defer stateWrapper.cleanup()
-			// TODO (thumper): We need to work out how we are going to filter
-			// logging information based on environment.
 			if err := stateWrapper.authenticateUser(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
 				socket.Close()
@@ -78,45 +73,16 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			stream := newLogStream(params)
-
-			// Open log file.
-			logLocation := filepath.Join(h.logDir, "all-machines.log")
-			logFile, err := os.Open(logLocation)
-			if err != nil {
-				h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
-				socket.Close()
-				return
-			}
-			defer logFile.Close()
-			if err := stream.positionLogFile(logFile); err != nil {
-				h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
-				socket.Close()
-				return
-			}
-
-			// If we get to here, no more errors to report, so we report a nil
-			// error.  This way the first line of the socket is always a json
-			// formatted simple error.
-			if err := h.sendError(socket, nil); err != nil {
-				logger.Errorf("could not send good log stream start")
-				socket.Close()
-				return
-			}
-
-			stream.start(logFile, socket)
-			go func() {
-				defer stream.tomb.Done()
-				defer socket.Close()
-				stream.tomb.Kill(stream.loop())
-			}()
-			if err := stream.tomb.Wait(); err != nil {
-				if err != maxLinesReached {
-					logger.Errorf("debug-log handler error: %v", err)
-				}
+			if err := h.handle(params, socket); err != nil {
+				logger.Errorf("debug-log handler error: %v", err)
 			}
 		}}
 	server.ServeHTTP(w, req)
+}
+
+// sendOk sends a nil error response, indicating there were no errors.
+func (h *debugLogHandler) sendOk(w io.Writer) error {
+	return h.sendError(w, nil)
 }
 
 // sendError sends a JSON-encoded error response.
@@ -134,6 +100,35 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
 	return err
+}
+
+func (h *debugLogHandler) handle(params *debugLogParams, socket *websocket.Conn) error {
+	stream := newLogStream(params)
+
+	// Open log file.
+	logLocation := filepath.Join(h.logDir, "all-machines.log")
+	logFile, err := os.Open(logLocation)
+	if err != nil {
+		h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
+		socket.Close()
+		return err
+	}
+	defer logFile.Close()
+
+	if err := stream.positionLogFile(logFile); err != nil {
+		h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
+		socket.Close()
+		return err
+	}
+
+	// If we get to here, no more errors to report.
+	if err := h.sendOk(socket); err != nil {
+		socket.Close()
+		return err
+	}
+
+	stream.start(logFile, socket)
+	return stream.wait()
 }
 
 type debugLogParams struct {
@@ -194,7 +189,8 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 
 func newLogStream(params *debugLogParams) *logStream {
 	return &logStream{
-		debugLogParams: params,
+		debugLogParams:  params,
+		maxLinesReached: make(chan bool),
 	}
 }
 
@@ -259,9 +255,9 @@ func parseLogLine(line string) *logLine {
 // it via a web socket.
 type logStream struct {
 	*debugLogParams
-	tomb      tomb.Tomb
-	logTailer *tailer.Tailer
-	lineCount uint
+	logTailer       *tailer.Tailer
+	lineCount       uint
+	maxLinesReached chan bool
 }
 
 // positionLogFile will update the internal read position of the logFile to be
@@ -280,12 +276,13 @@ func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
 	stream.logTailer = tailer.NewTailer(logFile, writer, stream.countedFilterLine)
 }
 
-// loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop() error {
+// wait blocks until the logTailer is done or the maximum line count
+// has been reached.
+func (stream *logStream) wait() error {
 	select {
 	case <-stream.logTailer.Dead():
 		return stream.logTailer.Err()
-	case <-stream.tomb.Dying():
+	case <-stream.maxLinesReached:
 		stream.logTailer.Stop()
 	}
 	return nil
@@ -309,7 +306,7 @@ func (stream *logStream) countedFilterLine(line []byte) bool {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
 		if stream.lineCount == stream.maxLines {
-			stream.tomb.Kill(maxLinesReached)
+			close(stream.maxLinesReached)
 		}
 	}
 	return result

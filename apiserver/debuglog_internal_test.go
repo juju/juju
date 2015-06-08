@@ -236,12 +236,7 @@ line 3
 	var output bytes.Buffer
 	writer := &chanWriter{make(chan []byte)}
 	stream.start(logFileReader, writer)
-	defer stream.logTailer.Wait()
-
-	go func() {
-		defer stream.tomb.Done()
-		stream.tomb.Kill(stream.loop())
-	}()
+	defer stream.logTailer.Stop()
 
 	logFile.WriteString("line 4\n")
 	logFile.WriteString("line 5\n")
@@ -258,7 +253,7 @@ line 3
 
 	stream.logTailer.Stop()
 
-	err = stream.tomb.Wait()
+	err = stream.wait()
 	if errMatch == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -281,7 +276,7 @@ func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
 line 2
 line 3
 `
-	s.testStreamInternal(c, true, 0, 3, expected, "max lines reached")
+	s.testStreamInternal(c, true, 0, 3, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
@@ -295,7 +290,7 @@ func (s *debugInternalSuite) TestLogStreamLoopBackOneLimitTwo(c *gc.C) {
 	expected := `line 3
 line 4
 `
-	s.testStreamInternal(c, false, 1, 2, expected, "max lines reached")
+	s.testStreamInternal(c, false, 1, 2, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
