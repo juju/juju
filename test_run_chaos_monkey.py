@@ -222,4 +222,4 @@ class TestRunChaosMonkey(TestCase):
             os.unlink(health_script.name)
         self.assertRegexpMatches(
             le_mock.call_args[0][0],
-            'The health check script failed to execute with: \[Errno 13\].*')
+            r'The health check script failed to execute with: \[Errno 13\].*')
