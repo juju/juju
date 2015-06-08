@@ -2085,6 +2085,42 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
+func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+	machineDocID := state.DocID(s.State, machine.Id())
+
+	addr0 := network.NewAddress("127.0.0.1")
+	addr1 := network.NewAddress("8.8.8.8")
+
+	// Set addresses to [addr0] initially. We'll get a separate Machine
+	// object to update addresses, to ensure that the in-memory cache of
+	// addresses does not prevent the initial Machine from updating
+	// addresses back to the original value.
+	err = machine.SetProviderAddresses(addr0)
+	c.Assert(err, jc.ErrorIsNil)
+	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine2, err := s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine2.SetProviderAddresses(addr1)
+	c.Assert(err, jc.ErrorIsNil)
+	revno1, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno1, gc.Not(gc.Equals), revno0)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
+	c.Assert(machine2.Addresses(), jc.SameContents, []network.Address{addr1})
+
+	err = machine.SetProviderAddresses(addr0)
+	c.Assert(err, jc.ErrorIsNil)
+	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno2, gc.Not(gc.Equals), revno1)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
+}
+
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
