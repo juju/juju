@@ -38,3 +38,33 @@ func (s *infoSuite) TestValidateBadStatus(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, "bad status .*")
 }
+
+func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
+	info := process.NewInfo("a proc", "docker")
+	info.Status = process.StatusActive
+	isRegistered := info.IsRegistered()
+	c.Check(isRegistered, jc.IsTrue)
+
+	info = process.NewInfo("a proc", "docker")
+	info.Space = "a space"
+	isRegistered = info.IsRegistered()
+	c.Check(isRegistered, jc.IsTrue)
+
+	info = process.NewInfo("a proc", "docker")
+	info.EnvVars = map[string]string{"A": "1"}
+	isRegistered = info.IsRegistered()
+	c.Check(isRegistered, jc.IsTrue)
+
+	info = process.NewInfo("a proc", "docker")
+	info.Details.UniqueID = "abc123"
+	info.Details.Status = "running"
+	isRegistered = info.IsRegistered()
+	c.Check(isRegistered, jc.IsTrue)
+}
+
+func (s *infoSuite) TestIsRegisteredFalse(c *gc.C) {
+	info := process.NewInfo("a proc", "docker")
+	isRegistered := info.IsRegistered()
+
+	c.Check(isRegistered, jc.IsFalse)
+}

@@ -4,6 +4,8 @@
 package process
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
 )
@@ -47,4 +49,10 @@ func (info Info) Validate() error {
 	}
 
 	return nil
+}
+
+// IsRegistered indicates whether the represented process has been
+// registered already.
+func (info Info) IsRegistered() bool {
+	return !reflect.DeepEqual(info, Info{Process: info.Process})
 }
