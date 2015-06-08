@@ -12,9 +12,11 @@ import (
 )
 
 func init() {
-	runner.RegisterComponentFunc("process", func() jujuc.ContextComponent {
-		return NewContext()
-	})
+	runner.RegisterComponentFunc(process.ComponentName,
+		func() jujuc.ContextComponent {
+			return NewContext()
+		},
+	)
 }
 
 // Context is the workload process portion of the hook context.
