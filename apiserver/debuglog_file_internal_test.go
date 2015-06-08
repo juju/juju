@@ -19,13 +19,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type debugInternalSuite struct {
+type debugLogFileIntSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&debugInternalSuite{})
+var _ = gc.Suite(&debugLogFileIntSuite{})
 
-func (s *debugInternalSuite) TestParseLogLine(c *gc.C) {
+func (s *debugLogFileIntSuite) TestParseLogLine(c *gc.C) {
 	line := "machine-0: 2014-03-24 22:34:25 INFO juju.cmd.jujud machine.go:127 machine agent machine-0 start (1.17.7.1-trusty-amd64 [gc])"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
@@ -34,7 +34,7 @@ func (s *debugInternalSuite) TestParseLogLine(c *gc.C) {
 	c.Assert(logLine.module, gc.Equals, "juju.cmd.jujud")
 }
 
-func (s *debugInternalSuite) TestParseLogLineMachineMultiline(c *gc.C) {
+func (s *debugLogFileIntSuite) TestParseLogLineMachineMultiline(c *gc.C) {
 	line := "machine-1: continuation line"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
@@ -43,7 +43,7 @@ func (s *debugInternalSuite) TestParseLogLineMachineMultiline(c *gc.C) {
 	c.Assert(logLine.module, gc.Equals, "")
 }
 
-func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
+func (s *debugLogFileIntSuite) TestParseLogLineInvalid(c *gc.C) {
 	line := "not a full line"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
@@ -53,15 +53,15 @@ func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
 }
 
 func checkLevel(logValue, streamValue loggo.Level) bool {
-	line := &logLine{level: logValue}
+	line := &logFileLine{level: logValue}
 	params := debugLogParams{}
 	if streamValue != loggo.UNSPECIFIED {
 		params.filterLevel = streamValue
 	}
-	return newLogStream(&params).checkLevel(line)
+	return newLogFileStream(&params).checkLevel(line)
 }
 
-func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
+func (s *debugLogFileIntSuite) TestCheckLevel(c *gc.C) {
 	c.Check(checkLevel(loggo.UNSPECIFIED, loggo.UNSPECIFIED), jc.IsTrue)
 	c.Check(checkLevel(loggo.TRACE, loggo.UNSPECIFIED), jc.IsTrue)
 	c.Check(checkLevel(loggo.DEBUG, loggo.UNSPECIFIED), jc.IsTrue)
@@ -88,14 +88,14 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 }
 
 func checkIncludeEntity(logValue string, agent ...string) bool {
-	stream := newLogStream(&debugLogParams{
+	stream := newLogFileStream(&debugLogParams{
 		includeEntity: agent,
 	})
-	line := &logLine{agentTag: logValue}
+	line := &logFileLine{agentTag: logValue}
 	return stream.checkIncludeEntity(line)
 }
 
-func (s *debugInternalSuite) TestCheckIncludeEntity(c *gc.C) {
+func (s *debugLogFileIntSuite) TestCheckIncludeEntity(c *gc.C) {
 	c.Check(checkIncludeEntity("machine-0"), jc.IsTrue)
 	c.Check(checkIncludeEntity("machine-0", "machine-0"), jc.IsTrue)
 	c.Check(checkIncludeEntity("machine-1", "machine-0"), jc.IsFalse)
@@ -106,14 +106,14 @@ func (s *debugInternalSuite) TestCheckIncludeEntity(c *gc.C) {
 }
 
 func checkIncludeModule(logValue string, module ...string) bool {
-	stream := newLogStream(&debugLogParams{
+	stream := newLogFileStream(&debugLogParams{
 		includeModule: module,
 	})
-	line := &logLine{module: logValue}
+	line := &logFileLine{module: logValue}
 	return stream.checkIncludeModule(line)
 }
 
-func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
+func (s *debugLogFileIntSuite) TestCheckIncludeModule(c *gc.C) {
 	c.Check(checkIncludeModule("juju"), jc.IsTrue)
 	c.Check(checkIncludeModule("juju", "juju"), jc.IsTrue)
 	c.Check(checkIncludeModule("juju", "juju.environ"), jc.IsFalse)
@@ -124,14 +124,14 @@ func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
 }
 
 func checkExcludeEntity(logValue string, agent ...string) bool {
-	stream := newLogStream(&debugLogParams{
+	stream := newLogFileStream(&debugLogParams{
 		excludeEntity: agent,
 	})
-	line := &logLine{agentTag: logValue}
+	line := &logFileLine{agentTag: logValue}
 	return stream.exclude(line)
 }
 
-func (s *debugInternalSuite) TestCheckExcludeEntity(c *gc.C) {
+func (s *debugLogFileIntSuite) TestCheckExcludeEntity(c *gc.C) {
 	c.Check(checkExcludeEntity("machine-0"), jc.IsFalse)
 	c.Check(checkExcludeEntity("machine-0", "machine-0"), jc.IsTrue)
 	c.Check(checkExcludeEntity("machine-1", "machine-0"), jc.IsFalse)
@@ -142,14 +142,14 @@ func (s *debugInternalSuite) TestCheckExcludeEntity(c *gc.C) {
 }
 
 func checkExcludeModule(logValue string, module ...string) bool {
-	stream := newLogStream(&debugLogParams{
+	stream := newLogFileStream(&debugLogParams{
 		excludeModule: module,
 	})
-	line := &logLine{module: logValue}
+	line := &logFileLine{module: logValue}
 	return stream.exclude(line)
 }
 
-func (s *debugInternalSuite) TestCheckExcludeModule(c *gc.C) {
+func (s *debugLogFileIntSuite) TestCheckExcludeModule(c *gc.C) {
 	c.Check(checkExcludeModule("juju"), jc.IsFalse)
 	c.Check(checkExcludeModule("juju", "juju"), jc.IsTrue)
 	c.Check(checkExcludeModule("juju", "juju.environ"), jc.IsFalse)
@@ -159,8 +159,8 @@ func (s *debugInternalSuite) TestCheckExcludeModule(c *gc.C) {
 	c.Check(checkExcludeModule("unit.mysql/1", "juju", "unit"), jc.IsTrue)
 }
 
-func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
-	stream := newLogStream(&debugLogParams{
+func (s *debugLogFileIntSuite) TestFilterLine(c *gc.C) {
+	stream := newLogFileStream(&debugLogParams{
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"machine-0", "unit-mysql*"},
 		includeModule: []string{"juju"},
@@ -185,8 +185,8 @@ func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 		"machine-0: date time WARNING juju.foo.bar")), jc.IsFalse)
 }
 
-func (s *debugInternalSuite) TestCountedFilterLineWithLimit(c *gc.C) {
-	stream := newLogStream(&debugLogParams{
+func (s *debugLogFileIntSuite) TestCountedFilterLineWithLimit(c *gc.C) {
+	stream := newLogFileStream(&debugLogParams{
 		filterLevel: loggo.INFO,
 		maxLines:    5,
 	})
@@ -210,7 +210,7 @@ func (w *chanWriter) Write(buf []byte) (n int, err error) {
 	return len(buf), nil
 }
 
-func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, backlog, maxLines uint, expected, errMatch string) {
+func (s *debugLogFileIntSuite) testStreamInternal(c *gc.C, fromTheStart bool, backlog, maxLines uint, expected, errMatch string) {
 
 	dir := c.MkDir()
 	logPath := filepath.Join(dir, "logfile.txt")
@@ -226,7 +226,7 @@ line 2
 line 3
 `)
 
-	stream := newLogStream(&debugLogParams{
+	stream := newLogFileStream(&debugLogParams{
 		fromTheStart: fromTheStart,
 		backlog:      backlog,
 		maxLines:     maxLines,
@@ -261,7 +261,7 @@ line 3
 	}
 }
 
-func (s *debugInternalSuite) TestLogStreamLoopFromTheStart(c *gc.C) {
+func (s *debugLogFileIntSuite) TestLogStreamLoopFromTheStart(c *gc.C) {
 	expected := `line 1
 line 2
 line 3
@@ -271,7 +271,7 @@ line 5
 	s.testStreamInternal(c, true, 0, 0, expected, "")
 }
 
-func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
+func (s *debugLogFileIntSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
 	expected := `line 1
 line 2
 line 3
@@ -279,28 +279,28 @@ line 3
 	s.testStreamInternal(c, true, 0, 3, expected, "")
 }
 
-func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
+func (s *debugLogFileIntSuite) TestLogStreamLoopJustTail(c *gc.C) {
 	expected := `line 4
 line 5
 `
 	s.testStreamInternal(c, false, 0, 0, expected, "")
 }
 
-func (s *debugInternalSuite) TestLogStreamLoopBackOneLimitTwo(c *gc.C) {
+func (s *debugLogFileIntSuite) TestLogStreamLoopBackOneLimitTwo(c *gc.C) {
 	expected := `line 3
 line 4
 `
 	s.testStreamInternal(c, false, 1, 2, expected, "")
 }
 
-func (s *debugInternalSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
+func (s *debugLogFileIntSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
 	expected := `line 4
 line 5
 `
 	s.testStreamInternal(c, false, 0, 3, expected, "")
 }
 
-func assertStreamParams(c *gc.C, obtained, expected *logStream) {
+func assertStreamParams(c *gc.C, obtained, expected *logFileStream) {
 	c.Check(obtained.includeEntity, jc.DeepEquals, expected.includeEntity)
 	c.Check(obtained.includeModule, jc.DeepEquals, expected.includeModule)
 	c.Check(obtained.excludeEntity, jc.DeepEquals, expected.excludeEntity)
@@ -311,7 +311,7 @@ func assertStreamParams(c *gc.C, obtained, expected *logStream) {
 	c.Check(obtained.backlog, gc.Equals, expected.backlog)
 }
 
-func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
+func (s *debugLogFileIntSuite) TestNewLogStream(c *gc.C) {
 	params, err := readDebugLogParams(url.Values{
 		"includeEntity": []string{"machine-1*", "machine-2"},
 		"includeModule": []string{"juju", "unit"},
@@ -325,7 +325,7 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertStreamParams(c, newLogStream(params), &logStream{
+	assertStreamParams(c, newLogFileStream(params), &logFileStream{
 		debugLogParams: &debugLogParams{
 			includeEntity: []string{"machine-1*", "machine-2"},
 			includeModule: []string{"juju", "unit"},
@@ -339,7 +339,7 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	})
 }
 
-func (s *debugInternalSuite) TestParamErrors(c *gc.C) {
+func (s *debugLogFileIntSuite) TestParamErrors(c *gc.C) {
 
 	_, err := readDebugLogParams(url.Values{"maxLines": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `maxLines value "foo" is not a valid unsigned number`)
@@ -436,7 +436,7 @@ var agentMatchTests []agentMatchTest = []agentMatchTest{
 }
 
 // TestAgentMatchesFilter tests that line agent matches desired filter as expected
-func (s *debugInternalSuite) TestAgentMatchesFilter(c *gc.C) {
+func (s *debugLogFileIntSuite) TestAgentMatchesFilter(c *gc.C) {
 	for i, test := range agentMatchTests {
 		c.Logf("test %d: %v\n", i, test.about)
 		matched := AgentMatchesFilter(ParseLogLine(test.line), test.filter)
@@ -445,7 +445,7 @@ func (s *debugInternalSuite) TestAgentMatchesFilter(c *gc.C) {
 }
 
 // TestAgentLineFragmentParsing tests that agent tag and name are parsed correctly from log line
-func (s *debugInternalSuite) TestAgentLineFragmentParsing(c *gc.C) {
+func (s *debugLogFileIntSuite) TestAgentLineFragmentParsing(c *gc.C) {
 	checkAgentParsing(c, "Drop trailing colon", "machine-1: sdscsc", "machine-1", "1")
 	checkAgentParsing(c, "Drop unit specific [", "unit-ubuntu-1[blah777787]: scscdcdc", "unit-ubuntu-1", "ubuntu/1")
 	checkAgentParsing(c, "No colon in log line - invalid", "unit-ubuntu-1 scscdcdc", "", "")
