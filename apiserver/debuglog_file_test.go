@@ -19,28 +19,28 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type debugLogSuite struct {
+type debugLogFileSuite struct {
 	userAuthHttpSuite
 	logFile *os.File
 	last    int
 }
 
-var _ = gc.Suite(&debugLogSuite{})
+var _ = gc.Suite(&debugLogFileSuite{})
 
-func (s *debugLogSuite) TestWithHTTP(c *gc.C) {
+func (s *debugLogFileSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL(c, "http", nil).String()
 	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
-func (s *debugLogSuite) TestWithHTTPS(c *gc.C) {
+func (s *debugLogFileSuite) TestWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
 	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
 
-func (s *debugLogSuite) TestNoAuth(c *gc.C) {
+func (s *debugLogFileSuite) TestNoAuth(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, nil, nil)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
@@ -49,7 +49,7 @@ func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestAgentLoginsRejected(c *gc.C) {
+func (s *debugLogFileSuite) TestAgentLoginsRejected(c *gc.C) {
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "foo-nonce",
 	})
@@ -63,19 +63,19 @@ func (s *debugLogSuite) TestAgentLoginsRejected(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestNoLogfile(c *gc.C) {
+func (s *debugLogFileSuite) TestNoLogfile(c *gc.C) {
 	reader := s.openWebsocket(c, nil)
 	assertJSONError(c, reader, "cannot open log file: .*: "+utils.NoSuchFileErrRegexp)
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestBadParams(c *gc.C) {
+func (s *debugLogFileSuite) TestBadParams(c *gc.C) {
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
 	assertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) assertLogReader(c *gc.C, reader *bufio.Reader) {
+func (s *debugLogFileSuite) assertLogReader(c *gc.C, reader *bufio.Reader) {
 	s.assertLogFollowing(c, reader)
 	s.writeLogLines(c, logLineCount)
 
@@ -83,13 +83,13 @@ func (s *debugLogSuite) assertLogReader(c *gc.C, reader *bufio.Reader) {
 	c.Assert(linesRead, jc.DeepEquals, logLines)
 }
 
-func (s *debugLogSuite) TestServesLog(c *gc.C) {
+func (s *debugLogFileSuite) TestServesLog(c *gc.C) {
 	s.ensureLogFile(c)
 	reader := s.openWebsocket(c, nil)
 	s.assertLogReader(c, reader)
 }
 
-func (s *debugLogSuite) TestReadFromTopLevelPath(c *gc.C) {
+func (s *debugLogFileSuite) TestReadFromTopLevelPath(c *gc.C) {
 	// Backwards compatibility check, that we can read the log file at
 	// https://host:port/log
 	s.ensureLogFile(c)
@@ -97,7 +97,7 @@ func (s *debugLogSuite) TestReadFromTopLevelPath(c *gc.C) {
 	s.assertLogReader(c, reader)
 }
 
-func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
+func (s *debugLogFileSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 	// Check that we can read the log at https://host:port/ENVUUID/log
 	environ, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 	s.assertLogReader(c, reader)
 }
 
-func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *debugLogFileSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot pull logs from https://host:port/BADENVUUID/log
 	s.ensureLogFile(c)
 	reader := s.openWebsocketCustomPath(c, "/environment/dead-beef-123456/log")
@@ -114,7 +114,7 @@ func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
+func (s *debugLogFileSuite) TestReadsFromEnd(c *gc.C) {
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, nil)
@@ -125,7 +125,7 @@ func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
 	c.Assert(linesRead, jc.DeepEquals, logLines[10:])
 }
 
-func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
+func (s *debugLogFileSuite) TestReplayFromStart(c *gc.C) {
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"replay": {"true"}})
@@ -136,7 +136,7 @@ func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
 	c.Assert(linesRead, jc.DeepEquals, logLines)
 }
 
-func (s *debugLogSuite) TestBacklog(c *gc.C) {
+func (s *debugLogFileSuite) TestBacklog(c *gc.C) {
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}})
@@ -147,7 +147,7 @@ func (s *debugLogSuite) TestBacklog(c *gc.C) {
 	c.Assert(linesRead, jc.DeepEquals, logLines[5:])
 }
 
-func (s *debugLogSuite) TestMaxLines(c *gc.C) {
+func (s *debugLogFileSuite) TestMaxLines(c *gc.C) {
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"10"}})
@@ -159,7 +159,7 @@ func (s *debugLogSuite) TestMaxLines(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestBacklogWithMaxLines(c *gc.C) {
+func (s *debugLogFileSuite) TestBacklogWithMaxLines(c *gc.C) {
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}, "maxLines": {"10"}})
@@ -281,7 +281,7 @@ var filterTests []filterTest = []filterTest{
 }
 
 // TestFilter tests that filters are processed correctly given specific debug-log configuration.
-func (s *debugLogSuite) TestFilter(c *gc.C) {
+func (s *debugLogFileSuite) TestFilter(c *gc.C) {
 	for i, test := range filterTests {
 		c.Logf("test %d: %v\n", i, test.about)
 
@@ -317,7 +317,7 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 // readLogLines filters and returns as many lines as filtered wanted to examine.
 // So, if specified filter can potentially return 40 lines from sample log but filtered only wanted 2,
 // then the first 2 lines that match the filter will be returned here.
-func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
+func (s *debugLogFileSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
 	for len(linesRead) < count {
 		line, err := reader.ReadString('\n')
 		c.Assert(err, jc.ErrorIsNil)
@@ -327,13 +327,13 @@ func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (
 	return linesRead
 }
 
-func (s *debugLogSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
+func (s *debugLogFileSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
 	conn := s.dialWebsocket(c, values)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
 
-func (s *debugLogSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
+func (s *debugLogFileSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logURL(c, "wss", nil)
 	server.Path = path
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
@@ -342,7 +342,7 @@ func (s *debugLogSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Rea
 	return bufio.NewReader(conn)
 }
 
-func (s *debugLogSuite) ensureLogFile(c *gc.C) {
+func (s *debugLogFileSuite) ensureLogFile(c *gc.C) {
 	if s.logFile != nil {
 		return
 	}
@@ -357,7 +357,7 @@ func (s *debugLogSuite) ensureLogFile(c *gc.C) {
 	})
 }
 
-func (s *debugLogSuite) writeLogLines(c *gc.C, count int) {
+func (s *debugLogFileSuite) writeLogLines(c *gc.C, count int) {
 	s.ensureLogFile(c)
 	for i := 0; i < count && s.last < logLineCount; i++ {
 		s.logFile.WriteString(logLines[s.last] + "\n")
@@ -365,21 +365,21 @@ func (s *debugLogSuite) writeLogLines(c *gc.C, count int) {
 	}
 }
 
-func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) *websocket.Conn {
+func (s *debugLogFileSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) *websocket.Conn {
 	server := s.logURL(c, "wss", queryParams).String()
 	return s.dialWebsocketFromURL(c, server, header)
 }
 
-func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) *websocket.Conn {
+func (s *debugLogFileSuite) dialWebsocket(c *gc.C, queryParams url.Values) *websocket.Conn {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	return s.dialWebsocketInternal(c, queryParams, header)
 }
 
-func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
+func (s *debugLogFileSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
 	return s.makeURL(c, scheme, "/log", queryParams)
 }
 
-func (s *debugLogSuite) assertLogFollowing(c *gc.C, reader *bufio.Reader) {
+func (s *debugLogFileSuite) assertLogFollowing(c *gc.C, reader *bufio.Reader) {
 	errResult := readJSONErrorLine(c, reader)
 	c.Assert(errResult.Error, gc.IsNil)
 }
