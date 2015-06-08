@@ -16,23 +16,23 @@ import (
 type baseSuite struct {
 	jujuctesting.ContextSuite
 	proc    *process.Info
-	ctx     *context.Context
-	compCtx *jujuctesting.ContextComponent
+	compCtx *context.Context
+	//compCtx *jujuctesting.ContextComponent
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
 	proc := process.NewInfo("proc A", "docker")
-	ctx := context.NewContext(*proc)
-	compCtx := &jujuctesting.ContextComponent{Stub: s.Stub}
+	compCtx := context.NewContext(proc)
+	//compCtx := &jujuctesting.ContextComponent{Stub: s.Stub}
 
 	s.Ctx = s.HookContext("u/0", nil)
-	s.Ctx.SetComponent(process.ComponentName, ctx)
+	s.Ctx.SetComponent(process.ComponentName, compCtx)
 
 	s.proc = proc
-	s.ctx = ctx
 	s.compCtx = compCtx
+	//s.compCtx = compCtx
 }
 
 type contextSuite struct {
@@ -49,7 +49,7 @@ func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 }
 
 func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
-	expected := []process.Info{{}, {}}
+	expected := []*process.Info{{}, {}}
 	expected[0].Name = "A"
 	expected[1].Name = "B"
 
@@ -112,7 +112,7 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	var info, expected, extra process.Info
 	expected.Name = "A"
 
-	ctx := context.NewContext(expected, extra)
+	ctx := context.NewContext(&expected, &extra)
 	err := ctx.Get("A", &info)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -144,7 +144,7 @@ func (s *contextSuite) TestSetOkay(c *gc.C) {
 	after := ctx.Processes()
 
 	c.Check(before, gc.HasLen, 0)
-	c.Check(after, jc.DeepEquals, []process.Info{info})
+	c.Check(after, jc.DeepEquals, []*process.Info{&info})
 }
 
 func (s *contextSuite) TestSetOverwrite(c *gc.C) {
@@ -153,14 +153,14 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	other.Status = process.StatusFailed
 	other.Name = "A"
 	other.Status = process.StatusPending
-	ctx := context.NewContext(other)
+	ctx := context.NewContext(&other)
 	before := ctx.Processes()
 	err := ctx.Set("A", &info)
 	c.Assert(err, jc.ErrorIsNil)
 	after := ctx.Processes()
 
-	c.Check(before, jc.DeepEquals, []process.Info{other})
-	c.Check(after, jc.DeepEquals, []process.Info{info})
+	c.Check(before, jc.DeepEquals, []*process.Info{&other})
+	c.Check(after, jc.DeepEquals, []*process.Info{&info})
 }
 
 func (s *contextSuite) TestSetWrongType(c *gc.C) {
@@ -178,14 +178,14 @@ func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
 	var info, other process.Info
 	info.Name = "B"
 	other.Name = "A"
-	ctx := context.NewContext(other)
+	ctx := context.NewContext(&other)
 	before := ctx.Processes()
 	err := ctx.Set("A", &info)
 	after := ctx.Processes()
 
 	c.Check(err, gc.ErrorMatches, "mismatch on name: A != B")
-	c.Check(before, jc.DeepEquals, []process.Info{other})
-	c.Check(after, jc.DeepEquals, []process.Info{other})
+	c.Check(before, jc.DeepEquals, []*process.Info{&other})
+	c.Check(after, jc.DeepEquals, []*process.Info{&other})
 }
 
 func (s *contextSuite) TestFlushDirty(c *gc.C) {
@@ -199,7 +199,7 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 	var info process.Info
 	info.Name = "flush-not-dirty"
-	ctx := context.NewContext(info)
+	ctx := context.NewContext(&info)
 
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)

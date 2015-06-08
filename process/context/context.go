@@ -19,13 +19,13 @@ func init() {
 
 // Context is the workload process portion of the hook context.
 type Context struct {
-	processes map[string]process.Info
+	processes map[string]*process.Info
 	dirty     bool
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext(procs ...process.Info) *Context {
-	processes := make(map[string]process.Info)
+func NewContext(procs ...*process.Info) *Context {
+	processes := make(map[string]*process.Info)
 	for _, proc := range procs {
 		processes[proc.Name] = proc
 	}
@@ -58,8 +58,8 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 }
 
 // Processes returns the processes known to the context.
-func (c *Context) Processes() []process.Info {
-	var procs []process.Info
+func (c *Context) Processes() []*process.Info {
+	var procs []*process.Info
 	for _, info := range c.processes {
 		procs = append(procs, info)
 	}
@@ -77,7 +77,7 @@ func (c *Context) Get(id string, result interface{}) error {
 	if !ok {
 		return errors.NotFoundf("%s", id)
 	}
-	*info = actual
+	*info = *actual
 	return nil
 }
 
@@ -92,7 +92,7 @@ func (c *Context) Set(id string, value interface{}) error {
 		return errors.Errorf("mismatch on name: %s != %s", id, pInfo.Name)
 	}
 
-	c.processes[id] = *pInfo
+	c.processes[id] = pInfo
 	c.dirty = true
 	return nil
 }
