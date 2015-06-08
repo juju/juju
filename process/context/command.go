@@ -38,6 +38,11 @@ func newCommand(ctx jujuc.Context) baseCommand {
 	}
 }
 
+// Info implements cmd.Command.
+func (c *baseCommand) Info() *cmd.Info {
+	panic("not implemented")
+}
+
 // Init implements cmd.Command.
 func (c *baseCommand) Init(args []string) error {
 	if len(args) == 0 {
@@ -57,6 +62,11 @@ func (c *baseCommand) init(name string) error {
 	c.info = &pInfo
 	c.Name = name
 	return nil
+}
+
+// Run implements cmd.Command.
+func (c *baseCommand) Run(ctx *cmd.Context) error {
+	panic("not implemented")
 }
 
 // registeringCommand is the base for commands that register a process
