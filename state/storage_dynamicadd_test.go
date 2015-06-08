@@ -10,6 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type storageAddSuite struct {
@@ -25,7 +27,7 @@ type storageAddSuite struct {
 
 var _ = gc.Suite(&storageAddSuite{})
 
-func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) {
+func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("loop", 0, 3),
 	}
@@ -34,22 +36,23 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	s.unitTag = u.Tag().(names.UnitTag)
-
-	// Assign unit to machine to get volumes and filesystems
-	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineId, gc.Not(gc.IsNil))
-
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	s.machineTag = m.Tag().(names.MachineTag)
-
+	s.unitTag = u.UnitTag()
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.originalStorageCount = len(all)
+	return u
+}
+
+func (s *storageAddSuite) assignUnit(c *gc.C, u *state.Unit) {
+	// Assign unit to machine to get volumes and filesystems
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	s.machineTag = m.MachineTag()
 
 	volumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,24 +66,24 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) {
 func (s *storageAddSuite) assertStorageCount(c *gc.C, count int) {
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(all), gc.Equals, count)
+	c.Assert(all, gc.HasLen, count)
 }
 
 func (s *storageAddSuite) assertVolumeCount(c *gc.C, count int) {
 	all, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(all), gc.Equals, count)
+	c.Assert(all, gc.HasLen, count)
 }
 
 func (s *storageAddSuite) assertFileSystemCount(c *gc.C, count int) {
 	all, err := s.State.MachineFilesystemAttachments(s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(all), gc.Equals, count)
-
+	c.Assert(all, gc.HasLen, count)
 }
 
 func (s *storageAddSuite) TestAddStorageToUnit(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,8 +92,24 @@ func (s *storageAddSuite) TestAddStorageToUnit(c *gc.C) {
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
 }
 
+func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
+	u := s.setupMultipleStoragesForAdd(c)
+	// don't assign unit
+
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageCount(c, s.originalStorageCount+1)
+	s.assertVolumeCount(c, 0)
+	s.assertFileSystemCount(c, 0)
+
+	s.assignUnit(c, u)
+	s.assertVolumeCount(c, 6)
+	s.assertFileSystemCount(c, 0)
+}
+
 func (s *storageAddSuite) TestAddStorageWithCount(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+2)
@@ -99,7 +118,8 @@ func (s *storageAddSuite) TestAddStorageWithCount(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 2))
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +138,7 @@ func (s *storageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	s.assertStorageCount(c, 1)
 
-	err := s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "data", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(u.UnitTag(), "data", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block" store "data": at most 1 instances supported, 2 specified.*`)
 	s.assertStorageCount(c, 1)
 	s.assertVolumeCount(c, 0)
@@ -132,9 +152,6 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	// Assign unit to machine to get volumes and filesystems
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineId, gc.Not(gc.IsNil))
 
 	volumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -144,7 +161,7 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	c.Assert(err, jc.ErrorIsNil)
 	s.originalFilesystemCount = len(filesystems)
 
-	return u.Tag().(names.UnitTag)
+	return u.UnitTag()
 }
 
 func (s *storageAddSuite) TestAddStorageMinCount(c *gc.C) {
@@ -166,7 +183,8 @@ func (s *storageAddSuite) TestAddStorageZeroCount(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +194,8 @@ func (s *storageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageDiffPool(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Pool: "loop-pool", Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +205,8 @@ func (s *storageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageDiffSize(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Size: 2048, Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +216,8 @@ func (s *storageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi2up", state.StorageConstraints{Size: 2, Count: 1})
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 2.0MB specified.*`)
@@ -206,7 +227,8 @@ func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageWrongName(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	err := s.State.AddStorageForUnit(s.unitTag, "furball", state.StorageConstraints{Size: 2})
 	c.Assert(err, gc.ErrorMatches, `.*charm storage "furball" not found.*`)
@@ -216,7 +238,9 @@ func (s *storageAddSuite) TestAddStorageWrongName(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageConcurrently(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
+
 	addStorage := func() {
 		err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
 		c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +253,8 @@ func (s *storageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
-	s.setupMultipleStoragesForAdd(c)
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
 
 	count := 6
 	addStorage := func() {
@@ -254,15 +279,46 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineId, gc.Not(gc.IsNil))
+	s.machineTag = names.NewMachineTag(machineId)
+	s.assertFileSystemCount(c, 1)
 
 	s.assertStorageCount(c, 1)
 	s.assertVolumeCount(c, 1)
 	s.assertFileSystemCount(c, 1)
 
-	err = s.State.AddStorageForUnit(u.Tag().(names.UnitTag), "data", makeStorageCons("loop-pool", 1024, 1))
+	err = s.State.AddStorageForUnit(u.UnitTag(), "data", makeStorageCons("loop-pool", 1024, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, 2)
 	s.assertVolumeCount(c, 2)
 	s.assertFileSystemCount(c, 2)
+}
+
+func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
+	// Create a unit with static storage; ensure that storage-add
+	// fails to add more of this kind of storage.
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
+	})
+	registry.RegisterEnvironStorageProviders("someprovider", "static")
+	defer registry.RegisterProvider("static", nil)
+	_, u, _ := s.setupSingleStorage(c, "filesystem", "static")
+	s.assertStorageCount(c, 1)
+
+	// Assign unit to machine to get volumes and filesystems
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	s.machineTag = names.NewMachineTag(machineId)
+	s.assertFileSystemCount(c, 1)
+
+	err = s.State.AddStorageForUnit(
+		u.UnitTag(), "data",
+		makeStorageCons("static", 1024, 1),
+	)
+	c.Assert(err, gc.ErrorMatches, "adding storage to unit storage-filesystem/0: "+
+		"creating machine storage for storage data/1: "+
+		"static storage provider does not support dynamic storage")
+	s.assertStorageCount(c, 1)    // no change
+	s.assertFileSystemCount(c, 1) // no change
 }

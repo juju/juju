@@ -1586,7 +1586,9 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
-		machineParams, err := machineStorageParamsForInstance(u.st, chMeta, u.Tag(), allCons, storage)
+		machineParams, err := machineStorageParamsForStorageInstance(
+			u.st, chMeta, u.UnitTag(), allCons, storage,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1610,17 +1612,19 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	return result, nil
 }
 
-// machineStorageParamsForInstance returns parameters for creating volumes/filesystems
-// and volume/filesystem attachments for a machine that the unit will be
-// assigned to. These parameters are based on a given storage instance.
-func machineStorageParamsForInstance(
+// machineStorageParamsForStorageInstance returns parameters for creating
+// volumes/filesystems and volume/filesystem attachments for a machine that
+// the unit will be assigned to. These parameters are based on a given storage
+// instance.
+func machineStorageParamsForStorageInstance(
 	st *State,
-	charmMeta *charm.Meta, owner names.Tag,
-	allCons map[string]StorageConstraints, storage StorageInstance,
+	charmMeta *charm.Meta,
+	unit names.UnitTag,
+	allCons map[string]StorageConstraints,
+	storage StorageInstance,
 ) (*machineStorageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
-	isUnitOwner := (storage.Owner() == owner) && (owner.Kind() == names.UnitTagKind)
 
 	var volumes []MachineVolumeParams
 	var filesystems []MachineFilesystemParams
@@ -1632,7 +1636,7 @@ func machineStorageParamsForInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if isUnitOwner {
+		if unit == storage.Owner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
 			cons := allCons[storage.StorageName()]
@@ -1659,7 +1663,7 @@ func machineStorageParamsForInstance(
 			charmStorage.Location,
 			charmStorage.ReadOnly,
 		}
-		if isUnitOwner {
+		if unit == storage.Owner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
 			cons := allCons[storage.StorageName()]
