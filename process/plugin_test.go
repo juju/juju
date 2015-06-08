@@ -11,11 +11,33 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type pluginSuite struct {
+var _ = gc.Suite(&LaunchDetailsSuite{})
+var _ = gc.Suite(&pluginSuite{})
+
+type LaunchDetailsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&pluginSuite{})
+func (*LaunchDetailsSuite) TestIsZeroTrue(c *gc.C) {
+	details := process.LaunchDetails{}
+	isZero := details.IsZero()
+
+	c.Check(isZero, jc.IsTrue)
+}
+
+func (*LaunchDetailsSuite) TestIsZeroFalse(c *gc.C) {
+	details := process.LaunchDetails{
+		UniqueID: "abc123",
+		Status:   "running",
+	}
+	isZero := details.IsZero()
+
+	c.Check(isZero, jc.IsFalse)
+}
+
+type pluginSuite struct {
+	testing.BaseSuite
+}
 
 func (*pluginSuite) TestParseEnvOkay(c *gc.C) {
 	raw := []string{"A=1", "B=2", "C=3"}
