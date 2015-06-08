@@ -134,15 +134,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 				}
 				fallthrough
 			case hooks.Install:
-				if err := setAgentStatus(u, params.StatusAllocating, params.PreparingStorageMessage, nil); err != nil {
-					return nil, errors.Trace(err)
-				}
 				if err := waitStorage(u); err != nil {
 					return nil, errors.Trace(err)
 				}
-				if err := setAgentStatus(u, params.StatusAllocating, params.StorageReadyMessage, nil); err != nil {
-					return nil, errors.Trace(err)
-				}
+
 			}
 			creator = newRunHookOp(*opState.Hook)
 		case operation.Done:
@@ -403,6 +398,10 @@ func waitStorage(u *Uniter) error {
 		return nil
 	}
 	logger.Infof("waiting for storage attachments")
+	if err := setAgentStatus(u, params.StatusAllocating, params.PreparingStorageMessage, nil); err != nil {
+		return errors.Trace(err)
+	}
+
 	for u.storage.Pending() > 0 {
 		var creator creator
 		select {
@@ -423,6 +422,9 @@ func waitStorage(u *Uniter) error {
 		}
 	}
 	logger.Infof("storage attachments ready")
+	if err := setAgentStatus(u, params.StatusAllocating, params.StorageReadyMessage, nil); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
