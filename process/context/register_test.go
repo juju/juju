@@ -29,9 +29,6 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-	//s.registerCmd.Details = ...
-	//s.registerCmd.Space = ...
-	//s.registerCmd.Env = ...
 }
 
 func (s *registerSuite) TestCommandRegistered(c *gc.C) {
@@ -171,6 +168,71 @@ func (s *registerSuite) TestInitSpaceUnknown(c *gc.C) {
 	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
 
 	c.Check(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *registerSuite) TestInitEnvMetadataOnly(c *gc.C) {
+	s.proc.Process.EnvVars = map[string]string{
+		"SOME_ENV": "spam",
+	}
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
+		"SOME_ENV": "spam",
+	})
+}
+
+func (s *registerSuite) TestInitEnvCLIOnly(c *gc.C) {
+	context.SetRegisterEnv(s.registerCmd, "SOME_ENV=spam")
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
+		"SOME_ENV": "spam",
+	})
+}
+
+func (s *registerSuite) TestInitEnvBothNoOverride(c *gc.C) {
+	s.proc.Process.EnvVars = map[string]string{
+		"SOME_ENV":  "spam",
+		"EXTRA_ENV": "ham",
+	}
+	context.SetRegisterEnv(s.registerCmd,
+		"OTHER_ENV=eggs",
+		"MORE_ENV=...",
+	)
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
+		"SOME_ENV":  "spam",
+		"EXTRA_ENV": "ham",
+		"OTHER_ENV": "eggs",
+		"MORE_ENV":  "...",
+	})
+}
+
+func (s *registerSuite) TestInitEnvBothOverride(c *gc.C) {
+	s.proc.Process.EnvVars = map[string]string{
+		"SOME_ENV":  "spam",
+		"EXTRA_ENV": "ham",
+	}
+	context.SetRegisterEnv(s.registerCmd,
+		"SOME_ENV=eggs",
+		"MORE_ENV=...",
+	)
+
+	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
+		"SOME_ENV":  "eggs",
+		"MORE_ENV":  "...",
+		"EXTRA_ENV": "ham",
+	})
 }
 
 func (s *registerSuite) TestRun(c *gc.C) {

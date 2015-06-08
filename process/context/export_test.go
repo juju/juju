@@ -15,3 +15,7 @@ func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
 		cmd.compCtx = compCtx
 	}
 }
+
+func SetRegisterEnv(cmd *RegisterCommand, options ...string) {
+	cmd.env = append(cmd.env, options...)
+}
