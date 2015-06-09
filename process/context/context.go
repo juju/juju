@@ -112,7 +112,7 @@ func (c *Context) addProc(id string, original *process.Info) error {
 		if proc == nil {
 			return errors.Errorf("update can't be nil")
 		}
-		c.updates[id] = proc
+		c.set(id, proc)
 	}
 	return nil
 }
@@ -186,13 +186,17 @@ func (c *Context) Set(id string, value interface{}) error {
 		return errors.Errorf("mismatch on name: %s != %s", id, pInfo.Name)
 	}
 
+	c.set(id, pInfo)
+	return nil
+}
+
+func (c *Context) set(id string, pInfo *process.Info) {
 	if c.updates == nil {
 		c.updates = make(map[string]*process.Info)
 	}
 	var info process.Info
 	info = *pInfo
 	c.updates[id] = &info
-	return nil
 }
 
 // Flush implements jujuc.ContextComponent.

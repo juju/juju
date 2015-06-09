@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -237,6 +239,52 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(info, jc.DeepEquals, expected)
+	s.Stub.CheckCallNames(c)
+}
+
+func (s *contextSuite) TestGetAPIPull(c *gc.C) {
+	procs := s.apiClient.setNew("A", "B")
+	expected := procs[0]
+
+	ctx := context.NewContext(s.apiClient, procs[1])
+	context.AddProc(ctx, "A", nil)
+
+	var info process.Info
+	err := ctx.Get("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(&info, jc.DeepEquals, expected)
+	s.Stub.CheckCallNames(c, "Get")
+}
+
+func (s *contextSuite) TestGetAPINoPull(c *gc.C) {
+	procs := s.apiClient.setNew("A", "B")
+	expected := procs[0]
+
+	ctx := context.NewContext(s.apiClient, procs...)
+
+	var info process.Info
+	err := ctx.Get("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(&info, jc.DeepEquals, expected)
+	s.Stub.CheckCallNames(c)
+}
+
+func (s *contextSuite) TestGetOverride(c *gc.C) {
+	procs := s.apiClient.setNew("A", "B")
+	expected := procs[0]
+
+	ctx := context.NewContext(s.apiClient, procs[1])
+	context.AddProc(ctx, "A", nil)
+	context.AddProc(ctx, "A", expected)
+
+	var info process.Info
+	err := ctx.Get("A", &info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(&info, jc.DeepEquals, expected)
+	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestGetWrongType(c *gc.C) {
@@ -347,6 +395,25 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c)
+}
+
+func checkProcs(c *gc.C, procs, expected []*process.Info) {
+	if !c.Check(procs, gc.HasLen, len(expected)) {
+		return
+	}
+	for _, proc := range procs {
+		matched := false
+		for _, expProc := range expected {
+			if reflect.DeepEqual(proc, expProc) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			c.Errorf("%#v != %#v", procs, expected)
+			return
+		}
+	}
 }
 
 type stubAPIClient struct {
