@@ -5,6 +5,7 @@ package provider
 
 import (
 	"path"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -161,14 +162,26 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
-	// TODO(axw) check if the mount already exists, and do nothing if so.
+	mountPointParent := filepath.Dir(mountPoint)
+	parentSource, err := dirFuncs.mountPointSource(mountPointParent)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	source, err := dirFuncs.mountPointSource(mountPoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if source != parentSource {
+		// Already mounted.
+		logger.Debugf("filesystem on %q already mounted at %q", source, mountPoint)
+		return nil
+	}
 	var args []string
 	if readOnly {
 		args = append(args, "-o", "ro")
 	}
 	args = append(args, devicePath, mountPoint)
-	_, err := run("mount", args...)
-	if err != nil {
+	if _, err := run("mount", args...); err != nil {
 		return errors.Annotate(err, "mount failed")
 	}
 	logger.Infof("mounted filesystem on %q at %q", devicePath, mountPoint)
