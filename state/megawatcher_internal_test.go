@@ -97,7 +97,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
+	err = m.SetProviderAddresses(network.NewAddress("example.com", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
 		Id:                      "0",
@@ -558,7 +558,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			publicAddress := network.NewAddress("public", network.ScopePublic)
 			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
-			err = m.SetAddresses(publicAddress, privateAddress)
+			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)

@@ -1646,7 +1646,7 @@ func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(data, gc.HasLen, 0)
 }
 
-func (s *MachineSuite) TestSetAddresses(c *gc.C) {
+func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
@@ -1655,7 +1655,7 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 		network.NewAddress("127.0.0.1", network.ScopeUnknown),
 		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
-	err = machine.SetAddresses(addresses...)
+	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1693,7 +1693,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		"127.0.0.2",
 		"example.org",
 	)
-	err = machine.SetAddresses(providerAddresses...)
+	err = machine.SetProviderAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineAddresses := network.NewAddresses(
@@ -1739,7 +1739,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		gc.IsNil,
 	)
 
-	err = machine.SetAddresses(providerAddresses...)
+	err = machine.SetProviderAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1760,7 +1760,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	))
 }
 
-func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
+func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
@@ -1771,16 +1771,16 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetAddresses(addr1, addr0)
+		err = machine.SetProviderAddresses(addr1, addr0)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = machine.SetAddresses(addr0, addr1)
+	err = machine.SetProviderAddresses(addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
-func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
+func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
@@ -1795,21 +1795,57 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetAddresses(addr0, addr1)
+		err = machine.SetProviderAddresses(addr0, addr1)
 		c.Assert(err, jc.ErrorIsNil)
 		revno1, err = state.TxnRevno(s.State, "machines", machineDocID)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(revno1, gc.Equals, revno0+1)
+		c.Assert(revno1, jc.GreaterThan, revno0)
 	}).Check()
 
-	err = machine.SetAddresses(addr0, addr1)
+	err = machine.SetProviderAddresses(addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Doc should not have been updated, but Machine object's view should be.
+	// Doc will be updated; concurrent changes are explicitly ignored.
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno2, gc.Equals, revno1)
+	c.Assert(revno2, jc.GreaterThan, revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
+}
+
+func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+	machineDocID := state.DocID(s.State, machine.Id())
+
+	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
+	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+
+	// Set addresses to [addr0] initially. We'll get a separate Machine
+	// object to update addresses, to ensure that the in-memory cache of
+	// addresses does not prevent the initial Machine from updating
+	// addresses back to the original value.
+	err = machine.SetProviderAddresses(addr0)
+	c.Assert(err, jc.ErrorIsNil)
+	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine2, err := s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine2.SetProviderAddresses(addr1)
+	c.Assert(err, jc.ErrorIsNil)
+	revno1, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno1, jc.GreaterThan, revno0)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
+	c.Assert(machine2.Addresses(), jc.SameContents, []network.Address{addr1})
+
+	err = machine.SetProviderAddresses(addr0)
+	c.Assert(err, jc.ErrorIsNil)
+	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno2, jc.GreaterThan, revno1)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {

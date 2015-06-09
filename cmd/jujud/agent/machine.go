@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -80,8 +82,8 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const bootstrapMachineId = "0"
@@ -101,8 +103,9 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	reportOpenedState        = func(interface{}) {}
-	reportOpenedAPI          = func(interface{}) {}
+	reportOpenedState        = func(io.Closer) {}
+	reportOpenedAPI          = func(io.Closer) {}
+	reportClosedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -148,11 +151,13 @@ type AgentConfigWriter interface {
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCmd(
+	ctx *cmd.Context,
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
+		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
@@ -166,6 +171,7 @@ type machineAgentCmd struct {
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
+	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
 	logToStdErr bool
@@ -200,15 +206,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
-	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
-		Filename:   filename,
+	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+	a.ctx.Stderr = &lumberjack.Logger{
+		Filename:   agent.LogFilename(agentConfig),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
 
-	return cmdutil.SwitchProcessToRollingLogs(log)
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
@@ -267,6 +273,12 @@ func NewMachineAgent(
 	}
 }
 
+// APIStateUpgrader defines the methods on the Upgrader that
+// agents call.
+type APIStateUpgrader interface {
+	SetVersion(string, version.Binary) error
+}
+
 // MachineAgent is responsible for tying together all functionality
 // needed to orchestarte a Jujud instance which controls a machine.
 type MachineAgent struct {
@@ -285,6 +297,15 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+
+	apiStateUpgrader APIStateUpgrader
+}
+
+func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
+	if a.apiStateUpgrader != nil {
+		return a.apiStateUpgrader
+	}
+	return st.Upgrader()
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -569,13 +590,20 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
-func (a *MachineAgent) APIWorker() (worker.Worker, error) {
+func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	agentConfig := a.CurrentConfig()
 	st, entity, err := OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
+	defer func() {
+		if err != nil {
+			st.Close()
+			reportClosedAPI(st)
+		}
+	}()
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -600,7 +628,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Before starting any workers, ensure we record the Juju version this machine
 	// agent is running.
 	currentTools := &coretools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+	apiStateUpgrader := a.getUpgrader(st)
+	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
@@ -958,6 +987,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
+				return txnpruner.New(st, time.Hour*2), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil

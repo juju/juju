@@ -958,13 +958,28 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
-// SetAddresses records any addresses related to the machine, sourced
+// SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
-	if err = m.setAddresses(addresses, &m.doc.Addresses, "addresses"); err != nil {
+func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
+	// Refresh addresses without modifying any other fields of m.
+	m2, err := m.st.Machine(m.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
+	}
+	if err = m2.setAddresses(addresses, &m2.doc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
+	m.doc.Addresses = m2.doc.Addresses
 	return nil
+}
+
+// ProviderAddresses returns any hostnames and ips associated with a machine,
+// as determined by asking the provider.
+func (m *Machine) ProviderAddresses() (addresses []network.Address) {
+	for _, address := range m.doc.Addresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
 }
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
@@ -979,52 +994,42 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
 func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
-	if err = m.setAddresses(addresses, &m.doc.MachineAddresses, "machineaddresses"); err != nil {
+	// Refresh addresses without modifying any other fields of m.
+	m2, err := m.st.Machine(m.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
+	}
+	if err = m2.setAddresses(addresses, &m2.doc.MachineAddresses, "machineaddresses"); err != nil {
 		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
 	}
+	m.doc.MachineAddresses = m2.doc.MachineAddresses
 	return nil
 }
 
 // setAddresses updates the machine's addresses (either Addresses or
-// MachineAddresses, depending on the field argument).
+// MachineAddresses, depending on the field argument). Changes are
+// only predicated on the machine not being Dead; concurrent address
+// changes are ignored.
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
-	var changed bool
 	envConfig, err := m.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
 	network.SortAddresses(addresses, envConfig.PreferIPv6())
 	stateAddresses := instanceAddressesToAddresses(addresses)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		changed = false
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, err
-			}
-		}
-		if m.doc.Life == Dead {
-			return nil, ErrDead
-		}
-		op := txn.Op{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
-		}
-		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
-			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
-			changed = true
-		}
-		return []txn.Op{op}, nil
-	}
-	switch err := m.st.run(buildTxn); err {
-	case nil:
-	case jujutxn.ErrExcessiveContention:
-		return errors.Annotatef(err, "cannot set %s for machine %s", fieldName, m)
-	default:
-		return err
-	}
-	if !changed {
+	if addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
 		return nil
+	}
+	if err := m.st.runTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+	}}); err != nil {
+		if err == txn.ErrAborted {
+			return ErrDead
+		}
+		return errors.Trace(err)
 	}
 	*field = stateAddresses
 	return nil

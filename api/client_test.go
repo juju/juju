@@ -15,11 +15,11 @@ import (
 	"net/url"
 	"strings"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
