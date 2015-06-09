@@ -171,17 +171,16 @@ func (cache *CacheFile) updateInfo(info *environInfo) error {
 }
 
 func (cache *CacheFile) removeInfo(info *environInfo) error {
+	if srvUser, srvFound := cache.Server[info.name]; srvFound {
+		cache.cleanupAllServerReferences(srvUser.ServerUUID)
+		return nil
+	}
 	envUser, envFound := cache.Environment[info.name]
-	srvUser, srvFound := cache.Server[info.name]
-	if !envFound && !srvFound {
+	if !envFound {
 		return errors.New("environment info has already been removed")
 	}
-	var serverUUID string
-	if envFound {
-		serverUUID = envUser.ServerUUID
-	} else {
-		serverUUID = srvUser.ServerUUID
-	}
+	serverUUID := envUser.ServerUUID
+
 	delete(cache.Environment, info.name)
 	delete(cache.Server, info.name)
 	// Look to see if there are any other environments using the serverUUID.
@@ -194,4 +193,19 @@ func (cache *CacheFile) removeInfo(info *environInfo) error {
 	}
 	delete(cache.ServerData, serverUUID)
 	return nil
+}
+
+func (cache *CacheFile) cleanupAllServerReferences(serverUUID string) {
+	// NOTE: it is safe in Go to remove elements from a map while iterating.
+	for name, envUser := range cache.Environment {
+		if envUser.ServerUUID == serverUUID {
+			delete(cache.Environment, name)
+		}
+	}
+	for name, srvUser := range cache.Server {
+		if srvUser.ServerUUID == serverUUID {
+			delete(cache.Server, name)
+		}
+	}
+	delete(cache.ServerData, serverUUID)
 }
