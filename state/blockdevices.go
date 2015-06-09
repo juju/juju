@@ -85,7 +85,7 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		}, {
 			C:      blockDevicesC,
 			Id:     machineId,
-			Assert: bson.D{{"blockdevices", oldInfo}},
+			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"blockdevices", newInfo}}}},
 		}}
 		return ops, nil

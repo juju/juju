@@ -297,7 +297,7 @@ func (a *Attachments) Empty() bool {
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.
-func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	if s, ok := a.storagers[tag]; ok {
 		return s.Context()
 	}

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"path"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -89,8 +90,10 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 	return storage.Filesystem{
 		arg.Tag,
 		arg.Volume,
-		arg.Tag.String(),
-		blockDevice.Size,
+		storage.FilesystemInfo{
+			arg.Tag.String(),
+			blockDevice.Size,
+		},
 	}, nil
 }
 
@@ -124,13 +127,16 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
 	devicePath := s.devicePath(blockDevice)
-	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path); err != nil {
+	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path, arg.ReadOnly); err != nil {
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
 	return storage.FilesystemAttachment{
 		arg.Filesystem,
 		arg.Machine,
-		arg.Path,
+		storage.FilesystemAttachmentInfo{
+			arg.Path,
+			arg.ReadOnly,
+		},
 	}, nil
 }
 
@@ -151,14 +157,31 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoint string) error {
+func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoint string, readOnly bool) error {
 	logger.Debugf("attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
-	// TODO(axw) check if the mount already exists, and do nothing if so.
-	_, err := run("mount", devicePath, mountPoint)
+	mountPointParent := filepath.Dir(mountPoint)
+	parentSource, err := dirFuncs.mountPointSource(mountPointParent)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	source, err := dirFuncs.mountPointSource(mountPoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if source != parentSource {
+		// Already mounted.
+		logger.Debugf("filesystem on %q already mounted at %q", source, mountPoint)
+		return nil
+	}
+	var args []string
+	if readOnly {
+		args = append(args, "-o", "ro")
+	}
+	args = append(args, devicePath, mountPoint)
+	if _, err := run("mount", args...); err != nil {
 		return errors.Annotate(err, "mount failed")
 	}
 	logger.Infof("mounted filesystem on %q at %q", devicePath, mountPoint)

@@ -376,7 +376,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 
 	// Flush the context with a success.
 	err = ctx.FlushContext("success", nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*charm storage "allecto" not found.*`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
 
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)

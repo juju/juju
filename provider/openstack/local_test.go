@@ -1599,3 +1599,22 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
+
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	c.Assert(
+		openstack.InstanceServerDetail(instances[0]).Metadata,
+		jc.DeepEquals,
+		map[string]string{
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state": "true",
+		},
+	)
+}

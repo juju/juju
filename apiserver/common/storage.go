@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -178,4 +180,35 @@ func volumeAttachmentDevicePath(
 		return path.Join("/dev", volumeAttachmentInfo.DeviceName), nil
 	}
 	return "", errNoDevicePath
+}
+
+// MaybeAssignedStorageInstance calls the provided function to get a
+// StorageTag, and returns the corresponding state.StorageInstance if
+// it didn't return an errors.IsNotAssigned error, or nil if it did.
+func MaybeAssignedStorageInstance(
+	getTag func() (names.StorageTag, error),
+	getStorageInstance func(names.StorageTag) (state.StorageInstance, error),
+) (state.StorageInstance, error) {
+	tag, err := getTag()
+	if err == nil {
+		return getStorageInstance(tag)
+	} else if errors.IsNotAssigned(err) {
+		return nil, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// storageTags returns the tags that should be set on a volume or filesystem,
+// if the provider supports them.
+func storageTags(
+	storageInstance state.StorageInstance,
+	cfg *config.Config,
+) (map[string]string, error) {
+	uuid, _ := cfg.UUID()
+	storageTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	if storageInstance != nil {
+		storageTags[tags.JujuStorageInstance] = storageInstance.Tag().Id()
+		storageTags[tags.JujuStorageOwner] = storageInstance.Owner().Id()
+	}
+	return storageTags, nil
 }

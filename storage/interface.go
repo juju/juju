@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
@@ -24,10 +23,6 @@ const (
 	ScopeEnviron Scope = iota
 	ScopeMachine
 )
-
-// ErrVolumeNeedsInstance is an error indicating that a volume cannot be
-// created because the related machine instance has not been provisioned.
-var ErrVolumeNeedsInstance = errors.New("need running instance to provision volume")
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
@@ -78,7 +73,7 @@ type VolumeSource interface {
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	DescribeVolumes(volIds []string) ([]Volume, error)
+	DescribeVolumes(volIds []string) ([]VolumeInfo, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
@@ -86,12 +81,6 @@ type VolumeSource interface {
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
-	//
-	// If the provider requires information about the machine instance to
-	// which the volume will be attached before, and the supplied instance
-	// ID is empty (i.e. the instance is not yet provisioned), then
-	// ErrVolumeNeedsInstance must be returned to indicate that the
-	// provisioner should call again when the instance has been provisioned.
 	ValidateVolumeParams(params VolumeParams) error
 
 	// AttachVolumes attaches volumes to machines.
@@ -163,6 +152,10 @@ type VolumeParams struct {
 	// from the storage pool configuration.
 	Attributes map[string]interface{}
 
+	// ResourceTags is a set of tags to set on the created volume, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
+
 	// Attachment identifies the machine that the volume should be attached
 	// to initially, or nil if the volume should not be attached to any
 	// machine. Some providers, such as MAAS, do not support dynamic
@@ -214,6 +207,9 @@ type AttachmentParams struct {
 	// that interact with the instances, such as EBS/EC2. The InstanceId
 	// field will be empty if the instance is not yet provisioned.
 	InstanceId instance.Id
+
+	// ReadOnly indicates that the storage should be attached as read-only.
+	ReadOnly bool
 }
 
 // FilesystemParams is a fully specified set of parameters for filesystem creation,
@@ -235,6 +231,10 @@ type FilesystemParams struct {
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
 	Attributes map[string]interface{}
+
+	// ResourceTags is a set of tags to set on the created filesystem, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
 }
 
 // FilesystemAttachmentParams is a set of parameters for filesystem attachment

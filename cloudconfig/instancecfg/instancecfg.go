@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
@@ -38,6 +39,10 @@ var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
+	// Tags is a set of tags to set on the instance, if supported. This
+	// should be populated using the InstanceTags method in this package.
+	Tags map[string]string
+
 	// Bootstrap specifies whether the new instance is the bootstrap
 	// instance. When this is true, StateServingInfo should be set
 	// and filled out.
@@ -418,6 +423,7 @@ func NewInstanceConfig(
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
+		Tags:                    map[string]string{},
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -575,6 +581,17 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 
 	return nil
+}
+
+// InstanceTags returns the minimum set of tags that should be set on a
+// machine instance, if the provider supports them.
+func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
+	uuid, _ := cfg.UUID()
+	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	if multiwatcher.AnyJobNeedsState(jobs...) {
+		instanceTags[tags.JujuStateServer] = "true"
+	}
+	return instanceTags
 }
 
 // bootstrapConfig returns a copy of the supplied configuration with the
