@@ -320,14 +320,16 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}}
 	volumes := []params.Volume{{
 		VolumeTag: "volume-1-0",
-		VolumeId:  "vol-123",
-		Size:      124,
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+			Size:     124,
+		},
 	}}
-	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "volume-1-0",
-		MachineTag: "machine-1",
-		DeviceName: "xvdf1",
-	}}
+	volumeAttachments := map[string]params.VolumeAttachmentInfo{
+		"volume-1-0": {
+			DeviceName: "xvdf1",
+		},
+	}
 
 	err = apiMachine.SetInstanceInfo(
 		"i-will", "fake_nonce", &hwChars, networks, ifaces, volumes, volumeAttachments,
@@ -702,6 +704,30 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 		// allocation by default, so IP forwarding should be enabled.
 		container.ConfigIPForwarding: "true",
 	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	var resultConfig = map[string]string{
+		"lxc-default-mtu": "9000",
+	}
+	var called bool
+	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ContainerManagerConfig")
+		expected := params.ContainerManagerConfigParams{
+			Type: instance.LXC,
+		}
+		c.Assert(args, gc.Equals, expected)
+		result := response.(*params.ContainerManagerConfig)
+		result.ManagerConfig = resultConfig
+		return nil
+	})
+
+	args := params.ContainerManagerConfigParams{Type: instance.LXC}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ManagerConfig, jc.DeepEquals, resultConfig)
 }
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {

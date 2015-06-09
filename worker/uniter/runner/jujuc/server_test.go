@@ -7,6 +7,7 @@ package jujuc_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -55,6 +56,9 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	if c.Slow {
 		time.Sleep(testing.ShortWait)
 		return nil
+	}
+	if _, err := io.Copy(ctx.Stdout, ctx.Stdin); err != nil {
+		return err
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
@@ -122,10 +126,11 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	dir := c.MkDir()
 	resp, err := s.Call(c, jujuc.Request{
 		"validCtx", dir, "remote", []string{"--value", "something"},
+		[]byte("wool of bat\n"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, 0)
-	c.Assert(string(resp.Stdout), gc.Equals, "eye of newt\n")
+	c.Assert(string(resp.Stdout), gc.Equals, "wool of bat\neye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
 	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +145,7 @@ func (s *ServerSuite) TestLocks(c *gc.C) {
 		go func() {
 			dir := c.MkDir()
 			resp, err := s.Call(c, jujuc.Request{
-				"validCtx", dir, "remote", []string{"--slow"},
+				"validCtx", dir, "remote", []string{"--slow"}, nil,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(resp.Code, gc.Equals, 0)
@@ -154,16 +159,16 @@ func (s *ServerSuite) TestLocks(c *gc.C) {
 
 func (s *ServerSuite) TestBadCommandName(c *gc.C) {
 	dir := c.MkDir()
-	_, err := s.Call(c, jujuc.Request{"validCtx", dir, "", nil})
+	_, err := s.Call(c, jujuc.Request{"validCtx", dir, "", nil, nil})
 	c.Assert(err, gc.ErrorMatches, "bad request: command not specified")
-	_, err = s.Call(c, jujuc.Request{"validCtx", dir, "witchcraft", nil})
+	_, err = s.Call(c, jujuc.Request{"validCtx", dir, "witchcraft", nil, nil})
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *gc.C) {
 	for _, req := range []jujuc.Request{
-		{"validCtx", "", "anything", nil},
-		{"validCtx", "foo/bar", "anything", nil},
+		{"validCtx", "", "anything", nil, nil},
+		{"validCtx", "foo/bar", "anything", nil, nil},
 	} {
 		_, err := s.Call(c, req)
 		c.Assert(err, gc.ErrorMatches, "bad request: Dir is not absolute")
@@ -171,12 +176,12 @@ func (s *ServerSuite) TestBadDir(c *gc.C) {
 }
 
 func (s *ServerSuite) TestBadContextId(c *gc.C) {
-	_, err := s.Call(c, jujuc.Request{"whatever", c.MkDir(), "remote", nil})
+	_, err := s.Call(c, jujuc.Request{"whatever", c.MkDir(), "remote", nil, nil})
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
 func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {
-	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
+	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:], nil})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, code)
 	return resp
@@ -214,6 +219,7 @@ var newCommandTests = []struct {
 	{"relation-list", ""},
 	{"relation-set", ""},
 	{"unit-get", ""},
+	{"storage-add", ""},
 	{"storage-get", ""},
 	{"status-get", ""},
 	{"status-set", ""},

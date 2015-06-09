@@ -57,7 +57,7 @@ func CreateContainerWithMachineConfig(
 	instanceConfig *instancecfg.InstanceConfig,
 ) instance.Instance {
 
-	networkConfig := container.BridgeNetworkConfig("nic42", nil)
+	networkConfig := container.BridgeNetworkConfig("nic42", 0, nil)
 	storageConfig := &container.StorageConfig{}
 	return CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, instanceConfig, networkConfig, storageConfig)
 }
@@ -114,7 +114,7 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	}
 	instanceConfig.Config = envConfig
 
-	network := container.BridgeNetworkConfig("nic42", nil)
+	network := container.BridgeNetworkConfig("nic42", 0, nil)
 	storage := &container.StorageConfig{}
 
 	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", network, storage)

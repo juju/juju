@@ -312,10 +312,12 @@ func (s mockVolumeListAPI) createTestAttachment(volumeTag, machine string, reado
 	result := params.VolumeAttachment{
 		VolumeTag:  volumeTag,
 		MachineTag: names.NewMachineTag(machine).String(),
-		ReadOnly:   readonly,
+		Info: params.VolumeAttachmentInfo{
+			ReadOnly: readonly,
+		},
 	}
 	if s.fillDeviceName {
-		result.DeviceName = "testdevice"
+		result.Info.DeviceName = "testdevice"
 	}
 	return result
 }

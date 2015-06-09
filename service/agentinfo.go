@@ -94,6 +94,19 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 	}, " ")
 }
 
+// execArgs returns an unquoted array of service arguments in case we need
+// them later. One notable place where this is needed, is the windows service
+// package, where CreateService correctly does quoting of executable path and
+// individual arguments
+func (ai AgentInfo) execArgs(renderer shell.Renderer) []string {
+	return []string{
+		string(ai.Kind),
+		"--data-dir", renderer.FromSlash(ai.DataDir),
+		idOptions[ai.Kind], ai.ID,
+		"--debug",
+	}
+}
+
 func (ai AgentInfo) logFile(renderer shell.Renderer) string {
 	return renderer.Join(renderer.FromSlash(ai.LogDir), ai.name+".log")
 }

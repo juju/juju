@@ -1021,6 +1021,9 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		if statusValues[systemId] == "Deployed" {
 			return nil
 		}
+		if statusValues[systemId] == "Failed deployment" {
+			return errors.Errorf("instance %q failed to deploy", id)
+		}
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
 }

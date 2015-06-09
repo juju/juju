@@ -9,7 +9,6 @@ import (
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -25,10 +24,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -38,6 +39,10 @@ var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
+	// Tags is a set of tags to set on the instance, if supported. This
+	// should be populated using the InstanceTags method in this package.
+	Tags map[string]string
+
 	// Bootstrap specifies whether the new instance is the bootstrap
 	// instance. When this is true, StateServingInfo should be set
 	// and filled out.
@@ -184,17 +189,25 @@ func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
 }
 
-// MachineAgentCommands returns the list of commands to install and
-// start the machine agent service for the instance.
-func (cfg *InstanceConfig) MachineAgentCommands(renderer shell.Renderer) ([]string, error) {
-	name := cfg.MachineAgentServiceName
+func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
 	conf := service.AgentConf(cfg.agentInfo(), renderer)
-	osName := strings.ToLower(cfg.Tools.Version.OS.String())
-	cmds, err := service.InstallServiceCommands(name, conf, osName)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+
+	name := cfg.MachineAgentServiceName
+	initSystem, ok := cfg.initSystem()
+	if !ok {
+		return nil, errors.New("could not identify init system")
 	}
-	return cmds, nil
+	logger.Debugf("using init system %q for machine agent script", initSystem)
+	svc, err := newService(name, conf, initSystem)
+	return svc, errors.Trace(err)
+}
+
+func (cfg *InstanceConfig) initSystem() (string, bool) {
+	return service.VersionInitSystem(cfg.Tools.Version)
+}
+
+var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
+	return service.NewService(name, conf, initSystem)
 }
 
 func (cfg *InstanceConfig) AgentConfig(
@@ -371,10 +384,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// DataDir is the default data directory.  Tests can override this
-// where needed, so they don't need to mess with global system state.
-var DataDir = agent.DefaultDataDir
-
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
@@ -414,6 +423,7 @@ func NewInstanceConfig(
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
+		Tags:                    map[string]string{},
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -571,6 +581,17 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 
 	return nil
+}
+
+// InstanceTags returns the minimum set of tags that should be set on a
+// machine instance, if the provider supports them.
+func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
+	uuid, _ := cfg.UUID()
+	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	if multiwatcher.AnyJobNeedsState(jobs...) {
+		instanceTags[tags.JujuStateServer] = "true"
+	}
+	return instanceTags
 }
 
 // bootstrapConfig returns a copy of the supplied configuration with the

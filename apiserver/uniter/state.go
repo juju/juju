@@ -25,6 +25,8 @@ type storageStateInterface interface {
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
+	UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error)
 }
 
 type storageStateShim struct {
@@ -48,4 +50,19 @@ func (s storageStateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineT
 		return names.MachineTag{}, errors.Trace(err)
 	}
 	return names.NewMachineTag(mid), nil
+}
+
+// UnitStorageConstraints returns storage constraints for this unit,
+// or an error if the unit or its constraints cannot be obtained.
+func (s storageStateShim) UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
+	unit, err := s.Unit(u.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cons, err := unit.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
 }

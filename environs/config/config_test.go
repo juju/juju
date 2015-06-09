@@ -70,6 +70,11 @@ type configTest struct {
 	err         string
 }
 
+var testResourceTags = []string{"a=b", "c=", "d=e"}
+var testResourceTagsMap = map[string]string{
+	"a": "b", "c": "", "d": "e",
+}
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -218,6 +223,39 @@ var configTests = []configTest{
 			"name":                  "my-name",
 			"allow-lxc-loop-mounts": false,
 		},
+	}, {
+		about:       "LXC default MTU not set",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "LXC default MTU set explicitly",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": 9000,
+		},
+	}, {
+		about:       "LXC default MTU invalid (not a number)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": "foo",
+		},
+		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
+	}, {
+		about:       "LXC default MTU invalid (negative)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": -42,
+		},
+		err: `lxc-default-mtu: expected positive integer, got -42`,
 	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
@@ -899,6 +937,34 @@ var configTests = []configTest{
 			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
+	{
+		about:       "Resource tags as space-separated string",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": strings.Join(testResourceTags, " "),
+		},
+	},
+	{
+		about:       "Resource tags as list of strings",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": testResourceTags,
+		},
+	},
+	{
+		about:       "Resource tags contains non-keyvalues",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": []string{"a"},
+		},
+		err: `validating resource tags: expected "key=value", got "a"`,
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1281,6 +1347,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(useLxcCloneAufs, jc.IsFalse)
 	}
+
+	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
+	if _, ok := test.attrs["resource-tags"]; ok {
+		c.Assert(cfgHasResourceTags, jc.IsTrue)
+		c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+	} else {
+		c.Assert(cfgHasResourceTags, jc.IsFalse)
+	}
 }
 
 func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
@@ -1437,6 +1511,11 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-clone-aufs": false},
 	new:   testing.Attrs{"lxc-clone-aufs": true},
 	err:   `cannot change lxc-clone-aufs from false to true`,
+}, {
+	about: "Cannot change lxc-default-mtu",
+	old:   testing.Attrs{"lxc-default-mtu": 9000},
+	new:   testing.Attrs{"lxc-default-mtu": 42},
+	err:   `cannot change lxc-default-mtu from 9000 to 42`,
 }, {
 	about: "Cannot change prefer-ipv6",
 	old:   testing.Attrs{"prefer-ipv6": false},

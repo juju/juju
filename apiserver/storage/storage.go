@@ -509,8 +509,10 @@ func convertStateVolumeAttachmentToParams(attachment state.VolumeAttachment) par
 		VolumeTag:  attachment.Volume().String(),
 		MachineTag: attachment.Machine().String()}
 	if info, err := attachment.Info(); err == nil {
-		result.DeviceName = info.DeviceName
-		result.ReadOnly = info.ReadOnly
+		result.Info = params.VolumeAttachmentInfo{
+			info.DeviceName,
+			info.ReadOnly,
+		}
 	}
 	return result
 }
@@ -569,12 +571,9 @@ func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.
 }
 
 // AddToUnit validates and creates additional storage instances for units.
-// Storage instances are defined in collection of storages.
-// If no directives were specified, we do not try to add any instances.
-// Any failed operations are reported as errors.
-// Failures on an individual storage instance do not block remaining
-// instances being processed.
-// This method handles bulk add operations.
+// This method handles bulk add operations and
+// a failure on one individual storage instance does not block remaining
+// instances from being processed.
 // A "CHANGE" block can block this operation.
 func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
 	// Check if changes are allowed and the operation may proceed.

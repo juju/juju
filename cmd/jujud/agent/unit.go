@@ -1,10 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -17,8 +18,8 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
@@ -32,25 +33,44 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var agentLogger = loggo.GetLogger("juju.jujud")
+var (
+	agentLogger         = loggo.GetLogger("juju.jujud")
+	reportClosedUnitAPI = func(io.Closer) {}
+)
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
-	agentcmd.AgentConf
-	UnitName     string
-	runner       worker.Runner
-	setupLogging func(agent.Config) error
-	logToStdErr  bool
-	ctx          *cmd.Context
+	AgentConf
+	UnitName         string
+	runner           worker.Runner
+	setupLogging     func(agent.Config) error
+	logToStdErr      bool
+	ctx              *cmd.Context
+	apiStateUpgrader APIStateUpgrader
+
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
-func NewUnitAgent() *UnitAgent {
+func NewUnitAgent(ctx *cmd.Context) *UnitAgent {
 	return &UnitAgent{
-		AgentConf: agentcmd.NewAgentConf(""),
+		AgentConf: NewAgentConf(""),
+		ctx:       ctx,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
+}
+
+func (a *UnitAgent) getUpgrader(st *api.State) APIStateUpgrader {
+	if a.apiStateUpgrader != nil {
+		return a.apiStateUpgrader
+	}
+	return st.Upgrader()
 }
 
 // Info returns usage information for the command.
@@ -124,14 +144,14 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	return err
 }
 
-func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	hookLock, err := cmdutil.HookExecutionLock(dataDir)
 	if err != nil {
 		return nil, err
 	}
-	st, entity, err := agentcmd.OpenAPIState(agentConfig, a)
+	st, entity, err := OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +178,18 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 	}
 
+	defer func() {
+		if err != nil {
+			st.Close()
+			reportClosedUnitAPI(st)
+		}
+	}()
+
 	// Before starting any workers, ensure we record the Juju version this unit
 	// agent is running.
 	currentTools := &tools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+	apiStateUpgrader := a.getUpgrader(st)
+	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
 		return nil, errors.Annotate(err, "cannot set unit agent version")
 	}
 
@@ -171,11 +199,12 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
+		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
 			agentConfig,
 			agentConfig.UpgradedToVersion(),
 			func() bool { return false },
+			a.initialAgentUpgradeCheckComplete,
 		), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -254,7 +255,7 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 	brokerCalled := false
 	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
-		imageURLGetter container.ImageURLGetter) (environs.InstanceBroker, error) {
+		imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(imageURL, gc.Equals, "imageURL")
@@ -265,7 +266,6 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	s.PatchValue(&provisioner.NewLxcBroker, newlxcbroker)
 	s.createContainer(c, m, instance.LXC)
 	c.Assert(brokerCalled, jc.IsTrue)
-
 }
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
@@ -499,4 +499,44 @@ func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		s.enableFeatureFlag()
 		s.assertContainerInitialised(c, test.ctype, test.packages, true)
 	}
+}
+
+// LXCDefaultMTUSuite only contains tests depending on the
+// lxc-default-mtu environment setting being set explicitly.
+type LXCDefaultMTUSuite struct {
+	ContainerSetupSuite
+}
+
+var _ = gc.Suite(&LXCDefaultMTUSuite{})
+
+func (s *LXCDefaultMTUSuite) SetUpTest(c *gc.C) {
+	// Explicitly set lxc-default-mtu before JujuConnSuite constructs
+	// the environment, as the setting is immutable.
+	s.DummyConfig = dummy.SampleConfig()
+	s.DummyConfig["lxc-default-mtu"] = 9000
+	s.ContainerSetupSuite.SetUpTest(c)
+}
+
+func (s *LXCDefaultMTUSuite) TestDefaultMTUPropagatedToNewLXCBroker(c *gc.C) {
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	brokerCalled := false
+	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig, imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
+		brokerCalled = true
+		c.Assert(defaultMTU, gc.Equals, 9000)
+		return nil, fmt.Errorf("lxc broker error")
+	}
+	s.PatchValue(&provisioner.NewLxcBroker, newlxcbroker)
+	s.createContainer(c, m, instance.LXC)
+	c.Assert(brokerCalled, jc.IsTrue)
 }

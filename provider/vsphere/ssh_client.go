@@ -7,9 +7,10 @@ package vsphere
 
 import (
 	"fmt"
-	"github.com/juju/errors"
 	"strconv"
 	"strings"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/ssh"

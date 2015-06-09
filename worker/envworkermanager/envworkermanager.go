@@ -17,29 +17,28 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.envworkermanager")
 
-// NewEnvWorkerManager returns a Worker which manages the workers which
-// need to run on a per environment basis. It takes a function which will
-// be called to start workers for a new environment. These workers
+// NewEnvWorkerManager returns a Worker which manages a worker which
+// needs to run on a per environment basis. It takes a function which will
+// be called to start a worker for a new environment. This worker
 // will be killed when an environment goes away.
 func NewEnvWorkerManager(
 	st InitialState,
-	startEnvWorkers func(InitialState, *state.State) (worker.Runner, error),
+	startEnvWorker func(InitialState, *state.State) (worker.Worker, error),
 ) worker.Worker {
 	m := &envWorkerManager{
-		st:              st,
-		startEnvWorkers: startEnvWorkers,
+		st:             st,
+		startEnvWorker: startEnvWorker,
 	}
 	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	go func() {
 		defer m.tomb.Done()
-		defer m.runner.Kill()
 		m.tomb.Kill(m.loop())
 	}()
 	return m
 }
 
 // InitialState defines the State functionality used by
-// envWorkerManager and/or could be useful to startEnvWorkers
+// envWorkerManager and/or could be useful to startEnvWorker
 // funcs. It mainly exists to support testing.
 type InitialState interface {
 	WatchEnvironments() state.StringsWatcher
@@ -51,10 +50,10 @@ type InitialState interface {
 }
 
 type envWorkerManager struct {
-	runner          worker.Runner
-	tomb            tomb.Tomb
-	st              InitialState
-	startEnvWorkers func(InitialState, *state.State) (worker.Runner, error)
+	runner         worker.Runner
+	tomb           tomb.Tomb
+	st             InitialState
+	startEnvWorker func(InitialState, *state.State) (worker.Worker, error)
 }
 
 // Kill satisfies the Worker interface.
@@ -72,6 +71,12 @@ func (m *envWorkerManager) loop() error {
 		// When the runner stops, make sure we stop the envWorker as well
 		m.tomb.Kill(m.runner.Wait())
 	}()
+	defer func() {
+		// When we return, make sure that we kill
+		// the runner and wait for it.
+		m.runner.Kill()
+		m.tomb.Kill(m.runner.Wait())
+	}()
 	w := m.st.WatchEnvironments()
 	defer w.Stop()
 	for {
@@ -84,10 +89,6 @@ func (m *envWorkerManager) loop() error {
 				}
 			}
 		case <-m.tomb.Dying():
-			// The envWorkerManager has been asked to die: kill the
-			// master runner and stop.
-			m.runner.Kill()
-			m.runner.Wait()
 			return tomb.ErrDying
 		}
 	}
@@ -120,7 +121,7 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 			}
 		}
 
-		envRunner, err := m.startEnvWorkers(m.st, st)
+		envRunner, err := m.startEnvWorker(m.st, st)
 		if err != nil {
 			closeState()
 			return nil, errors.Trace(err)

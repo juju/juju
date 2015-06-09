@@ -53,6 +53,19 @@ func setFakeStatus(ctx *Context) {
 	})
 }
 
+func setFakeServiceStatus(ctx *Context) {
+	ctx.SetTestingServiceStatus(jujuc.StatusInfo{
+		Status: "active",
+		Info:   "this is a service status",
+		Data:   nil,
+	},
+		[]jujuc.StatusInfo{{
+			Status: "active",
+			Info:   "this is a unit status",
+			Data:   nil,
+		}})
+}
+
 func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 	for i, t := range statusGetTests {
 		c.Logf("test %d: %#v", i, t.args)
@@ -88,20 +101,24 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-get [options] [--include-data]
-purpose: print status information
+	expectedHelp := "" +
+		"usage: status-get [options] [--include-data] [--service]\n" +
+		"purpose: print status information\n" +
+		"\n" +
+		"options:\n" +
+		"--format  (= smart)\n" +
+		"    specify output format (json|smart|yaml)\n" +
+		"--include-data  (= false)\n" +
+		"    print all status data\n" +
+		"-o, --output (= \"\")\n" +
+		"    specify an output file\n" +
+		"--service  (= false)\n" +
+		"    print status for all units of this service if this unit is the leader\n" +
+		"\n" +
+		"By default, only the status value is printed.\n" +
+		"If the --include-data flag is passed, the associated data are printed also.\n"
 
-options:
---format  (= smart)
-    specify output format (json|smart|yaml)
---include-data  (= false)
-    print all status data
--o, --output (= "")
-    specify an output file
-
-By default, only the status value is printed.
-If the --include-data flag is passed, the associated data are printed also.
-`)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
@@ -121,4 +138,32 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	var out map[string]interface{}
 	c.Assert(json.Unmarshal(content, &out), gc.IsNil)
 	c.Assert(out, gc.DeepEquals, statusAttributes)
+}
+
+func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
+	expected := map[string]interface{}{
+		"service-status": map[interface{}]interface{}{
+			"status-data": map[interface{}]interface{}{},
+			"units": map[interface{}]interface{}{
+				"": map[interface{}]interface{}{
+					"message":     "this is a unit status",
+					"status":      "active",
+					"status-data": map[interface{}]interface{}{},
+				},
+			},
+			"message": "this is a service status",
+			"status":  "active"},
+	}
+	hctx := s.GetStatusHookContext(c)
+	setFakeServiceStatus(hctx)
+	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--service"})
+	c.Assert(code, gc.Equals, 0)
+
+	var out map[string]interface{}
+	c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), gc.IsNil)
+	c.Assert(out, gc.DeepEquals, expected)
+
 }

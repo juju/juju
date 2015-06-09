@@ -42,6 +42,12 @@ type Context interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
+	// SetServiceStatus updates the status for the unit's service.
+	SetServiceStatus(StatusInfo) error
+
+	// ServiceStatus returns the executing unit's service status (including all units).
+	ServiceStatus() (ServiceStatusInfo, error)
+
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, bool)
 
@@ -128,6 +134,9 @@ type Context interface {
 	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook if it was found, and whether it was found.
 	HookStorage() (ContextStorage, bool)
+
+	// AddUnitStorage saves storage constraints in the context.
+	AddUnitStorage(map[string]params.StorageConstraints)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

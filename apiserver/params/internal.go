@@ -320,10 +320,9 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
-	// here, containing only the information regarding the attachment.
-	// The rest can be inferred from the context.
-	VolumeAttachments []VolumeAttachment
+	// VolumeAttachments is a mapping from volume tag to
+	// volume attachment info.
+	VolumeAttachments map[string]VolumeAttachmentInfo
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -343,6 +342,18 @@ type EntityStatus struct {
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
 	Entities []EntityStatus
+}
+
+// InstanceStatus holds an entity tag and instance status.
+type InstanceStatus struct {
+	Tag    string
+	Status string
+}
+
+// SetInstancesStatus holds parameters for making a
+// SetInstanceStatus() call.
+type SetInstancesStatus struct {
+	Entities []InstanceStatus
 }
 
 type HistoryKind string
@@ -377,9 +388,16 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
-// SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
-type SetMachinesAddresses struct {
-	MachineAddresses []MachineAddresses
+// ServiceStatusResult holds results for a service Full Status
+type ServiceStatusResult struct {
+	Service StatusResult
+	Units   map[string]StatusResult
+	Error   *Error
+}
+
+// ServiceStatusResults holds multiple StatusResult.
+type ServiceStatusResults struct {
+	Results []ServiceStatusResult
 }
 
 // ConstraintsResult holds machine constraints or an error.
@@ -553,6 +571,7 @@ type ProvisioningInfo struct {
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
 	Volumes     []VolumeParams
+	Tags        map[string]string
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

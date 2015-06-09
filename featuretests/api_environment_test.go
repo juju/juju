@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"bytes"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -12,8 +14,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type apiEnvironmentSuite struct {
@@ -90,4 +95,36 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 			LastConnection: envUser.LastConnection(),
 		},
 	})
+}
+
+func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
+	// setup other environment
+	otherState := s.Factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
+	info := s.APIInfo(c)
+	info.EnvironTag = otherState.EnvironTag()
+	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer otherAPIState.Close()
+	otherClient := otherAPIState.Client()
+	defer otherClient.ClientFacade.Close()
+
+	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+
+	// build fake tools
+	tgz, checksum := coretesting.TarGz(
+		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+newVersion.String()))
+
+	tool, err := otherClient.UploadTools(bytes.NewReader(tgz), newVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tool.SHA256, gc.Equals, checksum)
+
+	toolStrg, err := otherState.ToolsStorage()
+	defer toolStrg.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	meta, closer, err := toolStrg.Tools(newVersion)
+	defer closer.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meta.SHA256, gc.Equals, checksum)
+	c.Assert(meta.Version, gc.Equals, newVersion)
 }

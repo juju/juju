@@ -84,20 +84,20 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	data, err := containerinit.GenerateNetworkConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 
 	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedNetConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
@@ -117,7 +117,7 @@ bootcmd:
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", nil)
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "#cloud-config\n{}\n"
@@ -127,7 +127,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", nil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// No need to test the exact contents here, as they are already
@@ -203,12 +203,14 @@ Description=juju shutdown job
 After=syslog.target
 After=network.target
 After=systemd-user-sessions.service
-After=cloud-final
-Conflicts=cloud-final
+After=cloud-config.target
 
 [Service]
 ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
 ExecStopPost=/bin/systemctl disable juju-template-restart.service
+
+[Install]
+WantedBy=multi-user.target
 `[1:],
 		Script: `
 /bin/cat > /etc/network/interfaces << EOC
@@ -223,5 +225,5 @@ EOC
   /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
-	test.CheckCommands(c, commands)
+	test.CheckInstallAndStartCommands(c, commands)
 }

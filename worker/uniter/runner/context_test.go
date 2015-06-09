@@ -9,11 +9,11 @@ import (
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -25,16 +25,6 @@ type InterfaceSuite struct {
 }
 
 var _ = gc.Suite(&InterfaceSuite{})
-
-func (s *InterfaceSuite) GetContext(
-	c *gc.C, relId int, remoteName string,
-) jujuc.Context {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	return s.HookContextSuite.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies,
-	)
-}
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
@@ -310,4 +300,63 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+}
+
+func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
+	expected := map[string][]params.StorageConstraints{
+		"data": []params.StorageConstraints{
+			params.StorageConstraints{},
+		},
+	}
+
+	ctx := runner.HookContext{}
+	addStorageToContext(&ctx, "data", params.StorageConstraints{})
+	assertStorageAddInContext(c, ctx, expected)
+}
+
+var two = uint64(2)
+
+func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
+	expected := map[string][]params.StorageConstraints{
+		"data": []params.StorageConstraints{
+			params.StorageConstraints{},
+			params.StorageConstraints{Count: &two},
+		},
+	}
+
+	ctx := runner.HookContext{}
+	addStorageToContext(&ctx, "data", params.StorageConstraints{})
+	addStorageToContext(&ctx, "data", params.StorageConstraints{Count: &two})
+	assertStorageAddInContext(c, ctx, expected)
+}
+
+func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
+	expected := map[string][]params.StorageConstraints{
+		"data": []params.StorageConstraints{params.StorageConstraints{}},
+		"diff": []params.StorageConstraints{
+			params.StorageConstraints{Count: &two}},
+	}
+
+	ctx := runner.HookContext{}
+	addStorageToContext(&ctx, "data", params.StorageConstraints{})
+	addStorageToContext(&ctx, "diff", params.StorageConstraints{Count: &two})
+	assertStorageAddInContext(c, ctx, expected)
+}
+
+func addStorageToContext(ctx *runner.HookContext,
+	name string,
+	cons params.StorageConstraints,
+) {
+	addOne := map[string]params.StorageConstraints{name: cons}
+	ctx.AddUnitStorage(addOne)
+}
+
+func assertStorageAddInContext(c *gc.C,
+	ctx runner.HookContext, expected map[string][]params.StorageConstraints,
+) {
+	obtained := ctx.StorageAddConstraints()
+	c.Assert(len(obtained), gc.Equals, len(expected))
+	for k, v := range obtained {
+		c.Assert(v, jc.SameContents, expected[k])
+	}
 }

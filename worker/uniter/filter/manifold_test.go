@@ -79,7 +79,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
-	s.Errors = []error{errors.New("no filter for you")}
+	s.SetErrors(errors.New("no filter for you"))
 	worker, err := s.manifold.Start(s.getResource)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "no filter for you")

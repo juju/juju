@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -104,11 +105,24 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 
 	switch initSystem {
 	case InitSystemWindows:
-		return windows.NewService(name, conf), nil
+		svc, err := windows.NewService(name, conf)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
+		}
+		return svc, nil
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		svc, err := systemd.NewService(name, conf)
+		// TODO(ericsnow) lp:1457122
+		// dataDir should come from the series or be passed in.
+		// Until the proper fix is in place, we use paths.DataDir here
+		// with a non-windows series (e.g. vivid).
+		dataDir, err := paths.DataDir("vivid")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		svc, err := systemd.NewService(name, conf, dataDir)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
@@ -173,59 +187,6 @@ func listServicesCommand(initSystem string) (string, bool) {
 	default:
 		return "", false
 	}
-}
-
-// InstallServicesCommand composes the list of shell commands that install
-// and start the given service on the given operating system.
-func InstallServiceCommands(name string, conf common.Conf, os string) ([]string, error) {
-	if os == "windows" {
-		cmds, err := installCommands(name, conf, InitSystemWindows)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return cmds, nil
-	}
-
-	candidates := make(map[string]string)
-	for _, initSystem := range linuxInitSystems {
-		cmds, err := installCommands(name, conf, initSystem)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		candidates[initSystem] = "\n  " + strings.Join(cmds, "\n  ")
-	}
-
-	handler := func(initSystem string) (string, bool) {
-		if cmds, ok := candidates[initSystem]; ok {
-			return cmds, true
-		}
-		return "", false
-	}
-	script := newShellSelectCommand("init_system", "exit 1", handler)
-	cmds := []string{
-		"init_system=$(" + DiscoverInitSystemScript() + ")",
-		script,
-	}
-	return cmds, nil
-}
-
-func installCommands(name string, conf common.Conf, initSystem string) ([]string, error) {
-	svc, err := NewService(name, conf, initSystem)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Return here if we want to only install (i.e. skip starting).
-
-	startCmds, err := svc.StartCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return append(cmds, startCmds...), nil
 }
 
 // installStartRetryAttempts defines how much InstallAndStart retries

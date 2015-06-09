@@ -54,10 +54,6 @@ func Configure(params ConfigureParams) error {
 // to have been returned by cloudinit ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
 	logger.Tracef("Running script on %s: %s", params.Host, script)
-	client := params.Client
-	if client == nil {
-		client = ssh.DefaultClient
-	}
 	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter

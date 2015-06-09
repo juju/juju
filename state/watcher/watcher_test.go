@@ -497,7 +497,6 @@ Loop1:
 	s.w.Unwatch("testB", 1, chB1)
 
 	revno1 = s.update(c, "testA", 1)
-	revno3 = s.update(c, "testB", 1)
 
 	s.w.StartSync()
 

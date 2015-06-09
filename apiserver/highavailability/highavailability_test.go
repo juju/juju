@@ -289,6 +289,7 @@ func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 4)
 }
 

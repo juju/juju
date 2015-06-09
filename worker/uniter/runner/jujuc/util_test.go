@@ -97,6 +97,10 @@ func (s *ContextSuite) GetStatusHookContext(c *gc.C) *Context {
 	return &Context{}
 }
 
+func (s *ContextSuite) GetStorageAddHookContext(c *gc.C) *Context {
+	return &Context{}
+}
+
 func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{}) {
 	node, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,6 +125,7 @@ type Context struct {
 	storageTag     names.StorageTag
 	storage        map[names.StorageTag]*ContextStorage
 	status         jujuc.StatusInfo
+	serviceStatus  jujuc.ServiceStatusInfo
 }
 
 func (c *Context) AddMetric(key, value string, created time.Time) error {
@@ -144,6 +149,19 @@ func (c *Context) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
+func (c *Context) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	return c.serviceStatus, nil
+}
+
+func (c *Context) SetTestingServiceStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
+	c.serviceStatus = jujuc.ServiceStatusInfo{Service: service, Units: units}
+}
+
+func (c *Context) SetServiceStatus(status jujuc.StatusInfo) error {
+	c.serviceStatus = jujuc.ServiceStatusInfo{Service: status, Units: []jujuc.StatusInfo{}}
+	return nil
+}
+
 func (c *Context) PublicAddress() (string, bool) {
 	return "gimli.minecraft.testing.invalid", true
 }
@@ -160,6 +178,8 @@ func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	storage, ok := c.storage[tag]
 	return storage, ok
 }
+
+func (c *Context) AddUnitStorage(all map[string]params.StorageConstraints) {}
 
 func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
 	return c.Storage(c.storageTag)

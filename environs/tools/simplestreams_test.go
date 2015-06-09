@@ -827,6 +827,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 
 	// Read back what was just written.
 	out, err = tools.ReadAllMetadata(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.

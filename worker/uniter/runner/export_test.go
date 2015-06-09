@@ -187,7 +187,6 @@ func NewHookContext(
 		code: statusCode,
 		info: statusInfo,
 	}
-
 	return ctx, nil
 }
 
@@ -229,4 +228,8 @@ func SetEnvironmentHookContextRelation(
 			relationId:   relationId,
 		},
 	}
+}
+
+func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
+	return ctx.storageAddConstraints
 }

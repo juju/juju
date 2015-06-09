@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -16,7 +17,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -45,6 +48,7 @@ type BootstrapSuite struct {
 	coretesting.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
+	mockBlockClient *mockBlockClient
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -69,6 +73,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+
+	s.mockBlockClient = &mockBlockClient{}
+	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+		return s.mockBlockClient, nil
+	})
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -81,6 +90,69 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 	dummy.Reset()
+}
+
+type mockBlockClient struct {
+	retry_count int
+	num_retries int
+}
+
+func (c *mockBlockClient) List() ([]params.Block, error) {
+	c.retry_count += 1
+	if c.retry_count == 5 {
+		return nil, fmt.Errorf("upgrade in progress")
+	}
+	if c.num_retries < 0 {
+		return nil, fmt.Errorf("other error")
+	}
+	if c.retry_count < c.num_retries {
+		return nil, fmt.Errorf("upgrade in progress")
+	}
+	return []params.Block{}, nil
+}
+
+func (c *mockBlockClient) Close() error {
+	return nil
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+	for _, t := range []struct {
+		num_retries int
+		err         string
+	}{
+		{0, ""},                    // agent ready immediately
+		{2, ""},                    // agent ready after 2 polls
+		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
+		{-1, "other error"},        // another error is returned
+	} {
+		resetJujuHome(c, "devenv")
+
+		s.mockBlockClient.num_retries = t.num_retries
+		s.mockBlockClient.retry_count = 0
+		_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+		if t.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.err)
+		}
+		expectedRetries := t.num_retries
+		if t.num_retries <= 0 {
+			expectedRetries = 1
+		}
+		// Only retry maximum of bootstrapReadyPollCount times.
+		if expectedRetries > 5 {
+			expectedRetries = 5
+		}
+		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
+	}
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -245,10 +317,10 @@ var bootstrapTests = []bootstrapTest{{
 	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
-	version:  "1.3.3-saucy-arm64",
-	hostArch: "arm64",
+	version:  "1.3.3-saucy-mips64",
+	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "arm64"`,
+	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",
@@ -336,13 +408,13 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
+		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--upload-series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
+		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {

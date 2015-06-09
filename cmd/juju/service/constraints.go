@@ -79,7 +79,7 @@ func (c *ServiceGetConstraintsCommand) Init(args []string) error {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 
-	c.ServiceName, args = args[0], args[1:]
+	c.ServiceName = args[0]
 	return nil
 }
 
