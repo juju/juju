@@ -69,6 +69,8 @@ juju_version=$(basename $tarfile .tar.gz)
 
 if [[ $INSTANCE_TYPE == "lxc" ]]; then
     instance_id="juju-ci-unit-tester"
+    sudo lxc-stop -n $instance_id || true
+    sudo lxc-destroy -n $instance_id || true
     echo "Creating LXC $instance_id"
     if [[ $AMI_IMAGE =~ .*template ]]; then
         sudo lxc-clone -o $AMI_IMAGE -n $instance_id
