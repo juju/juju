@@ -99,6 +99,16 @@ type FilesystemAccessor interface {
 	SetFilesystemAttachmentInfo([]params.FilesystemAttachment) ([]params.ErrorResult, error)
 }
 
+// MachineAccessor defines an interface used to allow a storage provisioner
+// worker to perform machine related operations.
+type MachineAccessor interface {
+	// WatchMachine watches for changes to the specified machine.
+	WatchMachine(names.MachineTag) (apiwatcher.NotifyWatcher, error)
+
+	// InstanceIds returns the instance IDs of each machine.
+	InstanceIds([]names.MachineTag) ([]params.StringResult, error)
+}
+
 // LifecycleManager defines an interface used to enable a storage provisioner
 // worker to perform lifcycle-related operations on storage entities and
 // attachments.
@@ -149,6 +159,7 @@ func NewStorageProvisioner(
 	f FilesystemAccessor,
 	l LifecycleManager,
 	e EnvironAccessor,
+	m MachineAccessor,
 ) worker.Worker {
 	w := &storageprovisioner{
 		scope:       scope,
@@ -157,6 +168,7 @@ func NewStorageProvisioner(
 		filesystems: f,
 		life:        l,
 		environ:     e,
+		machines:    m,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -173,6 +185,7 @@ type storageprovisioner struct {
 	filesystems FilesystemAccessor
 	life        LifecycleManager
 	environ     EnvironAccessor
+	machines    MachineAccessor
 }
 
 // Kill implements Worker.Kill().
@@ -197,6 +210,7 @@ func (w *storageprovisioner) loop() error {
 	var filesystemAttachmentsChanges <-chan []params.MachineStorageId
 	var machineBlockDevicesWatcher apiwatcher.NotifyWatcher
 	var machineBlockDevicesChanges <-chan struct{}
+	machineChanges := make(chan names.MachineTag)
 
 	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
 	if err != nil {
@@ -253,11 +267,15 @@ func (w *storageprovisioner) loop() error {
 		volumeAccessor:               w.volumes,
 		filesystemAccessor:           w.filesystems,
 		life:                         w.life,
+		machineAccessor:              w.machines,
 		volumes:                      make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:            make(map[params.MachineStorageId]storage.VolumeAttachment),
 		volumeBlockDevices:           make(map[names.VolumeTag]storage.BlockDevice),
 		filesystems:                  make(map[names.FilesystemTag]storage.Filesystem),
 		filesystemAttachments:        make(map[params.MachineStorageId]storage.FilesystemAttachment),
+		machines:                     make(map[names.MachineTag]*machineWatcher),
+		machineChanges:               machineChanges,
+		pendingVolumes:               make(map[names.VolumeTag]storage.VolumeParams),
 		pendingVolumeAttachments:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
 		pendingVolumeBlockDevices:    make(set.Tags),
 		pendingFilesystems:           make(map[names.FilesystemTag]storage.FilesystemParams),
@@ -266,6 +284,11 @@ func (w *storageprovisioner) loop() error {
 	ctx.managedFilesystemSource = newManagedFilesystemSource(
 		ctx.volumeBlockDevices, ctx.filesystems,
 	)
+	defer func() {
+		for _, w := range ctx.machines {
+			w.stop()
+		}
+	}()
 
 	for {
 		// Check if any pending operations can be fulfilled.
@@ -327,6 +350,10 @@ func (w *storageprovisioner) loop() error {
 			if err := machineBlockDevicesChanged(&ctx); err != nil {
 				return errors.Trace(err)
 			}
+		case machineTag := <-machineChanges:
+			if err := refreshMachine(&ctx, machineTag); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -334,6 +361,9 @@ func (w *storageprovisioner) loop() error {
 // processPending checks if the pending operations' prerequisites have
 // been met, and processes them if so.
 func processPending(ctx *context) error {
+	if err := processPendingVolumes(ctx); err != nil {
+		return errors.Annotate(err, "processing pending volumes")
+	}
 	if err := processPendingVolumeAttachments(ctx); err != nil {
 		return errors.Annotate(err, "processing pending volume attachments")
 	}
@@ -362,6 +392,7 @@ type context struct {
 	volumeAccessor     VolumeAccessor
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
+	machineAccessor    MachineAccessor
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume
@@ -379,6 +410,17 @@ type context struct {
 
 	// filesystemAttachments contains information about attached filesystems.
 	filesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachment
+
+	// machines contains information about machines in the worker's scope.
+	machines map[names.MachineTag]*machineWatcher
+
+	// machineChanges is a channel that machine watchers will send to once
+	// their machine is known to have been provisioned.
+	machineChanges chan<- names.MachineTag
+
+	// pendingVolumes contains parameters for volumes that are yet to be
+	// created.
+	pendingVolumes map[names.VolumeTag]storage.VolumeParams
 
 	// pendingVolumeAttachments contains parameters for volume attachments
 	// that are yet to be created.

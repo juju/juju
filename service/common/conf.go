@@ -58,6 +58,12 @@ type Conf struct {
 
 	// ExtraScript allows to insert script before command execution.
 	ExtraScript string
+
+	// ServiceBinary is the actual binary without any arguments.
+	ServiceBinary string
+
+	// ServiceArgs is a string array of unquoted arguments
+	ServiceArgs []string
 }
 
 // IsZero determines whether or not the conf is a zero value.

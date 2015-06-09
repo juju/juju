@@ -514,6 +514,7 @@ func (st *State) machineStorageOps(mdoc *machineDoc, args *machineStorageParams)
 			filesystemTag, f.Attachment,
 		})
 		if volumeTag != (names.VolumeTag{}) {
+			// The filesystem requires a volume, so create a volume attachment too.
 			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
 				volumeTag, VolumeAttachmentParams{},
 			})

@@ -19,6 +19,7 @@ type provisionerState interface {
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
+	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchEnvironFilesystems() state.StringsWatcher
 	WatchEnvironFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
@@ -28,6 +29,8 @@ type provisionerState interface {
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
@@ -52,4 +55,12 @@ func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) 
 		return "", errors.Trace(err)
 	}
 	return m.InstanceId()
+}
+
+func (s stateShim) WatchMachine(tag names.MachineTag) (state.NotifyWatcher, error) {
+	m, err := s.Machine(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.Watch(), nil
 }

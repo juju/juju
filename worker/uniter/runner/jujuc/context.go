@@ -41,6 +41,7 @@ type Context interface {
 // common to all charm hooks.
 type HookContext interface {
 	ContextUnit
+	ContextStatus
 	ContextInstance
 	ContextNetworking
 	ContextLeadership
@@ -98,18 +99,28 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// UnitStatus returns the executing unit's current status.
-	UnitStatus() (*StatusInfo, error)
-
-	// SetUnitStatus updates the unit's status.
-	SetUnitStatus(StatusInfo) error
-
 	// OwnerTag returns the user tag of the service the executing
 	// units belongs to.
 	OwnerTag() string
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+}
+
+// ContextStatus is the part of a hook context related to the unit's status.
+type ContextStatus interface {
+	// UnitStatus returns the executing unit's current status.
+	UnitStatus() (*StatusInfo, error)
+
+	// SetUnitStatus updates the unit's status.
+	SetUnitStatus(StatusInfo) error
+
+	// ServiceStatus returns the executing unit's service status
+	// (including all units).
+	ServiceStatus() (ServiceStatusInfo, error)
+
+	// SetServiceStatus updates the status for the unit's service.
+	SetServiceStatus(StatusInfo) error
 }
 
 // ContextInstace is the part of a hook context related to the unit's intance.

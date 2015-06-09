@@ -194,12 +194,11 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsNoConstraintsUsed(c 
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsJustCount(c *gc.C) {
 	storageCons := map[string]state.StorageConstraints{
-		"data":    makeStorageCons("", 0, 1),
-		"allecto": makeStorageCons("", 0, 1),
+		"data": makeStorageCons("", 0, 1),
 	}
 	expectedCons := map[string]state.StorageConstraints{
 		"data":    makeStorageCons("loop-pool", 1024, 1),
-		"allecto": makeStorageCons("loop-pool", 1024, 1),
+		"allecto": makeStorageCons("loop", 1024, 0),
 	}
 	s.assertAddServiceStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
 }
