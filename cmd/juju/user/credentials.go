@@ -27,7 +27,7 @@ For Example:
 
 
 See Also:
-    juju server login
+    juju system login
 `
 
 // CredentialsCommand changes the password for a user.
