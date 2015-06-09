@@ -14,6 +14,7 @@ import (
 // ContextInfo holds the values for the hook context.
 type ContextInfo struct {
 	*Unit
+	*Status
 	*Instance
 	*NetworkInterface
 	*Leadership
@@ -28,6 +29,7 @@ type ContextInfo struct {
 func NewContextInfo() *ContextInfo {
 	return &ContextInfo{
 		Unit:             &Unit{},
+		Status:           &Status{},
 		Instance:         &Instance{},
 		NetworkInterface: &NetworkInterface{},
 		Leadership:       &Leadership{},
@@ -53,6 +55,7 @@ func (ci *ContextInfo) Update(updateFuncs ...func(*ContextInfo) error) error {
 // Context is a test double for jujuc.Context.
 type Context struct {
 	*ContextUnit
+	*ContextStatus
 	*ContextInstance
 	*ContextNetworking
 	*ContextLeader
@@ -79,6 +82,9 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 func (ctx *Context) init() {
 	if ctx.ContextUnit == nil {
 		ctx.ContextUnit = &ContextUnit{}
+	}
+	if ctx.ContextStatus == nil {
+		ctx.ContextStatus = &ContextStatus{}
 	}
 	if ctx.ContextInstance == nil {
 		ctx.ContextInstance = &ContextInstance{}
@@ -118,6 +124,9 @@ func (ctx *Context) ensureStub() {
 	if ctx.ContextUnit.Stub == nil {
 		ctx.ContextUnit.Stub = stub
 	}
+	if ctx.ContextStatus.Stub == nil {
+		ctx.ContextStatus.Stub = stub
+	}
 	if ctx.ContextInstance.Stub == nil {
 		ctx.ContextInstance.Stub = stub
 	}
@@ -154,6 +163,12 @@ func (ctx *Context) syncInfo() {
 		ctx.ContextUnit.Info = info.Unit
 	} else {
 		info.Unit = ctx.ContextUnit.Info
+	}
+
+	if ctx.ContextStatus.Info == nil {
+		ctx.ContextStatus.Info = info.Status
+	} else {
+		info.Status = ctx.ContextStatus.Info
 	}
 
 	if ctx.ContextInstance.Info == nil {

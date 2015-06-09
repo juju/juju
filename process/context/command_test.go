@@ -32,7 +32,7 @@ func (s *commandSuite) SetUpTest(c *gc.C) {
 
 func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
 	s.Stub.CheckCallNames(c, "Component")
-	s.Stub.Calls = nil
+	s.Stub.ResetCalls()
 
 	s.cmdName = name + jujuc.CmdSuffix
 	s.cmd = cmd
