@@ -20,17 +20,18 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
-// setAgentStatus sets the unit's status if it has changed since last time this method was called.
-func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
+// setAgentStatus sets the unit's status if it has changed since last time this method was called,
+// it will return a bool indicating if it changed
+func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) (bool, error) {
 	u.setStatusMutex.Lock()
 	defer u.setStatusMutex.Unlock()
 	if u.lastReportedStatus == status && u.lastReportedMessage == info {
-		return nil
+		return false, nil
 	}
 	u.lastReportedStatus = status
 	u.lastReportedMessage = info
 	logger.Debugf("[AGENT-STATUS] %s: %s", status, info)
-	return u.unit.SetAgentStatus(status, info, data)
+	return true, u.unit.SetAgentStatus(status, info, data)
 }
 
 // updateAgentStatus updates the agent status to reflect what the uniter is doing,
@@ -40,14 +41,14 @@ func updateAgentStatus(u *Uniter, userMessage string, err error) {
 	// of the agent to Failed.
 	if err != nil {
 		msg := fmt.Sprintf("%s: %v", userMessage, err)
-		err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
+		_, err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
 		if err2 != nil {
 			logger.Errorf("updating agent status: %v", err2)
 		}
 		return
 	}
 	// Anything else, the uniter is doing something, running a hook or action etc.
-	err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
+	_, err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}
@@ -276,6 +277,26 @@ func runUpdateStatusOnce(u *Uniter) error {
 	return errors.Trace(u.runOperation(creator))
 }
 
+func newCollectMetricsSignal(u *Uniter) <-chan time.Time {
+
+	lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
+	return u.collectMetricsAt(
+		time.Now(), lastCollectMetrics, metricsPollInterval,
+	)
+
+}
+
+func newUpdateStatusSignal(u *Uniter) <-chan time.Time {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
+	// stakeholders asked for update status to be run with random paddings to reduce
+	// the probability of heavy concurrent access to the api.
+	lastUpdateStatus = time.Time(lastUpdateStatus).Add(time.Duration(r.Intn(120)) * time.Second)
+	return u.updateStatusAt(
+		time.Now(), lastUpdateStatus, statusPollInterval,
+	)
+}
+
 // idleWaitTime is the time after which, if there are no uniter events,
 // the agent state becomes idle.
 var idleWaitTime = 2 * time.Second
@@ -290,7 +311,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		return nil, errors.Trace(err)
 	}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// update-status hook
+	updateStatus := newUpdateStatusSignal(u)
 
 	for {
 		// We expect one or none of these vars to be non-nil; and if none
@@ -307,28 +329,17 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		}
 
 		// collect-metrics hook
-		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
-		collectMetricsSignal := u.collectMetricsAt(
-			time.Now(), lastCollectMetrics, metricsPollInterval,
-		)
-
-		// update-status hook
-		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
-		lastUpdateStatus = time.Time(lastUpdateStatus).Add(time.Duration(r.Intn(120)) * time.Second)
-		updateStatusSignal := u.updateStatusAt(
-			time.Now(), lastUpdateStatus, statusPollInterval,
-		)
+		collectMetrics := newCollectMetricsSignal(u)
 
 		var creator creator
 		select {
 		case <-time.After(idleWaitTime):
-			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+			changed, err := setAgentStatus(u, params.StatusIdle, "", nil)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// run update status hook after becoming idle which should account for
-			// a batch of hooks being run.
-			if err := runUpdateStatusOnce(u); err != nil {
-				return nil, errors.Trace(err)
+			if changed {
+				runUpdateStatusOnce(u)
 			}
 			continue
 		case <-u.tomb.Dying():
@@ -347,10 +358,12 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case <-u.f.MeterStatusEvents():
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
-		case <-collectMetricsSignal:
+		case <-collectMetrics:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
-		case <-updateStatusSignal:
+			collectMetrics = newCollectMetricsSignal(u)
+		case <-updateStatus:
 			creator = newSimpleRunHookOp(hooks.UpdateStatus)
+			updateStatus = newUpdateStatusSignal(u)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
 		case hookInfo := <-u.storage.Hooks():
@@ -492,7 +505,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		// It's the agent itself that should be in Error state. So we'll ensure the model is
 		// correct and translate before the user sees the data.
 		// ie a charm hook error results in agent error status, but is presented as a workload error.
-		if err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
+		if _, err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -543,7 +556,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 		// It's the agent itself that should be in Error state. So we'll ensure the model is
 		// correct and translate before the user sees the data.
 		// ie a charm upgrade error results in agent error status, but is presented as a workload error.
-		if err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
+		if _, err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()

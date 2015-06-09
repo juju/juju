@@ -18,7 +18,7 @@ const (
 // as close to interval after the last run as possible.
 var activeMetricsTimer = func(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
 	waitDuration := interval - now.Sub(lastRun)
-	logger.Debugf("waiting for %v", waitDuration)
+	logger.Debugf("metrics waiting for %v", waitDuration)
 	return time.After(waitDuration)
 }
 

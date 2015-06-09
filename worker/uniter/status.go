@@ -15,5 +15,6 @@ const (
 // updateStatusSignal returns a time channel that fires after a given interval.
 func updateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
 	waitDuration := interval - now.Sub(lastSignal)
+	logger.Debugf("status hook waiting for %v", waitDuration)
 	return time.After(waitDuration)
 }

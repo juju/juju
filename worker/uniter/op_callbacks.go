@@ -157,5 +157,6 @@ func (opc *operationCallbacks) InitializeMetricsCollector() error {
 
 // SetExecutingStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetExecutingStatus(message string) error {
-	return setAgentStatus(opc.u, params.StatusExecuting, message, nil)
+	_, err := setAgentStatus(opc.u, params.StatusExecuting, message, nil)
+	return err
 }

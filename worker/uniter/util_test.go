@@ -293,6 +293,7 @@ var (
 		"install", "start", "config-changed", "upgrade-charm", "stop",
 		"db-relation-joined", "db-relation-changed", "db-relation-departed",
 		"db-relation-broken", "meter-status-changed", "collect-metrics",
+		"update-status",
 	}
 	leaderCharmHooks = []string{
 		"leader-elected", "leader-deposed", "leader-settings-changed",
@@ -859,9 +860,9 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type metricsTick struct{}
+type timerTick struct{}
 
-func (s metricsTick) step(c *gc.C, ctx *context) {
+func (s timerTick) step(c *gc.C, ctx *context) {
 	err := ctx.ticker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
 }

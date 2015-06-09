@@ -204,6 +204,20 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook runs at least once",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks{"install", "leader-elected", "config-changed", "start", "update-status"},
+			waitUnitAgent{status: params.StatusIdle},
+			waitHooks{"update-status"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1342,7 +1356,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			metricsTick{},
+			timerTick{},
 			waitHooks{"collect-metrics"},
 		),
 		ut(
@@ -1353,7 +1367,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			metricsTick{},
+			timerTick{},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
@@ -1374,7 +1388,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			metricsTick{},
+			timerTick{},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
@@ -1392,7 +1406,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 		ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			metricsTick{},
+			timerTick{},
 			waitHooks{},
 		),
 	})
