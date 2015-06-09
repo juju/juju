@@ -27,6 +27,7 @@ var _ = gc.Suite(&UserCommandSuite{})
 var expectedUserCommmandNames = []string{
 	"add",
 	"change-password",
+	"credentials",
 	"disable",
 	"enable",
 	"help",
