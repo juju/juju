@@ -56,10 +56,10 @@ func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.Bloc
 	}
 	storage.SortBlockDevices(blockDevices)
 	if reflect.DeepEqual(blockDevices, *old) {
-		logger.Debugf("no changes to block devices detected")
+		logger.Tracef("no changes to block devices detected")
 		return nil
 	}
-	logger.Debugf("block devices changed: %v", blockDevices)
+	logger.Infof("block devices changed: %v", blockDevices)
 	if err := b.SetMachineBlockDevices(blockDevices); err != nil {
 		return err
 	}

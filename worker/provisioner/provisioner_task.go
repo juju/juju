@@ -518,9 +518,11 @@ func constructStartInstanceParams(
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
+			v.Tags,
 			&storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					Machine: machineTag,
+					Machine:  machineTag,
+					ReadOnly: v.Attachment.ReadOnly,
 				},
 				Volume: volumeTag,
 			},
@@ -701,6 +703,7 @@ func assocProvInfoAndMachCfg(
 ) *provisioningInfo {
 
 	instanceConfig.Networks = provInfo.Networks
+	instanceConfig.Tags = provInfo.Tags
 
 	if len(provInfo.Jobs) > 0 {
 		instanceConfig.Jobs = provInfo.Jobs
@@ -719,21 +722,21 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 	for i, v := range volumes {
 		result[i] = params.Volume{
 			v.Tag.String(),
-			v.VolumeId,
-			v.HardwareId,
-			v.Size,
-			v.Persistent,
+			params.VolumeInfo{
+				v.VolumeId,
+				v.HardwareId,
+				v.Size,
+				v.Persistent,
+			},
 		}
 	}
 	return result
 }
 
-func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) []params.VolumeAttachment {
-	result := make([]params.VolumeAttachment, len(attachments))
-	for i, a := range attachments {
-		result[i] = params.VolumeAttachment{
-			a.Volume.String(),
-			a.Machine.String(),
+func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
+	result := make(map[string]params.VolumeAttachmentInfo)
+	for _, a := range attachments {
+		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			a.DeviceName,
 			a.ReadOnly,
 		}

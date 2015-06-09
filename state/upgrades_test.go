@@ -1989,18 +1989,46 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 }
 
 func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
-	machineID := "9999"
-	var instID instance.Id = "9999"
-	s.azSetUp(c, machineID, instID)
-
-	azfunc := func(*State, instance.Id) (string, error) {
+	foundInstZoneFunc := func(*State, instance.Id) (string, error) {
 		return "a_zone", nil
 	}
 
-	err := AddAvailabilityZoneToInstanceData(s.state, azfunc)
-	c.Assert(err, jc.ErrorIsNil)
+	for i, test := range []azoneTest{
+		{
+			about:        "Update an environ level machine's availability zone",
+			id:           "9999",
+			azfunc:       foundInstZoneFunc,
+			expectedZone: "a_zone",
+		}, {
+			about:  "Don't update a container's availability zone",
+			id:     "1/lxc/0",
+			azfunc: foundInstZoneFunc,
+		},
+		{
+			about: "Skip missing instance",
+			id:    "8888",
+			azfunc: func(*State, instance.Id) (string, error) {
+				return "", errors.NotFoundf("instances")
+			},
+		},
+	} {
+		c.Logf("%d: %s", i, test.about)
+		machineID := test.id
+		instID := instance.Id(test.id)
+		s.azSetUp(c, machineID, instID)
 
-	s.checkAvailabilityZone(c, machineID, "a_zone")
+		err := AddAvailabilityZoneToInstanceData(s.state, test.azfunc)
+		c.Assert(err, jc.ErrorIsNil)
+
+		s.checkAvailabilityZone(c, machineID, test.expectedZone)
+	}
+}
+
+type azoneTest struct {
+	about        string
+	id           string
+	azfunc       func(*State, instance.Id) (string, error)
+	expectedZone string
 }
 
 func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
@@ -2048,9 +2076,14 @@ func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expecte
 	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
 
-	zone, ok := instanceMap["availzone"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(zone, gc.Equals, expectedZone)
+	if expectedZone == "" {
+		_, ok := instanceMap["availzone"]
+		c.Check(ok, jc.IsFalse)
+	} else {
+		zone, ok := instanceMap["availzone"]
+		c.Check(ok, jc.IsTrue)
+		c.Check(zone, gc.Equals, expectedZone)
+	}
 }
 
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.

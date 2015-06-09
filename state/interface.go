@@ -36,6 +36,14 @@ var (
 	_ Entity = (*Action)(nil)
 )
 
+// EntityWithService is implemented by Units it is intended
+// for anything that can return its Service.
+type EntityWithService interface {
+	Service() (*Service, error)
+}
+
+var _ EntityWithService = (*Unit)(nil)
+
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Life() Life

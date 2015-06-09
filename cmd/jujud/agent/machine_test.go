@@ -389,7 +389,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(watcher.Period * 5 / 4):
 		// TODO(rog) Fix this so it doesn't wait for so long.
-		// https://bugs.github.com/juju/juju/+bug/1163983
+		// https://bugs.launchpad.net/juju-core/+bug/1163983
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()
@@ -728,6 +728,16 @@ func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
 	runner := s.singularRecord.nextRunner(c)
 	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
 	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
+}
+
+func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "statushistorypruner")
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
@@ -1332,6 +1342,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.FilesystemAccessor,
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
+		_ storageprovisioner.MachineAccessor,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
@@ -1365,6 +1376,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.FilesystemAccessor,
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
+		_ storageprovisioner.MachineAccessor,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
@@ -1735,6 +1747,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.FilesystemAccessor,
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
+		_ storageprovisioner.MachineAccessor,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {

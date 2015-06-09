@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type unitStorageSuite struct {
@@ -60,21 +61,77 @@ func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 
 func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	s.createStorageBlockUnit(c)
+	cons := map[string]params.StorageConstraints{
+		"allecto": params.StorageConstraints{}}
+
+	ctx := s.addUnitStorage(c, cons)
+
+	// Flush the context with a success.
+	err := ctx.FlushContext("success", nil)
+	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
+
+	// Make sure no storage instances was added
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	s.assertExistingStorage(c, after)
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
+	s.createStorageBlockUnit(c)
 	size := uint64(1)
-	s.assertUnitStorageAdded(c,
-		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size}})
+	cons := map[string]params.StorageConstraints{
+		"allecto": params.StorageConstraints{Size: &size}}
+
+	ctx := s.addUnitStorage(c, cons)
+
+	// Flush the context with a success.
+	err := ctx.FlushContext("success", nil)
+	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
+
+	// Make sure no storage instances was added
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	s.assertExistingStorage(c, after)
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
+	s.createStorageBlockUnit(c)
+	cons := map[string]params.StorageConstraints{
+		"allecto": params.StorageConstraints{Pool: "loop"}}
+
+	ctx := s.addUnitStorage(c, cons)
+
+	// Flush the context with a success.
+	err := ctx.FlushContext("success", nil)
+	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
+
+	// Make sure no storage instances was added
+	after, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	s.assertExistingStorage(c, after)
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 	s.createStorageBlock2Unit(c)
 	count := uint64(1)
-	size := uint64(2048)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Size: &size}},
+			"multi2up": params.StorageConstraints{Count: &count}},
 		map[string]params.StorageConstraints{
 			"multi1to10": params.StorageConstraints{Count: &count}})
+}
+
+func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
+	s.createStorageBlock2Unit(c)
+	count := uint64(1)
+	s.assertUnitStorageAdded(c,
+		map[string]params.StorageConstraints{
+			"multi2up": params.StorageConstraints{Count: &count}},
+		map[string]params.StorageConstraints{
+			"multi2up": params.StorageConstraints{Count: &count}})
 }
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
@@ -147,7 +204,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]params.StorageConstraints) {
+func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *runner.HookContext {
 	// Get the context.
 	ctx := s.getHookContext(c, s.State.EnvironUUID(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
@@ -158,6 +215,11 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 		}
 		ctx.AddUnitStorage(one)
 	}
+	return ctx
+}
+
+func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]params.StorageConstraints) {
+	ctx := s.addUnitStorage(c, cons...)
 
 	// Flush the context with a success.
 	err := ctx.FlushContext("success", nil)
