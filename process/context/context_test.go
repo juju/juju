@@ -18,13 +18,13 @@ type baseSuite struct {
 	jujuctesting.ContextSuite
 	proc      *process.Info
 	compCtx   *context.Context
-	apiClient context.APIClient
+	apiClient *stubAPIClient
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.apiClient = &stubAPIClient{stub: s.Stub}
+	s.apiClient = newStubAPIClient(s.Stub)
 	proc := process.NewInfo("proc A", "docker")
 	compCtx := context.NewContext(s.apiClient, proc)
 
@@ -66,6 +66,47 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 		c.Check(procs[0], jc.DeepEquals, expected[1])
 		c.Check(procs[1], jc.DeepEquals, expected[0])
 	}
+}
+
+func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
+	expected := s.apiClient.setNew("A")
+
+	ctx, err := context.NewContextAPI(s.apiClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(procs, jc.DeepEquals, expected)
+}
+
+func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
+	s.apiClient.setNew("A")
+
+	_, err := context.NewContextAPI(s.apiClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "List")
+}
+
+func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
+	ctx, err := context.NewContextAPI(s.apiClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(procs, gc.HasLen, 0)
+}
+
+func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
+	expected := errors.Errorf("<failed>")
+	s.Stub.SetErrors(expected)
+
+	_, err := context.NewContextAPI(s.apiClient)
+
+	c.Check(errors.Cause(err), gc.Equals, expected)
+	s.Stub.CheckCallNames(c, "List")
 }
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
@@ -236,6 +277,24 @@ type stubAPIClient struct {
 	procs map[string]*process.Info
 }
 
+func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
+	return &stubAPIClient{
+		stub:  stub,
+		procs: make(map[string]*process.Info),
+	}
+}
+
+func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
+	var procs []*process.Info
+	for _, id := range ids {
+		var proc process.Info
+		proc.Name = id
+		c.procs[id] = &proc
+		procs = append(procs, &proc)
+	}
+	return procs
+}
+
 func (c *stubAPIClient) List() ([]string, error) {
 	c.stub.AddCall("List")
 	if err := c.stub.NextErr(); err != nil {
@@ -272,9 +331,6 @@ func (c *stubAPIClient) Set(procs ...*process.Info) error {
 		return errors.Trace(err)
 	}
 
-	if c.procs == nil {
-		c.procs = make(map[string]*process.Info)
-	}
 	for _, proc := range procs {
 		c.procs[proc.Name] = proc
 	}
