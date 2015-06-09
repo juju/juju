@@ -7,33 +7,73 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/api"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 func init() {
+	// TODO(ericsnow) Have registration handled by a "third party"?
 	runner.RegisterComponentFunc(process.ComponentName,
-		func() jujuc.ContextComponent {
-			return NewContext()
+		// TODO(ericsnow) This should be done in a way (or a place)
+		// such that we don't have to import runner or jujuc.
+		func() (jujuc.ContextComponent, error) {
+			// TODO(ericsnow) The API client or facade should be passed
+			// in to the factory func and passed to NewClient.
+			client, err := api.NewClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			component, err := NewContextAPI(client)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return component, nil
 		},
 	)
 }
 
+// APIClient represents the API needs of a Context.
+type APIClient interface {
+	// List requests the list of registered process IDs from state.
+	List() ([]string, error)
+	// Get requests the process info for the given ID.
+	Get(ids ...string) ([]*process.Info, error)
+	// Set sends a request to update state with the provided processes.
+	Set(procs ...*process.Info) error
+}
+
 // Context is the workload process portion of the hook context.
 type Context struct {
+	api       APIClient
 	processes map[string]*process.Info
-	dirty     bool
+	updates   map[string]*process.Info
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext(procs ...*process.Info) *Context {
+func NewContext(api APIClient, procs ...*process.Info) *Context {
 	processes := make(map[string]*process.Info)
 	for _, proc := range procs {
 		processes[proc.Name] = proc
 	}
 	return &Context{
 		processes: processes,
+		api:       api,
 	}
+}
+
+// NewContext returns a new jujuc.ContextComponent for workload processes.
+func NewContextAPI(api APIClient) (*Context, error) {
+	ids, err := api.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ctx := NewContext(api)
+	for _, id := range ids {
+		ctx.processes[id] = nil
+	}
+	return ctx, nil
 }
 
 // HookContext is the portion of jujuc.Context used in this package.
@@ -45,8 +85,8 @@ type HookContext interface {
 // ContextComponent returns the hook context for the workload
 // process component.
 func ContextComponent(ctx HookContext) (*Context, error) {
-	found, ok := ctx.Component(process.ComponentName)
-	if !ok {
+	found, err := ctx.Component(process.ComponentName)
+	if errors.IsNotFound(err) {
 		return nil, errors.Errorf("component %q not registered", process.ComponentName)
 	}
 	if found == nil {
@@ -60,12 +100,20 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 }
 
 // Processes returns the processes known to the context.
-func (c *Context) Processes() []*process.Info {
+func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info
-	for _, info := range c.processes {
+	for id, info := range c.processes {
+		if info == nil {
+			fetched, err := c.api.Get(id)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			info = fetched[0]
+			c.processes[id] = info
+		}
 		procs = append(procs, info)
 	}
-	return procs
+	return procs, nil
 }
 
 // Get implements jujuc.ContextComponent.
@@ -75,9 +123,20 @@ func (c *Context) Get(id string, result interface{}) error {
 		return errors.Errorf("invalid type: expected process.Info, got %T", result)
 	}
 
-	actual, ok := c.processes[id]
+	actual, ok := c.updates[id]
 	if !ok {
-		return errors.NotFoundf("%s", id)
+		actual, ok = c.processes[id]
+		if !ok {
+			return errors.NotFoundf("%s", id)
+		}
+	}
+	if actual == nil {
+		fetched, err := c.api.Get(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		actual = fetched[0]
+		c.processes[id] = actual
 	}
 	*info = *actual
 	return nil
@@ -94,17 +153,32 @@ func (c *Context) Set(id string, value interface{}) error {
 		return errors.Errorf("mismatch on name: %s != %s", id, pInfo.Name)
 	}
 
-	c.processes[id] = pInfo
-	c.dirty = true
+	if c.updates == nil {
+		c.updates = make(map[string]*process.Info)
+	}
+	var info process.Info
+	info = *pInfo
+	c.updates[id] = &info
 	return nil
 }
 
 // Flush implements jujuc.ContextComponent.
 func (c *Context) Flush() error {
-	if !c.dirty {
+	if len(c.updates) == 0 {
 		return nil
 	}
-	// TODO(ericsnow) finish
-	c.dirty = false
-	return errors.Errorf("not finished")
+
+	var updates []*process.Info
+	for _, info := range c.updates {
+		updates = append(updates, info)
+	}
+	if err := c.api.Set(updates...); err != nil {
+		return errors.Trace(err)
+	}
+
+	for k, v := range c.updates {
+		c.processes[k] = v
+	}
+	c.updates = nil
+	return nil
 }
