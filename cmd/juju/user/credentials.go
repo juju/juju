@@ -23,7 +23,7 @@ For Example:
 
     copy the staging.creds file to another machine
 
-    $ juju system login staging --server staging.creds
+    $ juju system login staging --server staging.creds --keep-password
 
 
 See Also:
