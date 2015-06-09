@@ -151,6 +151,83 @@ func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Component")
 }
 
+func (s *contextSuite) TestProcessesOkay(c *gc.C) {
+	expected := []*process.Info{{}, {}, {}}
+	expected[0].Name = "A"
+	expected[1].Name = "B"
+	expected[2].Name = "C"
+
+	ctx := context.NewContext(s.apiClient, expected...)
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkProcs(c, procs, expected)
+	s.Stub.CheckCallNames(c)
+}
+
+func (s *contextSuite) TestProcessesAPI(c *gc.C) {
+	expected := s.apiClient.setNew("A", "B", "C")
+
+	ctx := context.NewContext(s.apiClient)
+	context.AddProc(ctx, "A", s.apiClient.procs["A"])
+	context.AddProc(ctx, "B", nil)
+	context.AddProc(ctx, "C", nil)
+
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkProcs(c, procs, expected)
+	s.Stub.CheckCallNames(c, "Get", "Get")
+}
+
+func (s *contextSuite) TestProcessesEmpty(c *gc.C) {
+	ctx := context.NewContext(s.apiClient)
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(procs, gc.HasLen, 0)
+	s.Stub.CheckCallNames(c)
+}
+
+func (s *contextSuite) TestProcessesAdditions(c *gc.C) {
+	expected := s.apiClient.setNew("A", "B")
+	var infoC, infoD process.Info
+	infoC.Name = "C"
+	infoD.Name = "D"
+	expected = append(expected, &infoC, &infoD)
+
+	ctx := context.NewContext(s.apiClient, expected[0])
+	context.AddProc(ctx, "B", nil)
+	ctx.Set("C", &infoC)
+	ctx.Set("D", &infoD)
+
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkProcs(c, procs, expected)
+	s.Stub.CheckCallNames(c, "Get")
+}
+
+func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
+	expected := s.apiClient.setNew("A", "B")
+	var infoB, infoC process.Info
+	infoB.Name = "B"
+	infoC.Name = "C"
+	expected = append(expected[:1], &infoB, &infoC)
+
+	ctx := context.NewContext(s.apiClient)
+	context.AddProc(ctx, "A", nil)
+	context.AddProc(ctx, "B", nil)
+	ctx.Set("B", &infoB)
+	ctx.Set("C", &infoC)
+
+	procs, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkProcs(c, procs, expected)
+	s.Stub.CheckCallNames(c, "Get")
+}
+
 func (s *contextSuite) TestGetOkay(c *gc.C) {
 	var info, expected, extra process.Info
 	expected.Name = "A"

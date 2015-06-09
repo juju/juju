@@ -99,6 +99,24 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 	return compCtx, nil
 }
 
+func (c *Context) addProc(id string, original *process.Info) error {
+	var proc *process.Info
+	if original != nil {
+		info := *original
+		info.Name = id
+		proc = &info
+	}
+	if _, ok := c.processes[id]; !ok {
+		c.processes[id] = proc
+	} else {
+		if proc == nil {
+			return errors.Errorf("update can't be nil")
+		}
+		c.updates[id] = proc
+	}
+	return nil
+}
+
 // Processes returns the processes known to the context.
 func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info

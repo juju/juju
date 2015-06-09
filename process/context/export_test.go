@@ -6,6 +6,7 @@ package context
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -18,4 +19,16 @@ func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
 
 func SetRegisterEnv(cmd *RegisterCommand, options ...string) {
 	cmd.env = append(cmd.env, options...)
+}
+
+func AddProc(ctx *Context, id string, original *process.Info) {
+	if err := ctx.addProc(id, original); err != nil {
+		panic(err)
+	}
+}
+
+func AddProcs(ctx *Context, procs ...*process.Info) {
+	for _, proc := range procs {
+		AddProc(ctx, proc.Name, proc)
+	}
 }
