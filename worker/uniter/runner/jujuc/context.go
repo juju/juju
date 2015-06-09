@@ -187,8 +187,8 @@ type ContextStorage interface {
 // the unit in the context of the hook.
 type ContextComponents interface {
 	// Component returns the ContextComponent with the supplied name if
-	// it was found, and whether it was found.
-	Component(name string) (ContextComponent, bool)
+	// it was found.
+	Component(name string) (ContextComponent, error)
 }
 
 // ContextRelations exposes the relations associated with the unit.

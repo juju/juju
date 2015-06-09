@@ -79,7 +79,7 @@ func NewContextAPI(api APIClient) (*Context, error) {
 // HookContext is the portion of jujuc.Context used in this package.
 type HookContext interface {
 	// Component implements jujuc.Context.
-	Component(string) (jujuc.ContextComponent, bool)
+	Component(string) (jujuc.ContextComponent, error)
 }
 
 // ContextComponent returns the hook context for the workload
@@ -102,7 +102,7 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 // Processes returns the processes known to the context.
 func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info
-	for id, info := range c.processes {
+	for id, info := range mergeProcMaps(c.processes, c.updates) {
 		if info == nil {
 			fetched, err := c.api.Get(id)
 			if err != nil {
@@ -114,6 +114,21 @@ func (c *Context) Processes() ([]*process.Info, error) {
 		procs = append(procs, info)
 	}
 	return procs, nil
+}
+
+func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.Info {
+	result := make(map[string]*process.Info)
+	for k, v := range procs {
+		result[k] = v
+	}
+	for k, v := range updates {
+		if v == nil {
+			// This should never happen.
+			panic("info in updates unexpectedly nil")
+		}
+		result[k] = v
+	}
+	return result
 }
 
 // Get implements jujuc.ContextComponent.

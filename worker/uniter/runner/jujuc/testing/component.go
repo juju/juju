@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -43,13 +44,18 @@ func (c *ContextComponents) setComponent(name string, comp jujuc.ContextComponen
 }
 
 // ContextComponents implements jujuc.ContextComponents.
-func (cc ContextComponents) Component(name string) (jujuc.ContextComponent, bool) {
+func (cc ContextComponents) Component(name string) (jujuc.ContextComponent, error) {
 	cc.Stub.AddCall("Component", name)
-	cc.Stub.NextErr()
+	if err := cc.Stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	cc.init()
 	component, found := cc.Info.Components[name]
-	return component, found
+	if !found {
+		return nil, errors.NotFoundf("component %q", name)
+	}
+	return component, nil
 }
 
 // ContextComponent is a test double for jujuc.ContextComponent.

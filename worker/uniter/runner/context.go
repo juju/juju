@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func() jujuc.ContextComponent
+type ComponentFunc func() (jujuc.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -185,12 +185,16 @@ type HookContext struct {
 }
 
 // Component implements jujuc.Context.
-func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, bool) {
+func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
-		return nil, false
+		return nil, errors.NotFoundf("context component %q", name)
 	}
-	return compCtxFunc(), true
+	compCtx, err := compCtxFunc()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return compCtx, nil
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
