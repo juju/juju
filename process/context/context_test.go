@@ -17,7 +17,6 @@ type baseSuite struct {
 	jujuctesting.ContextSuite
 	proc    *process.Info
 	compCtx *context.Context
-	//compCtx *jujuctesting.ContextComponent
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -25,14 +24,12 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 	proc := process.NewInfo("proc A", "docker")
 	compCtx := context.NewContext(proc)
-	//compCtx := &jujuctesting.ContextComponent{Stub: s.Stub}
 
 	s.Ctx = s.HookContext("u/0", nil)
 	s.Ctx.SetComponent(process.ComponentName, compCtx)
 
 	s.proc = proc
 	s.compCtx = compCtx
-	//s.compCtx = compCtx
 }
 
 type contextSuite struct {
