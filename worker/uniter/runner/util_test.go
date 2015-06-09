@@ -354,7 +354,7 @@ type storageContextAccessor struct {
 	storage map[names.StorageTag]*contextStorage
 }
 
-func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	storage, ok := s.storage[tag]
 	return storage, ok
 }

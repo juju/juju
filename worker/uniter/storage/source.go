@@ -219,7 +219,7 @@ func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 // Context returns the ContextStorage for the storage that this hook queue
 // corresponds to, and whether there is any context available yet. There
 // will be context beginning from when the first hook is queued.
-func (s *storageHookQueue) Context() (jujuc.ContextStorage, bool) {
+func (s *storageHookQueue) Context() (jujuc.ContextStorageAttachment, bool) {
 	if s.context != nil {
 		return s.context, true
 	}

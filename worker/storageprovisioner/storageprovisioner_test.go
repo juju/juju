@@ -131,6 +131,13 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}, {
+		MachineTag: "machine-1", AttachmentTag: "volume-2",
+	}}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment set")
+
 	// The worker should create volumes according to ids "1" and "2".
 	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
 	// ... but not until the environment config is available.
@@ -256,23 +263,36 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
-	// We should only get a single volume attachment, because it is the
-	// only combination where both machine and volume are already
-	// provisioned, and the attachmenti s not.
+	// We should get two volume attachments:
+	//   - volume-1 to machine-1, because the volume and
+	//     machine are provisioned, but the attachment is not.
+	//   - volume-1 to machine-0, because the volume,
+	//     machine, and attachment are provisioned, but
+	//     in a previous session, so a reattachment is
+	//     requested.
 	expectedVolumeAttachments := []params.VolumeAttachment{{
 		VolumeTag:  "volume-1",
 		MachineTag: "machine-1",
 		Info: params.VolumeAttachmentInfo{
 			DeviceName: "/dev/sda1",
+			ReadOnly:   true,
+		},
+	}, {
+		VolumeTag:  "volume-1",
+		MachineTag: "machine-0",
+		Info: params.VolumeAttachmentInfo{
+			DeviceName: "/dev/sda1",
+			ReadOnly:   true,
 		},
 	}}
 
+	var allVolumeAttachments []params.VolumeAttachment
 	volumeAttachmentInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
-		defer close(volumeAttachmentInfoSet)
-		c.Assert(volumeAttachments, gc.DeepEquals, expectedVolumeAttachments)
-		return nil, nil
+		allVolumeAttachments = append(allVolumeAttachments, volumeAttachments...)
+		volumeAttachmentInfoSet <- nil
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
 	}
 	lifecycleManager := &mockLifecycleManager{}
 
@@ -287,9 +307,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 
 	// machine-0/volume-1 attachment is already created.
-	//
-	// TODO(axw) later we should ensure that a reattachment occurs
-	// the first time the attachment is seen by the worker.
+	// We should see a reattachment.
 	alreadyAttached := params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-1",
@@ -328,26 +346,44 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
+	c.Assert(allVolumeAttachments, jc.SameContents, expectedVolumeAttachments)
+
+	// Reattachment should only happen once per session.
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{alreadyAttached}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
 }
 
 func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	// We should only get a single filesystem attachment, because it is the
 	// only combination where both machine and filesystem are already
 	// provisioned, and the attachmenti s not.
+	// We should get two filesystem attachments:
+	//   - filesystem-1 to machine-1, because the filesystem and
+	//     machine are provisioned, but the attachment is not.
+	//   - filesystem-1 to machine-0, because the filesystem,
+	//     machine, and attachment are provisioned, but in a
+	//     previous session, so a reattachment is requested.
 	expectedFilesystemAttachments := []params.FilesystemAttachment{{
 		FilesystemTag: "filesystem-1",
 		MachineTag:    "machine-1",
 		Info: params.FilesystemAttachmentInfo{
 			MountPoint: "/srv/fs-123",
 		},
+	}, {
+		FilesystemTag: "filesystem-1",
+		MachineTag:    "machine-0",
+		Info: params.FilesystemAttachmentInfo{
+			MountPoint: "/srv/fs-123",
+		},
 	}}
 
+	var allFilesystemAttachments []params.FilesystemAttachment
 	filesystemAttachmentInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
-		defer close(filesystemAttachmentInfoSet)
-		c.Assert(filesystemAttachments, gc.DeepEquals, expectedFilesystemAttachments)
-		return nil, nil
+		allFilesystemAttachments = append(allFilesystemAttachments, filesystemAttachments...)
+		filesystemAttachmentInfoSet <- nil
+		return make([]params.ErrorResult, len(filesystemAttachments)), nil
 	}
 
 	// filesystem-1 and machine-1 are provisioned.
@@ -361,9 +397,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 
 	// machine-0/filesystem-1 attachment is already created.
-	//
-	// TODO(axw) later we should ensure that a reattachment occurs
-	// the first time the attachment is seen by the worker.
+	// We should see a reattachment.
 	alreadyAttached := params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "filesystem-1",
@@ -404,6 +438,11 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
+	c.Assert(allFilesystemAttachments, jc.SameContents, expectedFilesystemAttachments)
+
+	// Reattachment should only happen once per session.
+	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{alreadyAttached}
+	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set")
 }
 
 func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
@@ -652,6 +691,39 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 		Provider:     "dummy",
 		ResourceTags: map[string]string{"very": "fancy"},
 	}}})
+}
+
+func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
+		return []params.ErrorResult{{Error: &params.Error{Message: "message", Code: "code"}}}, nil
+	}
+
+	environAccessor := newMockEnvironAccessor(c)
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
+		"storage-dir",
+		volumeAccessor,
+		newMockFilesystemAccessor(),
+		&mockLifecycleManager{},
+		environAccessor,
+		newMockMachineAccessor(c),
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	done := make(chan interface{})
+	go func() {
+		defer close(done)
+		err := worker.Wait()
+		c.Assert(err, gc.ErrorMatches, "processing pending volumes: publishing volume 1 to state: message")
+	}()
+
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	environAccessor.watcher.changes <- struct{}{}
+	waitChannel(c, done, "waiting for worker to exit")
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {

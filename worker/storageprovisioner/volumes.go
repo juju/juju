@@ -216,7 +216,7 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	}
 	for i, result := range paramsResults {
 		if result.Error != nil {
-			return errors.Annotate(err, "getting volume parameters")
+			return errors.Annotate(result.Error, "getting volume parameters")
 		}
 		params, err := volumeParamsFromParams(result.Result)
 		if err != nil {
@@ -234,6 +234,7 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 // first ensuring that their prerequisites have been met.
 func processPendingVolumes(ctx *context) error {
 	if len(ctx.pendingVolumes) == 0 {
+		logger.Tracef("no pending volumes")
 		return nil
 	}
 	ready := make([]storage.VolumeParams, 0, len(ctx.pendingVolumes))
@@ -244,10 +245,6 @@ func processPendingVolumes(ctx *context) error {
 		}
 		ready = append(ready, volumeParams)
 		delete(ctx.pendingVolumes, tag)
-		delete(ctx.pendingVolumeAttachments, params.MachineStorageId{
-			MachineTag:    volumeParams.Attachment.Machine.String(),
-			AttachmentTag: volumeParams.Attachment.Volume.String(),
-		})
 	}
 	if len(ready) == 0 {
 		return nil
@@ -270,7 +267,7 @@ func processPendingVolumes(ctx *context) error {
 	for i, result := range errorResults {
 		if result.Error != nil {
 			return errors.Annotatef(
-				err, "publishing volume %s to state",
+				result.Error, "publishing volume %s to state",
 				volumes[i].Tag.Id(),
 			)
 		}
@@ -299,24 +296,23 @@ func processAliveVolumeAttachments(
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
 	// Filter out the already-attached.
-	//
-	// TODO(axw) record locally which volumes have been attached this
-	// session, and issue a reattach each time we restart. We should
-	// limit this to machine-scoped volumes to start with.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
 		if result.Error == nil {
-			// Volume attachment is already provisioned: skip.
-			logger.Debugf(
-				"%s is already attached to %s, nothing to do",
-				ids[i].AttachmentTag, ids[i].MachineTag,
-			)
-			volumeAttachment, err := volumeAttachmentFromParams(result.Result)
-			if err != nil {
-				return errors.Annotate(err, "getting volume attachment info")
-			}
-			ctx.volumeAttachments[ids[i]] = volumeAttachment
 			delete(ctx.pendingVolumeAttachments, ids[i])
+			// Volume attachment is already provisioned: if we
+			// didn't (re)attach in this session, then we must
+			// do so now.
+			action := "nothing to do"
+			if _, ok := ctx.volumeAttachments[ids[i]]; !ok {
+				// Not yet (re)attached in this session.
+				pending = append(pending, ids[i])
+				action = "will reattach"
+			}
+			logger.Debugf(
+				"%s is already attached to %s, %s",
+				ids[i].AttachmentTag, ids[i].MachineTag, action,
+			)
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -337,7 +333,7 @@ func processAliveVolumeAttachments(
 	}
 	for i, result := range paramsResults {
 		if result.Error != nil {
-			return errors.Annotate(err, "getting volume attachment parameters")
+			return errors.Annotate(result.Error, "getting volume attachment parameters")
 		}
 		params, err := volumeAttachmentParamsFromParams(result.Result)
 		if err != nil {
@@ -356,6 +352,7 @@ func processAliveVolumeAttachments(
 // been met.
 func processPendingVolumeAttachments(ctx *context) error {
 	if len(ctx.pendingVolumeAttachments) == 0 {
+		logger.Tracef("no pending volume attachments")
 		return nil
 	}
 	ready := make([]storage.VolumeAttachmentParams, 0, len(ctx.pendingVolumeAttachments))
@@ -439,6 +436,7 @@ func createVolumes(
 	var allVolumes []storage.Volume
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("creating volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
 		volumes, volumeAttachments, err := volumeSource.CreateVolumes(params)
 		if err != nil {
@@ -478,6 +476,7 @@ func createVolumeAttachments(
 	}
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
+		logger.Debugf("attaching volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
 		volumeAttachments, err := volumeSource.AttachVolumes(params)
 		if err != nil {

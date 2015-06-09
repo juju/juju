@@ -174,14 +174,14 @@ func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
 }
 
-func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	storage, ok := c.storage[tag]
 	return storage, ok
 }
 
 func (c *Context) AddUnitStorage(all map[string]params.StorageConstraints) {}
 
-func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
+func (c *Context) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return c.Storage(c.storageTag)
 }
 
