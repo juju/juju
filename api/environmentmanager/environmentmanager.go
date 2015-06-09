@@ -108,3 +108,20 @@ func (c *Client) ListEnvironments(user string) ([]UserEnvironment, error) {
 	}
 	return result, nil
 }
+
+// EnvironmentGet returns all environment settings for the
+// system environment.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentConfigResults{}
+	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment(envUUID string) error {
+	env := params.EnvironmentDestroyArgs{envUUID}
+	return c.facade.FacadeCall("DestroyEnvironment", env, nil)
+}

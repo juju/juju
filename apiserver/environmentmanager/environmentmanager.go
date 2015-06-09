@@ -392,8 +392,9 @@ func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) 
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment.
-func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) {
+func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.EnvironmentDestroyArgs) (err error) {
 	st := em.state
+	envUUID := args.EnvUUID
 	if envUUID != em.state.EnvironUUID() {
 		envTag := names.NewEnvironTag(envUUID)
 		if st, err = em.state.ForEnviron(envTag); err != nil {
@@ -483,4 +484,23 @@ func destroyInstances(st stateInterface, machines []*state.Machine) error {
 		return err
 	}
 	return env.StopInstances(ids...)
+}
+
+// EnvironmentGet returns the environment config for the system
+// environment.  For information on the current environment, use
+// client.EnvironmentGet
+func (em *EnvironmentManagerAPI) EnvironmentGet() (params.EnvironmentConfigResults, error) {
+	result := params.EnvironmentConfigResults{}
+	stateServerEnv, err := em.state.StateServerEnvironment()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	config, err := stateServerEnv.Config()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Config = config.AllAttrs()
+	return result, nil
 }

@@ -70,3 +70,13 @@ func (c *CreateEnvironmentCommand) ConfigFile() cmd.FileVar {
 func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
 	return c.confValues
 }
+
+// NewDestroyCommand returns a DestroyCommand with the the environmentmanager and client
+// endpoints mocked out.
+func NewDestroyCommand(api destroyEnvironmentAPI, clientapi destroyEnvironmentClientAPI, apierr error) *DestroyCommand {
+	return &DestroyCommand{
+		api:       api,
+		clientapi: clientapi,
+		apierr:    apierr,
+	}
+}
