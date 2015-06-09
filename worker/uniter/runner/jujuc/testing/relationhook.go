@@ -24,7 +24,7 @@ func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, bool) {
 	c.stub.AddCall("HookRelation")
 	c.stub.NextErr()
 
-	return c.info.HookRelation, c.info.HookRelation == nil
+	return c.info.HookRelation, c.info.HookRelation != nil
 }
 
 // RemoteUnitName implements jujuc.RelationHookContext.
