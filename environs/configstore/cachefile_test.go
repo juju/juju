@@ -288,3 +288,31 @@ func (s *cacheFileInterfaceSuite) TestDestroyKeepsSharedData(c *gc.C) {
 	c.Assert(cache.ServerData, gc.HasLen, 1)
 	c.Assert(cache.Environment, gc.HasLen, 1)
 }
+
+func (s *cacheFileInterfaceSuite) TestDestroyServerRemovesEnvironments(c *gc.C) {
+	// Bit more setup with this test.
+	// Create three server references, to two different systems, so we have
+	// one system through two different users.
+	info := s.writeEnv(c, "cache-1", "fake-server", "fake-server", "tester", "secret")
+	s.writeEnv(c, "cache-2", "fake-server", "fake-server", "other", "secret")
+	s.writeEnv(c, "cache-3", "fake-server2", "fake-server2", "tester", "secret")
+
+	// And a few environments on each server
+	s.writeEnv(c, "cache-4", "fake-env-1", "fake-server", "tester", "secret")
+	s.writeEnv(c, "cache-5", "fake-env-2", "fake-server", "other", "secret")
+	s.writeEnv(c, "cache-6", "fake-env-3", "fake-server2", "tester", "secret")
+	s.writeEnv(c, "cache-7", "fake-env-4", "fake-server2", "tester", "secret")
+
+	err := info.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cache := s.readCacheFile(c)
+	c.Assert(cache.Server, gc.HasLen, 1)
+	c.Assert(cache.ServerData, gc.HasLen, 1)
+	expected := []string{"cache-3", "cache-6", "cache-7"}
+	names := []string{}
+	for name := range cache.Environment {
+		names = append(names, name)
+	}
+	c.Assert(names, jc.SameContents, expected)
+}
