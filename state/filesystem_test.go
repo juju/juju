@@ -389,6 +389,55 @@ func (s *FilesystemStateSuite) TestAssignToMachineErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxc/0: adding storage to lxc container not supported`)
 }
 
+func (s *FilesystemStateSuite) TestRemoveStorageInstanceUnassignsFilesystem(c *gc.C) {
+	filesystemAttachment := s.addUnitWithFilesystem(c, "loop", true)
+	filesystem, err := s.State.Filesystem(filesystemAttachment.Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := filesystem.FilesystemTag()
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.Volume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag, err := filesystem.Storage()
+	c.Assert(err, jc.ErrorIsNil)
+	volumeStorageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStorageTag, gc.Equals, storageTag)
+
+	storageAttachments, err := s.State.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	unitTag := storageAttachments[0].Unit()
+
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyStorageAttachment(storageTag, unitTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The storage instance and attachment are dying, but not yet
+	// removed from state. The filesystem should still be assigned.
+	_, err = s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveStorageAttachment(storageTag, unitTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The storage instance is now gone; the filesystem should no longer
+	// be assigned to the storage.
+	_, err = s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, gc.ErrorMatches, `filesystem for storage instance "data/0" not found`)
+	_, err = s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
+
+	// The filesystem and volume should not have been destroyed, though.
+	_, err = s.State.Filesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Volume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *FilesystemStateSuite) assertFilesystemUnprovisioned(c *gc.C, tag names.FilesystemTag) {
 	filesystem, err := s.State.Filesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)

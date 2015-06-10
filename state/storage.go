@@ -248,7 +248,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
-		return removeStorageInstanceOps(s.StorageTag(), assert), nil
+		return removeStorageInstanceOps(st, s.StorageTag(), assert)
 	}
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
@@ -272,13 +272,42 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 
 // removeStorageInstanceOps removes the storage instance with the given
 // tag from state, if the specified assertions hold true.
-func removeStorageInstanceOps(tag names.StorageTag, assert bson.D) []txn.Op {
-	return []txn.Op{{
+func removeStorageInstanceOps(
+	st *State,
+	tag names.StorageTag,
+	assert bson.D,
+) ([]txn.Op, error) {
+	ops := []txn.Op{{
 		C:      storageInstancesC,
 		Id:     tag.Id(),
 		Assert: assert,
 		Remove: true,
 	}}
+	// If the storage instance has an assigned volume and/or filesystem,
+	// unassign them.
+	volume, err := st.StorageInstanceVolume(tag)
+	if err == nil {
+		ops = append(ops, txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: bson.D{{"storageid", tag.Id()}},
+			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
+		})
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	filesystem, err := st.StorageInstanceFilesystem(tag)
+	if err == nil {
+		ops = append(ops, txn.Op{
+			C:      filesystemsC,
+			Id:     filesystem.Tag().Id(),
+			Assert: bson.D{{"storageid", tag.Id()}},
+			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
+		})
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }
 
 // createStorageOps returns txn.Ops for creating storage instances
@@ -542,7 +571,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := removeStorageAttachmentOps(s, inst)
+		ops, err := removeStorageAttachmentOps(st, s, inst)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -551,7 +580,11 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 	return st.run(buildTxn)
 }
 
-func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
+func removeStorageAttachmentOps(
+	st *State,
+	s *storageAttachment,
+	si *storageInstance,
+) ([]txn.Op, error) {
 	if s.doc.Life != Dying {
 		return nil, errors.New("storage attachment is not dying")
 	}
@@ -577,7 +610,11 @@ func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]tx
 			// Either the storage instance is dying, or its owner
 			// is a unit; in either case, no more attachments can
 			// be added to the instance, so it can be removed.
-			ops = append(ops, removeStorageInstanceOps(si.StorageTag(), hasLastRef)...)
+			siOps, err := removeStorageInstanceOps(st, si.StorageTag(), hasLastRef)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, siOps...)
 			return ops, nil
 		}
 	}
