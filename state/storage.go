@@ -993,9 +993,13 @@ func (st *State) addStorageForUnit(
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := u.Refresh()
-		if err != nil {
-			return nil, errors.Trace(err)
+		if attempt > 0 {
+			if err := u.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if u.Life() != Alive {
+			return nil, unitNotAliveErr
 		}
 		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
 		if err != nil {
@@ -1008,7 +1012,7 @@ func (st *State) addStorageForUnit(
 		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
-		return errors.Annotate(err, "while creating storage")
+		return errors.Annotatef(err, "adding %q storage to unit %s", name, u)
 	}
 	return nil
 }
@@ -1053,16 +1057,15 @@ func (st *State) constructAddUnitStorageOps(
 	// Update storage attachment count.
 	priorCount := u.doc.StorageAttachmentCount
 	newCount := priorCount + int(cons.Count)
-	ops := []txn.Op{
-		{
-			C:  unitsC,
-			Id: u.doc.DocID,
-			// Count validation ensures transactionality.
-			Assert: bson.D{{"storageattachmentcount", priorCount}},
-			Update: bson.D{{"$set",
-				bson.D{{"storageattachmentcount", newCount}}}},
-		},
-	}
+
+	attachmentsUnchanged := bson.D{{"storageattachmentcount", priorCount}}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: append(attachmentsUnchanged, isAliveDoc...),
+		Update: bson.D{{"$set",
+			bson.D{{"storageattachmentcount", newCount}}}},
+	}}
 	return append(ops, storageOps...), nil
 }
 

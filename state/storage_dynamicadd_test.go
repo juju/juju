@@ -72,6 +72,22 @@ func (s *StorageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+2)
 }
 
+func (s *StorageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
+	s.setupMultipleStoragesForAdd(c)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		u, err := s.State.Unit(s.unitTag.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
+	c.Assert(err, gc.ErrorMatches, `adding "multi1to10" storage to unit storage-block2/0: unit is not alive`)
+
+	s.assertStorageCount(c, s.originalStorageCount)
+}
+
 func (s *StorageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	s.assertStorageCount(c, 1)
