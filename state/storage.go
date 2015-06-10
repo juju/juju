@@ -566,10 +566,20 @@ func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]tx
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
 	}}
-	if si.doc.Life == Dying && si.doc.AttachmentCount == 1 {
-		hasLastRef := bson.D{{"life", Dying}, {"attachmentcount", 1}}
-		ops = append(ops, removeStorageInstanceOps(si.StorageTag(), hasLastRef)...)
-		return ops, nil
+	if si.doc.AttachmentCount == 1 {
+		var hasLastRef bson.D
+		if si.doc.Life == Dying {
+			hasLastRef = bson.D{{"life", Dying}, {"attachmentcount", 1}}
+		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
+			hasLastRef = bson.D{{"attachmentcount", 1}}
+		}
+		if len(hasLastRef) > 0 {
+			// Either the storage instance is dying, or its owner
+			// is a unit; in either case, no more attachments can
+			// be added to the instance, so it can be removed.
+			ops = append(ops, removeStorageInstanceOps(si.StorageTag(), hasLastRef)...)
+			return ops, nil
+		}
 	}
 	decrefOp := txn.Op{
 		C:      storageInstancesC,

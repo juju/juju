@@ -396,6 +396,24 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	c.Assert(exists, jc.IsFalse)
 }
 
+func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesUnitOwnedInstance(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+
+	// Even though the storage instance is Alive, it will be removed when
+	// the last attachment is removed, since it is not possible to add
+	// more attachments later.
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Alive)
+
+	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+}
+
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
@@ -548,8 +566,8 @@ func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TODO(axw) StorageAttachments can't be added to Dying StorageInstance
-// TODO(axw) StorageInstance without attachments is removed by Destroy
-// TODO(axw) StorageInstance becomes Dying when Unit becomes Dying
-// TODO(axw) concurrent add-unit and StorageAttachment removal does not
-//           remove storage instance.
+// TODO(axw) the following require shared storage support to test:
+// - StorageAttachments can't be added to Dying StorageInstance
+// - StorageInstance without attachments is removed by Destroy
+// - concurrent add-unit and StorageAttachment removal does not
+//   remove storage instance.
