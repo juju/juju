@@ -72,7 +72,11 @@ func (c *Context) AddMetric(key, value string, created time.Time) error {
 	if !c.canAddMetrics {
 		return fmt.Errorf("metrics disabled")
 	}
-	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
+	c.metrics = append(c.metrics, jujuc.Metric{
+		Key:   key,
+		Value: value,
+		Time:  created,
+	})
 	return c.Context.AddMetric(key, value, created)
 }
 
