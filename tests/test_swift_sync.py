@@ -64,3 +64,20 @@ class SwiftSyncTestCase(TestCase):
         self.assertEqual(3, co_mock.call_count)
         co_mock.assert_called_with(
             ['swift', 'upload', base, os.path.join(base, 'one')])
+
+    def test_upload_changes_error(self):
+        with temp_dir() as base:
+            remote_files = {}
+            local_files = make_local_files(base, ['one'])
+            args = Namespace(
+                container='foo', path=base, files=local_files,
+                verbose=False, dry_run=False)
+            outputs = [
+                CalledProcessError(1, 'a'),
+                CalledProcessError(2, 'b'),
+                CalledProcessError(3, 'c')]
+            with patch('subprocess.check_output', autospec=True,
+                       side_effect=outputs) as co_mock:
+                with self.assertRaises(CalledProcessError):
+                    upload_changes(args, remote_files)
+            self.assertEqual(3, co_mock.call_count)
