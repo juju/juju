@@ -463,12 +463,35 @@ func createMachineFilesystemAttachmentsOps(machineId string, attachments []files
 // SetFilesystemInfo sets the FilesystemInfo for the specified filesystem.
 func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem %q", tag.Id())
+	fs, err := st.Filesystem(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// If the filesystem is volume-backed, the volume must be provisioned
+	// and attachment first.
+	if volumeTag, err := fs.Volume(); err == nil {
+		machineTag, ok := names.FilesystemMachine(tag)
+		if !ok {
+			return errors.Errorf("filesystem %s is not machine-scoped, but volume-backed", tag.Id())
+		}
+		volumeAttachment, err := st.VolumeAttachment(machineTag, volumeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if _, err := volumeAttachment.Info(); err != nil {
+			return errors.Trace(err)
+		}
+	} else if errors.Cause(err) != ErrNoBackingVolume {
+		return errors.Trace(err)
+	}
 	// TODO(axw) we should reject info without FilesystemId set; can't do this
 	// until the providers all set it correctly.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		fs, err := st.Filesystem(tag)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if attempt > 0 {
+			fs, err = st.Filesystem(tag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		// If the filesystem has parameters, unset them
 		// when we set info for the first time, ensuring
@@ -535,9 +558,25 @@ func (st *State) SetFilesystemAttachmentInfo(
 	info FilesystemAttachmentInfo,
 ) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem attachment %s:%s", filesystemTag.Id(), machineTag.Id())
+	f, err := st.Filesystem(filesystemTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure filesystem is provisioned before setting attachment info.
+	// A filesystem cannot go from being provisioned to unprovisioned,
+	// so there is no txn.Op for this below.
+	if _, err := f.Info(); err != nil {
+		return errors.Trace(err)
+	}
+	// Also ensure the machine is provisioned.
+	m, err := st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := m.InstanceId(); err != nil {
+		return errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// TODO(axw) attempting to set filesystem attachment info for a
-		// filesystem that hasn't been provisioned should fail.
 		fsa, err := st.FilesystemAttachment(machineTag, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
