@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -17,10 +17,12 @@ import (
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type cmdSystemSuite struct {
@@ -113,4 +115,30 @@ dummyenv (system) -> new-env
 	api, err := juju.NewAPIFromName("new-env")
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
+}
+
+func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name:        "just-a-system",
+		ConfigAttrs: testing.Attrs{"state-server": true},
+	})
+
+	ports, err := st.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	info := s.ConfigStore.CreateInfo("just-a-system")
+	endpoint := configstore.APIEndpoint{
+		CACert:      testing.CACert,
+		EnvironUUID: st.EnvironUUID(),
+		Addresses:   []string{ports[0][0].String()},
+	}
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st.Close()
+	s.run(c, "destroy", "just-a-system", "-y")
+
+	store, err := configstore.Default()
+	_, err = store.ReadInfo("just-a-system")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

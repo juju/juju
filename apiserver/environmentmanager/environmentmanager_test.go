@@ -25,6 +25,7 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -355,6 +356,34 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
 	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestEnvironmentGet(c *gc.C) {
+	user := names.NewUserTag("dummy-admin")
+	s.setAPIUser(c, user)
+	env, err := s.envmanager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestEnvironmentGetFromNonStateServer(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test"})
+	defer st.Close()
+
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("dummy-admin")}
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(st, common.NewResources(), authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := envManager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestUnauthorizedEnvironmentGet(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	_, err := s.envmanager.EnvironmentGet()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

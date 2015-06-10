@@ -117,3 +117,11 @@ func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
 	ownerNames := []string{envs[0].Owner, envs[1].Owner}
 	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
 }
+
+func (s *environmentmanagerSuite) TestEnvironmentGet(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	envManager := s.OpenAPI(c)
+	env, err := envManager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env["name"], gc.Equals, "dummyenv")
+}

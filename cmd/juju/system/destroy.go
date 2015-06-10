@@ -38,7 +38,7 @@ type DestroyCommand struct {
 
 var destroyDoc = `Destroys the specified system`
 var destroyEnvMsg = `
-WARNING! this command will destroy the %q system.
+WARNING! This command will destroy the %q system.
 This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
@@ -129,7 +129,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a system
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return fmt.Errorf("%q is not a system; use juju environment destroy to destroy it", c.systemName)
+		return errors.Errorf("%q is not a system; use juju environment destroy to destroy it", c.systemName)
 	}
 
 	if !c.assumeYes {
@@ -173,7 +173,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the system.
-	err = api.DestroyEnvironment(apiEndpoint.ServerUUID)
+	err = api.DestroyEnvironment(apiEndpoint.EnvironUUID)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.
@@ -253,7 +253,7 @@ If the system is unusable, then you may run
 
     juju system force-destroy
 
-to forcefully destroy the environment. Upon doing so, review
+to forcefully destroy the system. Upon doing so, review
 your environment provider console for any resources that need
 to be cleaned up.
 `

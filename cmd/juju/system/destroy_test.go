@@ -201,7 +201,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
-	s.api.err = errors.New("system \"test3\" not found")
+	s.api.err = errors.NotFoundf(`system "test3"`)
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: system \"test3\" not found")
 	checkSystemExistsInStore(c, "test3", s.store)
@@ -211,7 +211,7 @@ func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
 	s.api.err = &params.Error{"DestroyEnvironment", params.CodeNotImplemented}
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, gc.Equals, true)
+	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test1", s.store)
 }
 
@@ -220,8 +220,8 @@ func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
 	s.clientapi.env = createBootstrapInfo(c, "test3")
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.envgetcalled, gc.Equals, true)
-	c.Assert(s.clientapi.destroycalled, gc.Equals, true)
+	c.Assert(s.clientapi.envgetcalled, jc.IsTrue)
+	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test3", s.store)
 }
 
