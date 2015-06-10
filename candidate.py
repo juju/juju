@@ -199,11 +199,11 @@ def publish_candidates(path, streams_path,
         # testing juju's that change generate-tools, we may need to use
         # the highest version.
         command = [
-            assemble_script, '-t',  debs_path, 'weekly', 'IGNORE',
+            assemble_script, '-t', debs_path, 'weekly', 'IGNORE',
             streams_path]
         run_command(command, dry_run=dry_run, verbose=verbose)
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
-    command = [publish_script,  'weekly', juju_dist_path, 'cpc']
+    command = [publish_script, 'weekly', juju_dist_path, 'cpc']
     run_command(command, dry_run=dry_run, verbose=verbose)
     # Sync buildvars.json files out to s3.
     url = 's3://juju-qa-data/juju-releases/weekly/'
