@@ -7,7 +7,6 @@ from unittest import TestCase
 from mock import (
     patch
     )
-from subprocess import CalledProcessError
 import yaml
 
 from jujupy import (
@@ -36,7 +35,8 @@ class TestRunChaosMonkey(TestCase):
     def test_get_args(self):
         args = get_args(['foo', 'bar', 'baz'])
         self.assertItemsEqual(['env', 'service', 'health_checker',
-                               'enablement_timeout'],
+                               'enablement_timeout', 'pause_timeout',
+                               'total_timeout', 'expire_time'],
                               [a for a in dir(args) if not a.startswith('_')])
         self.assertEqual(args.env, 'foo')
         self.assertEqual(args.service, 'bar')
@@ -49,7 +49,8 @@ class TestRunChaosMonkey(TestCase):
                        side_effect=fake_SimpleEnvironment_from_config) as mock:
                 monkey_runner = MonkeyRunner.from_config(Namespace(
                     env='foo', service='bar', health_checker='checker',
-                    enablement_timeout=0))
+                    enablement_timeout=0, pause_timeout=0, total_timeout=0,
+                    expire_time=0))
                 self.assertIsInstance(monkey_runner, MonkeyRunner)
                 self.assertEqual(monkey_runner.env, 'foo')
                 self.assertEqual(monkey_runner.service, 'bar')
@@ -180,11 +181,11 @@ class TestRunChaosMonkey(TestCase):
                  ): charm_config,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement_timeout=0'
+                 'enablement-timeout=0'
                  ): 'Action queued with id: chaos-monkey/0',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement_timeout=0'
+                 'enablement-timeout=0'
                  ): 'Action queued with id: chaos-monkey/1',
                 }
             return output[args]
@@ -196,11 +197,11 @@ class TestRunChaosMonkey(TestCase):
                 monkey_runner.unleash_once()
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single', 'enablement_timeout=0'),
+            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0'),
             1, True)
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single', 'enablement_timeout=0'),
+            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0'),
             2, True)
         self.assertEqual(['chaos-monkey/1', 'chaos-monkey/0'],
                          monkey_runner.monkey_ids.keys())
@@ -230,7 +231,7 @@ class TestRunChaosMonkey(TestCase):
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement_timeout=0'
+                 'enablement-timeout=0'
                  ): 'Action fail',
                 }
             return output[args]
@@ -327,7 +328,7 @@ class TestRunChaosMonkey(TestCase):
             })
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'get', '-e', 'foo', 'jenkins'
+                ('juju', '--show-log', 'get', '-e', 'foo', 'chaos-monkey'
                  ): charm_config,
                 }
             return output[args]
@@ -342,7 +343,7 @@ class TestRunChaosMonkey(TestCase):
         }
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
-            with patch('subprocess.check_call', autospec=True,
+            with patch('subprocess.call', autospec=True,
                        return_value=0):
                 locks = monkey_runner.get_locks()
             self.assertEqual(expected, locks)
@@ -352,7 +353,7 @@ class TestRunChaosMonkey(TestCase):
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
             with patch('subprocess.check_call', autospec=True,
-                       side_effect=CalledProcessError(1, 'foo')):
+                       return_value=1):
                 locks = monkey_runner.get_locks()
             self.assertEqual(expected, locks)
 

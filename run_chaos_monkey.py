@@ -3,6 +3,10 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 from collections import defaultdict
+from datetime import (
+    datetime,
+    timedelta,
+)
 from itertools import chain
 import logging
 import subprocess
@@ -30,15 +34,28 @@ class MonkeyRunner:
         client = EnvJujuClient.by_version(
             SimpleEnvironment.from_config(args.env))
         return cls(args.env, args.service, args.health_checker, client,
-                   enablement_timeout=args.enablement_timeout)
+                   enablement_timeout=args.enablement_timeout,
+                   pause_timeout=args.pause_timeout,
+                   total_timeout=args.total_timeout,
+                   expire_time=args.expire_time)
 
     def __init__(self, env, service, health_checker, client,
-                 enablement_timeout=0):
+                 enablement_timeout=0, pause_timeout=0, total_timeout=0,
+                 expire_time=None):
         self.enablement_timeout = enablement_timeout
         self.env = env
         self.service = service
         self.health_checker = health_checker
         self.client = client
+        self.enablement_timeout = enablement_timeout
+        self.pause_timeout = pause_timeout
+        self.total_timeout = total_timeout
+        if expire_time:
+            self.expire_time = (
+                datetime.now() + timedelta(seconds=expire_time))
+        else:
+            self.expire_time = (
+                datetime.now() + timedelta(seconds=total_timeout))
         self.monkey_ids = {}
 
     def deploy_chaos_monkey(self):
@@ -65,7 +82,7 @@ class MonkeyRunner:
     def unleash_once(self):
         for unit_name, unit in self.iter_chaos_monkey_units():
             logging.info('Starting the chaos monkey on: {}'.format(unit_name))
-            enablement_arg = ('enablement_timeout=' +
+            enablement_arg = ('enablement-timeout=' +
                               str(self.enablement_timeout))
             action_out = self.client.get_juju_output(
                 'action do', unit_name, 'start', 'mode=single', enablement_arg)
@@ -98,30 +115,50 @@ class MonkeyRunner:
     def get_locks(self):
         """Return a dict with two lists: done and running"""
         locks = defaultdict(list)
-        service_config = self.client.get_service_config(self.service)
+        service_config = self.client.get_service_config('chaos-monkey')
+        logging.debug('{}'.format(service_config))
         for unit_name, unit in self.iter_chaos_monkey_units():
-            logging.debug('Checking if chaos is done on: {}'.format(unit_name))
+            logging.info('Checking if chaos is done on: {}'.format(unit_name))
             check_cmd = '[ -f '
             check_cmd += service_config['settings']['chaos-dir']['value']
             check_cmd += '/chaos_monkey.' + self.monkey_ids[unit_name]
             check_cmd += '/chaos_runner.lock'
-            try:
-                self.client.juju('run', ('--unit', unit_name, check_cmd))
-                locks['running'].append(unit_name)
-            except subprocess.CalledProcessError:
+            check_cmd += ' ]'
+            if self.client.juju('run', ('--unit', unit_name, check_cmd),
+                                check=False):
                 locks['done'].append(unit_name)
+                continue
+            locks['running'].append(unit_name)
         return locks
 
     def wait_for_chaos_complete(self):
         for ignored in chain([None], until_timeout(60)):
             for unit_name, unit in self.iter_chaos_monkey_units():
-                logging.debug(
+                logging.info(
                     'Checking if chaos is done on: {}'.format(unit_name))
                 locks = self.get_locks()
                 if locks.keys() == ['done']:
+                    logging.debug(
+                        'All lock files have been removed: {}'.format(locks))
                     return None
         else:
             raise Exception('Chaos operations did not complete.')
+
+    def run_while_healthy_or_timeout(self):
+        logging.debug('run_while_healthy_or_timeout')
+        while self.is_healthy:
+            logging.debug('Unleashing chaos.')
+            self.unleash_once()
+            self.wait_for_chaos_complete()
+            if datetime.now() > self.expire_time:
+                logging.info(
+                    'Reached expire time, all done running chaos.')
+                break
+            if self.pause_timeout:
+                logging.info(
+                    'Pausing {} seconds after running chaos.'.format(
+                        self.pause_timeout))
+                sleep(self.pause_timeout)
 
 
 def get_args(argv=None):
@@ -134,7 +171,31 @@ def get_args(argv=None):
     parser.add_argument(
         '-et', '--enablement-timeout', default=30, type=int,
         help="Enablement timeout in seconds.", metavar='SECONDS')
+    parser.add_argument(
+        '-tt', '--total-timeout', type=int, help="Total timeout in seconds.",
+        metavar='SECONDS')
+    parser.add_argument(
+        '-pt', '--pause-timeout', default=0, type=int,
+        help="Total timeout in seconds.", metavar='SECONDS')
+    parser.add_argument(
+        '-ep', '--expire-time', type=int, default=None,
+        help='Chaos Monkey expire time.', metavar='SECONDS')
     args = parser.parse_args(argv)
+    if args.expire_time and args.total_timeout:
+        parser.error("Conflicting options: Pass total-timeout or expire-time.")
+    if not args.expire_time:
+        if not args.total_timeout:
+            args.total_timeout = args.enablement_timeout
+        if args.enablement_timeout > args.total_timeout:
+            parser.error("total-timeout can not be less than "
+                         "enablement-timeout.")
+        if args.total_timeout <= 0:
+            parser.error("Invalid total-timeout value: timeout must be "
+                         "greater than zero.")
+    if args.enablement_timeout < 0:
+        parser.error("Invalid enablement-timeout value: timeout must be "
+                     "zero or greater.")
+
     return args
 
 
@@ -148,8 +209,7 @@ def main():
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)
     monkey_runner.deploy_chaos_monkey()
-    monkey_runner.unleash_once()
-    monkey_runner.wait_for_chaos_complete()
+    monkey_runner.run_while_healthy_or_timeout()
 
 if __name__ == '__main__':
     main()
