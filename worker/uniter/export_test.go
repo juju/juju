@@ -13,7 +13,6 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	ActiveMetricsTimer  = &activeMetricsTimer
 	IdleWaitTime        = &idleWaitTime
 	LeadershipGuarantee = &leadershipGuarantee
 )
@@ -43,6 +42,26 @@ func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
 		c: make(chan time.Time, 1),
 	}
+}
+
+func (u *Uniter) ReplaceEnterAbide(f simpleUniterFunc) {
+	u.enterAbide = f
+}
+
+func (u *Uniter) ReplaceEnterIdle(f simpleUniterFunc) {
+	u.enterIdle = f
+}
+
+func RunUpdateStatusOnce(u *Uniter) error {
+	return runUpdateStatusOnce(u)
+}
+
+func (u *Uniter) SetUpdateStatusAt(t TimedSignal) {
+	u.updateStatusAt = t
+}
+
+func (u *Uniter) SetActiveMetrics(t TimedSignal) {
+	u.metricsTimer.active = t
 }
 
 func UpdateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {

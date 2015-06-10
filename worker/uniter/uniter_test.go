@@ -35,7 +35,8 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	ticker *uniter.ManualTicker
+	metricsTicker          *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -61,6 +62,9 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
+	s.metricsTicker = uniter.NewManualTicker()
+	s.updateStatusHookTicker = uniter.NewManualTicker()
+
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
@@ -72,8 +76,6 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.ticker = uniter.NewManualTicker()
-	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
 }
 
@@ -101,13 +103,14 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 			env, err := s.State.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{
-				s:       s,
-				st:      s.State,
-				uuid:    env.UUID(),
-				path:    s.unitDir,
-				dataDir: s.dataDir,
-				charms:  make(map[string][]byte),
-				ticker:  s.ticker,
+				s:                      s,
+				st:                     s.State,
+				uuid:                   env.UUID(),
+				path:                   s.unitDir,
+				dataDir:                s.dataDir,
+				charms:                 make(map[string][]byte),
+				metricsTicker:          s.metricsTicker,
+				updateStatusHookTicker: s.updateStatusHookTicker,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -208,10 +211,36 @@ func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"update status hook runs at least once",
+			useActualUpdateStatusRunners{},
 			createCharm{},
 			serveCharm{},
 			createUniter{},
-			waitHooks{"install", "leader-elected", "config-changed", "start", "update-status"},
+			waitHooks(startupHooks(false)),
+			waitHooks{"update-status"},
+			waitHooks{"update-status"},
+			waitUnitAgent{status: params.StatusIdle},
+		), ut(
+			"update status hook runs after batch (before idling)",
+			useActualUpdateStatusRunners{},
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitHooks{"update-status"},
+			waitHooks{"update-status"},
+			waitUnitAgent{status: params.StatusIdle},
+		), ut(
+			"update status hook runs on timer",
+			useActualUpdateStatusRunners{},
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitHooks{"update-status"},
+			waitHooks{"update-status"},
+			waitUnitAgent{status: params.StatusIdle},
+			updateStatusHookTick{},
+			waitHooks{"update-status"},
 			waitUnitAgent{status: params.StatusIdle},
 			waitHooks{"update-status"},
 		),
@@ -1356,7 +1385,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			timerTick{},
+			metricsTick{},
 			waitHooks{"collect-metrics"},
 		),
 		ut(
@@ -1367,7 +1396,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			timerTick{},
+			metricsTick{},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
@@ -1388,7 +1417,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			timerTick{},
+			metricsTick{},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
@@ -1406,7 +1435,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 		ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			timerTick{},
+			metricsTick{},
 			waitHooks{},
 		),
 	})
@@ -2060,7 +2089,8 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			provisionStorage{},
 			destroyStorageAttachment{},
 			startUniter{},
-			waitHooks(startupHooks(false)),
+			//waitHooks(startupHooks(false)),
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			unitDying,
 			// storage-detaching is not called because it was never attached
 			waitHooks{"stop"},
@@ -2088,9 +2118,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
 			unitDying,
-			// TODO(axw) should we really be running startup hooks
-			// when the unit is dying?
-			waitHooks(startupHooks(true)),
+			waitHooks{"install", "leader-settings-changed", "config-changed", "start"},
 			waitHooks{"stop"},
 			waitUniterDead{},
 		),

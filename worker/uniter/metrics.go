@@ -28,12 +28,24 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 	return nil
 }
 
+type timerChooser struct {
+	active   TimedSignal
+	inactive TimedSignal
+}
+
 // getMetricsTimer returns the metrics timer we should be using, given the supplied
 // charm.
-func getMetricsTimer(ch corecharm.Charm) TimedSignal {
+func (t *timerChooser) getMetricsTimer(ch corecharm.Charm) TimedSignal {
 	metrics := ch.Metrics()
 	if metrics != nil && len(metrics.Metrics) > 0 {
-		return activeMetricsTimer
+		return t.active
 	}
-	return inactiveMetricsTimer
+	return t.inactive
+}
+
+func NewTimerChooser() *timerChooser {
+	return &timerChooser{
+		active:   activeMetricsTimer,
+		inactive: inactiveMetricsTimer,
+	}
 }
