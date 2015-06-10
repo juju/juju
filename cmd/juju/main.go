@@ -96,7 +96,8 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd.AddHelpTopic("placement", "How to use placement directives", helpPlacement)
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
-
+	jcmd.AddHelpTopic("juju", "About Juju Environment Systems (JES)", helpJuju)
+	jcmd.AddHelpTopic("users", "About users in Juju", user.HelpTopic)
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	registerCommands(jcmd, ctx)
@@ -212,6 +213,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage systems
 	if featureflag.Enabled(feature.JES) {
 		r.Register(system.NewSuperCommand())
+		r.RegisterSuperAlias("systems", "system", "list", nil)
+		r.RegisterSuperAlias("environments", "system", "environments", nil)
 	}
 }
 

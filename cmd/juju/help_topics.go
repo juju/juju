@@ -21,6 +21,7 @@ Basic commands:
   juju help bootstrap   more help on e.g. bootstrap command
   juju help commands    list all commands
   juju help glossary    glossary of terms
+  juju help juju        about using juju systems and users
   juju help topics      list all help topics
 
 Provider information:

@@ -76,7 +76,7 @@ func DataDir(series string) (string, error) {
 // store certificates that are added by default to the Juju client
 // api certificate pool.
 func CertDir(series string) (string, error) {
-	return osVal(series, dataDir)
+	return osVal(series, certDir)
 }
 
 // JujuRun returns the absolute path to the juju-run binary for

@@ -15,6 +15,9 @@ var logger = loggo.GetLogger("juju.cmd.juju.user")
 const userCommandDoc = `
 "juju user" is used to manage the user accounts and access control in
 the Juju environment.
+
+See Also:
+    juju help users
 `
 
 const userCommandPurpose = "manage user accounts and access control"

@@ -31,7 +31,19 @@ type EnvironmentsCommand struct {
 	userCreds *configstore.APICredentials
 }
 
-var envsDoc = `List all the environments the user can access on the current system`
+var envsDoc = `
+List all the environments the user can access on the current system.
+
+The environments listed here are either environments you have created
+yourself, or environments where access has been shared with you.
+
+See Also:
+    juju help juju
+    juju help systems
+    juju environment users
+    juju environment share
+    juju environment unshare
+`
 
 // EnvironmentManagerAPI defines the methods on the client API that the
 // environments command calls.

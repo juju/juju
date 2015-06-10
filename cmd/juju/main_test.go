@@ -311,6 +311,7 @@ var topicNames = []string{
 	"global-options",
 	"glossary",
 	"hpcloud-provider",
+	"juju",
 	"local-provider",
 	"logging",
 	"maas-provider",
@@ -318,6 +319,7 @@ var topicNames = []string{
 	"placement",
 	"plugins",
 	"topics",
+	"users",
 }
 
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
