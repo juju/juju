@@ -243,6 +243,16 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// volume attachment will NOT react to volume changes
+	err = s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
 	err = s.State.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "xvdf1",
@@ -250,11 +260,6 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	// volume attachment will NOT react to volume changes
-	err = s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
@@ -484,4 +489,24 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	// The volume should not have been destroyed, though.
 	_, err = s.State.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(assignedMachineId)
+
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+
+	err = s.State.SetVolumeAttachmentInfo(
+		machineTag, volumeTag, state.VolumeAttachmentInfo{
+			DeviceName: "xvdf1",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume attachment 0/0:0: volume "0/0" not provisioned`)
 }
