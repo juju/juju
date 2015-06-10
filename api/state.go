@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
@@ -342,6 +343,12 @@ func (st *State) InstancePoller() *instancepoller.API {
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
 func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
+}
+
+// Cleaner returns a version of the state that provides functionality
+// required by the cleaner worker.
+func (st *State) Cleaner() *cleaner.API {
+	return cleaner.NewAPI(st)
 }
 
 // Rsyslog returns access to the Rsyslog API

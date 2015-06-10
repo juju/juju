@@ -116,6 +116,7 @@ var (
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
+	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -1114,7 +1115,7 @@ func (a *MachineAgent) startEnvWorkers(
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return cleaner.NewCleaner(st), nil
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
