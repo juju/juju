@@ -434,11 +434,16 @@ func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAtt
 // info for the specified machine. Each volume attachment info
 // structure is keyed by the name of the volume it corresponds
 // to.
-func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) error {
+func setMachineVolumeAttachmentInfo(
+	st *State,
+	machineId string,
+	attachments map[names.VolumeTag]VolumeAttachmentInfo,
+) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set volume attachment info for machine %s", machineId)
 	machineTag := names.NewMachineTag(machineId)
 	for volumeTag, info := range attachments {
-		if err := st.SetVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
-			return errors.Trace(err)
+		if err := st.setVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
+			return errors.Annotatef(err, "setting attachment info for volume %s", volumeTag.Id())
 		}
 	}
 	return nil
@@ -448,9 +453,33 @@ func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map
 // volume attachment.
 func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
+	v, err := st.Volume(volumeTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure volume is provisioned before setting attachment info.
+	// A volume cannot go from being provisioned to unprovisioned,
+	// so there is no txn.Op for this below.
+	if _, err := v.Info(); err != nil {
+		return errors.Trace(err)
+	}
+	// Also ensure the machine is provisioned.
+	m, err := st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := m.InstanceId(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.setVolumeAttachmentInfo(machineTag, volumeTag, info)
+}
+
+func (st *State) setVolumeAttachmentInfo(
+	machineTag names.MachineTag,
+	volumeTag names.VolumeTag,
+	info VolumeAttachmentInfo,
+) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// TODO(axw) attempting to set volume attachment info for a
-		// volume that hasn't been provisioned should fail.
 		va, err := st.VolumeAttachment(machineTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
