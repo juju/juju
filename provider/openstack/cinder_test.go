@@ -150,6 +150,15 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	c.Check(getVolumeCalls, gc.Equals, 3)
 }
 
+func (s *cinderVolumeSourceSuite) TestCreateVolumeFails(c *gc.C) {
+	volSource := openstack.NewCinderVolumeSource(&mockAdapter{})
+	_, _, err := volSource.CreateVolumes([]storage.VolumeParams{{
+		Provider:   openstack.CinderProviderType,
+		Attributes: map[string]interface{}{storage.Persistent: false},
+	}})
+	c.Assert(err, gc.ErrorMatches, "cannot create a non-persistent Cinder volume")
+}
+
 func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 	var created bool
 	mockAdapter := &mockAdapter{
