@@ -21,6 +21,11 @@ type Relation struct {
 	UnitName string
 }
 
+// Reset clears the Relation's settings.
+func (r *Relation) Reset() {
+	r.Units = nil
+}
+
 // SetRelated adds the relation settings for the unit.
 func (r *Relation) SetRelated(name string, settings Settings) {
 	if r.Units == nil {

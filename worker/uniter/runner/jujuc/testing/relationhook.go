@@ -13,6 +13,12 @@ type RelationHook struct {
 	RemoteUnitName string
 }
 
+// Reset clears the RelationHook's data.
+func (rh *RelationHook) Reset() {
+	rh.HookRelation = nil
+	rh.RemoteUnitName = ""
+}
+
 // ContextRelationHook is a test double for jujuc.RelationHookContext.
 type ContextRelationHook struct {
 	contextBase

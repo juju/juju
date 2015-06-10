@@ -16,6 +16,11 @@ type Relations struct {
 	Relations map[int]jujuc.ContextRelation
 }
 
+// Reset clears the Relations data.
+func (r *Relations) Reset() {
+	r.Relations = nil
+}
+
 // SetRelation adds the relation to the set of known relations.
 func (r *Relations) SetRelation(id int, relCtx jujuc.ContextRelation) {
 	if r.Relations == nil {

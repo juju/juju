@@ -22,8 +22,8 @@ func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context,
 	settings := jujuctesting.Settings{
 		"private-address": "u-0.testing.invalid",
 	}
-	rInfo.setNextRelation(s.Unit, settings) // peer0
-	rInfo.setNextRelation(s.Unit, settings) // peer1
+	rInfo.setNextRelation("", s.Unit, settings) // peer0
+	rInfo.setNextRelation("", s.Unit, settings) // peer1
 	if relid >= 0 {
 		rInfo.SetAsRelationHook(relid, remote)
 	}
@@ -38,28 +38,41 @@ type relationInfo struct {
 	rels map[int]*jujuctesting.Relation
 }
 
-func (ri *relationInfo) setNextRelation(unit string, settings jujuctesting.Settings) int {
+func (ri *relationInfo) reset() {
+	ri.Relations.Reset()
+	ri.RelationHook.Reset()
+	ri.rels = nil
+}
+
+func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting.Settings) int {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
 	id := len(ri.rels)
-	name := fmt.Sprintf("peer%d", id)
+	if name == "" {
+		name = fmt.Sprintf("peer%d", id)
+	}
 	relation := ri.SetNewRelation(id, name, ri.stub)
-	relation.UnitName = unit
-	relation.SetRelated(unit, settings)
+	if unit != "" {
+		relation.UnitName = unit
+		relation.SetRelated(unit, settings)
+	}
 	ri.rels[id] = relation
 	return id
 }
 
 func (ri *relationInfo) addRelatedServices(relname string, count int) {
+	if ri.rels == nil {
+		ri.rels = make(map[int]*jujuctesting.Relation)
+	}
 	for i := 0; i < count; i++ {
-		id := len(ri.rels)
-		ri.Relations.SetNewRelation(id, relname, ri.stub)
+		ri.setNextRelation(relname, "", nil)
 	}
 }
 
 func (ri *relationInfo) setRelations(id int, members []string) {
 	relation := ri.rels[id]
+	relation.Reset()
 	for _, name := range members {
 		relation.SetRelated(name, nil)
 	}

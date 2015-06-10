@@ -75,8 +75,6 @@ type relationSetInitTest struct {
 	err      string
 	relid    int
 	settings map[string]string
-
-	info *relationInfo
 }
 
 func (t relationSetInitTest) log(c *gc.C, i int) {
@@ -101,7 +99,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
-	hctx, info := s.newHookContext(t.ctxrelid, "")
+	hctx, _ := s.newHookContext(t.ctxrelid, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -118,7 +116,6 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	t.info = info
 	return com, args, ctx
 }
 
@@ -369,7 +366,7 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 
 		// Check changes.
 		c.Assert(info.rels[0].Units["u/0"], gc.DeepEquals, pristine)
-		c.Assert(info.rels[0].Units["u/0"], gc.DeepEquals, t.expect)
+		c.Assert(info.rels[1].Units["u/0"], gc.DeepEquals, t.expect)
 	}
 }
 

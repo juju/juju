@@ -113,6 +113,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		hctx, info := s.newHookContext(t.relid, "")
 		info.setRelations(0, t.members0)
 		info.setRelations(1, t.members1)
+		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
