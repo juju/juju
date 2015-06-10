@@ -17,7 +17,7 @@ type TimerSuite struct{}
 var _ = gc.Suite(&TimerSuite{})
 
 func (s *TimerSuite) TestCollectMetricsTimer(c *gc.C) {
-	s.testTimer(c, uniter.ActiveMetricsSignal)
+	s.testTimer(c, uniter.ActiveCollectMetricsSignal)
 }
 
 func (s *TimerSuite) TestUpdateStatusTimer(c *gc.C) {
