@@ -5,6 +5,7 @@ package system_test
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd"
@@ -99,7 +100,7 @@ func (s *LoginSuite) TestNoSpecifiedServerFile(c *gc.C) {
 func (s *LoginSuite) TestMissingServerFile(c *gc.C) {
 	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
 	_, err := s.run(c, "foo", "--server", serverFilePath)
-	c.Assert(err, gc.ErrorMatches, "open .*: no such file or directory")
+	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
 
 func (s *LoginSuite) TestBadServerFile(c *gc.C) {
