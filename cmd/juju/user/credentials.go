@@ -13,15 +13,15 @@ import (
 )
 
 const userCredentialsDoc = `
-Writes out the current user and credentails to a file that can be used
+Writes out the current user and credentials to a file that can be used
 with 'juju system login' to allow the user to access the same environments
 as the same user from another machine.
 
-For Example:
+Examples:
 
     $ juju user credentials --output staging.creds
 
-    copy the staging.creds file to another machine
+    # copy the staging.creds file to another machine
 
     $ juju system login staging --server staging.creds --keep-password
 
@@ -60,6 +60,11 @@ func (c *CredentialsCommand) Run(ctx *cmd.Context) error {
 
 	filename := c.OutPath
 	if filename == "" {
+		// The reason for the dance though the newUserTag
+		// is to strip off the optional provider.
+		//   user -> user
+		//   user@local -> user
+		//   user@remote -> user
 		name := names.NewUserTag(creds.User).Name()
 		filename = fmt.Sprintf("%s.server", name)
 	}
