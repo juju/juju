@@ -65,7 +65,19 @@ def upload_changes(args, remote_files):
         print("Uploading {0}/{1}".format(args.container, local_path))
         cmd = ['swift', 'upload', container_path, file_name]
         if not args.dry_run:
-            output = subprocess.check_output(cmd)
+            uploaded = False
+            attempt = 1
+            while not uploaded and attempt <= MAX_UPLOAD_ATTEMPTS:
+                # python-swiftclient on precise doesn't support --retry.
+                try:
+                    output = subprocess.check_output(cmd)
+                    uploaded = True
+                except subprocess.CalledProcessError:
+                    attempt += 1
+                    if attempt > MAX_UPLOAD_ATTEMPTS:
+                        raise
+            print(' '.join(cmd))
+            print(output)
             uploaded_files.append(output)
     print('Uploaded {0} files'.format(count))
     return uploaded_files
