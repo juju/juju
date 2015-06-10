@@ -244,7 +244,7 @@ class TestRunChaosMonkey(TestCase):
                 monkey_runner.unleash_once()
 
     def test_is_healthy(self):
-        SCRIPT = """#!/bin/sh\necho -n 'PASS'\nreturn 0"""
+        SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
@@ -259,7 +259,7 @@ class TestRunChaosMonkey(TestCase):
             self.assertEqual(lo_mock.call_args[0][0], 'PASS')
 
     def test_is_healthy_fail(self):
-        SCRIPT = """#!/bin/sh\necho -n 'FAIL'\nreturn 1"""
+        SCRIPT = """#!/bin/bash\necho -n 'FAIL'\nexit 1"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
@@ -274,7 +274,7 @@ class TestRunChaosMonkey(TestCase):
             self.assertEqual(le_mock.call_args[0][0], 'FAIL')
 
     def test_is_healthy_with_no_execute_perms(self):
-        SCRIPT = """#!/bin/sh\nreturn 0"""
+        SCRIPT = """#!/bin/bash\nexit 0"""
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
