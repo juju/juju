@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
@@ -99,6 +100,100 @@ func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag)
 		return false
 	}
 	return true
+}
+
+func (s *StorageStateSuiteBase) assertFilesystemUnprovisioned(c *gc.C, tag names.FilesystemTag) {
+	filesystem := s.filesystem(c, tag)
+	_, err := filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, ok := filesystem.Params()
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *StorageStateSuiteBase) assertFilesystemInfo(c *gc.C, tag names.FilesystemTag, expect state.FilesystemInfo) {
+	filesystem := s.filesystem(c, tag)
+	info, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expect)
+	_, ok := filesystem.Params()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *StorageStateSuiteBase) assertFilesystemAttachmentUnprovisioned(c *gc.C, m names.MachineTag, f names.FilesystemTag) {
+	filesystemAttachment := s.filesystemAttachment(c, m, f)
+	_, err := filesystemAttachment.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, ok := filesystemAttachment.Params()
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *StorageStateSuiteBase) assertFilesystemAttachmentInfo(c *gc.C, m names.MachineTag, f names.FilesystemTag, expect state.FilesystemAttachmentInfo) {
+	filesystemAttachment := s.filesystemAttachment(c, m, f)
+	info, err := filesystemAttachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expect)
+	_, ok := filesystemAttachment.Params()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *StorageStateSuiteBase) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {
+	volume := s.volume(c, tag)
+	_, err := volume.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, ok := volume.Params()
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *StorageStateSuiteBase) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect state.VolumeInfo) {
+	volume := s.volume(c, tag)
+	info, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expect)
+	_, ok := volume.Params()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *StorageStateSuiteBase) filesystem(c *gc.C, tag names.FilesystemTag) state.Filesystem {
+	filesystem, err := s.State.Filesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	return filesystem
+}
+
+func (s *StorageStateSuiteBase) filesystemVolume(c *gc.C, tag names.FilesystemTag) state.Volume {
+	filesystem := s.filesystem(c, tag)
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.volume(c, volumeTag)
+}
+
+func (s *StorageStateSuiteBase) filesystemAttachment(c *gc.C, m names.MachineTag, f names.FilesystemTag) state.FilesystemAttachment {
+	attachment, err := s.State.FilesystemAttachment(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+	return attachment
+}
+
+func (s *StorageStateSuiteBase) volume(c *gc.C, tag names.VolumeTag) state.Volume {
+	volume, err := s.State.Volume(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	return volume
+}
+
+func (s *StorageStateSuiteBase) volumeFilesystem(c *gc.C, tag names.VolumeTag) state.Filesystem {
+	filesystem, err := s.State.VolumeFilesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	return filesystem
+}
+
+func (s *StorageStateSuiteBase) storageInstanceVolume(c *gc.C, tag names.StorageTag) state.Volume {
+	volume, err := s.State.StorageInstanceVolume(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	return volume
+}
+
+func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.StorageTag) state.Filesystem {
+	filesystem, err := s.State.StorageInstanceFilesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	return filesystem
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {

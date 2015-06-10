@@ -52,8 +52,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume, err := s.State.StorageInstanceVolume(storageInstance.StorageTag())
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageInstance.StorageTag())
 	c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0/0"))
 	volumeStorageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,8 +146,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
@@ -190,8 +188,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	volumeTag := volumeAttachments[0].Volume()
 
-	volume, err := s.State.Volume(volumeTag)
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.volume(c, volumeTag)
 	_, err = volume.StorageInstance()
 	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 
@@ -207,8 +204,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	volume, err := s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
 	volumeInfoSet := state.VolumeInfo{Size: 123}
@@ -234,8 +230,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineTag := names.NewMachineTag(assignedMachineId)
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
 	w := s.State.WatchVolumeAttachment(machineTag, volumeTag)
@@ -383,25 +378,6 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 	assertError("bar:0", `invalid volume attachment ID "bar:0"`)
 }
 
-func (s *VolumeStateSuite) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {
-	volume, err := s.State.Volume(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = volume.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-	_, ok := volume.Params()
-	c.Assert(ok, jc.IsTrue)
-}
-
-func (s *VolumeStateSuite) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect state.VolumeInfo) {
-	volume, err := s.State.Volume(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	info, err := volume.Info()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expect)
-	_, ok := volume.Params()
-	c.Assert(ok, jc.IsFalse)
-}
-
 func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
 	_, persistentVolumes := s.assertCreateVolumes(c)
 	c.Assert(persistentVolumes, gc.HasLen, 1)
@@ -429,22 +405,20 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (all, persistent set.Tag
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	volume1 := s.storageInstanceVolume(c, names.NewStorageTag("multi1to10/0"))
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume2, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi2up/1"))
+	volume2 := s.storageInstanceVolume(c, names.NewStorageTag("multi2up/1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
 	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume3, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi2up/2"))
-	c.Assert(err, jc.ErrorIsNil)
+	volume3 := s.storageInstanceVolume(c, names.NewStorageTag("multi2up/2"))
 
 	return set.NewTags(volume1.VolumeTag(), volume2.VolumeTag(), volume3.VolumeTag()), set.NewTags(volume1.VolumeTag())
 }
@@ -464,7 +438,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	volume, err := s.State.StorageInstanceVolume(storageTag)
+	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeTag := volume.VolumeTag()
 
@@ -475,8 +449,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 
 	// The storage instance and attachment are dying, but not yet
 	// removed from state. The volume should still be assigned.
-	_, err = s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
+	s.storageInstanceVolume(c, storageTag)
 
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,8 +460,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
 	// The volume should not have been destroyed, though.
-	_, err = s.State.Volume(volumeTag)
-	c.Assert(err, jc.ErrorIsNil)
+	s.volume(c, volumeTag)
 }
 
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
@@ -499,8 +471,7 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	machineTag := names.NewMachineTag(assignedMachineId)
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
 	err = s.State.SetVolumeAttachmentInfo(
