@@ -30,6 +30,7 @@ func NewSuperCommand() cmd.Command {
 	})
 	usercmd.Register(envcmd.WrapSystem(&AddCommand{}))
 	usercmd.Register(envcmd.WrapSystem(&ChangePasswordCommand{}))
+	usercmd.Register(envcmd.WrapSystem(&CredentialsCommand{}))
 	usercmd.Register(envcmd.WrapSystem(&InfoCommand{}))
 	usercmd.Register(envcmd.WrapSystem(&DisableCommand{}))
 	usercmd.Register(envcmd.WrapSystem(&EnableCommand{}))
