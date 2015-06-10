@@ -18,7 +18,3 @@ func PatchState(p Patcher, st StateInterface) {
 		return st
 	})
 }
-
-func (api CleanerAPI) GetState() stateInterface {
-	return api.st
-}
