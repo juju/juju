@@ -23,6 +23,7 @@ from substrate import (
     AWSAccount,
     AzureAccount,
     describe_instances,
+    destroy_job_instances,
     get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
@@ -789,3 +790,19 @@ class EucaTestCase(TestCase):
                     with self.assertRaises(CalledProcessError):
                         run_instances(1, 'qux')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
+
+    def test_destroy_job_instances_none(self):
+        with patch('substrate.get_job_instances',
+                   return_value=[], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        self.assertEqual(0, cc_mock.call_count)
+
+    def test_destroy_job_instances_some(self):
+        with patch('substrate.get_job_instances',
+                   return_value=['i-bar'], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])

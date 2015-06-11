@@ -29,8 +29,7 @@ from jujupy import (
     temp_bootstrap_env,
 )
 from substrate import (
-    dump_euca_console,
-    get_job_instances,
+    destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
     run_instances,
     start_libvirt_domain,
@@ -82,13 +81,6 @@ def destroy_environment(client, instance_tag):
     if (client.env.config['type'] == 'manual'
             and 'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
-
-
-def destroy_job_instances(job_name):
-    instances = list(get_job_instances(job_name))
-    if len(instances) == 0:
-        return
-    subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
 def deploy_dummy_stack(client, charm_prefix):
@@ -164,8 +156,7 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, host_id=None,
-                  jenv_path=None):
+def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
@@ -175,8 +166,6 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None,
         local_state_server = client.env.local and machine_id == '0'
         dump_logs(client, addr, machine_directory,
                   local_state_server=local_state_server)
-
-    dump_euca_console(host_id, directory)
     retain_jenv(jenv_path, directory)
 
 

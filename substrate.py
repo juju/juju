@@ -493,14 +493,6 @@ def get_libvirt_domstate(uri, domain):
     return sub_output
 
 
-def dump_euca_console(host_id, directory):
-    if host_id is None:
-        return
-    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
-        subprocess.Popen(['euca-get-console-output', host_id],
-                         stdout=console_file)
-
-
 def parse_euca(euca_output):
     for line in euca_output.splitlines():
         fields = line.split('\t')
@@ -547,3 +539,10 @@ def describe_instances(instances=None, running=False, job_name=None,
 def get_job_instances(job_name):
     description = describe_instances(job_name=job_name, running=True)
     return (machine_id for machine_id, name in description)
+
+
+def destroy_job_instances(job_name):
+    instances = list(get_job_instances(job_name))
+    if len(instances) == 0:
+        return
+    subprocess.check_call(['euca-terminate-instances'] + instances)
