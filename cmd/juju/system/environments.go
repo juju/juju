@@ -35,7 +35,7 @@ var envsDoc = `
 List all the environments the user can access on the current system.
 
 The environments listed here are either environments you have created
-yourself, or environments where access has been shared with you.
+yourself, or environments which have been shared with you.
 
 See Also:
     juju help juju
