@@ -82,8 +82,11 @@ type registeringCommand struct {
 	// Details is the launch details returned from the process plugin.
 	Details process.LaunchDetails
 
-	// Overrides overwrite process definition.
+	// Overrides overwrite the process definition.
 	Overrides []string
+
+	// Additions extend the process definition.
+	Additions []string
 
 	// UpdatedProcess stores the new process, if there were any overrides.
 	UpdatedProcess *charm.Process
@@ -98,6 +101,7 @@ func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
 // SetFlags implements cmd.Command.
 func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Overrides), "override", "override process definition")
+	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend process definition")
 }
 
 func (c *registeringCommand) init(name string) error {
@@ -108,12 +112,17 @@ func (c *registeringCommand) init(name string) error {
 		return errors.Trace(err)
 	}
 
-	overrides, err := c.parseOverrides(c.Overrides)
+	overrides, err := c.parseUpdates(c.Overrides)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "override")
 	}
 
-	newProcess, err := c.info.Process.Apply(overrides, nil)
+	additions, err := c.parseUpdates(c.Additions)
+	if err != nil {
+		return errors.Annotate(err, "extend")
+	}
+
+	newProcess, err := c.info.Process.Apply(overrides, additions)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,21 +138,21 @@ func (c *registeringCommand) checkSpace() error {
 	return nil
 }
 
-// parseOverride builds a ProcessField value from an override string.
-func parseOverride(override string) (charm.ProcessFieldValue, error) {
+// parseUpdate builds a charm.ProcessFieldValue from an update string.
+func parseUpdate(update string) (charm.ProcessFieldValue, error) {
 	var pfv charm.ProcessFieldValue
 
-	parts := strings.SplitN(override, ":", 2)
+	parts := strings.SplitN(update, ":", 2)
 	if len(parts) == 1 {
-		return pfv, errors.Errorf("missing override value")
+		return pfv, errors.Errorf("missing value")
 	}
 	pfv.Field, pfv.Value = parts[0], parts[1]
 
 	if pfv.Field == "" {
-		return pfv, errors.Errorf("missing override field")
+		return pfv, errors.Errorf("missing field")
 	}
 	if pfv.Value == "" {
-		return pfv, errors.Errorf("missing override value")
+		return pfv, errors.Errorf("missing value")
 	}
 
 	fieldParts := strings.SplitN(pfv.Field, "/", 2)
@@ -155,11 +164,11 @@ func parseOverride(override string) (charm.ProcessFieldValue, error) {
 	return pfv, nil
 }
 
-// parseOverrides parses the overrides list in to a ProcessFieldValue list.
-func (c *registeringCommand) parseOverrides(overrides []string) ([]charm.ProcessFieldValue, error) {
+// parseUpdates parses the updates list in to a charm.ProcessFieldValue list.
+func (c *registeringCommand) parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
 	var results []charm.ProcessFieldValue
-	for _, override := range overrides {
-		pfv, err := parseOverride(override)
+	for _, update := range updates {
+		pfv, err := parseUpdate(update)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -41,6 +41,8 @@ usage: register [options] <name> <id> [<details>]
 purpose: register a workload process
 
 options:
+--extend  (= )
+    extend process definition
 --override  (= )
     override process definition
 
@@ -191,7 +193,7 @@ func (s *registerSuite) TestInitOverridesMissingField(c *gc.C) {
 		s.proc.Name,
 		"abc123-override",
 	})
-	c.Assert(err, gc.ErrorMatches, "missing override field")
+	c.Assert(err, gc.ErrorMatches, "override: missing field")
 }
 
 func (s *registerSuite) TestInitOverridesMissingValue(c *gc.C) {
@@ -203,7 +205,7 @@ func (s *registerSuite) TestInitOverridesMissingValue(c *gc.C) {
 		s.proc.Name,
 		"abc123-override",
 	})
-	c.Assert(err, gc.ErrorMatches, "missing override value")
+	c.Assert(err, gc.ErrorMatches, "override: missing value")
 }
 
 func (s *registerSuite) TestInitOverridesMissingColon(c *gc.C) {
@@ -215,7 +217,76 @@ func (s *registerSuite) TestInitOverridesMissingColon(c *gc.C) {
 		s.proc.Name,
 		"abc123-override",
 	})
-	c.Assert(err, gc.ErrorMatches, "missing override value")
+	c.Assert(err, gc.ErrorMatches, "override: missing value")
+}
+
+func (s *registerSuite) TestInitAdditionsWithoutSubfield(c *gc.C) {
+	s.proc.Process.Description = ""
+	s.registerCmd.Additions = []string{
+		"description:foo",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.proc.Process.Copy()
+	expected.Description = "foo"
+	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+}
+
+func (s *registerSuite) TestInitAdditionsWithSubfield(c *gc.C) {
+	s.registerCmd.Additions = []string{
+		"env/foo:baz",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.proc.Process.Copy()
+	expected.EnvVars = map[string]string{"foo": "baz"}
+	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+}
+
+func (s *registerSuite) TestInitAdditionsMissingField(c *gc.C) {
+	s.registerCmd.Additions = []string{
+		":value",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "extend: missing field")
+}
+
+func (s *registerSuite) TestInitAdditionsMissingValue(c *gc.C) {
+	s.registerCmd.Additions = []string{
+		"field:",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "extend: missing value")
+}
+
+func (s *registerSuite) TestInitAdditionMissingColon(c *gc.C) {
+	s.registerCmd.Additions = []string{
+		"fieldvalue",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "extend: missing value")
 }
 
 func (s *registerSuite) TestRunOkay(c *gc.C) {
