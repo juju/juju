@@ -17,13 +17,6 @@ type Info struct {
 	// Status is the overall Juju status of the workload process.
 	Status Status
 
-	// Space is the networking space with which the process was started.
-	Space string
-
-	// EnvVars is the set of environment variables with which the
-	// process was started.
-	EnvVars map[string]string
-
 	// Details is the information about the process which the plugin provided.
 	Details LaunchDetails
 }

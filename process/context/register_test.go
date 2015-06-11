@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,14 +36,8 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: register [options] <name> <id> [<details>]
+usage: register <name> <id> [<details>]
 purpose: register a workload process
-
-options:
---env  (= )
-    environment variables
---space (= "")
-    network space
 
 "register" is used while a hook is running to let Juju know that
 a workload process has been manually started. The information used
@@ -69,8 +62,6 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 		UniqueID: "abc123",
 		Status:   "okay",
 	})
-	c.Check(s.registerCmd.Space, gc.Equals, "")
-	c.Check(s.registerCmd.Env, gc.HasLen, 0)
 }
 
 func (s *registerSuite) TestInitMinArgs(c *gc.C) {
@@ -83,8 +74,6 @@ func (s *registerSuite) TestInitMinArgs(c *gc.C) {
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
 	c.Check(s.registerCmd.Id, gc.Equals, "abc123")
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{})
-	c.Check(s.registerCmd.Space, gc.Equals, "")
-	c.Check(s.registerCmd.Env, gc.HasLen, 0)
 }
 
 func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
@@ -152,87 +141,6 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	})
 
 	c.Check(err, gc.ErrorMatches, "unexpected end of JSON input")
-}
-
-func (s *registerSuite) TestInitSpaceKnown(c *gc.C) {
-	s.registerCmd.Space = "a space"
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-
-	c.Check(err, jc.Satisfies, errors.IsNotImplemented)
-}
-
-func (s *registerSuite) TestInitSpaceUnknown(c *gc.C) {
-	s.registerCmd.Space = "a space"
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-
-	c.Check(err, jc.Satisfies, errors.IsNotImplemented)
-}
-
-func (s *registerSuite) TestInitEnvMetadataOnly(c *gc.C) {
-	s.proc.Process.EnvVars = map[string]string{
-		"SOME_ENV": "spam",
-	}
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
-		"SOME_ENV": "spam",
-	})
-}
-
-func (s *registerSuite) TestInitEnvCLIOnly(c *gc.C) {
-	context.SetRegisterEnv(s.registerCmd, "SOME_ENV=spam")
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
-		"SOME_ENV": "spam",
-	})
-}
-
-func (s *registerSuite) TestInitEnvBothNoOverride(c *gc.C) {
-	s.proc.Process.EnvVars = map[string]string{
-		"SOME_ENV":  "spam",
-		"EXTRA_ENV": "ham",
-	}
-	context.SetRegisterEnv(s.registerCmd,
-		"OTHER_ENV=eggs",
-		"MORE_ENV=...",
-	)
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
-		"SOME_ENV":  "spam",
-		"EXTRA_ENV": "ham",
-		"OTHER_ENV": "eggs",
-		"MORE_ENV":  "...",
-	})
-}
-
-func (s *registerSuite) TestInitEnvBothOverride(c *gc.C) {
-	s.proc.Process.EnvVars = map[string]string{
-		"SOME_ENV":  "spam",
-		"EXTRA_ENV": "ham",
-	}
-	context.SetRegisterEnv(s.registerCmd,
-		"SOME_ENV=eggs",
-		"MORE_ENV=...",
-	)
-
-	err := s.registerCmd.Init([]string{s.proc.Name, "abc123"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.registerCmd.Env, jc.DeepEquals, map[string]string{
-		"SOME_ENV":  "eggs",
-		"MORE_ENV":  "...",
-		"EXTRA_ENV": "ham",
-	})
 }
 
 func (s *registerSuite) TestRunOkay(c *gc.C) {

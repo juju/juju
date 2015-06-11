@@ -78,12 +78,6 @@ type registeringCommand struct {
 	Id string
 	// Details is the launch details returned from the process plugin.
 	Details process.LaunchDetails
-	// Space is the network space.
-	Space string
-	// Env is the environment variables for inside the process environment.
-	Env map[string]string
-
-	env []string
 }
 
 func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
@@ -94,8 +88,6 @@ func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
 
 // SetFlags implements cmd.Command.
 func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Space, "space", "", "network space")
-	f.Var(cmd.NewAppendStringsValue(&c.env), "env", "environment variables")
 }
 
 func (c *registeringCommand) init(name string) error {
@@ -105,34 +97,14 @@ func (c *registeringCommand) init(name string) error {
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
 	}
-	env := c.parseEnv()
-
-	c.Env = env
 	return nil
 }
 
 // checkSpace ensures that the requested network space is available
 // to the hook.
 func (c *registeringCommand) checkSpace() error {
-	if c.Space == "" {
-		return nil
-	}
-	// TODO(wwitzel3) This should be implemented when network space support
-	// is added to the jujuc.Context.
-	return errors.NotImplementedf("support for network spaces")
-}
-
-// parseEnv parses the provided env vars and merges them with the ones
-// in the charm metadata.
-func (c *registeringCommand) parseEnv() map[string]string {
-	envVars := make(map[string]string, len(c.info.Process.EnvVars)+len(c.env))
-	for k, v := range c.info.Process.EnvVars {
-		envVars[k] = v
-	}
-	for k, v := range process.ParseEnv(c.env) {
-		envVars[k] = v
-	}
-	return envVars
+	// TODO(wwitzel3) implement this to ensure that the endpoints provided exist in this space
+	return nil
 }
 
 // register updates the hook context with the information for the
@@ -142,9 +114,7 @@ func (c *registeringCommand) register() error {
 	if c.info.IsRegistered() {
 		return errors.Errorf("already registered")
 	}
-	c.info.Space = c.Space
 	c.info.Details = c.Details
-	c.info.EnvVars = c.Env
 	if err := c.compCtx.Set(c.Name, c.info); err != nil {
 		return errors.Trace(err)
 	}

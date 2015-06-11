@@ -17,10 +17,6 @@ func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
 	}
 }
 
-func SetRegisterEnv(cmd *RegisterCommand, options ...string) {
-	cmd.env = append(cmd.env, options...)
-}
-
 func AddProc(ctx *Context, id string, original *process.Info) {
 	if err := ctx.addProc(id, original); err != nil {
 		panic(err)
