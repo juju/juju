@@ -146,7 +146,7 @@ class MonkeyRunner:
 
     def run_while_healthy_or_timeout(self):
         logging.debug('run_while_healthy_or_timeout')
-        while self.is_healthy:
+        while self.is_healthy():
             logging.debug('Unleashing chaos.')
             self.unleash_once()
             self.wait_for_chaos_complete()

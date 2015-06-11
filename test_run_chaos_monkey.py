@@ -1,4 +1,8 @@
 from argparse import Namespace
+from datetime import (
+    datetime,
+    timedelta,
+)
 import os
 import stat
 from tempfile import NamedTemporaryFile
@@ -376,3 +380,18 @@ class TestRunChaosMonkey(TestCase):
             with self.assertRaisesRegexp(
                     Exception, 'Chaos operations did not complete.'):
                 runner.wait_for_chaos_complete()
+
+    def test_run_while_healthy_or_timeout(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
+        runner = MonkeyRunner('foo', 'bar', 'script', client, total_timeout=60)
+        runner.expire_time = (datetime.now() - timedelta(seconds=1))
+        with patch.object(runner, 'is_healthy', autospec=True,
+                          return_value=True):
+            with patch.object(runner, 'unleash_once', autospec=True) as u_mock:
+                with patch.object(runner, 'wait_for_chaos_complete',
+                                  autospec=True) as wait_mock:
+                    runner.run_while_healthy_or_timeout()
+        u_mock.assert_called_once_with()
+        self.assertEqual(u_mock.call_count, 1)
+        wait_mock.assert_called_once_with()
+        self.assertEqual(wait_mock.call_count, 1)
