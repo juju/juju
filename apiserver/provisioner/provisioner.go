@@ -768,6 +768,8 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 			return err
 		}
 		networks, interfaces, err := networkParamsToStateParams(arg.Networks, arg.Interfaces)
+		logger.Warningf("apiserver SetInstanceInfo. Networks: %#v", networks)
+		logger.Warningf("apiserver SetInstanceInfo. Interfaces: %#v", interfaces)
 		if err != nil {
 			return err
 		}

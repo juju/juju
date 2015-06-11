@@ -818,6 +818,8 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    "juju-private",
+		ProviderId:     "juju-unknown",
 	}})
 	c.Assert(api.calls, gc.DeepEquals, []string{"PrepareContainerInterfaceInfo"})
 
@@ -835,6 +837,8 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    "juju-private",
+		ProviderId:     "juju-unknown",
 	}})
 	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 }

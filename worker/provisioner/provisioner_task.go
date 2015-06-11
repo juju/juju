@@ -639,6 +639,7 @@ func (task *provisionerTask) startMachine(
 	startInstanceParams environs.StartInstanceParams,
 ) error {
 
+	logger.Warningf("Provisioner task starting machine: %#v", startInstanceParams)
 	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
 		// If this is a retryable error, we retry once

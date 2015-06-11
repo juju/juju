@@ -91,12 +91,12 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	if !environs.AddressAllocationEnabled() {
-		logger.Debugf(
+		logger.Warningf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
 			machineId,
 		)
 	} else {
-		logger.Debugf("trying to allocate static IP for container %q", machineId)
+		logger.Warningf("trying to allocate static IP for container %q", machineId)
 		allocatedInfo, err := configureContainerNetwork(
 			machineId,
 			bridgeDevice,
@@ -108,8 +108,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
-			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+			logger.Warningf("not allocating static IP for container %q: %v", machineId, err)
 		} else {
+			logger.Warningf("Using network info: %#v", allocatedInfo)
 			args.NetworkInfo = allocatedInfo
 		}
 	}
@@ -160,14 +161,17 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	logger.Warningf("Created container: %#v", inst)
+	logger.Warningf("With hardware: %#v", hardware)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
 	}
 	lxcLogger.Infof("started lxc container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: hardware,
+		Instance:    inst,
+		Hardware:    hardware,
+		NetworkInfo: network.Interfaces,
 	}, nil
 }
 
@@ -579,6 +583,14 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
+		if finalIfaceInfo[i].NetworkName == "" {
+			// XXX make a const in networks
+			finalIfaceInfo[i].NetworkName = "juju-private"
+		}
+		if finalIfaceInfo[i].ProviderId == "" {
+			// XXX make a const in networks
+			finalIfaceInfo[i].ProviderId = "juju-unknown"
+		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
