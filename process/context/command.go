@@ -88,8 +88,11 @@ type registeringCommand struct {
 	// Additions extend the process definition.
 	Additions []string
 
-	// UpdatedProcess stores the new process, if there were any overrides.
+	// UpdatedProcess stores the new process, if there were any overrides OR additions.
 	UpdatedProcess *charm.Process
+
+	// Definition is the file definition of the process.
+	Definition cmd.FileVar
 }
 
 func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
@@ -100,6 +103,7 @@ func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
 
 // SetFlags implements cmd.Command.
 func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.Var(&c.Definition, "definition", "process definition filename (use \"-\" for STDIN)")
 	f.Var(cmd.NewAppendStringsValue(&c.Overrides), "override", "override process definition")
 	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend process definition")
 }
@@ -112,17 +116,29 @@ func (c *registeringCommand) init(name string) error {
 		return errors.Trace(err)
 	}
 
-	overrides, err := c.parseUpdates(c.Overrides)
+	definition := c.info.Process
+	if c.Definition.Path != "" {
+		if c.info != nil {
+			return errors.Errorf("process %q already defined", c.Name)
+		}
+
+		definition, err := c.parseDefinition()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	overrides, err := parseUpdates(c.Overrides)
 	if err != nil {
 		return errors.Annotate(err, "override")
 	}
 
-	additions, err := c.parseUpdates(c.Additions)
+	additions, err := parseUpdates(c.Additions)
 	if err != nil {
 		return errors.Annotate(err, "extend")
 	}
 
-	newProcess, err := c.info.Process.Apply(overrides, additions)
+	newProcess, err := definition.Apply(overrides, additions)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -165,7 +181,7 @@ func parseUpdate(update string) (charm.ProcessFieldValue, error) {
 }
 
 // parseUpdates parses the updates list in to a charm.ProcessFieldValue list.
-func (c *registeringCommand) parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
+func parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
 	var results []charm.ProcessFieldValue
 	for _, update := range updates {
 		pfv, err := parseUpdate(update)
