@@ -23,60 +23,82 @@ func (c *Components) SetComponent(name string, comp jujuc.ContextComponent) {
 	c.Components[name] = comp
 }
 
+// SetNewComponent sets the component on the registry.
+func (c *Components) SetNewComponent(name string, stub *testing.Stub) *Component {
+	info := &Component{
+		Name: name,
+	}
+
+	compCtx := NewContextComponent(stub, info)
+	c.SetComponent(name, compCtx)
+	return info
+}
+
 // ContextComponents is a test double for jujuc.ContextComponents.
 type ContextComponents struct {
-	Stub *testing.Stub
-	Info *Components
-}
-
-func (c *ContextComponents) init() {
-	if c.Stub == nil {
-		c.Stub = &testing.Stub{}
-	}
-	if c.Info == nil {
-		c.Info = &Components{}
-	}
-}
-
-func (c *ContextComponents) setComponent(name string, comp jujuc.ContextComponent) {
-	c.init()
-	c.Info.SetComponent(name, comp)
+	contextBase
+	info *Components
 }
 
 // ContextComponents implements jujuc.ContextComponents.
 func (cc ContextComponents) Component(name string) (jujuc.ContextComponent, error) {
-	cc.Stub.AddCall("Component", name)
-	if err := cc.Stub.NextErr(); err != nil {
+	cc.stub.AddCall("Component", name)
+	if err := cc.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cc.init()
-	component, found := cc.Info.Components[name]
+	component, found := cc.info.Components[name]
 	if !found {
 		return nil, errors.NotFoundf("component %q", name)
 	}
 	return component, nil
 }
 
+// Component holds the values for the hook context.
+type Component struct {
+	Name string
+}
+
 // ContextComponent is a test double for jujuc.ContextComponent.
 type ContextComponent struct {
-	*testing.Stub
+	contextBase
+	info *Component
+}
+
+func NewContextComponent(stub *testing.Stub, info *Component) *ContextComponent {
+	compCtx := &ContextComponent{
+		info: info,
+	}
+	compCtx.stub = stub
+	return compCtx
 }
 
 // Get implements jujuc.ContextComponent.
 func (cc ContextComponent) Get(name string, result interface{}) error {
-	cc.AddCall("Get", name, result)
-	return cc.NextErr()
+	cc.stub.AddCall("Get", name, result)
+	if err := cc.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // Set implements jujuc.ContextComponent.
 func (cc ContextComponent) Set(name string, value interface{}) error {
-	cc.AddCall("Set", name, value)
-	return cc.NextErr()
+	cc.stub.AddCall("Set", name, value)
+	if err := cc.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // Flush implements jujuc.ContextComponent.
 func (cc ContextComponent) Flush() error {
-	cc.AddCall("Flush")
-	return cc.NextErr()
+	cc.stub.AddCall("Flush")
+	if err := cc.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

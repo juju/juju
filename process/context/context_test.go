@@ -21,6 +21,7 @@ type baseSuite struct {
 	proc      *process.Info
 	compCtx   *context.Context
 	apiClient *stubAPIClient
+	Ctx       *jujuctesting.Context
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -30,11 +31,12 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	proc := process.NewInfo("proc A", "docker")
 	compCtx := context.NewContext(s.apiClient, proc)
 
-	s.Ctx = s.HookContext("u/0", nil)
-	s.Ctx.SetComponent(process.ComponentName, compCtx)
+	hctx, info := s.NewHookContext()
+	info.SetComponent(process.ComponentName, compCtx)
 
 	s.proc = proc
 	s.compCtx = compCtx
+	s.Ctx = hctx
 }
 
 type contextSuite struct {
@@ -112,11 +114,11 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 }
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
-	ctx := s.HookContext("u/1", nil)
+	hctx, info := s.NewHookContext()
 	expected := context.NewContext(s.apiClient)
-	ctx.SetComponent(process.ComponentName, expected)
+	info.SetComponent(process.ComponentName, expected)
 
-	compCtx, err := context.ContextComponent(ctx.Context)
+	compCtx, err := context.ContextComponent(hctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(compCtx, gc.Equals, expected)
@@ -125,29 +127,29 @@ func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 }
 
 func (s *contextSuite) TestContextComponentMissing(c *gc.C) {
-	ctx := s.HookContext("u/1", nil)
-	_, err := context.ContextComponent(ctx.Context)
+	hctx, _ := s.NewHookContext()
+	_, err := context.ContextComponent(hctx)
 
 	c.Check(err, gc.ErrorMatches, `component "process" not registered`)
 	s.Stub.CheckCallNames(c, "Component")
 }
 
 func (s *contextSuite) TestContextComponentWrong(c *gc.C) {
-	ctx := s.HookContext("u/1", nil)
+	hctx, info := s.NewHookContext()
 	compCtx := &jujuctesting.ContextComponent{}
-	ctx.SetComponent(process.ComponentName, compCtx)
+	info.SetComponent(process.ComponentName, compCtx)
 
-	_, err := context.ContextComponent(ctx.Context)
+	_, err := context.ContextComponent(hctx)
 
 	c.Check(err, gc.ErrorMatches, "wrong component context type registered: .*")
 	s.Stub.CheckCallNames(c, "Component")
 }
 
 func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
-	ctx := s.HookContext("u/1", nil)
-	ctx.SetComponent(process.ComponentName, nil)
+	hctx, info := s.NewHookContext()
+	info.SetComponent(process.ComponentName, nil)
 
-	_, err := context.ContextComponent(ctx.Context)
+	_, err := context.ContextComponent(hctx)
 
 	c.Check(err, gc.ErrorMatches, `component "process" disabled`)
 	s.Stub.CheckCallNames(c, "Component")
