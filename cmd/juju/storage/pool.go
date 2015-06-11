@@ -21,16 +21,15 @@ const poolCmdPurpose = "manage storage pools"
 // NewPoolSuperCommand creates the storage pool super subcommand and
 // registers the subcommands that it supports.
 func NewPoolSuperCommand() cmd.Command {
-	poolcmd := Command{
-		SuperCommand: *jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-			Name:        "pool",
-			Doc:         poolCmdDoc,
-			UsagePrefix: "juju storage",
-			Purpose:     poolCmdPurpose,
-		})}
+	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
+		Name:        "pool",
+		Doc:         poolCmdDoc,
+		UsagePrefix: "juju storage",
+		Purpose:     poolCmdPurpose,
+	})
 	poolcmd.Register(envcmd.Wrap(&PoolListCommand{}))
 	poolcmd.Register(envcmd.Wrap(&PoolCreateCommand{}))
-	return &poolcmd
+	return poolcmd
 }
 
 // PoolCommandBase is a helper base structure for pool commands.
