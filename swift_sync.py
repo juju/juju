@@ -11,6 +11,9 @@ import sys
 import urllib2
 
 
+MAX_UPLOAD_ATTEMPTS = 3
+
+
 def get_account():
     cmd = ['swift', 'stat']
     output = subprocess.check_output(cmd)
@@ -37,6 +40,7 @@ def get_files(args):
 def upload_changes(args, remote_files):
     container_path = os.path.join(args.container, args.path)
     count = 0
+    uploaded_files = []
     for file_name in args.files:
         local_path = os.path.join(args.path, file_name)
         remote_file = remote_files.get(local_path)
@@ -61,10 +65,22 @@ def upload_changes(args, remote_files):
         print("Uploading {0}/{1}".format(args.container, local_path))
         cmd = ['swift', 'upload', container_path, file_name]
         if not args.dry_run:
-            output = subprocess.check_output(cmd)
+            uploaded = False
+            attempt = 1
+            while not uploaded and attempt <= MAX_UPLOAD_ATTEMPTS:
+                # python-swiftclient on precise doesn't support --retry.
+                try:
+                    output = subprocess.check_output(cmd)
+                    uploaded = True
+                except subprocess.CalledProcessError:
+                    attempt += 1
+                    if attempt > MAX_UPLOAD_ATTEMPTS:
+                        raise
             print(' '.join(cmd))
             print(output)
+            uploaded_files.append(output)
     print('Uploaded {0} files'.format(count))
+    return uploaded_files
 
 
 def main():
