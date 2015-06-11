@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
@@ -128,18 +129,30 @@ func (c *registeringCommand) init(name string) error {
 		return errors.Trace(err)
 	}
 
-	definition := c.info.Process
+	// Either the named process must already be defined or the command
+	// must have been run with the --definition option.
 	if c.Definition.Path != "" {
 		if c.info != nil {
 			return errors.Errorf("process %q already defined", c.Name)
 		}
-
-		definition, err := c.parseDefinition()
-		if err != nil {
-			return errors.Trace(err)
-		}
+	} else if c.info == nil {
+		// c.info is nil only when the named process was not found. In
+		// that case we can return the orignal error from when we looked
+		// up the process.
+		return errors.Trace(c.notFoundErr)
 	}
 
+	return nil
+}
+
+// checkSpace ensures that the requested network space is available
+// to the hook.
+func (c *registeringCommand) checkSpace() error {
+	// TODO(wwitzel3) implement this to ensure that the endpoints provided exist in this space
+	return nil
+}
+
+func (c *registeringCommand) parseUpdates(info *process.Info) error {
 	overrides, err := parseUpdates(c.Overrides)
 	if err != nil {
 		return errors.Annotate(err, "override")
@@ -150,19 +163,13 @@ func (c *registeringCommand) init(name string) error {
 		return errors.Annotate(err, "extend")
 	}
 
-	newProcess, err := definition.Apply(overrides, additions)
+	newProcess, err := info.Process.Apply(overrides, additions)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	c.UpdatedProcess = newProcess
-	return nil
-}
-
-// checkSpace ensures that the requested network space is available
-// to the hook.
-func (c *registeringCommand) checkSpace() error {
-	// TODO(wwitzel3) implement this to ensure that the endpoints provided exist in this space
+	info.Process = *newProcess
 	return nil
 }
 
@@ -205,20 +212,53 @@ func parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
 	return results, nil
 }
 
+func (c *registeringCommand) parseDefinition(data []byte) (*process.Info, error) {
+	raw := make(map[interface{}]interface{})
+	if err := yaml.Unmarshal(data, raw); err != nil {
+		return nil, errors.Trace(err)
+	}
+	definition, err := charm.ParseProcess(c.Name, raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if definition.Name == "" {
+		definition.Name = c.Name
+	} else if definition.Name != c.Name {
+		return nil, errors.Errorf("process name mismatch; %q != %q", definition.Name, c.Name)
+	}
+	info := &process.Info{
+		Process: *definition,
+	}
+	return info, nil
+}
+
 // register updates the hook context with the information for the
 // registered workload process. An error is returned if the process
 // was already registered.
-func (c *registeringCommand) register() error {
-	if c.info.IsRegistered() {
+func (c *registeringCommand) register(ctx *cmd.Context, status process.Status) error {
+	if c.info != nil && c.info.IsRegistered() {
 		return errors.Errorf("already registered")
 	}
-	c.info.Details = c.Details
 
-	if c.UpdatedProcess != nil {
-		c.info.Process = *c.UpdatedProcess
+	info := c.info
+	if c.Definition.Path != "" {
+		// c.info must be nil at this point.
+		data, err := c.Definition.Read(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info, err = c.parseDefinition(data)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	if err := c.parseUpdates(info); err != nil {
+		return errors.Trace(err)
+	}
+	info.Details = c.Details
+	info.Status = status
 
-	if err := c.compCtx.Set(c.Name, c.info); err != nil {
+	if err := c.compCtx.Set(c.Name, info); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) flush here?
