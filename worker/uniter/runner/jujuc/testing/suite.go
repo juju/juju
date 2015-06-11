@@ -9,32 +9,37 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
-// The base suite for testing jujuc.Context-related code.
+// ContextSuite is the base suite for testing jujuc.Context-related code.
 type ContextSuite struct {
 	Stub *testing.Stub
-	Info *ContextInfo
-	Ctx  *ContextWrapper
-	Hctx *Context
+	Unit string
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.Stub = &testing.Stub{}
-	s.Info = NewContextInfo()
-	s.Ctx = s.NewHookContext(s.Info)
-	s.Hctx = s.Ctx.Context
+	s.Unit = "u/0"
 }
 
-// NewHookContext builds a bare-bones Context and wraps it.
-func (s *ContextSuite) NewHookContext(info *ContextInfo) *ContextWrapper {
-	return &ContextWrapper{
-		Context: NewContext(s.Stub, info),
+// NewInfo builds a ContextInfo with basic default data.
+func (s *ContextSuite) NewInfo() *ContextInfo {
+	var info ContextInfo
+	info.Unit.Name = s.Unit
+	info.ConfigSettings = charm.Settings{
+		"empty":               nil,
+		"monsters":            false,
+		"spline-reticulation": 45.0,
+		"title":               "My Title",
+		"username":            "admin001",
 	}
+	info.OwnerTag = "test-owner"
+	info.AvailabilityZone = "us-east-1a"
+	info.PublicAddress = "gimli.minecraft.testing.invalid"
+	info.PrivateAddress = "192.168.0.99"
+	return &info
 }
 
-// HookContext returns a unit hook context for the given unit info.
-func (s *ContextSuite) HookContext(unit string, settings charm.Settings) *ContextWrapper {
-	info := NewContextInfo()
-	info.Name = unit
-	info.ConfigSettings = settings
-	return s.NewHookContext(info)
+// NewHookContext builds a jujuc.Context test double.
+func (s *ContextSuite) NewHookContext() (*Context, *ContextInfo) {
+	info := s.NewInfo()
+	return NewContext(s.Stub, info), info
 }

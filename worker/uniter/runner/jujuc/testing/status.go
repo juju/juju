@@ -5,85 +5,68 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// Status holds the values for the hook context.
+// Status  holds the values for the hook context.
 type Status struct {
 	UnitStatus    jujuc.StatusInfo
 	ServiceStatus jujuc.ServiceStatusInfo
 }
 
-// ContextStatus is a test double for jujuc.ContextStatus.
-type ContextStatus struct {
-	Stub *testing.Stub
-	Info *Status
-}
-
-func (cu *ContextStatus) init() {
-	if cu.Stub == nil {
-		cu.Stub = &testing.Stub{}
-	}
-	if cu.Info == nil {
-		cu.Info = &Status{}
-	}
-}
-
-func (cu *ContextStatus) SetTestingServiceStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
-	cu.init()
-	cu.Info.ServiceStatus = jujuc.ServiceStatusInfo{
+// SetServiceStatus builds a service status and sets it on the Status.
+func (s *Status) SetServiceStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
+	s.ServiceStatus = jujuc.ServiceStatusInfo{
 		Service: service,
 		Units:   units,
 	}
 }
 
+// ContextStatus is a test double for jujuc.ContextStatus.
+type ContextStatus struct {
+	contextBase
+	info *Status
+}
+
 // UnitStatus implements jujuc.ContextStatus.
-func (cu *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
-	cu.Stub.AddCall("UnitStatus")
-	if err := cu.Stub.NextErr(); err != nil {
+func (c *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
+	c.stub.AddCall("UnitStatus")
+	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cu.init()
-	return &cu.Info.UnitStatus, nil
+	return &c.info.UnitStatus, nil
 }
 
 // SetUnitStatus implements jujuc.ContextStatus.
-func (cu *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
-	cu.Stub.AddCall("SetUnitStatus", status)
-	if err := cu.Stub.NextErr(); err != nil {
+func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
+	c.stub.AddCall("SetUnitStatus", status)
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	cu.init()
-	cu.Info.UnitStatus = status
+	c.info.UnitStatus = status
 	return nil
 }
 
 // ServiceStatus implements jujuc.ContextStatus.
-func (cu *ContextStatus) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
-	cu.Stub.AddCall("ServiceStatus")
-	if err := cu.Stub.NextErr(); err != nil {
+func (c *ContextStatus) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	c.stub.AddCall("ServiceStatus")
+	if err := c.stub.NextErr(); err != nil {
 		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
 	}
 
-	cu.init()
-	return cu.Info.ServiceStatus, nil
+	return c.info.ServiceStatus, nil
 }
 
 // SetServiceStatus implements jujuc.ContextStatus.
-func (cu *ContextStatus) SetServiceStatus(status jujuc.StatusInfo) error {
-	cu.Stub.AddCall("SetServiceStatus", status)
-	if err := cu.Stub.NextErr(); err != nil {
+func (c *ContextStatus) SetServiceStatus(status jujuc.StatusInfo) error {
+	c.stub.AddCall("SetServiceStatus", status)
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	cu.init()
-	cu.Info.ServiceStatus = jujuc.ServiceStatusInfo{
-		Service: status,
-		Units:   []jujuc.StatusInfo{},
-	}
+	c.info.SetServiceStatus(status, nil)
 	return nil
 }

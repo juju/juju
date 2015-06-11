@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 )
 
 // Leadership holds the values for the hook context.
@@ -16,46 +15,37 @@ type Leadership struct {
 
 // ContextLeader is a test double for jujuc.ContextLeader.
 type ContextLeader struct {
-	Stub *testing.Stub
-	Info *Leadership
-}
-
-func (c *ContextLeader) init() {
-	if c.Stub == nil {
-		c.Stub = &testing.Stub{}
-	}
-	if c.Info == nil {
-		c.Info = &Leadership{}
-	}
+	contextBase
+	info *Leadership
 }
 
 // IsLeader implements jujuc.ContextLeader.
 func (c *ContextLeader) IsLeader() (bool, error) {
-	c.Stub.AddCall("IsLeader")
-	if err := c.Stub.NextErr(); err != nil {
+	c.stub.AddCall("IsLeader")
+	if err := c.stub.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
-	c.init()
-	return c.Info.IsLeader, nil
+
+	return c.info.IsLeader, nil
 }
 
 // LeaderSettings implements jujuc.ContextLeader.
 func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
-	c.Stub.AddCall("LeaderSettings")
-	if err := c.Stub.NextErr(); err != nil {
+	c.stub.AddCall("LeaderSettings")
+	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.init()
-	return c.Info.LeaderSettings, nil
+
+	return c.info.LeaderSettings, nil
 }
 
 // WriteLeaderSettings implements jujuc.ContextLeader.
 func (c *ContextLeader) WriteLeaderSettings(settings map[string]string) error {
-	c.Stub.AddCall("WriteLeaderSettings")
-	if err := c.Stub.NextErr(); err != nil {
+	c.stub.AddCall("WriteLeaderSettings")
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-	c.init()
-	c.Info.LeaderSettings = settings
+
+	c.info.LeaderSettings = settings
 	return nil
 }

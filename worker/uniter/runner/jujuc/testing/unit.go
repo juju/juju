@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v5"
 )
 
@@ -18,44 +17,32 @@ type Unit struct {
 
 // ContextUnit is a test double for jujuc.ContextUnit.
 type ContextUnit struct {
-	Stub *testing.Stub
-	Info *Unit
-}
-
-func (cu *ContextUnit) init() {
-	if cu.Stub == nil {
-		cu.Stub = &testing.Stub{}
-	}
-	if cu.Info == nil {
-		cu.Info = &Unit{}
-	}
+	contextBase
+	info *Unit
 }
 
 // UnitName implements jujuc.ContextUnit.
-func (cu *ContextUnit) UnitName() string {
-	cu.Stub.AddCall("UnitName")
-	cu.Stub.NextErr()
+func (c *ContextUnit) UnitName() string {
+	c.stub.AddCall("UnitName")
+	c.stub.NextErr()
 
-	cu.init()
-	return cu.Info.Name
+	return c.info.Name
 }
 
 // OwnerTag implements jujuc.ContextUnit.
-func (cu *ContextUnit) OwnerTag() string {
-	cu.Stub.AddCall("OwnerTag")
-	cu.Stub.NextErr()
+func (c *ContextUnit) OwnerTag() string {
+	c.stub.AddCall("OwnerTag")
+	c.stub.NextErr()
 
-	cu.init()
-	return cu.Info.OwnerTag
+	return c.info.OwnerTag
 }
 
 // ConfigSettings implements jujuc.ContextUnit.
-func (cu *ContextUnit) ConfigSettings() (charm.Settings, error) {
-	cu.Stub.AddCall("ConfigSettings")
-	if err := cu.Stub.NextErr(); err != nil {
+func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
+	c.stub.AddCall("ConfigSettings")
+	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cu.init()
-	return cu.Info.ConfigSettings, nil
+	return c.info.ConfigSettings, nil
 }

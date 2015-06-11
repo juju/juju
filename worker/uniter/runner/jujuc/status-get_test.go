@@ -54,16 +54,18 @@ func setFakeStatus(ctx *Context) {
 }
 
 func setFakeServiceStatus(ctx *Context) {
-	ctx.SetTestingServiceStatus(jujuc.StatusInfo{
-		Status: "active",
-		Info:   "this is a service status",
-		Data:   nil,
-	},
+	ctx.info.Status.SetServiceStatus(
+		jujuc.StatusInfo{
+			Status: "active",
+			Info:   "this is a service status",
+			Data:   nil,
+		},
 		[]jujuc.StatusInfo{{
 			Status: "active",
 			Info:   "this is a unit status",
 			Data:   nil,
-		}})
+		}},
+	)
 }
 
 func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {

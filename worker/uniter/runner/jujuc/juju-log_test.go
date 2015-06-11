@@ -17,7 +17,7 @@ import (
 )
 
 type JujuLogSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&JujuLogSuite{})
@@ -69,14 +69,14 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 	_, err := loggo.ReplaceDefaultWriter(tw)
 	loggo.GetLogger("unit").SetLogLevel(loggo.TRACE)
 	c.Assert(err, jc.ErrorIsNil)
-	hctx := s.GetHookContext(c, -1, "")
+	hctx, _ := s.newHookContext(-1, "")
 	assertLogs(c, hctx, tw, "u/0", "")
-	hctx = s.GetHookContext(c, 1, "u/1")
+	hctx, _ = s.newHookContext(1, "u/1")
 	assertLogs(c, hctx, tw, "u/0", "peer1:1: ")
 }
 
 func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
-	ctx := s.newHookContext(c)
+	ctx, _ := s.newHookContext(-1, "")
 	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, jc.ErrorIsNil)
 	return com

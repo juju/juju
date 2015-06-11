@@ -4,298 +4,85 @@
 package testing
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/testing"
+	"fmt"
 
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/testing"
 )
 
 // ContextInfo holds the values for the hook context.
 type ContextInfo struct {
-	*Unit
-	*Status
-	*Instance
-	*NetworkInterface
-	*Leadership
-	*Storage
-	*Components
-	*Relations
-	*RelationHook
-	*Action
+	Unit
+	Status
+	Instance
+	NetworkInterface
+	Leadership
+	Metrics
+	Storage
+	Relations
+	RelationHook
+	ActionHook
 }
 
-// NewContextInfo returns a new ContextInfo.
-func NewContextInfo() *ContextInfo {
-	return &ContextInfo{
-		Unit:             &Unit{},
-		Status:           &Status{},
-		Instance:         &Instance{},
-		NetworkInterface: &NetworkInterface{},
-		Leadership:       &Leadership{},
-		Storage:          &Storage{},
-		Components:       &Components{},
-		Relations:        &Relations{},
-		RelationHook:     &RelationHook{},
-		Action:           &Action{},
-	}
+// Context returns a Context that wraps the info.
+func (info *ContextInfo) Context(stub *testing.Stub) *Context {
+	return NewContext(stub, info)
 }
 
-// Update calls each of the provided update functions, which update
-// the ContextInfo.
-func (ci *ContextInfo) Update(updateFuncs ...func(*ContextInfo) error) error {
-	for _, update := range updateFuncs {
-		if err := update(ci); err != nil {
-			return errors.Trace(err)
-		}
+// SetAsRelationHook updates the context to work as a relation hook context.
+func (info *ContextInfo) SetAsRelationHook(id int, remote string) {
+	relation, ok := info.Relations.Relations[id]
+	if !ok {
+		panic(fmt.Sprintf("relation #%d not added yet", id))
 	}
-	return nil
+	info.HookRelation = relation
+	info.RemoteUnitName = remote
+}
+
+// SetAsActionHook updates the context to work as an action hook context.
+func (info *ContextInfo) SetAsActionHook() {
+	panic("not supported yet")
+}
+
+type contextBase struct {
+	stub *testing.Stub
 }
 
 // Context is a test double for jujuc.Context.
 type Context struct {
-	*ContextUnit
-	*ContextStatus
-	*ContextInstance
-	*ContextNetworking
-	*ContextLeader
-	*ContextMetrics
-	*ContextStorage
-	*ContextComponents
-	*ContextRelations
-	*ContextAction
-
-	Stub *testing.Stub
-	Info *ContextInfo
+	ContextUnit
+	ContextStatus
+	ContextInstance
+	ContextNetworking
+	ContextLeader
+	ContextMetrics
+	ContextStorage
+	ContextRelations
+	ContextRelationHook
+	ContextActionHook
 }
 
-// NewContext returns a new Context.
+// NewContext builds a jujuc.Context test double.
 func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
-	ctx := &Context{
-		Stub: stub,
-		Info: info,
-	}
-	ctx.init()
-	return ctx
-}
-
-func (ctx *Context) init() {
-	if ctx.ContextUnit == nil {
-		ctx.ContextUnit = &ContextUnit{}
-	}
-	if ctx.ContextStatus == nil {
-		ctx.ContextStatus = &ContextStatus{}
-	}
-	if ctx.ContextInstance == nil {
-		ctx.ContextInstance = &ContextInstance{}
-	}
-	if ctx.ContextNetworking == nil {
-		ctx.ContextNetworking = &ContextNetworking{}
-	}
-	if ctx.ContextLeader == nil {
-		ctx.ContextLeader = &ContextLeader{}
-	}
-	if ctx.ContextMetrics == nil {
-		ctx.ContextMetrics = &ContextMetrics{}
-	}
-	if ctx.ContextStorage == nil {
-		ctx.ContextStorage = &ContextStorage{}
-	}
-	if ctx.ContextComponents == nil {
-		ctx.ContextComponents = &ContextComponents{}
-	}
-	if ctx.ContextRelations == nil {
-		ctx.ContextRelations = &ContextRelations{}
-	}
-	if ctx.ContextAction == nil {
-		ctx.ContextAction = &ContextAction{}
-	}
-
-	ctx.ensureStub()
-	ctx.syncInfo()
-}
-
-func (ctx *Context) ensureStub() {
-	if ctx.Stub == nil {
-		ctx.Stub = &testing.Stub{}
-	}
-	stub := ctx.Stub
-
-	if ctx.ContextUnit.Stub == nil {
-		ctx.ContextUnit.Stub = stub
-	}
-	if ctx.ContextStatus.Stub == nil {
-		ctx.ContextStatus.Stub = stub
-	}
-	if ctx.ContextInstance.Stub == nil {
-		ctx.ContextInstance.Stub = stub
-	}
-	if ctx.ContextNetworking.Stub == nil {
-		ctx.ContextNetworking.Stub = stub
-	}
-	if ctx.ContextLeader.Stub == nil {
-		ctx.ContextLeader.Stub = stub
-	}
-	if ctx.ContextMetrics.Stub == nil {
-		ctx.ContextMetrics.Stub = stub
-	}
-	if ctx.ContextStorage.Stub == nil {
-		ctx.ContextStorage.Stub = stub
-	}
-	if ctx.ContextComponents.Stub == nil {
-		ctx.ContextComponents.Stub = stub
-	}
-	if ctx.ContextRelations.Stub == nil {
-		ctx.ContextRelations.Stub = stub
-	}
-	if ctx.ContextAction.Stub == nil {
-		ctx.ContextAction.Stub = stub
-	}
-}
-
-func (ctx *Context) syncInfo() {
-	if ctx.Info == nil {
-		ctx.Info = &ContextInfo{}
-	}
-	info := ctx.Info
-
-	if ctx.ContextUnit.Info == nil {
-		ctx.ContextUnit.Info = info.Unit
-	} else {
-		info.Unit = ctx.ContextUnit.Info
-	}
-
-	if ctx.ContextStatus.Info == nil {
-		ctx.ContextStatus.Info = info.Status
-	} else {
-		info.Status = ctx.ContextStatus.Info
-	}
-
-	if ctx.ContextInstance.Info == nil {
-		ctx.ContextInstance.Info = info.Instance
-	} else {
-		info.Instance = ctx.ContextInstance.Info
-	}
-
-	if ctx.ContextNetworking.Info == nil {
-		ctx.ContextNetworking.Info = info.NetworkInterface
-	} else {
-		info.NetworkInterface = ctx.ContextNetworking.Info
-	}
-
-	if ctx.ContextLeader.Info == nil {
-		ctx.ContextLeader.Info = info.Leadership
-	} else {
-		info.Leadership = ctx.ContextLeader.Info
-	}
-
-	// There is no metrics info.
-
-	if ctx.ContextStorage.Info == nil {
-		ctx.ContextStorage.Info = info.Storage
-	} else {
-		info.Storage = ctx.ContextStorage.Info
-	}
-
-	if ctx.ContextComponents.Info == nil {
-		ctx.ContextComponents.Info = info.Components
-	} else {
-		info.Components = ctx.ContextComponents.Info
-	}
-
-	if ctx.ContextRelations.Relations == nil {
-		ctx.ContextRelations.Relations = info.Relations
-	} else {
-		info.Relations = ctx.ContextRelations.Relations
-	}
-	if ctx.ContextRelations.Hook == nil {
-		ctx.ContextRelations.Hook = info.RelationHook
-	} else {
-		info.RelationHook = ctx.ContextRelations.Hook
-	}
-
-	if ctx.ContextAction.Info == nil {
-		ctx.ContextAction.Info = info.Action
-	} else {
-		info.Action = ctx.ContextAction.Info
-	}
-}
-
-func (ctx *Context) update(updateFuncs ...func(*Context) error) error {
-	ctx.init()
-	for _, update := range updateFuncs {
-		if err := update(ctx); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (ctx *Context) updateInfo(updateFuncs ...func(*ContextInfo) error) error {
-	ctx.init()
-	return ctx.Info.Update(updateFuncs...)
-}
-
-func (ctx *Context) setRelation(id int, name, unit string, settings Settings) *Relation {
-	ctx.init()
-	relCtx := ctx.ContextRelations.setRelation(id, name)
-	ctx.ContextRelations.setRelated(id, unit, settings)
-	return relCtx.Info
-}
-
-func (ctx *Context) setStorage(name, location string, kind storage.StorageKind) {
-	ctx.init()
-	ctx.ContextStorage.setAttachment(name, location, kind)
-}
-
-func (ctx *Context) setComponent(name string, comp jujuc.ContextComponent) {
-	ctx.init()
-	ctx.ContextComponents.setComponent(name, comp)
-}
-
-// ContextWrapper provides helper functions around the embedded Context.
-type ContextWrapper struct {
-	*Context
-}
-
-// Update calls each of the provided update functions, which update
-// the Context.
-func (w *ContextWrapper) Update(updateFuncs ...func(*Context) error) error {
-	return w.update(updateFuncs...)
-}
-
-// UpdateInfo calls each of the provided update functions, which update
-// the ContextInfo.
-func (w *ContextWrapper) UpdateInfo(updateFuncs ...func(*ContextInfo) error) error {
-	return w.updateInfo(updateFuncs...)
-}
-
-// SetAsRelationHook updates the context to work as a relation hook context.
-func (w *ContextWrapper) SetAsRelationHook(id int, remote string) {
-	w.Info.HookRelation = id
-	w.Info.RemoteUnitName = remote
-}
-
-// SetAsActionHook updates the context to work as an action hook context.
-func (w *ContextWrapper) SetAsActionHook() {
-	panic("not supported yet")
-}
-
-// SetRelation sets up the specified relation within the context.
-func (w *ContextWrapper) SetRelation(id int, name, unit string, settings Settings) *Relation {
-	return w.setRelation(id, name, unit, settings)
-}
-
-// SetRelated adds the provided unit information to the relation.
-func (w *ContextWrapper) SetRelated(id int, unit string, settings Settings) {
-	w.setRelated(id, unit, settings)
-}
-
-// SetBlockStorage adds the given block storage to the context.
-func (w *ContextWrapper) SetBlockStorage(name, location string) {
-	w.setStorage(name, location, storage.StorageKindBlock)
-}
-
-func (w *ContextWrapper) SetComponent(name string, comp jujuc.ContextComponent) {
-	w.setComponent(name, comp)
+	var ctx Context
+	ctx.ContextUnit.stub = stub
+	ctx.ContextUnit.info = &info.Unit
+	ctx.ContextStatus.stub = stub
+	ctx.ContextStatus.info = &info.Status
+	ctx.ContextInstance.stub = stub
+	ctx.ContextInstance.info = &info.Instance
+	ctx.ContextNetworking.stub = stub
+	ctx.ContextNetworking.info = &info.NetworkInterface
+	ctx.ContextLeader.stub = stub
+	ctx.ContextLeader.info = &info.Leadership
+	ctx.ContextMetrics.stub = stub
+	ctx.ContextMetrics.info = &info.Metrics
+	ctx.ContextStorage.stub = stub
+	ctx.ContextStorage.info = &info.Storage
+	ctx.ContextRelations.stub = stub
+	ctx.ContextRelations.info = &info.Relations
+	ctx.ContextRelationHook.stub = stub
+	ctx.ContextRelationHook.info = &info.RelationHook
+	ctx.ContextActionHook.stub = stub
+	ctx.ContextActionHook.info = &info.ActionHook
+	return &ctx
 }

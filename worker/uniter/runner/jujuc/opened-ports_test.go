@@ -54,7 +54,7 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		}
 		c.Check(stdout, gc.Equals, expectedOutput)
 		c.Check(stderr, gc.Equals, "")
-		hctx.CheckPorts(c, expectedPorts)
+		hctx.info.CheckPorts(c, expectedPorts)
 	}
 }
 

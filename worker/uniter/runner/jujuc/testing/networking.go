@@ -5,7 +5,6 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,93 +18,91 @@ type NetworkInterface struct {
 	Ports          []network.PortRange
 }
 
-// ContextNetworking is a test double for jujuc.ContextNetworking.
-type ContextNetworking struct {
-	Stub *testing.Stub
-	Info *NetworkInterface
-}
-
-func (c *ContextNetworking) init() {
-	if c.Stub == nil {
-		c.Stub = &testing.Stub{}
-	}
-	if c.Info == nil {
-		c.Info = &NetworkInterface{}
-	}
-}
-
 // CheckPorts checks the current ports.
-func (cn *ContextNetworking) CheckPorts(c *gc.C, expected []network.PortRange) {
-	cn.init()
-	c.Check(cn.Info.Ports, jc.DeepEquals, expected)
+func (ni *NetworkInterface) CheckPorts(c *gc.C, expected []network.PortRange) {
+	c.Check(ni.Ports, jc.DeepEquals, expected)
 }
 
-// PublicAddress implements jujuc.ContextNetworking.
-func (cn *ContextNetworking) PublicAddress() (string, bool) {
-	cn.Stub.AddCall("PublicAddress")
-	cn.Stub.NextErr()
-	cn.init()
-	if cn.Info.PublicAddress == "" {
-		return "", false
-	}
-	return cn.Info.PublicAddress, true
-}
-
-// PrivateAddress implements jujuc.ContextNetworking.
-func (cn *ContextNetworking) PrivateAddress() (string, bool) {
-	cn.Stub.AddCall("PrivateAddress")
-	cn.Stub.NextErr()
-	cn.init()
-	if cn.Info.PrivateAddress == "" {
-		return "", false
-	}
-	return cn.Info.PrivateAddress, true
-}
-
-// OpenPorts implements jujuc.ContextNetworking.
-func (cn *ContextNetworking) OpenPorts(protocol string, from, to int) error {
-	cn.Stub.AddCall("OpenPorts", protocol, from, to)
-	if err := cn.Stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	cn.init()
-	cn.Info.Ports = append(cn.Info.Ports, network.PortRange{
+// AddPorts adds the specified port range.
+func (ni *NetworkInterface) AddPorts(protocol string, from, to int) {
+	ni.Ports = append(ni.Ports, network.PortRange{
 		Protocol: protocol,
 		FromPort: from,
 		ToPort:   to,
 	})
-	network.SortPortRanges(cn.Info.Ports)
-	return nil
+	network.SortPortRanges(ni.Ports)
 }
 
-// ClosePorts implements jujuc.ContextNetworking.
-func (cn *ContextNetworking) ClosePorts(protocol string, from, to int) error {
-	cn.Stub.AddCall("ClosePorts", protocol, from, to)
-	if err := cn.Stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	cn.init()
+// RemovePorts removes the specified port range.
+func (ni *NetworkInterface) RemovePorts(protocol string, from, to int) {
 	portRange := network.PortRange{
 		Protocol: protocol,
 		FromPort: from,
 		ToPort:   to,
 	}
-	for i, port := range cn.Info.Ports {
+	for i, port := range ni.Ports {
 		if port == portRange {
-			cn.Info.Ports = append(cn.Info.Ports[:i], cn.Info.Ports[i+1:]...)
+			ni.Ports = append(ni.Ports[:i], ni.Ports[i+1:]...)
 			break
 		}
 	}
-	network.SortPortRanges(cn.Info.Ports)
+	network.SortPortRanges(ni.Ports)
+}
+
+// ContextNetworking is a test double for jujuc.ContextNetworking.
+type ContextNetworking struct {
+	contextBase
+	info *NetworkInterface
+}
+
+// PublicAddress implements jujuc.ContextNetworking.
+func (c *ContextNetworking) PublicAddress() (string, bool) {
+	c.stub.AddCall("PublicAddress")
+	c.stub.NextErr()
+
+	if c.info.PublicAddress == "" {
+		return "", false
+	}
+	return c.info.PublicAddress, true
+}
+
+// PrivateAddress implements jujuc.ContextNetworking.
+func (c *ContextNetworking) PrivateAddress() (string, bool) {
+	c.stub.AddCall("PrivateAddress")
+	c.stub.NextErr()
+
+	if c.info.PrivateAddress == "" {
+		return "", false
+	}
+	return c.info.PrivateAddress, true
+}
+
+// OpenPorts implements jujuc.ContextNetworking.
+func (c *ContextNetworking) OpenPorts(protocol string, from, to int) error {
+	c.stub.AddCall("OpenPorts", protocol, from, to)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	c.info.AddPorts(protocol, from, to)
+	return nil
+}
+
+// ClosePorts implements jujuc.ContextNetworking.
+func (c *ContextNetworking) ClosePorts(protocol string, from, to int) error {
+	c.stub.AddCall("ClosePorts", protocol, from, to)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	c.info.RemovePorts(protocol, from, to)
 	return nil
 }
 
 // OpenedPorts implements jujuc.ContextNetworking.
-func (cn *ContextNetworking) OpenedPorts() []network.PortRange {
-	cn.Stub.AddCall("OpenedPorts")
-	cn.Stub.NextErr()
-	cn.init()
-	return cn.Info.Ports
+func (c *ContextNetworking) OpenedPorts() []network.PortRange {
+	c.stub.AddCall("OpenedPorts")
+	c.stub.NextErr()
+
+	return c.info.Ports
 }

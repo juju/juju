@@ -5,80 +5,66 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 )
 
-// Action holds the values for the hook context.
-type Action struct {
+// ActionHook holds the values for the hook context.
+type ActionHook struct {
 	ActionParams map[string]interface{}
 }
 
-// ContextAction is a test double for jujuc.ActionHookContext.
-type ContextAction struct {
-	Stub *testing.Stub
-	Info *Action
-}
-
-func (c *ContextAction) init() {
-	if c.Stub == nil {
-		c.Stub = &testing.Stub{}
-	}
-	if c.Info == nil {
-		c.Info = &Action{}
-	}
+// ContextActionHook is a test double for jujuc.ActionHookContext.
+type ContextActionHook struct {
+	contextBase
+	info *ActionHook
 }
 
 // ActionParams implements jujuc.ActionHookContext.
-func (c *ContextAction) ActionParams() (map[string]interface{}, error) {
-	c.Stub.AddCall("ActionParams")
-	if err := c.Stub.NextErr(); err != nil {
+func (c *ContextActionHook) ActionParams() (map[string]interface{}, error) {
+	c.stub.AddCall("ActionParams")
+	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	c.init()
-	if c.Info.ActionParams == nil {
+	if c.info.ActionParams == nil {
 		return nil, errors.Errorf("not running an action")
 	}
-	return c.Info.ActionParams, nil
+	return c.info.ActionParams, nil
 }
 
 // UpdateActionResults implements jujuc.ActionHookContext.
-func (c *ContextAction) UpdateActionResults(keys []string, value string) error {
-	c.Stub.AddCall("UpdateActionResults", keys, value)
-	if err := c.Stub.NextErr(); err != nil {
+func (c *ContextActionHook) UpdateActionResults(keys []string, value string) error {
+	c.stub.AddCall("UpdateActionResults", keys, value)
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.init()
-	if c.Info.ActionParams == nil {
+	if c.info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}
 	return nil
 }
 
 // SetActionMessage implements jujuc.ActionHookContext.
-func (c *ContextAction) SetActionMessage(message string) error {
-	c.Stub.AddCall("SetActionMessage", message)
-	if err := c.Stub.NextErr(); err != nil {
+func (c *ContextActionHook) SetActionMessage(message string) error {
+	c.stub.AddCall("SetActionMessage", message)
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.init()
-	if c.Info.ActionParams == nil {
+	if c.info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}
 	return nil
 }
 
 // SetActionFailed implements jujuc.ActionHookContext.
-func (c *ContextAction) SetActionFailed() error {
-	c.Stub.AddCall("SetActionFailed")
-	if err := c.Stub.NextErr(); err != nil {
+func (c *ContextActionHook) SetActionFailed() error {
+	c.stub.AddCall("SetActionFailed")
+	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.init()
-	if c.Info.ActionParams == nil {
+	if c.info.ActionParams == nil {
 		return errors.Errorf("not running an action")
 	}
 	return nil
