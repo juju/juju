@@ -29,9 +29,12 @@ func (s *CleanupSuite) SetUpSuite(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
-func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
+func (s *CleanupSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
 	s.assertDoesNotNeedCleanup(c)
+}
 
+func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	// Create a service with some units.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
@@ -113,8 +116,6 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
-	s.assertDoesNotNeedCleanup(c)
-
 	// Create a relation with a unit in scope.
 	pr := NewPeerRelation(c, s.State, s.Owner)
 	rel := pr.ru0.Relation()
@@ -158,8 +159,6 @@ func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
-	s.assertDoesNotNeedCleanup(c)
-
 	// Create a machine.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,8 +189,6 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
-	s.assertDoesNotNeedCleanup(c)
-
 	// Create a machine with a container.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,8 +311,6 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
-	s.assertDoesNotNeedCleanup(c)
-
 	// Create a service with a unit.
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := dummy.AddUnit()
@@ -393,8 +388,6 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
-	s.assertDoesNotNeedCleanup(c)
-
 	ch := s.AddTestingCharm(c, "storage-block")
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	storage := map[string]state.StorageConstraints{
@@ -434,6 +427,91 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the service, so we can destroy the machine.
+	err = unit.Destroy()
+	s.assertCleanupRuns(c)
+	err = service.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// destroy machine and run cleanups; the filesystem attachment
+	// should be marked dying, but the volume attachment should not
+	// since it contains the filesystem.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	fas, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fas, gc.HasLen, 1)
+	c.Assert(fas[0].Life(), gc.Equals, state.Dying)
+	vas, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vas, gc.HasLen, 1)
+	c.Assert(vas[0].Life(), gc.Equals, state.Alive)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	attachment, err := s.State.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachment.Life(), gc.Equals, state.Dying)
+}
+
+func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: "rootfs", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	attachment, err := s.State.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }
 
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {

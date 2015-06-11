@@ -17,13 +17,16 @@ type cleanupKind string
 
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
-	cleanupRelationSettings            cleanupKind = "settings"
-	cleanupUnitsForDyingService        cleanupKind = "units"
-	cleanupDyingUnit                   cleanupKind = "dyingUnit"
-	cleanupRemovedUnit                 cleanupKind = "removedUnit"
-	cleanupServicesForDyingEnvironment cleanupKind = "services"
-	cleanupForceDestroyedMachine       cleanupKind = "machine"
-	cleanupAttachmentsForDyingStorage  cleanupKind = "storageAttachments"
+	cleanupRelationSettings              cleanupKind = "settings"
+	cleanupUnitsForDyingService          cleanupKind = "units"
+	cleanupDyingUnit                     cleanupKind = "dyingUnit"
+	cleanupRemovedUnit                   cleanupKind = "removedUnit"
+	cleanupServicesForDyingEnvironment   cleanupKind = "services"
+	cleanupDyingMachine                  cleanupKind = "dyingMachine"
+	cleanupForceDestroyedMachine         cleanupKind = "machine"
+	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
+	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
+	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be
@@ -84,10 +87,16 @@ func (st *State) Cleanup() error {
 			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupServicesForDyingEnvironment:
 			err = st.cleanupServicesForDyingEnvironment()
+		case cleanupDyingMachine:
+			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
 			err = st.cleanupForceDestroyedMachine(doc.Prefix)
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix)
+		case cleanupAttachmentsForDyingVolume:
+			err = st.cleanupAttachmentsForDyingVolume(doc.Prefix)
+		case cleanupAttachmentsForDyingFilesystem:
+			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
 		default:
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -243,6 +252,18 @@ func (st *State) cleanupRemovedUnit(unitId string) error {
 	return nil
 }
 
+// cleanupDyingMachine marks resources owned by the machine as dying, to ensure
+// they are cleaned up as well.
+func (st *State) cleanupDyingMachine(machineId string) error {
+	machine, err := st.Machine(machineId)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return cleanupDyingMachineResources(machine)
+}
+
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
@@ -251,6 +272,9 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
+		return err
+	}
+	if err := cleanupDyingMachineResources(machine); err != nil {
 		return err
 	}
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
@@ -320,6 +344,37 @@ func (st *State) cleanupContainers(machine *Machine) error {
 	return nil
 }
 
+func cleanupDyingMachineResources(m *Machine) error {
+	// TODO(axw) add a delete-on-termination flag field to volume/filesystem
+	// attachments, and when cleaning up here we would check it and trigger
+	// deletion of volumes/filesystems.
+	volumeAttachments, err := m.st.MachineVolumeAttachments(m.MachineTag())
+	if err != nil {
+		return errors.Annotate(err, "getting machine volume attachments")
+	}
+	for _, va := range volumeAttachments {
+		if err := m.st.DetachVolume(va.Machine(), va.Volume()); err != nil {
+			if IsContainsFilesystem(err) {
+				// The volume will be destroyed when the
+				// contained filesystem is removed, whose
+				// destruction is initiated below.
+				continue
+			}
+			return errors.Trace(err)
+		}
+	}
+	filesystemAttachments, err := m.st.MachineFilesystemAttachments(m.MachineTag())
+	if err != nil {
+		return errors.Annotate(err, "getting machine filesystem attachments")
+	}
+	for _, fsa := range filesystemAttachments {
+		if err := m.st.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // obliterateUnit removes a unit from state completely. It is not safe or
 // sane to obliterate any unit in isolation; its only reasonable use is in
 // the context of machine obliteration, in which we can be sure that unclean
@@ -359,8 +414,8 @@ func (st *State) obliterateUnit(unitName string) error {
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
 	storageTag := names.NewStorageTag(storageId)
 
-	// This won't miss attachments, because a Dying service cannot have
-	// attachments added to it. But we do have to remove the attachments
+	// This won't miss attachments, because a Dying storage instance cannot
+	// have attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
 	coll, closer := st.getCollection(storageAttachmentsC)
@@ -377,6 +432,62 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "cannot read storage attachment document")
+	}
+	return nil
+}
+
+// cleanupAttachmentsForDyingVolume sets all volume attachments related
+// to the specified volume to Dying, if they are not already Dying or
+// Dead. It's expected to be used when a volume is destroyed.
+func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) error {
+	volumeTag := names.NewVolumeTag(volumeId)
+
+	// This won't miss attachments, because a Dying volume cannot have
+	// attachments added to it. But we do have to remove the attachments
+	// themselves via individual transactions, because they could be in
+	// any state at all.
+	coll, closer := st.getCollection(volumeAttachmentsC)
+	defer closer()
+
+	var doc volumeAttachmentDoc
+	fields := bson.D{{"machineid", 1}}
+	iter := coll.Find(bson.D{{"volumeid", volumeId}}).Select(fields).Iter()
+	for iter.Next(&doc) {
+		machineTag := names.NewMachineTag(doc.Machine)
+		if err := st.DetachVolume(machineTag, volumeTag); err != nil {
+			return errors.Annotate(err, "destroying volume attachment")
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Annotate(err, "cannot read volume attachment document")
+	}
+	return nil
+}
+
+// cleanupAttachmentsForDyingFilesystem sets all filesystem attachments related
+// to the specified filesystem to Dying, if they are not already Dying or
+// Dead. It's expected to be used when a filesystem is destroyed.
+func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) error {
+	filesystemTag := names.NewFilesystemTag(filesystemId)
+
+	// This won't miss attachments, because a Dying filesystem cannot have
+	// attachments added to it. But we do have to remove the attachments
+	// themselves via individual transactions, because they could be in
+	// any state at all.
+	coll, closer := st.getCollection(filesystemAttachmentsC)
+	defer closer()
+
+	var doc filesystemAttachmentDoc
+	fields := bson.D{{"machineid", 1}}
+	iter := coll.Find(bson.D{{"filesystemid", filesystemId}}).Select(fields).Iter()
+	for iter.Next(&doc) {
+		machineTag := names.NewMachineTag(doc.Machine)
+		if err := st.DetachFilesystem(machineTag, filesystemTag); err != nil {
+			return errors.Annotate(err, "destroying filesystem attachment")
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Annotate(err, "cannot read filesystem attachment document")
 	}
 	return nil
 }

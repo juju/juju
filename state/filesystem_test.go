@@ -464,3 +464,143 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvision
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": volume attachment "0/0" on "0" not provisioned`)
 }
+
+func (s *FilesystemStateSuite) TestDestroyFilesystem(c *gc.C) {
+	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
+	assertDestroy := func() {
+		err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		filesystem = s.filesystem(c, filesystem.FilesystemTag())
+		c.Assert(filesystem.Life(), gc.Equals, state.Dying)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertDestroy).Check()
+	assertDestroy()
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystem(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystem(names.NewFilesystemTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
+	assertVolumeLife := func(life state.Life) {
+		volume := s.volume(c, volume.VolumeTag())
+		c.Assert(volume.Life(), gc.Equals, life)
+	}
+	assertVolumeAttachmentLife := func(life state.Life) {
+		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
+		c.Assert(attachment.Life(), gc.Equals, life)
+	}
+
+	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	// Destroying the filesystem does not trigger destruction
+	// of the volume. It cannot be destroyed until all remnants
+	// of the filesystem are gone.
+	assertVolumeLife(state.Alive)
+
+	err = s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	// Likewise for the volume attachment.
+	assertVolumeAttachmentLife(state.Alive)
+
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	// Removing the filesystem attachment causes the backing-volume
+	// to be detached.
+	assertVolumeAttachmentLife(state.Dying)
+
+	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	// Removing the filesystem causes the backing-volume to be
+	// destroyed.
+	assertVolumeLife(state.Dying)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemVolumeBackedDestroyDetachVolumeFail(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
+
+	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Can't destroy (detach) volume until the filesystem (attachment) is removed.
+	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "detaching volume 0/0 from machine 0: volume contains attached filesystem")
+	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "destroying volume 0/0: volume contains filesystem")
+	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
+
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemNotFound(c *gc.C) {
+	err := s.State.RemoveFilesystem(names.NewFilesystemTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemAlive(c *gc.C) {
+	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
+	err := s.State.RemoveFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dying")
+}
+
+func (s *FilesystemStateSuite) TestRemoveWithFilesystemAttachments(c *gc.C) {
+	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
+	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is attached to machines \\[0\\]")
+}
+
+func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	assertDetach := func() {
+		err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		attachment := s.filesystemAttachment(c, machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(attachment.Life(), gc.Equals, state.Dying)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertDetach).Check()
+	assertDetach()
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentNotFound(c *gc.C) {
+	err := s.State.RemoveFilesystemAttachment(names.NewMachineTag("42"), names.NewFilesystemTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentAlive(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	err := s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, gc.ErrorMatches, "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying")
+}
+
+func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", pool)
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.storageInstanceFilesystem(c, storageTag), s.machine(c, assignedMachineId)
+}
