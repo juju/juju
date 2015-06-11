@@ -508,8 +508,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
-	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
-	r1.waitForWorker(c, lastWorker)
+	r1.waitForWorkers(c, perEnvSingularWorkers)
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -1730,7 +1729,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 
 	r1 := s.singularRecord.nextRunner(c)
 	workers := r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+	c.Assert(workers, jc.SameContents, expectedWorkers)
 }
 
 func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
@@ -1786,7 +1785,7 @@ func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expecte
 	// firewaller is the last worker started for a new environment.
 	r0 := s.singularRecord.nextRunner(c)
 	workers := r0.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+	c.Assert(workers, jc.SameContents, expectedWorkers)
 
 	// Create a new environment, tests can now watch if workers start for it.
 	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
@@ -2089,6 +2088,31 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 			}
 		case <-timeout:
 			c.Fatal("timed out waiting for " + target)
+		}
+	}
+}
+
+// waitForWorkers waits for a given worker to be started, returning all
+// workers started while waiting.
+func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
+	var seen []string
+	seenTargets := make(map[string]bool)
+	numSeenTargets := 0
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case workerName := <-r.startC:
+			if seenTargets[workerName] == true {
+				c.Fatal("worker started twice: " + workerName)
+			}
+			seenTargets[workerName] = true
+			numSeenTargets++
+			seen = append(seen, workerName)
+			if numSeenTargets == len(targets) {
+				return seen
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for %v", targets)
 		}
 	}
 }
