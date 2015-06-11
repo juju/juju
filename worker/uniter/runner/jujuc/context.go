@@ -18,14 +18,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// RebootPriority is the type used for reboot requests.
 type RebootPriority int
 
 const (
-	// noop
+	// RebootSkip is a noop.
 	RebootSkip RebootPriority = iota
-	// wait for current hook to finish before rebooting
+	// RebootAfterHook means wait for current hook to finish before
+	// rebooting.
 	RebootAfterHook
-	// reboot immediately, killing and requeueing the calling hook
+	// RebootNow means reboot immediately, killing and requeueing the
+	// calling hook
 	RebootNow
 )
 
@@ -122,7 +125,7 @@ type ContextStatus interface {
 	SetServiceStatus(StatusInfo) error
 }
 
-// ContextInstace is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's intance.
 type ContextInstance interface {
 	// AvailabilityZone returns the executing unit's availablilty zone.
 	AvailabilityZone() (string, bool)
@@ -172,7 +175,7 @@ type ContextLeadership interface {
 	WriteLeaderSettings(map[string]string) error
 }
 
-// ContextLeadership is the part of a hook context related to metrics.
+// ContextMetrics is the part of a hook context related to metrics.
 type ContextMetrics interface {
 	// AddMetric records a metric to return after hook execution.
 	AddMetric(string, string, time.Time) error

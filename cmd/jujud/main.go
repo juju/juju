@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -74,7 +73,7 @@ func getwd() (string, error) {
 // jujuCMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
+func jujuCMain(commandName string, args []string) (code int, err error) {
 	code = 1
 	contextId, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
@@ -84,16 +83,11 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 	if err != nil {
 		return
 	}
-	stdin, err := ioutil.ReadAll(ctx.Stdin)
-	if err != nil {
-		return
-	}
 	req := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
-		Stdin:       stdin,
 	}
 	socketPath, err := getenv("JUJU_AGENT_SOCKET")
 	if err != nil {
@@ -164,7 +158,7 @@ func Main(args []string) {
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
-		code, err = jujuCMain(commandName, ctx, args)
+		code, err = jujuCMain(commandName, args)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
