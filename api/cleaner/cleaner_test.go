@@ -34,7 +34,7 @@ type TestCommon struct {
 func Init(c *gc.C, method string, expectArgs, useResults interface{}, err error) (t *TestCommon) {
 	t = &TestCommon{}
 	t.apiArgs = apitesting.CheckArgs{
-		Facade:        "",
+		Facade:        "Cleaner",
 		VersionIsZero: true,
 		IdIsEmpty:     true,
 		Method:        method,
@@ -67,18 +67,19 @@ func AssertEventuallyEqual(c *gc.C, watched *int, calls int) {
 	select {
 	case <-ch:
 	case <-time.After(coretesting.LongWait):
+		c.Errorf("timeout while waiting for a call")
 	}
 
 	c.Assert(*watched, gc.Equals, calls)
 }
 
 func (s *CleanerSuite) TestNewAPI(c *gc.C) {
-	t := Init(c, "", nil, nil, nil)
-	t.apiArgs.Facade = "Cleaner"
+	Init(c, "", nil, nil, nil)
 }
 
 func (s *CleanerSuite) TestWatchCleanups(c *gc.C) {
 	t := Init(c, "", nil, nil, nil)
+	t.apiArgs.Facade = "" // Multiple facades are called, so we can't check this.
 	m, err := t.api.WatchCleanups()
 	AssertEventuallyEqual(c, &t.numCalls, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,14 +87,14 @@ func (s *CleanerSuite) TestWatchCleanups(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleanup(c *gc.C) {
-	t := Init(c, "", nil, nil, nil)
+	t := Init(c, "Cleanup", nil, nil, nil)
 	err := t.api.Cleanup()
 	AssertEventuallyEqual(c, &t.numCalls, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *gc.C) {
-	t := Init(c, "", nil, nil, errors.New("client error!"))
+	t := Init(c, "WatchCleanups", nil, nil, errors.New("client error!"))
 	m, err := t.api.WatchCleanups()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	AssertEventuallyEqual(c, &t.numCalls, 1)
@@ -107,7 +108,7 @@ func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *gc.C) {
 	p := params.NotifyWatchResult{
 		Error: &e,
 	}
-	t := Init(c, "", nil, p, nil)
+	t := Init(c, "WatchCleanups", nil, p, nil)
 	m, err := t.api.WatchCleanups()
 	AssertEventuallyEqual(c, &t.numCalls, 1)
 	c.Assert(err, gc.ErrorMatches, e.Message)

@@ -23,7 +23,7 @@ var logger = loggo.GetLogger("juju.apiserver.cleaner")
 
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {
-	st        stateInterface
+	st        StateInterface
 	resources *common.Resources
 }
 

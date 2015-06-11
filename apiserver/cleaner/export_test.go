@@ -7,14 +7,12 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type StateInterface stateInterface
-
 type Patcher interface {
 	PatchValue(ptr, value interface{})
 }
 
 func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) stateInterface {
+	p.PatchValue(&getState, func(*state.State) StateInterface {
 		return st
 	})
 }

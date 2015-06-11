@@ -89,7 +89,7 @@ func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 }
 
 // cleanerMock is used to check the
-// calls of Cleanup().
+// calls of Cleanup() and WatchCleanups()
 type cleanerMock struct {
 	watcher *mockNotifyWatcher
 	calls   chan string

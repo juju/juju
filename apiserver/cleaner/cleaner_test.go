@@ -4,14 +4,14 @@
 package cleaner_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/cleaner"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -48,15 +48,14 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresEnvironManager(c *gc.C) {
 	api, err := cleaner.NewCleanerAPI(nil, nil, anAuthoriser)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(common.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
+	//c.Assert(common.ServerError(err), jc.Satisfies, errors.IsUnauthorized)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
 	_, err := s.api.WatchCleanups()
 	c.Assert(err, jc.ErrorIsNil)
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "WatchCleanups",
-		Args:     nil,
-	}})
+	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
 func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
@@ -66,29 +65,20 @@ func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
 	result, err := s.api.WatchCleanups()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error.Error(), gc.Equals, "boom!")
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "WatchCleanups",
-		Args:     nil,
-	}})
+	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
 func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	err := s.api.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Cleanup",
-		Args:     nil,
-	}})
+	s.st.CheckCallNames(c, "Cleanup")
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("Boom!"))
 	err := s.api.Cleanup()
 	c.Assert(err, gc.ErrorMatches, "Boom!")
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Cleanup",
-		Args:     nil,
-	}})
+	s.st.CheckCallNames(c, "Cleanup")
 }
 
 type mockState struct {

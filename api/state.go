@@ -345,8 +345,7 @@ func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
 }
 
-// Cleaner returns a version of the state that provides functionality
-// required by the cleaner worker.
+// Cleaner returns a version of the state that provides access to the cleaner API
 func (st *State) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
 }

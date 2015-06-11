@@ -1114,9 +1114,6 @@ func (a *MachineAgent) startEnvWorkers(
 	// Start workers that depend on a *state.State.
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return newCleaner(apiSt.Cleaner()), nil
-	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
@@ -1141,6 +1138,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
 		return newInstancePoller(apiSt.InstancePoller()), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
