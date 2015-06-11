@@ -13,17 +13,18 @@ import (
 )
 
 type storageAddSuite struct {
-	ContextSuite
+	storageSuite
 }
 
 var _ = gc.Suite(&storageAddSuite{})
 
-func (s *storageAddSuite) SetUpTest(c *gc.C) {
-	s.ContextSuite.SetUpTest(c)
+func (s *storageAddSuite) newHookContext() jujuc.Context {
+	hctx, _ := s.NewHookContext()
+	return hctx
 }
 
 func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
-	hctx := s.GetStorageAddHookContext(c)
+	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-add"))
 	c.Assert(err, jc.ErrorIsNil)
 	return com
