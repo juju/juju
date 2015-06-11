@@ -36,13 +36,10 @@ class MonkeyRunner:
         return cls(args.env, args.service, args.health_checker, client,
                    enablement_timeout=args.enablement_timeout,
                    pause_timeout=args.pause_timeout,
-                   total_timeout=args.total_timeout,
-                   expire_time=args.expire_time)
+                   total_timeout=args.total_timeout)
 
     def __init__(self, env, service, health_checker, client,
-                 enablement_timeout=0, pause_timeout=0, total_timeout=0,
-                 expire_time=None):
-        self.enablement_timeout = enablement_timeout
+                 enablement_timeout=0, pause_timeout=0, total_timeout=0):
         self.env = env
         self.service = service
         self.health_checker = health_checker
@@ -50,12 +47,7 @@ class MonkeyRunner:
         self.enablement_timeout = enablement_timeout
         self.pause_timeout = pause_timeout
         self.total_timeout = total_timeout
-        if expire_time:
-            self.expire_time = (
-                datetime.now() + timedelta(seconds=expire_time))
-        else:
-            self.expire_time = (
-                datetime.now() + timedelta(seconds=total_timeout))
+        self.expire_time = (datetime.now() + timedelta(seconds=total_timeout))
         self.monkey_ids = {}
 
     def deploy_chaos_monkey(self):
@@ -82,8 +74,8 @@ class MonkeyRunner:
     def unleash_once(self):
         for unit_name, unit in self.iter_chaos_monkey_units():
             logging.info('Starting the chaos monkey on: {}'.format(unit_name))
-            enablement_arg = ('enablement-timeout=' +
-                              str(self.enablement_timeout))
+            enablement_arg = ('enablement-timeout={}'.format(
+                self.enablement_timeout))
             action_out = self.client.get_juju_output(
                 'action do', unit_name, 'start', 'mode=single', enablement_arg)
             if not action_out.startswith('Action queued with id'):
@@ -118,7 +110,7 @@ class MonkeyRunner:
         service_config = self.client.get_service_config('chaos-monkey')
         logging.debug('{}'.format(service_config))
         for unit_name, unit in self.iter_chaos_monkey_units():
-            logging.info('Checking if chaos is done on: {}'.format(unit_name))
+            logging.debug('Checking if chaos is done on: {}'.format(unit_name))
             check_cmd = '[ -f '
             check_cmd += service_config['settings']['chaos-dir']['value']
             check_cmd += '/chaos_monkey.' + self.monkey_ids[unit_name]
@@ -132,10 +124,8 @@ class MonkeyRunner:
         return locks
 
     def wait_for_chaos_complete(self):
-        for ignored in chain([None], until_timeout(60)):
+        for ignored in chain([None], until_timeout(300)):
             for unit_name, unit in self.iter_chaos_monkey_units():
-                logging.info(
-                    'Checking if chaos is done on: {}'.format(unit_name))
                 locks = self.get_locks()
                 if locks.keys() == ['done']:
                     logging.debug(
@@ -151,11 +141,11 @@ class MonkeyRunner:
             self.unleash_once()
             self.wait_for_chaos_complete()
             if datetime.now() > self.expire_time:
-                logging.info(
-                    'Reached expire time, all done running chaos.')
+                logging.debug(
+                    'Reached run timeout, all done running chaos.')
                 break
             if self.pause_timeout:
-                logging.info(
+                logging.debug(
                     'Pausing {} seconds after running chaos.'.format(
                         self.pause_timeout))
                 sleep(self.pause_timeout)
@@ -177,21 +167,15 @@ def get_args(argv=None):
     parser.add_argument(
         '-pt', '--pause-timeout', default=0, type=int,
         help="Total timeout in seconds.", metavar='SECONDS')
-    parser.add_argument(
-        '-ep', '--expire-time', type=int, default=None,
-        help='Chaos Monkey expire time.', metavar='SECONDS')
     args = parser.parse_args(argv)
-    if args.expire_time and args.total_timeout:
-        parser.error("Conflicting options: Pass total-timeout or expire-time.")
-    if not args.expire_time:
-        if not args.total_timeout:
-            args.total_timeout = args.enablement_timeout
-        if args.enablement_timeout > args.total_timeout:
-            parser.error("total-timeout can not be less than "
-                         "enablement-timeout.")
-        if args.total_timeout <= 0:
-            parser.error("Invalid total-timeout value: timeout must be "
-                         "greater than zero.")
+    if not args.total_timeout:
+        args.total_timeout = args.enablement_timeout
+    if args.enablement_timeout > args.total_timeout:
+        parser.error("total-timeout can not be less than "
+                     "enablement-timeout.")
+    if args.total_timeout <= 0:
+        parser.error("Invalid total-timeout value: timeout must be "
+                     "greater than zero.")
     if args.enablement_timeout < 0:
         parser.error("Invalid enablement-timeout value: timeout must be "
                      "zero or greater.")

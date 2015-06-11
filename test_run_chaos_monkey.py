@@ -40,7 +40,7 @@ class TestRunChaosMonkey(TestCase):
         args = get_args(['foo', 'bar', 'baz'])
         self.assertItemsEqual(['env', 'service', 'health_checker',
                                'enablement_timeout', 'pause_timeout',
-                               'total_timeout', 'expire_time'],
+                               'total_timeout'],
                               [a for a in dir(args) if not a.startswith('_')])
         self.assertEqual(args.env, 'foo')
         self.assertEqual(args.service, 'bar')
@@ -53,8 +53,7 @@ class TestRunChaosMonkey(TestCase):
                        side_effect=fake_SimpleEnvironment_from_config) as mock:
                 monkey_runner = MonkeyRunner.from_config(Namespace(
                     env='foo', service='bar', health_checker='checker',
-                    enablement_timeout=0, pause_timeout=0, total_timeout=0,
-                    expire_time=0))
+                    enablement_timeout=0, pause_timeout=0, total_timeout=0))
                 self.assertIsInstance(monkey_runner, MonkeyRunner)
                 self.assertEqual(monkey_runner.env, 'foo')
                 self.assertEqual(monkey_runner.service, 'bar')
@@ -348,18 +347,20 @@ class TestRunChaosMonkey(TestCase):
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
             with patch('subprocess.call', autospec=True,
-                       return_value=0):
+                       return_value=0) as call_mock:
                 locks = monkey_runner.get_locks()
             self.assertEqual(expected, locks)
+            self.assertEqual(call_mock.call_count, 2)
         expected = {
             'done': ['chaos-monkey/1', 'chaos-monkey/0']
         }
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
-            with patch('subprocess.check_call', autospec=True,
-                       return_value=1):
+            with patch('subprocess.call', autospec=True,
+                       return_value=1) as call_mock:
                 locks = monkey_runner.get_locks()
             self.assertEqual(expected, locks)
+            self.assertEqual(call_mock.call_count, 2)
 
     def test_wait_for_chaos_complete(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
