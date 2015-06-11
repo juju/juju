@@ -27,6 +27,9 @@ type baseCommand struct {
 	Name string
 	// info is the process info for the named workload process.
 	info *process.Info
+	// notFounderr is the cached error in the case that the named
+	// process was not found.
+	notFoundErr error
 }
 
 func newCommand(ctx jujuc.Context) baseCommand {
@@ -58,12 +61,21 @@ func (c *baseCommand) init(name string) error {
 	if name == "" {
 		return errors.Errorf("got empty name")
 	}
-	var pInfo process.Info
-	if err := c.compCtx.Get(name, &pInfo); err != nil {
-		return errors.Trace(err)
-	}
-	c.info = &pInfo
 	c.Name = name
+
+	var pInfo process.Info
+	err := c.compCtx.Get(name, &pInfo)
+	if errors.IsNotFound(err) {
+		c.notFoundErr = err
+		c.info = nil
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		if pInfo.Status != process.StatusPending {
+			return errors.Errorf("process %q already registered", name)
+		}
+		c.info = &pInfo
+	}
 	return nil
 }
 
