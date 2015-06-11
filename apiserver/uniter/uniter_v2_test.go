@@ -59,6 +59,9 @@ func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.SetVolumeInfo(
 		volumeAttachments[0].Volume(),
 		state.VolumeInfo{VolumeId: "vol-123", Size: 456},

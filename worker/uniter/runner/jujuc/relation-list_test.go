@@ -16,7 +16,7 @@ import (
 )
 
 type RelationListSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&RelationListSuite{})
@@ -110,9 +110,10 @@ var relationListTests = []struct {
 func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, t.relid, "")
-		setMembers(hctx.rels[0], t.members0)
-		setMembers(hctx.rels[1], t.members1)
+		hctx, info := s.newHookContext(t.relid, "")
+		info.setRelations(0, t.members0)
+		info.setRelations(1, t.members1)
+		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -155,7 +156,7 @@ options:
 		0:  {"peer0:0", ""},
 	} {
 		c.Logf("test relid %d", relid)
-		hctx := s.GetHookContext(c, relid, "")
+		hctx, _ := s.newHookContext(relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -164,12 +165,5 @@ options:
 		expect := fmt.Sprintf(template, t.usage, t.doc)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	}
-}
-
-func setMembers(rctx *ContextRelation, members []string) {
-	rctx.units = map[string]Settings{}
-	for _, name := range members {
-		rctx.units[name] = nil
 	}
 }
