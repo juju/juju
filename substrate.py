@@ -14,6 +14,7 @@ from utility import temp_dir
 from boto import ec2
 from boto.exception import EC2ResponseError
 
+import get_ami
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -421,14 +422,14 @@ def make_substrate_manager(config):
             yield substrate
 
 
-def start_libvirt_domain(URI, domain):
+def start_libvirt_domain(uri, domain):
     """Call virsh to start the domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'start', domain]
+    command = ['virsh', '-c', uri, 'start', domain]
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -437,20 +438,20 @@ def start_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_RUNNING):
+        if verify_libvirt_domain(uri, domain, LIBVIRT_DOMAIN_RUNNING):
             return "%s is now running" % domain
         sleep(2)
     raise Exception('libvirt domain %s did not start.' % domain)
 
 
-def stop_libvirt_domain(URI, domain):
+def stop_libvirt_domain(uri, domain):
     """Call virsh to shutdown the domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'shutdown', domain]
+    command = ['virsh', '-c', uri, 'shutdown', domain]
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -459,13 +460,13 @@ def stop_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_SHUT_OFF):
+        if verify_libvirt_domain(uri, domain, LIBVIRT_DOMAIN_SHUT_OFF):
             return "%s is now shut off" % domain
         sleep(2)
     raise Exception('libvirt domain %s is not shut off.' % domain)
 
 
-def verify_libvirt_domain(URI, domain, state=LIBVIRT_DOMAIN_RUNNING):
+def verify_libvirt_domain(uri, domain, state=LIBVIRT_DOMAIN_RUNNING):
     """Returns a bool based on if the domain is in the given state.
 
     @Parms URI: The address of the libvirt service.
@@ -473,20 +474,76 @@ def verify_libvirt_domain(URI, domain, state=LIBVIRT_DOMAIN_RUNNING):
     @Parm state: The state to verify (e.g. "running or "shut off").
     """
 
-    dom_status = get_libvirt_domstate(URI, domain)
+    dom_status = get_libvirt_domstate(uri, domain)
     return state in dom_status
 
 
-def get_libvirt_domstate(URI, domain):
+def get_libvirt_domstate(uri, domain):
     """Call virsh to get the state of the given domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'domstate', domain]
+    command = ['virsh', '-c', uri, 'domstate', domain]
     try:
         sub_output = subprocess.check_output(command)
     except subprocess.CalledProcessError:
         raise Exception('%s failed' % command)
     return sub_output
+
+
+def dump_euca_console(host_id, directory):
+    if host_id is None:
+        return
+    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
+        subprocess.Popen(['euca-get-console-output', host_id],
+                         stdout=console_file)
+
+
+def parse_euca(euca_output):
+    for line in euca_output.splitlines():
+        fields = line.split('\t')
+        if fields[0] != 'INSTANCE':
+            continue
+        yield fields[1], fields[3]
+
+
+def run_instances(count, job_name):
+    environ = dict(os.environ)
+    ami = get_ami.query_ami("precise", "amd64")
+    command = [
+        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
+        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
+    run_output = subprocess.check_output(command, env=environ).strip()
+    machine_ids = dict(parse_euca(run_output)).keys()
+    for remaining in until_timeout(300):
+        try:
+            names = dict(describe_instances(machine_ids, env=environ))
+            if '' not in names.values():
+                subprocess.check_call(
+                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
+                    + machine_ids, env=environ)
+                return names.items()
+        except subprocess.CalledProcessError:
+            subprocess.call(['euca-terminate-instances'] + machine_ids)
+            raise
+        sleep(1)
+
+
+def describe_instances(instances=None, running=False, job_name=None,
+                       env=None):
+    command = ['euca-describe-instances']
+    if job_name is not None:
+        command.extend(['--filter', 'tag:job_name=%s' % job_name])
+    if running:
+        command.extend(['--filter', 'instance-state-name=running'])
+    if instances is not None:
+        command.extend(instances)
+    logging.info(' '.join(command))
+    return parse_euca(subprocess.check_output(command, env=env))
+
+
+def get_job_instances(job_name):
+    description = describe_instances(job_name=job_name, running=True)
+    return (machine_id for machine_id, name in description)

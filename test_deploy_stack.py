@@ -8,7 +8,6 @@ import logging
 import os
 from StringIO import StringIO
 import subprocess
-from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
@@ -27,18 +26,14 @@ from deploy_stack import (
     copy_remote_logs,
     deploy_dummy_stack,
     deploy_job_parse_args,
-    describe_instances,
     destroy_environment,
     destroy_job_instances,
     dump_env_logs,
     dump_logs,
-    get_job_instances,
     get_juju_path,
     get_log_level,
     GET_TOKEN_SCRIPT,
-    parse_euca,
     prepare_environment,
-    run_instances,
     assess_upgrade,
     safe_print_status,
     retain_jenv,
@@ -185,97 +180,6 @@ class DeployStackTestCase(TestCase):
                 destroy_job_instances('foo')
         gji_mock.assert_called_with('foo')
         cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
-
-    def test_get_job_instances_none(self):
-        with patch('deploy_stack.describe_instances',
-                   return_value=[], autospec=True) as di_mock:
-            ids = get_job_instances('foo')
-        self.assertEqual([], [i for i in ids])
-        di_mock.assert_called_with(job_name='foo', running=True)
-
-    def test_get_job_instances_some(self):
-        description = ('i-bar', 'foo-0')
-        with patch('deploy_stack.describe_instances',
-                   return_value=[description], autospec=True) as di_mock:
-            ids = get_job_instances('foo')
-        self.assertEqual(['i-bar'], [i for i in ids])
-        di_mock.assert_called_with(job_name='foo', running=True)
-
-    def test_describe_instances(self):
-        with patch('subprocess.check_output',
-                   return_value='', autospec=True) as co_mock:
-            with patch('deploy_stack.parse_euca', autospec=True) as pe_mock:
-                describe_instances(
-                    instances=['i-foo'], job_name='bar', running=True)
-        co_mock.assert_called_with(
-            ['euca-describe-instances',
-             '--filter', 'tag:job_name=bar',
-             '--filter', 'instance-state-name=running',
-             'i-foo'], env=None)
-        pe_mock.assert_called_with('')
-
-    def test_parse_euca(self):
-        description = parse_euca('')
-        self.assertEqual([], [d for d in description])
-        euca_data = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-        """)
-        description = parse_euca(euca_data)
-        self.assertEqual(
-            [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
-
-    def test_run_instances(self):
-        euca_data = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-        """)
-        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        ami = "ami-atest"
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('deploy_stack.describe_instances',
-                           return_value=description, autospec=True) as di_mock:
-                    with patch('get_ami.query_ami',
-                               return_value=ami, autospec=True) as qa_mock:
-                        run_instances(2, 'qux')
-        co_mock.assert_called_once_with(
-            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
-             '-t', 'm1.large', '-g', 'manual-juju-test', ami],
-            env=os.environ)
-        cc_mock.assert_called_once_with(
-            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
-            env=os.environ)
-        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
-        qa_mock.assert_called_once_with('precise', 'amd64')
-
-    def test_run_instances_tagging_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        description = [('i-foo', 'bar-0')]
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('subprocess.check_call', autospec=True,
-                       side_effect=subprocess.CalledProcessError('', '')):
-                with patch('deploy_stack.describe_instances',
-                           return_value=description, autospec=True):
-                    with patch('subprocess.call', autospec=True) as c_mock:
-                        with self.assertRaises(subprocess.CalledProcessError):
-                            run_instances(1, 'qux')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
-
-    def test_run_instances_describe_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('deploy_stack.describe_instances',
-                       side_effect=subprocess.CalledProcessError('', '')):
-                with patch('subprocess.call', autospec=True) as c_mock:
-                    with self.assertRaises(subprocess.CalledProcessError):
-                        run_instances(1, 'qux')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_assess_juju_run(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
@@ -536,13 +440,13 @@ class TestDeployDummyStack(TestCase):
                     with patch('sys.stdout', autospec=True):
                         deploy_dummy_stack(client, 'bar-')
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'foo',  'bar-dummy-source'),
+            'juju', '--show-log', 'deploy', '-e', 'foo', 'bar-dummy-source'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set', '-e', 'foo',  'dummy-source',
+            'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
             'token=fake-token'), 1)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'foo',  'bar-dummy-sink'), 2)
+            'juju', '--show-log', 'deploy', '-e', 'foo', 'bar-dummy-sink'), 2)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-relation', '-e', 'foo',
             'dummy-source', 'dummy-sink'), 3)
