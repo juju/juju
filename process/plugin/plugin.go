@@ -29,6 +29,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var logger = loggo.GetLogger("juju.process.plugin")
+
 const timeout = time.Second * 30
 
 type timeoutErr struct {
@@ -107,8 +109,10 @@ func Status(plugin, id string) (string, error) {
 	return string(stdout), nil
 }
 
-// outputWithTimeout runs the Cmd and kills if it takes longer than
-func outputWithTimeout(cmd *exec.Cmd, timeout time.Duration) ([]byte, error) {
+// outputWithTimeout runs the Cmd and kills if it takes longer than timeout. If
+// the cmd fails and there is output to stdout, the output is converted into the
+// string for the error returned.
+var outputWithTimeout = func(cmd *exec.Cmd, timeout time.Duration) ([]byte, error) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -126,7 +130,9 @@ func outputWithTimeout(cmd *exec.Cmd, timeout time.Duration) ([]byte, error) {
 
 	select {
 	case <-time.After(timeout):
-		cmd.Process.Kill()
+		if err := cmd.Process.Kill(); err != nil {
+			logger.Warningf("error killing plugin %q", cmd.Path)
+		}
 		err := errors.NewErr("timed out waiting for plugin %q to execute", cmd.Path)
 		return nil, timeoutErr{&err}
 	case <-done:
