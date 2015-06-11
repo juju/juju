@@ -17,7 +17,6 @@ import time
 import json
 import shutil
 
-import get_ami
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -30,7 +29,9 @@ from jujupy import (
     temp_bootstrap_env,
 )
 from substrate import (
+    destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
+    run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -80,43 +81,6 @@ def destroy_environment(client, instance_tag):
     if (client.env.config['type'] == 'manual'
             and 'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
-
-
-def destroy_job_instances(job_name):
-    instances = list(get_job_instances(job_name))
-    if len(instances) == 0:
-        return
-    subprocess.check_call(['euca-terminate-instances'] + instances)
-
-
-def parse_euca(euca_output):
-    for line in euca_output.splitlines():
-        fields = line.split('\t')
-        if fields[0] != 'INSTANCE':
-            continue
-        yield fields[1], fields[3]
-
-
-def run_instances(count, job_name):
-    environ = dict(os.environ)
-    ami = get_ami.query_ami("precise", "amd64")
-    command = [
-        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
-    run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = dict(parse_euca(run_output)).keys()
-    for remaining in until_timeout(300):
-        try:
-            names = dict(describe_instances(machine_ids, env=environ))
-            if '' not in names.values():
-                subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
-                    + machine_ids, env=environ)
-                return names.items()
-        except subprocess.CalledProcessError:
-            subprocess.call(['euca-terminate-instances'] + machine_ids)
-            raise
-        time.sleep(1)
 
 
 def deploy_dummy_stack(client, charm_prefix):
@@ -192,8 +156,7 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, host_id=None,
-                  jenv_path=None):
+def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
@@ -203,8 +166,6 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None,
         local_state_server = client.env.local and machine_id == '0'
         dump_logs(client, addr, machine_directory,
                   local_state_server=local_state_server)
-
-    dump_euca_console(host_id, directory)
     retain_jenv(jenv_path, directory)
 
 
@@ -313,14 +274,6 @@ def copy_remote_logs(host, directory):
         logging.warning(e.output)
 
 
-def dump_euca_console(host_id, directory):
-    if host_id is None:
-        return
-    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
-        subprocess.Popen(['euca-get-console-output', host_id],
-                         stdout=console_file)
-
-
 def assess_juju_run(client):
     responses = client.get_juju_output('run', '--format', 'json', '--machine',
                                        '1,2', 'uname')
@@ -358,24 +311,6 @@ def upgrade_juju(client):
     print(
         'The tools-metadata-url is %s' % tools_metadata_url)
     client.upgrade_juju()
-
-
-def describe_instances(instances=None, running=False, job_name=None,
-                       env=None):
-    command = ['euca-describe-instances']
-    if job_name is not None:
-        command.extend(['--filter', 'tag:job_name=%s' % job_name])
-    if running:
-        command.extend(['--filter', 'instance-state-name=running'])
-    if instances is not None:
-        command.extend(instances)
-    logging.info(' '.join(command))
-    return parse_euca(subprocess.check_output(command, env=env))
-
-
-def get_job_instances(job_name):
-    description = describe_instances(job_name=job_name, running=True)
-    return (machine_id for machine_id, name in description)
 
 
 def add_path_args(parser):

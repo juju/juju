@@ -1,5 +1,6 @@
 import os
 from subprocess import CalledProcessError
+from textwrap import dedent
 from unittest import TestCase
 
 from boto.ec2.securitygroup import SecurityGroup
@@ -21,10 +22,15 @@ from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
     AzureAccount,
+    describe_instances,
+    destroy_job_instances,
+    get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
     OpenStackAccount,
     make_substrate_manager,
+    parse_euca,
+    run_instances,
     start_libvirt_domain,
     StillProvisioning,
     stop_libvirt_domain,
@@ -236,7 +242,7 @@ class TestAWSAccount(TestCase):
                 groups = list(aws.iter_instance_security_groups())
             gec_mock.assert_called_once_with()
             self.assertEqual(groups, [
-                ('foo', 'bar'), ('baz', 'qux'),  ('quxx-id', 'quxx')])
+                ('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
         gai_mock.assert_called_once_with(instance_ids=None)
 
     def test_iter_instance_security_groups_instances(self):
@@ -636,57 +642,167 @@ class TestMakeSubstrateManager(TestCase):
 class TestLibvirt(TestCase):
 
     def test_start_libvirt_domain(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('subprocess.check_output',
                    return_value='running') as mock_sp:
             with patch('substrate.sleep'):
-                start_libvirt_domain(URI, dom_name)
-        mock_sp.assert_any_call(['virsh', '-c', URI, 'start', dom_name],
+                start_libvirt_domain(uri, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', uri, 'start', dom_name],
                                 stderr=ANY)
 
     def test_stop_libvirt_domain(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('subprocess.check_output',
                    return_value='shut off') as mock_sp:
             with patch('substrate.sleep'):
-                stop_libvirt_domain(URI, dom_name)
-        mock_sp.assert_any_call(['virsh', '-c', URI, 'shutdown', dom_name],
+                stop_libvirt_domain(uri, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', uri, 'shutdown', dom_name],
                                 stderr=ANY)
 
     def test_get_libvirt_domstate(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
-        expected_cmd = ['virsh', '-c', URI, 'domstate', dom_name]
+        expected_cmd = ['virsh', '-c', uri, 'domstate', dom_name]
         with patch('subprocess.check_output') as m_sub:
-            get_libvirt_domstate(URI, dom_name)
+            get_libvirt_domstate(uri, dom_name)
         m_sub.assert_called_with(expected_cmd)
 
     def test_verify_libvirt_domain_shut_off_true(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('substrate.get_libvirt_domstate', return_value='shut off'):
-            rval = verify_libvirt_domain(URI, dom_name, 'shut off')
+            rval = verify_libvirt_domain(uri, dom_name, 'shut off')
         self.assertTrue(rval)
 
     def test_verify_libvirt_domain_shut_off_false(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('substrate.get_libvirt_domstate', return_value='running'):
-            rval = verify_libvirt_domain(URI, dom_name, 'shut off')
+            rval = verify_libvirt_domain(uri, dom_name, 'shut off')
         self.assertFalse(rval)
 
     def test_verify_libvirt_domain_running_true(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('substrate.get_libvirt_domstate', return_value='running'):
-            rval = verify_libvirt_domain(URI, dom_name, 'running')
+            rval = verify_libvirt_domain(uri, dom_name, 'running')
         self.assertTrue(rval)
 
     def test_verify_libvirt_domain_running_false(self):
-        URI = 'qemu+ssh://someHost/system'
+        uri = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         with patch('substrate.get_libvirt_domstate', return_value='shut off'):
-            rval = verify_libvirt_domain(URI, dom_name, 'running')
+            rval = verify_libvirt_domain(uri, dom_name, 'running')
         self.assertFalse(rval)
+
+
+class EucaTestCase(TestCase):
+
+    def test_get_job_instances_none(self):
+        with patch('substrate.describe_instances',
+                   return_value=[], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual([], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_get_job_instances_some(self):
+        description = ('i-bar', 'foo-0')
+        with patch('substrate.describe_instances',
+                   return_value=[description], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual(['i-bar'], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_describe_instances(self):
+        with patch('subprocess.check_output',
+                   return_value='', autospec=True) as co_mock:
+            with patch('substrate.parse_euca', autospec=True) as pe_mock:
+                describe_instances(
+                    instances=['i-foo'], job_name='bar', running=True)
+        co_mock.assert_called_with(
+            ['euca-describe-instances',
+             '--filter', 'tag:job_name=bar',
+             '--filter', 'instance-state-name=running',
+             'i-foo'], env=None)
+        pe_mock.assert_called_with('')
+
+    def test_parse_euca(self):
+        description = parse_euca('')
+        self.assertEqual([], [d for d in description])
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
+        description = parse_euca(euca_data)
+        self.assertEqual(
+            [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
+
+    def test_run_instances(self):
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
+        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
+        ami = "ami-atest"
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True) as co_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('substrate.describe_instances',
+                           return_value=description, autospec=True) as di_mock:
+                    with patch('get_ami.query_ami',
+                               return_value=ami, autospec=True) as qa_mock:
+                        run_instances(2, 'qux')
+        co_mock.assert_called_once_with(
+            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
+             '-t', 'm1.large', '-g', 'manual-juju-test', ami],
+            env=os.environ)
+        cc_mock.assert_called_once_with(
+            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
+            env=os.environ)
+        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
+        qa_mock.assert_called_once_with('precise', 'amd64')
+
+    def test_run_instances_tagging_failed(self):
+        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
+        description = [('i-foo', 'bar-0')]
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True):
+            with patch('subprocess.check_call', autospec=True,
+                       side_effect=CalledProcessError('', '')):
+                with patch('substrate.describe_instances',
+                           return_value=description, autospec=True):
+                    with patch('subprocess.call', autospec=True) as c_mock:
+                        with self.assertRaises(CalledProcessError):
+                            run_instances(1, 'qux')
+        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
+
+    def test_run_instances_describe_failed(self):
+        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True):
+            with patch('substrate.describe_instances',
+                       side_effect=CalledProcessError('', '')):
+                with patch('subprocess.call', autospec=True) as c_mock:
+                    with self.assertRaises(CalledProcessError):
+                        run_instances(1, 'qux')
+        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
+
+    def test_destroy_job_instances_none(self):
+        with patch('substrate.get_job_instances',
+                   return_value=[], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        self.assertEqual(0, cc_mock.call_count)
+
+    def test_destroy_job_instances_some(self):
+        with patch('substrate.get_job_instances',
+                   return_value=['i-bar'], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
