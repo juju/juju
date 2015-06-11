@@ -7,11 +7,39 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	//"github.com/juju/juju/apiserver/metricsmanager"
+	//"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
+/*
+var newMetricsManager = func(state *state.State, resources *Resources, auth Authorizer) (metricsmanager.MetricsManager, error) {
+	return metricsmanager.NewMetricsManagerAPI(state, resources, auth)
+}
+
+func (c *Client) sendMetrics() error {
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	metricsManager, err := newMetricsManager(c.api.state, c.api.resources, c.api.auth)
+	if err != nil {
+		return errors.Annotate(err, "failed to create a metrics manager during environment destruction")
+	} else {
+		args := params.Entities{Entities: []params.Entity{
+			{env.Tag().String()},
+		}}
+		results, err := metricsManager.SendMetrics(args)
+		if err != nil {
+			return errors.Annotate(err, "failed to send metrics")
+		}
+		return results.Combine()
+	}
+}
+*/
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment. This function assumes that all
 // necessary authentication checks have been done.
@@ -43,6 +71,11 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 		return errors.Trace(err)
 	}
 
+	/*	err = c.sendMetrics()
+		if err != nil {
+			logger.Warningf("failed to send leftover metrics: %v", err)
+		}
+	*/
 	// We must destroy instances server-side to support JES (Juju Environment
 	// Server), as there's no CLI to fall back on. In that case, we only ever
 	// destroy non-state machines; we leave destroying state servers in non-

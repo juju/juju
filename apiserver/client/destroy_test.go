@@ -1,7 +1,7 @@
-// Copyright 2012-2015 Canonical Ltd.
+// Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package client_test
 
 import (
 	"fmt"
@@ -13,8 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
@@ -28,25 +26,10 @@ import (
 )
 
 type destroyEnvironmentSuite struct {
-	testing.JujuConnSuite
-	commontesting.BlockHelper
-	metricsManager *testMetricsManager
+	baseSuite
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
-
-func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-
-	s.metricsManager = &testMetricsManager{}
-	/*
-		s.PatchValue(client.NewMetricsManager, func(_ *state.State, _ common.Authorizer) (metricsmanager.MetricsManager, error) {
-			return s.metricsManager, nil
-		})
-	*/
-}
 
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
@@ -94,7 +77,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := s.APIState.Client().DestroyEnvironment()
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +89,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = nonManager.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = s.APIState.Client().DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +110,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = s.APIState.Client().DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After DestroyEnvironment returns, we should have:
@@ -164,7 +147,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	_, nonManager, _ := s.setUpInstances(c)
 	nonManagerId, _ := nonManager.InstanceId()
 
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := s.APIState.Client().DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	for op := range ops {
 		if op, ok := op.(dummy.OpStopInstances); ok {
@@ -178,7 +161,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := s.APIState.Client().DestroyEnvironment()
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
@@ -186,7 +169,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := s.APIState.Client().DestroyEnvironment()
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
@@ -195,18 +178,8 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := s.APIState.Client().DestroyEnvironment()
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
-}
-
-func (s *destroyEnvironmentSuite) TestDestroyEnvironmentFlushMetrics(c *gc.C) {
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.metricsManager.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics", Args: []interface{}{env.Tag().String()}}})
 }
 
 type destroyTwoEnvironmentsSuite struct {
@@ -214,7 +187,6 @@ type destroyTwoEnvironmentsSuite struct {
 	otherState     *state.State
 	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
-	metricsManager *testMetricsManager
 }
 
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
@@ -240,13 +212,6 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 	}
 	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.metricsManager = &testMetricsManager{}
-	/*
-		s.PatchValue(client.NewMetricsManager, func(_ *state.State, _ *common.Resources, _ common.Authorizer) (metricsmanager.MetricsManager, error) {
-			return s.metricsManager, nil
-		})
-	*/
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
@@ -255,26 +220,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-	_, err = s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
-}
-
-func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
-	otherFactory := factory.NewFactory(s.otherState)
-	otherFactory.MakeMachine(c, nil)
-	m := otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachineNested(c, m.Id(), nil)
-
-	// NOTE: pass in the main test State instance, which is 'bound'
-	// to the state server environment.
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := s.otherEnvClient.DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.otherState.Environment()
@@ -286,62 +232,10 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
-	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
-	bh := commontesting.NewBlockHelper(s.APIState)
-	defer bh.Close()
-
-	bh.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
-
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
-}
-
-func (s *destroyTwoEnvironmentsSuite) TestDestroyEnvironmentFlushMetrics(c *gc.C) {
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	otherEnv, err := s.otherState.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
+	err := s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
 	err = s.otherEnvClient.DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
-
 	err = s.APIState.Client().DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.metricsManager.CheckCalls(c, []jtesting.StubCall{
-		{
-			FuncName: "SendMetrics",
-			Args:     []interface{}{otherEnv.Tag().String()},
-		}, {
-			FuncName: "SendMetrics",
-			Args:     []interface{}{env.Tag().String()},
-		},
-	})
-}
-
-type testMetricsManager struct {
-	jtesting.Stub
-	metricsmanager.MetricsManager
-}
-
-func (t *testMetricsManager) SendMetrics(args params.Entities) (params.ErrorResults, error) {
-	for _, arg := range args.Entities {
-		t.AddCall("SendMetrics", arg.Tag)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	return result, nil
 }
