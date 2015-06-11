@@ -4,8 +4,11 @@
 package context
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
@@ -78,6 +81,12 @@ type registeringCommand struct {
 	Id string
 	// Details is the launch details returned from the process plugin.
 	Details process.LaunchDetails
+
+	// Overrides overwrite process definition.
+	Overrides []string
+
+	// UpdatedProcess stores the new process, if there were any overrides.
+	UpdatedProcess *charm.Process
 }
 
 func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
@@ -88,6 +97,7 @@ func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
 
 // SetFlags implements cmd.Command.
 func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.Var(cmd.NewAppendStringsValue(&c.Overrides), "override", "override process definition")
 }
 
 func (c *registeringCommand) init(name string) error {
@@ -97,6 +107,18 @@ func (c *registeringCommand) init(name string) error {
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
 	}
+
+	overrides, err := c.parseOverrides(c.Overrides)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	newProcess, err := c.info.Process.Apply(overrides, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.UpdatedProcess = newProcess
 	return nil
 }
 
@@ -107,6 +129,45 @@ func (c *registeringCommand) checkSpace() error {
 	return nil
 }
 
+// parseOverride builds a ProcessField value from an override string.
+func parseOverride(override string) (charm.ProcessFieldValue, error) {
+	var pfv charm.ProcessFieldValue
+
+	parts := strings.SplitN(override, ":", 2)
+	if len(parts) == 1 {
+		return pfv, errors.Errorf("missing override value")
+	}
+	pfv.Field, pfv.Value = parts[0], parts[1]
+
+	if pfv.Field == "" {
+		return pfv, errors.Errorf("missing override field")
+	}
+	if pfv.Value == "" {
+		return pfv, errors.Errorf("missing override value")
+	}
+
+	fieldParts := strings.SplitN(pfv.Field, "/", 2)
+	if len(fieldParts) == 2 {
+		pfv.Field = fieldParts[0]
+		pfv.Subfield = fieldParts[1]
+	}
+
+	return pfv, nil
+}
+
+// parseOverrides parses the overrides list in to a ProcessFieldValue list.
+func (c *registeringCommand) parseOverrides(overrides []string) ([]charm.ProcessFieldValue, error) {
+	var results []charm.ProcessFieldValue
+	for _, override := range overrides {
+		pfv, err := parseOverride(override)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results = append(results, pfv)
+	}
+	return results, nil
+}
+
 // register updates the hook context with the information for the
 // registered workload process. An error is returned if the process
 // was already registered.
@@ -115,6 +176,11 @@ func (c *registeringCommand) register() error {
 		return errors.Errorf("already registered")
 	}
 	c.info.Details = c.Details
+
+	if c.UpdatedProcess != nil {
+		c.info.Process = *c.UpdatedProcess
+	}
+
 	if err := c.compCtx.Set(c.Name, c.info); err != nil {
 		return errors.Trace(err)
 	}

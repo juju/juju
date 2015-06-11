@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,8 +37,12 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: register <name> <id> [<details>]
+usage: register [options] <name> <id> [<details>]
 purpose: register a workload process
+
+options:
+--override  (= )
+    override process definition
 
 "register" is used while a hook is running to let Juju know that
 a workload process has been manually started. The information used
@@ -143,11 +148,96 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "unexpected end of JSON input")
 }
 
+func (s *registerSuite) TestInitOverridesWithoutSubfield(c *gc.C) {
+	s.proc.Process.Description = "notFoo"
+	s.registerCmd.Overrides = []string{
+		"description:foo",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.proc.Process.Copy()
+	expected.Description = "foo"
+	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+}
+
+func (s *registerSuite) TestInitOverridesWithSubfield(c *gc.C) {
+	s.proc.Process.EnvVars = map[string]string{"foo": "bar"}
+	s.registerCmd.Overrides = []string{
+		"env/foo:baz",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.proc.Process.Copy()
+	expected.EnvVars = map[string]string{"foo": "baz"}
+	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+}
+
+func (s *registerSuite) TestInitOverridesMissingField(c *gc.C) {
+	s.registerCmd.Overrides = []string{
+		":value",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "missing override field")
+}
+
+func (s *registerSuite) TestInitOverridesMissingValue(c *gc.C) {
+	s.registerCmd.Overrides = []string{
+		"field:",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "missing override value")
+}
+
+func (s *registerSuite) TestInitOverridesMissingColon(c *gc.C) {
+	s.registerCmd.Overrides = []string{
+		"fieldvalue",
+	}
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123-override",
+	})
+	c.Assert(err, gc.ErrorMatches, "missing override value")
+}
+
 func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
 	s.Stub.CheckCallNames(c, "Set")
+}
+
+func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
+	s.init(c, s.proc.Name, "abc123", "running")
+
+	s.proc.Process.Description = "bar"
+	s.registerCmd.Overrides = []string{"description:foo"}
+
+	s.checkRun(c, "", "")
+
+	s.proc.Process = *s.registerCmd.UpdatedProcess
+	s.Stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "Set",
+		Args:     []interface{}{s.proc.Name, s.proc},
+	}})
 }
 
 func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
