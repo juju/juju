@@ -16,6 +16,7 @@ type Metrics struct {
 	Metrics []jujuc.Metric
 }
 
+// AddMetric adds a Metric for the provided data.
 func (m *Metrics) AddMetric(key, value string, created time.Time) {
 	m.Metrics = append(m.Metrics, jujuc.Metric{
 		Key:   key,

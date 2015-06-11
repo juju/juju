@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
-// The base suite for testing jujuc.Context-related code.
+// ContextSuite is the base suite for testing jujuc.Context-related code.
 type ContextSuite struct {
 	Stub *testing.Stub
 	Unit string

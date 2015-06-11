@@ -15,9 +15,13 @@ import (
 
 // Relation holds the data for the test double.
 type Relation struct {
-	Id       int
-	Name     string
-	Units    map[string]Settings
+	// Id is data for jujuc.ContextRelation.
+	Id int
+	// Name is data for jujuc.ContextRelation.
+	Name string
+	// Units is data for jujuc.ContextRelation.
+	Units map[string]Settings
+	// UnitName is data for jujuc.ContextRelation.
 	UnitName string
 }
 
