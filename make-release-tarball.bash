@@ -97,8 +97,8 @@ rm -r $WORK/src/launchpad.net/godeps
 rm -rf $WORK/src/github.com/kisielk
 rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
 rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
-rm -rf $WORK/src/golang.org/x/go.net/html/charset/testdata/
-rm -f $WORK/src/golang.org/x/go.net/html/charset/*test.go
+rm -rf $WORK/src/golang.org/x/net/html/charset/testdata/
+rm -f $WORK/src/golang.org/x/net/html/charset/*test.go
 
 # Validate the go src tree against dependencies.tsv
 $SCRIPT_DIR/check_dependencies.py --delete-unknown --ignore $PACKAGE \
