@@ -378,7 +378,7 @@ class DumpEnvLogsTestCase(TestCase):
              'WARNING None'],
             self.log_stream.getvalue().splitlines())
 
-    def test_get_machines_for_log(self):
+    def test_get_machines_for_logs(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         status = Status.from_text(dedent("""\
@@ -394,7 +394,7 @@ class DumpEnvLogsTestCase(TestCase):
         self.assertEqual(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
 
-    def test_get_machines_for_log_with_boostrap_host(self):
+    def test_get_machines_for_logs_with_boostrap_host(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         status = Status.from_text(dedent("""\
@@ -407,7 +407,7 @@ class DumpEnvLogsTestCase(TestCase):
             machine_addrs = get_machines_for_logs(client, '10.11.111.222')
         self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
 
-    def test_get_machines_for_log_with_no_addresses(self):
+    def test_get_machines_for_logs_with_no_addresses(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         with patch.object(client, 'get_status', autospec=True,
@@ -416,7 +416,7 @@ class DumpEnvLogsTestCase(TestCase):
         self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
 
     @patch('subprocess.check_call')
-    def test_get_machines_for_log_with_maas(self, cc_mock):
+    def test_get_machines_for_logs_with_maas(self, cc_mock):
         config = {
             'type': 'maas',
             'name': 'foo',
