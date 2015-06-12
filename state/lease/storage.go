@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lease
 
 import (
@@ -8,48 +11,54 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// Info is the information a Storage is willing to give out about leases.
-type Info struct {
-	// Holder is the name of the current lease holder.
-	Holder string
+// StorageConfig contains the resources and information required to create
+// a Storage.
+type StorageConfig struct {
 
-	// EarliestExpiry is the earliest time at which it's possible the lease
-	// might expire.
-	EarliestExpiry time.Time
+	// Clock exposes the wall-clock time to a Storage.
+	Clock Clock
 
-	// LatestExpiry is the latest time at which it's possible the lease might
-	// still be valid.
-	LatestExpiry time.Time
+	// Mongo exposes the mgo[/txn] capabilities required by a Storage.
+	Mongo Mongo
 
-	// AssertOp is filthy abstraction-breaking garbage that is necessary to
-	// allow us to make mgo/txn assertions about leases in the state package;
-	// and which thus allows us to gate certain state changes on a particular
-	// unit's leadership of a service, for example.
-	AssertOp txn.Op
+	// Collection identifies the MongoDB collection in which lease data is
+	// persisted. Multiple storages can use the same collection without
+	// interfering with each other, so long as they use different namespaces.
+	Collection string
+
+	// Namespace identifies the domain of the lease manager; storage instances
+	// which share a namespace and a collection will collaborate.
+	Namespace string
+
+	// Instance uniquely identifies the storage instance. Storage instances will
+	// fail to collaborate if any two concurrently identify as the same instance.
+	Instance string
 }
 
-// entry holds the details of a lease and how it was written. The time values
-// are always expressed in the writer's local time.
-type entry struct {
-	// holder identifies the current holder of the lease.
-	holder string
-
-	// expiry is the time at which the lease is safe to remove.
-	expiry time.Time
-
-	// writer identifies the storage instance that wrote the lease.
-	writer string
-
-	// written is the earliest possible time the lease could have been written.
-	written time.Time
+// Validate returns an error if the supplied config is not valid.
+func (config StorageConfig) Validate() error {
+	return fmt.Errorf("validation!")
 }
 
-var ErrLeaseFree = errors.New("lease not held")
-var ErrLeaseHeld = errors.New("lease already held")
+// NewStorage returns a new Storage using the supplied config. If the config
+// fails to validate, or if the collection lacks a clock document for the
+// configured namespace and none can be created, it will return an error.
+func NewStorage(config StorageConfig) (Storage, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storage := &storage{
+		config:  config,
+		entries: make(map[string]entry),
+		skews:   make(map[string]entry),
+	}
+	if err := storage.ensureClockDoc(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage, nil
+}
 
-var errNoExtension = errors.New("lease needs no extension")
-
-// storage exposes lease management functionality on top of mongodb.
+// storage implements the Storage interface.
 type storage struct {
 	config  StorageConfig
 	entries map[string]entry
@@ -58,16 +67,15 @@ type storage struct {
 
 // Refresh is part of the Storage interface.
 func (s *storage) Refresh() error {
-
 	// Always read entries before skews, because skews are written before
 	// entries; we increase the risk of reading older skew data, but (should)
 	// eliminate the risk of reading an entry whose writer is not present
 	// in the skews data.
-	entries, err := s.readEntries()
+	entries, err := s.readEntries(collection)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	skews, err := s.readSkews()
+	skews, err := s.readSkews(collection)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -75,10 +83,8 @@ func (s *storage) Refresh() error {
 	// Check we're not missing any required clock information before
 	// updating our local state.
 	for lease, entry := range entries {
-		if entry.writer != s.config.Instance {
-			if _, found := skews[entry.writer]; !found {
-				return errors.Errorf("lease %q invalid: no clock data for %s", lease, entry.writer)
-			}
+		if _, found := skews[entry.writer]; !found {
+			return errors.Errorf("lease %q invalid: no clock data for %s", lease, entry.writer)
 		}
 	}
 	s.skews = skews
@@ -123,7 +129,11 @@ func (s *storage) ClaimLease(lease, holder string, duration time.Duration) error
 		cacheEntry = nextEntry
 		return ops, nil
 	})
-	if err != nil {
+
+	// Unwrap ErrInvalid if necessary.
+	if errors.Cause(err) == ErrInvalid {
+		return ErrInvalid
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -149,17 +159,20 @@ func (s *storage) ExtendLease(lease, holder string, duration time.Duration) erro
 		// It's possible that the "extension" isn't an extension at all; this
 		// isn't a problem, but does require separate handling.
 		ops, nextEntry, err := s.extendLeaseOps(lease, holder, duration)
-		switch errors.Cause(err) {
-		case nil:
-			cacheEntry = nextEntry
-			return ops, nil
-		case errNoExtension:
+		if errors.Cause(err) == errNoExtension {
 			cacheEntry = lastEntry
 			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Trace(err)
+		cacheEntry = nextEntry
+		return ops, nil
 	})
-	if err != nil {
+
+	// Unwrap ErrInvalid if necessary.
+	if errors.Cause(err) == ErrInvalid {
+		return ErrInvalid
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -188,7 +201,11 @@ func (s *storage) ExpireLease(lease string) error {
 		}
 		return ops, nil
 	})
-	if err != nil {
+
+	// Unwrap ErrInvalid if necessary.
+	if errors.Cause(err) == ErrInvalid {
+		return ErrInvalid
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -197,14 +214,63 @@ func (s *storage) ExpireLease(lease string) error {
 	return nil
 }
 
+// readEntries reads all lease data for the storage's namespace.
+func (s *storage) readEntries(collection *mgo.Collection) (map[string]entry, error) {
+
+	// Read all lease documents in the storage's namespace.
+	query := bson.M{
+		fieldType:      typeLease,
+		fieldNamespace: s.config.Namespace,
+	}
+	iter := collection.Find(query).Iter()
+
+	// Extract valid entries for each one.
+	entries := make(map[string]entry)
+	var leaseDoc leaseDoc
+	for iter.Next(&leaseDoc) {
+		if lease, entry, err := leaseDoc.entry(); err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			entries[lease] = entry
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return entries, nil
+}
+
+// readSkews reads all clock data for the storage's namespace.
+func (s *storage) readSkews(collection *mgo.Collection) (map[string]Skew, error) {
+
+	// Read the clock document, recording the time before and after completion.
+	readBefore := s.config.Clock.Now()
+	var clockDoc clockDoc
+	if err := collection.FindId(s.clockDocId()).One(&clockDoc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	readAfter := s.config.Clock.Now()
+
+	// Create skew entries for each known writer...
+	skews, err := clockDoc.skews(readAfter, readBefore)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// ...and overwrite our own with a zero skew, which will DTRT.
+	skews[s.config.Instance] = Skew{}
+	return skews, nil
+}
+
 // claimLeaseOps returns the []txn.Op necessary to claim the supplied lease
 // until duration in the future, and a cache entry corresponding to the values
-// that will be written if the transaction succeeds.
+// that will be written if the transaction succeeds. If the claim would conflict
+// with cached state, it returns ErrInvalid.
 func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([]txn.Op, entry, error) {
 
 	// We can't claim a lease that's already held.
 	if _, found := s.entries[lease]; found {
-		return nil, entry{}, ErrLeaseHeld
+		return nil, entry{}, ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
@@ -219,7 +285,7 @@ func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([
 	}
 
 	// We need to write the entry to the database in a specific format.
-	leaseDoc, err := s.leaseDoc(lease, entry)
+	leaseDoc, err := newLeaseDoc(namespace, lease, entry)
 	if err != nil {
 		return nil, entry{}, errors.Trace(err)
 	}
@@ -232,23 +298,25 @@ func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([
 
 	// We always write a clock-update operation *before* writing lease info.
 	writeClockOp := s.writeClockOp(now)
-	return []txn.Op{writeClockOp, extendLeaseOp}, nextEntry, nil
+	ops := []txn.Op{writeClockOp, extendLeaseOp}
+	return ops, nextEntry, nil
 }
 
 // extendLeaseOps returns the []txn.Op necessary to extend the supplied lease
 // until duration in the future, and a cache entry corresponding to the values
 // that will be written if the transaction succeeds. If the supplied lease
 // already extends far enough that no operations are required, it will return
-// errNoExtension.
+// errNoExtension. If the extension would conflict with cached state, it will
+// return ErrInvalid.
 func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) ([]txn.Op, entry, error) {
 
 	// Reject extensions when there's no lease, or the holder doesn't match.
 	lastEntry, found := s.entries[lease]
 	if !found {
-		return nil, ErrLeaseFree
+		return nil, ErrInvalid
 	}
 	if holder != lastEntry.holder {
-		return nil, ErrLeaseHeld
+		return nil, ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
@@ -258,11 +326,11 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 
 	// We don't know what time the original writer thinks it is, but we
 	// can figure out the earliest and latest local times at which it
-	// could be expecting its lease to expire.
+	// could be expecting its original lease to expire.
 	skew := s.skews[lastEntry.writer]
 	if expiry.Before(skew.Earliest(lastEntry.expiry)) {
 		// The "extended" lease will certainly expire before the
-		// existing lease would. Done.
+		// existing lease could. Done.
 		return nil, entry{}, errNoExtension
 	}
 	latestExpiry := skew.Latest(lastEntry.expiry)
@@ -290,23 +358,92 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 		C:  s.config.Collection,
 		Id: s.leaseDocId(lease),
 		Assert: bson.M{
-			"holder": lastEntry.holder,
-			"expiry": lastEntry.expiry.UnixNano(),
+			fieldLeaseHolder: lastEntry.holder,
+			fieldLeaseExpiry: lastEntry.expiry.UnixNano(),
+			fieldLeaseWriter: lastEntry.writer,
 		},
 		Update: bson.M{
-			"expiry":  expiry.UnixNano(),
-			"writer":  s.config.Instance,
-			"written": nextEntry.written.UnixNano(),
+			fieldLeaseExpiry:  expiry.UnixNano(),
+			fieldLeaseWriter:  s.config.Instance,
+			fieldLeaseWritten: nextEntry.written.UnixNano(),
 		},
 	}
 
 	// We always write a clock-update operation *before* writing lease info.
 	writeClockOp := s.writeClockOp(now)
-	return []txn.Op{writeClockOp, extendLeaseOp}, nextEntry, nil
+	ops := []txn.Op{writeClockOp, extendLeaseOp}
+	return ops, nextEntry, nil
 }
 
+// expireLeaseOps returns the []txn.Op necessary to vacate the lease. If the
+// expiration would conflict with cached state, it will return ErrInvalid.
 func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
 
+	// We can't expire a lease that doesn't exist.
+	lastEntry, found := s.entries[lease]
+	if !found {
+		return nil, ErrInvalid
+	}
+
+	// We also can't expire a lease that hasn't actually expired.
+	skew := s.skews[lastEntry.writer]
+	latestExpiry := skew.Latest(lastEntry.expiry)
+	now := s.config.Clock.Now()
+	if !now.After(latestExpiry) {
+		return nil, ErrInvalid
+	}
+
+	// The database change is simple, and depends on the lease doc being
+	// untouched since we looked:
+	expireLeaseOp := txn.Op{
+		C:  s.config.Collection,
+		Id: s.leaseDocId(lease),
+		Assert: bson.M{
+			fieldLeaseHolder: lastEntry.holder,
+			fieldLeaseExpiry: lastEntry.expiry.UnixNano(),
+			fieldLeaseWriter: lastEntry.Writer,
+		},
+		Remove: true,
+	}
+
+	// We always write a clock-update operation *before* writing lease info.
+	// Removing a lease document counts as writing lease info.
+	writeClockOp := s.writeClockOp(now)
+	ops := []txn.Op{writeClockOp, expireLeaseOp}
+	return ops, nil
+}
+
+// ensureClockDoc returns an error if it can neither find nor create a
+// valid clock document for the storage's namespace.
+func (s *storage) ensureClockDoc() error {
+
+	collection, closer := s.config.Mongo.GetCollection(s.config.Collection)
+	defer closer()
+
+	clockDocId := s.clockDocId()
+	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		var clockDoc clockDoc
+		err := collection.FindId(clockDocId).One(&clockDoc)
+		if err == nil {
+			if err := clockDoc.validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return nil, jujutxn.ErrNoOperations
+		} else if err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		newClockDoc, err := newClockDoc(s.config.Namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []txn.Op{{
+			C:      s.config.Collection,
+			Id:     clockDocId,
+			Assert: txn.DocMissing,
+			Insert: newClockDoc,
+		}}, nil
+	})
+	return errors.Trace(err)
 }
 
 // writeClockOp returns a txn.Op which writes the supplied time to the writer's
@@ -326,64 +463,43 @@ func (s *storage) writeClockOp(now time.Time) txn.Op {
 	}
 }
 
+// assertOp returns a txn.Op which will succeed only if holder holds lease.
 func (s *storage) assertOp(lease, holder string) txn.Op {
 	return txn.Op{
-		C:      s.config.Collection,
-		Id:     s.leaseDocId(lease),
-		Assert: bson.M{"holder": holder},
+		C:  s.config.Collection,
+		Id: s.leaseDocId(lease),
+		Assert: bson.M{
+			fieldLeaseHolder: holder,
+		},
 	}
 }
 
 // clockDocId returns the id of the clock document in the storage's namespace.
 func (s *storage) clockDocId() string {
-	return fmt.Sprintf("clock#%s#")
+	return clockDocId(s.config.Namespace)
 }
 
 // leaseDocId returns the id of the named lease document in the storage's
 // namespace.
 func (s *storage) leaseDocId(lease string) string {
-	return fmt.Sprintf("lease#%s#%s#", s.config.Namespace, lease)
+	return leaseDocId(s.config.Namespace, lease)
 }
 
-// leaseDoc returns a valid lease document encoding the supplied lease and
-// holder in the storage's namespace, or an error.
-func (s *storage) leaseDoc(lease string, entry entry) (*leaseDoc, error) {
-	leaseDoc := &leaseDoc{
-		Id:        s.leaseDocId(lease),
-		Namespace: s.config.Namespace,
-		Lease:     lease,
-		Holder:    entry.holder,
-		Expiry:    entry.expiry.UnixNano(),
-		Writer:    entry.writer,
-		Written:   entry.written.UnixNano(),
-	}
-	if err := leaseDoc.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return leaseDoc, nil
+// entry holds the details of a lease and how it was written. The time values
+// are always expressed in the writer's local time.
+type entry struct {
+	// holder identifies the current holder of the lease.
+	holder string
+
+	// expiry is the time at which the lease is safe to remove.
+	expiry time.Time
+
+	// writer identifies the storage instance that wrote the lease.
+	writer string
+
+	// written is the earliest possible time the lease could have been written.
+	written time.Time
 }
 
-// leaseDoc is used to serialise lease entries.
-type leaseDoc struct {
-	// Id is always "lease#<namespace>#<lease>", so that we can extract useful
-	// information from a stream of watcher events without extra DB hits.
-	// Apart from checking validity on load, though, there's little reason
-	// to use Id elsewhere; Namespace and Lease are the sources of truth.
-	Id        string `bson:"_id"`
-	Namespace string `bson:"namespace"` // TODO(fwereade) definitely add index
-	Lease     string `bson:"lease"`     // TODO(fwereade) maybe add index
-
-	// Holder, Expiry, Writer and Written map directly to entry. The time values
-	// are stored as UnixNano; not so much because we *need* the precision, as
-	// because it's yucky when serialisation throws precision away, and life is
-	// easier when we can compare leases exactly.
-	Holder  string `bson:"holder"`
-	Expiry  int64  `bson:"expiry"`
-	Writer  string `bson:"writer"`
-	Written int64  `bson:"written"`
-}
-
-// Validate returns an error if the document appears to be invalid.
-func (doc leaseDoc) Validate() error {
-	return fmt.Errorf("validation!")
-}
+// errNoExtension is used internally to avoid running unnecessary transactions.
+var errNoExtension = errors.New("lease needs no extension")
