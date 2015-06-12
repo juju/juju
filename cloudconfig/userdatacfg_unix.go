@@ -124,18 +124,15 @@ func (w *unixConfigure) ConfigureBasic() error {
 	return nil
 }
 
-const (
-	cleanShutdownUpstartPath = "/etc/init/juju-clean-shutdown.conf"
-	cleanShutdownSystemdPath = "/etc/systemd/system/juju-clean-shutdown.service"
-)
-
 func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 	switch initSystem {
 	case service.InitSystemUpstart:
-		w.conf.AddRunTextFile(cleanShutdownUpstartPath, upstart.CleanShutdownJob, 0644)
+		path, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
+		w.conf.AddRunTextFile(path, contents, 0644)
 	case service.InitSystemSystemd:
-		w.conf.AddRunTextFile(cleanShutdownSystemdPath, systemd.CleanShutdownService, 0644)
-		w.conf.AddScripts(fmt.Sprintf("/bin/systemctl enable '%s'", cleanShutdownSystemdPath))
+		path, contents := systemd.CleanShutdownServicePath, systemd.CleanShutdownService
+		w.conf.AddRunTextFile(path, contents, 0644)
+		w.conf.AddScripts(fmt.Sprintf("/bin/systemctl enable '%s'", path))
 	}
 }
 

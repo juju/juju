@@ -391,3 +391,7 @@ console output
 
 exec /sbin/ifdown -a -v --force
 `
+
+// CleanShutdownJobPath is the full file path where CleanShutdownJob
+// is created.
+const CleanShutdownJobPath = "/etc/init/juju-clean-shutdown.conf"

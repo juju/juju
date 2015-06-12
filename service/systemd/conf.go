@@ -364,3 +364,7 @@ StandardError=tty
 [Install]
 WantedBy=final.target
 `
+
+// CleanShutdownServicePath is the full file path where
+// CleanShutdownService is created.
+const CleanShutdownServicePath = "/etc/systemd/system/juju-clean-shutdown.service"
