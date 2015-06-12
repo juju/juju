@@ -972,8 +972,6 @@ func (m *Machine) SetInstanceInfo(
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	logger.Warningf("State machine SetInstanceInfo NetworkInfo: %#v", networks)
-	logger.Warningf("State machine SetInstanceInfo Interfaces: %#v", interfaces)
 	// Add the networks and interfaces first.
 	for _, network := range networks {
 		_, err := m.st.AddNetwork(network)

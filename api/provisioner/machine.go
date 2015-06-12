@@ -6,15 +6,12 @@ package provisioner
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 )
-
-var logger = loggo.GetLogger("juju.api.provisioner")
 
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
@@ -188,8 +185,6 @@ func (m *Machine) SetInstanceInfo(
 	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo,
 ) error {
-	logger.Warningf("Provionser API SetInstanceInfo. Networks: %#v", networks)
-	logger.Warningf("Provionser API SetInstanceInfo. Interfaces: %#v", interfaces)
 	var result params.ErrorResults
 	args := params.InstancesInfo{
 		Machines: []params.InstanceInfo{{
