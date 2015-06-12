@@ -21,15 +21,11 @@ type ListCommand struct {
 }
 
 var listDoc = `
-List all the systems logged in to on the current machine.
+List all the Juju systems logged in to on the current machine.
 
-A system refers to a Juju Environment System (jes) that runs and manages the
-Juju API server and the underlying database used by Juju.
-
-A system can contain multiple environments. When a system is bootstrapped,
-the initial environment is created, and this environment contains the machines
-that store the Juju database and the API server. This environment can have
-other services installed in it just like any other environment.
+A system refers to a Juju Environment System (JES) that runs and manages the
+Juju API server and the underlying database used by Juju. A system may manage
+multiple environments.
 
 See Also:
     juju help juju-systems

@@ -83,7 +83,7 @@ See Also:
 func (c *UseEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "use-environment",
-		Purpose: "use an environmeht that you have access to on this machine",
+		Purpose: "use an environment that you have access to on this machine",
 		Doc:     useEnvDoc,
 		Aliases: []string{"use-env"},
 	}

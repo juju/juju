@@ -13,9 +13,10 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.system")
 
 const commandDoc = `
-A juju system is a juju environment that runs the API servers, and manages the
-underlying database used by Juju.  Only the initial environment that is
-created when bootstrapping is a "system".
+
+A Juju system is a Juju environment that runs the API servers, and manages the
+underlying database used by Juju. The initial environment that is created when
+bootstrapping is called a "system".
 
 The "juju system" command provides the commands to create, use, and destroy
 environments running withing a Juju system.
@@ -24,7 +25,7 @@ System commands also allow the user to connect to an existing system using the
 "login" command, and to use an environment that already exists in the current
 system through the "use-environment" command.
 
-See Also:
+see also:
     juju help juju-systems
 `
 
