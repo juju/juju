@@ -437,7 +437,11 @@ class MAASAccount:
         return allocated
 
     def get_allocated_ips(self):
-        """Return a dict of allocated ips with the hostname as keys."""
+        """Return a dict of allocated ips with the hostname as keys.
+
+        A maas node may have many ips. The method selects the first ip which
+        is the address used for virsh access and ssh.
+        """
         allocated = self.get_allocated_nodes()
         ips = {k: v['ip_addresses'][0] for k, v in allocated.items()}
         return ips
