@@ -809,12 +809,13 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 
 	// Call as if the container already has a network configuration, but doesn't.
 	api = NewFakeAPI()
+	api.SetErrors(errors.NotProvisionedf("machine-42 has no network provisioning info"))
 	ifaceInfo = []network.InterfaceInfo{}
 	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", api, ifaceInfo, false, false)
 	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "PrepareContainerInterfaceInfo",
+		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("42")},
 	}})
 
