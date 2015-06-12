@@ -519,11 +519,21 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 }
 
 func destroyVolumes(volumes []params.Volume) ([]error, error) {
-	panic("not implemented")
+	err := errors.New("destroy volumes is not implemented")
+	errs := make([]error, len(volumes))
+	for i := range errs {
+		errs[i] = err
+	}
+	return errs, nil
 }
 
 func detachVolumes(attachments []params.VolumeAttachment) ([]error, error) {
-	panic("not implemented")
+	err := errors.New("detach volumes is not implemented")
+	errs := make([]error, len(attachments))
+	for i := range errs {
+		errs[i] = err
+	}
+	return errs, nil
 }
 
 func volumesFromStorage(in []storage.Volume) []params.Volume {
