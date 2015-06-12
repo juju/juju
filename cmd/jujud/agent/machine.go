@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -431,6 +432,17 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.upgradeCertificateDNSNames(); err != nil {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
+
+	// For windows clients we need to make sure we set a random password in a
+	// registry file and use that password for the jujud user and its services
+	// before starting anything else.
+	// Services on windows need to know the user's password to start up. The only
+	// way to store that password securely is if the user running the services
+	// sets the password. This cannot be done during cloud-init so it is done here.
+	if err := password.EnsureJujudPassword(); err != nil {
+		return errors.Annotate(err, "Could not ensure jujud password")
+	}
+
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
