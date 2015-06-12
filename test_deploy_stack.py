@@ -31,6 +31,7 @@ from deploy_stack import (
     dump_logs,
     get_juju_path,
     get_log_level,
+    get_machine_addrs,
     get_machines_for_logs,
     GET_TOKEN_SCRIPT,
     prepare_environment,
@@ -404,8 +405,23 @@ class DumpEnvLogsTestCase(TestCase):
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             machine_addrs = get_machines_for_logs(client, '10.11.111.222')
+        self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
+
+    def test_get_machine_addrs(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
+        status = Status.from_text(dedent("""\
+            machines:
+              "0":
+                dns-name: 10.11.12.13
+              "1":
+                dns-name: 10.11.12.14
+            """))
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            machine_addrs = [ma for ma in get_machine_addrs(client)]
         self.assertEqual(
-            {'0': '10.11.111.222'}, machine_addrs)
+            [('0', '10.11.12.13'), ('1', '10.11.12.14')], machine_addrs)
 
     def test_retain_jenv(self):
         with temp_dir() as jenv_dir:
