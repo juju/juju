@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -37,40 +39,50 @@ type StorageConfig struct {
 
 // Validate returns an error if the supplied config is not valid.
 func (config StorageConfig) Validate() error {
-	return fmt.Errorf("validation!")
+	return errors.Errorf("validation!")
 }
 
-// NewStorage returns a new Storage using the supplied config. If the config
-// fails to validate, or if the collection lacks a clock document for the
-// configured namespace and none can be created, it will return an error.
+// NewStorage returns a new Storage using the supplied config. It will return
+// an error if the config fails to validate; or if the collection lacks a clock
+// document for the configured namespace and none can be created; or if it fails
+// to read valid initial lease information.
 func NewStorage(config StorageConfig) (Storage, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storage := &storage{
-		config:  config,
-		entries: make(map[string]entry),
-		skews:   make(map[string]entry),
-	}
+	storage := &storage{config: config}
 	if err := storage.ensureClockDoc(); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if err := storage.Refresh(); err != nil {
+		return nil, err
 	}
 	return storage, nil
 }
 
 // storage implements the Storage interface.
 type storage struct {
-	config  StorageConfig
+
+	// config holds resources and configuration necessary to implement lease
+	// storage.
+	config StorageConfig
+
+	// entries records recent information about leases.
 	entries map[string]entry
-	skews   map[string]Skew
+
+	// skews records recent information about remote writers' clocks.
+	skews map[string]Skew
 }
 
 // Refresh is part of the Storage interface.
 func (s *storage) Refresh() error {
+
 	// Always read entries before skews, because skews are written before
 	// entries; we increase the risk of reading older skew data, but (should)
 	// eliminate the risk of reading an entry whose writer is not present
 	// in the skews data.
+	collection, closer := s.config.Mongo.GetCollection(s.config.Collection)
+	defer closer()
 	entries, err := s.readEntries(collection)
 	if err != nil {
 		return errors.Trace(err)
@@ -112,7 +124,7 @@ func (s *storage) ClaimLease(lease, holder string, duration time.Duration) error
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
-	err := s.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -147,7 +159,7 @@ func (s *storage) ExtendLease(lease, holder string, duration time.Duration) erro
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
-	err := s.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -159,13 +171,12 @@ func (s *storage) ExtendLease(lease, holder string, duration time.Duration) erro
 		// It's possible that the "extension" isn't an extension at all; this
 		// isn't a problem, but does require separate handling.
 		ops, nextEntry, err := s.extendLeaseOps(lease, holder, duration)
+		cacheEntry = nextEntry
 		if errors.Cause(err) == errNoExtension {
-			cacheEntry = lastEntry
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cacheEntry = nextEntry
 		return ops, nil
 	})
 
@@ -185,7 +196,7 @@ func (s *storage) ExtendLease(lease, holder string, duration time.Duration) erro
 func (s *storage) ExpireLease(lease string) error {
 
 	// No cache updates needed, only deletes; no closure here.
-	err := s.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -195,9 +206,9 @@ func (s *storage) ExpireLease(lease string) error {
 		}
 
 		// No special error handling here.
-		ops, err := s.expireLeaseOps(lease, holder)
+		ops, err := s.expireLeaseOps(lease)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		return ops, nil
 	})
@@ -257,6 +268,14 @@ func (s *storage) readSkews(collection *mgo.Collection) (map[string]Skew, error)
 		return nil, errors.Trace(err)
 	}
 
+	// If a writer was previously known to us, and has not written since last
+	// time we read, we should keep the original skew, which is more accurate.
+	for writer, skew := range s.skews {
+		if skews[writer].LastWrite == skew.LastWrite {
+			skews[writer] = skew
+		}
+	}
+
 	// ...and overwrite our own with a zero skew, which will DTRT.
 	skews[s.config.Instance] = Skew{}
 	return skews, nil
@@ -277,7 +296,7 @@ func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([
 	// <duration> in the future.
 	now := s.config.Clock.Now()
 	expiry := now.Add(duration)
-	entry := entry{
+	nextEntry := entry{
 		holder:  holder,
 		expiry:  expiry,
 		writer:  s.config.Instance,
@@ -285,7 +304,7 @@ func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([
 	}
 
 	// We need to write the entry to the database in a specific format.
-	leaseDoc, err := newLeaseDoc(namespace, lease, entry)
+	leaseDoc, err := newLeaseDoc(s.config.Namespace, lease, nextEntry)
 	if err != nil {
 		return nil, entry{}, errors.Trace(err)
 	}
@@ -313,10 +332,10 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 	// Reject extensions when there's no lease, or the holder doesn't match.
 	lastEntry, found := s.entries[lease]
 	if !found {
-		return nil, ErrInvalid
+		return nil, entry{}, ErrInvalid
 	}
 	if holder != lastEntry.holder {
-		return nil, ErrInvalid
+		return nil, entry{}, ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
@@ -331,7 +350,7 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 	if expiry.Before(skew.Earliest(lastEntry.expiry)) {
 		// The "extended" lease will certainly expire before the
 		// existing lease could. Done.
-		return nil, entry{}, errNoExtension
+		return nil, lastEntry, errNoExtension
 	}
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	if expiry.Before(latestExpiry) {
@@ -401,7 +420,7 @@ func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
 		Assert: bson.M{
 			fieldLeaseHolder: lastEntry.holder,
 			fieldLeaseExpiry: lastEntry.expiry.UnixNano(),
-			fieldLeaseWriter: lastEntry.Writer,
+			fieldLeaseWriter: lastEntry.writer,
 		},
 		Remove: true,
 	}
