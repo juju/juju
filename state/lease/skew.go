@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lease
 
 // skew holds information about a remote writer's idea of the current time.

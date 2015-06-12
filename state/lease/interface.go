@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lease
 
 import (
@@ -21,7 +24,8 @@ type Storage interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
 	// it succeeds, the claim is guaranteed until at least the supplied duration
-	// after the call to ClaimLease was initiated.
+	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
+	// check Leases() for recent state and issue a new claim if warranted.
 	ClaimLease(lease, holder string, duration time.Duration) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
@@ -34,6 +38,10 @@ type Storage interface {
 	// have passed.
 	ExpireLease(lease string) error
 }
+
+// ErrInvalid indicates that a storage operation failed because latest state
+// indicates that it's a logical impossibility.
+var ErrInvalid = errors.New("invalid lease operation")
 
 // Info is the information a Storage is willing to give out about a given lease.
 type Info struct {
@@ -56,31 +64,27 @@ type Info struct {
 	AssertOp txn.Op
 }
 
-// StorageConfig contains the resources and information required to create
-// a Storage.
-type StorageConfig struct {
+// Mongo exposes MongoDB operations for use by the lease package.
+type Mongo interface {
 
-	// Clock exposes the wall-clock time to a Storage.
-	Clock Clock
+	// RunTransaction should probably delegate to a jujutxn.Runner's Run method.
+	RunTransaction(jujutxn.TransactionSource) error
 
-	// Mongo exposes the mgo[/txn] capabilities required by a Storage.
-	Mongo Mongo
-
-	// Collection identifies the mongodb collection in which lease data is
-	// persisted. Multiple storages can use the same collection without
-	// interfering with each other, so long as they use different namespaces.
-	Collection string
-
-	// Namespace identifies the domain of the lease manager; storage instances
-	// which share a namespace and a collection will collaborate.
-	Namespace string
-
-	// Instance uniquely identifies the storage instance. Storage instances will
-	// fail to collaborate if any two concurrently identify as the same instance.
-	Instance string
+	// GetCollection should probably call the mongo.CollectionFromName func.
+	GetCollection(name string) (collection *mgo.Collection, closer func())
 }
 
-// Validate returns an error if the supplied config is not valid.
-func (config StorageConfig) Validate() error {
-	return fmt.Errorf("validation!")
+// Clock exposes wall-clock time for use by the lease package.
+type Clock interface {
+
+	// Now returns the current wall-clock time.
+	Now() time.Time
+}
+
+// SystemClock exposes wall-clock time as returned by time.Now().
+type SystemClock struct{}
+
+// Now is part of the Clock interface.
+func (SystemClock) Now() time.Time {
+	return time.Now()
 }
