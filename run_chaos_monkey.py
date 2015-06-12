@@ -104,33 +104,30 @@ class MonkeyRunner:
             return False
         return True
 
-    def get_locks(self):
+    def get_locks(self, unit_name):
         """Return a dict with two lists: done and running"""
-        locks = defaultdict(list)
         service_config = self.client.get_service_config('chaos-monkey')
         logging.debug('{}'.format(service_config))
-        for unit_name, unit in self.iter_chaos_monkey_units():
-            logging.debug('Checking if chaos is done on: {}'.format(unit_name))
-            check_cmd = '[ -f '
-            check_cmd += service_config['settings']['chaos-dir']['value']
-            check_cmd += '/chaos_monkey.' + self.monkey_ids[unit_name]
-            check_cmd += '/chaos_runner.lock'
-            check_cmd += ' ]'
-            if self.client.juju('run', ('--unit', unit_name, check_cmd),
-                                check=False):
-                locks['done'].append(unit_name)
-                continue
-            locks['running'].append(unit_name)
-        return locks
+        logging.debug('Checking if chaos is done on: {}'.format(unit_name))
+        check_cmd = '[ -f '
+        check_cmd += service_config['settings']['chaos-dir']['value']
+        check_cmd += '/chaos_monkey.' + self.monkey_ids[unit_name]
+        check_cmd += '/chaos_runner.lock'
+        check_cmd += ' ]'
+        if self.client.juju('run', ('--unit', unit_name, check_cmd),
+                            check=False):
+            return 'done'
+        return 'running'
 
     def wait_for_chaos_complete(self):
         for ignored in chain([None], until_timeout(300)):
+            locks = defaultdict(list)
             for unit_name, unit in self.iter_chaos_monkey_units():
-                locks = self.get_locks()
-                if locks.keys() == ['done']:
-                    logging.debug(
-                        'All lock files have been removed: {}'.format(locks))
-                    return None
+                locks[self.get_locks(unit_name)].append(unit_name)
+            if locks.keys() == ['done']:
+                logging.debug(
+                    'All lock files have been removed: {}'.format(locks))
+                return None
         else:
             raise Exception('Chaos operations did not complete.')
 

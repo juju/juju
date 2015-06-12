@@ -341,36 +341,33 @@ class TestRunChaosMonkey(TestCase):
             'chaos-monkey/0': 'workspace0',
             'chaos-monkey/1': 'workspace1'
         }
-        expected = {
-            'running': ['chaos-monkey/1', 'chaos-monkey/0']
-        }
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
             with patch('subprocess.call', autospec=True,
                        return_value=0) as call_mock:
-                locks = monkey_runner.get_locks()
-            self.assertEqual(expected, locks)
+                for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
+                    with patch('sys.stdout', autospec=True):
+                        self.assertEqual(monkey_runner.get_locks(unit_name),
+                                         'running')
             self.assertEqual(call_mock.call_count, 2)
-        expected = {
-            'done': ['chaos-monkey/1', 'chaos-monkey/0']
-        }
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
             with patch('subprocess.call', autospec=True,
                        return_value=1) as call_mock:
-                locks = monkey_runner.get_locks()
-            self.assertEqual(expected, locks)
+                for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
+                    with patch('sys.stdout', autospec=True):
+                        self.assertEqual(monkey_runner.get_locks(unit_name),
+                                         'done')
             self.assertEqual(call_mock.call_count, 2)
 
     def test_wait_for_chaos_complete(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
         units = [('blib', 'blab')]
-        locks = {'done': 'bla'}
         with patch.object(runner, 'iter_chaos_monkey_units', autospec=True,
                           return_value=units):
             with patch.object(runner, 'get_locks',
-                              autospec=True, return_value=locks):
+                              autospec=True, return_value='done'):
                 returned = runner.wait_for_chaos_complete()
         self.assertEqual(returned, None)
 
