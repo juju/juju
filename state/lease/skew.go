@@ -3,6 +3,10 @@
 
 package lease
 
+import (
+	"time"
+)
+
 // skew holds information about a remote writer's idea of the current time.
 type Skew struct {
 	// LastWrite is the most recent time known to have been written by
@@ -20,14 +24,14 @@ type Skew struct {
 
 // Earliest returns the earliest local time at which we're confident the skewed
 // writer will NOT have passed the supplied remote time.
-func (skew skew) Earliest(remote time.Time) (local time.Time) {
+func (skew Skew) Earliest(remote time.Time) (local time.Time) {
 	delta := remote.Sub(skew.LastWrite)
 	return skew.ReadAfter.Add(delta)
 }
 
 // Latest returns the latest local time at which we're confident the skewed
 // writer will have passed the supplied remote time.
-func (skew skew) Latest(remote time.Time) (local time.Time) {
+func (skew Skew) Latest(remote time.Time) (local time.Time) {
 	delta := remote.Sub(skew.LastWrite)
 	return skew.ReadBefore.Add(delta)
 }

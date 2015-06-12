@@ -3,6 +3,13 @@
 
 package lease
 
+import (
+	"fmt"
+	"time"
+
+	"github.com/juju/errors"
+)
+
 // These constants define the field names and type values used by documents in
 // a lease storage collection. They *must* remain in sync with the bson
 // marshallling annotations in leaseDoc and clockDoc.
@@ -57,7 +64,7 @@ type leaseDoc struct {
 
 // validate returns an error if any fields are invalid or inconsistent.
 func (doc leaseDoc) validate() error {
-	return fmt.Errorf("validation!")
+	return errors.Errorf("validation!")
 }
 
 // entry returns the lease name and an entry corresponding to the document. If
@@ -79,8 +86,9 @@ func (doc leaseDoc) entry() (string, entry, error) {
 // entry in the supplied namespace, or an error.
 func newLeaseDoc(namespace, lease string, entry entry) (*leaseDoc, error) {
 	doc := &leaseDoc{
-		Id:        s.leaseDocId(lease),
-		Namespace: s.config.Namespace,
+		Id:        leaseDocId(namespace, lease),
+		Type:      typeLease,
+		Namespace: namespace,
 		Lease:     lease,
 		Holder:    entry.holder,
 		Expiry:    entry.expiry.UnixNano(),
@@ -114,7 +122,7 @@ type clockDoc struct {
 
 // validate returns an error if any fields are invalid or inconsistent.
 func (doc clockDoc) validate() error {
-	return fmt.Errorf("validation!")
+	return errors.Errorf("validation!")
 }
 
 // skews returns clock skew information for all writers recorded in the
@@ -148,7 +156,7 @@ func newClockDoc(namespace string) (clockDoc, error) {
 		Writers:   make(map[string]int64),
 	}
 	if err := doc.validate(); err != nil {
-		return nil, errors.Trace(err)
+		return clockDoc{}, errors.Trace(err)
 	}
 	return doc, nil
 }

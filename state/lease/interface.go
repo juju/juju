@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 )
 
