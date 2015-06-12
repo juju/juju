@@ -8,6 +8,7 @@ import logging
 import os
 from StringIO import StringIO
 import subprocess
+from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
@@ -31,6 +32,7 @@ from deploy_stack import (
     dump_logs,
     get_juju_path,
     get_log_level,
+    get_machines_for_logs,
     GET_TOKEN_SCRIPT,
     prepare_environment,
     assess_upgrade,
@@ -41,6 +43,7 @@ from deploy_stack import (
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    Status,
 )
 from test_jujupy import (
     assert_juju_call,
@@ -384,6 +387,22 @@ class DumpEnvLogsTestCase(TestCase):
              'Could not retrieve some or all logs:',
              'None'],
             self.stream.getvalue().splitlines())
+
+    def test_get_machines_for_log(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
+        status = Status.from_text(dedent("""\
+            machines:
+              "0":
+                dns-name: 10.11.12.13
+              "1":
+                dns-name: 10.11.12.14
+            """))
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            machine_addrs = get_machines_for_logs(client, '10.11.12.13')
+        self.assertEqual(
+            {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
 
     def test_retain_jenv(self):
         with temp_dir() as jenv_dir:
