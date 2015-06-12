@@ -22,6 +22,6 @@ type poolSuite struct {
 var _ = gc.Suite(&poolSuite{})
 
 func (s *poolSuite) TestPoolHelp(c *gc.C) {
-	s.command = storage.NewPoolSuperCommand().(*storage.Command)
+	s.command = storage.NewPoolSuperCommand()
 	s.assertHelp(c, expectedPoolCommmandNames)
 }

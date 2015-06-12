@@ -19,7 +19,7 @@ const ListCommandDoc = `
 List all the current users in the Juju server.
 
 See Also:
-   juju user info
+   juju help user info
 `
 
 // ListCommand shows all the users in the Juju server.

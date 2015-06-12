@@ -20,7 +20,19 @@ type ListCommand struct {
 	cfgStore configstore.Storage
 }
 
-var listDoc = `List all the systems logged in to on the current machine`
+var listDoc = `
+List all the Juju systems logged in to on the current machine.
+
+A system refers to a Juju Environment System (JES) that runs and manages the
+Juju API server and the underlying database used by Juju. A system may manage
+multiple environments.
+
+See Also:
+    juju help juju-systems
+    juju help system environments
+    juju help system create-environment
+    juju help system use-environment
+`
 
 // Info implements Command.Info
 func (c *ListCommand) Info() *cmd.Info {

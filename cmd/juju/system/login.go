@@ -67,8 +67,10 @@ mean that you will still be able to connect to the api server from the
 computer where you ran api-info.
 
 See Also:
-    juju user help add
-    juju help api-info
+    juju help system environments
+    juju help system use-environment
+    juju help system create-environment
+    juju help user add
     juju help switch
 `
 

@@ -29,7 +29,7 @@ Examples:
 
 
 See Also:
-    juju user change-password
+    juju help user change-password
 `
 
 // AddUserAPI defines the usermanager API methods that the add command uses.

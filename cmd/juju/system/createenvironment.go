@@ -48,7 +48,7 @@ Examples:
     juju system create-environment new-env --config=aws-creds.yaml
 
 See Also:
-    juju environment share
+    juju help environment share
 `
 
 func (c *CreateEnvironmentCommand) Info() *cmd.Info {

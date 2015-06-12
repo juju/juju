@@ -19,7 +19,7 @@ Examples:
   juju user disable foobar
 
 See Also:
-  juju enable
+  juju help user enable
 `
 
 const enableUserDoc = `
@@ -31,7 +31,7 @@ Examples:
   juju user enable foobar
 
 See Also:
-  juju disable
+  juju help user disable
 `
 
 // DisenableUserBase common code for enable/disable user commands
