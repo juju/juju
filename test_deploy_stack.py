@@ -345,20 +345,23 @@ class DumpEnvLogsTestCase(TestCase):
         # then downloaded in the order that they will be created
         # to ensure errors do not prevent some logs from being retrieved.
         with patch('deploy_stack.wait_for_port', autospec=True):
-            with patch('subprocess.check_call') as cc_mock:
+            with patch('subprocess.check_output') as cc_mock:
                 copy_remote_logs('10.10.0.1', '/foo')
         self.assertEqual(
             (['timeout', '5m', 'ssh',
+              '-o', 'User ubuntu',
               '-o', 'UserKnownHostsFile /dev/null',
               '-o', 'StrictHostKeyChecking no',
-              'ubuntu@10.10.0.1',
+              '10.10.0.1',
               'sudo chmod go+r /var/log/juju/*'], ),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
             (['timeout', '5m', 'scp', '-C',
+              '-o', 'User ubuntu',
               '-o', 'UserKnownHostsFile /dev/null',
               '-o', 'StrictHostKeyChecking no',
-              'ubuntu@10.10.0.1:/var/log/{cloud-init*.log,juju/*.log}',
+              '10.10.0.1:/var/log/cloud-init*.log',
+              '10.10.0.1:/var/log/juju/*.log',
               '/foo'],),
             cc_mock.call_args_list[1][0])
 
@@ -371,10 +374,10 @@ class DumpEnvLogsTestCase(TestCase):
             else:
                 raise subprocess.CalledProcessError('scp error', 'output')
 
-        with patch('subprocess.check_call', side_effect=remote_op) as cc_mock:
+        with patch('remote.run', side_effect=remote_op) as run_mock:
             with patch('deploy_stack.wait_for_port', autospec=True):
                 copy_remote_logs('10.10.0.1', '/foo')
-        self.assertEqual(2, cc_mock.call_count)
+        self.assertEqual(2, run_mock.call_count)
         self.assertEqual(
             ['Could not change the permission of the juju logs:',
              'None',

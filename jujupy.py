@@ -582,7 +582,7 @@ class EnvJujuClient:
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):
-        """Performs the given action on the given unit and waits for the results.
+        """Performs given action on given unit and waits for the results.
 
         Action params should be given as args in the form foo=bar.
         Returns the yaml output of the action.
