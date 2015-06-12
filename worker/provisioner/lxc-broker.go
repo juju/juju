@@ -91,7 +91,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	if !environs.AddressAllocationEnabled() {
-		logger.Warningf(
+		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
 			machineId,
 		)
@@ -108,7 +108,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
-			logger.Warningf("not allocating static IP for container %q: %v", machineId, err)
+			logger.Debugf("not allocating static IP for container %q: %v", machineId, err)
 		} else {
 			logger.Warningf("Using network info: %#v", allocatedInfo)
 			args.NetworkInfo = allocatedInfo
@@ -161,8 +161,6 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
-	logger.Warningf("Created container: %#v", inst)
-	logger.Warningf("With hardware: %#v", hardware)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
