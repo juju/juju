@@ -174,7 +174,13 @@ def get_machines_for_logs(client, bootstrap_host):
 
     # The bootstrap host always overrides the status output if
     # provided.
-    if bootstrap_host:
+    if client.env.config['type'] == 'maas':
+        # Maas hostnames are not resolvable, but we can adapt them to IPs.
+        with MAASAccount.manager_from_config(client.env.config) as account:
+            allocated_ips = account.get_allocated_ips()
+        for machine_id, hostname in machine_addrs.items():
+            machine_addrs[machine_id] = allocated_ips.get(hostname, hostname)
+    elif bootstrap_host:
         machine_addrs['0'] = bootstrap_host
     return machine_addrs
 

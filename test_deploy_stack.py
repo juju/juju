@@ -407,6 +407,34 @@ class DumpEnvLogsTestCase(TestCase):
             machine_addrs = get_machines_for_logs(client, '10.11.111.222')
         self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
 
+    @patch('subprocess.check_call')
+    def test_get_machines_for_log_with_maas(self, cc_mock):
+        config = {
+            'type': 'maas',
+            'name': 'foo',
+            'maas-server': 'http://bar/MASS/',
+            'maas-oauth': 'baz'}
+        client = EnvJujuClient(
+            SimpleEnvironment('cloud', config), '1.23.4', None)
+        status = Status.from_text(dedent("""\
+            machines:
+              "0":
+                dns-name: node1.maas
+              "1":
+                dns-name: node2.maas
+            """))
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            allocated_ips = {
+                'node1.maas': '10.11.12.13',
+                'node2.maas': '10.11.12.14',
+            }
+            with patch('deploy_stack.MAASAccount.get_allocated_ips',
+                       autospec=True, return_value=allocated_ips):
+                machine_addrs = get_machines_for_logs(client, 'node1.maas')
+        self.assertEqual(
+            {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
+
     def test_get_machine_addrs(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
