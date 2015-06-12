@@ -53,6 +53,7 @@ def get_maas_env():
         'type': 'maas',
         'maas-server': 'http://10.0.10.10/MAAS/',
         'maas-oauth': 'a:password:string',
+        'name': 'mas'
         })
 
 
