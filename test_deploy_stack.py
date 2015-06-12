@@ -6,7 +6,6 @@ from contextlib import contextmanager
 import json
 import logging
 import os
-from StringIO import StringIO
 import subprocess
 from textwrap import dedent
 from unittest import TestCase
@@ -48,7 +47,10 @@ from jujupy import (
 from test_jujupy import (
     assert_juju_call,
 )
-from utility import temp_dir
+from utility import (
+    setup_test_logging,
+    temp_dir,
+)
 
 
 def make_logs(log_dir):
@@ -132,6 +134,9 @@ class ArgParserTestCase(TestCase):
 
 
 class DeployStackTestCase(TestCase):
+
+    def setUp(self):
+        setup_test_logging(self)
 
     def test_destroy_environment(self):
         client = EnvJujuClient(
@@ -217,24 +222,7 @@ class DeployStackTestCase(TestCase):
 class DumpEnvLogsTestCase(TestCase):
 
     def setUp(self):
-        self.log = logging.getLogger()
-        self.old_handlers = self.log.handlers
-        for handler in self.log.handlers:
-            self.log.removeHandler(handler)
-        self.stream = StringIO()
-        self.handler = logging.StreamHandler(self.stream)
-        self.log.addHandler(self.handler)
-        self.handler.setLevel(logging.DEBUG)
-        self.log.level = logging.DEBUG
-
-        def reset_logger():
-            self.log.removeHandler(self.handler)
-            self.handler.close()
-            for handler in self.old_handlers:
-                self.log.addHandler(handler)
-            self.log.level = logging.NOTSET
-
-        self.addCleanup(reset_logger)
+        setup_test_logging(self, level=logging.DEBUG)
 
     def test_dump_env_logs_non_local_env(self):
         with temp_dir() as artifacts_dir:
@@ -260,9 +248,10 @@ class DumpEnvLogsTestCase(TestCase):
               {'local_state_server': False})],
             call_list)
         self.assertEqual(
-            ['Retrieving logs for machine-0', 'Retrieving logs for machine-1',
-             'Retrieving logs for machine-2'],
-            sorted(self.stream.getvalue().splitlines()))
+            ['INFO Retrieving logs for machine-0',
+             'INFO Retrieving logs for machine-1',
+             'INFO Retrieving logs for machine-2'],
+            sorted(self.log_stream.getvalue().splitlines()))
 
     def test_dump_env_logs_local_env(self):
         with temp_dir() as artifacts_dir:
@@ -382,11 +371,11 @@ class DumpEnvLogsTestCase(TestCase):
                 copy_remote_logs('10.10.0.1', '/foo')
         self.assertEqual(2, co.call_count)
         self.assertEqual(
-            ['Could not change the permission of the juju logs:',
-             'None',
-             'Could not retrieve some or all logs:',
-             'None'],
-            self.stream.getvalue().splitlines())
+            ['WARNING Could not change the permission of the juju logs:',
+             'WARNING None',
+             'WARNING Could not retrieve some or all logs:',
+             'WARNING None'],
+            self.log_stream.getvalue().splitlines())
 
     def test_get_machines_for_log(self):
         client = EnvJujuClient(
@@ -422,6 +411,9 @@ class DumpEnvLogsTestCase(TestCase):
 
 
 class TestDeployDummyStack(TestCase):
+
+    def setUp(self):
+        setup_test_logging(self)
 
     def test_deploy_dummy_stack(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -476,6 +468,9 @@ class TestTestUpgrade(TestCase):
     STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
     GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
                'tools-metadata-url')
+
+    def setUp(self):
+        setup_test_logging(self)
 
     @classmethod
     def upgrade_output(cls, args, **kwargs):
@@ -545,6 +540,9 @@ class TestTestUpgrade(TestCase):
 
 
 class TestPrepareEnvironment(TestCase):
+
+    def setUp(self):
+        setup_test_logging(self)
 
     def get_client(self):
         return EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
