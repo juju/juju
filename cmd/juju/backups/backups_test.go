@@ -49,7 +49,7 @@ func (s *backupsSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := "(?s)usage: juju backups <command> .+"
+	expected := "(?s)usage: juju backups \\[options\\] <command> .+"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 	expected = "(?sm).*^purpose: " + s.command.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
