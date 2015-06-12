@@ -374,10 +374,10 @@ class DumpEnvLogsTestCase(TestCase):
             else:
                 raise subprocess.CalledProcessError('scp error', 'output')
 
-        with patch('remote.run', side_effect=remote_op) as run_mock:
+        with patch('subprocess.check_output', side_effect=remote_op) as co:
             with patch('deploy_stack.wait_for_port', autospec=True):
                 copy_remote_logs('10.10.0.1', '/foo')
-        self.assertEqual(2, run_mock.call_count)
+        self.assertEqual(2, co.call_count)
         self.assertEqual(
             ['Could not change the permission of the juju logs:',
              'None',
