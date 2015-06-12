@@ -582,12 +582,11 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 		if finalIfaceInfo[i].NetworkName == "" {
-			// XXX make a const in networks
-			finalIfaceInfo[i].NetworkName = "juju-private"
+			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
 		}
 		if finalIfaceInfo[i].ProviderId == "" {
 			// XXX make a const in networks
-			finalIfaceInfo[i].ProviderId = "juju-unknown"
+			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
 		}
 	}
 	err = setupRoutesAndIPTables(

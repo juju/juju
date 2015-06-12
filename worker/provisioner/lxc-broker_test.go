@@ -274,6 +274,22 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
 }
 
+func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NetworkInfo, jc.DeepEquals, nil)
+}
+
 func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc0 := s.startInstance(c, "1/lxc/0", nil)
 	lxc1 := s.startInstance(c, "1/lxc/1", nil)
@@ -818,8 +834,8 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    "juju-private",
-		ProviderId:     "juju-unknown",
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
 	}})
 	c.Assert(api.calls, gc.DeepEquals, []string{"PrepareContainerInterfaceInfo"})
 
@@ -837,8 +853,8 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    "juju-private",
-		ProviderId:     "juju-unknown",
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
 	}})
 	c.Assert(api.calls, gc.DeepEquals, []string{"GetContainerInterfaceInfo"})
 }
