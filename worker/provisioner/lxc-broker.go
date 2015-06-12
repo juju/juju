@@ -96,7 +96,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 			machineId,
 		)
 	} else {
-		logger.Warningf("trying to allocate static IP for container %q", machineId)
+		logger.Debugf("trying to allocate static IP for container %q", machineId)
 		allocatedInfo, err := configureContainerNetwork(
 			machineId,
 			bridgeDevice,
@@ -108,9 +108,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
 			// container won't have a static address configured.
-			logger.Debugf("not allocating static IP for container %q: %v", machineId, err)
+			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
 		} else {
-			logger.Warningf("Using network info: %#v", allocatedInfo)
 			args.NetworkInfo = allocatedInfo
 		}
 	}
