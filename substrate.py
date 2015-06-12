@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import (
     contextmanager,
 )
+import json
 import logging
 import os
 import subprocess
@@ -410,10 +411,12 @@ class MAASAccount:
         manager.logout()
 
     def login(self):
+        """Login with the maas cli."""
         subprocess.check_call(
             ['maas', 'login', self.profile, self.url, self.oauth])
 
     def logout(self):
+        """Logout with the maas cli."""
         subprocess.check_call(
             ['maas', 'logout', self.profile])
 
@@ -424,6 +427,14 @@ class MAASAccount:
             print_now('Deleting %s.' % instance)
             subprocess.check_call(
                 ['maas', self.profile, 'node', 'release', maas_system_id])
+
+    def get_allocated_nodes(self):
+        """Return a dict of allocated nodes with the hostname as keys."""
+        data = subprocess.check_output(
+            ['maas', self.profile, 'nodes', 'list-allocated'])
+        nodes = json.loads(data)
+        allocated = {node['hostname']: node for node in nodes}
+        return allocated
 
 
 @contextmanager
