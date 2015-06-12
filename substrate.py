@@ -436,6 +436,12 @@ class MAASAccount:
         allocated = {node['hostname']: node for node in nodes}
         return allocated
 
+    def get_allocated_ips(self):
+        """Return a dict of allocated ips with the hostname as keys."""
+        allocated = self.get_allocated_nodes()
+        ips = {k: v['ip_addresses'][0] for k, v in allocated.items()}
+        return ips
+
 
 @contextmanager
 def make_substrate_manager(config):

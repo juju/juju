@@ -687,6 +687,18 @@ class TestMAASAcount(TestCase):
             ['maas', 'mas', 'nodes', 'list-allocated'])
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
+    @patch('subprocess.check_call', autospec=True)
+    def test_get_allocated_ips(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string):
+            ips = account.get_allocated_ips()
+        self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
+
 
 class TestMakeSubstrateManager(TestCase):
 
