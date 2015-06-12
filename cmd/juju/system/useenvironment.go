@@ -71,12 +71,12 @@ Since '@local' is the default for users, this can be shortened to:
 
 
 See Also:
-    juju help juju
-    juju system create-environment
-    juju environment share
-    juju environment unshare
-    juju switch
-    juju user add
+    juju help juju-systems
+    juju help system create-environment
+    juju help environment share
+    juju help environment unshare
+    juju help switch
+    juju help user add
 `
 
 // Info implements Command.Info

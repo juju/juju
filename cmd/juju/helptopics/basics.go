@@ -18,10 +18,10 @@ Basic commands:
   juju add-relation     add a relation between two services
   juju expose           expose a service
 
+  juju help juju        what is juju?
   juju help bootstrap   more help on e.g. bootstrap command
   juju help commands    list all commands
   juju help glossary    glossary of terms
-  juju help juju        about using juju systems and users
   juju help topics      list all help topics
 
 Provider information:

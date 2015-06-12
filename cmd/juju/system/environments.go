@@ -38,11 +38,11 @@ The environments listed here are either environments you have created
 yourself, or environments which have been shared with you.
 
 See Also:
-    juju help juju
+    juju help juju-systems
     juju help systems
-    juju environment users
-    juju environment share
-    juju environment unshare
+    juju help environment users
+    juju help environment share
+    juju help environment unshare
 `
 
 // EnvironmentManagerAPI defines the methods on the client API that the

@@ -25,7 +25,7 @@ System commands also allow the user to connect to an existing system using the
 system through the "use-environment" command.
 
 See Also:
-    juju help juju
+    juju help juju-systems
 `
 
 // NewSuperCommand creates the system supercommand and registers the

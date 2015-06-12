@@ -80,26 +80,26 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Doc:             jujuDoc,
 		MissingCallback: RunPlugin,
 	})
-	jcmd.AddHelpTopic("basics", "Basic commands", helptopic.Basics)
+	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
-		helptopic.LocalProvider)
+		helptopics.LocalProvider)
 	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
-		helptopic.OpenstackProvider, "openstack")
+		helptopics.OpenstackProvider, "openstack")
 	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
-		helptopic.EC2Provider, "ec2", "aws", "amazon")
+		helptopics.EC2Provider, "ec2", "aws", "amazon")
 	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
-		helptopic.HPCloud, "hpcloud", "hp-cloud")
+		helptopics.HPCloud, "hpcloud", "hp-cloud")
 	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
-		helptopic.AzureProvider, "azure")
+		helptopics.AzureProvider, "azure")
 	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
-		helptopic.MAASProvider, "maas")
-	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopic.Constraints)
-	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopic.Placement)
-	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopic.Glossary)
-	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopic.Logging)
-	jcmd.AddHelpTopic("juju", "What is Juju?", helptopic.Juju)
-	jcmd.AddHelpTopic("juju-systems", "About Juju Environment Systems (JES)", helptopic.JujuSystems)
-	jcmd.AddHelpTopic("users", "About users in Juju", helptopic.Users)
+		helptopics.MAASProvider, "maas")
+	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
+	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
+	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
+	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
+	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
+	jcmd.AddHelpTopic("juju-systems", "About Juju Environment Systems (JES)", helptopics.JujuSystems)
+	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	registerCommands(jcmd, ctx)

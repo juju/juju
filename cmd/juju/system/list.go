@@ -32,10 +32,10 @@ that store the Juju database and the API server. This environment can have
 other services installed in it just like any other environment.
 
 See Also:
-    juju help juju
-    juju system environments
-    juju system create-environment
-    juju system use-environment
+    juju help juju-systems
+    juju help system environments
+    juju help system create-environment
+    juju help system use-environment
 `
 
 // Info implements Command.Info
