@@ -10,6 +10,7 @@ from datetime import (
 from itertools import chain
 import logging
 import subprocess
+import sys
 from time import sleep
 
 from jujupy import (
@@ -146,6 +147,10 @@ class MonkeyRunner:
                     'Pausing {} seconds after running chaos.'.format(
                         self.pause_timeout))
                 sleep(self.pause_timeout)
+        else:
+            logging.error('The health check reported an error: {}'.format(
+                self.health_checker))
+            sys.exit(1)
 
 
 def get_args(argv=None):
@@ -189,8 +194,10 @@ def main():
     configure_logging(logging.INFO)
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)
+    logging.info("Chaos Monkey Start.")
     monkey_runner.deploy_chaos_monkey()
     monkey_runner.run_while_healthy_or_timeout()
+    logging.info("Chaos Monkey Complete.")
 
 if __name__ == '__main__':
     main()
