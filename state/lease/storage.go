@@ -378,13 +378,13 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 		Id: s.leaseDocId(lease),
 		Assert: bson.M{
 			fieldLeaseHolder: lastEntry.holder,
-			fieldLeaseExpiry: lastEntry.expiry.UnixNano(),
+			fieldLeaseExpiry: toInt64(lastEntry.expiry),
 			fieldLeaseWriter: lastEntry.writer,
 		},
 		Update: bson.M{
-			fieldLeaseExpiry:  expiry.UnixNano(),
+			fieldLeaseExpiry:  toInt64(expiry),
 			fieldLeaseWriter:  s.config.Instance,
-			fieldLeaseWritten: nextEntry.written.UnixNano(),
+			fieldLeaseWritten: toInt64(nextEntry.written),
 		},
 	}
 
@@ -419,7 +419,7 @@ func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
 		Id: s.leaseDocId(lease),
 		Assert: bson.M{
 			fieldLeaseHolder: lastEntry.holder,
-			fieldLeaseExpiry: lastEntry.expiry.UnixNano(),
+			fieldLeaseExpiry: toInt64(lastEntry.expiry),
 			fieldLeaseWriter: lastEntry.writer,
 		},
 		Remove: true,
@@ -469,15 +469,15 @@ func (s *storage) ensureClockDoc() error {
 // field in the skew doc, and aborts if a more recent time has been recorded for
 // that writer.
 func (s *storage) writeClockOp(now time.Time) txn.Op {
-	nowUnix := now.UnixNano()
+	dbNow := toInt64(now)
 	return txn.Op{
 		C:  s.config.Collection,
 		Id: s.clockDocId(),
 		Assert: bson.M{
-			s.config.Instance: bson.M{"$lt": nowUnix},
+			s.config.Instance: bson.M{"$lt": dbNow},
 		},
 		Update: bson.M{
-			"$set": bson.M{s.config.Instance: nowUnix},
+			"$set": bson.M{s.config.Instance: dbNow},
 		},
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -82,10 +83,13 @@ type Clock interface {
 	Now() time.Time
 }
 
-// SystemClock exposes wall-clock time as returned by time.Now().
+// SystemClock exposes wall-clock time as returned by time.Now().UTC().
 type SystemClock struct{}
 
 // Now is part of the Clock interface.
 func (SystemClock) Now() time.Time {
-	return time.Now()
+	return time.Now().UTC()
 }
+
+// logger exposes logging functionality for use by the lease package.
+var logger = loggo.GetLogger("juju.state.lease")

@@ -13,25 +13,37 @@ type Skew struct {
 	// the skewed writer.
 	LastWrite time.Time
 
-	// ReadAfter is the earliest local time after which the skewed writer agrees
-	// the time is no earlier than LastWrite.
+	// ReadAfter is a local time after which LastWrite is known to have at
+	// least the observed value.
 	ReadAfter time.Time
 
-	// ReadBefore is the latest local time after which the skewed writer agrees
-	// the time is no earlier than LastWrite.
+	// ReadBefore is a local time before which LastWrite is known to have
+	// at least the observed value.
 	ReadBefore time.Time
 }
 
-// Earliest returns the earliest local time at which we're confident the skewed
-// writer will NOT have passed the supplied remote time.
+// Earliest returns the earliest local time after which we can be confident
+// that the remote writer will agree the supplied time is in the past.
 func (skew Skew) Earliest(remote time.Time) (local time.Time) {
+	if skew.isZero() {
+		return remote
+	}
 	delta := remote.Sub(skew.LastWrite)
 	return skew.ReadAfter.Add(delta)
 }
 
-// Latest returns the latest local time at which we're confident the skewed
-// writer will have passed the supplied remote time.
+// Latest returns the latest local time after which we can be confident that
+// the remote writer will agree the supplied time is in the past.
 func (skew Skew) Latest(remote time.Time) (local time.Time) {
+	if skew.isZero() {
+		return remote
+	}
 	delta := remote.Sub(skew.LastWrite)
 	return skew.ReadBefore.Add(delta)
+}
+
+// isZero lets us shortcut Earliest and Latest when the skew represents a
+// perfect unskewed clock (such as for a local writer).
+func (skew Skew) isZero() bool {
+	return skew.LastWrite.IsZero() && skew.ReadAfter.IsZero() && skew.ReadBefore.IsZero()
 }

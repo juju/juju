@@ -34,6 +34,16 @@ const (
 	fieldClockWriters = "writers"
 )
 
+// toInt64 converts a local time.Time into a database value.
+func toInt64(t time.Time) int64 {
+	return t.Unix()
+}
+
+// toTime converts a database value into a time.Time.
+func toTime(v int64) time.Time {
+	return time.Unix(v, 0)
+}
+
 // leaseDocId returns the _id for the document holding details of the supplied
 // namespace and lease.
 func leaseDocId(namespace, lease string) string {
@@ -52,10 +62,7 @@ type leaseDoc struct {
 	Namespace string `bson:"namespace"` // TODO(fwereade) add index
 	Lease     string `bson:"lease"`     // TODO(fwereade) add index?
 
-	// Holder, Expiry, Writer and Written map directly to entry. The time values
-	// are stored as UnixNano; not so much because we *need* the precision, as
-	// because it's yucky when serialisation throws precision away, and life is
-	// easier when we can compare leases exactly.
+	// Holder, Expiry, Writer and Written map directly to entry.
 	Holder  string `bson:"holder"`
 	Expiry  int64  `bson:"expiry"`
 	Writer  string `bson:"writer"`
@@ -75,9 +82,9 @@ func (doc leaseDoc) entry() (string, entry, error) {
 	}
 	entry := entry{
 		holder:  doc.Holder,
-		expiry:  time.Unix(0, doc.Expiry),
+		expiry:  toTime(doc.Expiry),
 		writer:  doc.Writer,
-		written: time.Unix(0, doc.Written),
+		written: toTime(doc.Written),
 	}
 	return doc.Lease, entry, nil
 }
@@ -91,9 +98,9 @@ func newLeaseDoc(namespace, lease string, entry entry) (*leaseDoc, error) {
 		Namespace: namespace,
 		Lease:     lease,
 		Holder:    entry.holder,
-		Expiry:    entry.expiry.UnixNano(),
+		Expiry:    toInt64(entry.expiry),
 		Writer:    entry.writer,
-		Written:   entry.written.UnixNano(),
+		Written:   toInt64(entry.written),
 	}
 	if err := doc.validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -115,8 +122,8 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
-	// Writers holds a map of storage instances to the most recent time they
-	// acknowledge has already passed, stored as UnixNano.
+	// Writers holds a map of storage instances to the most recent UTC time
+	// they acknowledge has already passed, stored as Unix.
 	Writers map[string]int64 `bson:"writers"`
 }
 
@@ -139,7 +146,7 @@ func (doc clockDoc) skews(readAfter, readBefore time.Time) (map[string]Skew, err
 	skews := make(map[string]Skew)
 	for writer, written := range doc.Writers {
 		skews[writer] = Skew{
-			LastWrite:  time.Unix(0, written),
+			LastWrite:  toTime(written),
 			ReadAfter:  readAfter,
 			ReadBefore: readBefore,
 		}
