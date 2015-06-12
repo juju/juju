@@ -169,11 +169,15 @@ def retain_jenv(jenv_path, log_directory):
 
 
 def get_machines_for_logs(client, bootstrap_host):
+    """Return a dict of machine_id and address.
+
+    When The env is maas, the maas ip addresses will be used.
+    When bootstrap_host is provided (except for maas), machine 0's address
+    will be forced to the value.
+    """
     # Try to get machine details from environment if possible.
     machine_addrs = dict(get_machine_addrs(client))
 
-    # The bootstrap host always overrides the status output if
-    # provided.
     if client.env.config['type'] == 'maas':
         # Maas hostnames are not resolvable, but we can adapt them to IPs.
         with MAASAccount.manager_from_config(client.env.config) as account:
@@ -181,6 +185,8 @@ def get_machines_for_logs(client, bootstrap_host):
         for machine_id, hostname in machine_addrs.items():
             machine_addrs[machine_id] = allocated_ips.get(hostname, hostname)
     elif bootstrap_host:
+        # The bootstrap host overrides the status output if provided in case
+        # status failed.
         machine_addrs['0'] = bootstrap_host
     return machine_addrs
 
