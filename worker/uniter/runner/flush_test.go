@@ -205,6 +205,52 @@ func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
 
 }
 
+func (s *FlushContextSuite) TestRunHookMetricSendingFailedByServer(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
+
+	// Send batches once.
+	batches := []runner.MetricsBatch{
+		{
+			CharmURL: s.meteredCharm.URL().String(),
+			UUID:     utils.MustNewUUID().String(),
+			Created:  time.Now(),
+			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
+		}, {
+			CharmURL: s.meteredCharm.URL().String(),
+			UUID:     utils.MustNewUUID().String(),
+			Created:  time.Now(),
+			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
+		},
+	}
+
+	reader := &StubMetricsReader{
+		Stub:    &s.Stub,
+		Batches: batches,
+	}
+
+	restoreRunner := runner.PatchMetricsReader(ctx, reader)
+	defer restoreRunner()
+
+	restoreSender := runner.PatchMetricsSender(ctx, func(batches []params.MetricBatch) (map[string]error, error) {
+		responses := make(map[string]error, len(batches))
+		for i := range responses {
+			responses[i] = errors.New("failed to store")
+		}
+		return responses, nil
+	})
+	defer restoreSender()
+
+	// Flush the context.
+	err = ctx.FlushContext("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check stub calls, metrics should not be removed.
+	s.Stub.CheckCallNames(c, "Open", "Close")
+	s.Stub.Calls = []testing.StubCall{}
+}
+
 func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
