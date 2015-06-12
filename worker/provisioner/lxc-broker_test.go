@@ -794,24 +794,23 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
 	// First call as if we are configuring the container for the first time
-	api := NewFakeAPI()
-	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", api, ifaceInfo, true, false)
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
 
 	// Next call as if the container has already been configured.
-	api.ResetCalls()
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", api, ifaceInfo, false, false)
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
 
 	// Call as if the container already has a network configuration, but doesn't.
-	api = NewFakeAPI()
-	api.SetErrors(errors.NotProvisionedf("machine-42 has no network provisioning info"))
+	s.api.ResetCalls()
+	s.api.SetErrors(errors.NotProvisionedf("machine-42 has no network provisioning info"))
 	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", api, ifaceInfo, false, false)
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
 	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
@@ -844,12 +843,12 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		ProviderId:     network.DefaultProviderId,
 	}})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "PrepareContainerInterfaceInfo",
+		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("42")},
 	}})
 
-	api.ResetCalls()
-	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", api, ifaceInfo, false, false)
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
 	c.Assert(result, gc.HasLen, 1)
 	macAddress = result[0].MACAddress
 	c.Assert(err, jc.ErrorIsNil)
