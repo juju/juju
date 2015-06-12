@@ -41,6 +41,7 @@ type kvmBrokerSuite struct {
 	kvmSuite
 	broker      environs.InstanceBroker
 	agentConfig agent.Config
+	api         *fakeAPI
 }
 
 var _ = gc.Suite(&kvmBrokerSuite{})
@@ -85,8 +86,9 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = NewFakeAPI()
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, s.agentConfig, managerConfig, false)
+	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
