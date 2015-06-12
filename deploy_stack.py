@@ -28,6 +28,7 @@ from jujupy import (
     SimpleEnvironment,
     temp_bootstrap_env,
 )
+from remote import Remote
 from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
@@ -121,26 +122,10 @@ def check_token(client, token):
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    fallback = False
+    remote = Remote(client, "dummy-sink/0")
     start = time.time()
     while True:
-        if not fallback:
-            try:
-                result = client.get_juju_output('ssh', 'dummy-sink/0',
-                                                GET_TOKEN_SCRIPT)
-            except subprocess.CalledProcessError as err:
-                print("WARNING: juju ssh failed: {}".format(str(err)))
-                print("Falling back to ssh.")
-                fallback = True
-        if fallback:
-            dummy_sink = client.get_status().status['services']['dummy-sink']
-            address = dummy_sink['units']['dummy-sink/0']['public-address']
-            user_at_host = 'ubuntu@{}'.format(address)
-            result = subprocess.check_output(
-                ['ssh', user_at_host,
-                 '-o', 'UserKnownHostsFile /dev/null',
-                 '-o', 'StrictHostKeyChecking no',
-                 'cat /var/run/dummy-sink/token'])
+        result = remote.run(GET_TOKEN_SCRIPT)
         result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
@@ -236,11 +221,11 @@ def copy_remote_logs(host, directory):
     """Copy as many logs from the remote host as possible to the directory."""
     # This list of names must be in the order of creation to ensure they
     # are retrieved.
-    log_names = [
-        'cloud-init*.log',
-        'juju/*.log',
+    log_paths = [
+        '/var/log/cloud-init*.log',
+        '/var/log/juju/*.log',
     ]
-    source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
+    remote = Remote(address=host)
 
     try:
         wait_for_port(host, 22, timeout=60)
@@ -249,25 +234,14 @@ def copy_remote_logs(host, directory):
         return
 
     try:
-        subprocess.check_call([
-            'timeout', '5m', 'ssh',
-            '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no',
-            'ubuntu@' + host,
-            'sudo chmod go+r /var/log/juju/*',
-        ])
+        remote.run('sudo chmod go+r /var/log/juju/*')
     except subprocess.CalledProcessError as e:
         # The juju log dir is not created until after cloud-init succeeds.
         logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
     try:
-        subprocess.check_call([
-            'timeout', '5m', 'scp', '-C',
-            '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no',
-            source, directory,
-        ])
+        remote.copy(directory, log_paths)
     except subprocess.CalledProcessError as e:
         # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
