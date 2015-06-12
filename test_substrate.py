@@ -27,8 +27,9 @@ from substrate import (
     get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
-    OpenStackAccount,
     make_substrate_manager,
+    MAASAccount,
+    OpenStackAccount,
     parse_euca,
     run_instances,
     start_libvirt_domain,
@@ -587,6 +588,52 @@ class TestAzureAccount(TestCase):
             'foo', embed_detail=True)
         client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
         client.delete_hosted_service.assert_called_once_with('foo')
+
+
+class TestMAASAcount(TestCase):
+
+    @patch.object(MAASAccount, 'logout', autospec=True)
+    @patch.object(MAASAccount, 'login', autospec=True)
+    def test_manager_from_config(self, li_mock, lo_mock):
+        config = get_maas_env().config
+        with MAASAccount.manager_from_config(config) as account:
+            self.assertEqual(account.profile, 'mas')
+            self.assertEqual(account.url, 'http://10.0.10.10/MAAS/api/1.0/')
+            self.assertEqual(account.oauth, 'a:password:string')
+            # As the class object is patched, the mocked methods
+            # show that self is passed.
+            li_mock.assert_called_once_with(account)
+        lo_mock.assert_called_once_with(account)
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_login(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.login()
+        cc_mock.assert_called_with([
+            'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+            'a:password:string'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_logout(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.logout()
+        cc_mock.assert_called_with(['maas', 'logout', 'mas'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_terminate_instances(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
+        account.terminate_instances(instance_ids)
+        cc_mock.assert_any_call(
+            ['maas', 'mas', 'node', 'release', 'node-1d'])
+        cc_mock.assert_called_with(
+            ['maas', 'mas', 'node', 'release', 'node-2d'])
 
 
 class TestMakeSubstrateManager(TestCase):
