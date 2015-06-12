@@ -329,6 +329,50 @@ func (st *State) filesystemAttachments(query bson.D) ([]FilesystemAttachment, er
 	return attachments, nil
 }
 
+// removeMachineFilesystemsOps returns txn.Ops to remove non-persistent filesystems
+// attached to the specified machine. This is used when the given machine is
+// being removed from state.
+func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op, error) {
+	attachments, err := st.MachineFilesystemAttachments(machine)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	shouldRemoveFilesystem := func(filesystem Filesystem) (bool, error) {
+		// TODO(axw) when we have support for persistent filesystems,
+		// e.g. NFS shares, then we need to check the filesystem info
+		// to decide whether or not to remove.
+		return true, nil
+	}
+	ops := make([]txn.Op, 0, len(attachments))
+	for _, a := range attachments {
+		filesystemTag := a.Filesystem()
+		ops = append(ops, txn.Op{
+			C:      filesystemAttachmentsC,
+			Id:     filesystemAttachmentId(machine.Id(), filesystemTag.Id()),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+		filesystem, err := st.Filesystem(filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ok, err := shouldRemoveFilesystem(filesystem)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !ok {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      filesystemsC,
+			Id:     filesystemTag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
 // DetachFilesystem marks the filesystem attachment identified by the specified machine
 // and filesystem tags as Dying, if it is Alive.
 func (st *State) DetachFilesystem(machine names.MachineTag, filesystem names.FilesystemTag) (err error) {

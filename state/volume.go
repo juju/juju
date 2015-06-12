@@ -316,6 +316,58 @@ func IsContainsFilesystem(err error) bool {
 	return ok
 }
 
+// removeMachineVolumesOps returns txn.Ops to remove non-persistent volumes
+// attached to the specified machine. This is used when the given machine is
+// being removed from state.
+func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, error) {
+	attachments, err := st.MachineVolumeAttachments(machine)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops := make([]txn.Op, 0, len(attachments))
+	for _, a := range attachments {
+		volumeTag := a.Volume()
+		ops = append(ops, txn.Op{
+			C:      volumeAttachmentsC,
+			Id:     volumeAttachmentId(machine.Id(), volumeTag.Id()),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+		volume, err := st.Volume(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		volumeInfo, err := volume.Info()
+		if errors.IsNotProvisioned(err) {
+			params, _ := volume.Params()
+			_, provider, err := poolStorageProvider(st, params.Pool)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if provider.Dynamic() {
+				// Leave cleanup to the storage provisioner.
+				continue
+			}
+			// Volume will never be provisioned; remove
+			// from state below.
+			volumeInfo.Persistent = false
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if volumeInfo.Persistent {
+			// Volume outlives machine.
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      volumesC,
+			Id:     volumeTag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
 // DetachVolume marks the volume attachment identified by the specified machine
 // and volume tags as Dying, if it is Alive. DetachVolume will fail with a
 // IsContainsFilesystem error if the volume contains an attached filesystem; the

@@ -728,9 +728,19 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
+	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ops = append(ops, filesystemOps...)
+	ops = append(ops, volumeOps...)
 	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
 	if err != nil {
 		return errors.Trace(err)

@@ -596,11 +596,34 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentAlive(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying")
 }
 
+func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// Machine is gone: filesystem should be gone too.
+	_, err := s.State.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	attachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.HasLen, 0)
+}
+
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem", pool)
-	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: pool, Size: 1024},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	assignedMachineId, err := u.AssignedMachineId()
+	attachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	return s.storageInstanceFilesystem(c, storageTag), s.machine(c, assignedMachineId)
+	c.Assert(attachments, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	return s.filesystem(c, attachments[0].Filesystem()), machine
 }
