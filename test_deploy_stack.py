@@ -389,9 +389,23 @@ class DumpEnvLogsTestCase(TestCase):
             """))
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machine_addrs = get_machines_for_logs(client, '10.11.12.13')
+            machine_addrs = get_machines_for_logs(client, None)
         self.assertEqual(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
+
+    def test_get_machines_for_log_with_boostrap_host(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
+        status = Status.from_text(dedent("""\
+            machines:
+              "0":
+                dns-name: 10.11.12.13
+            """))
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            machine_addrs = get_machines_for_logs(client, '10.11.111.222')
+        self.assertEqual(
+            {'0': '10.11.111.222'}, machine_addrs)
 
     def test_retain_jenv(self):
         with temp_dir() as jenv_dir:
