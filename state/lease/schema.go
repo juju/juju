@@ -5,14 +5,15 @@ package lease
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 )
 
 // These constants define the field names and type values used by documents in
-// a lease storage collection. They *must* remain in sync with the bson
-// marshallling annotations in leaseDoc and clockDoc.
+// a lease collection. They *must* remain in sync with the bson marshallling
+// annotations in leaseDoc and clockDoc.
 const (
 	// fieldType and fieldNamespace identify the Type and Namespace fields in
 	// both leaseDoc and clockDoc.
@@ -24,7 +25,7 @@ const (
 	typeClock = "clock"
 
 	// fieldLease* identify the fields in a leaseDoc.
-	fieldLeaseLease   = "lease"
+	fieldLeaseName    = "name"
 	fieldLeaseHolder  = "holder"
 	fieldLeaseExpiry  = "expiry"
 	fieldLeaseWriter  = "writer"
@@ -36,12 +37,33 @@ const (
 
 // toInt64 converts a local time.Time into a database value.
 func toInt64(t time.Time) int64 {
-	return t.Unix()
+	return t.UnixNano()
 }
 
 // toTime converts a database value into a time.Time.
 func toTime(v int64) time.Time {
-	return time.Unix(v, 0)
+	return time.Unix(0, v)
+}
+
+// For simplicity's sake, we impose the same restrictions on all strings used
+// with the lease package: they may not be empty, and none of the following
+// characters are allowed.
+//   * '.' and '$' mean things to mongodb; we don't want to risk seeing them
+//     in key names.
+//   * '#' means something to the lease package and we don't want to risk
+//     confusing ourselves.
+//   * whitespace just seems like a bad idea.
+const badCharacters = ".$# \t\r\n"
+
+// validateString returns an error if the string is not valid.
+func validateString(s string) error {
+	if s == "" {
+		return errors.New("string is empty")
+	}
+	if strings.ContainsAny(s, badCharacters) {
+		return errors.New("string contains forbidden characters")
+	}
+	return nil
 }
 
 // leaseDocId returns the _id for the document holding details of the supplied
@@ -52,15 +74,15 @@ func leaseDocId(namespace, lease string) string {
 
 // leaseDoc is used to serialise lease entries.
 type leaseDoc struct {
-	// Id is always "<Type>#<Namespace>#<Lease>#", and <Type> is always "lease",
+	// Id is always "<Type>#<Namespace>#<Name>#", and <Type> is always "lease",
 	// so that we can extract useful information from a stream of watcher events
 	// without incurring extra DB hits.
 	// Apart from checking validity on load, though, there's little reason
-	// to use Id elsewhere; Namespace and Lease are the sources of truth.
+	// to use Id elsewhere; Namespace and Name are the sources of truth.
 	Id        string `bson:"_id"`
 	Type      string `bson:"type"`      // TODO(fwereade) add index
 	Namespace string `bson:"namespace"` // TODO(fwereade) add index
-	Lease     string `bson:"lease"`     // TODO(fwereade) add index?
+	Name      string `bson:"name"`
 
 	// Holder, Expiry, Writer and Written map directly to entry.
 	Holder  string `bson:"holder"`
@@ -71,7 +93,25 @@ type leaseDoc struct {
 
 // validate returns an error if any fields are invalid or inconsistent.
 func (doc leaseDoc) validate() error {
-	return errors.Errorf("validation!")
+	if doc.Type != typeLease {
+		return errors.Errorf("invalid type %q", doc.Type)
+	}
+	if doc.Id != leaseDocId(doc.Namespace, doc.Name) {
+		return errors.Errorf("inconsistent _id")
+	}
+	if err := validateString(doc.Holder); err != nil {
+		return errors.Annotatef(err, "invalid holder")
+	}
+	if doc.Expiry == 0 {
+		return errors.Errorf("invalid expiry")
+	}
+	if err := validateString(doc.Writer); err != nil {
+		return errors.Annotatef(err, "invalid writer")
+	}
+	if doc.Written == 0 {
+		return errors.Errorf("invalid written")
+	}
+	return nil
 }
 
 // entry returns the lease name and an entry corresponding to the document. If
@@ -86,17 +126,17 @@ func (doc leaseDoc) entry() (string, entry, error) {
 		writer:  doc.Writer,
 		written: toTime(doc.Written),
 	}
-	return doc.Lease, entry, nil
+	return doc.Name, entry, nil
 }
 
 // newLeaseDoc returns a valid lease document encoding the supplied lease and
 // entry in the supplied namespace, or an error.
-func newLeaseDoc(namespace, lease string, entry entry) (*leaseDoc, error) {
+func newLeaseDoc(namespace, name string, entry entry) (*leaseDoc, error) {
 	doc := &leaseDoc{
-		Id:        leaseDocId(namespace, lease),
+		Id:        leaseDocId(namespace, name),
 		Type:      typeLease,
 		Namespace: namespace,
-		Lease:     lease,
+		Name:      name,
 		Holder:    entry.holder,
 		Expiry:    toInt64(entry.expiry),
 		Writer:    entry.writer,
@@ -109,12 +149,12 @@ func newLeaseDoc(namespace, lease string, entry entry) (*leaseDoc, error) {
 }
 
 // clockDocId returns the _id for the document holding clock skew information
-// for the storage instances in the supplied namespace.
+// for clients that have written in the supplied namespace.
 func clockDocId(namespace string) string {
 	return fmt.Sprintf("%s#%s#", typeClock, namespace)
 }
 
-// clockDoc is used to synchronise different storage instances.
+// clockDoc is used to synchronise clients.
 type clockDoc struct {
 	// Id is always "<Type>#<Namespace>#", and <Type> is always "clock", for
 	// consistency with leaseDoc and ease of querying within the collection.
@@ -122,14 +162,24 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
-	// Writers holds a map of storage instances to the most recent UTC time
-	// they acknowledge has already passed, stored as Unix.
+	// Writers holds a the latest acknowledged time for every known client.
 	Writers map[string]int64 `bson:"writers"`
 }
 
 // validate returns an error if any fields are invalid or inconsistent.
 func (doc clockDoc) validate() error {
-	return errors.Errorf("validation!")
+	if doc.Type != typeClock {
+		return errors.Errorf("invalid type %q", doc.Type)
+	}
+	if doc.Id != clockDocId(doc.Namespace) {
+		return errors.Errorf("inconsistent _id")
+	}
+	for writer, written := range doc.Writers {
+		if written == 0 {
+			return errors.Errorf("invalid time for writer %q", writer)
+		}
+	}
+	return nil
 }
 
 // skews returns clock skew information for all writers recorded in the

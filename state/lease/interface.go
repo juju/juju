@@ -7,89 +7,82 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// Storage exposes lease management functionality on top of MongoDB.
-type Storage interface {
-
-	// Refresh reads all lease info for the storage's namespace. You probably
-	// don't want to have too many thousand leases in a given namespace.
-	Refresh() error
-
-	// Leases returns a recent snapshot of lease state. Expiry times
-	// expressed according to the Clock the Storage was configured with.
-	Leases() map[string]Info
+// Client manipulates leases backed by MongoDB.
+type Client interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
-	// check Leases() for recent state and issue a new claim if warranted.
-	ClaimLease(lease, holder string, duration time.Duration) error
+	// check Leases() for updated state.
+	ClaimLease(lease string, request Request) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
-	ExtendLease(lease, holder string, duration time.Duration) error
+	// If it returns ErrInvalid, check Leases() for updated state.
+	ExtendLease(lease string, request Request) error
 
 	// ExpireLease records the vacation of the supplied lease. It will fail if
 	// we cannot verify that the lease's writer considers the expiry time to
-	// have passed.
+	// have passed. If it returns ErrInvalid, check Leases() for updated state.
 	ExpireLease(lease string) error
+
+	// Leases returns a recent snapshot of lease state. Expiry times are
+	// expressed according to the Clock the client was configured with.
+	Leases() map[string]Info
+
+	// Refresh reads all lease state from the database.
+	Refresh() error
 }
 
-// ErrInvalid indicates that a storage operation failed because latest state
-// indicates that it's a logical impossibility.
-var ErrInvalid = errors.New("invalid lease operation")
-
-// Info is the information a Storage is willing to give out about a given lease.
+// Info holds information about a lease. It's MongoDB-specific, because it
+// includes information that can be used with the mgo/txn package to gate
+// transaction operations on lease state.
 type Info struct {
 
-	// Holder is the name of the current lease holder.
+	// Holder is the name of the current leaseholder.
 	Holder string
 
 	// EarliestExpiry is the earliest time at which it's possible the lease
-	// might expire.
+	// might expire: the current holder is absolutely guaranteed until this
+	// point.
 	EarliestExpiry time.Time
 
 	// LatestExpiry is the latest time at which it's possible the lease might
-	// still be valid.
+	// still be valid. Attempting to expire the lease before this time will
+	// fail.
 	LatestExpiry time.Time
 
-	// AssertOp is filthy abstraction-breaking garbage that is necessary to
-	// allow us to make mgo/txn assertions about leases in the state package;
-	// and which thus allows us to gate certain state changes on a particular
-	// unit's leadership of a service, for example.
+	// AssertOp, if included in a mgo/txn transaction, will gate the transaction
+	// on the lease remaining held by Holder. If we didn't need this, we could
+	// easily implement Clients backed by other substrates.
 	AssertOp txn.Op
 }
 
-// Mongo exposes MongoDB operations for use by the lease package.
-type Mongo interface {
+// Request describes a lease request.
+type Request struct {
 
-	// RunTransaction should probably delegate to a jujutxn.Runner's Run method.
-	RunTransaction(jujutxn.TransactionSource) error
+	// Holder identifies the lease holder.
+	Holder string
 
-	// GetCollection should probably call the mongo.CollectionFromName func.
-	GetCollection(name string) (collection *mgo.Collection, closer func())
+	// Duration specifies the time for which the lease is required.
+	Duration time.Duration
 }
 
-// Clock exposes wall-clock time for use by the lease package.
-type Clock interface {
-
-	// Now returns the current wall-clock time.
-	Now() time.Time
+// Validate returns an error if any fields are invalid or inconsistent.
+func (request Request) Validate() error {
+	if err := validateString(request.Holder); err != nil {
+		return errors.Annotatef(err, "invalid holder")
+	}
+	if request.Duration <= 0 {
+		return errors.Errorf("invalid duration")
+	}
+	return nil
 }
 
-// SystemClock exposes wall-clock time as returned by time.Now().UTC().
-type SystemClock struct{}
-
-// Now is part of the Clock interface.
-func (SystemClock) Now() time.Time {
-	return time.Now().UTC()
-}
-
-// logger exposes logging functionality for use by the lease package.
-var logger = loggo.GetLogger("juju.state.lease")
+// ErrInvalid indicates that a client operation failed because latest state
+// indicates that it's a logical impossibility.
+var ErrInvalid = errors.New("invalid lease operation")
