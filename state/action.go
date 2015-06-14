@@ -317,6 +317,12 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	defer closer()
 
 	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
+	defer func() {
+		err := iter.Close()
+		if err != nil {
+			actionLogger.Errorf("error closing mongo iterator: %v", err)
+		}
+	}()
 	for iter.Next(&doc) {
 		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
 		localID := st.localID(doc.Id)
