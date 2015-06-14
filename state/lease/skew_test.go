@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/testing"
-	//	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/lease"
@@ -20,9 +19,11 @@ type SkewSuite struct {
 var _ = gc.Suite(&SkewSuite{})
 
 func (s *SkewSuite) TestZero(c *gc.C) {
+	now := time.Now()
+
+	// The zero Skew should act as unskewed.
 	skew := lease.Skew{}
 
-	now := time.Now()
 	c.Check(skew.Earliest(now), gc.Equals, now)
 	c.Check(skew.Latest(now), gc.Equals, now)
 }

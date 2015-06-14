@@ -4,68 +4,53 @@
 package lease
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// StorageConfig contains the resources and information required to create
-// a Storage.
-type StorageConfig struct {
-
-	// Clock exposes the wall-clock time to a Storage.
-	Clock Clock
-
-	// Mongo exposes the mgo[/txn] capabilities required by a Storage.
-	Mongo Mongo
-
-	// Collection identifies the MongoDB collection in which lease data is
-	// persisted. Multiple storages can use the same collection without
-	// interfering with each other, so long as they use different namespaces.
-	Collection string
-
-	// Namespace identifies the domain of the lease manager; storage instances
-	// which share a namespace and a collection will collaborate.
-	Namespace string
-
-	// Instance uniquely identifies the storage instance. Storage instances will
-	// fail to collaborate if any two concurrently identify as the same instance.
-	Instance string
-}
-
-// Validate returns an error if the supplied config is not valid.
-func (config StorageConfig) Validate() error {
-	return errors.Errorf("validation!")
-}
-
-// NewStorage returns a new Storage using the supplied config. It will return
-// an error if the config fails to validate; or if the collection lacks a clock
-// document for the configured namespace and none can be created; or if it fails
-// to read valid initial lease information.
-func NewStorage(config StorageConfig) (Storage, error) {
+// NewClient returns a new Client using the supplied config, or an error. Any
+// of the following situations will prevent client creation:
+//  * invalid config
+//  * invalid clock data stored in the namespace
+//  * invalid lease data stored in the namespace
+// ...but a returned Client will hold a recent cache of lease data and be ready
+// to use.
+// Clients do not need to be cleaned up themselves, but they will not function
+// past the lifetime of their configured Mongo.
+func NewClient(config ClientConfig) (Client, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storage := &storage{config: config}
-	if err := storage.ensureClockDoc(); err != nil {
+	loggerName := fmt.Sprintf("state.lease.%s.%s", config.Namespace, config.Id)
+	logger := loggo.GetLogger(loggerName)
+	client := &client{
+		config: config,
+		logger: logger,
+	}
+	if err := client.ensureClockDoc(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := storage.Refresh(); err != nil {
+	if err := client.Refresh(); err != nil {
 		return nil, err
 	}
-	return storage, nil
+	return client, nil
 }
 
-// storage implements the Storage interface.
-type storage struct {
+// client implements the Client interface.
+type client struct {
 
-	// config holds resources and configuration necessary to implement lease
-	// storage.
-	config StorageConfig
+	// config holds resources and configuration necessary to store leases.
+	config ClientConfig
+
+	// logger holds a logger unique to this lease Client.
+	logger loggo.Logger
 
 	// entries records recent information about leases.
 	entries map[string]entry
@@ -74,44 +59,14 @@ type storage struct {
 	skews map[string]Skew
 }
 
-// Refresh is part of the Storage interface.
-func (s *storage) Refresh() error {
-
-	// Always read entries before skews, because skews are written before
-	// entries; we increase the risk of reading older skew data, but (should)
-	// eliminate the risk of reading an entry whose writer is not present
-	// in the skews data.
-	collection, closer := s.config.Mongo.GetCollection(s.config.Collection)
-	defer closer()
-	entries, err := s.readEntries(collection)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	skews, err := s.readSkews(collection)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Check we're not missing any required clock information before
-	// updating our local state.
-	for lease, entry := range entries {
-		if _, found := skews[entry.writer]; !found {
-			return errors.Errorf("lease %q invalid: no clock data for %s", lease, entry.writer)
-		}
-	}
-	s.skews = skews
-	s.entries = entries
-	return nil
-}
-
-// Leases is part of the Storage interface.
-func (s *storage) Leases() map[string]Info {
+// Leases is part of the Client interface.
+func (client *client) Leases() map[string]Info {
 	leases := make(map[string]Info)
-	for lease, entry := range s.entries {
-		skew := s.skews[entry.writer]
-		leases[lease] = Info{
+	for name, entry := range client.entries {
+		skew := client.skews[entry.writer]
+		leases[name] = Info{
 			Holder:         entry.holder,
-			AssertOp:       s.assertOp(lease, entry.holder),
+			AssertOp:       client.assertOp(name, entry.holder),
 			EarliestExpiry: skew.Earliest(entry.expiry),
 			LatestExpiry:   skew.Latest(entry.expiry),
 		}
@@ -119,22 +74,29 @@ func (s *storage) Leases() map[string]Info {
 	return leases
 }
 
-// ClaimLease is part of the Storage interface.
-func (s *storage) ClaimLease(lease, holder string, duration time.Duration) error {
+// ClaimLease is part of the Client interface.
+func (client *client) ClaimLease(name string, request Request) error {
+	if err := validateString(name); err != nil {
+		return errors.Annotatef(err, "invalid name")
+	}
+	if err := request.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid request")
+	}
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
-	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		client.logger.Debugf("claiming lease %q for %s (attempt %d)", name, request, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := s.Refresh(); err != nil {
+			if err := client.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		// No special error handling here.
-		ops, nextEntry, err := s.claimLeaseOps(lease, holder, duration)
+		ops, nextEntry, err := client.claimLeaseOps(name, request)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -150,27 +112,34 @@ func (s *storage) ClaimLease(lease, holder string, duration time.Duration) error
 	}
 
 	// Update the cache for this lease only.
-	s.entries[lease] = cacheEntry
+	client.entries[name] = cacheEntry
 	return nil
 }
 
-// ExtendLease is part of the Storage interface.
-func (s *storage) ExtendLease(lease, holder string, duration time.Duration) error {
+// ExtendLease is part of the Client interface.
+func (client *client) ExtendLease(name string, request Request) error {
+	if err := validateString(name); err != nil {
+		return errors.Annotatef(err, "invalid name")
+	}
+	if err := request.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid request")
+	}
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
-	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		client.logger.Debugf("extending lease %q for %s (attempt %d)", name, request, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := s.Refresh(); err != nil {
+			if err := client.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		// It's possible that the "extension" isn't an extension at all; this
 		// isn't a problem, but does require separate handling.
-		ops, nextEntry, err := s.extendLeaseOps(lease, holder, duration)
+		ops, nextEntry, err := client.extendLeaseOps(name, request)
 		cacheEntry = nextEntry
 		if errors.Cause(err) == errNoExtension {
 			return nil, jujutxn.ErrNoOperations
@@ -188,25 +157,29 @@ func (s *storage) ExtendLease(lease, holder string, duration time.Duration) erro
 	}
 
 	// Update the cache for this lease only.
-	s.entries[lease] = cacheEntry
+	client.entries[name] = cacheEntry
 	return nil
 }
 
-// ExpireLease is part of the Storage interface.
-func (s *storage) ExpireLease(lease string) error {
+// ExpireLease is part of the Client interface.
+func (client *client) ExpireLease(name string) error {
+	if err := validateString(name); err != nil {
+		return errors.Annotatef(err, "invalid name")
+	}
 
 	// No cache updates needed, only deletes; no closure here.
-	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		client.logger.Debugf("expiring lease %q (attempt %d)", name, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := s.Refresh(); err != nil {
+			if err := client.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		// No special error handling here.
-		ops, err := s.expireLeaseOps(lease)
+		ops, err := client.expireLeaseOps(name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -221,17 +194,81 @@ func (s *storage) ExpireLease(lease string) error {
 	}
 
 	// Uncache this lease entry.
-	delete(s.entries, lease)
+	delete(client.entries, name)
 	return nil
 }
 
-// readEntries reads all lease data for the storage's namespace.
-func (s *storage) readEntries(collection *mgo.Collection) (map[string]entry, error) {
+// Refresh is part of the Client interface.
+func (client *client) Refresh() error {
+	client.logger.Debugf("refreshing")
 
-	// Read all lease documents in the storage's namespace.
+	// Always read entries before skews, because skews are written before
+	// entries; we increase the risk of reading older skew data, but (should)
+	// eliminate the risk of reading an entry whose writer is not present
+	// in the skews data.
+	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
+	defer closer()
+	entries, err := client.readEntries(collection)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	skews, err := client.readSkews(collection)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Check we're not missing any required clock information before
+	// updating our local state.
+	for name, entry := range entries {
+		if _, found := skews[entry.writer]; !found {
+			return errors.Errorf("lease %q invalid: no clock data for %s", name, entry.writer)
+		}
+	}
+	client.skews = skews
+	client.entries = entries
+	return nil
+}
+
+// ensureClockDoc returns an error if it can neither find nor create a
+// valid clock document for the client's namespace.
+func (client *client) ensureClockDoc() error {
+
+	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
+	defer closer()
+
+	clockDocId := client.clockDocId()
+	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		var clockDoc clockDoc
+		err := collection.FindId(clockDocId).One(&clockDoc)
+		if err == nil {
+			if err := clockDoc.validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return nil, jujutxn.ErrNoOperations
+		} else if err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		newClockDoc, err := newClockDoc(client.config.Namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []txn.Op{{
+			C:      client.config.Collection,
+			Id:     clockDocId,
+			Assert: txn.DocMissing,
+			Insert: newClockDoc,
+		}}, nil
+	})
+	return errors.Trace(err)
+}
+
+// readEntries reads all lease data for the client's namespace.
+func (client *client) readEntries(collection *mgo.Collection) (map[string]entry, error) {
+
+	// Read all lease documents in the client's namespace.
 	query := bson.M{
 		fieldType:      typeLease,
-		fieldNamespace: s.config.Namespace,
+		fieldNamespace: client.config.Namespace,
 	}
 	iter := collection.Find(query).Iter()
 
@@ -239,10 +276,10 @@ func (s *storage) readEntries(collection *mgo.Collection) (map[string]entry, err
 	entries := make(map[string]entry)
 	var leaseDoc leaseDoc
 	for iter.Next(&leaseDoc) {
-		if lease, entry, err := leaseDoc.entry(); err != nil {
+		if name, entry, err := leaseDoc.entry(); err != nil {
 			return nil, errors.Trace(err)
 		} else {
-			entries[lease] = entry
+			entries[name] = entry
 		}
 	}
 	if err := iter.Close(); err != nil {
@@ -251,33 +288,35 @@ func (s *storage) readEntries(collection *mgo.Collection) (map[string]entry, err
 	return entries, nil
 }
 
-// readSkews reads all clock data for the storage's namespace.
-func (s *storage) readSkews(collection *mgo.Collection) (map[string]Skew, error) {
+// readSkews reads all clock data for the client's namespace.
+func (client *client) readSkews(collection *mgo.Collection) (map[string]Skew, error) {
 
 	// Read the clock document, recording the time before and after completion.
-	readBefore := s.config.Clock.Now()
+	readBefore := client.config.Clock.Now()
 	var clockDoc clockDoc
-	if err := collection.FindId(s.clockDocId()).One(&clockDoc); err != nil {
+	if err := collection.FindId(client.clockDocId()).One(&clockDoc); err != nil {
 		return nil, errors.Trace(err)
 	}
-	readAfter := s.config.Clock.Now()
+	readAfter := client.config.Clock.Now()
 
 	// Create skew entries for each known writer...
-	skews, err := clockDoc.skews(readAfter, readBefore)
+	skews, err := clockDoc.skews(readBefore, readAfter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// If a writer was previously known to us, and has not written since last
 	// time we read, we should keep the original skew, which is more accurate.
-	for writer, skew := range s.skews {
+	for writer, skew := range client.skews {
 		if skews[writer].LastWrite == skew.LastWrite {
 			skews[writer] = skew
 		}
 	}
 
-	// ...and overwrite our own with a zero skew, which will DTRT.
-	skews[s.config.Instance] = Skew{}
+	// ...and overwrite our own with a zero skew, which will DTRT (assuming
+	// nobody's reusing client ids across machines with different clocks,
+	// which *should* never happen).
+	skews[client.config.Id] = Skew{}
 	return skews, nil
 }
 
@@ -285,38 +324,38 @@ func (s *storage) readSkews(collection *mgo.Collection) (map[string]Skew, error)
 // until duration in the future, and a cache entry corresponding to the values
 // that will be written if the transaction succeeds. If the claim would conflict
 // with cached state, it returns ErrInvalid.
-func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([]txn.Op, entry, error) {
+func (client *client) claimLeaseOps(name string, request Request) ([]txn.Op, entry, error) {
 
 	// We can't claim a lease that's already held.
-	if _, found := s.entries[lease]; found {
+	if _, found := client.entries[name]; found {
 		return nil, entry{}, ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
 	// <duration> in the future.
-	now := s.config.Clock.Now()
-	expiry := now.Add(duration)
+	now := client.config.Clock.Now()
+	expiry := now.Add(request.Duration)
 	nextEntry := entry{
-		holder:  holder,
+		holder:  request.Holder,
 		expiry:  expiry,
-		writer:  s.config.Instance,
+		writer:  client.config.Id,
 		written: now,
 	}
 
 	// We need to write the entry to the database in a specific format.
-	leaseDoc, err := newLeaseDoc(s.config.Namespace, lease, nextEntry)
+	leaseDoc, err := newLeaseDoc(client.config.Namespace, name, nextEntry)
 	if err != nil {
 		return nil, entry{}, errors.Trace(err)
 	}
 	extendLeaseOp := txn.Op{
-		C:      s.config.Collection,
+		C:      client.config.Collection,
 		Id:     leaseDoc.Id,
 		Assert: txn.DocMissing,
 		Insert: leaseDoc,
 	}
 
 	// We always write a clock-update operation *before* writing lease info.
-	writeClockOp := s.writeClockOp(now)
+	writeClockOp := client.writeClockOp(now)
 	ops := []txn.Op{writeClockOp, extendLeaseOp}
 	return ops, nextEntry, nil
 }
@@ -327,26 +366,26 @@ func (s *storage) claimLeaseOps(lease, holder string, duration time.Duration) ([
 // already extends far enough that no operations are required, it will return
 // errNoExtension. If the extension would conflict with cached state, it will
 // return ErrInvalid.
-func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) ([]txn.Op, entry, error) {
+func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, entry, error) {
 
 	// Reject extensions when there's no lease, or the holder doesn't match.
-	lastEntry, found := s.entries[lease]
+	lastEntry, found := client.entries[name]
 	if !found {
 		return nil, entry{}, ErrInvalid
 	}
-	if holder != lastEntry.holder {
+	if lastEntry.holder != request.Holder {
 		return nil, entry{}, ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
 	// <duration> in the future.
-	now := s.config.Clock.Now()
-	expiry := now.Add(duration)
+	now := client.config.Clock.Now()
+	expiry := now.Add(request.Duration)
 
 	// We don't know what time the original writer thinks it is, but we
 	// can figure out the earliest and latest local times at which it
 	// could be expecting its original lease to expire.
-	skew := s.skews[lastEntry.writer]
+	skew := client.skews[lastEntry.writer]
 	if expiry.Before(skew.Earliest(lastEntry.expiry)) {
 		// The "extended" lease will certainly expire before the
 		// existing lease could. Done.
@@ -367,15 +406,15 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 	nextEntry := entry{
 		holder:  lastEntry.holder,
 		expiry:  expiry,
-		writer:  s.config.Instance,
+		writer:  client.config.Id,
 		written: now,
 	}
 
 	// ...and what needs to change in the database, and how to ensure the
 	// change is still valid when it's executed.
 	extendLeaseOp := txn.Op{
-		C:  s.config.Collection,
-		Id: s.leaseDocId(lease),
+		C:  client.config.Collection,
+		Id: client.leaseDocId(name),
 		Assert: bson.M{
 			fieldLeaseHolder: lastEntry.holder,
 			fieldLeaseExpiry: toInt64(lastEntry.expiry),
@@ -383,31 +422,31 @@ func (s *storage) extendLeaseOps(lease, holder string, duration time.Duration) (
 		},
 		Update: bson.M{
 			fieldLeaseExpiry:  toInt64(expiry),
-			fieldLeaseWriter:  s.config.Instance,
+			fieldLeaseWriter:  client.config.Id,
 			fieldLeaseWritten: toInt64(nextEntry.written),
 		},
 	}
 
 	// We always write a clock-update operation *before* writing lease info.
-	writeClockOp := s.writeClockOp(now)
+	writeClockOp := client.writeClockOp(now)
 	ops := []txn.Op{writeClockOp, extendLeaseOp}
 	return ops, nextEntry, nil
 }
 
 // expireLeaseOps returns the []txn.Op necessary to vacate the lease. If the
 // expiration would conflict with cached state, it will return ErrInvalid.
-func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
+func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 
 	// We can't expire a lease that doesn't exist.
-	lastEntry, found := s.entries[lease]
+	lastEntry, found := client.entries[name]
 	if !found {
 		return nil, ErrInvalid
 	}
 
 	// We also can't expire a lease that hasn't actually expired.
-	skew := s.skews[lastEntry.writer]
+	skew := client.skews[lastEntry.writer]
 	latestExpiry := skew.Latest(lastEntry.expiry)
-	now := s.config.Clock.Now()
+	now := client.config.Clock.Now()
 	if !now.After(latestExpiry) {
 		return nil, ErrInvalid
 	}
@@ -415,8 +454,8 @@ func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
 	// The database change is simple, and depends on the lease doc being
 	// untouched since we looked:
 	expireLeaseOp := txn.Op{
-		C:  s.config.Collection,
-		Id: s.leaseDocId(lease),
+		C:  client.config.Collection,
+		Id: client.leaseDocId(name),
 		Assert: bson.M{
 			fieldLeaseHolder: lastEntry.holder,
 			fieldLeaseExpiry: toInt64(lastEntry.expiry),
@@ -427,81 +466,54 @@ func (s *storage) expireLeaseOps(lease string) ([]txn.Op, error) {
 
 	// We always write a clock-update operation *before* writing lease info.
 	// Removing a lease document counts as writing lease info.
-	writeClockOp := s.writeClockOp(now)
+	writeClockOp := client.writeClockOp(now)
 	ops := []txn.Op{writeClockOp, expireLeaseOp}
 	return ops, nil
-}
-
-// ensureClockDoc returns an error if it can neither find nor create a
-// valid clock document for the storage's namespace.
-func (s *storage) ensureClockDoc() error {
-
-	collection, closer := s.config.Mongo.GetCollection(s.config.Collection)
-	defer closer()
-
-	clockDocId := s.clockDocId()
-	err := s.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		var clockDoc clockDoc
-		err := collection.FindId(clockDocId).One(&clockDoc)
-		if err == nil {
-			if err := clockDoc.validate(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			return nil, jujutxn.ErrNoOperations
-		} else if err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		}
-		newClockDoc, err := newClockDoc(s.config.Namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return []txn.Op{{
-			C:      s.config.Collection,
-			Id:     clockDocId,
-			Assert: txn.DocMissing,
-			Insert: newClockDoc,
-		}}, nil
-	})
-	return errors.Trace(err)
 }
 
 // writeClockOp returns a txn.Op which writes the supplied time to the writer's
 // field in the skew doc, and aborts if a more recent time has been recorded for
 // that writer.
-func (s *storage) writeClockOp(now time.Time) txn.Op {
+func (client *client) writeClockOp(now time.Time) txn.Op {
 	dbNow := toInt64(now)
+	dbKey := fmt.Sprintf("%s.%s", fieldClockWriters, client.config.Id)
 	return txn.Op{
-		C:  s.config.Collection,
-		Id: s.clockDocId(),
+		C:  client.config.Collection,
+		Id: client.clockDocId(),
 		Assert: bson.M{
-			s.config.Instance: bson.M{"$lt": dbNow},
+			"$or": []bson.D{{
+				{dbKey, bson.M{"$lte": dbNow}},
+			}, {
+				{dbKey, bson.M{"$exists": false}},
+			}},
 		},
 		Update: bson.M{
-			"$set": bson.M{s.config.Instance: dbNow},
+			"$set": bson.M{dbKey: dbNow},
 		},
 	}
 }
 
-// assertOp returns a txn.Op which will succeed only if holder holds lease.
-func (s *storage) assertOp(lease, holder string) txn.Op {
+// assertOp returns a txn.Op which will succeed only if holder holds the
+// named lease.
+func (client *client) assertOp(name, holder string) txn.Op {
 	return txn.Op{
-		C:  s.config.Collection,
-		Id: s.leaseDocId(lease),
+		C:  client.config.Collection,
+		Id: client.leaseDocId(name),
 		Assert: bson.M{
 			fieldLeaseHolder: holder,
 		},
 	}
 }
 
-// clockDocId returns the id of the clock document in the storage's namespace.
-func (s *storage) clockDocId() string {
-	return clockDocId(s.config.Namespace)
+// clockDocId returns the id of the clock document in the client's namespace.
+func (client *client) clockDocId() string {
+	return clockDocId(client.config.Namespace)
 }
 
-// leaseDocId returns the id of the named lease document in the storage's
+// leaseDocId returns the id of the named lease document in the client's
 // namespace.
-func (s *storage) leaseDocId(lease string) string {
-	return leaseDocId(s.config.Namespace, lease)
+func (client *client) leaseDocId(name string) string {
+	return leaseDocId(client.config.Namespace, name)
 }
 
 // entry holds the details of a lease and how it was written. The time values
@@ -513,7 +525,7 @@ type entry struct {
 	// expiry is the time at which the lease is safe to remove.
 	expiry time.Time
 
-	// writer identifies the storage instance that wrote the lease.
+	// writer identifies the client that wrote the lease.
 	writer string
 
 	// written is the earliest possible time the lease could have been written.
