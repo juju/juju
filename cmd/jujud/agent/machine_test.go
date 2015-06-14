@@ -1279,18 +1279,19 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
+	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newDiskManager, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for worker to be started.
 	select {
@@ -1327,11 +1328,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
-	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	started := make(chan struct{})
 	newWorker := func(
@@ -1351,6 +1348,11 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
+	// Start the machine agent.
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
 	// Wait for worker to be started.
 	select {
 	case <-started:
@@ -1360,11 +1362,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
@@ -1394,6 +1392,11 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Start the machine agent.
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for worker to be started.
 	select {
@@ -1724,7 +1727,9 @@ func (m *machineAgentUpgrader) SetVersion(s string, v version.Binary) error {
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
-	_, expectedWorkers, closer := s.setUpNewEnvironment(c)
+	_, closer := s.setUpNewEnvironment(c)
+	defer closer()
+	expectedWorkers, closer := s.setUpAgent(c)
 	defer closer()
 
 	r1 := s.singularRecord.nextRunner(c)
@@ -1733,7 +1738,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
-	st, _, closer := s.setUpNewEnvironment(c)
+	st, closer := s.setUpNewEnvironment(c)
 	defer closer()
 
 	// Check that newStorageWorker is called and the environ tag is scoped to
@@ -1750,12 +1755,20 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
-			c.Check(scope, gc.Equals, st.EnvironTag())
-			close(started)
+			// If this is the worker for the new environment,
+			// close the channel. Also note that we don't want to compare
+			// a names.Tag with a struct implementation due to gccgo bug.
+			var envTag names.Tag = st.EnvironTag()
+			if scope == envTag {
+				close(started)
+			}
 		}
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
+
+	_, closer = s.setUpAgent(c)
+	defer closer()
 
 	// Wait for newStorageWorker to be started.
 	select {
@@ -1765,7 +1778,20 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expectedWorkers []string, closer func()) {
+func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, closer func()) {
+	// Create a new environment, tests can now watch if workers start for it.
+	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	})
+	return newSt, func() {
+		newSt.Close()
+	}
+}
+
+func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer func()) {
 	expectedWorkers = make([]string, 0, len(perEnvSingularWorkers)+1)
 	for _, w := range perEnvSingularWorkers {
 		expectedWorkers = append(expectedWorkers, w)
@@ -1787,15 +1813,7 @@ func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expecte
 	workers := r0.waitForWorker(c, "firewaller")
 	c.Assert(workers, jc.SameContents, expectedWorkers)
 
-	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		ConfigAttrs: map[string]interface{}{
-			"state-server": false,
-		},
-		Prepare: true,
-	})
-	return newSt, expectedWorkers, func() {
-		newSt.Close()
+	return expectedWorkers, func() {
 		c.Check(a.Stop(), jc.ErrorIsNil)
 	}
 }
