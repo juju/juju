@@ -63,7 +63,7 @@ class Remote:
         if self.address:
             return
         # TODO(gz): Really want something like this instead:
-        #self.address = self.client.get_address_for_unit(self.unit)
+        # self.address = self.client.get_address_for_unit(self.unit)
         status = self.client.get_status()
         unit = status.get_unit(self.unit)
         self.address = unit['public-address']
