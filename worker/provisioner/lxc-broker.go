@@ -437,8 +437,10 @@ var setupRoutesAndIPTables = func(
 			}
 		}
 
-		_, err := runTemplateCommand(ipRouteAdd, false, data)
-		if err != nil {
+		code, err := runTemplateCommand(ipRouteAdd, false, data)
+		// Ignore errors if the exit code was 2, which signals that the route was not added
+		// because it already exists.
+		if code != 2 && err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -586,6 +588,12 @@ func configureContainerNetwork(
 // rules to make the container visible to both the host and other machines on the same subnet.
 func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineId := args.InstanceConfig.MachineId
+	if !environs.AddressAllocationEnabled() {
+		lxcLogger.Infof("Address allocation disabled: Not running maintenance for lxc container with machineId: %s",
+			machineId)
+		return nil
+	}
+
 	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
