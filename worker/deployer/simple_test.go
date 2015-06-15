@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
@@ -217,13 +216,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	svcName := "jujud-" + tag.String()
 	assertContains(c, fix.data.InstalledNames(), svcName)
 
-	var svcConf common.Conf
-	for _, svc := range fix.data.Installed {
-		if svc.Name() == svcName {
-			svcConf = svc.Conf()
-			break
-		}
-	}
+	svcConf := fix.data.GetInstalled(svcName).Conf()
 	// TODO(ericsnow) For now we just use upstart serialization.
 	uconfData, err := upstart.Serialize(svcName, svcConf)
 	c.Assert(err, jc.ErrorIsNil)

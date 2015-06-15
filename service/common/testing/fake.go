@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-type serviceInfo interface {
+type ServiceInfo interface {
 	Name() string
 	Conf() common.Conf
 }
@@ -25,11 +25,11 @@ type FakeServiceData struct {
 
 	mu sync.Mutex
 
-	// Installed is the list of all services that were installed.
-	Installed []serviceInfo
+	// installed is the list of all services that were installed.
+	installed []ServiceInfo
 
-	// Removed is the list of all services that were removed.
-	Removed []serviceInfo
+	// removed is the list of all services that were removed.
+	removed []ServiceInfo
 
 	// managedNames is the set of "currently" juju-managed services.
 	managedNames set.Strings
@@ -54,11 +54,45 @@ func NewFakeServiceData(names ...string) *FakeServiceData {
 	return &fsd
 }
 
-// InstalledNames returns a list of the installed names.
+// InstalledNames returns a copy of the list of the installed names.
 func (f *FakeServiceData) InstalledNames() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.installedNames.Values()
+}
+
+// Installed returns a copy of the list of installed Services
+func (f *FakeServiceData) Installed() []ServiceInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	names := make([]ServiceInfo, len(f.installed))
+	copy(names, f.installed)
+	return names
+}
+
+// GetInstalled returns the installed service that matches name.
+
+// Removed returns a copy of the list of removed Services
+func (f *FakeServiceData) Removed() []ServiceInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	names := make([]ServiceInfo, len(f.removed))
+	copy(names, f.removed)
+	return names
+}
+
+// GetInstalled returns the installed service that matches name.
+// If name is not found, the method panics.
+func (f *FakeServiceData) GetInstalled(name string) ServiceInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, i := range f.installed {
+		if i.Name() == name {
+			return i
+		}
+	}
+	panic(name + " not found")
 }
 
 // SetStatus updates the status of the named service.
@@ -197,7 +231,7 @@ func (ss *FakeService) Install() error {
 	ss.AddCall("Install")
 	if !ss.running() && !ss.installed() {
 		ss.mu.Lock()
-		ss.FakeServiceData.Installed = append(ss.FakeServiceData.Installed, ss)
+		ss.FakeServiceData.installed = append(ss.FakeServiceData.installed, ss)
 		ss.FakeServiceData.installedNames.Add(ss.Service.Name)
 		ss.mu.Unlock()
 	}
@@ -210,7 +244,7 @@ func (ss *FakeService) Remove() error {
 	ss.AddCall("Remove")
 	if ss.installed() {
 		ss.mu.Lock()
-		ss.FakeServiceData.Removed = append(ss.FakeServiceData.Removed, ss)
+		ss.FakeServiceData.removed = append(ss.FakeServiceData.removed, ss)
 		ss.FakeServiceData.installedNames.Remove(ss.Service.Name)
 		ss.mu.Unlock()
 	}
