@@ -3,6 +3,10 @@ options:
     type: string
     default: /home/ubuntu/chaos-monkey
     description: The chaos-monkey project directory.
+  chaos-source:
+    type: string
+    default: https://github.com/juju/chaos-monkey/archive/master.tar.gz
+    description: URL to Chaos Monkey source as a gzip'd compressed tar archive.
   dry-run:
     type: boolean
     default: false
