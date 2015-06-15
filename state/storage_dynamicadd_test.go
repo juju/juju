@@ -145,7 +145,7 @@ func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
 	}).Check()
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
-	c.Assert(err, gc.ErrorMatches, `adding "multi1to10" storage to unit storage-block2/0: unit is not alive`)
+	c.Assert(err, gc.ErrorMatches, `adding storage to unit storage-block2/0: unit is not alive`)
 
 	s.assertStorageCount(c, s.originalStorageCount)
 }
