@@ -447,8 +447,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
                     logging.exception(e)
                     if host is not None:
                         dump_env_logs(
-                            client, host, log_dir, host_id=bootstrap_id,
-                            jenv_path=jenv_path)
+                            client, host, log_dir, jenv_path=jenv_path)
                     sys.exit(1)
             finally:
                 safe_print_status(client)
@@ -532,8 +531,7 @@ def run_deployer():
     except BaseException as e:
         logging.exception(e)
         if host is not None:
-            dump_env_logs(
-                client, host, args.logs, host_id=None, jenv_path=None)
+            dump_env_logs(client, host, args.logs, jenv_path=None)
         sys.exit(1)
     finally:
         safe_print_status(client)
