@@ -595,7 +595,37 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
-	machine, _, _ := s.assertCreateVolumes(c)
+	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	s.AddCleanup(func(*gc.C) { registry.RegisterProvider("static", nil) })
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType, "static")
+
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024}, // unprovisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // provisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // unprovisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // provisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // unprovisioned
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("3"), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
 
 	allVolumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -607,13 +637,19 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
-	// Machine is gone: non-persistent and unprovisioned static storage
-	// should be gone too.
+	// Machine is gone: non-persistent and unprovisioned static or machine-
+	// scoped storage should be gone too.
 	allVolumes, err = s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	persistentVolumes, err = s.State.PersistentVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allVolumes, gc.HasLen, len(persistentVolumes))
+	// We should only have the persistent volume and the provisioned loop
+	// device remaining.
+	remaining := make(set.Strings)
+	for _, v := range allVolumes {
+		remaining.Add(v.Tag().String())
+	}
+	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
+		"volume-0", "volume-0-1",
+	})
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)

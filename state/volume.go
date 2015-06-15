@@ -337,6 +337,7 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		var remove bool
 		volumeInfo, err := volume.Info()
 		if errors.IsNotProvisioned(err) {
 			params, _ := volume.Params()
@@ -344,18 +345,19 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if provider.Dynamic() {
-				// Leave cleanup to the storage provisioner.
+			if provider.Dynamic() && provider.Scope() == storage.ScopeEnviron {
+				// Leave cleanup to the environ storage provisioner.
 				continue
 			}
-			// Volume will never be provisioned; remove
-			// from state below.
-			volumeInfo.Persistent = false
+			// Volume will never be provisioned; remove from state.
+			remove = true
 		} else if err != nil {
 			return nil, errors.Trace(err)
+		} else {
+			// If volume does not outlive machine it can be removed.
+			remove = !volumeInfo.Persistent
 		}
-		if volumeInfo.Persistent {
-			// Volume outlives machine.
+		if !remove {
 			continue
 		}
 		ops = append(ops, txn.Op{
