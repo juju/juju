@@ -10,6 +10,7 @@ import re
 from shutil import rmtree
 import subprocess
 import socket
+from StringIO import StringIO
 import sys
 from time import (
     sleep,
@@ -121,6 +122,19 @@ def temp_dir(parent=None):
         yield directory
     finally:
         rmtree(directory)
+
+
+def setup_test_logging(testcase, level=None):
+    log = logging.getLogger()
+    testcase.addCleanup(setattr, log, 'handlers', log.handlers)
+    log.handlers = []
+    testcase.log_stream = StringIO()
+    handler = logging.StreamHandler(testcase.log_stream)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+    log.addHandler(handler)
+    if level is not None:
+        testcase.addCleanup(setattr, log, 'level', log.level)
+        log.level = level
 
 
 def get_revision_build(build_info):
