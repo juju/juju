@@ -39,9 +39,6 @@ type FakeServiceData struct {
 
 	// runningNames is the set of "currently" running services.
 	runningNames set.Strings
-
-	// InstallCommands is the value to return for Service.InstallCommands.
-	InstallCommands []string
 }
 
 // NewFakeServiceData returns a new FakeServiceData.
@@ -225,7 +222,7 @@ func (ss *FakeService) Remove() error {
 func (ss *FakeService) InstallCommands() ([]string, error) {
 	ss.AddCall("InstallCommands")
 
-	return ss.FakeServiceData.InstallCommands, ss.NextErr()
+	return nil, ss.NextErr()
 }
 
 // StartCommands implements Service.
