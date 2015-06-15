@@ -516,9 +516,8 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
-		// If the filesystem is backed by a volume, the volume
-		// attachment can and should be destroyed once the
-		// filesystem attachment is removed.
+		// If the filesystem is backed by a volume, the volume can and
+		// should be destroyed once the filesystem is removed.
 		volumeTag, err := filesystem.Volume()
 		if err == nil {
 			ops = append(ops, destroyVolumeOps(st, volumeTag)...)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -68,11 +69,12 @@ func (st *State) NeedsCleanup() (bool, error) {
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
-func (st *State) Cleanup() error {
+func (st *State) Cleanup() (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.getCollection(cleanupsC)
 	defer closer()
 	iter := cleanups.Find(nil).Iter()
+	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
 		logger.Debugf("running %q cleanup: %q", doc.Kind, doc.Prefix)
@@ -113,9 +115,6 @@ func (st *State) Cleanup() error {
 			logger.Warningf("cannot remove empty cleanup document: %v", err)
 		}
 	}
-	if err := iter.Close(); err != nil {
-		return errors.Errorf("cannot read cleanup document: %v", err)
-	}
 	return nil
 }
 
@@ -139,7 +138,7 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 // cleanupServicesForDyingEnvironment sets all services to Dying, if they are
 // not already Dying or Dead. It's expected to be used when an environment is
 // destroyed.
-func (st *State) cleanupServicesForDyingEnvironment() error {
+func (st *State) cleanupServicesForDyingEnvironment() (err error) {
 	// This won't miss services, because a Dying environment cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
@@ -148,13 +147,11 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 	service := Service{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := services.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading service document")
 	for iter.Next(&service.doc) {
 		if err := service.Destroy(); err != nil {
 			return err
 		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Errorf("cannot read service document: %v", err)
 	}
 	return nil
 }
@@ -162,7 +159,7 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 // cleanupUnitsForDyingService sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(serviceName string) error {
+func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -178,13 +175,11 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) error {
 	unit := Unit{st: st}
 	sel := bson.D{{"service", serviceName}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {
 			return err
 		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Errorf("cannot read unit document: %v", err)
 	}
 	return nil
 }
@@ -411,7 +406,7 @@ func (st *State) obliterateUnit(unitName string) error {
 // cleanupAttachmentsForDyingStorage sets all storage attachments related
 // to the specified storage instance to Dying, if they are not already Dying
 // or Dead. It's expected to be used when a storage instance is destroyed.
-func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
+func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error) {
 	storageTag := names.NewStorageTag(storageId)
 
 	// This won't miss attachments, because a Dying storage instance cannot
@@ -424,14 +419,12 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
 	var doc storageAttachmentDoc
 	fields := bson.D{{"unitid", 1}}
 	iter := coll.Find(bson.D{{"storageid", storageId}}).Select(fields).Iter()
+	defer closeIter(iter, &err, "reading storage attachment document")
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
 		if err := st.DestroyStorageAttachment(storageTag, unitTag); err != nil {
 			return errors.Annotate(err, "destroying storage attachment")
 		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Annotate(err, "cannot read storage attachment document")
 	}
 	return nil
 }
@@ -439,7 +432,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
 // cleanupAttachmentsForDyingVolume sets all volume attachments related
 // to the specified volume to Dying, if they are not already Dying or
 // Dead. It's expected to be used when a volume is destroyed.
-func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) error {
+func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	volumeTag := names.NewVolumeTag(volumeId)
 
 	// This won't miss attachments, because a Dying volume cannot have
@@ -452,14 +445,12 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) error {
 	var doc volumeAttachmentDoc
 	fields := bson.D{{"machineid", 1}}
 	iter := coll.Find(bson.D{{"volumeid", volumeId}}).Select(fields).Iter()
+	defer closeIter(iter, &err, "reading volume attachment document")
 	for iter.Next(&doc) {
 		machineTag := names.NewMachineTag(doc.Machine)
 		if err := st.DetachVolume(machineTag, volumeTag); err != nil {
 			return errors.Annotate(err, "destroying volume attachment")
 		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Annotate(err, "cannot read volume attachment document")
 	}
 	return nil
 }
@@ -467,7 +458,7 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) error {
 // cleanupAttachmentsForDyingFilesystem sets all filesystem attachments related
 // to the specified filesystem to Dying, if they are not already Dying or
 // Dead. It's expected to be used when a filesystem is destroyed.
-func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) error {
+func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err error) {
 	filesystemTag := names.NewFilesystemTag(filesystemId)
 
 	// This won't miss attachments, because a Dying filesystem cannot have
@@ -480,14 +471,25 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) error
 	var doc filesystemAttachmentDoc
 	fields := bson.D{{"machineid", 1}}
 	iter := coll.Find(bson.D{{"filesystemid", filesystemId}}).Select(fields).Iter()
+	defer closeIter(iter, &err, "reading filesystem attachment document")
 	for iter.Next(&doc) {
 		machineTag := names.NewMachineTag(doc.Machine)
 		if err := st.DetachFilesystem(machineTag, filesystemTag); err != nil {
 			return errors.Annotate(err, "destroying filesystem attachment")
 		}
 	}
-	if err := iter.Close(); err != nil {
-		return errors.Annotate(err, "cannot read filesystem attachment document")
-	}
 	return nil
+}
+
+func closeIter(iter *mgo.Iter, errOut *error, message string) {
+	err := iter.Close()
+	if err == nil {
+		return
+	}
+	err = errors.Annotate(err, message)
+	if *errOut == nil {
+		*errOut = err
+		return
+	}
+	logger.Errorf("%v", err)
 }
