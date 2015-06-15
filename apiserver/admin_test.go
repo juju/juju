@@ -673,7 +673,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 		Tag:        nil,
 		Password:   "",
 		EnvironTag: envTag,
-		Addrs:      []string{srv.Addr()},
+		Addrs:      []string{srv.Addr().String()},
 		CACert:     coretesting.CACert,
 	}
 	return info, func() {
