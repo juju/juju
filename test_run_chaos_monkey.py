@@ -1,4 +1,7 @@
 from argparse import Namespace
+import os
+import stat
+from tempfile import NamedTemporaryFile
 from unittest import TestCase
 
 from mock import (
@@ -54,8 +57,24 @@ class TestRunChaosMonkey(TestCase):
     def test_deploy_chaos_monkey(self):
         def output(args, **kwargs):
             status = yaml.safe_dump({
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {}})
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'ser1': {
+                        'units': {
+                            'bar': {
+                                'agent-state': 'started',
+                                'subordinates': {
+                                    'chaos-monkey/1': {
+                                        'agent-state': 'started'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            })
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 }
@@ -64,14 +83,143 @@ class TestRunChaosMonkey(TestCase):
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
-                monkey_runner = MonkeyRunner('foo', 'bar', 'checker', client)
+                monkey_runner = MonkeyRunner('foo', 'ser1', 'checker', client)
                 with patch('sys.stdout', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'deploy', '-e', 'foo', 'local:chaos-monkey'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-e', 'foo', 'bar',
+            'juju', '--show-log', 'add-relation', '-e', 'foo', 'ser1',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
-        self.assertEqual(co_mock.call_count, 1)
+        self.assertEqual(co_mock.call_count, 2)
+
+    def test_unleash_once(self):
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                    'not-chaos/0': {'qwe': 'rty'},
+                                }
+                            },
+                            'bar': {
+                                'subordinates': {
+                                    'chaos-monkey/1': {'abc': '123'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/0', 'start', 'mode=single'
+                 ): 'Action queued with id: unit0-foo',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/1', 'start', 'mode=single'
+                 ): 'Action queued with id: unit1-foo',
+                }
+            return output[args]
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        monkey_runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True) as co_mock:
+                monkey_runner.unleash_once()
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/1', 'start', 'mode=single'), 1, True)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/0', 'start', 'mode=single'), 2, True)
+        self.assertEqual(['unit1-foo', 'unit0-foo'], monkey_runner.monkey_ids)
+        self.assertEqual(len(monkey_runner.monkey_ids), 2)
+        self.assertEqual(co_mock.call_count, 3)
+
+    def test_unleash_once_raises_for_unexpected_action_output(self):
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'foo': {
+                                'subordinates': {
+                                    'chaos-monkey/0': {'baz': 'qux'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/0', 'start', 'mode=single'
+                 ): 'Action fail',
+                }
+            return output[args]
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        monkey_runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True):
+            with self.assertRaisesRegexp(
+                    Exception, 'Unexpected output from "juju action do":'):
+                monkey_runner.unleash_once()
+
+    def test_is_healthy(self):
+        SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        with NamedTemporaryFile(delete=False) as health_script:
+            health_script.write(SCRIPT)
+            os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
+            health_script.close()
+            monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
+                                         client)
+            with patch('logging.info') as lo_mock:
+                result = monkey_runner.is_healthy()
+            os.unlink(health_script.name)
+            self.assertTrue(result)
+            self.assertEqual(lo_mock.call_args[0][0], 'PASS')
+
+    def test_is_healthy_fail(self):
+        SCRIPT = """#!/bin/bash\necho -n 'FAIL'\nexit 1"""
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        with NamedTemporaryFile(delete=False) as health_script:
+            health_script.write(SCRIPT)
+            os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
+            health_script.close()
+            monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
+                                         client)
+            with patch('logging.error') as le_mock:
+                result = monkey_runner.is_healthy()
+            os.unlink(health_script.name)
+            self.assertFalse(result)
+            self.assertEqual(le_mock.call_args[0][0], 'FAIL')
+
+    def test_is_healthy_with_no_execute_perms(self):
+        SCRIPT = """#!/bin/bash\nexit 0"""
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        with NamedTemporaryFile(delete=False) as health_script:
+            health_script.write(SCRIPT)
+            os.fchmod(health_script.fileno(), stat.S_IREAD)
+            health_script.close()
+            monkey_runner = MonkeyRunner('foo', 'jenkins', health_script.name,
+                                         client)
+            with patch('logging.error') as le_mock:
+                with self.assertRaises(OSError):
+                    monkey_runner.is_healthy()
+            os.unlink(health_script.name)
+        self.assertRegexpMatches(
+            le_mock.call_args[0][0],
+            r'The health check script failed to execute with: \[Errno 13\].*')

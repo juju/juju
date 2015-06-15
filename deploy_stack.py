@@ -17,7 +17,6 @@ import time
 import json
 import shutil
 
-import get_ami
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -29,8 +28,11 @@ from jujupy import (
     SimpleEnvironment,
     temp_bootstrap_env,
 )
+from remote import Remote
 from substrate import (
+    destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
+    run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -82,43 +84,6 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def destroy_job_instances(job_name):
-    instances = list(get_job_instances(job_name))
-    if len(instances) == 0:
-        return
-    subprocess.check_call(['euca-terminate-instances'] + instances)
-
-
-def parse_euca(euca_output):
-    for line in euca_output.splitlines():
-        fields = line.split('\t')
-        if fields[0] != 'INSTANCE':
-            continue
-        yield fields[1], fields[3]
-
-
-def run_instances(count, job_name):
-    environ = dict(os.environ)
-    ami = get_ami.query_ami("precise", "amd64")
-    command = [
-        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
-    run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = dict(parse_euca(run_output)).keys()
-    for remaining in until_timeout(300):
-        try:
-            names = dict(describe_instances(machine_ids, env=environ))
-            if '' not in names.values():
-                subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
-                    + machine_ids, env=environ)
-                return names.items()
-        except subprocess.CalledProcessError:
-            subprocess.call(['euca-terminate-instances'] + machine_ids)
-            raise
-        time.sleep(1)
-
-
 def deploy_dummy_stack(client, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
@@ -157,26 +122,10 @@ def check_token(client, token):
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    fallback = False
+    remote = Remote(client, "dummy-sink/0")
     start = time.time()
     while True:
-        if not fallback:
-            try:
-                result = client.get_juju_output('ssh', 'dummy-sink/0',
-                                                GET_TOKEN_SCRIPT)
-            except subprocess.CalledProcessError as err:
-                print("WARNING: juju ssh failed: {}".format(str(err)))
-                print("Falling back to ssh.")
-                fallback = True
-        if fallback:
-            dummy_sink = client.get_status().status['services']['dummy-sink']
-            address = dummy_sink['units']['dummy-sink/0']['public-address']
-            user_at_host = 'ubuntu@{}'.format(address)
-            result = subprocess.check_output(
-                ['ssh', user_at_host,
-                 '-o', 'UserKnownHostsFile /dev/null',
-                 '-o', 'StrictHostKeyChecking no',
-                 'cat /var/run/dummy-sink/token'])
+        result = remote.run(GET_TOKEN_SCRIPT)
         result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
@@ -192,19 +141,16 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, host_id=None,
-                  jenv_path=None):
+def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
         logging.info("Retrieving logs for machine-%s", machine_id)
-        machine_directory = os.path.join(directory, "machine-%s" % (machine_id,))
+        machine_directory = os.path.join(directory, "machine-%s" % machine_id)
         os.mkdir(machine_directory)
         local_state_server = client.env.local and machine_id == '0'
         dump_logs(client, addr, machine_directory,
                   local_state_server=local_state_server)
-
-    dump_euca_console(host_id, directory)
     retain_jenv(jenv_path, directory)
 
 
@@ -275,11 +221,11 @@ def copy_remote_logs(host, directory):
     """Copy as many logs from the remote host as possible to the directory."""
     # This list of names must be in the order of creation to ensure they
     # are retrieved.
-    log_names = [
-        'cloud-init*.log',
-        'juju/*.log',
+    log_paths = [
+        '/var/log/cloud-init*.log',
+        '/var/log/juju/*.log',
     ]
-    source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
+    remote = Remote(address=host)
 
     try:
         wait_for_port(host, 22, timeout=60)
@@ -288,37 +234,18 @@ def copy_remote_logs(host, directory):
         return
 
     try:
-        subprocess.check_call([
-            'timeout', '5m', 'ssh',
-            '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no',
-            'ubuntu@' + host,
-            'sudo chmod go+r /var/log/juju/*',
-        ])
+        remote.run('sudo chmod go+r /var/log/juju/*')
     except subprocess.CalledProcessError as e:
         # The juju log dir is not created until after cloud-init succeeds.
         logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
     try:
-        subprocess.check_call([
-            'timeout', '5m', 'scp', '-C',
-            '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no',
-            source, directory,
-        ])
+        remote.copy(directory, log_paths)
     except subprocess.CalledProcessError as e:
         # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
         logging.warning(e.output)
-
-
-def dump_euca_console(host_id, directory):
-    if host_id is None:
-        return
-    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
-        subprocess.Popen(['euca-get-console-output', host_id],
-                         stdout=console_file)
 
 
 def assess_juju_run(client):
@@ -358,24 +285,6 @@ def upgrade_juju(client):
     print(
         'The tools-metadata-url is %s' % tools_metadata_url)
     client.upgrade_juju()
-
-
-def describe_instances(instances=None, running=False, job_name=None,
-                       env=None):
-    command = ['euca-describe-instances']
-    if job_name is not None:
-        command.extend(['--filter', 'tag:job_name=%s' % job_name])
-    if running:
-        command.extend(['--filter', 'instance-state-name=running'])
-    if instances is not None:
-        command.extend(instances)
-    logging.info(' '.join(command))
-    return parse_euca(subprocess.check_output(command, env=env))
-
-
-def get_job_instances(job_name):
-    description = describe_instances(job_name=job_name, running=True)
-    return (machine_id for machine_id, name in description)
 
 
 def add_path_args(parser):

@@ -21,6 +21,7 @@ from jujuci import (
     get_buildvars,
     get_certification_bin,
     get_credentials,
+    get_job_data,
     get_juju_bin,
     get_juju_binary,
     get_juju_bin_artifact,
@@ -101,6 +102,97 @@ def make_build_data(number='lastSuccessfulBuild'):
         "result": "SUCCESS",
         "timestamp": 1416382502379,
         "url": "http://juju-ci.vapour.ws:8080/job/build-revision/%s/" % number
+    }
+
+
+def make_job_data():
+    return {
+        "actions": [
+            {
+                "parameterDefinitions": [
+                    {
+                        "defaultParameterValue": {
+                            "value": "1.18.1"
+                        },
+                        "description": "",
+                        "name": "old_version",
+                        "type": "StringParameterDefinition"
+                    }
+                ]
+            },
+            {}
+        ],
+        "buildable": True,
+        "builds": [
+            {
+                "number": 1510,
+                "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+            }
+        ],
+        "color": "red",
+        "concurrentBuild": False,
+        "description": "",
+        "displayName": "ting",
+        "downstreamProjects": [],
+        "firstBuild": {
+            "number": 1,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1/"
+        },
+        "healthReport": [
+            {
+                "description": "Build stability: All recent builds failed.",
+                "iconUrl": "health-00to19.png",
+                "score": 0
+            }
+        ],
+        "inQueue": False,
+        "keepDependencies": False,
+        "lastBuild": {
+            "number": 1510,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+        },
+        "lastCompletedBuild": {
+            "number": 1510,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+        },
+        "lastFailedBuild": {
+            "number": 1510,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+        },
+        "lastStableBuild": {
+            "number": 1392,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1392/"
+        },
+        "lastSuccessfulBuild": {
+            "number": 1392,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1392/"
+        },
+        "lastUnstableBuild": None,
+        "lastUnsuccessfulBuild": {
+            "number": 1510,
+            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+        },
+        "name": "ting",
+        "nextBuildNumber": 1511,
+        "property": [
+            {},
+            {
+                "parameterDefinitions": [
+                    {
+                        "defaultParameterValue": {
+                            "name": "old_version",
+                            "value": "1.18.1"
+                        },
+                        "description": "",
+                        "name": "old_version",
+                        "type": "StringParameterDefinition"
+                    },
+                ]
+            }
+        ],
+        "queueItem": None,
+        "upstreamProjects": [],
+        "url": "http://juju-ci.vapour.ws:8080/job/ting/"
     }
 
 
@@ -206,6 +298,19 @@ class JujuCITestCase(TestCase):
         request = mock.mock_calls[0][1][0]
         self.assertRequest(
             request, 'http://foo:8080/job/bar/1234/api/json',
+            {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ='})
+        self.assertEqual(expected_data, build_data)
+
+    def test_get_job_data(self):
+        expected_data = make_job_data()
+        json_io = StringIO(json.dumps(expected_data))
+        with patch('urllib2.urlopen', return_value=json_io) as mock:
+            build_data = get_job_data(
+                'http://foo:8080', Credentials('jrandom', '1password'), 'ting')
+        self.assertEqual(1, mock.call_count)
+        request = mock.mock_calls[0][1][0]
+        self.assertRequest(
+            request, 'http://foo:8080/job/ting/api/json',
             {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ='})
         self.assertEqual(expected_data, build_data)
 
