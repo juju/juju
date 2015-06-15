@@ -584,7 +584,6 @@ func configureContainerNetwork(
 			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
 		}
 		if finalIfaceInfo[i].ProviderId == "" {
-			// XXX make a const in networks
 			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
 		}
 	}
