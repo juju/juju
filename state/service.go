@@ -37,7 +37,7 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:forcecharm"`
+	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
