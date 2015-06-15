@@ -7,7 +7,6 @@ from datetime import (
     datetime,
     timedelta,
 )
-from itertools import chain
 import logging
 import subprocess
 import sys
@@ -105,8 +104,8 @@ class MonkeyRunner:
             return False
         return True
 
-    def get_locks(self, unit_name):
-        """Return a dict with two lists: done and running"""
+    def get_unit_status(self, unit_name):
+        """Return 'done' if no lock file otherwise 'running'"""
         service_config = self.client.get_service_config('chaos-monkey')
         logging.debug('{}'.format(service_config))
         logging.debug('Checking if chaos is done on: {}'.format(unit_name))
@@ -120,15 +119,15 @@ class MonkeyRunner:
             return 'done'
         return 'running'
 
-    def wait_for_chaos_complete(self):
-        for ignored in chain([None], until_timeout(300)):
+    def wait_for_chaos_complete(self, timeout=300):
+        for ignored in until_timeout(timeout):
             locks = defaultdict(list)
             for unit_name, unit in self.iter_chaos_monkey_units():
-                locks[self.get_locks(unit_name)].append(unit_name)
+                locks[self.get_unit_status(unit_name)].append(unit_name)
             if locks.keys() == ['done']:
                 logging.debug(
                     'All lock files have been removed: {}'.format(locks))
-                return None
+                break
         else:
             raise Exception('Chaos operations did not complete.')
 
@@ -168,7 +167,7 @@ def get_args(argv=None):
         metavar='SECONDS')
     parser.add_argument(
         '-pt', '--pause-timeout', default=0, type=int,
-        help="Total timeout in seconds.", metavar='SECONDS')
+        help="Pause timeout in seconds.", metavar='SECONDS')
     args = parser.parse_args(argv)
     if not args.total_timeout:
         args.total_timeout = args.enablement_timeout
@@ -189,8 +188,11 @@ def main():
     """ Deploy and run chaos monkey, while checking env health.
 
     The Chaos Monkey is deployed into the environment and related to
-    the specified service. Juju actions are then used to run one choas
-    operation at a time. Once the operchaos monkey"""
+    the specified service. Juju actions are then used to run one chaos
+    operation at a time. After each operation, the provided health
+    check script is executed, to ensure the Juju environment or
+    software stack is still healthy.
+    """
     configure_logging(logging.INFO)
     args = get_args()
     monkey_runner = MonkeyRunner.from_config(args)

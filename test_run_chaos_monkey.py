@@ -293,7 +293,7 @@ class TestRunChaosMonkey(TestCase):
             le_mock.call_args[0][0],
             r'The health check script failed to execute with: \[Errno 13\].*')
 
-    def test_get_locks(self):
+    def test_get_unit_status(self):
         def output(args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
@@ -347,8 +347,9 @@ class TestRunChaosMonkey(TestCase):
                        return_value=0) as call_mock:
                 for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
                     with patch('sys.stdout', autospec=True):
-                        self.assertEqual(monkey_runner.get_locks(unit_name),
-                                         'running')
+                        self.assertEqual(
+                            monkey_runner.get_unit_status(unit_name),
+                            'running')
             self.assertEqual(call_mock.call_count, 2)
         with patch('subprocess.check_output', side_effect=output,
                    autospec=True):
@@ -356,8 +357,9 @@ class TestRunChaosMonkey(TestCase):
                        return_value=1) as call_mock:
                 for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
                     with patch('sys.stdout', autospec=True):
-                        self.assertEqual(monkey_runner.get_locks(unit_name),
-                                         'done')
+                        self.assertEqual(
+                            monkey_runner.get_unit_status(unit_name),
+                            'done')
             self.assertEqual(call_mock.call_count, 2)
 
     def test_wait_for_chaos_complete(self):
@@ -365,19 +367,20 @@ class TestRunChaosMonkey(TestCase):
         runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
         units = [('blib', 'blab')]
         with patch.object(runner, 'iter_chaos_monkey_units', autospec=True,
-                          return_value=units):
-            with patch.object(runner, 'get_locks',
-                              autospec=True, return_value='done'):
+                          return_value=units) as ic_mock:
+            with patch.object(runner, 'get_unit_status',
+                              autospec=True, return_value='done') as us_mock:
                 returned = runner.wait_for_chaos_complete()
         self.assertEqual(returned, None)
+        self.assertEqual(ic_mock.call_count, 1)
+        self.assertEqual(us_mock.call_count, 1)
 
     def test_wait_for_chaos_complete_timesout(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
-        with patch('run_chaos_monkey.chain', return_value=range(0)):
-            with self.assertRaisesRegexp(
-                    Exception, 'Chaos operations did not complete.'):
-                runner.wait_for_chaos_complete()
+        with self.assertRaisesRegexp(
+                Exception, 'Chaos operations did not complete.'):
+            runner.wait_for_chaos_complete(timeout=0)
 
     def test_run_while_healthy_or_timeout(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
@@ -390,6 +393,16 @@ class TestRunChaosMonkey(TestCase):
                                   autospec=True) as wait_mock:
                     runner.run_while_healthy_or_timeout()
         u_mock.assert_called_once_with()
-        self.assertEqual(u_mock.call_count, 1)
         wait_mock.assert_called_once_with()
-        self.assertEqual(wait_mock.call_count, 1)
+
+    def test_run_while_healthy_or_timeout_exits_non_zero(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
+        runner = MonkeyRunner('foo', 'bar', 'script', client, total_timeout=60)
+        with patch.object(runner, 'is_healthy', autospec=True,
+                          return_value=False):
+            with patch('run_chaos_monkey.sys.exit') as se_mock:
+                with patch('logging.error') as le_mock:
+                    runner.run_while_healthy_or_timeout()
+        se_mock.assert_called_once_with(1)
+        self.assertRegexpMatches(
+            le_mock.call_args[0][0], 'The health check reported an error:')
