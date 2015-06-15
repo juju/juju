@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -165,8 +166,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	lxcLogger.Infof("started lxc container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: hardware,
+		Instance:    inst,
+		Hardware:    hardware,
+		NetworkInfo: network.Interfaces,
 	}, nil
 }
 
@@ -498,9 +500,19 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 }
 
 // MACAddressTemplate is used to generate a unique MAC address for a
-// container. Every 'x' is replaced by a random hexadecimal digit,
+// container. Every '%x' is replaced by a random hexadecimal digit,
 // while the rest is kept as-is.
-const MACAddressTemplate = "00:16:3e:xx:xx:xx"
+const MACAddressTemplate = "00:16:3e:%02x:%02x:%02x"
+
+// generateMACAddress creates a random MAC address within the space defined by
+// MACAddressTemplate above.
+func generateMACAddress() string {
+	digits := make([]interface{}, 3)
+	for i := range digits {
+		digits[i] = rand.Intn(256)
+	}
+	return fmt.Sprintf(MACAddressTemplate, digits...)
+}
 
 // configureContainerNetworking tries to allocate a static IP address
 // for the given containerId using the provisioner API, when
@@ -563,11 +575,17 @@ func configureContainerNetwork(
 		// interface name.
 		finalIfaceInfo[i].DeviceIndex = i
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
-		finalIfaceInfo[i].MACAddress = MACAddressTemplate
+		finalIfaceInfo[i].MACAddress = generateMACAddress()
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
+		if finalIfaceInfo[i].NetworkName == "" {
+			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
+		}
+		if finalIfaceInfo[i].ProviderId == "" {
+			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
+		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
