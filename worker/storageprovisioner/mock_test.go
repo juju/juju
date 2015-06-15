@@ -28,6 +28,11 @@ var dyingVolumeAttachmentId = params.MachineStorageId{
 	AttachmentTag: "volume-0",
 }
 
+var dyingFilesystemAttachmentId = params.MachineStorageId{
+	MachineTag:    "machine-0",
+	AttachmentTag: "filesystem-0",
+}
+
 var missingVolumeAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-3",
 	AttachmentTag: "volume-1",
@@ -363,6 +368,8 @@ func newMockFilesystemAccessor() *mockFilesystemAccessor {
 }
 
 type mockLifecycleManager struct {
+	attachmentLife    func(ids []params.MachineStorageId) ([]params.LifeResult, error)
+	removeAttachments func([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
 func (m *mockLifecycleManager) Life(volumes []names.Tag) ([]params.LifeResult, error) {
@@ -379,10 +386,13 @@ func (m *mockLifecycleManager) Life(volumes []names.Tag) ([]params.LifeResult, e
 }
 
 func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+	if m.attachmentLife != nil {
+		return m.attachmentLife(ids)
+	}
 	var result []params.LifeResult
 	for _, id := range ids {
 		switch id {
-		case dyingVolumeAttachmentId:
+		case dyingVolumeAttachmentId, dyingFilesystemAttachmentId:
 			result = append(result, params.LifeResult{Life: params.Dying})
 		case missingVolumeAttachmentId:
 			result = append(result, params.LifeResult{
@@ -395,16 +405,19 @@ func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]
 	return result, nil
 }
 
-func (m *mockLifecycleManager) EnsureDead([]names.Tag) ([]params.ErrorResult, error) {
-	return nil, nil
+func (m *mockLifecycleManager) EnsureDead(tags []names.Tag) ([]params.ErrorResult, error) {
+	return make([]params.ErrorResult, len(tags)), nil
 }
 
-func (m *mockLifecycleManager) Remove([]names.Tag) ([]params.ErrorResult, error) {
-	return nil, nil
+func (m *mockLifecycleManager) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
+	return make([]params.ErrorResult, len(tags)), nil
 }
 
-func (m *mockLifecycleManager) RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error) {
-	return nil, nil
+func (m *mockLifecycleManager) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+	if m.removeAttachments != nil {
+		return m.removeAttachments(ids)
+	}
+	return make([]params.ErrorResult, len(ids)), nil
 }
 
 // Set up a dummy storage provider so we can stub out volume creation.
@@ -412,17 +425,21 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc     func(*config.Config, *storage.Config) (storage.VolumeSource, error)
-	filesystemSourceFunc func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	detachVolumesFunc     func([]storage.VolumeAttachmentParams) error
+	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
 }
 
 type dummyVolumeSource struct {
 	storage.VolumeSource
+	provider          *dummyProvider
 	createVolumesArgs [][]storage.VolumeParams
 }
 
 type dummyFilesystemSource struct {
 	storage.FilesystemSource
+	provider              *dummyProvider
 	createFilesystemsArgs [][]storage.FilesystemParams
 }
 
@@ -430,14 +447,14 @@ func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfi
 	if p.volumeSourceFunc != nil {
 		return p.volumeSourceFunc(environConfig, providerConfig)
 	}
-	return &dummyVolumeSource{}, nil
+	return &dummyVolumeSource{provider: p}, nil
 }
 
 func (p *dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	if p.filesystemSourceFunc != nil {
 		return p.filesystemSourceFunc(environConfig, providerConfig)
 	}
-	return &dummyFilesystemSource{}, nil
+	return &dummyFilesystemSource{provider: p}, nil
 }
 
 func (p *dummyProvider) Dynamic() bool {
@@ -493,6 +510,14 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 	return volumeAttachments, nil
 }
 
+// DetachVolumes detaches volumes from machines.
+func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) error {
+	if s.provider.detachVolumesFunc != nil {
+		return s.provider.detachVolumesFunc(params)
+	}
+	return nil
+}
+
 func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
 	return nil
 }
@@ -535,6 +560,14 @@ func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttac
 		})
 	}
 	return filesystemAttachments, nil
+}
+
+// DetachFilesystems detaches filesystems from machines.
+func (s *dummyFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
+	if s.provider.detachFilesystemsFunc != nil {
+		return s.provider.detachFilesystemsFunc(params)
+	}
+	return nil
 }
 
 type mockManagedFilesystemSource struct {
