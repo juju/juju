@@ -599,6 +599,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		volumeParams.Attachment = &params.VolumeAttachmentParams{
 			volumeTag.String(),
 			m.Tag().String(),
+			"", // we're creating the volume, so it has no volume ID.
 			"", // we're creating the machine, so it has no instance ID.
 			volumeParams.Provider,
 			volumeAttachmentParams.ReadOnly,

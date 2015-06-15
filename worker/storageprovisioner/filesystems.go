@@ -721,7 +721,8 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
-		Filesystem: filesystemTag,
-		Path:       in.MountPoint,
+		Filesystem:   filesystemTag,
+		FilesystemId: in.FilesystemId,
+		Path:         in.MountPoint,
 	}, nil
 }

@@ -712,6 +712,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
-		Volume: volumeTag,
+		Volume:   volumeTag,
+		VolumeId: in.VolumeId,
 	}, nil
 }
