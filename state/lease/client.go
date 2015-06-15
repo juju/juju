@@ -238,16 +238,19 @@ func (client *client) ensureClockDoc() error {
 
 	clockDocId := client.clockDocId()
 	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		client.logger.Debugf("checking clock %q (attempt %d)", clockDocId, attempt)
 		var clockDoc clockDoc
 		err := collection.FindId(clockDocId).One(&clockDoc)
 		if err == nil {
+			client.logger.Debugf("clock already exists")
 			if err := clockDoc.validate(); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotatef(err, "corrupt clock document")
 			}
 			return nil, jujutxn.ErrNoOperations
 		} else if err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
+		client.logger.Debugf("creating clock")
 		newClockDoc, err := newClockDoc(client.config.Namespace)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -277,7 +280,7 @@ func (client *client) readEntries(collection *mgo.Collection) (map[string]entry,
 	var leaseDoc leaseDoc
 	for iter.Next(&leaseDoc) {
 		if name, entry, err := leaseDoc.entry(); err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "corrupt lease document %q", leaseDoc.Id)
 		} else {
 			entries[name] = entry
 		}
@@ -298,6 +301,9 @@ func (client *client) readSkews(collection *mgo.Collection) (map[string]Skew, er
 		return nil, errors.Trace(err)
 	}
 	readAfter := client.config.Clock.Now()
+	if err := clockDoc.validate(); err != nil {
+		return nil, errors.Annotatef(err, "corrupt clock document")
+	}
 
 	// Create skew entries for each known writer...
 	skews, err := clockDoc.skews(readBefore, readAfter)
@@ -430,7 +436,6 @@ func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, en
 	// We always write a clock-update operation *before* writing lease info.
 	writeClockOp := client.writeClockOp(now)
 	ops := []txn.Op{writeClockOp, extendLeaseOp}
-	client.logger.Debugf("ops: %#v", ops)
 	return ops, nextEntry, nil
 }
 
