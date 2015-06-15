@@ -37,8 +37,8 @@ type FakeServiceData struct {
 	// installedNames is the set of "currently" installed services.
 	installedNames set.Strings
 
-	// RunningNames is the set of "currently" running services.
-	RunningNames set.Strings
+	// runningNames is the set of "currently" running services.
+	runningNames set.Strings
 
 	// InstallCommands is the value to return for Service.InstallCommands.
 	InstallCommands []string
@@ -52,7 +52,7 @@ func NewFakeServiceData(names ...string) *FakeServiceData {
 	fsd := FakeServiceData{
 		ManagedNames:   set.NewStrings(),
 		installedNames: set.NewStrings(),
-		RunningNames:   set.NewStrings(),
+		runningNames:   set.NewStrings(),
 	}
 	for _, name := range names {
 		fsd.installedNames.Add(name)
@@ -74,7 +74,7 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 	if status == "" {
 		f.ManagedNames.Remove(name)
 		f.installedNames.Remove(name)
-		f.RunningNames.Remove(name)
+		f.runningNames.Remove(name)
 		return nil
 	}
 
@@ -87,10 +87,10 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 	switch status {
 	case "installed":
 		f.installedNames.Add(name)
-		f.RunningNames.Remove(name)
+		f.runningNames.Remove(name)
 	case "running":
 		f.installedNames.Add(name)
-		f.RunningNames.Add(name)
+		f.runningNames.Add(name)
 	default:
 		return errors.NotSupportedf("status %q", status)
 	}
@@ -144,7 +144,7 @@ func (ss *FakeService) Running() (bool, error) {
 func (ss *FakeService) running() bool {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	return ss.FakeServiceData.RunningNames.Contains(ss.Service.Name)
+	return ss.FakeServiceData.runningNames.Contains(ss.Service.Name)
 }
 
 // Start implements Service.
@@ -153,7 +153,7 @@ func (ss *FakeService) Start() error {
 	// TODO(ericsnow) Check managed?
 	if ss.running() {
 		ss.mu.Lock()
-		ss.FakeServiceData.RunningNames.Add(ss.Service.Name)
+		ss.FakeServiceData.runningNames.Add(ss.Service.Name)
 		ss.mu.Unlock()
 	}
 
@@ -165,7 +165,7 @@ func (ss *FakeService) Stop() error {
 	ss.AddCall("Stop")
 	if !ss.running() {
 		ss.mu.Lock()
-		ss.FakeServiceData.RunningNames.Remove(ss.Service.Name)
+		ss.FakeServiceData.runningNames.Remove(ss.Service.Name)
 		ss.mu.Unlock()
 	}
 
