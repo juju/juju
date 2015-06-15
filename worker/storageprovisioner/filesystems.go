@@ -550,6 +550,7 @@ func createFilesystemAttachments(
 }
 
 func destroyFilesystems(filesystems []params.Filesystem) ([]error, error) {
+	// TODO(axw) implement destroy
 	err := errors.New("destroy filesystems is not implemented")
 	errs := make([]error, len(filesystems))
 	for i := range errs {
@@ -559,6 +560,7 @@ func destroyFilesystems(filesystems []params.Filesystem) ([]error, error) {
 }
 
 func detachFilesystems(attachments []params.FilesystemAttachment) ([]error, error) {
+	// TODO(axw) implement detach
 	err := errors.New("detach filesystems is not implemented")
 	errs := make([]error, len(attachments))
 	for i := range errs {
