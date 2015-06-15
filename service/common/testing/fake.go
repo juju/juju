@@ -31,8 +31,8 @@ type FakeServiceData struct {
 	// Removed is the list of all services that were removed.
 	Removed []serviceInfo
 
-	// ManagedNames is the set of "currently" juju-managed services.
-	ManagedNames set.Strings
+	// managedNames is the set of "currently" juju-managed services.
+	managedNames set.Strings
 
 	// installedNames is the set of "currently" installed services.
 	installedNames set.Strings
@@ -50,7 +50,7 @@ type FakeServiceData struct {
 // NewFakeServiceData returns a new FakeServiceData.
 func NewFakeServiceData(names ...string) *FakeServiceData {
 	fsd := FakeServiceData{
-		ManagedNames:   set.NewStrings(),
+		managedNames:   set.NewStrings(),
 		installedNames: set.NewStrings(),
 		runningNames:   set.NewStrings(),
 	}
@@ -72,7 +72,7 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if status == "" {
-		f.ManagedNames.Remove(name)
+		f.managedNames.Remove(name)
 		f.installedNames.Remove(name)
 		f.runningNames.Remove(name)
 		return nil
@@ -96,7 +96,7 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 	}
 
 	if managed {
-		f.ManagedNames.Add(name)
+		f.managedNames.Add(name)
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func (ss *FakeService) Exists() (bool, error) {
 func (ss *FakeService) managed() bool {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	return ss.FakeServiceData.ManagedNames.Contains(ss.Service.Name)
+	return ss.FakeServiceData.managedNames.Contains(ss.Service.Name)
 }
 
 // Installed implements Service.
