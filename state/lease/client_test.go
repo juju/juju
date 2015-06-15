@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/lease"
 )
@@ -265,15 +266,47 @@ type ClientPersistenceSuite struct {
 var _ = gc.Suite(&ClientPersistenceSuite{})
 
 func (s *ClientPersistenceSuite) TestNewClientInvalidClockDoc(c *gc.C) {
-	c.Fatalf("not done")
+	config := lease.ClientConfig{
+		Id:         "client",
+		Namespace:  "namespace",
+		Collection: "collection",
+		Mongo:      NewMongo(s.db),
+		Clock:      lease.SystemClock{},
+	}
+	dbKey := "clock#namespace#"
+	err := s.db.C("collection").Insert(bson.M{"_id": dbKey})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client, err := lease.NewClient(config)
+	c.Check(client, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "corrupt clock document: invalid type \"\"")
 }
 
 func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
-	c.Fatalf("not done")
+	config := lease.ClientConfig{
+		Id:         "client",
+		Namespace:  "namespace",
+		Collection: "collection",
+		Mongo:      NewMongo(s.db),
+		Clock:      lease.SystemClock{},
+	}
+	err := s.db.C("collection").Insert(bson.M{
+		"_id":       "snagglepuss",
+		"type":      "lease",
+		"namespace": "namespace",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client, err := lease.NewClient(config)
+	c.Check(client, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "corrupt lease document \"snagglepuss\": inconsistent _id")
 }
 
 func (s *ClientPersistenceSuite) TestNewClientMissingClockDoc(c *gc.C) {
-	c.Fatalf("not done")
+	fix := NewFixture(c, s.db, FixtureParams{})
+	// That was the test, actually, but let's check something anyway,
+	// so as not to feel too inadequate.
+	c.Check("name", fix.Vacant())
 }
 
 func (s *ClientPersistenceSuite) TestClaimLease(c *gc.C) {
@@ -335,14 +368,14 @@ func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 
 // ------------------------------------
 
-// ClientSkewSuite checks that multiple clients can collaborate correctly.
-type ClientSkewSuite struct {
+// ClientRemoteSuite checks that clients do not break one another's promises.
+type ClientRemoteSuite struct {
 	FixtureSuite
 }
 
-var _ = gc.Suite(&ClientSkewSuite{})
+var _ = gc.Suite(&ClientRemoteSuite{})
 
-func (s *ClientSkewSuite) TestReadSkew(c *gc.C) {
+func (s *ClientRemoteSuite) TestReadSkew(c *gc.C) {
 	fix1 := NewFixture(c, s.db, FixtureParams{})
 	leaseDuration := time.Minute
 	err := fix1.Client.ClaimLease("name", lease.Request{"holder", leaseDuration})
@@ -364,6 +397,39 @@ func (s *ClientSkewSuite) TestReadSkew(c *gc.C) {
 	c.Check("name", fix2.LatestExpiry(), earliestExpiry.Add(readDuration))
 }
 
-func (s *ClientSkewSuite) TestNotDone(c *gc.C) {
+func (s *ClientRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+func (s *ClientRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+func (s *ClientRemoteSuite) TestExtendRemoteLeasePaddedExtend(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+func (s *ClientRemoteSuite) TestExpireRemoteLease(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+// ------------------------------------
+
+// ClientRaceSuite tests the ugliest of details.
+type ClientRaceSuite struct {
+	FixtureSuite
+}
+
+var _ = gc.Suite(&ClientRaceSuite{})
+
+func (s *ClientRaceSuite) TestMany(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+func (s *ClientRaceSuite) TestManyMany(c *gc.C) {
+	c.Fatalf("not done")
+}
+
+func (s *ClientRaceSuite) TestMore(c *gc.C) {
 	c.Fatalf("not done")
 }
