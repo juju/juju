@@ -36,41 +36,6 @@ func init() {
 	}
 }
 
-type FixtureSuite struct {
-	jujutesting.IsolationSuite
-	jujutesting.MgoSuite
-	db *mgo.Database
-}
-
-func (s *FixtureSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *FixtureSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.IsolationSuite.TearDownSuite(c)
-}
-
-func (s *FixtureSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.db = s.Session.DB("juju")
-}
-
-func (s *FixtureSuite) TearDownTest(c *gc.C) {
-	s.MgoSuite.TearDownTest(c)
-	s.IsolationSuite.TearDownTest(c)
-}
-
-func (s *FixtureSuite) NewFixture(c *gc.C, fp FixtureParams) *Fixture {
-	return NewFixture(c, s.db, fp)
-}
-
-func (s *FixtureSuite) EasyFixture(c *gc.C) *Fixture {
-	return s.NewFixture(c, FixtureParams{})
-}
-
 type FixtureParams struct {
 	Id         string
 	Namespace  string
@@ -79,6 +44,7 @@ type FixtureParams struct {
 	ClockStep  time.Duration
 }
 
+// Fixture collects together a running client and a bunch of useful data.
 type Fixture struct {
 	Client lease.Client
 	Config lease.ClientConfig
@@ -232,4 +198,39 @@ func checkLatestExpiry(info lease.Info, expiry interface{}) (bool, string) {
 		return true, ""
 	}
 	return false, fmt.Sprintf("latest expiry is %s; expected %s", actual, expect)
+}
+
+type FixtureSuite struct {
+	jujutesting.IsolationSuite
+	jujutesting.MgoSuite
+	db *mgo.Database
+}
+
+func (s *FixtureSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *FixtureSuite) TearDownSuite(c *gc.C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
+}
+
+func (s *FixtureSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.db = s.Session.DB("juju")
+}
+
+func (s *FixtureSuite) TearDownTest(c *gc.C) {
+	s.MgoSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *FixtureSuite) NewFixture(c *gc.C, fp FixtureParams) *Fixture {
+	return NewFixture(c, s.db, fp)
+}
+
+func (s *FixtureSuite) EasyFixture(c *gc.C) *Fixture {
+	return s.NewFixture(c, FixtureParams{})
 }

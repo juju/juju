@@ -29,6 +29,10 @@ func (clock *Clock) Now() time.Time {
 	return clock.now
 }
 
+func (clock *Clock) Set(now time.Time) {
+	clock.now = now
+}
+
 func (clock *Clock) Advance(duration time.Duration) {
 	clock.now = clock.now.Add(duration)
 }
