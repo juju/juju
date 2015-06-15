@@ -5,6 +5,7 @@ package testing
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -20,7 +21,9 @@ type serviceInfo interface {
 
 // FakeServiceData holds the results of Service method calls.
 type FakeServiceData struct {
-	*testing.Stub
+	testing.Stub
+
+	mu sync.Mutex
 
 	// Installed is the list of all services that were installed.
 	Installed []serviceInfo
@@ -31,8 +34,8 @@ type FakeServiceData struct {
 	// ManagedNames is the set of "currently" juju-managed services.
 	ManagedNames set.Strings
 
-	// InstalledNames is the set of "currently" installed services.
-	InstalledNames set.Strings
+	// installedNames is the set of "currently" installed services.
+	installedNames set.Strings
 
 	// RunningNames is the set of "currently" running services.
 	RunningNames set.Strings
@@ -45,21 +48,33 @@ type FakeServiceData struct {
 }
 
 // NewFakeServiceData returns a new FakeServiceData.
-func NewFakeServiceData() *FakeServiceData {
-	return &FakeServiceData{
-		Stub:           &testing.Stub{},
+func NewFakeServiceData(names ...string) *FakeServiceData {
+	fsd := FakeServiceData{
 		ManagedNames:   set.NewStrings(),
-		InstalledNames: set.NewStrings(),
+		installedNames: set.NewStrings(),
 		RunningNames:   set.NewStrings(),
 	}
+	for _, name := range names {
+		fsd.installedNames.Add(name)
+	}
+	return &fsd
+}
+
+// InstalledNames returns a list of the installed names.
+func (f *FakeServiceData) InstalledNames() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.installedNames.Values()
 }
 
 // SetStatus updates the status of the named service.
-func (fsd *FakeServiceData) SetStatus(name, status string) error {
+func (f *FakeServiceData) SetStatus(name, status string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if status == "" {
-		fsd.ManagedNames.Remove(name)
-		fsd.InstalledNames.Remove(name)
-		fsd.RunningNames.Remove(name)
+		f.ManagedNames.Remove(name)
+		f.installedNames.Remove(name)
+		f.RunningNames.Remove(name)
 		return nil
 	}
 
@@ -71,17 +86,17 @@ func (fsd *FakeServiceData) SetStatus(name, status string) error {
 
 	switch status {
 	case "installed":
-		fsd.InstalledNames.Add(name)
-		fsd.RunningNames.Remove(name)
+		f.installedNames.Add(name)
+		f.RunningNames.Remove(name)
 	case "running":
-		fsd.InstalledNames.Add(name)
-		fsd.RunningNames.Add(name)
+		f.installedNames.Add(name)
+		f.RunningNames.Add(name)
 	default:
 		return errors.NotSupportedf("status %q", status)
 	}
 
 	if managed {
-		fsd.ManagedNames.Add(name)
+		f.ManagedNames.Add(name)
 	}
 	return nil
 }
@@ -127,6 +142,8 @@ func (ss *FakeService) Running() (bool, error) {
 }
 
 func (ss *FakeService) running() bool {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
 	return ss.FakeServiceData.RunningNames.Contains(ss.Service.Name)
 }
 
@@ -135,7 +152,9 @@ func (ss *FakeService) Start() error {
 	ss.AddCall("Start")
 	// TODO(ericsnow) Check managed?
 	if ss.running() {
+		ss.mu.Lock()
 		ss.FakeServiceData.RunningNames.Add(ss.Service.Name)
+		ss.mu.Unlock()
 	}
 
 	return ss.NextErr()
@@ -145,7 +164,9 @@ func (ss *FakeService) Start() error {
 func (ss *FakeService) Stop() error {
 	ss.AddCall("Stop")
 	if !ss.running() {
+		ss.mu.Lock()
 		ss.FakeServiceData.RunningNames.Remove(ss.Service.Name)
+		ss.mu.Unlock()
 	}
 
 	return ss.NextErr()
@@ -159,6 +180,8 @@ func (ss *FakeService) Exists() (bool, error) {
 }
 
 func (ss *FakeService) managed() bool {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
 	return ss.FakeServiceData.ManagedNames.Contains(ss.Service.Name)
 }
 
@@ -170,15 +193,19 @@ func (ss *FakeService) Installed() (bool, error) {
 }
 
 func (ss *FakeService) installed() bool {
-	return ss.FakeServiceData.InstalledNames.Contains(ss.Service.Name)
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	return ss.FakeServiceData.installedNames.Contains(ss.Service.Name)
 }
 
 // Install implements Service.
 func (ss *FakeService) Install() error {
 	ss.AddCall("Install")
 	if !ss.running() && !ss.installed() {
+		ss.mu.Lock()
 		ss.FakeServiceData.Installed = append(ss.FakeServiceData.Installed, ss)
-		ss.FakeServiceData.InstalledNames.Add(ss.Service.Name)
+		ss.FakeServiceData.installedNames.Add(ss.Service.Name)
+		ss.mu.Unlock()
 	}
 
 	return ss.NextErr()
@@ -188,8 +215,10 @@ func (ss *FakeService) Install() error {
 func (ss *FakeService) Remove() error {
 	ss.AddCall("Remove")
 	if ss.installed() {
+		ss.mu.Lock()
 		ss.FakeServiceData.Removed = append(ss.FakeServiceData.Removed, ss)
-		ss.FakeServiceData.InstalledNames.Remove(ss.Service.Name)
+		ss.FakeServiceData.installedNames.Remove(ss.Service.Name)
+		ss.mu.Unlock()
 	}
 
 	return ss.NextErr()

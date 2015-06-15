@@ -83,9 +83,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Failure = errors.New("<failed>")
 
-	s.Stub = &testing.Stub{}
 	s.Service = svctesting.NewFakeService(s.Name, s.Conf)
-	s.Service.Stub = s.Stub
+	s.Stub = &s.Service.Stub
 	s.Patched = &Stub{Stub: s.Stub}
 	s.PatchValue(&discoverService, s.Patched.DiscoverService)
 }

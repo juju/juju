@@ -192,7 +192,7 @@ func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 }
 
 func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
-	c.Assert(fix.data.InstalledNames, gc.HasLen, count)
+	c.Assert(fix.data.InstalledNames(), gc.HasLen, count)
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
@@ -215,7 +215,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	tag := names.NewUnitTag(name)
 
 	svcName := "jujud-" + tag.String()
-	c.Assert(svcName, jc.Satisfies, fix.data.InstalledNames.Contains)
+	assertContains(c, fix.data.InstalledNames(), svcName)
 
 	var svcConf common.Conf
 	for _, svc := range fix.data.Installed {
@@ -266,10 +266,9 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
+	assertNotContains(c, fix.data.InstalledNames(), name)
+
 	tag := names.NewUnitTag(name)
-
-	c.Assert(name, gc.Not(jc.Satisfies), fix.data.InstalledNames.Contains)
-
 	agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
@@ -337,4 +336,23 @@ func (mock *mockConfig) Value(_ string) string {
 
 func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
+}
+
+// assertContains asserts a needle is contained within haystack
+func assertContains(c *gc.C, haystack []string, needle string) {
+	c.Assert(contains(haystack, needle), jc.IsTrue)
+}
+
+// assertNotContains asserts a needle is not contained within haystack
+func assertNotContains(c *gc.C, haystack []string, needle string) {
+	c.Assert(contains(haystack, needle), gc.Not(jc.IsTrue))
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, e := range haystack {
+		if e == needle {
+			return true
+		}
+	}
+	return false
 }
