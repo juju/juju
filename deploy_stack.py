@@ -171,9 +171,9 @@ def retain_jenv(jenv_path, log_directory):
 def get_machines_for_logs(client, bootstrap_host):
     """Return a dict of machine_id and address.
 
-    When The env is maas, the maas ip addresses will be used.
-    When bootstrap_host is provided (except for maas), machine 0's address
-    will be forced to the value.
+    With a maas environment, the maas api will be queried for the real
+    ip addresses. Otherwise, bootstrap_host may be provided to
+    override the address of machine 0.
     """
     # Try to get machine details from environment if possible.
     machine_addrs = dict(get_machine_addrs(client))

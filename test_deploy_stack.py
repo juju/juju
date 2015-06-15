@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import subprocess
-from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
@@ -381,13 +380,13 @@ class DumpEnvLogsTestCase(TestCase):
     def test_get_machines_for_logs(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
-        status = Status.from_text(dedent("""\
+        status = Status.from_text("""\
             machines:
               "0":
                 dns-name: 10.11.12.13
               "1":
                 dns-name: 10.11.12.14
-            """))
+            """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             machine_addrs = get_machines_for_logs(client, None)
@@ -397,11 +396,11 @@ class DumpEnvLogsTestCase(TestCase):
     def test_get_machines_for_logs_with_boostrap_host(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
-        status = Status.from_text(dedent("""\
+        status = Status.from_text("""\
             machines:
               "0":
                 dns-name: 10.11.12.13
-            """))
+            """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             machine_addrs = get_machines_for_logs(client, '10.11.111.222')
@@ -424,13 +423,13 @@ class DumpEnvLogsTestCase(TestCase):
             'maas-oauth': 'baz'}
         client = EnvJujuClient(
             SimpleEnvironment('cloud', config), '1.23.4', None)
-        status = Status.from_text(dedent("""\
+        status = Status.from_text("""\
             machines:
               "0":
                 dns-name: node1.maas
               "1":
                 dns-name: node2.maas
-            """))
+            """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             allocated_ips = {
@@ -446,13 +445,13 @@ class DumpEnvLogsTestCase(TestCase):
     def test_get_machine_addrs(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
-        status = Status.from_text(dedent("""\
+        status = Status.from_text("""\
             machines:
               "0":
                 dns-name: 10.11.12.13
               "1":
                 dns-name: 10.11.12.14
-            """))
+            """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             machine_addrs = [ma for ma in get_machine_addrs(client)]
