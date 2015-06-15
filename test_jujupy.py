@@ -2361,3 +2361,12 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
         error = subprocess.CalledProcessError(1, ['foo'], output)
         address = parse_new_state_server_from_error(error)
         self.assertEqual('1.2.3.4', address)
+
+    def test_parse_new_state_server_from_error_output_None(self):
+        error = subprocess.CalledProcessError(1, ['foo'], None)
+        address = parse_new_state_server_from_error(error)
+        self.assertIs(None, address)
+
+    def test_parse_new_state_server_from_error_no_output(self):
+        address = parse_new_state_server_from_error(Exception())
+        self.assertIs(None, address)
