@@ -91,7 +91,7 @@ class MonkeyRunner:
         """Returns a boolean after running the health_checker."""
         try:
             sub_output = subprocess.check_output(self.health_checker)
-            logging.info(sub_output)
+            logging.info('Health check output: {}'.format(sub_output))
         except OSError as e:
             logging.error(
                 'The health check script failed to execute with: {}'.format(

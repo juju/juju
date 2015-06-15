@@ -259,7 +259,8 @@ class TestRunChaosMonkey(TestCase):
                 result = monkey_runner.is_healthy()
             os.unlink(health_script.name)
             self.assertTrue(result)
-            self.assertEqual(lo_mock.call_args[0][0], 'PASS')
+            self.assertEqual(lo_mock.call_args[0][0],
+                             'Health check output: PASS')
 
     def test_is_healthy_fail(self):
         SCRIPT = """#!/bin/bash\necho -n 'FAIL'\nexit 1"""
