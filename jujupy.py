@@ -307,6 +307,15 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
 
+    def get_service_config(self, service, timeout=60):
+        for ignored in until_timeout(timeout):
+            try:
+                return yaml_loads(self.get_juju_output('get', service))
+            except subprocess.CalledProcessError:
+                pass
+        raise Exception(
+            'Timed out waiting for juju get %s' % (service))
+
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
         return self.get_juju_output('get-env', option)

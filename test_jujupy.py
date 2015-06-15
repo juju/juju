@@ -1649,6 +1649,33 @@ class TestStatus(TestCase):
                 ('chaos-monkey/2', {'agent-state': 'started'})]
             )
 
+    def test_get_service_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output', side_effect=output):
+            results = client.get_service_config('foo')
+        self.assertEqual(expected, results)
+
+    def test_get_service_config_timesout(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
+        with patch('jujupy.until_timeout', return_value=range(0)):
+            with self.assertRaisesRegexp(
+                    Exception, 'Timed out waiting for juju get'):
+                client.get_service_config('foo')
+
     def test_get_open_ports(self):
         status = Status({
             'machines': {
