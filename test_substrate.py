@@ -1,3 +1,4 @@
+import json
 import os
 from subprocess import CalledProcessError
 from textwrap import dedent
@@ -27,8 +28,9 @@ from substrate import (
     get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
-    OpenStackAccount,
     make_substrate_manager,
+    MAASAccount,
+    OpenStackAccount,
     parse_euca,
     run_instances,
     start_libvirt_domain,
@@ -53,6 +55,7 @@ def get_maas_env():
         'type': 'maas',
         'maas-server': 'http://10.0.10.10/MAAS/',
         'maas-oauth': 'a:password:string',
+        'name': 'mas'
         })
 
 
@@ -71,6 +74,43 @@ def get_aws_environ(env):
     environ = dict(os.environ)
     environ.update(get_euca_env(env.config))
     return environ
+
+
+def make_maas_node(hostname='juju-qa-maas-node-1.maas'):
+    return {
+        "status": 6,
+        "macaddress_set": [
+            {
+                "resource_uri": "/MAAS/api/1.0/nodes/node-0123a-4567-890a",
+                "mac_address": "52:54:00:71:84:bc"
+            }
+        ],
+        "hostname": hostname,
+        "zone": {
+            "resource_uri": "/MAAS/api/1.0/zones/default/",
+            "name": "default",
+            "description": ""
+        },
+        "routers": [
+            "e4:11:5b:0e:74:ac",
+            "fe:54:00:71:84:bc"
+        ],
+        "netboot": True,
+        "cpu_count": 1,
+        "storage": 1408,
+        "owner": "root",
+        "system_id": "node-75e0d560-7432-11e4-bb28-525400c43ce5",
+        "architecture": "amd64/generic",
+        "memory": 2048,
+        "power_type": "virsh",
+        "tag_names": [
+            "virtual"
+        ],
+        "ip_addresses": [
+            "10.0.30.165"
+        ],
+        "resource_uri": "/MAAS/api/1.0/nodes/node-0123a-4567-890a"
+    }
 
 
 class TestTerminateInstances(TestCase):
@@ -586,6 +626,78 @@ class TestAzureAccount(TestCase):
             'foo', embed_detail=True)
         client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
         client.delete_hosted_service.assert_called_once_with('foo')
+
+
+class TestMAASAcount(TestCase):
+
+    @patch.object(MAASAccount, 'logout', autospec=True)
+    @patch.object(MAASAccount, 'login', autospec=True)
+    def test_manager_from_config(self, li_mock, lo_mock):
+        config = get_maas_env().config
+        with MAASAccount.manager_from_config(config) as account:
+            self.assertEqual(account.profile, 'mas')
+            self.assertEqual(account.url, 'http://10.0.10.10/MAAS/api/1.0/')
+            self.assertEqual(account.oauth, 'a:password:string')
+            # As the class object is patched, the mocked methods
+            # show that self is passed.
+            li_mock.assert_called_once_with(account)
+        lo_mock.assert_called_once_with(account)
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_login(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.login()
+        cc_mock.assert_called_once_with([
+            'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+            'a:password:string'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_logout(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.logout()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_terminate_instances(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
+        account.terminate_instances(instance_ids)
+        cc_mock.assert_any_call(
+            ['maas', 'mas', 'node', 'release', 'node-1d'])
+        cc_mock.assert_called_with(
+            ['maas', 'mas', 'node', 'release', 'node-2d'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_get_allocated_nodes(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string) as co_mock:
+            allocated = account.get_allocated_nodes()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'nodes', 'list-allocated'])
+        self.assertEqual(node, allocated['maas-node-1.maas'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_get_allocated_ips(self, cc_mock):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string):
+            ips = account.get_allocated_ips()
+        self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
 
 class TestMakeSubstrateManager(TestCase):

@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import (
     contextmanager,
 )
+import json
 import logging
 import os
 import subprocess
@@ -51,19 +52,8 @@ def terminate_instances(env, instance_ids):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
-        profile_name = env.environment
-        maas_url = env.config.get('maas-server') + 'api/1.0/'
-        maas_credentials = env.config.get('maas-oauth')
-        for instance in instance_ids:
-            maas_system_id = instance.split('/')[5]
-            commands = [
-                ['maas', 'login', profile_name, maas_url, maas_credentials],
-                ['maas', profile_name, 'node', 'release', maas_system_id],
-                ['maas', 'logout', profile_name]
-            ]
-            print_now("Deleting %s." % instance)
-            for cmd in commands:
-                subprocess.check_call(cmd)
+        with MAASAccount.manager_from_config(env.config) as substrate:
+            substrate.terminate_instances(instance_ids)
         return
     else:
         with make_substrate_manager(env.config) as substrate:
@@ -400,6 +390,61 @@ class AzureAccount:
         """
         with self.terminate_instances_cxt(instance_ids):
             return
+
+
+class MAASAccount:
+    """Represent a Mass account."""
+
+    def __init__(self, profile, url, oauth):
+        self.profile = profile
+        self.url = url + 'api/1.0/'
+        self.oauth = oauth
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """Create a ContextManager for a MaasAccount."""
+        manager = cls(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        manager.login()
+        yield manager
+        manager.logout()
+
+    def login(self):
+        """Login with the maas cli."""
+        subprocess.check_call(
+            ['maas', 'login', self.profile, self.url, self.oauth])
+
+    def logout(self):
+        """Logout with the maas cli."""
+        subprocess.check_call(
+            ['maas', 'logout', self.profile])
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance in instance_ids:
+            maas_system_id = instance.split('/')[5]
+            print_now('Deleting %s.' % instance)
+            subprocess.check_call(
+                ['maas', self.profile, 'node', 'release', maas_system_id])
+
+    def get_allocated_nodes(self):
+        """Return a dict of allocated nodes with the hostname as keys."""
+        data = subprocess.check_output(
+            ['maas', self.profile, 'nodes', 'list-allocated'])
+        nodes = json.loads(data)
+        allocated = {node['hostname']: node for node in nodes}
+        return allocated
+
+    def get_allocated_ips(self):
+        """Return a dict of allocated ips with the hostname as keys.
+
+        A maas node may have many ips. The method selects the first ip which
+        is the address used for virsh access and ssh.
+        """
+        allocated = self.get_allocated_nodes()
+        ips = {k: v['ip_addresses'][0] for k, v in allocated.items()}
+        return ips
 
 
 @contextmanager
