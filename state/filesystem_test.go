@@ -485,8 +485,14 @@ func (s *FilesystemStateSuite) TestRemoveFilesystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveFilesystem(names.NewFilesystemTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
+	assertRemove := func() {
+		err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.Filesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
+	assertRemove()
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {

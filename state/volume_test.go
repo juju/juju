@@ -421,25 +421,29 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 	_, expected, _ := s.assertCreateVolumes(c)
 
-	found, err := s.State.AllVolumes()
+	volumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 3)
-	for _, one := range found {
-		c.Assert(expected.Contains(one.VolumeTag()), jc.IsTrue)
+	tags := make([]names.VolumeTag, len(volumes))
+	for i, v := range volumes {
+		tags[i] = v.VolumeTag()
 	}
+	c.Assert(tags, jc.SameContents, expected)
 }
 
 func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
 	_, _, persistentVolumes := s.assertCreateVolumes(c)
 	c.Assert(persistentVolumes, gc.HasLen, 1)
 
-	v, err := s.State.PersistentVolumes()
+	volumes, err := s.State.PersistentVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.HasLen, 1)
-	c.Assert(persistentVolumes.Contains(v[0].VolumeTag()), jc.IsTrue)
+	tags := make([]names.VolumeTag, len(volumes))
+	for i, v := range volumes {
+		tags[i] = v.VolumeTag()
+	}
+	c.Assert(tags, jc.SameContents, persistentVolumes)
 }
 
-func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent set.Tags) {
+func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
 	registry.RegisterProvider("static", &dummy.StorageProvider{
 		IsDynamic: false,
 	})
@@ -477,7 +481,15 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return machine, set.NewTags(volume1.VolumeTag(), volume2.VolumeTag(), volume3.VolumeTag()), set.NewTags(volume1.VolumeTag())
+	all = []names.VolumeTag{
+		volume1.VolumeTag(),
+		volume2.VolumeTag(),
+		volume3.VolumeTag(),
+	}
+	persistent = []names.VolumeTag{
+		volume1.VolumeTag(),
+	}
+	return machine, all, persistent
 }
 
 func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
@@ -548,8 +560,14 @@ func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolume(names.NewVolumeTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
+	assertRemove := func() {
+		err = s.State.RemoveVolume(volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.Volume(volume.VolumeTag())
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
+	assertRemove()
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeNotFound(c *gc.C) {
