@@ -445,12 +445,11 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
                     yield
                 except BaseException as e:
                     logging.exception(e)
-                    if host is not None:
-                        dump_env_logs(
-                            client, host, log_dir, jenv_path=jenv_path)
                     sys.exit(1)
             finally:
                 safe_print_status(client)
+                if host is not None:
+                    dump_env_logs(client, host, log_dir, jenv_path=jenv_path)
                 if not keep_env:
                     client.destroy_environment()
         finally:
