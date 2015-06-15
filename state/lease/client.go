@@ -420,16 +420,17 @@ func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, en
 			fieldLeaseExpiry: toInt64(lastEntry.expiry),
 			fieldLeaseWriter: lastEntry.writer,
 		},
-		Update: bson.M{
+		Update: bson.M{"$set": bson.M{
 			fieldLeaseExpiry:  toInt64(expiry),
 			fieldLeaseWriter:  client.config.Id,
 			fieldLeaseWritten: toInt64(nextEntry.written),
-		},
+		}},
 	}
 
 	// We always write a clock-update operation *before* writing lease info.
 	writeClockOp := client.writeClockOp(now)
 	ops := []txn.Op{writeClockOp, extendLeaseOp}
+	client.logger.Debugf("ops: %#v", ops)
 	return ops, nextEntry, nil
 }
 
@@ -481,10 +482,10 @@ func (client *client) writeClockOp(now time.Time) txn.Op {
 		C:  client.config.Collection,
 		Id: client.clockDocId(),
 		Assert: bson.M{
-			"$or": []bson.D{{
-				{dbKey, bson.M{"$lte": dbNow}},
+			"$or": []bson.M{{
+				dbKey: bson.M{"$lte": dbNow},
 			}, {
-				{dbKey, bson.M{"$exists": false}},
+				dbKey: bson.M{"$exists": false},
 			}},
 		},
 		Update: bson.M{
