@@ -1756,10 +1756,8 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			// If this is the worker for the new environment,
-			// close the channel. Also note that we don't want to compare
-			// a names.Tag with a struct implementation due to gccgo bug.
-			var envTag names.Tag = st.EnvironTag()
-			if scope == envTag {
+			// close the channel.
+			if scope == st.EnvironTag() {
 				close(started)
 			}
 		}
