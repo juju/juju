@@ -43,8 +43,11 @@ JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 
 
 def parse_new_state_server_from_error(error):
-    output = str(error) + getattr(error, 'output', '')
-    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    err_str = str(error)
+    output = getattr(error, 'output', None)
+    if output is not None:
+        err_str += output
+    matches = re.findall(r'Attempting to connect to (.*):22', err_str)
     if matches:
         return matches[-1]
     return None
@@ -303,6 +306,15 @@ class EnvJujuClient:
                 pass
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
+
+    def get_service_config(self, service, timeout=60):
+        for ignored in until_timeout(timeout):
+            try:
+                return yaml_loads(self.get_juju_output('get', service))
+            except subprocess.CalledProcessError:
+                pass
+        raise Exception(
+            'Timed out waiting for juju get %s' % (service))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
