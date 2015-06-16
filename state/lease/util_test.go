@@ -12,13 +12,15 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// Clock exposes time via Now, and can be controlled via Advance. It can be
-// configured to Advance automatically whenever Now is called.
+// Clock exposes time via Now, and can be controlled via Set and Advance. It
+// can be configured to Advance automatically whenever Now is called.
 type Clock struct {
 	now  time.Time
 	step time.Duration
 }
 
+// NewClock returns a *Clock, set to now, that advances by step whenever Now()
+// is called.
 func NewClock(now time.Time, step time.Duration) *Clock {
 	return &Clock{now, step}
 }
@@ -29,10 +31,12 @@ func (clock *Clock) Now() time.Time {
 	return clock.now
 }
 
+// Set sets the clock to the supplied time.
 func (clock *Clock) Set(now time.Time) {
 	clock.now = now
 }
 
+// Advance advances the clock by the supplied time.
 func (clock *Clock) Advance(duration time.Duration) {
 	clock.now = clock.now.Add(duration)
 }
@@ -45,6 +49,7 @@ type Mongo struct {
 	runner   jujutxn.Runner
 }
 
+// NewMongo returns a *Mongo backed by the supplied database.
 func NewMongo(database *mgo.Database) *Mongo {
 	return &Mongo{
 		database: database,

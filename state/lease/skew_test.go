@@ -37,8 +37,8 @@ func (s *SkewSuite) TestApparentPastWrite(c *gc.C) {
 	sixSecondsLater := now.Add(6 * time.Second)
 	eightSecondsLater := now.Add(8 * time.Second)
 
-	// Between 1 and 3 seconds ago, we observed a remote writer to have already
-	// acknowledged the time to be no earlier than 9 seconds before now.
+	// Where T is the current local time:
+	// between T-3 and T-1, we read T-9 from the remote clock.
 	skew := lease.Skew{
 		LastWrite:  nineSecondsAgo,
 		ReadAfter:  threeSecondsAgo,
@@ -68,8 +68,8 @@ func (s *SkewSuite) TestApparentFutureWrite(c *gc.C) {
 	twelveSecondsAgo := now.Add(-12 * time.Second)
 	nineSecondsLater := now.Add(9 * time.Second)
 
-	// Between 1 and 3 seconds ago, we observed a remote writer to have already
-	// acknowledged the time to be no earlier than 9 seconds after now.
+	// Where T is the current local time:
+	// between T-3 and T-1, we read T+9 from the remote clock.
 	skew := lease.Skew{
 		LastWrite:  nineSecondsLater,
 		ReadAfter:  threeSecondsAgo,
@@ -100,8 +100,8 @@ func (s *SkewSuite) TestBracketedWrite(c *gc.C) {
 	fiveSecondsAgo := now.Add(-5 * time.Second)
 	oneSecondLater := now.Add(time.Second)
 
-	// Between 1 and 5 seconds ago, we observed a remote writer to have already
-	// acknowledged the time to be no earlier than 2 seconds before now.
+	// Where T is the current local time:
+	// between T-5 and T-1, we read T-2 from the remote clock.
 	skew := lease.Skew{
 		LastWrite:  twoSecondsAgo,
 		ReadAfter:  fiveSecondsAgo,
@@ -138,8 +138,8 @@ func (s *SkewSuite) TestMixedTimezones(c *gc.C) {
 	fiveSecondsAgo := now.Add(-5 * time.Second)
 	oneSecondLater := now.Add(time.Second)
 
-	// Between 1 and 5 seconds ago, we observed a remote writer to have already
-	// acknowledged the time to be no earlier than 2 seconds before now.
+	// Where T is the current local time:
+	// between T-5 and T-1, we read T-2 from the remote clock.
 	skew := lease.Skew{
 		LastWrite:  twoSecondsAgo.In(here),
 		ReadAfter:  fiveSecondsAgo.In(there),
