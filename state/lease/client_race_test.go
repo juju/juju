@@ -4,13 +4,13 @@
 package lease_test
 
 import (
-	"time"
+	_ "time"
 
-	jc "github.com/juju/testing/checkers"
+	_ "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
+	_ "gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/state/lease"
+	_ "github.com/juju/juju/state/lease"
 )
 
 // ClientRaceSuite tests the ugliest of details.
