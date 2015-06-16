@@ -88,7 +88,7 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
-	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
+	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -115,7 +115,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
-	s.manager.Stub.Errors = []error{errors.New("pow")}
+	s.manager.Stub.SetErrors(errors.New("pow"))
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer worker.Stop(tracker)
 
@@ -134,7 +134,7 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
-	s.manager.Stub.Errors = []error{nil, coreleadership.ErrClaimDenied, nil}
+	s.manager.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -171,7 +171,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
-	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil, nil}
+	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -208,9 +208,9 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
-	s.manager.Stub.Errors = []error{
+	s.manager.Stub.SetErrors(
 		coreleadership.ErrClaimDenied, nil, coreleadership.ErrClaimDenied, nil,
-	}
+	)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -277,7 +277,7 @@ func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
-	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil, nil}
+	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -314,7 +314,7 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
-	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
+	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -346,7 +346,7 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
-	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
+	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
@@ -369,7 +369,7 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
-	s.manager.Stub.Errors = []error{nil, coreleadership.ErrClaimDenied, nil}
+	s.manager.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 

@@ -637,13 +637,12 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 }
 
 func (s *FactorySuite) testLeadershipContextWiring(c *gc.C, createRunner func() runner.Runner) {
-	stub := &testing.Stub{
-		Errors: []error{errors.New("bam")},
-	}
+	var stub testing.Stub
+	stub.SetErrors(errors.New("bam"))
 	restore := runner.PatchNewLeadershipContext(
 		func(accessor runner.LeadershipSettingsAccessor, tracker leadership.Tracker) runner.LeadershipContext {
 			stub.AddCall("NewLeadershipContext", accessor, tracker)
-			return &StubLeadershipContext{Stub: stub}
+			return &StubLeadershipContext{Stub: &stub}
 		},
 	)
 	defer restore()

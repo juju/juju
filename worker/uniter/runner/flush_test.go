@@ -170,7 +170,7 @@ func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
 
 	// Check stub calls.
 	s.Stub.CheckCallNames(c, "Open", "Remove", "Remove", "Close")
-	s.Stub.Calls = []testing.StubCall{}
+	s.Stub.ResetCalls()
 	metricBatches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 2)
