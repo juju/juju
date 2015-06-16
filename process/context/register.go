@@ -22,7 +22,7 @@ the charm's metadata.yaml.
 
 func init() {
 	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
-		cmd, err := NewRegisterCommand(ctx)
+		cmd, err := newRegisterCommand(ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -35,8 +35,8 @@ type RegisterCommand struct {
 	registeringCommand
 }
 
-// NewRegisterCommand returns a new RegisterCommand.
-func NewRegisterCommand(ctx jujuc.Context) (*RegisterCommand, error) {
+// newRegisterCommand returns a new RegisterCommand.
+func newRegisterCommand(ctx jujuc.Context) (*RegisterCommand, error) {
 	base, err := newRegisteringCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

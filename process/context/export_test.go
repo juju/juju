@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
+var (
+	NewRegisterCommand = newRegisterCommand
+)
+
 func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
 	switch cmd := cmd.(type) {
 	case *RegisterCommand:
