@@ -7,7 +7,9 @@ enablement_timeout="$(action-get enablement-timeout)"
 include_command="$(action-get include-command)"
 include_group="$(action-get include-group)"
 total_timeout="$(action-get total-timeout)"
+monkey_id="$(action-get monkey-id)"
 mode="$(action-get mode)"
+monkey_id=${monkey_id:-${JUJU_ACTION_TAG#action-}}
 action-set action-parameters.dry-run="${dry_run}"
 action-set action-parameters.chaos-dir="${chaos_dir}"
 action-set action-parameters.charm-dir="${CHARM_DIR}"
@@ -16,12 +18,12 @@ action-set action-parameters.exclude-group="${exclude_group}"
 action-set action-parameters.enablement-timeout="${enablement_timeout}"
 action-set action-parameters.include-command="${include_command}"
 action-set action-parameters.include-group="${include_group}"
-action-set action-parameters.monkey-id=${JUJU_ACTION_TAG#action-}
+action-set action-parameters.monkey-id=${monkey_id}
 action-set action-parameters.total-timeout="${total_timeout}"
 action-set action-parameters.mode="${mode}"
 
 # Create a unique directory to run and log this monkeys actions.
-target_dir=${chaos_dir}/chaos_monkey.${JUJU_ACTION_TAG#action-}
+target_dir=${chaos_dir}/chaos_monkey.${monkey_id}
 mkdir -p ${target_dir}/log
 if [[ -d ${CHARM_DIR}/chaos-monkey ]]; then
     cp -a ${CHARM_DIR}/chaos-monkey ${target_dir}
