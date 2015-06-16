@@ -12,7 +12,7 @@ import (
 )
 
 // These constants define the field names and type values used by documents in
-// a lease collection. They *must* remain in sync with the bson marshallling
+// a lease collection. They *must* remain in sync with the bson marshalling
 // annotations in leaseDoc and clockDoc.
 const (
 	// fieldType and fieldNamespace identify the Type and Namespace fields in
@@ -25,11 +25,10 @@ const (
 	typeClock = "clock"
 
 	// fieldLease* identify the fields in a leaseDoc.
-	fieldLeaseName    = "name"
-	fieldLeaseHolder  = "holder"
-	fieldLeaseExpiry  = "expiry"
-	fieldLeaseWriter  = "writer"
-	fieldLeaseWritten = "written"
+	fieldLeaseName   = "name"
+	fieldLeaseHolder = "holder"
+	fieldLeaseExpiry = "expiry"
+	fieldLeaseWriter = "writer"
 
 	// fieldClock* identify the fields in a clockDoc.
 	fieldClockWriters = "writers"
@@ -84,11 +83,10 @@ type leaseDoc struct {
 	Namespace string `bson:"namespace"` // TODO(fwereade) add index
 	Name      string `bson:"name"`
 
-	// Holder, Expiry, Writer and Written map directly to entry.
-	Holder  string `bson:"holder"`
-	Expiry  int64  `bson:"expiry"`
-	Writer  string `bson:"writer"`
-	Written int64  `bson:"written"`
+	// Holder, Expiry, and Writer map directly to entry.
+	Holder string `bson:"holder"`
+	Expiry int64  `bson:"expiry"`
+	Writer string `bson:"writer"`
 }
 
 // validate returns an error if any fields are invalid or inconsistent.
@@ -108,9 +106,6 @@ func (doc leaseDoc) validate() error {
 	if err := validateString(doc.Writer); err != nil {
 		return errors.Annotatef(err, "invalid writer")
 	}
-	if doc.Written == 0 {
-		return errors.Errorf("invalid written")
-	}
 	return nil
 }
 
@@ -121,10 +116,9 @@ func (doc leaseDoc) entry() (string, entry, error) {
 		return "", entry{}, errors.Trace(err)
 	}
 	entry := entry{
-		holder:  doc.Holder,
-		expiry:  toTime(doc.Expiry),
-		writer:  doc.Writer,
-		written: toTime(doc.Written),
+		holder: doc.Holder,
+		expiry: toTime(doc.Expiry),
+		writer: doc.Writer,
 	}
 	return doc.Name, entry, nil
 }
@@ -140,7 +134,6 @@ func newLeaseDoc(namespace, name string, entry entry) (*leaseDoc, error) {
 		Holder:    entry.holder,
 		Expiry:    toInt64(entry.expiry),
 		Writer:    entry.writer,
-		Written:   toInt64(entry.written),
 	}
 	if err := doc.validate(); err != nil {
 		return nil, errors.Trace(err)
