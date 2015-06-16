@@ -4,19 +4,20 @@
 package lease_test
 
 import (
-	_ "time"
+	"time"
 
-	_ "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	_ "gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
-	_ "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/lease"
 )
 
 // ClientAssertSuite tests that AssertOp does what it should.
 type ClientAssertSuite struct {
 	FixtureSuite
-	fix *Fixture
+	fix  *Fixture
+	info lease.Info
 }
 
 var _ = gc.Suite(&ClientAssertSuite{})
@@ -24,16 +25,51 @@ var _ = gc.Suite(&ClientAssertSuite{})
 func (s *ClientAssertSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.fix = s.EasyFixture(c)
+	err := s.fix.Client.ClaimLease("name", lease.Request{"holder", time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert("name", s.fix.Holder(), "holder")
 }
 
 func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
-	c.Fatalf("not done")
+	info := s.fix.Client.Leases()["name"]
+
+	ops := []txn.Op{info.AssertOp}
+	err := s.fix.Runner.RunTransaction(ops)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc.C) {
-	c.Fatalf("not done")
+	info := s.fix.Client.Leases()["name"]
+
+	fix2 := s.NewFixture(c, FixtureParams{Id: "other-client"})
+	err := fix2.Client.ExtendLease("name", lease.Request{"holder", time.Hour})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops := []txn.Op{info.AssertOp}
+	err = s.fix.Runner.RunTransaction(ops)
+	c.Check(err, gc.IsNil)
+}
+
+func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *gc.C) {
+	info := s.fix.Client.Leases()["name"]
+
+	s.fix.Clock.Advance(time.Hour)
+	err := s.fix.Client.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops := []txn.Op{info.AssertOp}
+	err = s.fix.Runner.RunTransaction(ops)
+	c.Check(err, gc.IsNil)
 }
 
 func (s *ClientAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
-	c.Fatalf("not done")
+	info := s.fix.Client.Leases()["name"]
+
+	s.fix.Clock.Advance(time.Hour)
+	err := s.fix.Client.ExpireLease("name")
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops := []txn.Op{info.AssertOp}
+	err = s.fix.Runner.RunTransaction(ops)
+	c.Check(err, gc.Equals, txn.ErrAborted)
 }

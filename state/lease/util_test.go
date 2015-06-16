@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// Clock exposes time via Now, and can be controlled via Set and Advance. It
+// Clock exposes time via Now, and can be controlled via Reset and Advance. It
 // can be configured to Advance automatically whenever Now is called.
 type Clock struct {
 	now  time.Time
@@ -31,8 +31,9 @@ func (clock *Clock) Now() time.Time {
 	return clock.now
 }
 
-// Set sets the clock to the supplied time.
-func (clock *Clock) Set(now time.Time) {
+// Reset causes the clock to act as though it had just been created with
+// NewClock(now, step).
+func (clock *Clock) Reset(now time.Time, step time.Duration) {
 	clock.now = now
 }
 

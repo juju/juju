@@ -88,13 +88,13 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeasePaddedExtend(c *gc.C) {
 }
 
 func (s *ClientRemoteSuite) TestCannotExpireRemoteLeaseEarly(c *gc.C) {
-	s.skewed.Clock.Set(s.latestValid())
+	s.skewed.Clock.Reset(s.latestValid(), 0)
 	err := s.skewed.Client.ExpireLease("name")
 	c.Check(err, gc.Equals, lease.ErrInvalid)
 }
 
 func (s *ClientRemoteSuite) TestCanExpireRemoteLease(c *gc.C) {
-	s.skewed.Clock.Set(s.latestValid().Add(time.Nanosecond))
+	s.skewed.Clock.Reset(s.latestValid().Add(time.Nanosecond), 0)
 	err := s.skewed.Client.ExpireLease("name")
 	c.Check(err, jc.ErrorIsNil)
 }
