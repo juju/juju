@@ -173,10 +173,12 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
 	s.PatchValue(&version.Current, currentVersion)
+	var findToolsCalled int
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
+		findToolsCalled++
 		return []*tools.Tools{
 			&tools.Tools{
 				Version: currentVersion,
@@ -188,6 +190,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	toolsVersion := version.MustParse("10.11.12")
 	result, err := bootstrap.FindAvailableTools(env, &toolsVersion, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(findToolsCalled, gc.Equals, 1)
 	c.Assert(result, jc.DeepEquals, tools.List{
 		&tools.Tools{
 			Version: currentVersion,

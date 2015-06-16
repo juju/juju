@@ -6,6 +6,7 @@ package bootstrap_test
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -28,7 +29,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"strings"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -340,7 +340,7 @@ func (s *bootstrapSuite) TestBootstrapNoSpecificVersion(c *gc.C) {
 	})
 }
 
-func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMinorMismatch(c *gc.C) {
 	// bootstrap using a specified version only works if the patch number is different.
 	// The bootstrap client major and minor versions need to match the tools asked for.
 	toolsVersion := version.MustParse("10.11.12")
@@ -349,7 +349,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C
 	c.Assert(bootstrapCount, gc.Equals, 0)
 }
 
-func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMinorMismatch(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C) {
 	// bootstrap using a specified version only works if the patch number is different.
 	// The bootstrap client major and minor versions need to match the tools asked for.
 	toolsVersion := version.MustParse("10.11.12")
