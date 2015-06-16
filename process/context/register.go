@@ -22,7 +22,7 @@ the charm's metadata.yaml.
 
 func init() {
 	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
-		cmd, err := newRegisterCommand(ctx)
+		cmd, err := newProcRegistrationCommand(ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -30,24 +30,24 @@ func init() {
 	})
 }
 
-// RegisterCommand implements the register command.
-type RegisterCommand struct {
+// ProcRegistrationCommand implements the register command.
+type ProcRegistrationCommand struct {
 	registeringCommand
 }
 
-// newRegisterCommand returns a new RegisterCommand.
-func newRegisterCommand(ctx jujuc.Context) (*RegisterCommand, error) {
+// newProcRegistrationCommand returns a new ProcRegistrationCommand.
+func newProcRegistrationCommand(ctx jujuc.Context) (*ProcRegistrationCommand, error) {
 	base, err := newRegisteringCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &RegisterCommand{
+	return &ProcRegistrationCommand{
 		registeringCommand: *base,
 	}, nil
 }
 
 // Info implements cmd.Command.
-func (c *RegisterCommand) Info() *cmd.Info {
+func (c *ProcRegistrationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
 		Args:    "<name> <id> [<details>]",
@@ -57,7 +57,7 @@ func (c *RegisterCommand) Info() *cmd.Info {
 }
 
 // Init implements cmd.Command.
-func (c *RegisterCommand) Init(args []string) error {
+func (c *ProcRegistrationCommand) Init(args []string) error {
 	switch len(args) {
 	case 0, 1:
 		return errors.Errorf("expected at least 2 args, got: %v", args)
@@ -70,7 +70,7 @@ func (c *RegisterCommand) Init(args []string) error {
 	}
 }
 
-func (c *RegisterCommand) init(name, id, detailsStr string) error {
+func (c *ProcRegistrationCommand) init(name, id, detailsStr string) error {
 	if err := c.registeringCommand.init(name); err != nil {
 		return errors.Trace(err)
 	}
@@ -95,7 +95,7 @@ func (c *RegisterCommand) init(name, id, detailsStr string) error {
 }
 
 // Run implements cmd.Command.
-func (c *RegisterCommand) Run(ctx *cmd.Context) error {
+func (c *ProcRegistrationCommand) Run(ctx *cmd.Context) error {
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
 	if err := c.register(ctx, process.StatusActive); err != nil {
 		return errors.Trace(err)

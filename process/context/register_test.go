@@ -15,7 +15,7 @@ import (
 type registerSuite struct {
 	commandSuite
 
-	registerCmd *context.RegisterCommand
+	registerCmd *context.ProcRegistrationCommand
 }
 
 var _ = gc.Suite(&registerSuite{})
@@ -23,7 +23,7 @@ var _ = gc.Suite(&registerSuite{})
 func (s *registerSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
-	cmd, err := context.NewRegisterCommand(s.Ctx)
+	cmd, err := context.NewProcRegistrationCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.registerCmd = cmd

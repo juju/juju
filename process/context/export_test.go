@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	NewRegisterCommand = newRegisterCommand
+	NewProcRegistrationCommand = newProcRegistrationCommand
 )
 
 func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
 	switch cmd := cmd.(type) {
-	case *RegisterCommand:
+	case *ProcRegistrationCommand:
 		cmd.compCtx = compCtx
 	}
 }
