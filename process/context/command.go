@@ -64,20 +64,28 @@ func (c *baseCommand) init(name string) error {
 	}
 	c.Name = name
 
-	var pInfo process.Info
-	err := c.compCtx.Get(name, &pInfo)
-	if errors.IsNotFound(err) {
-		c.notFoundErr = err
-		c.info = nil
-	} else if err != nil {
+	pInfo, maybeErr, err := c.getInfo()
+	if err != nil {
 		return errors.Trace(err)
-	} else {
-		if pInfo.Status != process.StatusPending {
-			return errors.Errorf("process %q already registered", name)
-		}
-		c.info = &pInfo
 	}
+	c.notFoundErr = maybeErr
+	c.info = pInfo
 	return nil
+}
+
+func (c baseCommand) getInfo() (*process.Info, error, error) {
+	var pInfo process.Info
+	err := c.compCtx.Get(c.Name, &pInfo)
+	if errors.IsNotFound(err) {
+		return nil, err, nil
+	}
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if pInfo.Status != process.StatusPending {
+		return nil, nil, errors.Errorf("process %q already registered", c.Name)
+	}
+	return &pInfo, nil, nil
 }
 
 // Run implements cmd.Command.
