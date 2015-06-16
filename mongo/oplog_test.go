@@ -221,7 +221,7 @@ func (s *oplogSuite) dialMongo(c *gc.C, inst *jujutesting.MgoInstance) *mgo.Sess
 }
 
 func (s *oplogSuite) makeFakeOplog(c *gc.C, session *mgo.Session) *mgo.Collection {
-	db := session.DB("local")
+	db := session.DB("foo")
 	oplog := db.C("oplog.fake")
 	err := oplog.Create(&mgo.CollectionInfo{
 		Capped:   true,
