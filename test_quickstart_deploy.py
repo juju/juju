@@ -72,13 +72,16 @@ class TestQuickstartTest(TestCase):
         quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
         with patch.object(client, 'destroy_environment') as qs_mock:
             with patch('quickstart_deploy.safe_print_status') as ps_mock:
-                with patch.object(quickstart, 'iter_steps',
-                                  side_effect=fake_iter_steps):
-                    quickstart.run()
+                with patch('quickstart_deploy.dump_env_logs') as dl_mock:
+                    with patch.object(quickstart, 'iter_steps',
+                                      side_effect=fake_iter_steps):
+                        quickstart.run()
         qs_mock.assert_called_once_with(delete_jenv=True)
         ps_mock.assert_called_once_with(client)
+        dl_mock.assert_called_once_with(client, 'foo', '/tmp/logs')
 
-    def test_run_exception(self):
+    @patch('sys.stderr')
+    def test_run_exception(self, se_mock):
         def fake_iter_steps():
             yield {'bootstrap_host': 'foo'}
             raise Exception()

@@ -218,12 +218,13 @@ def main():
         try:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(client, bootstrap_host, log_dir)
         except Exception as e:
             print_now("exception while dumping logs:\n")
             logging.exception(e)
         sys.exit(1)
     finally:
+        if bootstrap_host is not None:
+            dump_env_logs(client, bootstrap_host, log_dir)
         client.destroy_environment()
 
 

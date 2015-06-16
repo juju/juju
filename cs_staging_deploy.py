@@ -42,6 +42,7 @@ class CSStagingTest:
         self.charm_store_ip = charm_store_ip
         self.charm = charm
         self.log_dir = log_dir
+        self.bootstrap_host = None
 
     def bootstrap(self):
         juju_home = get_juju_home()
@@ -70,10 +71,10 @@ class CSStagingTest:
             self.client.wait_for_started(3600)
         except BaseException as e:
             logging.exception(e)
-            if self.bootstrap_host:
-                dump_env_logs(self.client, self.bootstrap_host, self.log_dir)
         finally:
             safe_print_status(self.client)
+            if self.bootstrap_host:
+                dump_env_logs(self.client, self.bootstrap_host, self.log_dir)
             self.client.destroy_environment(delete_jenv=True)
 
 

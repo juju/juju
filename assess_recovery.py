@@ -159,8 +159,8 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def main():
-    args = parse_args()
+def main(argv):
+    args = parse_args(argv)
     log_dir = args.logs
     try:
         setup_juju_path(args.juju_path)
@@ -192,9 +192,9 @@ def main():
         except Exception as e:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(client, bootstrap_host, log_dir)
             raise
         finally:
+            dump_env_logs(client, bootstrap_host, log_dir)
             client.destroy_environment()
     except Exception as e:
         print_now("\nEXCEPTION CAUGHT:\n")
@@ -207,4 +207,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

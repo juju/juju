@@ -39,6 +39,9 @@ from deploy_stack import (
     retain_jenv,
     update_env,
 )
+from jujuconfig import (
+    get_juju_home,
+)
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
@@ -674,7 +677,8 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
-        with boot_context('bar', client, None, [], None, None, None, None,
+        dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
+        with boot_context('bar', client, None, [], None, None, None, 'log_dir',
                           keep_env=False, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
@@ -685,6 +689,10 @@ class TestBootContext(TestCase):
         assert_juju_call(self, c_mock, client, (
             'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
             'bar', '--force', '-y'))
+        juju_home = get_juju_home()
+        jenv_path = os.path.join(juju_home, 'environments', 'bar.jenv')
+        dl_mock.assert_called_once_with(
+            client, 'foo', 'log_dir', jenv_path=jenv_path)
 
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -693,6 +701,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
+        self.addContext(patch('deploy_stack.dump_env_logs'))
         with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=True, upload_tools=False):
             pass
@@ -710,6 +719,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         self.addContext(patch('subprocess.call'))
+        self.addContext(patch('deploy_stack.dump_env_logs'))
         with boot_context('bar', client, None, [], None, None, None, None,
                           keep_env=False, upload_tools=True):
             pass
@@ -724,6 +734,7 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         self.addContext(patch('subprocess.call'))
+        self.addContext(patch('deploy_stack.dump_env_logs'))
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
@@ -735,6 +746,23 @@ class TestBootContext(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
+
+    def test_with_bootstrap_failure(self):
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                              return_value='foo'))
+        self.addContext(patch('subprocess.check_call'))
+        self.addContext(patch('subprocess.call'))
+        self.addContext(patch('deploy_stack.wait_for_port'))
+        self.addContext(patch.object(client, 'bootstrap',
+                                     side_effect=Exception))
+        dl_mock = self.addContext(patch('deploy_stack.dump_logs'))
+        with self.assertRaises(Exception):
+            with boot_context('bar', client, 'baz', [], None, None, None,
+                              'log_dir', keep_env=False, upload_tools=True):
+                pass
+        dl_mock.assert_called_once_with(client, 'baz', 'log_dir', None)
 
 
 class TestDeployJobParseArgs(TestCase):
