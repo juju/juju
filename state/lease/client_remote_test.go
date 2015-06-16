@@ -47,18 +47,17 @@ func (s *ClientRemoteSuite) SetUpTest(c *gc.C) {
 	s.skewed.Clock.step = 0
 }
 
-func (s *ClientRemoteSuite) earliestExpiry() time.Time {
+func (s *ClientRemoteSuite) guaranteedUntil() time.Time {
 	return s.baseline.Zero.Add(s.lease + s.offset)
 }
 
-func (s *ClientRemoteSuite) latestExpiry() time.Time {
-	return s.earliestExpiry().Add(s.readTime)
+func (s *ClientRemoteSuite) latestValid() time.Time {
+	return s.guaranteedUntil().Add(s.readTime)
 }
 
 func (s *ClientRemoteSuite) TestReadSkew(c *gc.C) {
 	c.Check("name", s.skewed.Holder(), "holder")
-	c.Check("name", s.skewed.EarliestExpiry(), s.earliestExpiry())
-	c.Check("name", s.skewed.LatestExpiry(), s.latestExpiry())
+	c.Check("name", s.skewed.Expiry(), s.latestValid())
 }
 
 func (s *ClientRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
@@ -66,8 +65,7 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check("name", s.skewed.Holder(), "holder")
-	c.Check("name", s.skewed.EarliestExpiry(), s.earliestExpiry())
-	c.Check("name", s.skewed.LatestExpiry(), s.latestExpiry())
+	c.Check("name", s.skewed.Expiry(), s.latestValid())
 }
 
 func (s *ClientRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
@@ -77,8 +75,7 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
 
 	c.Check("name", s.skewed.Holder(), "holder")
 	expectExpiry := s.skewed.Clock.Now().Add(leaseDuration)
-	c.Check("name", s.skewed.EarliestExpiry(), expectExpiry)
-	c.Check("name", s.skewed.LatestExpiry(), expectExpiry)
+	c.Check("name", s.skewed.Expiry(), expectExpiry)
 }
 
 func (s *ClientRemoteSuite) TestExtendRemoteLeasePaddedExtend(c *gc.C) {
@@ -87,18 +84,17 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeasePaddedExtend(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check("name", s.skewed.Holder(), "holder")
-	c.Check("name", s.skewed.EarliestExpiry(), s.latestExpiry())
-	c.Check("name", s.skewed.LatestExpiry(), s.latestExpiry())
+	c.Check("name", s.skewed.Expiry(), s.latestValid())
 }
 
 func (s *ClientRemoteSuite) TestCannotExpireRemoteLeaseEarly(c *gc.C) {
-	s.skewed.Clock.Set(s.latestExpiry())
+	s.skewed.Clock.Set(s.latestValid())
 	err := s.skewed.Client.ExpireLease("name")
 	c.Check(err, gc.Equals, lease.ErrInvalid)
 }
 
 func (s *ClientRemoteSuite) TestCanExpireRemoteLease(c *gc.C) {
-	s.skewed.Clock.Set(s.latestExpiry().Add(time.Nanosecond))
+	s.skewed.Clock.Set(s.latestValid().Add(time.Nanosecond))
 	err := s.skewed.Client.ExpireLease("name")
 	c.Check(err, jc.ErrorIsNil)
 }

@@ -65,10 +65,9 @@ func (client *client) Leases() map[string]Info {
 	for name, entry := range client.entries {
 		skew := client.skews[entry.writer]
 		leases[name] = Info{
-			Holder:         entry.holder,
-			AssertOp:       client.assertOp(name, entry.holder),
-			EarliestExpiry: skew.Earliest(entry.expiry),
-			LatestExpiry:   skew.Latest(entry.expiry),
+			Holder:   entry.holder,
+			Expiry:   skew.Latest(entry.expiry),
+			AssertOp: client.assertOp(name, entry.holder),
 		}
 	}
 	return leases
