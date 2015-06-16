@@ -169,7 +169,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownSystem(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, "cannot read system info: environment \"foo\" not found")
+	c.Assert(err, gc.ErrorMatches, `cannot read system info: environment "foo" not found`)
 }
 
 func (s *DestroySuite) TestDestroyNonSystemEnvFails(c *gc.C) {

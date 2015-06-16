@@ -360,8 +360,16 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 }
 
 func (s *envManagerSuite) TestEnvironmentGet(c *gc.C) {
-	user := names.NewUserTag("dummy-admin")
-	s.setAPIUser(c, user)
+	s.setAPIUser(c, s.AdminUserTag(c))
+	env, err := s.envmanager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestEnvironmentGetNonAdminUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: false})
+
+	s.setAPIUser(c, user.UserTag())
 	env, err := s.envmanager.EnvironmentGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
@@ -372,7 +380,7 @@ func (s *envManagerSuite) TestEnvironmentGetFromNonStateServer(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	authorizer := &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("dummy-admin")}
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := envManager.EnvironmentGet()
