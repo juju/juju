@@ -691,7 +691,6 @@ class TestBootContext(TestCase):
             'bar', '--force', '-y'))
         juju_home = get_juju_home()
         jenv_path = os.path.join(juju_home, 'environments', 'bar.jenv')
-        # jenv_path = get_jenv_path(juju_home, client.env.environment)
         dl_mock.assert_called_once_with(
             client, 'foo', 'log_dir', jenv_path=jenv_path)
 
