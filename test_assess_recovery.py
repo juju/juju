@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from mock import patch
 from unittest import TestCase
 
@@ -53,16 +52,14 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.temp_env_name, 'qux')
 
 
-@contextmanager
 def make_mocked_client(name, status_error=None):
     client = EnvJujuClient(SimpleEnvironment(
         name, {'type': 'paas'}), '1.23', 'path')
-    with patch.object(client, 'wait_for_ha', autospec=True):
-        with patch.object(client, 'get_status', autospec=True,
-                          side_effect=status_error):
-            with patch.object(client,
-                              'destroy_environment', autospec=True):
-                yield client
+    patch.object(client, 'wait_for_ha', autospec=True).start()
+    patch.object(
+        client, 'get_status', autospec=True, side_effect=status_error).start()
+    patch.object(client, 'destroy_environment', autospec=True).start()
+    return client
 
 
 @patch('assess_recovery.dump_env_logs', autospec=True)
@@ -83,15 +80,15 @@ class TestMain(TestCase):
 
     def test_ha(self, so_mock, cc_mock, co_mock,
                 dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
-        with make_mocked_client('foo') as client:
-            with patch('assess_recovery.make_client', autospec=True,
-                       return_value=client) as mc_mock:
-                main(['./', 'foo', 'log_dir',
-                      '--ha', '--charm-prefix', 'prefix'])
-                mc_mock.assert_called_once_with('./', False, 'foo', None)
-                client.wait_for_ha.assert_called_once_with()
-                client.get_status.assert_called_once_with(600)
-                client.destroy_environment.assert_called_once_with()
+        client = make_mocked_client('foo')
+        with patch('assess_recovery.make_client', autospec=True,
+                   return_value=client) as mc_mock:
+            main(['./', 'foo', 'log_dir',
+                  '--ha', '--charm-prefix', 'prefix'])
+        mc_mock.assert_called_once_with('./', False, 'foo', None)
+        client.wait_for_ha.assert_called_once_with()
+        client.get_status.assert_called_once_with(600)
+        client.destroy_environment.assert_called_once_with()
         dns_mock.assert_called_once_with(client, 0)
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
@@ -102,16 +99,16 @@ class TestMain(TestCase):
     def test_ha_error(self, so_mock, cc_mock, co_mock,
                       dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         error = Exception()
-        with make_mocked_client('foo', status_error=error) as client:
-            with patch('assess_recovery.make_client', autospec=True,
-                       return_value=client) as mc_mock:
-                with self.assertRaises(SystemExit):
-                    main(['./', 'foo', 'log_dir',
-                          '--ha', '--charm-prefix', 'prefix'])
-                    mc_mock.assert_called_once_with('./', False, 'foo', None)
-                    client.wait_for_ha.assert_called_once_with()
-                    client.get_status.assert_called_once_with(600)
-                    client.destroy_environment.assert_called_once_with()
+        client = make_mocked_client('foo', status_error=error)
+        with patch('assess_recovery.make_client', autospec=True,
+                   return_value=client) as mc_mock:
+            with self.assertRaises(SystemExit):
+                main(['./', 'foo', 'log_dir',
+                      '--ha', '--charm-prefix', 'prefix'])
+        mc_mock.assert_called_once_with('./', False, 'foo', None)
+        client.wait_for_ha.assert_called_once_with()
+        client.get_status.assert_called_once_with(600)
+        client.destroy_environment.assert_called_once_with()
         dns_mock.assert_called_once_with(client, 0)
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
