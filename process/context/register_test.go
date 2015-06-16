@@ -23,7 +23,10 @@ var _ = gc.Suite(&registerSuite{})
 func (s *registerSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
-	s.registerCmd = context.NewRegisterCommand(s.Ctx)
+	cmd, err := context.NewRegisterCommand(s.Ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.registerCmd = cmd
 	s.setCommand(c, "register", s.registerCmd)
 }
 

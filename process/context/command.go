@@ -33,16 +33,16 @@ type baseCommand struct {
 	notFoundErr error
 }
 
-func newCommand(ctx jujuc.Context) baseCommand {
+func newCommand(ctx jujuc.Context) (*baseCommand, error) {
 	compCtx, err := ContextComponent(ctx)
 	if err != nil {
 		// The component wasn't registered properly.
-		panic(err)
+		return nil, errors.Trace(err)
 	}
-	return baseCommand{
+	return &baseCommand{
 		ctx:     ctx,
 		compCtx: compCtx,
-	}
+	}, nil
 }
 
 // Info implements cmd.Command.
@@ -108,10 +108,14 @@ type registeringCommand struct {
 	Definition cmd.FileVar
 }
 
-func newRegisteringCommand(ctx jujuc.Context) registeringCommand {
-	return registeringCommand{
-		baseCommand: newCommand(ctx),
+func newRegisteringCommand(ctx jujuc.Context) (*registeringCommand, error) {
+	base, err := newCommand(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return &registeringCommand{
+		baseCommand: *base,
+	}, nil
 }
 
 // SetFlags implements cmd.Command.
