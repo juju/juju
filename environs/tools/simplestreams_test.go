@@ -353,6 +353,16 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
+
+	// Add tools with an unknown series
+	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
+	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	toolsList = append(toolsList, &coretools.Tools{
+		Version: vers,
+		Size:    456,
+		SHA256:  "wqe",
+	})
+
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, jc.ErrorIsNil)

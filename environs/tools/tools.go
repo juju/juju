@@ -135,8 +135,12 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	}
 	list = make(coretools.List, len(toolsMetadata))
 	for i, metadata := range toolsMetadata {
+		binary, err := metadata.binary()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		list[i] = &coretools.Tools{
-			Version: metadata.binary(),
+			Version: binary,
 			URL:     metadata.FullPath,
 			Size:    metadata.Size,
 			SHA256:  metadata.SHA256,
