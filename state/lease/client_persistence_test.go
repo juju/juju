@@ -82,8 +82,7 @@ func (s *ClientPersistenceSuite) TestClaimLease(c *gc.C) {
 	fix2 := s.EasyFixture(c)
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
-	c.Check("name", fix2.EarliestExpiry(), exactExpiry)
-	c.Check("name", fix2.LatestExpiry(), exactExpiry)
+	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
 func (s *ClientPersistenceSuite) TestExtendLease(c *gc.C) {
@@ -98,8 +97,7 @@ func (s *ClientPersistenceSuite) TestExtendLease(c *gc.C) {
 	fix2 := s.EasyFixture(c)
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
-	c.Check("name", fix2.EarliestExpiry(), exactExpiry)
-	c.Check("name", fix2.LatestExpiry(), exactExpiry)
+	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
 func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
@@ -113,7 +111,7 @@ func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
 
 	// Same client id, same clock, new instance: sees no lease.
 	fix2 := s.EasyFixture(c)
-	c.Check("name", fix2.Vacant())
+	c.Check("name", fix2.Holder(), "")
 }
 
 func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
@@ -126,7 +124,22 @@ func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 	fix2 := s.NewFixture(c, FixtureParams{
 		Namespace: "different-namespace",
 	})
-	c.Check("name", fix2.Vacant())
+	c.Check("name", fix2.Holder(), "")
+}
+
+func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
+	fix1 := s.EasyFixture(c)
+	leaseDuration := time.Minute
+	err := fix1.Client.ClaimLease("name", lease.Request{"holder", leaseDuration})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Same client can come up in a different timezone and still work correctly.
+	fix2 := s.NewFixture(c, FixtureParams{
+		ClockStart: fix1.Zero.In(time.FixedZone("somewhere", -1234)),
+	})
+	c.Check("name", fix2.Holder(), "holder")
+	exactExpiry := fix2.Zero.Add(leaseDuration)
+	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
 func (s *ClientPersistenceSuite) TestTimezoneIsolation(c *gc.C) {
@@ -135,13 +148,13 @@ func (s *ClientPersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 	err := fix1.Client.ClaimLease("name", lease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Different client and timezone; but clock agrees perfectly, so zero skew.
+	// Different client *and* different timezone; but clock agrees perfectly,
+	// so we still see no skew.
 	fix2 := s.NewFixture(c, FixtureParams{
 		Id:         "remote-client",
 		ClockStart: fix1.Zero.UTC(),
 	})
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration).UTC()
-	c.Check("name", fix2.EarliestExpiry(), exactExpiry)
-	c.Check("name", fix2.LatestExpiry(), exactExpiry)
+	c.Check("name", fix2.Expiry(), exactExpiry)
 }

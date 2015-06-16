@@ -46,15 +46,9 @@ type Info struct {
 	// Holder is the name of the current leaseholder.
 	Holder string
 
-	// EarliestExpiry is the earliest time at which it's possible the lease
-	// might expire: the current holder is absolutely guaranteed until this
-	// point.
-	EarliestExpiry time.Time
-
-	// LatestExpiry is the latest time at which it's possible the lease might
-	// still be valid. Attempting to expire the lease before this time will
-	// fail.
-	LatestExpiry time.Time
+	// Expiry is the latest time at which it's possible the lease might still
+	// be valid. Attempting to expire the lease before this time will fail.
+	Expiry time.Time
 
 	// AssertOp, if included in a mgo/txn transaction, will gate the transaction
 	// on the lease remaining held by Holder. If we didn't need this, we could

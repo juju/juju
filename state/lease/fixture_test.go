@@ -99,23 +99,13 @@ func (fix *Fixture) Holder() gc.Checker {
 	}
 }
 
-func (fix *Fixture) EarliestExpiry() gc.Checker {
+func (fix *Fixture) Expiry() gc.Checker {
 	return &callbackChecker{
 		CheckerInfo: &gc.CheckerInfo{
-			Name:   fmt.Sprintf("EarliestExpiry[%s]", fix.badge()),
+			Name:   fmt.Sprintf("Expiry[%s]", fix.badge()),
 			Params: []string{"name", "expiry"},
 		},
-		callback: fix.infoChecker(checkEarliestExpiry),
-	}
-}
-
-func (fix *Fixture) LatestExpiry() gc.Checker {
-	return &callbackChecker{
-		CheckerInfo: &gc.CheckerInfo{
-			Name:   fmt.Sprintf("LatestExpiry[%s]", fix.badge()),
-			Params: []string{"name", "expiry"},
-		},
-		callback: fix.infoChecker(checkLatestExpiry),
+		callback: fix.infoChecker(checkExpiry),
 	}
 }
 
@@ -129,34 +119,8 @@ func (fix *Fixture) infoChecker(checkInfo checkInfoFunc) checkFunc {
 			}
 		}()
 		name := params[0].(string)
-		info, found := fix.Client.Leases()[name]
-		if !found {
-			return false, fmt.Sprintf("lease %q not held", name)
-		}
+		info := fix.Client.Leases()[name]
 		return checkInfo(info, params[1])
-	}
-}
-
-func (fix *Fixture) Vacant() gc.Checker {
-	return &callbackChecker{
-		CheckerInfo: &gc.CheckerInfo{
-			Name:   fmt.Sprintf("Vacant[%s]", fix.badge()),
-			Params: []string{"name"},
-		},
-		callback: func(params []interface{}, names []string) (result bool, error string) {
-			defer func() {
-				if v := recover(); v != nil {
-					result = false
-					error = fmt.Sprint(v)
-				}
-			}()
-			name := params[0].(string)
-			info, found := fix.Client.Leases()[name]
-			if found {
-				return false, fmt.Sprintf("lease %q held: %#v", name, info)
-			}
-			return true, ""
-		},
 	}
 }
 
@@ -182,22 +146,13 @@ func checkHolder(info lease.Info, holder interface{}) (bool, string) {
 	return false, fmt.Sprintf("lease held by %q; expected %q", actual, expect)
 }
 
-func checkEarliestExpiry(info lease.Info, expiry interface{}) (bool, string) {
-	actual := info.EarliestExpiry
+func checkExpiry(info lease.Info, expiry interface{}) (bool, string) {
+	actual := info.Expiry
 	expect := expiry.(time.Time)
 	if actual.Equal(expect) {
 		return true, ""
 	}
-	return false, fmt.Sprintf("earliest expiry is %s; expected %s", actual, expect)
-}
-
-func checkLatestExpiry(info lease.Info, expiry interface{}) (bool, string) {
-	actual := info.LatestExpiry
-	expect := expiry.(time.Time)
-	if actual.Equal(expect) {
-		return true, ""
-	}
-	return false, fmt.Sprintf("latest expiry is %s; expected %s", actual, expect)
+	return false, fmt.Sprintf("expiry is %s; expected %s", actual, expect)
 }
 
 type FixtureSuite struct {
