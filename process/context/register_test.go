@@ -105,6 +105,17 @@ func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "expected at most 3 args, got: .*")
 }
 
+func (s *registerSuite) TestInitIdMismatch(c *gc.C) {
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		"abc123",
+		`{"id":"xyz789", "status":"okay"}`,
+		"other",
+	})
+
+	c.Check(err, gc.ErrorMatches, "ID in details (.*) does not match ID arg (.*)")
+}
+
 func (s *registerSuite) TestInitEmptyName(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		"",
