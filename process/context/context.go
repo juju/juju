@@ -140,10 +140,6 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 		result[k] = v
 	}
 	for k, v := range updates {
-		if v == nil {
-			// This should never happen.
-			panic("info in updates unexpectedly nil")
-		}
 		result[k] = v
 	}
 	return result
