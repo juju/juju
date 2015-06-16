@@ -748,6 +748,23 @@ class TestBootContext(TestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
+    def test_with_bootstrap_failure(self):
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                              return_value='foo'))
+        self.addContext(patch('subprocess.check_call'))
+        self.addContext(patch('subprocess.call'))
+        self.addContext(patch('deploy_stack.wait_for_port'))
+        self.addContext(patch.object(client, 'bootstrap',
+                                     side_effect=Exception))
+        dl_mock = self.addContext(patch('deploy_stack.dump_logs'))
+        with self.assertRaises(Exception):
+            with boot_context('bar', client, 'baz', [], None, None, None,
+                              'log_dir', keep_env=False, upload_tools=True):
+                pass
+        dl_mock.assert_called_once_with(client, 'baz', 'log_dir', None)
+
 
 class TestDeployJobParseArgs(TestCase):
 
