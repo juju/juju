@@ -128,7 +128,7 @@ func (s *SkewSuite) TestMixedTimezones(c *gc.C) {
 	there := time.FixedZone("there", -7200)
 	elsewhere := time.FixedZone("elsewhere", -10800)
 
-	// This is a straight copy of TestBracketedWrite, with strannge timezones
+	// This is a straight copy of TestBracketedWrite, with strange timezones
 	// inserted to check that they don't affect the results at all.
 	now := time.Now()
 	c.Logf("now: %s", now)

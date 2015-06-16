@@ -76,48 +76,19 @@ func (client *client) Leases() map[string]Info {
 
 // ClaimLease is part of the Client interface.
 func (client *client) ClaimLease(name string, request Request) error {
-	if err := validateString(name); err != nil {
-		return errors.Annotatef(err, "invalid name")
-	}
-	if err := request.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid request")
-	}
-
-	// Close over cacheEntry to record in case of success.
-	var cacheEntry entry
-	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Debugf("claiming lease %q for %s (attempt %d)", name, request, attempt)
-
-		// On the first attempt, assume cache is good.
-		if attempt > 0 {
-			if err := client.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		// No special error handling here.
-		ops, nextEntry, err := client.claimLeaseOps(name, request)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cacheEntry = nextEntry
-		return ops, nil
-	})
-
-	// Unwrap ErrInvalid if necessary.
-	if errors.Cause(err) == ErrInvalid {
-		return ErrInvalid
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update the cache for this lease only.
-	client.entries[name] = cacheEntry
-	return nil
+	return client.request(name, request, client.claimLeaseOps, "claiming")
 }
 
 // ExtendLease is part of the Client interface.
 func (client *client) ExtendLease(name string, request Request) error {
+	return client.request(name, request, client.extendLeaseOps, "extending")
+}
+
+// opsFunc is used to make the signature of the request method somewhat readable.
+type opsFunc func(name string, request Request) ([]txn.Op, entry, error)
+
+// request implements ClaimLease and ExtendLease.
+func (client *client) request(name string, request Request, getOps opsFunc, verb string) error {
 	if err := validateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}
@@ -128,7 +99,7 @@ func (client *client) ExtendLease(name string, request Request) error {
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
 	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Debugf("extending lease %q for %s (attempt %d)", name, request, attempt)
+		client.logger.Debugf("%s lease %q for %s (attempt %d)", verb, name, request, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -137,9 +108,10 @@ func (client *client) ExtendLease(name string, request Request) error {
 			}
 		}
 
-		// It's possible that the "extension" isn't an extension at all; this
-		// isn't a problem, but does require separate handling.
-		ops, nextEntry, err := client.extendLeaseOps(name, request)
+		// It's possible that the request is for an "extension" isn't an
+		// extension at all; this isn't a problem, but does require separate
+		// handling.
+		ops, nextEntry, err := getOps(name, request)
 		cacheEntry = nextEntry
 		if errors.Cause(err) == errNoExtension {
 			return nil, jujutxn.ErrNoOperations
@@ -279,11 +251,11 @@ func (client *client) readEntries(collection *mgo.Collection) (map[string]entry,
 	entries := make(map[string]entry)
 	var leaseDoc leaseDoc
 	for iter.Next(&leaseDoc) {
-		if name, entry, err := leaseDoc.entry(); err != nil {
+		name, entry, err := leaseDoc.entry()
+		if err != nil {
 			return nil, errors.Annotatef(err, "corrupt lease document %q", leaseDoc.Id)
-		} else {
-			entries[name] = entry
 		}
+		entries[name] = entry
 	}
 	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
@@ -342,10 +314,9 @@ func (client *client) claimLeaseOps(name string, request Request) ([]txn.Op, ent
 	now := client.config.Clock.Now()
 	expiry := now.Add(request.Duration)
 	nextEntry := entry{
-		holder:  request.Holder,
-		expiry:  expiry,
-		writer:  client.config.Id,
-		written: now,
+		holder: request.Holder,
+		expiry: expiry,
+		writer: client.config.Id,
 	}
 
 	// We need to write the entry to the database in a specific format.
@@ -410,10 +381,9 @@ func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, en
 	// We know we need to write a lease; we know when it needs to expire; we
 	// know what needs to go into the local cache:
 	nextEntry := entry{
-		holder:  lastEntry.holder,
-		expiry:  expiry,
-		writer:  client.config.Id,
-		written: now,
+		holder: lastEntry.holder,
+		expiry: expiry,
+		writer: client.config.Id,
 	}
 
 	// ...and what needs to change in the database, and how to ensure the
@@ -427,9 +397,8 @@ func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, en
 			fieldLeaseWriter: lastEntry.writer,
 		},
 		Update: bson.M{"$set": bson.M{
-			fieldLeaseExpiry:  toInt64(expiry),
-			fieldLeaseWriter:  client.config.Id,
-			fieldLeaseWritten: toInt64(nextEntry.written),
+			fieldLeaseExpiry: toInt64(expiry),
+			fieldLeaseWriter: client.config.Id,
 		}},
 	}
 
@@ -449,7 +418,7 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 		return nil, ErrInvalid
 	}
 
-	// We also can't expire a lease that hasn't actually expired.
+	// We also can't expire a lease whose expiry time may be in the future.
 	skew := client.skews[lastEntry.writer]
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	now := client.config.Clock.Now()
@@ -522,20 +491,16 @@ func (client *client) leaseDocId(name string) string {
 	return leaseDocId(client.config.Namespace, name)
 }
 
-// entry holds the details of a lease and how it was written. The time values
-// are always expressed in the writer's local time.
+// entry holds the details of a lease and how it was written.
 type entry struct {
 	// holder identifies the current holder of the lease.
 	holder string
 
-	// expiry is the time at which the lease is safe to remove.
+	// expiry is the (writer-local) time at which the lease is safe to remove.
 	expiry time.Time
 
 	// writer identifies the client that wrote the lease.
 	writer string
-
-	// written is the earliest possible time the lease could have been written.
-	written time.Time
 }
 
 // errNoExtension is used internally to avoid running unnecessary transactions.
