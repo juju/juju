@@ -21,11 +21,6 @@ type LaunchDetails struct {
 	Status string `json:"status"`
 }
 
-// IsZero reports whether none of the fields of ld have been set.
-func (ld LaunchDetails) IsZero() bool {
-	return ld == LaunchDetails{}
-}
-
 // Validate returns an error if LaunchDetails is not well-formed.
 func (ld LaunchDetails) Validate() error {
 	if ld.ID == "" {

@@ -18,23 +18,6 @@ type LaunchDetailsSuite struct {
 	testing.BaseSuite
 }
 
-func (*LaunchDetailsSuite) TestIsZeroTrue(c *gc.C) {
-	details := process.LaunchDetails{}
-	isZero := details.IsZero()
-
-	c.Check(isZero, jc.IsTrue)
-}
-
-func (*LaunchDetailsSuite) TestIsZeroFalse(c *gc.C) {
-	details := process.LaunchDetails{
-		ID:     "abc123",
-		Status: "running",
-	}
-	isZero := details.IsZero()
-
-	c.Check(isZero, jc.IsFalse)
-}
-
 type pluginSuite struct {
 	testing.BaseSuite
 }
