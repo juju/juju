@@ -145,7 +145,6 @@ func (cl *changeCertListener) processCertChanges() error {
 			return tomb.ErrDying
 		}
 	}
-	return nil
 }
 
 // updateCertificate generates a new TLS certificate and assigns it

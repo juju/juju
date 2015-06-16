@@ -234,7 +234,6 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 		default:
 			return nil, errors.Trace(err)
 		}
-		return nil, jujutxn.ErrTransientFailure
 	}
 	return st.run(buildTxn)
 }
