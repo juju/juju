@@ -10,7 +10,13 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
-// Info holds information about a process that Juju needs.
+// Info holds information about a process that Juju needs. Iff the
+// process has not been registered with Juju then the Status and
+// Details fields will be zero values.
+//
+// A registered process is one which has been defined in Juju (e.g. in
+// charm metadata) and subsequently was launched by Juju (e.g. in a
+// unit hook context).
 type Info struct {
 	charm.Process
 
@@ -44,8 +50,12 @@ func (info Info) Validate() error {
 	return nil
 }
 
-// IsRegistered indicates whether the represented process has been
-// registered already.
+// IsRegistered indicates whether the represented process has already
+// been registered with Juju.
 func (info Info) IsRegistered() bool {
+	// An unregistered process will not have the Status and Details
+	// fields set (they will be zero values). Thus a registered
+	// process can be identified by non-zero values in those fields.
+	// We use that fact here.
 	return !reflect.DeepEqual(info, Info{Process: info.Process})
 }
