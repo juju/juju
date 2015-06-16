@@ -45,7 +45,10 @@ func (info Info) Validate() error {
 }
 
 // IsRegistered indicates whether the represented process has been
-// registered already.
+// registered already. This method intentionally only checks that the
+// Info itself is equal, since this method is about if there is an
+// entry for the process in state, we don't care about the current
+// details of that process.
 func (info Info) IsRegistered() bool {
 	return !reflect.DeepEqual(info, Info{Process: info.Process})
 }

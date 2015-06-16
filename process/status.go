@@ -23,7 +23,7 @@ var knownStatuses = map[Status]string{
 	StatusStopped: "stopped",
 }
 
-// Status represents the status of a worload process.
+// Status represents the status of a workload process.
 type Status int
 
 // IsUnnown returns true if the status is not known to Juju.
