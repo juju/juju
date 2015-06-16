@@ -135,15 +135,13 @@ func (c *Context) Processes() ([]*process.Info, error) {
 }
 
 func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.Info {
+	// At this point procs and updates have already been checked for
+	// nil values so we won't see any here.
 	result := make(map[string]*process.Info)
 	for k, v := range procs {
 		result[k] = v
 	}
 	for k, v := range updates {
-		if v == nil {
-			// This should never happen.
-			panic("info in updates unexpectedly nil")
-		}
 		result[k] = v
 	}
 	return result
