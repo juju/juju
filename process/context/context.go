@@ -147,7 +147,8 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 	return result
 }
 
-// Get implements jujuc.ContextComponent.
+// Get implements jujuc.ContextComponent. In this case that means result
+// is populated with the process.Info corresponding to the provided ID.
 func (c *Context) Get(id string, result interface{}) error {
 	info, ok := result.(*process.Info)
 	if !ok {
@@ -173,7 +174,8 @@ func (c *Context) Get(id string, result interface{}) error {
 	return nil
 }
 
-// Set implements jujuc.ContextComponent.
+// Set implements jujuc.ContextComponent. In this case that means the
+// provided process.Info is set on the hook context for the given ID.
 func (c *Context) Set(id string, value interface{}) error {
 	pInfo, ok := value.(*process.Info)
 	if !ok {
@@ -197,7 +199,9 @@ func (c *Context) set(id string, pInfo *process.Info) {
 	c.updates[id] = &info
 }
 
-// Flush implements jujuc.ContextComponent.
+// Flush implements jujuc.ContextComponent. In this case that means all
+// added and updated process.Info in the hook context are pushed to
+// Juju state via the API.
 func (c *Context) Flush() error {
 	if len(c.updates) == 0 {
 		return nil
