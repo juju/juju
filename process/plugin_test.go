@@ -27,8 +27,8 @@ func (*LaunchDetailsSuite) TestIsZeroTrue(c *gc.C) {
 
 func (*LaunchDetailsSuite) TestIsZeroFalse(c *gc.C) {
 	details := process.LaunchDetails{
-		UniqueID: "abc123",
-		Status:   "running",
+		ID:     "abc123",
+		Status: "running",
 	}
 	isZero := details.IsZero()
 
@@ -149,8 +149,8 @@ func (*pluginSuite) TestParseDetailsValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ld, jc.DeepEquals, &process.LaunchDetails{
-		UniqueID: "1234",
-		Status:   "running",
+		ID:     "1234",
+		Status: "running",
 	})
 }
 
@@ -158,7 +158,7 @@ func (*pluginSuite) TestParseDetailsMissingID(c *gc.C) {
 	input := `{"status":"running"}`
 
 	_, err := process.ParseDetails(input)
-	c.Assert(err, gc.ErrorMatches, "UniqueID must be set")
+	c.Assert(err, gc.ErrorMatches, "ID must be set")
 }
 
 func (*pluginSuite) TestParseDetailsMissingStatus(c *gc.C) {
@@ -175,7 +175,7 @@ func (*pluginSuite) TestParseDetailsExtraInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ld, jc.DeepEquals, &process.LaunchDetails{
-		UniqueID: "1234",
-		Status:   "running",
+		ID:     "1234",
+		Status: "running",
 	})
 }

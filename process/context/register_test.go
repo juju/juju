@@ -66,8 +66,8 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
 	c.Check(s.registerCmd.Id, gc.Equals, "abc123")
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{
-		UniqueID: "abc123",
-		Status:   "okay",
+		ID:     "abc123",
+		Status: "okay",
 	})
 }
 
@@ -127,7 +127,7 @@ func (s *registerSuite) TestInitMissingDetailsId(c *gc.C) {
 		`{"status":"okay"}`,
 	})
 
-	c.Check(err, gc.ErrorMatches, "UniqueID must be set")
+	c.Check(err, gc.ErrorMatches, "ID must be set")
 }
 
 func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
