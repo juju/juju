@@ -422,6 +422,7 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	now := client.config.Clock.Now()
 	if !now.After(latestExpiry) {
+		client.logger.Debugf("lease %q expires in the future", name)
 		return nil, ErrInvalid
 	}
 
