@@ -64,7 +64,7 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.Id, gc.Equals, "abc123")
+	c.Check(s.registerCmd.ID, gc.Equals, "abc123")
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{
 		ID:     "abc123",
 		Status: "okay",
@@ -79,7 +79,7 @@ func (s *registerSuite) TestInitMinArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.Id, gc.Equals, "abc123")
+	c.Check(s.registerCmd.ID, gc.Equals, "abc123")
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{})
 }
 
@@ -111,7 +111,7 @@ func (s *registerSuite) TestInitEmptyName(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "got empty name")
 }
 
-func (s *registerSuite) TestInitEmptyId(c *gc.C) {
+func (s *registerSuite) TestInitEmptyID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
 		"",
@@ -120,7 +120,7 @@ func (s *registerSuite) TestInitEmptyId(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "got empty id")
 }
 
-func (s *registerSuite) TestInitMissingDetailsId(c *gc.C) {
+func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
 		"abc123",

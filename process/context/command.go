@@ -90,8 +90,8 @@ func (c *baseCommand) Run(ctx *cmd.Context) error {
 type registeringCommand struct {
 	baseCommand
 
-	// Id is the unique ID for the launched process.
-	Id string
+	// ID is the unique ID for the launched process.
+	ID string
 	// Details is the launch details returned from the process plugin.
 	Details process.LaunchDetails
 

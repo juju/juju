@@ -70,7 +70,7 @@ func (c *RegisterCommand) init(name, id, detailsStr string) error {
 	if id == "" {
 		return errors.Errorf("got empty id")
 	}
-	c.Id = id
+	c.ID = id
 
 	if detailsStr != "" {
 		details, err := process.ParseDetails(detailsStr)
