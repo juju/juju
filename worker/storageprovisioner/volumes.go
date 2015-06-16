@@ -155,14 +155,12 @@ func processDyingVolumeAttachments(
 	for _, id := range ids {
 		delete(ctx.pendingVolumeAttachments, id)
 	}
-	volumeAttachments := make([]params.VolumeAttachment, 0, len(ids))
 	detach := make([]params.MachineStorageId, 0, len(ids))
 	remove := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
 		id := ids[i]
 		if result.Error == nil {
 			detach = append(detach, id)
-			volumeAttachments = append(volumeAttachments, result.Result)
 			continue
 		}
 		if params.IsCodeNotProvisioned(result.Error) {
@@ -172,30 +170,17 @@ func processDyingVolumeAttachments(
 		return errors.Annotatef(result.Error, "getting information for volume attachment %v", id)
 	}
 	if len(detach) > 0 {
-		attachmentParams := make([]storage.VolumeAttachmentParams, len(detach))
-		paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(detach)
+		attachmentParams, err := volumeAttachmentParams(ctx, detach)
 		if err != nil {
-			return errors.Annotate(err, "getting volume attachment params")
+			return errors.Trace(err)
 		}
-		for i, result := range paramsResults {
-			if result.Error != nil {
-				return errors.Annotate(result.Error, "getting volume attachment parameters")
-			}
-			params, err := volumeAttachmentParamsFromParams(result.Result)
-			if err != nil {
-				return errors.Annotate(err, "getting volume attachment parameters")
-			}
-			attachmentParams[i] = params
-		}
-		if err := detachVolumes(ctx.environConfig, ctx.storageDir, attachmentParams); err != nil {
+		if err := detachVolumes(ctx, attachmentParams); err != nil {
 			return errors.Annotate(err, "detaching volumes")
 		}
 		remove = append(remove, detach...)
 	}
-	if len(remove) > 0 {
-		if err := removeAttachments(ctx, remove); err != nil {
-			return errors.Annotate(err, "removing attachments from state")
-		}
+	if err := removeAttachments(ctx, remove); err != nil {
+		return errors.Annotate(err, "removing attachments from state")
 	}
 	return nil
 }
@@ -347,24 +332,39 @@ func processAliveVolumeAttachments(
 	if len(pending) == 0 {
 		return nil
 	}
-	paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(pending)
+	params, err := volumeAttachmentParams(ctx, pending)
 	if err != nil {
-		return errors.Annotate(err, "getting volume params")
+		return errors.Trace(err)
 	}
-	for i, result := range paramsResults {
-		if result.Error != nil {
-			return errors.Annotate(result.Error, "getting volume attachment parameters")
-		}
-		params, err := volumeAttachmentParamsFromParams(result.Result)
-		if err != nil {
-			return errors.Annotate(err, "getting volume attachment parameters")
-		}
+	for i, params := range params {
 		if params.InstanceId == "" {
 			watchMachine(ctx, params.Machine)
 		}
 		ctx.pendingVolumeAttachments[pending[i]] = params
 	}
 	return nil
+}
+
+// volumeAttachmentParams obtains the specified attachments' parameters.
+func volumeAttachmentParams(
+	ctx *context, ids []params.MachineStorageId,
+) ([]storage.VolumeAttachmentParams, error) {
+	paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(ids)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting volume attachment params")
+	}
+	attachmentParams := make([]storage.VolumeAttachmentParams, len(ids))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting volume attachment parameters")
+		}
+		params, err := volumeAttachmentParamsFromParams(result.Result)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting volume attachment parameters")
+		}
+		attachmentParams[i] = params
+	}
+	return attachmentParams, nil
 }
 
 // processPendingVolumeAttachments creates as many of the pending volume
@@ -534,13 +534,9 @@ func destroyVolumes(volumes []params.Volume) ([]error, error) {
 	return errs, nil
 }
 
-func detachVolumes(
-	environConfig *config.Config,
-	baseStorageDir string,
-	attachments []storage.VolumeAttachmentParams,
-) error {
+func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) error {
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		environConfig, baseStorageDir, attachments,
+		ctx.environConfig, ctx.storageDir, attachments,
 	)
 	if err != nil {
 		return errors.Trace(err)

@@ -156,14 +156,12 @@ func processDyingFilesystemAttachments(
 	for _, id := range ids {
 		delete(ctx.pendingFilesystemAttachments, id)
 	}
-	filesystemAttachments := make([]params.FilesystemAttachment, 0, len(ids))
 	detach := make([]params.MachineStorageId, 0, len(ids))
 	remove := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range filesystemAttachmentResults {
 		id := ids[i]
 		if result.Error == nil {
 			detach = append(detach, id)
-			filesystemAttachments = append(filesystemAttachments, result.Result)
 			continue
 		}
 		if params.IsCodeNotProvisioned(result.Error) {
@@ -173,30 +171,17 @@ func processDyingFilesystemAttachments(
 		return errors.Annotatef(result.Error, "getting information for filesystem attachment %v", id)
 	}
 	if len(detach) > 0 {
-		attachmentParams := make([]storage.FilesystemAttachmentParams, len(detach))
-		paramsResults, err := ctx.filesystemAccessor.FilesystemAttachmentParams(detach)
+		attachmentParams, err := filesystemAttachmentParams(ctx, detach)
 		if err != nil {
-			return errors.Annotate(err, "getting filesystem attachment params")
-		}
-		for i, result := range paramsResults {
-			if result.Error != nil {
-				return errors.Annotate(result.Error, "getting filesystem attachment parameters")
-			}
-			params, err := filesystemAttachmentParamsFromParams(result.Result)
-			if err != nil {
-				return errors.Annotate(err, "getting filesystem attachment parameters")
-			}
-			attachmentParams[i] = params
+			return errors.Trace(err)
 		}
 		if err := detachFilesystems(ctx, attachmentParams); err != nil {
 			return errors.Annotate(err, "detaching filesystems")
 		}
 		remove = append(remove, detach...)
 	}
-	if len(remove) > 0 {
-		if err := removeAttachments(ctx, remove); err != nil {
-			return errors.Annotate(err, "removing attachments from state")
-		}
+	if err := removeAttachments(ctx, remove); err != nil {
+		return errors.Annotate(err, "removing attachments from state")
 	}
 	return nil
 }
@@ -373,24 +358,39 @@ func processAliveFilesystemAttachments(
 	if len(pending) == 0 {
 		return nil
 	}
-	paramsResults, err := ctx.filesystemAccessor.FilesystemAttachmentParams(pending)
+	params, err := filesystemAttachmentParams(ctx, pending)
 	if err != nil {
-		return errors.Annotate(err, "getting filesystem params")
+		return errors.Trace(err)
 	}
-	for i, result := range paramsResults {
-		if result.Error != nil {
-			return errors.Annotate(result.Error, "getting filesystem attachment parameters")
-		}
-		params, err := filesystemAttachmentParamsFromParams(result.Result)
-		if err != nil {
-			return errors.Annotate(err, "getting filesystem attachment parameters")
-		}
+	for i, params := range params {
 		if params.InstanceId == "" {
 			watchMachine(ctx, params.Machine)
 		}
 		ctx.pendingFilesystemAttachments[pending[i]] = params
 	}
 	return nil
+}
+
+// filesystemAttachmentParams obtains the specified attachments' parameters.
+func filesystemAttachmentParams(
+	ctx *context, ids []params.MachineStorageId,
+) ([]storage.FilesystemAttachmentParams, error) {
+	paramsResults, err := ctx.filesystemAccessor.FilesystemAttachmentParams(ids)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting filesystem attachment params")
+	}
+	attachmentParams := make([]storage.FilesystemAttachmentParams, len(ids))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting filesystem attachment parameters")
+		}
+		params, err := filesystemAttachmentParamsFromParams(result.Result)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting filesystem attachment parameters")
+		}
+		attachmentParams[i] = params
+	}
+	return attachmentParams, nil
 }
 
 func processPendingFilesystemAttachments(ctx *context) error {
