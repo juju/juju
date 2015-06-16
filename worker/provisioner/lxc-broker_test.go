@@ -156,6 +156,13 @@ func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []s
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *lxcBrokerSuite) assertDefaultNetworkConfig(c *gc.C, lxc instance.Instance) {
+	AssertFileContents(c, jc.Contains, filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"),
+		"lxc.network.type = veth", "lxc.network.link = lxcbr0")
+	AssertFileContents(c, gc.Not(jc.Contains), filepath.Join(s.LxcDir, string(lxc.Id()), "config"),
+		"lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
 	s.SetFeatureFlags(feature.AddressAllocation)
@@ -169,14 +176,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
@@ -188,14 +188,7 @@ func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
@@ -212,14 +205,7 @@ func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) {
@@ -232,14 +218,7 @@ func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
@@ -257,9 +236,8 @@ func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Check storage config.
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), jc.Contains, "lxc.aa_profile = lxc-container-default-with-mounting")
+	AssertFileContents(c, jc.Contains, filepath.Join(s.LxcDir, string(lxc.Id()), "config"),
+		"lxc.aa_profile = lxc-container-default-with-mounting")
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
@@ -331,10 +309,8 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
+	AssertFileContents(c, jc.Contains, filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"),
+		"lxc.network.type = veth", "lxc.network.link = br0")
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {

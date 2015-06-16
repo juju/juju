@@ -589,12 +589,12 @@ func configureContainerNetwork(
 func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineId := args.InstanceConfig.MachineId
 	if !environs.AddressAllocationEnabled() {
-		lxcLogger.Infof("Address allocation disabled: Not running maintenance for lxc container with machineId: %s",
+		lxcLogger.Debugf("address allocation disabled: Not running maintenance for lxc container with machineId: %s",
 			machineId)
 		return nil
 	}
 
-	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+	lxcLogger.Debugf("running maintenance for lxc container with machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
