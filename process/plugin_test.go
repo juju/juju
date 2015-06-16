@@ -18,6 +18,34 @@ type LaunchDetailsSuite struct {
 	testing.BaseSuite
 }
 
+func (*LaunchDetailsSuite) TestValidateOkay(c *gc.C) {
+	details := process.LaunchDetails{
+		ID:     "abc123",
+		Status: "running",
+	}
+	err := details.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*LaunchDetailsSuite) TestValidateMissingID(c *gc.C) {
+	details := process.LaunchDetails{
+		Status: "running",
+	}
+	err := details.Validate()
+
+	c.Check(err, gc.ErrorMatches, "ID must be set")
+}
+
+func (*LaunchDetailsSuite) TestValidateMissingStatus(c *gc.C) {
+	details := process.LaunchDetails{
+		ID: "abc123",
+	}
+	err := details.Validate()
+
+	c.Check(err, gc.ErrorMatches, "Status must be set")
+}
+
 type pluginSuite struct {
 	testing.BaseSuite
 }
