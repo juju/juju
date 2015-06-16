@@ -18,7 +18,7 @@ import (
 )
 
 type oplogSuite struct {
-	jujutesting.IsolationSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&oplogSuite{})
@@ -150,10 +150,14 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 
 func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	_, session := s.startMongo(c)
-
 	oplog := s.makeFakeOplog(c, session)
+	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
+
 	tailer := mongo.NewOplogTailer(oplog, nil)
 	defer tailer.Stop()
+
+	doc := s.getNextOplog(c, tailer)
+	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
 
 	// Induce a fatal error by removing the oplog collection.
 	err := oplog.DropCollection()
