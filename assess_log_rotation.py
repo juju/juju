@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 import logging
 import re
+import sys
 
 from deploy_stack import (
     dump_env_logs,
@@ -200,6 +201,7 @@ def main():
         args.juju_path, args.debug, args.env_name, args.temp_env_name)
     client.destroy_environment()
     juju_home = get_juju_home()
+    bootstrap_host = None
     try:
         with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
@@ -216,11 +218,13 @@ def main():
         try:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(client, bootstrap_host, log_dir)
         except Exception as e:
             print_now("exception while dumping logs:\n")
             logging.exception(e)
+        sys.exit(1)
     finally:
+        if bootstrap_host is not None:
+            dump_env_logs(client, bootstrap_host, log_dir)
         client.destroy_environment()
 
 

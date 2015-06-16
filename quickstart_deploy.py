@@ -54,12 +54,11 @@ class QuickstartTest:
                     bootstrap_host = step.get('bootstrap_host')
         except BaseException as e:
             logging.exception(e)
-            if bootstrap_host:
-                dump_env_logs(self.client, bootstrap_host, self.log_dir)
             raise
         finally:
             if bootstrap_host:
                 safe_print_status(self.client)
+                dump_env_logs(self.client, bootstrap_host, self.log_dir)
             self.client.destroy_environment(delete_jenv=True)
 
     def iter_steps(self):

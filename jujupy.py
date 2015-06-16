@@ -43,8 +43,11 @@ JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 
 
 def parse_new_state_server_from_error(error):
-    output = str(error) + getattr(error, 'output', '')
-    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    err_str = str(error)
+    output = getattr(error, 'output', None)
+    if output is not None:
+        err_str += output
+    matches = re.findall(r'Attempting to connect to (.*):22', err_str)
     if matches:
         return matches[-1]
     return None
@@ -309,7 +312,7 @@ class EnvJujuClient:
             'Timed out waiting for juju status to succeed: %s' % e)
 
     def get_raw_status(self, timeout=60, *args):
-        """Get the current status as a dict."""
+        """Get the current status as a string."""
         for ignored in until_timeout(timeout):
             try:
                 return self.get_juju_output('status', *args)
@@ -317,6 +320,15 @@ class EnvJujuClient:
                 pass
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
+
+    def get_service_config(self, service, timeout=60):
+        for ignored in until_timeout(timeout):
+            try:
+                return yaml_loads(self.get_juju_output('get', service))
+            except subprocess.CalledProcessError:
+                pass
+        raise Exception(
+            'Timed out waiting for juju get %s' % (service))
 
 
     def get_env_option(self, option):
@@ -597,7 +609,7 @@ class EnvJujuClient:
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):
-        """Performs the given action on the given unit and waits for the results.
+        """Performs given action on given unit and waits for the results.
 
         Action params should be given as args in the form foo=bar.
         Returns the yaml output of the action.

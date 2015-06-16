@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import (
     contextmanager,
 )
+import json
 import logging
 import os
 import subprocess
@@ -14,6 +15,7 @@ from utility import temp_dir
 from boto import ec2
 from boto.exception import EC2ResponseError
 
+import get_ami
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -50,19 +52,8 @@ def terminate_instances(env, instance_ids):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
-        profile_name = env.environment
-        maas_url = env.config.get('maas-server') + 'api/1.0/'
-        maas_credentials = env.config.get('maas-oauth')
-        for instance in instance_ids:
-            maas_system_id = instance.split('/')[5]
-            commands = [
-                ['maas', 'login', profile_name, maas_url, maas_credentials],
-                ['maas', profile_name, 'node', 'release', maas_system_id],
-                ['maas', 'logout', profile_name]
-            ]
-            print_now("Deleting %s." % instance)
-            for cmd in commands:
-                subprocess.check_call(cmd)
+        with MAASAccount.manager_from_config(env.config) as substrate:
+            substrate.terminate_instances(instance_ids)
         return
     else:
         with make_substrate_manager(env.config) as substrate:
@@ -401,6 +392,61 @@ class AzureAccount:
             return
 
 
+class MAASAccount:
+    """Represent a Mass account."""
+
+    def __init__(self, profile, url, oauth):
+        self.profile = profile
+        self.url = url + 'api/1.0/'
+        self.oauth = oauth
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """Create a ContextManager for a MaasAccount."""
+        manager = cls(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        manager.login()
+        yield manager
+        manager.logout()
+
+    def login(self):
+        """Login with the maas cli."""
+        subprocess.check_call(
+            ['maas', 'login', self.profile, self.url, self.oauth])
+
+    def logout(self):
+        """Logout with the maas cli."""
+        subprocess.check_call(
+            ['maas', 'logout', self.profile])
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance in instance_ids:
+            maas_system_id = instance.split('/')[5]
+            print_now('Deleting %s.' % instance)
+            subprocess.check_call(
+                ['maas', self.profile, 'node', 'release', maas_system_id])
+
+    def get_allocated_nodes(self):
+        """Return a dict of allocated nodes with the hostname as keys."""
+        data = subprocess.check_output(
+            ['maas', self.profile, 'nodes', 'list-allocated'])
+        nodes = json.loads(data)
+        allocated = {node['hostname']: node for node in nodes}
+        return allocated
+
+    def get_allocated_ips(self):
+        """Return a dict of allocated ips with the hostname as keys.
+
+        A maas node may have many ips. The method selects the first ip which
+        is the address used for virsh access and ssh.
+        """
+        allocated = self.get_allocated_nodes()
+        ips = {k: v['ip_addresses'][0] for k, v in allocated.items()}
+        return ips
+
+
 @contextmanager
 def make_substrate_manager(config):
     """A ContextManager that returns an Account for the config's substrate.
@@ -421,14 +467,14 @@ def make_substrate_manager(config):
             yield substrate
 
 
-def start_libvirt_domain(URI, domain):
+def start_libvirt_domain(uri, domain):
     """Call virsh to start the domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'start', domain]
+    command = ['virsh', '-c', uri, 'start', domain]
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -437,20 +483,20 @@ def start_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_RUNNING):
+        if verify_libvirt_domain(uri, domain, LIBVIRT_DOMAIN_RUNNING):
             return "%s is now running" % domain
         sleep(2)
     raise Exception('libvirt domain %s did not start.' % domain)
 
 
-def stop_libvirt_domain(URI, domain):
+def stop_libvirt_domain(uri, domain):
     """Call virsh to shutdown the domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'shutdown', domain]
+    command = ['virsh', '-c', uri, 'shutdown', domain]
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -459,13 +505,13 @@ def stop_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_SHUT_OFF):
+        if verify_libvirt_domain(uri, domain, LIBVIRT_DOMAIN_SHUT_OFF):
             return "%s is now shut off" % domain
         sleep(2)
     raise Exception('libvirt domain %s is not shut off.' % domain)
 
 
-def verify_libvirt_domain(URI, domain, state=LIBVIRT_DOMAIN_RUNNING):
+def verify_libvirt_domain(uri, domain, state=LIBVIRT_DOMAIN_RUNNING):
     """Returns a bool based on if the domain is in the given state.
 
     @Parms URI: The address of the libvirt service.
@@ -473,20 +519,75 @@ def verify_libvirt_domain(URI, domain, state=LIBVIRT_DOMAIN_RUNNING):
     @Parm state: The state to verify (e.g. "running or "shut off").
     """
 
-    dom_status = get_libvirt_domstate(URI, domain)
+    dom_status = get_libvirt_domstate(uri, domain)
     return state in dom_status
 
 
-def get_libvirt_domstate(URI, domain):
+def get_libvirt_domstate(uri, domain):
     """Call virsh to get the state of the given domain.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
     """
 
-    command = ['virsh', '-c', URI, 'domstate', domain]
+    command = ['virsh', '-c', uri, 'domstate', domain]
     try:
         sub_output = subprocess.check_output(command)
     except subprocess.CalledProcessError:
         raise Exception('%s failed' % command)
     return sub_output
+
+
+def parse_euca(euca_output):
+    for line in euca_output.splitlines():
+        fields = line.split('\t')
+        if fields[0] != 'INSTANCE':
+            continue
+        yield fields[1], fields[3]
+
+
+def run_instances(count, job_name):
+    environ = dict(os.environ)
+    ami = get_ami.query_ami("precise", "amd64")
+    command = [
+        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
+        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
+    run_output = subprocess.check_output(command, env=environ).strip()
+    machine_ids = dict(parse_euca(run_output)).keys()
+    for remaining in until_timeout(300):
+        try:
+            names = dict(describe_instances(machine_ids, env=environ))
+            if '' not in names.values():
+                subprocess.check_call(
+                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
+                    + machine_ids, env=environ)
+                return names.items()
+        except subprocess.CalledProcessError:
+            subprocess.call(['euca-terminate-instances'] + machine_ids)
+            raise
+        sleep(1)
+
+
+def describe_instances(instances=None, running=False, job_name=None,
+                       env=None):
+    command = ['euca-describe-instances']
+    if job_name is not None:
+        command.extend(['--filter', 'tag:job_name=%s' % job_name])
+    if running:
+        command.extend(['--filter', 'instance-state-name=running'])
+    if instances is not None:
+        command.extend(instances)
+    logging.info(' '.join(command))
+    return parse_euca(subprocess.check_output(command, env=env))
+
+
+def get_job_instances(job_name):
+    description = describe_instances(job_name=job_name, running=True)
+    return (machine_id for machine_id, name in description)
+
+
+def destroy_job_instances(job_name):
+    instances = list(get_job_instances(job_name))
+    if len(instances) == 0:
+        return
+    subprocess.check_call(['euca-terminate-instances'] + instances)

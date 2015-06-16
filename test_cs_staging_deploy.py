@@ -9,6 +9,9 @@ from jujupy import (
     SimpleEnvironment,
     )
 from cs_staging_deploy import CSStagingTest
+from utility import (
+    setup_test_logging,
+)
 
 
 def fake_EnvJujuClient_by_version(env, path=None, debug=None):
@@ -20,6 +23,9 @@ def fake_SimpleEnvironment_from_config(name):
 
 
 class TestCSStagingDeploy(TestCase):
+
+    def setUp(self):
+        setup_test_logging(self)
 
     def test_from_args(self):
         with patch('jujupy.EnvJujuClient.by_version',
