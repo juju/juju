@@ -338,6 +338,22 @@ var bootstrapTests = []bootstrapTest{{
 	info: "additional args",
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
+}, {
+	info: "--agent-version with --upload-tools",
+	args: []string{"--agent-version", "1.1.0", "--upload-tools"},
+	err:  `--agent-version and --upload-tools can't be used together`,
+}, {
+	info: "--agent-version with --no-auto-upgrade",
+	args: []string{"--agent-version", "1.1.0", "--no-auto-upgrade"},
+	err:  `--agent-version and --no-auto-upgrade can't be used together`,
+}, {
+	info: "invalid --agent-version value",
+	args: []string{"--agent-version", "foo"},
+	err:  `invalid version "foo"`,
+}, {
+	info: "agent-version doesn't match client version major.minor",
+	args: []string{"--agent-version", "666.666.0"},
+	err:  `requested agent version major.minor mismatch`,
 }}
 
 func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
@@ -633,6 +649,68 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 	)
 	c.Assert(_bootstrap.args.MetadataDir, gc.Equals, sourceDir)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *gc.C) {
+	resetJujuHome(c, "devenv")
+
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
+	})
+
+	currentVersion := version.Current
+	currentVersion.Major = 2
+	currentVersion.Minor = 3
+	s.PatchValue(&version.Current, currentVersion)
+	coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}),
+		"--agent-version", "2.3.4",
+	)
+	c.Assert(_bootstrap.args.AgentVersion, gc.NotNil)
+	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.3.4"))
+}
+
+func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
+	resetJujuHome(c, "devenv")
+
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
+	})
+
+	currentVersion := version.Current
+	currentVersion.Major = 2
+	currentVersion.Minor = 3
+	s.PatchValue(&version.Current, currentVersion)
+	coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}),
+		"--agent-version", "2.3.4-trusty-amd64",
+	)
+	c.Assert(_bootstrap.args.AgentVersion, gc.NotNil)
+	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.3.4"))
+}
+
+func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
+	resetJujuHome(c, "devenv")
+
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
+	})
+
+	currentVersion := version.Current
+	currentVersion.Major = 2
+	currentVersion.Minor = 22
+	currentVersion.Patch = 46
+	currentVersion.Series = "trusty"
+	currentVersion.Arch = "amd64"
+	s.PatchValue(&version.Current, currentVersion)
+	coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}),
+		"--no-auto-upgrade",
+	)
+	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.22.46"))
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
