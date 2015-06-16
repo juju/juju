@@ -89,6 +89,11 @@ type EnvironmentSkeletonConfigArgs struct {
 	Region   string
 }
 
+// EnvironmentDestroyArgs wraps the environment UUID to destroy.
+type EnvironmentDestroyArgs struct {
+	EnvUUID string
+}
+
 // EnvironmentCreateArgs holds the arguments that are necessary to create
 // and environment.
 type EnvironmentCreateArgs struct {

@@ -41,6 +41,7 @@ func NewSuperCommand() cmd.Command {
 
 	systemCmd.Register(&ListCommand{})
 	systemCmd.Register(&LoginCommand{})
+	systemCmd.Register(&DestroyCommand{})
 	systemCmd.Register(envcmd.WrapSystem(&EnvironmentsCommand{}))
 	systemCmd.Register(envcmd.WrapSystem(&CreateEnvironmentCommand{}))
 	systemCmd.Register(envcmd.WrapSystem(&UseEnvironmentCommand{}))

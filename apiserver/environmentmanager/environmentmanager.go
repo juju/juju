@@ -367,7 +367,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 	return result, nil
 }
 
-func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) error {
+func (em *EnvironmentManagerAPI) environmentAuthCheck(st stateInterface) error {
 	authTag := em.authorizer.GetAuthTag()
 	apiUserTag, ok := authTag.(names.UserTag)
 	if !ok {
@@ -380,7 +380,7 @@ func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) 
 	}
 	adminUserTag := stateServerEnv.Owner()
 
-	// The user may destroy the environment if they are the admin user
+	// The user may modify or query the environment if they are the admin user
 	// or any user with access to the environment.
 	_, err = st.EnvironmentUser(apiUserTag)
 	if err != nil && apiUserTag != adminUserTag {
@@ -392,8 +392,9 @@ func (em *EnvironmentManagerAPI) destroyEnvironmentAuthCheck(st stateInterface) 
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment.
-func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) {
+func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.EnvironmentDestroyArgs) (err error) {
 	st := em.state
+	envUUID := args.EnvUUID
 	if envUUID != em.state.EnvironUUID() {
 		envTag := names.NewEnvironTag(envUUID)
 		if st, err = em.state.ForEnviron(envTag); err != nil {
@@ -402,7 +403,7 @@ func (em *EnvironmentManagerAPI) DestroyEnvironment(envUUID string) (err error) 
 		defer st.Close()
 	}
 
-	err = em.destroyEnvironmentAuthCheck(st)
+	err = em.environmentAuthCheck(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -483,4 +484,41 @@ func destroyInstances(st stateInterface, machines []*state.Machine) error {
 		return err
 	}
 	return env.StopInstances(ids...)
+}
+
+// EnvironmentGet returns the environment config for the system
+// environment.  For information on the current environment, use
+// client.EnvironmentGet
+func (em *EnvironmentManagerAPI) EnvironmentGet() (_ params.EnvironmentConfigResults, err error) {
+	result := params.EnvironmentConfigResults{}
+
+	st := em.state
+	stateServerEnv, err := em.state.StateServerEnvironment()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// We need to obtain the state for the stateServerEnvironment to
+	// determine if the caller is authorized to access the environment.
+	if stateServerEnv.UUID() != st.EnvironUUID() {
+		envTag := names.NewEnvironTag(stateServerEnv.UUID())
+		st, err = em.state.ForEnviron(envTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		defer st.Close()
+	}
+
+	err = em.environmentAuthCheck(st)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	config, err := stateServerEnv.Config()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Config = config.AllAttrs()
+	return result, nil
 }

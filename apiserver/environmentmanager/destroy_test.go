@@ -13,6 +13,7 @@ import (
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/environmentmanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -79,7 +80,7 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 func (s *destroyEnvironmentSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(envUUID)
+	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
@@ -230,7 +231,7 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 func (s *destroyTwoEnvironmentsSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(envUUID)
+	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
