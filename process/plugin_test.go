@@ -41,7 +41,8 @@ type pluginSuite struct {
 
 func (*pluginSuite) TestParseEnvOkay(c *gc.C) {
 	raw := []string{"A=1", "B=2", "C=3"}
-	env := process.ParseEnv(raw)
+	env, err := process.ParseEnv(raw)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, jc.DeepEquals, map[string]string{
 		"A": "1",
@@ -52,21 +53,24 @@ func (*pluginSuite) TestParseEnvOkay(c *gc.C) {
 
 func (*pluginSuite) TestParseEnvEmpty(c *gc.C) {
 	var raw []string
-	env := process.ParseEnv(raw)
+	env, err := process.ParseEnv(raw)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, gc.IsNil)
 }
 
 func (*pluginSuite) TestParseEnvEssentiallyEmpty(c *gc.C) {
 	raw := []string{""}
-	env := process.ParseEnv(raw)
+	env, err := process.ParseEnv(raw)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, gc.IsNil)
 }
 
 func (*pluginSuite) TestParseEnvSkipped(c *gc.C) {
 	raw := []string{"A=1", "B=2", "", "D=4"}
-	env := process.ParseEnv(raw)
+	env, err := process.ParseEnv(raw)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, jc.DeepEquals, map[string]string{
 		"A": "1",
@@ -77,7 +81,8 @@ func (*pluginSuite) TestParseEnvSkipped(c *gc.C) {
 
 func (*pluginSuite) TestParseEnvMissing(c *gc.C) {
 	raw := []string{"A=1", "B=", "C", "D=4"}
-	env := process.ParseEnv(raw)
+	env, err := process.ParseEnv(raw)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, jc.DeepEquals, map[string]string{
 		"A": "1",
@@ -87,22 +92,31 @@ func (*pluginSuite) TestParseEnvMissing(c *gc.C) {
 	})
 }
 
+func (*pluginSuite) TestParseEnvBadName(c *gc.C) {
+	raw := []string{"=1"}
+	_, err := process.ParseEnv(raw)
+
+	c.Check(err, gc.ErrorMatches, `got "" for env var name`)
+}
+
 func (*pluginSuite) TestUnparseEnvOkay(c *gc.C) {
 	env := map[string]string{
 		"A": "1",
 		"B": "2",
 		"C": "3",
 	}
-	raw := process.UnparseEnv(env)
+	raw, err := process.UnparseEnv(env)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(raw, jc.DeepEquals, []string{"A=1", "B=2", "C=3"})
 }
 
 func (*pluginSuite) TestUnparseEnvEmpty(c *gc.C) {
-	var raw map[string]string
-	env := process.UnparseEnv(raw)
+	var env map[string]string
+	raw, err := process.UnparseEnv(env)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(env, gc.IsNil)
+	c.Check(raw, gc.IsNil)
 }
 
 func (*pluginSuite) TestUnparseEnvMissingKey(c *gc.C) {
@@ -111,9 +125,9 @@ func (*pluginSuite) TestUnparseEnvMissingKey(c *gc.C) {
 		"":  "2",
 		"C": "3",
 	}
-	raw := process.UnparseEnv(env)
+	_, err := process.UnparseEnv(env)
 
-	c.Check(raw, jc.DeepEquals, []string{"A=1", "=2", "C=3"})
+	c.Check(err, gc.ErrorMatches, `got "" for env var name`)
 }
 
 func (*pluginSuite) TestUnparseEnvMissing(c *gc.C) {
@@ -122,7 +136,8 @@ func (*pluginSuite) TestUnparseEnvMissing(c *gc.C) {
 		"B": "",
 		"C": "3",
 	}
-	raw := process.UnparseEnv(env)
+	raw, err := process.UnparseEnv(env)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(raw, jc.DeepEquals, []string{"A=1", "B=", "C=3"})
 }

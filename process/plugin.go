@@ -56,7 +56,7 @@ func ParseDetails(input string) (*LaunchDetails, error) {
 // variable names to values. The entries must be formatted as
 // "ENV_VAR=value", "ENV_VAR=", or just "ENV_VAR". The equal sign is
 // implied if missing.
-func ParseEnv(raw []string) map[string]string {
+func ParseEnv(raw []string) (map[string]string, error) {
 	envVars := make(map[string]string)
 	for _, envVarStr := range raw {
 		envVarStr = strings.TrimSpace(envVarStr)
@@ -67,20 +67,27 @@ func ParseEnv(raw []string) map[string]string {
 		if len(parts) == 1 {
 			parts = append(parts, "")
 		}
-		envVars[parts[0]] = parts[1]
+		envVar, value := parts[0], parts[1]
+		if envVar == "" {
+			return nil, errors.Errorf(`got "" for env var name`)
+		}
+		envVars[envVar] = value
 	}
 	if len(envVars) == 0 {
-		return nil
+		return nil, nil
 	}
-	return envVars
+	return envVars, nil
 }
 
 // UnparseEnv converts the provided environment variables into the
 // format expected by ParseEnv.
-func UnparseEnv(env map[string]string) []string {
+func UnparseEnv(env map[string]string) ([]string, error) {
 	var envVars []string
 	for k, v := range env {
+		if k == "" {
+			return nil, errors.Errorf(`got "" for env var name`)
+		}
 		envVars = append(envVars, k+"="+v)
 	}
-	return envVars
+	return envVars, nil
 }
