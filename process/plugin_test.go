@@ -57,6 +57,13 @@ func (*pluginSuite) TestParseEnvEmpty(c *gc.C) {
 	c.Check(env, gc.IsNil)
 }
 
+func (*pluginSuite) TestParseEnvEssentiallyEmpty(c *gc.C) {
+	raw := []string{""}
+	env := process.ParseEnv(raw)
+
+	c.Check(env, gc.IsNil)
+}
+
 func (*pluginSuite) TestParseEnvSkipped(c *gc.C) {
 	raw := []string{"A=1", "B=2", "", "D=4"}
 	env := process.ParseEnv(raw)
