@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+__metaclass__ = type
+
+import logging
+
+from base_asses import get_base_parser
+from jujupy import (
+    make_client,
+    parse_new_state_server_from_error,
+)
+from jujuconfig import (
+    get_juju_home,
+    temp_bootstrap_env,
+)
+from deploy_stack import (
+    dump_env_logs,
+    get_machine_dns_name,
+)
+from utility import (
+    print_now,
+)
+
+
+def parse_args():
+    """Parse all arguments."""
+    parser = get_base_parser('Test status outputs')
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    log_dir = args.logs
+
+    client = make_client(
+        args.juju_path, args.debug, args.env_name, args.temp_env_name)
+    client.destroy_environment()
+    juju_home = get_juju_home()
+    try:
+        with temp_bootstrap_env(juju_home, client):
+            client.bootstrap()
+        bootstrap_host = get_machine_dns_name(client, 0)
+        client.get_status(60)
+        # Deploy charms, there are several under ./repository
+        client.juju("deploy", ('local:trusty/wordpress',))
+
+        # Wait for the deployment to finish.
+        client.wait_for_started()
+
+        #----------------- CALL YOUR TESTS HERE
+        # At this point you have a juju bootstraped with a wordpress charm
+        # deployed and active with the agent idle.
+
+        #----------------- TESTS END HERE
+    except Exception as e:
+        logging.exception(e)
+        try:
+            if bootstrap_host is None:
+                bootstrap_host = parse_new_state_server_from_error(e)
+            dump_env_logs(client, bootstrap_host, log_dir)
+        except Exception as e:
+            print_now("exception while dumping logs:\n")
+            logging.exception(e)
+    finally:
+        client.destroy_environment()
+
+
+if __name__ == '__main__':
+    main()
