@@ -33,7 +33,7 @@ func NewOplogTailer(oplog *mgo.Collection, query bson.D) *OplogTailer {
 	t := &OplogTailer{
 		oplog: oplog.With(session),
 		query: query,
-		outCh: make(chan *OplogDoc, 1),
+		outCh: make(chan *OplogDoc),
 	}
 	go func() {
 		defer func() {
@@ -125,7 +125,11 @@ func (t *OplogTailer) loop() error {
 
 		var doc OplogDoc
 		if iter.Next(&doc) {
-			t.outCh <- &doc
+			select {
+			case <-t.tomb.Dying():
+				return tomb.ErrDying
+			case t.outCh <- &doc:
+			}
 
 			if doc.Timestamp > lastTimestamp {
 				lastTimestamp = doc.Timestamp
