@@ -78,16 +78,16 @@ func (c *RegisterCommand) init(name, id, detailsStr string) error {
 	if id == "" {
 		return errors.Errorf("got empty id")
 	}
-	c.Id = id
+	c.ID = id
 
 	if detailsStr != "" {
 		details, err := process.ParseDetails(detailsStr)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		//if details.Id != id {
-		//    return errors.Errorf("ID in details (%s) does not match ID arg (%s)", details.Id, id)
-		//}
+		if details.ID != id {
+			return errors.Errorf("ID in details (%s) does not match ID arg (%s)", details.ID, id)
+		}
 		c.Details = *details
 	}
 
