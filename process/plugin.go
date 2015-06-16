@@ -13,9 +13,9 @@ import (
 // LaunchDetails holds information about an existing process as provided by
 // a workload process plugin.
 type LaunchDetails struct {
-	// UniqueID is provided by the plugin as a guaranteed way
+	// ID is provided by the plugin as a guaranteed way
 	// to identify the process to the plugin.
-	UniqueID string `json:"id"`
+	ID string `json:"id"`
 
 	// Status is the status of the process as reported by the plugin.
 	Status string `json:"status"`
@@ -28,8 +28,8 @@ func (ld LaunchDetails) IsZero() bool {
 
 // Validate returns an error if LaunchDetails is not well-formed.
 func (ld LaunchDetails) Validate() error {
-	if ld.UniqueID == "" {
-		return errors.Errorf("UniqueID must be set")
+	if ld.ID == "" {
+		return errors.Errorf("ID must be set")
 	}
 	if ld.Status == "" {
 		return errors.Errorf("Status must be set")
