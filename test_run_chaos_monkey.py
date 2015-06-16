@@ -184,7 +184,7 @@ class TestRunChaosMonkey(TestCase):
                  ): charm_config,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=None'
+                 'enablement-timeout=0'
                  ): 'Action queued with id: abcd',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
@@ -192,7 +192,7 @@ class TestRunChaosMonkey(TestCase):
                  ): 'Action queued with id: efgh',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=None'
+                 'enablement-timeout=0'
                  ): 'Action queued with id: 1234',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
@@ -208,12 +208,12 @@ class TestRunChaosMonkey(TestCase):
                 monkey_runner.unleash_once()
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0',
-            'monkey-id=None'), 1, True)
+            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0'),
+            1, True)
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0',
-            'monkey-id=None'), 2, True)
+            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0'),
+            2, True)
         self.assertEqual(['chaos-monkey/1', 'chaos-monkey/0'],
                          monkey_runner.monkey_ids.keys())
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
@@ -254,7 +254,7 @@ class TestRunChaosMonkey(TestCase):
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=None'
+                 'enablement-timeout=0'
                  ): 'Action fail',
                 }
             return output[args]

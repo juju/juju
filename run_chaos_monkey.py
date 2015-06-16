@@ -76,10 +76,12 @@ class MonkeyRunner:
             logging.info('Starting the chaos monkey on: {}'.format(unit_name))
             enablement_arg = ('enablement-timeout={}'.format(
                 self.enablement_timeout))
-            monkey_id = 'monkey-id={}'.format(self.monkey_ids.get(unit_name))
-            action_out = self.client.get_juju_output(
-                'action do', unit_name, 'start', 'mode=single',
-                enablement_arg, monkey_id, 'exclude-group=kill')
+            monkey_id = self.monkey_ids.get(unit_name)
+            args = (unit_name,) + ('start',) + ('mode=single',)
+            args = args + (enablement_arg,)
+            if monkey_id is not None:
+                args = args + ('monkey-id={}'.format(monkey_id),)
+            action_out = self.client.get_juju_output('action do', *args)
             if not action_out.startswith('Action queued with id'):
                 raise Exception(
                     'Unexpected output from "juju action do": {}'.format(
