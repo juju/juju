@@ -599,6 +599,7 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			volumeParams.Attachment = &params.VolumeAttachmentParams{
 				tag.String(),
 				machineTag.String(),
+				"", // volume ID
 				string(instanceId),
 				volumeParams.Provider,
 				volumeAttachmentParams.ReadOnly,
@@ -702,6 +703,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
+		var volumeId string
 		var pool string
 		if volumeParams, ok := volume.Params(); ok {
 			pool = volumeParams.Pool
@@ -710,6 +712,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			if err != nil {
 				return params.VolumeAttachmentParams{}, err
 			}
+			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
@@ -731,6 +734,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
+			volumeId,
 			string(instanceId),
 			string(providerType),
 			readOnly,
@@ -778,6 +782,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
+		var filesystemId string
 		var pool string
 		if filesystemParams, ok := filesystem.Params(); ok {
 			pool = filesystemParams.Pool
@@ -786,6 +791,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			if err != nil {
 				return params.FilesystemAttachmentParams{}, err
 			}
+			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
@@ -810,6 +816,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		return params.FilesystemAttachmentParams{
 			filesystemAttachment.Filesystem().String(),
 			filesystemAttachment.Machine().String(),
+			filesystemId,
 			string(instanceId),
 			string(providerType),
 			// TODO(axw) dealias MountPoint. We now have

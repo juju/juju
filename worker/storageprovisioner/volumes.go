@@ -149,32 +149,37 @@ func processDyingVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	for _, id := range ids {
 		delete(ctx.pendingVolumeAttachments, id)
 	}
-	volumeAttachments := make([]params.VolumeAttachment, len(volumeAttachmentResults))
+	detach := make([]params.MachineStorageId, 0, len(ids))
+	remove := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
-		if result.Error != nil {
-			return errors.Annotatef(result.Error, "getting information for volume attachment %v", ids[i])
-		}
-		volumeAttachments[i] = result.Result
-	}
-	if len(volumeAttachments) == 0 {
-		return nil
-	}
-	errorResults, err := detachVolumes(volumeAttachments)
-	if err != nil {
-		return errors.Annotate(err, "detaching volumes")
-	}
-	detached := make([]params.MachineStorageId, 0, len(ids))
-	for i, id := range ids {
-		if err := errorResults[i]; err != nil {
-			logger.Errorf("detaching %v from %v: %v", ids[i].AttachmentTag, ids[i].MachineTag, err)
+		id := ids[i]
+		if result.Error == nil {
+			detach = append(detach, id)
 			continue
 		}
-		detached = append(detached, id)
+		if params.IsCodeNotProvisioned(result.Error) {
+			remove = append(remove, id)
+			continue
+		}
+		return errors.Annotatef(result.Error, "getting information for volume attachment %v", id)
 	}
-	if err := removeAttachments(ctx, detached); err != nil {
+	if len(detach) > 0 {
+		attachmentParams, err := volumeAttachmentParams(ctx, detach)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := detachVolumes(ctx, attachmentParams); err != nil {
+			return errors.Annotate(err, "detaching volumes")
+		}
+		remove = append(remove, detach...)
+	}
+	if err := removeAttachments(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing attachments from state")
 	}
 	return nil
@@ -327,24 +332,39 @@ func processAliveVolumeAttachments(
 	if len(pending) == 0 {
 		return nil
 	}
-	paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(pending)
+	params, err := volumeAttachmentParams(ctx, pending)
 	if err != nil {
-		return errors.Annotate(err, "getting volume params")
+		return errors.Trace(err)
 	}
-	for i, result := range paramsResults {
-		if result.Error != nil {
-			return errors.Annotate(result.Error, "getting volume attachment parameters")
-		}
-		params, err := volumeAttachmentParamsFromParams(result.Result)
-		if err != nil {
-			return errors.Annotate(err, "getting volume attachment parameters")
-		}
+	for i, params := range params {
 		if params.InstanceId == "" {
 			watchMachine(ctx, params.Machine)
 		}
 		ctx.pendingVolumeAttachments[pending[i]] = params
 	}
 	return nil
+}
+
+// volumeAttachmentParams obtains the specified attachments' parameters.
+func volumeAttachmentParams(
+	ctx *context, ids []params.MachineStorageId,
+) ([]storage.VolumeAttachmentParams, error) {
+	paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(ids)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting volume attachment params")
+	}
+	attachmentParams := make([]storage.VolumeAttachmentParams, len(ids))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting volume attachment parameters")
+		}
+		params, err := volumeAttachmentParamsFromParams(result.Result)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting volume attachment parameters")
+		}
+		attachmentParams[i] = params
+	}
+	return attachmentParams, nil
 }
 
 // processPendingVolumeAttachments creates as many of the pending volume
@@ -454,25 +474,11 @@ func createVolumeAttachments(
 	baseStorageDir string,
 	params []storage.VolumeAttachmentParams,
 ) ([]storage.VolumeAttachment, error) {
-	// TODO(axw) later we may have multiple instantiations (sources)
-	// for a storage provider, e.g. multiple Ceph installations. For
-	// now we assume a single source for each provider type, with no
-	// configuration.
-	volumeSources := make(map[string]storage.VolumeSource)
-	paramsBySource := make(map[string][]storage.VolumeAttachmentParams)
-	for _, params := range params {
-		sourceName := string(params.Provider)
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
-		if _, ok := volumeSources[sourceName]; ok {
-			continue
-		}
-		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
-		)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting volume source")
-		}
-		volumeSources[sourceName] = volumeSource
+	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
+		environConfig, baseStorageDir, params,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
@@ -528,14 +534,49 @@ func destroyVolumes(volumes []params.Volume) ([]error, error) {
 	return errs, nil
 }
 
-func detachVolumes(attachments []params.VolumeAttachment) ([]error, error) {
-	// TODO(axw) implement detach
-	err := errors.New("detach volumes is not implemented")
-	errs := make([]error, len(attachments))
-	for i := range errs {
-		errs[i] = err
+func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) error {
+	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
+		ctx.environConfig, ctx.storageDir, attachments,
+	)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return errs, nil
+	for sourceName, params := range paramsBySource {
+		logger.Debugf("detaching volumes: %v", params)
+		volumeSource := volumeSources[sourceName]
+		if err := volumeSource.DetachVolumes(params); err != nil {
+			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
+		}
+	}
+	return nil
+}
+
+func volumeAttachmentParamsBySource(
+	environConfig *config.Config,
+	baseStorageDir string,
+	params []storage.VolumeAttachmentParams,
+) (map[string][]storage.VolumeAttachmentParams, map[string]storage.VolumeSource, error) {
+	// TODO(axw) later we may have multiple instantiations (sources)
+	// for a storage provider, e.g. multiple Ceph installations. For
+	// now we assume a single source for each provider type, with no
+	// configuration.
+	volumeSources := make(map[string]storage.VolumeSource)
+	paramsBySource := make(map[string][]storage.VolumeAttachmentParams)
+	for _, params := range params {
+		sourceName := string(params.Provider)
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		if _, ok := volumeSources[sourceName]; ok {
+			continue
+		}
+		volumeSource, err := volumeSource(
+			environConfig, baseStorageDir, sourceName, params.Provider,
+		)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "getting volume source")
+		}
+		volumeSources[sourceName] = volumeSource
+	}
+	return paramsBySource, volumeSources, nil
 }
 
 func volumesFromStorage(in []storage.Volume) []params.Volume {
@@ -667,6 +708,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
-		Volume: volumeTag,
+		Volume:   volumeTag,
+		VolumeId: in.VolumeId,
 	}, nil
 }
