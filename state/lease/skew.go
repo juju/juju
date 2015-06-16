@@ -7,18 +7,20 @@ import (
 	"time"
 )
 
-// skew holds information about a remote writer's idea of the current time.
+// Skew holds information about a remote writer's idea of the current time.
 type Skew struct {
-	// LastWrite is the most recent time known to have been written by
-	// the skewed writer.
+	// LastWrite is the most recent remote time known to have been written
+	// by the skewed writer.
 	LastWrite time.Time
 
 	// ReadAfter is a local time after which LastWrite is known to have at
-	// least the observed value.
+	// least the observed value. (Specifically, it should be the time just
+	// before you read the remote clock.)
 	ReadAfter time.Time
 
 	// ReadBefore is a local time before which LastWrite is known to have
-	// at least the observed value.
+	// at least the observed value. (Specifically, it should be the time
+	// just after you read the remote clock.)
 	ReadBefore time.Time
 }
 

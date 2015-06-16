@@ -10,7 +10,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// Client manipulates leases backed by MongoDB.
+// Client manipulates leases backed by MongoDB. Client implementations are not
+// expected to be goroutine-safe.
 type Client interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
