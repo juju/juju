@@ -69,15 +69,15 @@ func (c *baseCommand) init(name string) error {
 	if errors.IsNotFound(err) {
 		c.notFoundErr = err
 		c.info = nil
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		if pInfo.Status != process.StatusPending {
-			return errors.Errorf("process %q already registered", name)
-		}
-		c.info = &pInfo
+		return nil
 	}
-	return nil
+
+	if pInfo.Status != process.StatusPending {
+		return errors.Errorf("process %q already registered", name)
+	}
+	c.info = &pInfo
+
+	return errors.Trace(err)
 }
 
 // Run implements cmd.Command.
