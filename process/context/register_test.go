@@ -310,14 +310,15 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 }
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
-	s.init(c, s.proc.Name, "abc123", "running")
-
 	s.proc.Process.Description = "bar"
 	s.registerCmd.Overrides = []string{"description:foo"}
+	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
 
 	s.proc.Process = *s.registerCmd.UpdatedProcess
+	s.proc.Status = process.StatusActive
+	s.proc.Details = *s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Set",
 		Args:     []interface{}{s.proc.Name, s.proc},
