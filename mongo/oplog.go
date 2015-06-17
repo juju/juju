@@ -158,7 +158,7 @@ func (t *OplogTailer) loop() error {
 			// When recreating the iterator (required when the cursor
 			// is invalidated) avoid reporting oplog entries that have
 			// already been reported.
-			query := append(t.query,
+			sel := append(t.query,
 				bson.DocElem{"ts", bson.D{{"$gte", lastTimestamp}}},
 				bson.DocElem{"h", bson.D{{"$nin", idsForLastTimestamp}}},
 			)
@@ -170,7 +170,13 @@ func (t *OplogTailer) loop() error {
 			// the tailer should stop (these semantics are hinted at
 			// by the mgo docs). Unfortunately this can trigger
 			// panics. See: https://github.com/go-mgo/mgo/issues/121
-			iter = t.oplog.Find(query).LogReplay().Tail(oplogTailTimeout)
+			query := t.oplog.Find(sel)
+			if isRealOplog(t.oplog) {
+				// Apply an optmisation that is only supported with
+				// the real oplog.
+				query = query.LogReplay()
+			}
+			iter = query.Tail(oplogTailTimeout)
 		}
 
 		var doc OplogDoc
@@ -199,6 +205,10 @@ func (t *OplogTailer) loop() error {
 			iter = nil
 		}
 	}
+}
+
+func isRealOplog(c *mgo.Collection) bool {
+	return c.Database.Name == "local" && c.Name == "oplog.rs"
 }
 
 func (t *OplogTailer) dying() bool {

@@ -245,7 +245,10 @@ func (s *oplogSuite) insertDoc(c *gc.C, srcSession *mgo.Session, coll *mgo.Colle
 
 func (s *oplogSuite) getNextOplog(c *gc.C, tailer *mongo.OplogTailer) *mongo.OplogDoc {
 	select {
-	case doc := <-tailer.Out():
+	case doc, ok := <-tailer.Out():
+		if !ok {
+			c.Fatalf("tailer unexpectedly died: %v", tailer.Err())
+		}
 		return doc
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for oplog doc")
@@ -255,7 +258,10 @@ func (s *oplogSuite) getNextOplog(c *gc.C, tailer *mongo.OplogTailer) *mongo.Opl
 
 func (s *oplogSuite) assertNoOplog(c *gc.C, tailer *mongo.OplogTailer) {
 	select {
-	case <-tailer.Out():
+	case _, ok := <-tailer.Out():
+		if !ok {
+			c.Fatalf("tailer unexpectedly died: %v", tailer.Err())
+		}
 		c.Fatal("unexpected oplog activity reported")
 	case <-time.After(coretesting.ShortWait):
 		// Success
