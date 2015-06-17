@@ -30,6 +30,7 @@ type fakeEnvMgrAPIClient struct {
 	err  error
 	user string
 	envs []environmentmanager.UserEnvironment
+	all  bool
 }
 
 func (f *fakeEnvMgrAPIClient) Close() error {
@@ -42,6 +43,14 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]environmentmanage
 	}
 
 	f.user = user
+	return f.envs, nil
+}
+
+func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]environmentmanager.UserEnvironment, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.all = true
 	return f.envs, nil
 }
 
@@ -95,6 +104,18 @@ func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 func (s *EnvironmentsSuite) TestEnvironments(c *gc.C) {
 	s.checkSuccess(c, "admin@local")
 	s.checkSuccess(c, "bob", "--user", "bob")
+}
+
+func (s *EnvironmentsSuite) TestAllEnvironments(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newCommand(), "--all")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.all, jc.IsTrue)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER             LAST CONNECTION\n"+
+		"test-env1  user-admin@local  2015-03-20\n"+
+		"test-env2  user-admin@local  2015-03-01\n"+
+		"test-env3  user-admin@local  never connected\n"+
+		"\n")
 }
 
 func (s *EnvironmentsSuite) TestEnvironmentsUUID(c *gc.C) {

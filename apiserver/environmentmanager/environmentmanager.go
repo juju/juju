@@ -33,6 +33,7 @@ type EnvironmentManager interface {
 	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
 	ListEnvironments(user params.Entity) (params.UserEnvironmentList, error)
+	AllEnvironments() (params.UserEnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -362,6 +363,65 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 			LastConnection: env.LastConnection,
 		})
 		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
+	}
+
+	return result, nil
+}
+
+// AllEnvironments allows system administrators to get the list of all the
+// environments in the system.
+func (em *EnvironmentManagerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
+	result := params.UserEnvironmentList{}
+
+	authTag := em.authorizer.GetAuthTag()
+	apiUser, ok := authTag.(names.UserTag)
+	if !ok {
+		return result, errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+	}
+
+	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isAdmin {
+		return result, common.ErrPerm
+	}
+
+	// Get all the environments that the authenticated user can see, and
+	// supplement that with the other environments that exist that the user
+	// cannot see. The reason we do this is to get the LastConnection time for
+	// the environments that the user is able to see, so we have consistent
+	// output when listing with or without --all when an admin user.
+	visibleEnvironments, err := em.ListEnvironments(params.Entity{Tag: apiUser.String()})
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	envs := make(map[string]params.UserEnvironment)
+	for _, env := range visibleEnvironments.UserEnvironments {
+		envs[env.UUID] = env
+	}
+
+	allEnvs, err := em.state.AllEnvironments()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, env := range allEnvs {
+		if _, ok := envs[env.UUID()]; !ok {
+			envs[env.UUID()] = params.UserEnvironment{
+				Environment: params.Environment{
+					Name:     env.Name(),
+					UUID:     env.UUID(),
+					OwnerTag: env.Owner().String(),
+				},
+				// No LastConnection as this user hasn't.
+			}
+		}
+	}
+
+	for _, userEnv := range envs {
+		result.UserEnvironments = append(result.UserEnvironments, userEnv)
 	}
 
 	return result, nil

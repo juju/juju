@@ -109,6 +109,30 @@ func (c *Client) ListEnvironments(user string) ([]UserEnvironment, error) {
 	return result, nil
 }
 
+// AllEnvironments allows system administrators to get the list of all the
+// environments in the system.
+func (c *Client) AllEnvironments() ([]UserEnvironment, error) {
+	var environments params.UserEnvironmentList
+	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]UserEnvironment, len(environments.UserEnvironments))
+	for i, env := range environments.UserEnvironments {
+		owner, err := names.ParseUserTag(env.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+		}
+		result[i] = UserEnvironment{
+			Name:           env.Name,
+			UUID:           env.UUID,
+			Owner:          owner.Username(),
+			LastConnection: env.LastConnection,
+		}
+	}
+	return result, nil
+}
+
 // EnvironmentGet returns all environment settings for the
 // system environment.
 func (c *Client) EnvironmentGet() (map[string]interface{}, error) {

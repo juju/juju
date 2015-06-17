@@ -24,6 +24,7 @@ import (
 type EnvironmentsCommand struct {
 	envcmd.SysCommandBase
 	out       cmd.Output
+	all       bool
 	user      string
 	listUUID  bool
 	exactTime bool
@@ -50,6 +51,7 @@ See Also:
 type EnvironmentManagerAPI interface {
 	Close() error
 	ListEnvironments(user string) ([]environmentmanager.UserEnvironment, error)
+	AllEnvironments() ([]environmentmanager.UserEnvironment, error)
 }
 
 // Info implements Command.Info
@@ -77,7 +79,8 @@ func (c *EnvironmentsCommand) getConnectionCredentials() (configstore.APICredent
 
 // SetFlags implements Command.SetFlags.
 func (c *EnvironmentsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "", "the user to list environments for.  Only administrative users can list environments for other users.")
+	f.StringVar(&c.user, "user", "", "the user to list environments for (administrative users only)")
+	f.BoolVar(&c.all, "all", false, "show all environments  (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for environments")
 	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -111,7 +114,12 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 		c.user = creds.User
 	}
 
-	envs, err := client.ListEnvironments(c.user)
+	var envs []environmentmanager.UserEnvironment
+	if c.all {
+		envs, err = client.AllEnvironments()
+	} else {
+		envs, err = client.ListEnvironments(c.user)
+	}
 	if err != nil {
 		return errors.Annotate(err, "cannot list environments")
 	}
