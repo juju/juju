@@ -48,10 +48,10 @@ func NewFirewallerAPI(
 		return nil, common.ErrPerm
 	}
 	// Set up the various authorization checkers.
-	accessEnviron := getAuthFuncForTagKind(names.EnvironTagKind)
-	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
-	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
-	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
+	accessEnviron := common.AuthFuncForTagKind(names.EnvironTagKind)
+	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
+	accessService := common.AuthFuncForTagKind(names.ServiceTagKind)
+	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
 
@@ -327,18 +327,4 @@ func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineT
 	// The authorization function guarantees that the tag represents a
 	// machine.
 	return entity.(*state.Machine), nil
-}
-
-// getAuthFuncForTagKind returns a GetAuthFunc which creates an
-// AuthFunc allowing only the given tag kind and denies all
-// others. In the special case where a single empty string is given,
-// it's assumed only environment tags are allowed, but not specified
-// (for now).
-func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			// Allow only the given tag kind.
-			return tag.Kind() == kind
-		}, nil
-	}
 }

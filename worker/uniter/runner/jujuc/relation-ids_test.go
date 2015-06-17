@@ -16,23 +16,20 @@ import (
 )
 
 type RelationIdsSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&RelationIdsSuite{})
 
-func (s *RelationIdsSuite) SetUpTest(c *gc.C) {
-	s.ContextSuite.SetUpTest(c)
-	s.rels = map[int]*ContextRelation{}
-	s.AddRelatedServices(c, "x", 3)
-	s.AddRelatedServices(c, "y", 1)
-}
-
-func (s *RelationIdsSuite) AddRelatedServices(c *gc.C, relname string, count int) {
-	for i := 0; i < count; i++ {
-		id := len(s.rels)
-		s.rels[id] = &ContextRelation{id, relname, nil}
+func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
+	hctx, info := s.relationSuite.newHookContext(-1, "")
+	info.reset()
+	info.addRelatedServices("x", 3)
+	info.addRelatedServices("y", 1)
+	if relid >= 0 {
+		info.SetAsRelationHook(relid, remote)
 	}
+	return hctx, info
 }
 
 var relationIdsTests = []struct {
@@ -106,7 +103,7 @@ var relationIdsTests = []struct {
 func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, t.relid, "")
+		hctx, _ := s.newHookContext(t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -146,7 +143,7 @@ options:
 		3:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"y\".\n"},
 	} {
 		c.Logf("relid %d", relid)
-		hctx := s.GetHookContext(c, relid, "")
+		hctx, _ := s.newHookContext(relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)

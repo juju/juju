@@ -56,7 +56,7 @@ type VolumeInfo struct {
 	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
 
 	// from params.VolumeAttachments
-	ReadOnly bool `yaml:"readonly" json:"readonly"`
+	ReadOnly bool `yaml:"read-only" json:"read-only"`
 
 	// from params.Volume. This is juju volume id.
 	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
@@ -99,8 +99,8 @@ func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]
 			return errors.Trace(err)
 		}
 		info, unit, storage := createInfo(item.Volume)
-		info.DeviceName = one.DeviceName
-		info.ReadOnly = one.ReadOnly
+		info.DeviceName = one.Info.DeviceName
+		info.ReadOnly = one.Info.ReadOnly
 
 		addOneToAll(machine, unit, storage, info, all)
 	}

@@ -1,7 +1,6 @@
 package paths
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
@@ -50,7 +49,6 @@ func osVal(series string, valname osVarType) (string, error) {
 	default:
 		return nixVals[valname], nil
 	}
-	return "", fmt.Errorf("Unknown OS: %q", os)
 }
 
 // TempDir returns the path on disk to the corect tmp directory

@@ -162,9 +162,14 @@ type MachineStorageIds struct {
 	Ids []MachineStorageId `json:"ids"`
 }
 
-// Volume describes a storage volume in the environment.
+// Volume identifies and describes a storage volume in the environment.
 type Volume struct {
-	VolumeTag  string `json:"volumetag"`
+	VolumeTag string     `json:"volumetag"`
+	Info      VolumeInfo `json:"info"`
+}
+
+// Volume describes a storage volume in the environment.
+type VolumeInfo struct {
 	VolumeId   string `json:"volumeid"`
 	HardwareId string `json:"hardwareid,omitempty"`
 	// Size is the size of the volume in MiB.
@@ -177,12 +182,17 @@ type Volumes struct {
 	Volumes []Volume `json:"volumes"`
 }
 
-// VolumeAttachment describes a volume attachment.
+// VolumeAttachment identifies and describes a volume attachment.
 type VolumeAttachment struct {
-	VolumeTag  string `json:"volumetag"`
-	MachineTag string `json:"machinetag"`
+	VolumeTag  string               `json:"volumetag"`
+	MachineTag string               `json:"machinetag"`
+	Info       VolumeAttachmentInfo `json:"info"`
+}
+
+// VolumeAttachmentInfo describes a volume attachment.
+type VolumeAttachmentInfo struct {
 	DeviceName string `json:"devicename,omitempty"`
-	ReadOnly   bool   `json:"readonly"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // VolumeAttachments describes a set of storage volume attachments.
@@ -196,6 +206,7 @@ type VolumeParams struct {
 	Size       uint64                  `json:"size"`
 	Provider   string                  `json:"provider"`
 	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Tags       map[string]string       `json:"tags,omitempty"`
 	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
@@ -204,8 +215,10 @@ type VolumeParams struct {
 type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
+	VolumeId   string `json:"volumeid,omitempty"`
 	InstanceId string `json:"instanceid,omitempty"`
 	Provider   string `json:"provider"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // VolumeAttachmentsResult holds the volume attachments for a single
@@ -268,11 +281,16 @@ type VolumeAttachmentParamsResults struct {
 	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
 }
 
-// Filesystem describes a storage filesystem in the environment.
+// Filesystem identifies and describes a storage filesystem in the environment.
 type Filesystem struct {
-	FilesystemTag string `json:"filesystemtag"`
-	VolumeTag     string `json:"volumetag,omitempty"`
-	FilesystemId  string `json:"filesystemid"`
+	FilesystemTag string         `json:"filesystemtag"`
+	VolumeTag     string         `json:"volumetag,omitempty"`
+	Info          FilesystemInfo `json:"info"`
+}
+
+// Filesystem describes a storage filesystem in the environment.
+type FilesystemInfo struct {
+	FilesystemId string `json:"filesystemid"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
@@ -282,11 +300,17 @@ type Filesystems struct {
 	Filesystems []Filesystem `json:"filesystems"`
 }
 
-// FilesystemAttachment describes a filesystem attachment.
+// FilesystemAttachment identifies and describes a filesystem attachment.
 type FilesystemAttachment struct {
-	FilesystemTag string `json:"filesystemtag"`
-	MachineTag    string `json:"machinetag"`
-	MountPoint    string `json:"mountpoint,omitempty"`
+	FilesystemTag string                   `json:"filesystemtag"`
+	MachineTag    string                   `json:"machinetag"`
+	Info          FilesystemAttachmentInfo `json:"info"`
+}
+
+// FilesystemAttachmentInfo describes a filesystem attachment.
+type FilesystemAttachmentInfo struct {
+	MountPoint string `json:"mountpoint,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachments describes a set of storage filesystem attachments.
@@ -301,6 +325,7 @@ type FilesystemParams struct {
 	Size          uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
+	Tags          map[string]string           `json:"tags,omitempty"`
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
 
@@ -309,9 +334,11 @@ type FilesystemParams struct {
 type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
+	FilesystemId  string `json:"filesystemid,omitempty"`
 	InstanceId    string `json:"instanceid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`
+	ReadOnly      bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,

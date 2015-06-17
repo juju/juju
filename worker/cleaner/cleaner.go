@@ -7,25 +7,29 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.cleaner")
 
+type StateCleaner interface {
+	Cleanup() error
+	WatchCleanups() (watcher.NotifyWatcher, error)
+}
+
 // Cleaner is responsible for cleaning up the state.
 type Cleaner struct {
-	st *state.State
+	st StateCleaner
 }
 
 // NewCleaner returns a worker.Worker that runs state.Cleanup()
 // if the CleanupWatcher signals documents marked for deletion.
-func NewCleaner(st *state.State) worker.Worker {
-	return worker.NewNotifyWorker(&Cleaner{st: st})
+func NewCleaner(st StateCleaner) worker.Worker {
+	return worker.NewNotifyWorker(&Cleaner{st})
 }
 
 func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {
-	return c.st.WatchCleanups(), nil
+	return c.st.WatchCleanups()
 }
 
 func (c *Cleaner) Handle() error {

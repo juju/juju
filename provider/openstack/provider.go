@@ -1013,6 +1013,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
+
 	var networks = []nova.ServerNetworks{}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
@@ -1034,6 +1035,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			logger.Infof("allocated public IP %s", publicIP.IP)
 		}
 	}
+
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
@@ -1043,16 +1045,23 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
+
+	machineName := resourceName(
+		names.NewMachineTag(args.InstanceConfig.MachineId),
+		e.Config().Name(),
+	)
+
 	var server *nova.Entity
 	for _, availZone := range availabilityZones {
 		var opts = nova.RunServerOpts{
-			Name:               e.machineFullName(args.InstanceConfig.MachineId),
+			Name:               machineName,
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 			Networks:           networks,
 			AvailabilityZone:   availZone,
+			Metadata:           args.InstanceConfig.Tags,
 		}
 		for a := shortAttempt.Start(); a.Next(); {
 			server, err = e.nova().RunServer(opts)
@@ -1324,8 +1333,8 @@ func (e *environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
 }
 
-func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Config().Name(), names.NewMachineTag(machineId))
+func resourceName(tag names.Tag, envName string) string {
+	return fmt.Sprintf("juju-%s-%s", envName, tag)
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.

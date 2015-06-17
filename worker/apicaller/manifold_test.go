@@ -79,7 +79,7 @@ func (s *ManifoldSuite) TestStartMissingDependency(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
-	s.Errors = []error{errors.New("no api for you")}
+	s.SetErrors(errors.New("no api for you"))
 
 	worker, err := s.manifold.Start(s.getResource)
 	c.Check(worker, gc.IsNil)
@@ -103,19 +103,19 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdSet(c *gc.C) {
 func (s *ManifoldSuite) setupMutatorTest(c *gc.C) coreagent.ConfigMutator {
 	s.agent.env = names.EnvironTag{}
 	s.conn.stub = &s.Stub // will be unsafe if worker stopped before test finished
-	s.Errors = []error{
+	s.SetErrors(
 		nil, //                                               openConnection,
 		errors.New("nonfatal: always logged and ignored"), // ChangeConfig
-	}
+	)
 
 	worker, err := s.manifold.Start(s.getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { assertStop(c, worker) })
 
 	s.CheckCallNames(c, "openConnection", "ChangeConfig")
-	changeArgs := s.Calls[1].Args
+	changeArgs := s.Calls()[1].Args
 	c.Assert(changeArgs, gc.HasLen, 1)
-	s.Calls = nil
+	s.ResetCalls()
 	return changeArgs[0].(coreagent.ConfigMutator)
 }
 
@@ -137,7 +137,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetBadAPIState(c *gc.C) {
 	mutator := s.setupMutatorTest(c)
-	s.Errors = []error{errors.New("no tag for you")}
+	s.SetErrors(errors.New("no tag for you"))
 
 	err := mutator(nil)
 	c.Check(err, gc.ErrorMatches, "no environment uuid set on api: no tag for you")
@@ -149,7 +149,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetBadAPIState(c *g
 func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetMigrateFailure(c *gc.C) {
 	mutator := s.setupMutatorTest(c)
 	mockSetter := &mockSetter{stub: &s.Stub}
-	s.Errors = []error{nil, errors.New("migrate failure")}
+	s.SetErrors(nil, errors.New("migrate failure"))
 
 	err := mutator(mockSetter)
 	c.Check(err, gc.ErrorMatches, "migrate failure")
@@ -179,7 +179,7 @@ func (s *ManifoldSuite) TestKillWorkerClosesConnection(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestKillWorkerReportsCloseErr(c *gc.C) {
-	s.conn.stub.Errors = []error{errors.New("bad plumbing")}
+	s.conn.stub.SetErrors(errors.New("bad plumbing"))
 	worker := s.setupWorkerTest(c)
 
 	assertStopError(c, worker, "bad plumbing")
@@ -189,7 +189,7 @@ func (s *ManifoldSuite) TestKillWorkerReportsCloseErr(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithCloseErr(c *gc.C) {
-	s.conn.stub.Errors = []error{errors.New("bad plumbing")}
+	s.conn.stub.SetErrors(errors.New("bad plumbing"))
 	worker := s.setupWorkerTest(c)
 
 	close(s.conn.broken)

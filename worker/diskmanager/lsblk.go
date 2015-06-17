@@ -44,7 +44,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		"MOUNTPOINT", // moint point
 	}
 
-	logger.Debugf("executing lsblk")
+	logger.Tracef("executing lsblk")
 	output, err := exec.Command(
 		"lsblk",
 		"-b", // output size in bytes

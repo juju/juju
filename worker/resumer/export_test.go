@@ -4,13 +4,22 @@
 package resumer
 
 import (
+	"sync"
 	"time"
 )
 
+var mu sync.Mutex
+
 func SetInterval(i time.Duration) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	interval = i
 }
 
 func RestoreInterval() {
+	mu.Lock()
+	defer mu.Unlock()
+
 	interval = defaultInterval
 }

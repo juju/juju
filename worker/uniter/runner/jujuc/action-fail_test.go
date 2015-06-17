@@ -99,7 +99,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 }
 
 func (s *ActionFailSuite) TestHelp(c *gc.C) {
-	hctx := &Context{}
+	hctx, _ := s.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)

@@ -191,12 +191,9 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
-	operatingSystem, err := GetOSFromSeries(v.Series)
-	if err != nil {
-		return Binary{}, err
-	}
-	v.OS = operatingSystem
-	return v, nil
+	var err error
+	v.OS, err = GetOSFromSeries(v.Series)
+	return v, err
 }
 
 // Parse parses the version, which is of the form 1.2.3

@@ -29,10 +29,10 @@ func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
 
-	ctype, err = instance.ParseContainerType("none")
+	_, err = instance.ParseContainerType("none")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "none"`)
 
-	ctype, err = instance.ParseContainerType("omg")
+	_, err = instance.ParseContainerType("omg")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
 }
 
@@ -49,6 +49,6 @@ func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.NONE)
 
-	ctype, err = instance.ParseContainerTypeOrNone("omg")
+	_, err = instance.ParseContainerTypeOrNone("omg")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
 }

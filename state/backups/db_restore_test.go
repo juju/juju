@@ -53,7 +53,7 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
 
 	versionNumber.Major = 0
 	versionNumber.Minor = 0
-	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	_, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
 }
 
@@ -92,6 +92,7 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	s.PatchValue(backups.RestoreArgsForVersion, restoreArgsForVersion)
 
 	err := backups.PlaceNewMongo("fakemongopath", ver)
+	c.Assert(restorePathCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(argsVersion, gc.DeepEquals, ver)
 	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")

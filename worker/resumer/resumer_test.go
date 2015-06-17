@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/resumer"
 )
 
 type ResumerSuite struct {
@@ -43,7 +44,7 @@ func (s *ResumerSuite) TestRunStopWithMockState(c *gc.C) {
 func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 	// Shorter interval and mock help to count
 	// the resumer calls in a given timespan.
-	testInterval := 10 * time.Millisecond
+	testInterval := coretesting.ShortWait
 	resumer.SetInterval(testInterval)
 	defer resumer.RestoreInterval()
 
@@ -52,20 +53,7 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 
 	time.Sleep(10 * testInterval)
 
-	// Check that a number of calls has happened with a time
-	// difference somewhere between the interval and twice the
-	// interval. A more precise time behavior cannot be
-	// specified due to the load during the test.
-	s.mockState.mu.Lock()
-	defer s.mockState.mu.Unlock()
-	c.Assert(len(s.mockState.timestamps) > 0, jc.IsTrue)
-	for i := 1; i < len(s.mockState.timestamps); i++ {
-		diff := s.mockState.timestamps[i].Sub(s.mockState.timestamps[i-1])
-
-		c.Assert(diff >= testInterval, jc.IsTrue)
-		c.Assert(diff <= 4*testInterval, jc.IsTrue)
-		s.mockState.CheckCall(c, i-1, "ResumeTransactions")
-	}
+	s.mockState.CheckTimestamps(c, testInterval)
 }
 
 func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {
@@ -75,20 +63,16 @@ func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {
 
 	// Shorter interval and mock help to count
 	// the resumer calls in a given timespan.
-	testInterval := 10 * time.Millisecond
+	testInterval := coretesting.ShortWait
 	resumer.SetInterval(testInterval)
 	defer resumer.RestoreInterval()
 
 	rr := resumer.NewResumer(s.mockState)
 	defer func() { c.Assert(rr.Stop(), gc.IsNil) }()
 
-	// For 4 intervals at least 3 calls should be made.
+	// For 4 intervals between 2 and 3 calls should be made.
 	time.Sleep(4 * testInterval)
-	s.mockState.CheckCallNames(c,
-		"ResumeTransactions",
-		"ResumeTransactions",
-		"ResumeTransactions",
-	)
+	s.mockState.CheckNumCallsBetween(c, 2, 3)
 }
 
 // transactionResumerMock is used to check the
@@ -102,11 +86,44 @@ type transactionResumerMock struct {
 
 func (tr *transactionResumerMock) ResumeTransactions() error {
 	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
 	tr.timestamps = append(tr.timestamps, time.Now())
 	tr.MethodCall(tr, "ResumeTransactions")
-	err := tr.NextErr()
-	tr.mu.Unlock()
-	return err
+	return tr.NextErr()
+}
+
+func (tr *transactionResumerMock) CheckNumCallsBetween(c *gc.C, minCalls, maxCalls int) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	// To combat test flakyness (see bug #1462412) we're expecting up
+	// to maxCalls, but at least minCalls.
+	calls := tr.Stub.Calls()
+	c.Assert(len(calls), jc.GreaterThan, minCalls-1)
+	c.Assert(len(calls), jc.LessThan, maxCalls+1)
+	for _, call := range calls {
+		c.Check(call.FuncName, gc.Equals, "ResumeTransactions")
+	}
+}
+
+func (tr *transactionResumerMock) CheckTimestamps(c *gc.C, testInterval time.Duration) {
+	// Check that a number of calls has happened with a time
+	// difference somewhere between the interval and twice the
+	// interval. A more precise time behavior cannot be
+	// specified due to the load during the test.
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	longestInterval := 4 * testInterval
+	c.Assert(len(tr.timestamps) > 0, jc.IsTrue)
+	for i := 1; i < len(tr.timestamps); i++ {
+		diff := tr.timestamps[i].Sub(tr.timestamps[i-1])
+
+		c.Assert(diff >= testInterval, jc.IsTrue)
+		c.Assert(diff <= longestInterval, jc.IsTrue)
+		tr.Stub.CheckCall(c, i-1, "ResumeTransactions")
+	}
 }
 
 var _ resumer.TransactionResumer = (*transactionResumerMock)(nil)

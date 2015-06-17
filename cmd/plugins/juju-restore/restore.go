@@ -273,8 +273,18 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot connect to api server")
 	}
 	progress("updating all machines")
-	if err := updateAllMachines(apiState, machine0Addr); err != nil {
+	results, err := updateAllMachines(apiState, machine0Addr)
+	if err != nil {
 		return errors.Annotate(err, "cannot update machines")
+	}
+	var message string
+	for _, result := range results {
+		if result.err != nil {
+			message = fmt.Sprintf("Update of machine %q failed: %v", result.machineName, result.err)
+		} else {
+			message = fmt.Sprintf("Succesful update of machine %q", result.machineName)
+		}
+		progress(message)
 	}
 	return nil
 }
@@ -533,16 +543,22 @@ func setAgentAddressScript(stateAddr string) string {
 	}{stateAddr})
 }
 
+type restoreResult struct {
+	machineName string
+	err         error
+}
+
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(apiState *api.State, stateAddr string) error {
+func updateAllMachines(apiState *api.State, stateAddr string) ([]restoreResult, error) {
 	client := apiState.Client()
 	status, err := client.Status(nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot get status")
+		return nil, errors.Annotate(err, "cannot get status")
 	}
 	pendingMachineCount := 0
-	done := make(chan error)
+	done := make(chan restoreResult)
+
 	for _, machineStatus := range status.Machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
@@ -554,20 +570,20 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 		go func() {
 			err := runMachineUpdate(client, machine.Id, setAgentAddressScript(stateAddr))
 			if err != nil {
+
 				logger.Errorf("failed to update machine %s: %v", machine.Id, err)
 			} else {
 				progress("updated machine %s", machine.Id)
 			}
-			done <- err
+			r := restoreResult{machineName: machine.Id, err: err}
+			done <- r
 		}()
 	}
-	err = nil
+	results := make([]restoreResult, pendingMachineCount)
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
-		if updateErr := <-done; updateErr != nil && err == nil {
-			err = errors.Annotate(updateErr, "machine update failed")
-		}
+		results[pendingMachineCount-1] = <-done
 	}
-	return err
+	return results, nil
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
