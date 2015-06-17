@@ -201,8 +201,12 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 
 // DetachFilesystems is defined on the FilesystemSource interface.
 func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotImplementedf("DetachFilesystems")
+	for _, arg := range args {
+		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+		}
+	}
+	return nil
 }
 
 func (s *tmpfsFilesystemSource) writeFilesystemInfo(tag names.FilesystemTag, info storage.FilesystemInfo) error {

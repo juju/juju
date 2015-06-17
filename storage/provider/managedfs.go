@@ -142,8 +142,12 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 
 // DetachFilesystems is defined on storage.FilesystemSource.
 func (s *managedFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotImplementedf("DetachFilesystems")
+	for _, arg := range args {
+		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+		}
+	}
+	return nil
 }
 
 func createFilesystem(run runCommandFunc, devicePath string) error {
@@ -162,18 +166,12 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
-	mountPointParent := filepath.Dir(mountPoint)
-	parentSource, err := dirFuncs.mountPointSource(mountPointParent)
+	mounted, mountSource, err := isMounted(dirFuncs, mountPoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	source, err := dirFuncs.mountPointSource(mountPoint)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if source != parentSource {
-		// Already mounted.
-		logger.Debugf("filesystem on %q already mounted at %q", source, mountPoint)
+	if mounted {
+		logger.Debugf("filesystem on %q already mounted at %q", mountSource, mountPoint)
 		return nil
 	}
 	var args []string
@@ -186,4 +184,37 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	}
 	logger.Infof("mounted filesystem on %q at %q", devicePath, mountPoint)
 	return nil
+}
+
+func maybeUnmount(run runCommandFunc, dirFuncs dirFuncs, mountPoint string) error {
+	mounted, _, err := isMounted(dirFuncs, mountPoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !mounted {
+		return nil
+	}
+	logger.Debugf("attempting to unmount filesystem at %q", mountPoint)
+	if _, err := run("unmount", mountPoint); err != nil {
+		return errors.Annotate(err, "unmount failed")
+	}
+	logger.Infof("unmounted filesystem at %q", mountPoint)
+	return nil
+}
+
+func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
+	mountPointParent := filepath.Dir(mountPoint)
+	parentSource, err := dirFuncs.mountPointSource(mountPointParent)
+	if err != nil {
+		return false, "", errors.Trace(err)
+	}
+	source, err := dirFuncs.mountPointSource(mountPoint)
+	if err != nil {
+		return false, "", errors.Trace(err)
+	}
+	if source != parentSource {
+		// Already mounted.
+		return true, source, nil
+	}
+	return false, "", nil
 }
