@@ -4,13 +4,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -21,6 +24,7 @@ import (
 	"gopkg.in/juju/charmstore.v4/csclient"
 	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
@@ -532,4 +536,101 @@ func (s *charmStoreSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, ch
 func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
 	err := s.srv.NewClient().Put("/"+url.Path()+"/meta/perm/read", perms)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type testMetricCredentialsSetter struct {
+	assert func(string, []byte)
+}
+
+func (t *testMetricCredentialsSetter) SetMetricCredentials(serviceName string, data []byte) error {
+	t.assert(serviceName, data)
+	return nil
+}
+
+func (t *testMetricCredentialsSetter) Close() error {
+	return nil
+}
+
+func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+			c.Assert(serviceName, gc.DeepEquals, "metered")
+			c.Assert(data, gc.DeepEquals, []byte{})
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
+	err := runDeploy(c, "local:quantal/metered-1")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:quantal/metered-1")
+	s.AssertService(c, "metered", curl, 1, 0)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+			c.Assert(serviceName, gc.DeepEquals, "dummy")
+			c.Assert(data, gc.DeepEquals, []byte{})
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/dummy-1")
+	s.AssertService(c, "dummy", curl, 1, 0)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
+	handler := &testMetricsRegistrationHandler{}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	var called bool
+	setter := &testMetricCredentialsSetter{
+		assert: func(serviceName string, data []byte) {
+			called = true
+			c.Assert(serviceName, gc.DeepEquals, "metered")
+			var ms macaroon.Slice
+			err := json.Unmarshal(data, &ms)
+			c.Assert(err, gc.IsNil)
+			c.Assert(ms, gc.HasLen, 1)
+			c.Assert(ms[0].Id(), gc.Equals, "hello metrics")
+		},
+	}
+
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+		return setter, nil
+	})
+	defer cleanup()
+
+	cleanup.Add(jujutesting.PatchValue(&registerMetrics, httpMetricsRegistrar))
+	cleanup.Add(jujutesting.PatchValue(&registerMetricsURL, server.URL))
+
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
+	err := runDeploy(c, "local:quantal/metered-1")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:quantal/metered-1")
+	s.AssertService(c, "metered", curl, 1, 0)
+	c.Assert(called, jc.IsTrue)
+
+	c.Assert(handler.registrationCalls, gc.HasLen, 1)
+	c.Assert(handler.registrationCalls[0].CharmURL, gc.DeepEquals, "local:quantal/metered-1")
+	c.Assert(handler.registrationCalls[0].ServiceName, gc.DeepEquals, "metered")
 }
