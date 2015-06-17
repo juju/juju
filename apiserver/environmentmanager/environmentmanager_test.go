@@ -25,10 +25,11 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
-type envManagerSuite struct {
+type envManagerBaseSuite struct {
 	jujutesting.JujuConnSuite
 
 	envmanager *environmentmanager.EnvironmentManagerAPI
@@ -36,9 +37,7 @@ type envManagerSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&envManagerSuite{})
-
-func (s *envManagerSuite) SetUpTest(c *gc.C) {
+func (s *envManagerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -49,6 +48,19 @@ func (s *envManagerSuite) SetUpTest(c *gc.C) {
 
 	loggo.GetLogger("juju.apiserver.environmentmanager").SetLogLevel(loggo.TRACE)
 }
+
+func (s *envManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authoriser.Tag = user
+	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.envmanager = envmanager
+}
+
+type envManagerSuite struct {
+	envManagerBaseSuite
+}
+
+var _ = gc.Suite(&envManagerSuite{})
 
 func (s *envManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
@@ -85,13 +97,6 @@ func (s *envManagerSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver
 	return params
 }
 
-func (s *envManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
-	s.authoriser.Tag = user
-	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	s.envmanager = envmanager
-}
-
 func (s *envManagerSuite) TestUserCanCreateEnvironment(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	s.setAPIUser(c, owner)
@@ -108,6 +113,17 @@ func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.OwnerTag, gc.Equals, owner.String())
 	c.Assert(env.Name, gc.Equals, "test-env")
+	// Make sure that the environment created does actually have the correct
+	// owner, and that owner is actually allowed to use the environment.
+	newState, err := s.State.ForEnviron(names.NewEnvironTag(env.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer newState.Close()
+
+	newEnv, err := newState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newEnv.Owner(), gc.Equals, owner)
+	_, err = newState.EnvironmentUser(owner)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *gc.C) {
@@ -300,7 +316,17 @@ func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+}
+
+func (s *envManagerSuite) TestListEnvironmentsForSelfLocalUser(c *gc.C) {
+	// When the user's credentials cache stores the simple name, but the
+	// api server converts it to a fully qualified name.
+	user := names.NewUserTag("local-user")
+	s.setAPIUser(c, names.NewUserTag("local-user@local"))
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
@@ -314,10 +340,10 @@ func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 1)
+	c.Assert(result.UserEnvironments, gc.HasLen, 1)
 	expected, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEnvironmentMatches(c, result.Environments[0], expected)
+	s.checkEnvironmentMatches(c, result.UserEnvironments[0].Environment, expected)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
@@ -326,7 +352,7 @@ func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
 	other := names.NewUserTag("external@remote")
 	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
@@ -334,6 +360,77 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
 	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestEnvironmentGet(c *gc.C) {
+	s.setAPIUser(c, s.AdminUserTag(c))
+	env, err := s.envmanager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestEnvironmentGetNonAdminUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: false})
+
+	s.setAPIUser(c, user.UserTag())
+	env, err := s.envmanager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestEnvironmentGetFromNonStateServer(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test"})
+	defer st.Close()
+
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(st, common.NewResources(), authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := envManager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *envManagerSuite) TestAllEnvironmentsNonAdminUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
+	s.setAPIUser(c, user.UserTag())
+	_, err := s.envmanager.AllEnvironments()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestAllEnvironments(c *gc.C) {
+	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "owned", Owner: admin.UserTag()}).Close()
+	remoteUserTag := names.NewUserTag("user@remote")
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "user", Owner: remoteUserTag})
+	defer st.Close()
+	st.AddEnvironmentUser(admin.UserTag(), remoteUserTag, "Foo Bar")
+
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "no-access", Owner: remoteUserTag}).Close()
+
+	s.setAPIUser(c, admin.UserTag())
+	response, err := s.envmanager.AllEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []string{"dummyenv", "owned", "user", "no-access"}
+	var obtained []string
+	for _, env := range response.UserEnvironments {
+		obtained = append(obtained, env.Name)
+		stateEnv, err := s.State.GetEnvironment(names.NewEnvironTag(env.UUID))
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEnvironmentMatches(c, env.Environment, stateEnv)
+	}
+	c.Assert(obtained, jc.SameContents, expected)
+}
+
+func (s *envManagerSuite) TestUnauthorizedEnvironmentGet(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	_, err := s.envmanager.EnvironmentGet()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

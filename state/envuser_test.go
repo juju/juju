@@ -26,8 +26,8 @@ var _ = gc.Suite(&EnvUserSuite{})
 
 func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
-	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -53,7 +53,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
+	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
 
 	_, err = s.State.AddEnvironmentUser(names.NewUserTag("boB@ubuntuone"), env.Owner(), "")
 	c.Assert(err, gc.ErrorMatches, `environment user "boB@ubuntuone" already exists`)
@@ -77,7 +77,7 @@ func (s *EnvUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 		}
 	}
 
-	otherSt := s.factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 	assertIsolated(s.State, otherSt,
 		"Bob@UbuntuOne",
@@ -92,27 +92,27 @@ func (s *EnvUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
-	envUserDefault := s.factory.MakeEnvUser(c, nil)
+	envUserDefault := s.Factory.MakeEnvUser(c, nil)
 	c.Assert(envUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
 
-	envUser := s.factory.MakeEnvUser(c, &factory.EnvUserParams{DisplayName: "Override user display name"})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{DisplayName: "Override user display name"})
 	c.Assert(envUser.DisplayName(), gc.Equals, "Override user display name")
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
-	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	_, err := s.State.AddEnvironmentUser(names.NewLocalUserTag("validusername"), createdBy.UserTag(), "")
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewLocalUserTag("createdby"), "")
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
 func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	_, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,15 +124,15 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
 }
 
 func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 	err := s.State.RemoveEnvironmentUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
-	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = envUser.UpdateLastConnection()
@@ -151,14 +151,14 @@ func (s *EnvUserSuite) TestEnvironmentsForUserNone(c *gc.C) {
 }
 
 func (s *EnvUserSuite) TestEnvironmentsForUserNewLocalUser(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 	environments, err := s.State.EnvironmentsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 0)
 }
 
 func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	environments, err := s.State.EnvironmentsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
@@ -189,7 +189,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
-	s.checkSameEnvironment(c, environments[0], env)
+	s.checkSameEnvironment(c, environments[0].Environment, env)
 }
 
 func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environment) {
@@ -198,7 +198,7 @@ func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environme
 }
 
 func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Environment {
-	envState := s.factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
+	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
 	defer envState.Close()
 	newEnv, err := envState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +215,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
-	s.checkSameEnvironment(c, environments[0], env)
+	s.checkSameEnvironment(c, environments[0].Environment, env)
 }
 
 func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
@@ -232,10 +232,41 @@ func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, len(expected))
-	sort.Sort(UUIDOrder(environments))
+	sort.Sort(userUUIDOrder(environments))
 	for i := range expected {
-		s.checkSameEnvironment(c, environments[i], expected[i])
+		s.checkSameEnvironment(c, environments[i].Environment, expected[i])
 	}
+}
+
+func (s *EnvUserSuite) TestIsSystemAdministrator(c *gc.C) {
+	isAdmin, err := s.State.IsSystemAdministrator(s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsTrue)
+
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	isAdmin, err = s.State.IsSystemAdministrator(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsFalse)
+
+	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Username()})
+	isAdmin, err = s.State.IsSystemAdministrator(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsTrue)
+}
+
+func (s *EnvUserSuite) TestIsSystemAdministratorFromOtherState(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Owner: user.UserTag()})
+	defer otherState.Close()
+
+	isAdmin, err := otherState.IsSystemAdministrator(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsFalse)
+
+	isAdmin, err = otherState.IsSystemAdministrator(s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsTrue)
 }
 
 // UUIDOrder is used to sort the environments into a stable order
@@ -244,3 +275,10 @@ type UUIDOrder []*state.Environment
 func (a UUIDOrder) Len() int           { return len(a) }
 func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }
+
+// userUUIDOrder is used to sort the UserEnvironments into a stable order
+type userUUIDOrder []*state.UserEnvironment
+
+func (a userUUIDOrder) Len() int           { return len(a) }
+func (a userUUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a userUUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }

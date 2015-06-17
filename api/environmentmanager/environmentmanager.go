@@ -5,6 +5,7 @@ package environmentmanager
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -68,19 +69,83 @@ func (c *Client) CreateEnvironment(owner string, account, config map[string]inte
 	return result, nil
 }
 
+// UserEnvironment holds information about an environment and the last
+// time the environment was accessed for a particular user. This is a client
+// side structure that translates the owner tag into a user facing string.
+type UserEnvironment struct {
+	Name           string
+	UUID           string
+	Owner          string
+	LastConnection *time.Time
+}
+
 // ListEnvironments returns the environments that the specified user
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (c *Client) ListEnvironments(user string) ([]params.Environment, error) {
-	var result params.EnvironmentList
+func (c *Client) ListEnvironments(user string) ([]UserEnvironment, error) {
+	var environments params.UserEnvironmentList
 	if !names.IsValidUser(user) {
 		return nil, fmt.Errorf("invalid user name %q", user)
 	}
 	entity := params.Entity{names.NewUserTag(user).String()}
-	err := c.facade.FacadeCall("ListEnvironments", entity, &result)
+	err := c.facade.FacadeCall("ListEnvironments", entity, &environments)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return result.Environments, nil
+	result := make([]UserEnvironment, len(environments.UserEnvironments))
+	for i, env := range environments.UserEnvironments {
+		owner, err := names.ParseUserTag(env.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+		}
+		result[i] = UserEnvironment{
+			Name:           env.Name,
+			UUID:           env.UUID,
+			Owner:          owner.Username(),
+			LastConnection: env.LastConnection,
+		}
+	}
+	return result, nil
+}
+
+// AllEnvironments allows system administrators to get the list of all the
+// environments in the system.
+func (c *Client) AllEnvironments() ([]UserEnvironment, error) {
+	var environments params.UserEnvironmentList
+	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]UserEnvironment, len(environments.UserEnvironments))
+	for i, env := range environments.UserEnvironments {
+		owner, err := names.ParseUserTag(env.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+		}
+		result[i] = UserEnvironment{
+			Name:           env.Name,
+			UUID:           env.UUID,
+			Owner:          owner.Username(),
+			LastConnection: env.LastConnection,
+		}
+	}
+	return result, nil
+}
+
+// EnvironmentGet returns all environment settings for the
+// system environment.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentConfigResults{}
+	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment(envUUID string) error {
+	env := params.EnvironmentDestroyArgs{envUUID}
+	return c.facade.FacadeCall("DestroyEnvironment", env, nil)
 }

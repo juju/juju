@@ -49,7 +49,7 @@ func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
 
 func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
-	owner := s.factory.MakeUser(c, nil).UserTag()
+	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first environment.
 	_, st1, err := s.State.NewEnvironment(cfg, owner)
@@ -168,7 +168,7 @@ func (s *EnvironSuite) TestEnvironmentConfigSameEnvAsState(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
-	otherState := s.factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
 	env, err := otherState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,7 +188,7 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +197,7 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,4 +293,24 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
 	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
+}
+
+func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("bob@remote")}).Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("mary@remote")}).Close()
+	envs, err := s.State.AllEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envs, gc.HasLen, 3)
+	var obtained []string
+	for _, env := range envs {
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Username(), env.Name()))
+	}
+	expected := []string{
+		"test-admin@local/testenv",
+		"bob@remote/test",
+		"mary@remote/test",
+	}
+	c.Assert(obtained, jc.SameContents, expected)
 }

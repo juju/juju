@@ -195,10 +195,17 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	return nil
 }
 
+// UserEnvironment contains information about an environment that a
+// user has access to, along with the last time the user has connected
+// to the environment.
+type UserEnvironment struct {
+	*Environment
+	LastConnection *time.Time
+}
+
 // EnvironmentsForUser returns a list of enviroments that the user
 // is able to access.
-func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error) {
-
+func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, error) {
 	// Since there are no groups at this stage, the simplest way to get all
 	// the environments that a particular user can see is to look through the
 	// environment user collection. A raw collection is required to support
@@ -213,15 +220,38 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error)
 		return nil, err
 	}
 
-	var result []*Environment
+	var result []*UserEnvironment
 	for _, doc := range userSlice {
 		envTag := names.NewEnvironTag(doc.EnvUUID)
 		env, err := st.GetEnvironment(envTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result = append(result, env)
+		result = append(result, &UserEnvironment{Environment: env, LastConnection: doc.LastConnection})
 	}
 
 	return result, nil
+}
+
+// IsSystemAdministrator returns true if the user specified has access to the
+// state server environment (the system environment).
+func (st *State) IsSystemAdministrator(user names.UserTag) (bool, error) {
+	ssinfo, err := st.StateServerInfo()
+	if err != nil {
+		return false, errors.Annotate(err, "could not get state server info")
+	}
+
+	serverUUID := ssinfo.EnvironmentTag.Id()
+
+	envUsers, userCloser := st.getRawCollection(envUsersC)
+	defer userCloser()
+
+	count, err := envUsers.Find(bson.D{
+		{"env-uuid", serverUUID},
+		{"user", user.Username()},
+	}).Count()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return count == 1, nil
 }

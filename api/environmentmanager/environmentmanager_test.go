@@ -4,6 +4,7 @@
 package environmentmanager_test
 
 import (
+	"fmt"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -113,5 +114,40 @@ func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
 	c.Assert(envs, gc.HasLen, 2)
 
 	envNames := []string{envs[0].Name, envs[1].Name}
-	c.Assert(envNames, jc.SameContents, []string{"first", "second"})
+	c.Assert(envNames, jc.DeepEquals, []string{"first", "second"})
+	ownerNames := []string{envs[0].Owner, envs[1].Owner}
+	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
+}
+
+func (s *environmentmanagerSuite) TestAllEnvironments(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	owner := names.NewUserTag("user@remote")
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "first", Owner: owner}).Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "second", Owner: owner}).Close()
+
+	envManager := s.OpenAPI(c)
+	envs, err := envManager.AllEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envs, gc.HasLen, 3)
+
+	var obtained []string
+	for _, env := range envs {
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
+	}
+	expected := []string{
+		"dummy-admin@local/dummyenv",
+		"user@remote/first",
+		"user@remote/second",
+	}
+	c.Assert(obtained, jc.SameContents, expected)
+}
+
+func (s *environmentmanagerSuite) TestEnvironmentGet(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	envManager := s.OpenAPI(c)
+	env, err := envManager.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env["name"], gc.Equals, "dummyenv")
 }

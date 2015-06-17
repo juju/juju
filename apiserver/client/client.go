@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/environmentmanager"
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
@@ -1033,4 +1034,16 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
+}
+
+// DestroyEnvironment serves as a wrapper for environmentmanager.DestroyEnvironment
+// to support older juju clients which destroy the environment through the client
+// api endpoint.
+func (c *Client) DestroyEnvironment() (err error) {
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(c.api.state, c.api.resources, c.api.auth)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{c.api.state.EnvironUUID()})
 }

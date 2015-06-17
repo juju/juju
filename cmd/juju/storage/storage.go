@@ -23,28 +23,22 @@ const storageCmdDoc = `
 
 const storageCmdPurpose = "manage storage instances"
 
-// Command is the top-level command wrapping all storage functionality.
-type Command struct {
-	cmd.SuperCommand
-}
-
 // NewSuperCommand creates the storage supercommand and
 // registers the subcommands that it supports.
 func NewSuperCommand() cmd.Command {
-	storagecmd := Command{
-		SuperCommand: *cmd.NewSuperCommand(
-			cmd.SuperCommandParams{
-				Name:        "storage",
-				Doc:         storageCmdDoc,
-				UsagePrefix: "juju",
-				Purpose:     storageCmdPurpose,
-			})}
+	storagecmd := cmd.NewSuperCommand(
+		cmd.SuperCommandParams{
+			Name:        "storage",
+			Doc:         storageCmdDoc,
+			UsagePrefix: "juju",
+			Purpose:     storageCmdPurpose,
+		})
 	storagecmd.Register(envcmd.Wrap(&ShowCommand{}))
 	storagecmd.Register(envcmd.Wrap(&ListCommand{}))
 	storagecmd.Register(envcmd.Wrap(&AddCommand{}))
 	storagecmd.Register(NewPoolSuperCommand())
 	storagecmd.Register(NewVolumeSuperCommand())
-	return &storagecmd
+	return storagecmd
 }
 
 // StorageCommandBase is a helper base structure that has a method to get the

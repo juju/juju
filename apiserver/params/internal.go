@@ -89,6 +89,11 @@ type EnvironmentSkeletonConfigArgs struct {
 	Region   string
 }
 
+// EnvironmentDestroyArgs wraps the environment UUID to destroy.
+type EnvironmentDestroyArgs struct {
+	EnvUUID string
+}
+
 // EnvironmentCreateArgs holds the arguments that are necessary to create
 // and environment.
 type EnvironmentCreateArgs struct {
@@ -116,9 +121,17 @@ type Environment struct {
 	ServerUUID string
 }
 
-// EnvironmentList holds information about a list of environments.
-type EnvironmentList struct {
-	Environments []Environment
+// UserEnvironment holds information about an environment and the last
+// time the environment was accessed for a particular user.
+type UserEnvironment struct {
+	Environment
+	LastConnection *time.Time
+}
+
+// UserEnvironmentList holds information about a list of environments
+// for a particular user.
+type UserEnvironmentList struct {
+	UserEnvironments []UserEnvironment
 }
 
 // ResolvedModeResult holds a resolved mode or an error.

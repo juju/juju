@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,13 +24,13 @@ func TestAll(t *testing.T) {
 type BaseStorageSuite struct {
 	jujutesting.FakeJujuHomeSuite
 
-	command *storage.Command
+	command cmd.Command
 }
 
 func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	s.command = storage.NewSuperCommand().(*storage.Command)
+	s.command = storage.NewSuperCommand()
 }
 
 func (s *BaseStorageSuite) TearDownTest(c *gc.C) {

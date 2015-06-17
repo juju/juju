@@ -21,6 +21,8 @@ type ChangePasswordCommandSuite struct {
 	BaseSuite
 	mockAPI         *mockChangePasswordAPI
 	mockEnvironInfo *mockEnvironInfo
+	randomPassword  string
+	serverFilename  string
 }
 
 var _ = gc.Suite(&ChangePasswordCommandSuite{})
@@ -31,19 +33,19 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.mockEnvironInfo = &mockEnvironInfo{
 		creds: configstore.APICredentials{"user-name", "password"},
 	}
-	s.PatchValue(user.GetChangePasswordAPI, func(c *user.ChangePasswordCommand) (user.ChangePasswordAPI, error) {
-		return s.mockAPI, nil
+	s.randomPassword = ""
+	s.serverFilename = ""
+	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
+		s.randomPassword = pwd
 	})
-	s.PatchValue(user.GetEnvironInfoWriter, func(c *user.ChangePasswordCommand) (user.EnvironInfoCredsWriter, error) {
-		return s.mockEnvironInfo, nil
-	})
-	s.PatchValue(user.GetConnectionCredentials, func(c *user.ChangePasswordCommand) (configstore.APICredentials, error) {
-		return s.mockEnvironInfo.creds, nil
+	s.PatchValue(user.ServerFileNotify, func(filename string) {
+		s.serverFilename = filename
 	})
 }
 
-func newUserChangePassword() cmd.Command {
-	return envcmd.Wrap(&user.ChangePasswordCommand{})
+func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	changePasswordCommand := envcmd.WrapSystem(user.NewChangePasswordCommand(s.mockAPI, s.mockEnvironInfo))
+	return testing.RunCommand(c, changePasswordCommand, args...)
 }
 
 func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
@@ -60,32 +62,29 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 			args:     []string{"--generate"},
 			generate: true,
 		}, {
+			args:     []string{"foobar"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "foobar.server",
+		}, {
+			args:     []string{"foobar", "--generate"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "foobar.server",
+		}, {
+			args:     []string{"foobar", "--output", "somefile"},
+			user:     "foobar",
+			generate: true,
+			outPath:  "somefile",
+		}, {
 			args:        []string{"--foobar"},
 			errorString: "flag provided but not defined: --foobar",
-		}, {
-			args: []string{"foobar"},
-			user: "foobar",
 		}, {
 			args:        []string{"foobar", "extra"},
 			errorString: `unrecognized args: \["extra"\]`,
 		}, {
 			args:        []string{"--output", "somefile"},
 			errorString: "output is only a valid option when changing another user's password",
-		}, {
-			args:        []string{"-o", "somefile"},
-			errorString: "output is only a valid option when changing another user's password",
-		}, {
-			args:     []string{"foobar", "--generate"},
-			user:     "foobar",
-			generate: true,
-		}, {
-			args:    []string{"foobar", "--output", "somefile"},
-			user:    "foobar",
-			outPath: "somefile",
-		}, {
-			args:    []string{"foobar", "-o", "somefile"},
-			user:    "foobar",
-			outPath: "somefile",
 		},
 	} {
 		c.Logf("test %d", i)
@@ -101,40 +100,40 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *ChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
-	s.PatchValue(user.GetEnvironInfoWriter, func(c *user.ChangePasswordCommand) (user.EnvironInfoCredsWriter, error) {
-		return s.mockEnvironInfo, errors.New("something failed")
-	})
-	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
-	c.Assert(err, gc.ErrorMatches, "something failed")
+func (s *ChangePasswordCommandSuite) assertRandomPassword(c *gc.C) {
+	c.Assert(s.mockAPI.password, gc.Equals, s.randomPassword)
+	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+}
+
+func (s *ChangePasswordCommandSuite) assertPasswordFromReadPass(c *gc.C) {
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserChangePassword())
+	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
-	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	s.assertPasswordFromReadPass(c)
 	expected := `
-password:
-type password again:
+password: 
+type password again: 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	context, err := s.run(c, "--generate")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
-	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
-	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+	s.assertRandomPassword(c)
 	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 	s.mockAPI.failMessage = "failed to do something"
 	s.mockAPI.failOps = []bool{true, false}
-	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	_, err := s.run(c, "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 	c.Assert(s.mockAPI.username, gc.Equals, "")
 }
@@ -143,7 +142,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
 	// Fail to Write the new jenv file
 	s.mockEnvironInfo.failMessage = "failed to write"
-	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	_, err := s.run(c, "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to write new password to environments file: failed to write")
 	// Last api call was to set the password back to the original.
 	c.Assert(s.mockAPI.password, gc.Equals, "password")
@@ -154,43 +153,33 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 	s.mockAPI.failMessage = "failed to do something"
 	s.mockEnvironInfo.failMessage = "failed to write"
 	s.mockAPI.failOps = []bool{false, true}
-	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	_, err := s.run(c, "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to set password back: failed to do something")
 }
 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	context, err := testing.RunCommand(c, newUserChangePassword(), "other")
+	context, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
-	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
-	filename := context.AbsPath("other.jenv")
+	s.assertRandomPassword(c)
+	s.assertServerFileMatches(c, s.serverFilename, "other", s.randomPassword)
 	expected := `
-password:
-type password again:
-environment file written to `[1:] + filename + "\n"
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-	assertJENVContents(c, context.AbsPath("other.jenv"), "other", "sekrit")
-
+server file written to .*other.server
+`[1:]
+	c.Assert(testing.Stderr(context), gc.Matches, expected)
 }
 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	filename := filepath.Join(c.MkDir(), "test.jenv")
-	context, err := testing.RunCommand(c, newUserChangePassword(), "other", "-o", filename)
+	filename := filepath.Join(c.MkDir(), "test.result")
+	_, err := s.run(c, "other", "-o", filename)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.username, gc.Equals, "other")
-	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
-	expected := `
-password:
-type password again:
-environment file written to `[1:] + filename + "\n"
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-	assertJENVContents(c, filename, "other", "sekrit")
+	s.assertRandomPassword(c)
+	c.Assert(filepath.Base(s.serverFilename), gc.Equals, "test.result")
+	s.assertServerFileMatches(c, s.serverFilename, "other", s.randomPassword)
 }
 
 type mockEnvironInfo struct {
@@ -211,10 +200,6 @@ func (m *mockEnvironInfo) SetAPICredentials(creds configstore.APICredentials) {
 
 func (m *mockEnvironInfo) APICredentials() configstore.APICredentials {
 	return m.creds
-}
-
-func (m *mockEnvironInfo) Location() string {
-	return "location"
 }
 
 type mockChangePasswordAPI struct {

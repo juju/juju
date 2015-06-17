@@ -28,7 +28,7 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
 	c.Assert(err, gc.IsNil)
 
-	expected := "(?s).*^usage: juju action <command> .+"
+	expected := "(?s).*^usage: juju action \\[options\\] <command> .+"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	supercommand, ok := s.command.(*cmd.SuperCommand)
