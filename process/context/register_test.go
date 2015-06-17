@@ -16,6 +16,7 @@ type registerSuite struct {
 	commandSuite
 
 	registerCmd *context.ProcRegistrationCommand
+	details     *process.LaunchDetails
 }
 
 var _ = gc.Suite(&registerSuite{})
@@ -31,7 +32,23 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
-	s.registerCmd.Init([]string{s.proc.Name, "abc123"})
+	err := s.registerCmd.Init([]string{
+		name,
+		id,
+		`{"id":"` + id + `", "status":"` + status + `"}`,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.details = &process.LaunchDetails{
+		ID:     id,
+		Status: status,
+	}
+}
+
+func (s *registerSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
+	s.commandSuite.checkRun(c, expectedOut, expectedErr)
+
+	s.checkStatus(c, process.StatusActive)
+	s.checkDetails(c, s.details)
 }
 
 func (s *registerSuite) TestCommandRegistered(c *gc.C) {
@@ -164,143 +181,125 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "unexpected end of JSON input")
 }
 
-func (s *registerSuite) TestInitOverridesWithoutSubfield(c *gc.C) {
+func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = "notFoo"
 	s.registerCmd.Overrides = []string{
 		"description:foo",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.checkRun(c, "", "")
 
 	expected := s.proc.Process.Copy()
 	expected.Description = "foo"
 	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
 }
 
-func (s *registerSuite) TestInitOverridesWithSubfield(c *gc.C) {
+func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	s.proc.Process.EnvVars = map[string]string{"foo": "bar"}
 	s.registerCmd.Overrides = []string{
 		"env/foo:baz",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.checkRun(c, "", "")
 
 	expected := s.proc.Process.Copy()
 	expected.EnvVars = map[string]string{"foo": "baz"}
 	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
 }
 
-func (s *registerSuite) TestInitOverridesMissingField(c *gc.C) {
+func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
 	s.registerCmd.Overrides = []string{
 		":value",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "override: missing field")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "override: missing field")
 }
 
-func (s *registerSuite) TestInitOverridesMissingValue(c *gc.C) {
+func (s *registerSuite) TestOverridesMissingValue(c *gc.C) {
 	s.registerCmd.Overrides = []string{
 		"field:",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "override: missing value")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "override: missing value")
 }
 
-func (s *registerSuite) TestInitOverridesMissingColon(c *gc.C) {
+func (s *registerSuite) TestOverridesMissingColon(c *gc.C) {
 	s.registerCmd.Overrides = []string{
 		"fieldvalue",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "override: missing value")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "override: missing value")
 }
 
-func (s *registerSuite) TestInitAdditionsWithoutSubfield(c *gc.C) {
+func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = ""
 	s.registerCmd.Additions = []string{
 		"description:foo",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.checkRun(c, "", "")
 
 	expected := s.proc.Process.Copy()
 	expected.Description = "foo"
 	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
 }
 
-func (s *registerSuite) TestInitAdditionsWithSubfield(c *gc.C) {
+func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 	s.registerCmd.Additions = []string{
 		"env/foo:baz",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.checkRun(c, "", "")
 
 	expected := s.proc.Process.Copy()
 	expected.EnvVars = map[string]string{"foo": "baz"}
 	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
 }
 
-func (s *registerSuite) TestInitAdditionsMissingField(c *gc.C) {
+func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {
 	s.registerCmd.Additions = []string{
 		":value",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "extend: missing field")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "extend: missing field")
 }
 
-func (s *registerSuite) TestInitAdditionsMissingValue(c *gc.C) {
+func (s *registerSuite) TestAdditionsMissingValue(c *gc.C) {
 	s.registerCmd.Additions = []string{
 		"field:",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "extend: missing value")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "extend: missing value")
 }
 
-func (s *registerSuite) TestInitAdditionMissingColon(c *gc.C) {
+func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
 	s.registerCmd.Additions = []string{
 		"fieldvalue",
 	}
+	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123-override",
-	})
-	c.Assert(err, gc.ErrorMatches, "extend: missing value")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, "extend: missing value")
 }
 
 func (s *registerSuite) TestRunOkay(c *gc.C) {
