@@ -193,7 +193,7 @@ func (t *OplogTailer) loop() error {
 			}
 			idsForLastTimestamp = append(idsForLastTimestamp, doc.OperationId)
 		} else {
-			if err := iter.Err(); err != nil {
+			if err := iter.Err(); err != nil && err != mgo.ErrCursor {
 				return err
 			}
 			if iter.Timeout() {
