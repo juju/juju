@@ -46,3 +46,6 @@ start:
             type: string
             enum: [single, continuous]
             description: Execution mode either single or continuous.
+        monkey-id:
+            type: string
+            description: Identifier to track this monkeys actions.
