@@ -248,7 +248,7 @@ func (s *FlushContextSuite) TestRunHookMetricSendingFailedByServer(c *gc.C) {
 
 	// Check stub calls, metrics should not be removed.
 	s.Stub.CheckCallNames(c, "Open", "Close")
-	s.Stub.Calls = []testing.StubCall{}
+	s.Stub.ResetCalls()
 }
 
 func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
