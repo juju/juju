@@ -85,6 +85,12 @@ func (t *OplogTailer) Stop() error {
 	return t.tomb.Wait()
 }
 
+// Err returns the error that caused the OplogTailer to stop. If it
+// finished normally or hasn't stopped then nil will be returned.
+func (t *OplogTailer) Err() error {
+	return t.tomb.Err()
+}
+
 const oplogTailTimeout = time.Second
 
 func (t *OplogTailer) loop() error {
