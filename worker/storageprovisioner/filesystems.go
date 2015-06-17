@@ -25,19 +25,10 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(axw) wait for filesystems to have no attachments first.
-	// We can then have the removal of the last attachment trigger
-	// the filesystem's Life being transitioned to Dead, or watch
-	// the attachments until they're all gone. We need to watch
-	// attachments *anyway*, so we can probably integrate the two
-	// things.
 	logger.Debugf("filesystems alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	if err := ensureDead(ctx, dying); err != nil {
-		return errors.Annotate(err, "ensuring filesystems dead")
-	}
-	// Once the entities are Dead, they can be removed from state
-	// after the corresponding cloud storage resources are removed.
-	dead = append(dead, dying...)
+	// Note: we don't take any action for Dying volumes. This is an
+	// intermediate state in which a filesystem exists until all of its
+	// dependents are removed from state, at which point it becomes Dead.
 	if len(alive)+len(dead) == 0 {
 		return nil
 	}
@@ -55,17 +46,12 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Annotatef(err, "getting filesystem information")
 	}
-
-	// Deprovision "dead" filesystems, and then remove from state.
 	if err := processDeadFilesystems(ctx, dead, filesystemResults[len(alive):]); err != nil {
 		return errors.Annotate(err, "deprovisioning filesystems")
 	}
-
-	// Provision "alive" filesystems.
 	if err := processAliveFilesystems(ctx, alive, filesystemResults[:len(alive)]); err != nil {
 		return errors.Annotate(err, "provisioning filesystems")
 	}
-
 	return nil
 }
 
