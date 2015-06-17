@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
@@ -107,6 +108,14 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Ta
 }
 
 func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (*RsyslogConfigHandler, error) {
+	if namespace != "" {
+		jujuConfigDir += "-" + namespace
+	}
+	jujuConfigDir = filepath.Join(jujuConfigDir, "rsyslog")
+	if err := os.MkdirAll(jujuConfigDir, 0755); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	syslogConfig := &syslog.SyslogConfig{
 		LogFileName:          tag.String(),
 		LogDir:               logDir,
