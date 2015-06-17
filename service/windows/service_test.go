@@ -50,7 +50,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	// Clear services
 	s.stubMgr.Clear()
-	s.stub.Calls = nil
+	s.stub.ResetCalls()
 }
 
 func (s *serviceSuite) TestInstall(c *gc.C) {
