@@ -37,6 +37,5 @@ func New(tp TransactionPruner, interval time.Duration) worker.Worker {
 				return nil
 			}
 		}
-		return nil
 	})
 }

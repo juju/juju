@@ -27,6 +27,7 @@ type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 	*common.EnvironWatcher
+	*common.InstanceIdGetter
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
@@ -35,6 +36,7 @@ type StorageProvisionerAPI struct {
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
+	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
@@ -72,9 +74,6 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			case names.EnvironTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
-				//
-				// TODO(axw) allow watching volumes in alternative
-				// environments? Need to check with thumper.
 				isEnvironManager := authorizer.AuthEnvironManager()
 				return isEnvironManager && tag == st.EnvironTag()
 			case names.MachineTag:
@@ -84,24 +83,34 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			}
 		}, nil
 	}
+	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			machineTag, ok := names.VolumeMachine(tag)
+			if ok {
+				return canAccessStorageMachine(machineTag, false)
+			}
+			return authorizer.AuthEnvironManager()
+		case names.FilesystemTag:
+			machineTag, ok := names.FilesystemMachine(tag)
+			if ok {
+				return canAccessStorageMachine(machineTag, false)
+			}
+			return authorizer.AuthEnvironManager()
+		case names.MachineTag:
+			return allowMachines && canAccessStorageMachine(tag, true)
+		default:
+			return false
+		}
+	}
 	getStorageEntityAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			switch tag := tag.(type) {
-			case names.VolumeTag:
-				machineTag, ok := names.VolumeMachine(tag)
-				if ok {
-					return canAccessStorageMachine(machineTag, false)
-				}
-				return authorizer.AuthEnvironManager()
-			case names.FilesystemTag:
-				machineTag, ok := names.FilesystemMachine(tag)
-				if ok {
-					return canAccessStorageMachine(machineTag, false)
-				}
-				return authorizer.AuthEnvironManager()
-			default:
-				return false
-			}
+			return canAccessStorageEntity(tag, false)
+		}, nil
+	}
+	lifeAuthFunc := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return canAccessStorageEntity(tag, true)
 		}, nil
 	}
 	getAttachmentAuthFunc := func() (func(names.MachineTag, names.Tag) bool, error) {
@@ -134,20 +143,27 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	}
 	getMachineAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			switch tag := tag.(type) {
-			case names.MachineTag:
-				return canAccessStorageMachine(tag, false)
-			default:
-				return false
+			if tag, ok := tag.(names.MachineTag); ok {
+				return canAccessStorageMachine(tag, true)
 			}
+			return false
+		}, nil
+	}
+	getBlockDevicesAuthFunc := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			if tag, ok := tag.(names.MachineTag); ok {
+				return canAccessStorageMachine(tag, false)
+			}
+			return false
 		}, nil
 	}
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:     common.NewLifeGetter(stateInterface, getStorageEntityAuthFunc),
-		DeadEnsurer:    common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
-		EnvironWatcher: common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		LifeGetter:       common.NewLifeGetter(stateInterface, lifeAuthFunc),
+		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
+		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 
 		st:                       stateInterface,
 		settings:                 settings,
@@ -157,12 +173,13 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
 		getMachineAuthFunc:       getMachineAuthFunc,
+		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
 	}, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.
 func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.NotifyWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getBlockDevicesAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
 	}
@@ -178,6 +195,45 @@ func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.
 			return "", common.ErrPerm
 		}
 		w := s.st.WatchBlockDevices(machineTag)
+		if _, ok := <-w.Changes(); ok {
+			return s.resources.Register(w), nil
+		}
+		return "", watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.NotifyWatchResult
+		id, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.NotifyWatcherId = id
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// WatchMachines watches for changes to the specified machines.
+func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
+	canAccess, err := s.getMachineAuthFunc()
+	if err != nil {
+		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, error) {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag) {
+			return "", common.ErrPerm
+		}
+		w, err := s.st.WatchMachine(machineTag)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
 		if _, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), nil
 		}
@@ -485,6 +541,10 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
+	envConfig, err := s.st.EnvironConfig()
+	if err != nil {
+		return params.VolumeParamsResults{}, err
+	}
 	results := params.VolumeParamsResults{
 		Results: make([]params.VolumeParamsResult, len(args.Entities)),
 	}
@@ -504,25 +564,45 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		volumeParams, err := common.VolumeParams(volume, poolManager)
+		storageInstance, err := common.MaybeAssignedStorageInstance(
+			volume.StorageInstance,
+			s.st.StorageInstance,
+		)
+		if err != nil {
+			return params.VolumeParams{}, err
+		}
+		volumeParams, err := common.VolumeParams(volume, storageInstance, envConfig, poolManager)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
 		if len(volumeAttachments) == 1 {
-			machineTag := volumeAttachments[0].Machine()
+			// There is exactly one attachment to be made, so make
+			// it immediately. Otherwise we will defer attachments
+			// until later.
+			volumeAttachment := volumeAttachments[0]
+			volumeAttachmentParams, ok := volumeAttachment.Params()
+			if !ok {
+				return params.VolumeParams{}, errors.Errorf(
+					"volume %q is already attached to machine %q",
+					volumeAttachment.Volume().Id(),
+					volumeAttachment.Machine().Id(),
+				)
+			}
+			machineTag := volumeAttachment.Machine()
 			instanceId, err := s.st.MachineInstanceId(machineTag)
 			if errors.IsNotProvisioned(err) {
 				// Leave the attachment until later.
+				instanceId = ""
 			} else if err != nil {
 				return params.VolumeParams{}, err
-			} else {
-				volumeParams.Attachment = &params.VolumeAttachmentParams{
-					MachineTag: volumeAttachments[0].Machine().String(),
-					VolumeTag:  tag.String(),
-					InstanceId: string(instanceId),
-					Provider:   volumeParams.Provider,
-					// TODO(axw) other attachment params (e.g. ReadOnly)
-				}
+			}
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				tag.String(),
+				machineTag.String(),
+				"", // volume ID
+				string(instanceId),
+				volumeParams.Provider,
+				volumeAttachmentParams.ReadOnly,
 			}
 		}
 		return volumeParams, nil
@@ -547,6 +627,10 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
+	envConfig, err := s.st.EnvironConfig()
+	if err != nil {
+		return params.FilesystemParamsResults{}, err
+	}
 	results := params.FilesystemParamsResults{
 		Results: make([]params.FilesystemParamsResult, len(args.Entities)),
 	}
@@ -562,7 +646,16 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 		} else if err != nil {
 			return params.FilesystemParams{}, err
 		}
-		filesystemParams, err := common.FilesystemParams(filesystem, poolManager)
+		storageInstance, err := common.MaybeAssignedStorageInstance(
+			filesystem.Storage,
+			s.st.StorageInstance,
+		)
+		if err != nil {
+			return params.FilesystemParams{}, err
+		}
+		filesystemParams, err := common.FilesystemParams(
+			filesystem, storageInstance, envConfig, poolManager,
+		)
 		if err != nil {
 			return params.FilesystemParams{}, err
 		}
@@ -600,19 +693,17 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			return params.VolumeAttachmentParams{}, err
 		}
 		instanceId, err := s.st.MachineInstanceId(volumeAttachment.Machine())
-		if err != nil {
-			// Can't attach a volume to a machine that
-			// hasn't been provisioned yet.
-			//
-			// TODO(axw) worker should watch machines,
-			// and trigger attachment when machine is
-			// provisioned.
+		if errors.IsNotProvisioned(err) {
+			// The worker must watch for machine provisioning events.
+			instanceId = ""
+		} else if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
 		volume, err := s.st.Volume(volumeAttachment.Volume())
 		if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
+		var volumeId string
 		var pool string
 		if volumeParams, ok := volume.Params(); ok {
 			pool = volumeParams.Pool
@@ -621,18 +712,32 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			if err != nil {
 				return params.VolumeAttachmentParams{}, err
 			}
+			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
+		var readOnly bool
+		if volumeAttachmentParams, ok := volumeAttachment.Params(); ok {
+			readOnly = volumeAttachmentParams.ReadOnly
+		} else {
+			// Attachment parameters may be requested even if the
+			// attachment exists; i.e. for reattachment.
+			volumeAttachmentInfo, err := volumeAttachment.Info()
+			if err != nil {
+				return params.VolumeAttachmentParams{}, errors.Trace(err)
+			}
+			readOnly = volumeAttachmentInfo.ReadOnly
+		}
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
+			volumeId,
 			string(instanceId),
 			string(providerType),
-			// TODO(axw) other attachment params (e.g. ReadOnly)
+			readOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {
@@ -667,19 +772,17 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			return params.FilesystemAttachmentParams{}, err
 		}
 		instanceId, err := s.st.MachineInstanceId(filesystemAttachment.Machine())
-		if err != nil {
-			// Can't attach a filesystem to a machine that
-			// hasn't been provisioned yet.
-			//
-			// TODO(axw) worker should watch machines,
-			// and trigger attachment when machine is
-			// provisioned.
+		if errors.IsNotProvisioned(err) {
+			// The worker must watch for machine provisioning events.
+			instanceId = ""
+		} else if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
 		filesystem, err := s.st.Filesystem(filesystemAttachment.Filesystem())
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
+		var filesystemId string
 		var pool string
 		if filesystemParams, ok := filesystem.Params(); ok {
 			pool = filesystemParams.Pool
@@ -688,29 +791,39 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			if err != nil {
 				return params.FilesystemAttachmentParams{}, err
 			}
+			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}
-		filesystemAttachmentParams, ok := filesystemAttachment.Params()
-		if !ok {
-			return params.FilesystemAttachmentParams{}, errors.Errorf(
-				"filesystem %q is already attached to machine %q",
-				filesystemAttachment.Filesystem().Id(),
-				filesystemAttachment.Machine().Id(),
-			)
+		var location string
+		var readOnly bool
+		if filesystemAttachmentParams, ok := filesystemAttachment.Params(); ok {
+			location = filesystemAttachmentParams.Location
+			readOnly = filesystemAttachmentParams.ReadOnly
+		} else {
+			// Attachment parameters may be requested even if the
+			// attachment exists; i.e. for reattachment.
+			filesystemAttachmentInfo, err := filesystemAttachment.Info()
+			if err != nil {
+				return params.FilesystemAttachmentParams{}, errors.Trace(err)
+			}
+			location = filesystemAttachmentInfo.MountPoint
+			readOnly = filesystemAttachmentInfo.ReadOnly
 		}
 		return params.FilesystemAttachmentParams{
 			filesystemAttachment.Filesystem().String(),
 			filesystemAttachment.Machine().String(),
+			filesystemId,
 			string(instanceId),
 			string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different
 			// parts of the codebase.
-			filesystemAttachmentParams.Location,
+			location,
+			readOnly,
 		}, nil
 	}
 	for i, arg := range args.Ids {

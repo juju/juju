@@ -29,7 +29,7 @@ func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctest
 			return svc, nil
 		},
 		listServices: func() ([]string, error) {
-			return data.InstalledNames.Values(), nil
+			return data.InstalledNames(), nil
 		},
 	}
 }

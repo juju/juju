@@ -397,12 +397,24 @@ func (s *ContainerSetupSuite) TestMaybeOverrideDefaultLXCNet(c *gc.C) {
 	}
 }
 
-func AssertFileContains(c *gc.C, filename, expectedContent string) {
+func AssertFileContains(c *gc.C, filename string, expectedContent ...string) {
 	// TODO(dimitern): We should put this in juju/testing repo and
 	// replace all similar checks with it.
 	data, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.Contains, expectedContent)
+	for _, s := range expectedContent {
+		c.Assert(string(data), jc.Contains, s)
+	}
+}
+
+func AssertFileContents(c *gc.C, checker gc.Checker, filename string, expectedContent ...string) {
+	// TODO(dimitern): We should put this in juju/testing repo and
+	// replace all similar checks with it.
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, s := range expectedContent {
+		c.Assert(string(data), checker, s)
+	}
 }
 
 type SetIPAndARPForwardingSuite struct {

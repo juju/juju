@@ -256,19 +256,23 @@ func (mi *maasInstance) volumes(
 
 		volumeTag := names.NewVolumeTag(deviceLabel)
 		vol := storage.Volume{
-			Tag:        volumeTag,
-			VolumeId:   volumeTag.String(),
-			HardwareId: hardwareId,
-			Size:       uint64(sizeinBytes / humanize.MiByte),
-			Persistent: false,
+			volumeTag,
+			storage.VolumeInfo{
+				VolumeId:   volumeTag.String(),
+				HardwareId: hardwareId,
+				Size:       uint64(sizeinBytes / humanize.MiByte),
+				Persistent: false,
+			},
 		}
 		volumes = append(volumes, vol)
 
 		attachment := storage.VolumeAttachment{
-			Volume:     volumeTag,
-			DeviceName: deviceName,
-			Machine:    mTag,
-			ReadOnly:   false,
+			volumeTag,
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: deviceName,
+				ReadOnly:   false,
+			},
 		}
 		attachments = append(attachments, attachment)
 	}

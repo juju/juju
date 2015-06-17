@@ -60,13 +60,34 @@ func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, e
 	return w, nil
 }
 
-// WatchVolumes watches for changes to volumes scoped to the
+// WatchMachine watches for changes to the specified machine.
+func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.String()}},
+	}
+	err := st.facade.FacadeCall("WatchMachines", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchVolumes watches for lifecycle changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (st *State) WatchVolumes() (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchVolumes")
 }
 
-// WatchVolumes watches for changes to volumes scoped to the
+// WatchVolumes watches for lifecycle changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (st *State) WatchFilesystems() (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchFilesystems")
@@ -411,6 +432,26 @@ func (st *State) RemoveAttachments(ids []params.MachineStorageId) ([]params.Erro
 	}
 	if len(results.Results) != len(ids) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+// InstanceIds returns the provider specific instance ID for each machine,
+// or an CodeNotProvisioned error if not set.
+func (st *State) InstanceIds(tags []names.MachineTag) ([]params.StringResult, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
+	}
+	err := st.facade.FacadeCall("InstanceId", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(results.Results), len(tags))
 	}
 	return results.Results, nil
 }

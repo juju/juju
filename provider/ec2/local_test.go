@@ -245,6 +245,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
+			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 		},
@@ -939,6 +941,23 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	ec2Inst := ec2.InstanceEC2(instances[0])
+	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "juju-sample-machine-0"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-is-state", "true"},
+	})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

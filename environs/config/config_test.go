@@ -70,6 +70,11 @@ type configTest struct {
 	err         string
 }
 
+var testResourceTags = []string{"a=b", "c=", "d=e"}
+var testResourceTagsMap = map[string]string{
+	"a": "b", "c": "", "d": "e",
+}
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -85,7 +90,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"agent-stream":       "agent-stream-value",
+			"agent-stream":       "released",
 		},
 	}, {
 		about:       "Deprecated tools-stream used",
@@ -101,7 +106,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"agent-stream": "agent-stream-value",
+			"agent-stream": "released",
 			"tools-stream": "ignore-me",
 		},
 	}, {
@@ -592,7 +597,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		err: "invalid firewall mode in environment configuration: .*",
+		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
@@ -659,18 +664,14 @@ var configTests = []configTest{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			"incorrect",
-		),
+		about:       "provisioner-harvest-mode: incorrect",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
 			"provisioner-harvest-mode": "yes please",
 		},
-		err: `unknown harvesting method: yes please`,
+		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -886,7 +887,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
 		},
-		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+		err: `uuid: expected uuid, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
 	}, {
 		about:       "invalid uuid 2",
 		useDefaults: config.UseDefaults,
@@ -895,7 +896,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "uuid",
 		},
-		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+		err: `uuid: expected uuid, got string\("uuid"\)`,
 	}, {
 		about:       "blank uuid",
 		useDefaults: config.UseDefaults,
@@ -904,7 +905,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: "uuid: expected uuid, got string\\(\"\"\\)",
+		err: `empty uuid in environment configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -931,6 +932,34 @@ var configTests = []configTest{
 			"name":       "my-name",
 			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
+	},
+	{
+		about:       "Resource tags as space-separated string",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": strings.Join(testResourceTags, " "),
+		},
+	},
+	{
+		about:       "Resource tags as list of strings",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": testResourceTags,
+		},
+	},
+	{
+		about:       "Resource tags contains non-keyvalues",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": []string{"a"},
+		},
+		err: `resource-tags: expected "key=value", got "a"`,
 	},
 }
 
@@ -1313,6 +1342,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(useLxcCloneAufs, gc.Equals, v)
 	} else {
 		c.Assert(useLxcCloneAufs, jc.IsFalse)
+	}
+
+	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
+	if _, ok := test.attrs["resource-tags"]; ok {
+		c.Assert(cfgHasResourceTags, jc.IsTrue)
+		c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+	} else {
+		c.Assert(cfgHasResourceTags, jc.IsFalse)
 	}
 }
 

@@ -140,7 +140,7 @@ func assertOrder(c *gc.C, revnos ...int64) {
 
 func (s *watcherSuite) revno(c string, id interface{}) (revno int64) {
 	var doc struct {
-		Revno int64 "txn-revno"
+		Revno int64 `bson:"txn-revno"`
 	}
 	err := s.log.Database.C(c).FindId(id).One(&doc)
 	if err != nil {
@@ -497,7 +497,6 @@ Loop1:
 	s.w.Unwatch("testB", 1, chB1)
 
 	revno1 = s.update(c, "testA", 1)
-	revno3 = s.update(c, "testB", 1)
 
 	s.w.StartSync()
 

@@ -80,7 +80,7 @@ func (s *AgentApiManifoldSuite) TestStartFailure(c *gc.C) {
 		"agent-name":      dt.StubResource{Output: expectAgent},
 		"api-caller-name": dt.StubResource{Output: expectApiCaller},
 	})
-	s.Errors = []error{errors.New("some error")}
+	s.SetErrors(errors.New("some error"))
 
 	worker, err := s.manifold.Start(getResource)
 	c.Check(worker, gc.IsNil)

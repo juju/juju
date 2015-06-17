@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	stdtesting "testing"
 	"time"
 
@@ -66,7 +65,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 		Tag:        machine.Tag(),
 		Password:   password,
 		Nonce:      "fake_nonce",
-		Addrs:      []string{srv.Addr()},
+		Addrs:      []string{srv.Addr().String()},
 		CACert:     coretesting.CACert,
 		EnvironTag: s.State.EnvironTag(),
 	}
@@ -109,17 +108,8 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer srv.Stop()
 
-	// srv.Addr() always reports "localhost" together
-	// with the port as address. This way it can be used
-	// as hostname to construct URLs which will work
-	// for both IPv4 and IPv6-only networks, as
-	// localhost resolves as both 127.0.0.1 and ::1.
-	// Retrieve the port as string and integer.
-	hostname, portString, err := net.SplitHostPort(srv.Addr())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostname, gc.Equals, "localhost")
-	port, err := strconv.Atoi(portString)
-	c.Assert(err, jc.ErrorIsNil)
+	port := srv.Addr().Port
+	portString := fmt.Sprintf("%d", port)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
@@ -290,10 +280,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
-	// So find just the Port for the server
-	_, portString, err := net.SplitHostPort(srv.Addr())
-	c.Assert(err, jc.ErrorIsNil)
-	addr := "localhost:" + portString
+	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
 	// '/' should be fine
 	conn, err := dialWebsocket(c, addr, "/")
 	c.Assert(err, jc.ErrorIsNil)

@@ -262,7 +262,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	}
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	connectedAddr, hostPorts = s.loginHostPorts(c, info)
+	_, hostPorts = s.loginHostPorts(c, info)
 	// Now that we connected, we add the other stateAPIHostPorts. However,
 	// the one we connected to comes first.
 	stateAPIHostPorts = append(connectedAddrHostPorts, stateAPIHostPorts...)
@@ -673,7 +673,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 		Tag:        nil,
 		Password:   "",
 		EnvironTag: envTag,
-		Addrs:      []string{srv.Addr()},
+		Addrs:      []string{srv.Addr().String()},
 		CACert:     coretesting.CACert,
 	}
 	return info, func() {

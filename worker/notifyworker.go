@@ -47,6 +47,7 @@ func NewNotifyWorker(handler NotifyWatchHandler) Worker {
 	nw := &notifyWorker{
 		handler: handler,
 	}
+
 	go func() {
 		defer nw.tomb.Done()
 		nw.tomb.Kill(nw.loop())

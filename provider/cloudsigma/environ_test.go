@@ -13,6 +13,10 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
+var _ simplestreams.MetadataValidator = (*environ)(nil)
+
 type environSuite struct {
 	testing.BaseSuite
 }

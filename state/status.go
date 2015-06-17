@@ -497,7 +497,7 @@ type serviceStatusDoc struct {
 }
 
 // newServiceStatusDoc creates a new serviceStatusDoc with the given status and other data.
-func newServiceStatusDoc(who string, status Status, info string, data map[string]interface{}) (*serviceStatusDoc, error) {
+func newServiceStatusDoc(status Status, info string, data map[string]interface{}) (*serviceStatusDoc, error) {
 	doc := &serviceStatusDoc{statusDoc{
 		Status:     status,
 		StatusInfo: info,

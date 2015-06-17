@@ -115,10 +115,11 @@ func (ctx *context) HookFailed(hookName string) {
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
-	workerLoop := lease.WorkerLoop(ctx.st)
-	leaseWorker := worker.NewSimpleWorker(workerLoop)
+	lease, err := lease.NewLeaseManager(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
-		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+		lease.Kill()
+		c.Assert(lease.Wait(), jc.ErrorIsNil)
 	}()
 
 	defer func() {
@@ -1279,7 +1280,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err = os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
-	meta, err = corecharm.ReadMeta(f)
+	_, err = corecharm.ReadMeta(f)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

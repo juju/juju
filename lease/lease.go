@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"launchpad.net/tomb"
 )
 
 const (
@@ -21,36 +22,17 @@ const (
 )
 
 var (
-	singleton           *leaseManager
 	LeaseClaimDeniedErr = errors.New("lease claim denied")
 	NotLeaseOwnerErr    = errors.Unauthorizedf("caller did not own lease for namespace")
-
-	// TODO(Wallyworld) - a stop-gap error until we refactor using a tomb.
-	LeaseManagerErr = errors.New("lease manager restarted due to error")
+	errWorkerStopped    = errors.New("worker stopped")
 
 	logger = loggo.GetLogger("juju.lease")
 )
-
-func init() {
-	singleton = &leaseManager{
-		claimLease:       make(chan claimLeaseMsg),
-		releaseLease:     make(chan releaseLeaseMsg),
-		leaseReleasedSub: make(chan leaseReleasedMsg),
-		copyOfTokens:     make(chan copyTokensMsg),
-	}
-}
 
 type leasePersistor interface {
 	WriteToken(string, Token) error
 	RemoveToken(id string) error
 	PersistedTokens() ([]Token, error)
-}
-
-// WorkerLoop returns a function which can be utilized within a
-// worker.
-func WorkerLoop(persistor leasePersistor) func(<-chan struct{}) error {
-	singleton.leasePersistor = persistor
-	return singleton.workerLoop
 }
 
 // Token represents a lease claim.
@@ -59,65 +41,102 @@ type Token struct {
 	Expiration    time.Time
 }
 
-// Manager returns a manager.
-func Manager() *leaseManager {
-	// Guaranteed to be initialized because the init function runs
-	// first.
-	return singleton
-}
-
 //
 // Messages for channels.
 //
 
-type claimLeaseResponse struct {
-	token Token
-	err   error
-}
-
 type claimLeaseMsg struct {
 	Token    Token
-	Response chan<- claimLeaseResponse
+	Response chan<- Token
 }
+
 type releaseLeaseMsg struct {
 	Token    Token
 	Response chan<- error
 }
+
 type leaseReleasedMsg struct {
 	Watcher      chan<- struct{}
 	ForNamespace string
 }
+
 type copyTokensMsg struct {
 	Response chan<- []Token
 }
 
 type leaseManager struct {
+	tomb             tomb.Tomb
 	leasePersistor   leasePersistor
-	retrieveLease    chan Token
 	claimLease       chan claimLeaseMsg
 	releaseLease     chan releaseLeaseMsg
 	leaseReleasedSub chan leaseReleasedMsg
 	copyOfTokens     chan copyTokensMsg
 }
 
+// NewLeaseManager returns a new leaseManager, a worker that manages leases.
+// Users may interact with the lease manager while it is running, but will
+// receive an error if the manager has stopped.
+//
+// Starting a lease manager updates a singleton in this package, so an error
+// will result if NewLeaseManager is called while another lease manager is
+// still active.
+func NewLeaseManager(leasePersistor leasePersistor) (*leaseManager, error) {
+	m := &leaseManager{
+		leasePersistor:   leasePersistor,
+		claimLease:       make(chan claimLeaseMsg),
+		releaseLease:     make(chan releaseLeaseMsg),
+		leaseReleasedSub: make(chan leaseReleasedMsg),
+		copyOfTokens:     make(chan copyTokensMsg),
+	}
+	if err := singleton.setLeaseManager(m); err != nil {
+		return nil, err
+	}
+	go func() {
+		defer m.tomb.Done()
+		defer singleton.setLeaseManager(nil)
+		m.tomb.Kill(m.loop())
+	}()
+	return m, nil
+}
+
+func (m *leaseManager) Kill() {
+	m.tomb.Kill(nil)
+}
+
+func (m *leaseManager) Wait() error {
+	return m.tomb.Wait()
+}
+
 // CopyOfLeaseTokens returns a copy of the lease tokens currently held
 // by the manager.
-func (m *leaseManager) CopyOfLeaseTokens() []Token {
-	ch := make(chan []Token)
-	m.copyOfTokens <- copyTokensMsg{ch}
-	return <-ch
+func (m *leaseManager) CopyOfLeaseTokens() ([]Token, error) {
+	ch := make(chan []Token, 1)
+	select {
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
+	case m.copyOfTokens <- copyTokensMsg{ch}:
+	}
+	select {
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
+	case resp := <-ch:
+		return resp, nil
+	}
 }
 
 // RetrieveLease returns the lease token currently stored for the
 // given namespace.
-func (m *leaseManager) RetrieveLease(namespace string) Token {
-	for _, tok := range m.CopyOfLeaseTokens() {
-		if tok.Namespace != namespace {
-			continue
-		}
-		return tok
+func (m *leaseManager) RetrieveLease(namespace string) (Token, error) {
+	tokens, err := m.CopyOfLeaseTokens()
+	if err != nil {
+		return Token{}, err
 	}
-	return Token{}
+	for _, tok := range tokens {
+		if tok.Namespace == namespace {
+			return tok, nil
+		}
+	}
+	return Token{}, errors.NotFoundf("lease for %s", namespace)
 }
 
 // Claimlease claims a lease for the given duration for the given
@@ -125,32 +144,40 @@ func (m *leaseManager) RetrieveLease(namespace string) Token {
 // LeaseClaimDeniedErr will be returned. Either way the current lease
 // owner's ID will be returned.
 func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (leaseOwnerId string, err error) {
-
-	ch := make(chan claimLeaseResponse)
+	ch := make(chan Token, 1)
 	token := Token{namespace, id, time.Now().Add(forDur)}
-	message := claimLeaseMsg{token, ch}
-	m.claimLease <- message
-	claimResponse := <-ch
-	if claimResponse.err != nil {
-		return "", claimResponse.err
+	select {
+	case <-m.tomb.Dying():
+		return "", errWorkerStopped
+	case m.claimLease <- claimLeaseMsg{token, ch}:
 	}
-
-	leaseOwnerId = claimResponse.token.Id
-	if id != leaseOwnerId {
-		err = LeaseClaimDeniedErr
+	select {
+	case <-m.tomb.Dying():
+		return "", errWorkerStopped
+	case lease := <-ch:
+		leaseOwnerId = lease.Id
+		if id != leaseOwnerId {
+			err = LeaseClaimDeniedErr
+		}
+		return leaseOwnerId, err
 	}
-
-	return leaseOwnerId, err
 }
 
 // ReleaseLease releases the lease held for namespace by id.
 func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 
-	ch := make(chan error)
+	ch := make(chan error, 1)
 	token := Token{Namespace: namespace, Id: id}
-	message := releaseLeaseMsg{token, ch}
-	m.releaseLease <- message
-	err = <-ch
+	select {
+	case <-m.tomb.Dying():
+		return errWorkerStopped
+	case m.releaseLease <- releaseLeaseMsg{token, ch}:
+	}
+	select {
+	case <-m.tomb.Dying():
+		return errWorkerStopped
+	case err = <-ch:
+	}
 
 	if err != nil {
 		err = errors.Annotatef(err, `could not release lease for namespace %q, id %q`, namespace, id)
@@ -171,16 +198,19 @@ func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 // LeaseReleasedNotifier returns a channel a caller can block on to be
 // notified of when a lease is released for namespace. This channel is
 // reusable, but will be closed if it does not respond within
-// "notificationTimeout".
-func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan struct{}) {
-	watcher := make(chan struct{})
-	m.leaseReleasedSub <- leaseReleasedMsg{watcher, namespace}
-
-	return watcher
+// "notificationTimeout", or if the lease manager exits.
+func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan struct{}, err error) {
+	watcher := make(chan struct{}, 1)
+	select {
+	case <-m.tomb.Dying():
+		return nil, errWorkerStopped
+	case m.leaseReleasedSub <- leaseReleasedMsg{watcher, namespace}:
+		return watcher, nil
+	}
 }
 
 // workerLoop serializes all requests into a single thread.
-func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
+func (m *leaseManager) loop() error {
 	// These data-structures are local to ensure they're only utilized
 	// within this thread-safe context.
 
@@ -189,46 +219,66 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 	// Pull everything off our data-store & check for expirations.
 	leaseCache, err := populateTokenCache(m.leasePersistor)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "populating cache")
 	}
-	nextExpiration := m.expireLeases(leaseCache, releaseSubs)
+	nextExpiration, err := m.expireLeases(leaseCache, releaseSubs)
+	if err != nil {
+		return errors.Annotate(err, "expiring leases")
+	}
 
 	for {
 		select {
-		case <-stop:
-			return nil
+		case <-m.tomb.Dying():
+			// Close any outstanding subscribers, to inform them
+			// that the worker is dying.
+			for _, subs := range releaseSubs {
+				for _, sub := range subs {
+					close(sub)
+				}
+			}
+			return tomb.ErrDying
 		case claim := <-m.claimLease:
 			lease := claimLease(leaseCache, claim.Token)
 			if lease.Id == claim.Token.Id {
 				if err := m.leasePersistor.WriteToken(lease.Namespace, lease); err != nil {
-					claim.Response <- claimLeaseResponse{err: LeaseManagerErr}
-					return err
+					return errors.Annotate(err, "writing lease token")
 				}
 				if lease.Expiration.Before(nextExpiration) {
 					nextExpiration = lease.Expiration
 				}
 			}
-			claim.Response <- claimLeaseResponse{lease, err}
+			select {
+			case <-m.tomb.Dying():
+			case claim.Response <- lease:
+			}
 		case release := <-m.releaseLease:
 			// Unwind our layers from most volatile to least.
 			err := releaseLease(leaseCache, release.Token)
 			if err == nil {
 				namespace := release.Token.Namespace
 				if err := m.leasePersistor.RemoveToken(namespace); err != nil {
-					release.Response <- LeaseManagerErr
-					return err
+					return errors.Annotate(err, "removing lease token")
 				}
 				notifyOfRelease(releaseSubs[namespace], namespace)
 			}
-			release.Response <- err
+			select {
+			case <-m.tomb.Dying():
+			case release.Response <- err:
+			}
 		case subscription := <-m.leaseReleasedSub:
 			subscribe(releaseSubs, subscription)
 		case msg := <-m.copyOfTokens:
 			// create a copy of the lease cache for use by code
 			// external to our thread-safe context.
-			msg.Response <- copyTokens(leaseCache)
+			select {
+			case <-m.tomb.Dying():
+			case msg.Response <- copyTokens(leaseCache):
+			}
 		case <-time.After(nextExpiration.Sub(time.Now())):
-			nextExpiration = m.expireLeases(leaseCache, releaseSubs)
+			nextExpiration, err = m.expireLeases(leaseCache, releaseSubs)
+			if err != nil {
+				return errors.Annotate(err, "expiring leases")
+			}
 		}
 	}
 }
@@ -236,7 +286,7 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 func (m *leaseManager) expireLeases(
 	cache map[string]Token,
 	subscribers map[string][]chan<- struct{},
-) time.Time {
+) (time.Time, error) {
 
 	// Having just looped through all the leases we're holding, we can
 	// inform the caller of when the next expiration will occur.
@@ -256,15 +306,13 @@ func (m *leaseManager) expireLeases(
 
 		logger.Infof(`Lease for namespace %q has expired.`, token.Namespace)
 		if err := releaseLease(cache, token); err != nil {
-			// TODO(fwereade): we should certainly be returning the error and
-			// killing the main loop.
-			logger.Errorf("Failed to release expired lease for namespace %q: %v", token.Namespace, err)
+			return time.Time{}, errors.Annotatef(err, "releasing expired lease for namespace %q", token.Namespace)
 		} else {
 			notifyOfRelease(subscribers[token.Namespace], token.Namespace)
 		}
 	}
 
-	return nextExpiration
+	return nextExpiration, nil
 }
 
 func copyTokens(cache map[string]Token) (copy []Token) {

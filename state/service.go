@@ -37,7 +37,7 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:forcecharm"`
+	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
@@ -372,6 +372,79 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 	return asserts, nil
 }
 
+func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot upgrade service %q to charm %q", s, newMeta.Name)
+	ch, _, err := s.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	oldMeta := ch.Meta()
+	for name := range oldMeta.Storage {
+		if _, ok := newMeta.Storage[name]; !ok {
+			return errors.Errorf("storage %q removed", name)
+		}
+	}
+	less := func(a, b int) bool {
+		return a != -1 && (b == -1 || a < b)
+	}
+	for name, newStorageMeta := range newMeta.Storage {
+		oldStorageMeta, ok := oldMeta.Storage[name]
+		if !ok {
+			if newStorageMeta.CountMin > 0 {
+				return errors.Errorf("required storage %q added", name)
+			}
+			// New storage is fine as long as it is not required.
+			//
+			// TODO(axw) introduce a way of adding storage at
+			// upgrade time. We should also look at supplying
+			// a way of adding/changing other things during
+			// upgrade, e.g. changing service config.
+			continue
+		}
+		if newStorageMeta.Type != oldStorageMeta.Type {
+			return errors.Errorf(
+				"existing storage %q type changed from %q to %q",
+				name, oldStorageMeta.Type, newStorageMeta.Type,
+			)
+		}
+		if newStorageMeta.Shared != oldStorageMeta.Shared {
+			return errors.Errorf(
+				"existing storage %q shared changed from %v to %v",
+				name, oldStorageMeta.Shared, newStorageMeta.Shared,
+			)
+		}
+		if newStorageMeta.ReadOnly != oldStorageMeta.ReadOnly {
+			return errors.Errorf(
+				"existing storage %q read-only changed from %v to %v",
+				name, oldStorageMeta.ReadOnly, newStorageMeta.ReadOnly,
+			)
+		}
+		if newStorageMeta.Location != oldStorageMeta.Location {
+			return errors.Errorf(
+				"existing storage %q location changed from %q to %q",
+				name, oldStorageMeta.Location, newStorageMeta.Location,
+			)
+		}
+		if newStorageMeta.CountMin > oldStorageMeta.CountMin {
+			return errors.Errorf(
+				"existing storage %q range contracted: min increased from %d to %d",
+				name, oldStorageMeta.CountMin, newStorageMeta.CountMin,
+			)
+		}
+		if less(newStorageMeta.CountMax, oldStorageMeta.CountMax) {
+			var oldCountMax interface{} = oldStorageMeta.CountMax
+			if oldStorageMeta.CountMax == -1 {
+				oldCountMax = "<unbounded>"
+			}
+			return errors.Errorf(
+				"existing storage %q range contracted: max decreased from %v to %d",
+				name, oldCountMax, newStorageMeta.CountMax,
+			)
+		}
+	}
+	return nil
+}
+
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
@@ -467,6 +540,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, relOps...)
+
+	// Check storage to ensure no storage is removed, and no required
+	// storage is added for which there are no constraints.
+	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
@@ -677,7 +756,10 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, url, cons)
+	ops, numStorageAttachments, err = createStorageOps(
+		s.st, tag, meta, url, cons,
+		false, // unit is not assigned yet; don't create machine storage
+	)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
@@ -1058,6 +1140,78 @@ func (s *Service) Status() (StatusInfo, error) {
 		Data:    doc.StatusData,
 		Since:   doc.Updated,
 	}, nil
+}
+
+// SetStatus sets the status for the service.
+func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
+	var err error
+
+	var oldDoc statusDoc
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := s.Refresh(); errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
+
+		oldDoc, err = getStatus(s.st, s.globalKey())
+		insert := false
+		if IsStatusNotFound(err) {
+			insert = true
+			logger.Debugf("there is no state for %q yet", s.globalKey())
+		} else if err != nil {
+			logger.Debugf("cannot get state for %q yet", s.globalKey())
+		}
+
+		doc, err := newServiceStatusDoc(status, info, data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if insert {
+			// TODO(perrito666) we need a leader assertion added to this
+			// Op starting in 1.25.
+			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
+			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+		}
+		return []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+	}
+	if err = s.st.run(buildTxn); err != nil {
+		return errors.Errorf("cannot set status of service %q to %q: %v", s, status, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
+	return nil
+}
+
+// ServiceAndUnitsStatus returns the status for this service and all its units.
+func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+	serviceStatus, err := s.Status()
+	if err != nil {
+		return StatusInfo{}, nil, errors.Trace(err)
+	}
+	units, err := s.AllUnits()
+	if err != nil {
+		return StatusInfo{}, nil, err
+	}
+	results := make(map[string]StatusInfo, len(units))
+	for _, unit := range units {
+		unitStatus, err := unit.Status()
+		if err != nil {
+			return StatusInfo{}, nil, err
+		}
+		results[unit.Name()] = unitStatus
+	}
+	return serviceStatus, results, nil
+
 }
 
 func (s *Service) deriveStatus() (StatusInfo, error) {

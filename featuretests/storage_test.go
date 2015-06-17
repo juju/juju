@@ -418,18 +418,23 @@ func runAddToUnit(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	before, err := s.State.AllStorageInstances()
+	instancesBefore, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertStorageExist(c, before, "data")
+	volumesBefore, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageExist(c, instancesBefore, "data")
 
 	context := runAddToUnit(c, u, "allecto=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
-	after, err := s.State.AllStorageInstances()
+	instancesAfter, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-len(before), gc.Equals, 1)
-	s.assertStorageExist(c, after, "data", "allecto")
+	c.Assert(len(instancesAfter)-len(instancesBefore), gc.Equals, 1)
+	volumesAfter, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(volumesAfter)-len(volumesBefore), gc.Equals, 1)
+	s.assertStorageExist(c, instancesAfter, "data", "allecto")
 }
 
 func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
@@ -447,4 +452,60 @@ func (s *cmdStorageSuite) TestStorageAddToUnitFailure(c *gc.C) {
 	context := runAddToUnit(c, "fluffyunit/0", "allecto=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"allecto\": permission denied\n")
+}
+
+func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
+	// Reproducing Bug1462146
+	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "ebs")
+	instancesBefore, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStorageExist(c, instancesBefore, "data")
+	volumesBefore, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumesBefore, gc.HasLen, 1)
+
+	context := runList(c)
+	c.Assert(testing.Stdout(context), gc.Equals, `
+[Storage]            
+UNIT                 ID     LOCATION STATUS  PERSISTENT 
+storage-filesystem/0 data/0          pending false      
+
+`[1:])
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+
+	context = runAddToUnit(c, u, "data=ebs,1G")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+
+	instancesAfter, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(instancesAfter)-len(instancesBefore), gc.Equals, 1)
+	s.assertStorageExist(c, instancesAfter, "data", "data")
+	volumesAfter, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumesAfter, gc.HasLen, 2)
+
+	context = runList(c)
+	c.Assert(testing.Stdout(context), gc.Equals, `
+[Storage]            
+UNIT                 ID     LOCATION STATUS  PERSISTENT 
+storage-filesystem/0 data/0          pending false      
+storage-filesystem/0 data/1          pending false      
+
+`[1:])
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func createUnitWithFileSystemStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName string) string {
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons(poolName, 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return unit.Tag().Id()
 }

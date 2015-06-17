@@ -2237,6 +2237,7 @@ func (s *clientSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	mySvc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err = mySvc.Relations()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(rels), gc.Equals, 1)
 }
 
@@ -3218,6 +3219,7 @@ func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAdd
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
 	err = s.APIState.Client().AddCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }
 
