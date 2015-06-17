@@ -534,8 +534,8 @@ func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorage
 	return results, nil
 }
 
-// VolumeParams returns the parameters for creating the volumes
-// with the specified tags.
+// VolumeParams returns the parameters for creating or destroying
+// the volumes with the specified tags.
 func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {

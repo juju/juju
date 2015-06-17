@@ -363,7 +363,20 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.VolumeParamsResults{
 		Results: []params.VolumeParamsResult{
-			{Error: &params.Error{`volume "0/0" is already provisioned`, ""}},
+			{Result: params.VolumeParams{
+				VolumeTag: "volume-0-0",
+				Size:      1024,
+				Provider:  "machinescoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+				Attachment: &params.VolumeAttachmentParams{
+					MachineTag: "machine-0",
+					VolumeTag:  "volume-0-0",
+					Provider:   "machinescoped",
+					InstanceId: "inst-id",
+				},
+			}},
 			{Result: params.VolumeParams{
 				VolumeTag: "volume-1",
 				Size:      2048,
@@ -412,7 +425,14 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.FilesystemParamsResults{
 		Results: []params.FilesystemParamsResult{
-			{Error: &params.Error{`filesystem "0/0" is already provisioned`, ""}},
+			{Result: params.FilesystemParams{
+				FilesystemTag: "filesystem-0-0",
+				Size:          1024,
+				Provider:      "machinescoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+			}},
 			{Result: params.FilesystemParams{
 				FilesystemTag: "filesystem-1",
 				Size:          2048,

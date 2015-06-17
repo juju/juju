@@ -4,8 +4,6 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -15,17 +13,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-type filesystemAlreadyProvisionedError struct {
-	error
-}
-
-// IsFilesystemAlreadyProvisioned returns true if the specified error
-// is caused by a filesystem already being provisioned.
-func IsFilesystemAlreadyProvisioned(err error) bool {
-	_, ok := err.(*filesystemAlreadyProvisionedError)
-	return ok
-}
-
 // FilesystemParams returns the parameters for creating the given filesystem.
 func FilesystemParams(
 	f state.Filesystem,
@@ -33,12 +20,19 @@ func FilesystemParams(
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 ) (params.FilesystemParams, error) {
-	stateFilesystemParams, ok := f.Params()
-	if !ok {
-		err := &filesystemAlreadyProvisionedError{fmt.Errorf(
-			"filesystem %q is already provisioned", f.Tag().Id(),
-		)}
-		return params.FilesystemParams{}, err
+
+	var pool string
+	var size uint64
+	if stateFilesystemParams, ok := f.Params(); ok {
+		pool = stateFilesystemParams.Pool
+		size = stateFilesystemParams.Size
+	} else {
+		filesystemInfo, err := f.Info()
+		if err != nil {
+			return params.FilesystemParams{}, errors.Trace(err)
+		}
+		pool = filesystemInfo.Pool
+		size = filesystemInfo.Size
 	}
 
 	filesystemTags, err := storageTags(storageInstance, environConfig)
@@ -46,14 +40,14 @@ func FilesystemParams(
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(stateFilesystemParams.Pool, poolManager)
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}
 	result := params.FilesystemParams{
 		f.Tag().String(),
 		"", // volume tag
-		stateFilesystemParams.Size,
+		size,
 		string(providerType),
 		cfg.Attrs(),
 		filesystemTags,

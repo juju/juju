@@ -4,8 +4,6 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -28,19 +26,27 @@ func IsVolumeAlreadyProvisioned(err error) bool {
 	return ok
 }
 
-// VolumeParams returns the parameters for creating the given volume.
+// VolumeParams returns the parameters for creating or destroying
+// the given volume.
 func VolumeParams(
 	v state.Volume,
 	storageInstance state.StorageInstance,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 ) (params.VolumeParams, error) {
-	stateVolumeParams, ok := v.Params()
-	if !ok {
-		err := &volumeAlreadyProvisionedError{fmt.Errorf(
-			"volume %q is already provisioned", v.Tag().Id(),
-		)}
-		return params.VolumeParams{}, err
+
+	var pool string
+	var size uint64
+	if stateVolumeParams, ok := v.Params(); ok {
+		pool = stateVolumeParams.Pool
+		size = stateVolumeParams.Size
+	} else {
+		volumeInfo, err := v.Info()
+		if err != nil {
+			return params.VolumeParams{}, errors.Trace(err)
+		}
+		pool = volumeInfo.Pool
+		size = volumeInfo.Size
 	}
 
 	volumeTags, err := storageTags(storageInstance, environConfig)
@@ -48,13 +54,13 @@ func VolumeParams(
 		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(stateVolumeParams.Pool, poolManager)
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
 	if err != nil {
 		return params.VolumeParams{}, errors.Trace(err)
 	}
 	return params.VolumeParams{
 		v.Tag().String(),
-		stateVolumeParams.Size,
+		size,
 		string(providerType),
 		cfg.Attrs(),
 		volumeTags,
