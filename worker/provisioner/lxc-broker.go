@@ -443,6 +443,11 @@ var setupRoutesAndIPTables = func(
 		if code != 2 && err != nil {
 			return errors.Trace(err)
 		}
+		if code == 2 {
+			logger.Tracef("route already exists - not added")
+		} else {
+			logger.Tracef("route added: container uses host network interface")
+		}
 	}
 	logger.Infof("successfully configured iptables and routes for container interfaces")
 
