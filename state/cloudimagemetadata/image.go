@@ -40,7 +40,7 @@ func NewStorage(
 	}
 }
 
-// AddMetadata implements Storage.AddMetadata
+// AddMetadata implements Storage.AddMetadata.
 func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 	newDoc := imagesMetadataDoc{
 		Id:          metadata.imageId(),
@@ -71,7 +71,7 @@ func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 	return nil
 }
 
-// Metadata implements Storage.Metadata
+// Metadata implements Storage.Metadata.
 func (s *cloudImageStorage) Metadata(stream, version, arch string) (Metadata, error) {
 	metadataDoc, err := s.imagesMetadata(stream, version, arch)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *cloudImageStorage) Metadata(stream, version, arch string) (Metadata, er
 	return metadataDoc.public(), nil
 }
 
-// AllMetadata implements Storage.AllMetadata
+// AllMetadata implements Storage.AllMetadata.
 func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
@@ -96,7 +96,7 @@ func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 func (c *cloudImageStorage) imagesMetadata(
 	stream, version, arch string,
 ) (imagesMetadataDoc, error) {
-	// Construct metadata search id based on input
+	// Construct metadata search id based on input.
 	desiredID := createId(stream, version, arch)
 	var doc imagesMetadataDoc
 	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
