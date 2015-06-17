@@ -84,10 +84,11 @@ func NewOplogTailer(oplog *mgo.Collection, query bson.D) *OplogTailer {
 	t := &OplogTailer{
 		oplog: oplog.With(session),
 		query: query,
-		outCh: make(chan *OplogDoc, 1),
+		outCh: make(chan *OplogDoc),
 	}
 	go func() {
 		defer func() {
+			close(t.outCh)
 			t.tomb.Done()
 			session.Close()
 		}()
@@ -123,6 +124,12 @@ func (t *OplogTailer) Stop() error {
 	return t.tomb.Wait()
 }
 
+// Err returns the error that caused the OplogTailer to stop. If it
+// finished normally or hasn't stopped then nil will be returned.
+func (t *OplogTailer) Err() error {
+	return t.tomb.Err()
+}
+
 const oplogTailTimeout = time.Second
 
 func (t *OplogTailer) loop() error {
@@ -134,8 +141,12 @@ func (t *OplogTailer) loop() error {
 	// idsForLastTimestamp records the unique operation ids that have
 	// been reported for the most recently reported oplog
 	// timestamp. This is used to avoid re-reporting oplog entries
-	// when the iterator is restarted. It's possible for there to be
-	// many oplog entries for a given timestamp.
+	// when the iterator is restarted. These timestamps are unique for
+	// a given mongod but when there's multiple replicaset members
+	// it's possible for there to be multiple oplog entries for a
+	// given timestamp.
+	//
+	// See: http://docs.mongodb.org/v2.4/reference/bson-types/#timestamps
 	var idsForLastTimestamp []int64
 
 	for {
@@ -164,7 +175,11 @@ func (t *OplogTailer) loop() error {
 
 		var doc OplogDoc
 		if iter.Next(&doc) {
-			t.outCh <- &doc
+			select {
+			case <-t.tomb.Dying():
+				return tomb.ErrDying
+			case t.outCh <- &doc:
+			}
 
 			if doc.Timestamp > lastTimestamp {
 				lastTimestamp = doc.Timestamp
