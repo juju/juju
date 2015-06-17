@@ -74,7 +74,7 @@ func (s *storageSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id s
 	c.Check(meta.Origin.Machine, gc.Equals, expected.Origin.Machine)
 	c.Check(meta.Origin.Hostname, gc.Equals, expected.Origin.Hostname)
 	c.Check(meta.Origin.Version, gc.Equals, expected.Origin.Version)
-	if meta.Stored() != nil && expected.Stored != nil {
+	if meta.Stored() != nil && expected.Stored() != nil {
 		c.Check(meta.Stored().Unix(), gc.Equals, expected.Stored().Unix())
 	} else {
 		c.Check(meta.Stored(), gc.Equals, expected.Stored())

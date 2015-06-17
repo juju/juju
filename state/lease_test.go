@@ -6,7 +6,11 @@ package state
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/lease"
@@ -27,7 +31,7 @@ var (
 // Stub functions for when we don't care.
 //
 
-func stubRunTransaction(ops []txn.Op) error {
+func stubRunTransaction(txns jujutxn.TransactionSource) error {
 	return nil
 }
 
@@ -35,44 +39,109 @@ func stubGetCollection(collectionName string) (stateCollection, func()) {
 	return &genericStateCollection{}, func() {}
 }
 
+type stubLeaseCollection struct {
+	stateCollection
+	tokenToReturn *leaseEntity
+}
+
+func (s *stubLeaseCollection) FindById(id string) (*leaseEntity, error) {
+	if s.tokenToReturn == nil {
+		return nil, mgo.ErrNotFound
+	}
+	return s.tokenToReturn, nil
+}
+
 type leaseSuite struct{}
 
-func (s *leaseSuite) TestWriteToken(c *gc.C) {
+func (s *leaseSuite) TestWriteNewToken(c *gc.C) {
 
 	tok := lease.Token{testNamespace, testId, time.Now().Add(testDuration)}
 
-	stubRunTransaction := func(ops []txn.Op) error {
-		c.Assert(ops, gc.HasLen, 2)
-
-		// First delete.
+	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
+		ops, err := txns(0)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(ops[0].Assert, gc.Equals, txn.DocMissing)
 		c.Check(ops[0].C, gc.Equals, testCollectionName)
-		c.Check(ops[0].Remove, gc.Equals, true)
+		c.Check(ops[0].Insert.(leaseEntity).Token, gc.DeepEquals, tok)
 		c.Check(ops[0].Id, gc.Equals, testId)
-
-		// Then insert.
-		c.Check(ops[1].Assert, gc.Equals, txn.DocMissing)
-		c.Check(ops[1].C, gc.Equals, testCollectionName)
-		c.Check(ops[1].Insert.(leaseEntity).Token, gc.DeepEquals, tok)
-		c.Check(ops[1].Id, gc.Equals, testId)
-
 		return nil
 	}
 
-	persistor := NewLeasePersistor(testCollectionName, stubRunTransaction, stubGetCollection)
-
+	closerCallCount := 0
+	stubGetCollection := func(collectionName string) (leaseCollection, func()) {
+		c.Check(collectionName, gc.Equals, testCollectionName)
+		return &stubLeaseCollection{&genericStateCollection{}, nil}, func() { closerCallCount++ }
+	}
+	persistor := LeasePersistor{testCollectionName, stubRunTransaction, stubGetCollection}
 	err := persistor.WriteToken(testId, tok)
-
 	c.Assert(err, gc.IsNil)
+	c.Assert(closerCallCount, gc.Equals, 1)
+}
+
+func (s *leaseSuite) TestWriteTokenReplaceExisting(c *gc.C) {
+
+	tok := lease.Token{testNamespace, testId, time.Now().Add(testDuration)}
+	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
+		ops, err := txns(0)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(ops[0].Assert, gc.DeepEquals, bson.D{bson.DocElem{Name: "txn-revno", Value: int64(10)}})
+		c.Check(ops[0].C, gc.Equals, testCollectionName)
+		c.Check(ops[0].Id, gc.Equals, testId)
+
+		values := ops[0].Update.(bson.M)["$set"].(bson.M)
+		token := values["token"].(lease.Token)
+		c.Assert(token, gc.DeepEquals, tok)
+		return nil
+	}
+
+	existingTok := lease.Token{testNamespace, "1234", time.Now().Add(testDuration)}
+	existing := leaseEntity{time.Now(), existingTok, 10}
+	closerCallCount := 0
+	stubGetCollection := func(collectionName string) (leaseCollection, func()) {
+		c.Check(collectionName, gc.Equals, testCollectionName)
+		return &stubLeaseCollection{&genericStateCollection{}, &existing}, func() { closerCallCount++ }
+	}
+	persistor := LeasePersistor{testCollectionName, stubRunTransaction, stubGetCollection}
+	err := persistor.WriteToken(testId, tok)
+	c.Assert(err, gc.IsNil)
+	c.Assert(closerCallCount, gc.Equals, 1)
+}
+
+func (s *leaseSuite) TestWriteTokenConflict(c *gc.C) {
+
+	tok := lease.Token{testNamespace, testId, time.Now().Add(testDuration)}
+
+	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
+		// Any attempt to build txns with attempt>1 is rejected.
+		_, err := txns(1)
+		c.Assert(err, gc.NotNil)
+		return err
+	}
+
+	closerCallCount := 0
+	stubGetCollection := func(collectionName string) (leaseCollection, func()) {
+		c.Check(collectionName, gc.Equals, testCollectionName)
+		return &stubLeaseCollection{&genericStateCollection{}, nil}, func() { closerCallCount++ }
+	}
+	persistor := LeasePersistor{testCollectionName, stubRunTransaction, stubGetCollection}
+	err := persistor.WriteToken(testId, tok)
+	c.Assert(err, gc.NotNil)
+	c.Assert(closerCallCount, gc.Equals, 1)
 }
 
 func (s *leaseSuite) TestRemoveToken(c *gc.C) {
 
-	stubRunTransaction := func(ops []txn.Op) error {
+	stubRunTransaction := func(txns jujutxn.TransactionSource) error {
+		ops, err := txns(0)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ops, gc.HasLen, 1)
 
 		c.Check(ops[0].C, gc.Equals, testCollectionName)
 		c.Check(ops[0].Remove, gc.Equals, true)
 		c.Check(ops[0].Id, gc.Equals, testId)
+
+		_, err = txns(1)
+		c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 
 		return nil
 	}

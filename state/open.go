@@ -89,8 +89,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment, owner: %q", owner.Username())
-	logger.Infof("info: %#v", info)
 	logger.Infof("starting presence watcher")
 	st.startPresenceWatcher()
 
@@ -261,7 +259,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
 
 	// Create DB indexes.
 	for _, item := range indexes {

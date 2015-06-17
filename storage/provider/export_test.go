@@ -16,8 +16,12 @@ import (
 
 var Getpagesize = &getpagesize
 
-func LoopVolumeSource(storageDir string, run func(string, ...string) (string, error)) storage.VolumeSource {
-	return &loopVolumeSource{run, storageDir}
+func LoopVolumeSource(storageDir string, run func(string, ...string) (string, error)) (storage.VolumeSource, *MockDirFuncs) {
+	dirFuncs := &MockDirFuncs{
+		osDirFuncs{run},
+		set.NewStrings(),
+	}
+	return &loopVolumeSource{dirFuncs, run, storageDir}, dirFuncs
 }
 
 func LoopProvider(run func(string, ...string) (string, error)) storage.Provider {
@@ -80,7 +84,7 @@ func (m *MockFileInfo) Sys() interface{} {
 }
 
 func (m *MockDirFuncs) lstat(name string) (os.FileInfo, error) {
-	if name == "file" || m.Dirs.Contains(name) {
+	if name == "file" || name == "exists" || m.Dirs.Contains(name) {
 		return &MockFileInfo{name != "file"}, nil
 	}
 	return nil, os.ErrNotExist

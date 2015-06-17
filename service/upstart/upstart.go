@@ -315,6 +315,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
+	// TODO(ericsnow) Add clarification about why transient services are not started.
 	if s.Service.Conf.Transient {
 		return nil, nil
 	}
@@ -377,3 +378,20 @@ post-stop script
 end script
 {{end}}
 `[1:]))
+
+// CleanShutdownJob is added to machines to ensure DHCP-assigned IP
+// addresses are released on shutdown, reboot, or halt. See bug
+// http://pad.lv/1348663 for more info.
+const CleanShutdownJob = `
+author "Juju Team <juju@lists.ubuntu.com>"
+description "Stop all network interfaces on shutdown"
+start on runlevel [016]
+task
+console output
+
+exec /sbin/ifdown -a -v --force
+`
+
+// CleanShutdownJobPath is the full file path where CleanShutdownJob
+// is created.
+const CleanShutdownJobPath = "/etc/init/juju-clean-shutdown.conf"

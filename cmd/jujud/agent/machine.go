@@ -35,6 +35,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -114,6 +115,9 @@ var (
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
+	newResumer               = resumer.NewResumer
+	newInstancePoller        = instancepoller.NewWorker
+	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -286,6 +290,7 @@ func NewMachineAgent(
 		upgradeWorkerContext: upgradeWorkerContext,
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
 }
 
@@ -312,6 +317,12 @@ type MachineAgent struct {
 	restoring            bool
 	workersStarted       chan struct{}
 
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
+
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
@@ -335,6 +346,15 @@ func (a *MachineAgent) IsRestorePreparing() bool {
 // and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
+}
+
+func (a *MachineAgent) isAgentUpgradePending() bool {
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // Wait waits for the machine agent to finish.
@@ -525,9 +545,9 @@ func (a *MachineAgent) EndRestore() {
 	a.restoring = false
 }
 
-// newrestorestatewatcherworker will return a worker or err if there is a failure,
-// the worker takes care of watching the state of restoreInfo doc and put the
-// agent in the different restore modes.
+// newRestoreStateWatcherWorker will return a worker or err if there
+// is a failure, the worker takes care of watching the state of
+// restoreInfo doc and put the agent in the different restore modes.
 func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
@@ -662,17 +682,9 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
-	// Run the upgrader and the upgrade-steps worker without waiting for
+	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
-			st.Upgrader(),
-			agentConfig,
-			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
-		), nil
-	})
-
+	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
@@ -710,6 +722,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
 			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+		})
+	}
+	if isEnvironManager {
+		runner.StartWorker("resumer", func() (worker.Worker, error) {
+			// The action of resumer is so subtle that it is not tested,
+			// because we can't figure out how to do so without
+			// brutalising the transaction log.
+			return newResumer(st.Resumer()), nil
 		})
 	}
 
@@ -760,7 +780,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		scope := agentConfig.Tag()
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(scope, storageDir, api, api, api, api), nil
+		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
 	})
 
 	// Check if the network management is disabled.
@@ -842,6 +862,21 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
+}
+
+func (a *MachineAgent) agentUpgraderWorkerStarter(
+	st *apiupgrader.State,
+	agentConfig agent.Config,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return upgrader.NewAgentUpgrader(
+			st,
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+			a.initialAgentUpgradeCheckComplete,
+		), nil
 	}
 }
 
@@ -995,8 +1030,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
-				workerLoop := lease.WorkerLoop(st)
-				return worker.NewSimpleWorker(workerLoop), nil
+				return lease.NewLeaseManager(st)
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
@@ -1021,13 +1055,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
 			})
 
-			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
-				// The action of resumer is so subtle that it is not tested,
-				// because we can't figure out how to do so without brutalising
-				// the transaction log.
-				return resumer.NewResumer(st), nil
-			})
-
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
 			})
@@ -1046,7 +1073,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 func (a *MachineAgent) startEnvWorkers(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
-) (runner worker.Runner, err error) {
+) (_ worker.Worker, err error) {
 	envUUID := st.EnvironUUID()
 	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
 	logger.Infof("starting workers for env %s", envUUID)
@@ -1063,7 +1090,7 @@ func (a *MachineAgent) startEnvWorkers(
 	// Create a runner for workers specific to this
 	// environment. Either the State or API connection failing will be
 	// considered fatal, killing the runner and all its workers.
-	runner = newConnRunner(st, apiSt)
+	runner := newConnRunner(st, apiSt)
 	defer func() {
 		if err != nil && runner != nil {
 			runner.Kill()
@@ -1098,12 +1125,6 @@ func (a *MachineAgent) startEnvWorkers(
 	// Start workers that depend on a *state.State.
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
-	runner.StartWorker("instancepoller", func() (worker.Worker, error) {
-		return instancepoller.NewWorker(st), nil
-	})
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return cleaner.NewCleaner(st), nil
-	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
@@ -1116,15 +1137,21 @@ func (a *MachineAgent) startEnvWorkers(
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-		scope := agentConfig.Environment()
+		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(scope, "", api, api, api, api), nil
+		return newStorageWorker(scope, "", api, api, api, api, api), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+	})
+	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
+		return newInstancePoller(apiSt.InstancePoller()), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
@@ -1204,7 +1231,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 }
 
 // limitLogins is called by the API server for each login attempt.
-// it returns an error if upgrads or restore are running.
+// it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
@@ -1246,7 +1273,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() {
+	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1261,7 +1288,7 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
 	} else {
 		return nil // allow all logins
 	}
@@ -1541,11 +1568,16 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
 func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// Wait for the upgrade to complete (or for us to be stopped).
-		select {
-		case <-stop:
-			return nil
-		case <-a.upgradeWorkerContext.UpgradeComplete:
+		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
+		for _, ch := range []chan struct{}{
+			a.upgradeWorkerContext.UpgradeComplete,
+			a.initialAgentUpgradeCheckComplete,
+		} {
+			select {
+			case <-stop:
+				return nil
+			case <-ch:
+			}
 		}
 		// Upgrades are done, start the worker.
 		worker, err := start()

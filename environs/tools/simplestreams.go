@@ -183,20 +183,33 @@ func (t *ToolsMetadata) String() string {
 	return fmt.Sprintf("%+v", *t)
 }
 
-// binary returns the tools metadata's binary version,
-// which may be used for map lookup.
-func (t *ToolsMetadata) binary() version.Binary {
+// sortString is used by byVersion to sort a list of ToolsMetadata.
+func (t *ToolsMetadata) sortString() string {
+	return fmt.Sprintf("%v-%s-%s", t.Version, t.Release, t.Arch)
+}
+
+// binary returns the tools metadata's binary version, which may be used for
+// map lookup. It is possible for a binary to have an unkown OS.
+func (t *ToolsMetadata) binary() (version.Binary, error) {
+	num, err := version.Parse(t.Version)
+	if err != nil {
+		return version.Binary{}, errors.Trace(err)
+	}
+	toolsOS, err := version.GetOSFromSeries(t.Release)
+	if err != nil && !version.IsUnknownOSForSeriesError(err) {
+		return version.Binary{}, errors.Trace(err)
+	}
 	return version.Binary{
-		Number: version.MustParse(t.Version),
+		Number: num,
 		Series: t.Release,
 		Arch:   t.Arch,
-		OS:     version.MustOSFromSeries(t.Release),
-	}
+		OS:     toolsOS,
+	}, nil
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
 	seriesVersion, err := version.SeriesVersion(t.Release)
-	if err != nil {
+	if err != nil && !version.IsUnknownSeriesVersionError(err) {
 		return "", err
 	}
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
@@ -246,17 +259,21 @@ type byVersion []*ToolsMetadata
 
 func (b byVersion) Len() int           { return len(b) }
 func (b byVersion) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byVersion) Less(i, j int) bool { return b[i].binary().String() < b[j].binary().String() }
+func (b byVersion) Less(i, j int) bool { return b[i].sortString() < b[j].sortString() }
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
 func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
-	tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+	tools map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
 
 	toolsMap := make(map[version.Binary]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
-		toolsMap[tm.binary()] = tm
+		binary, err := tm.binary()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		toolsMap[binary] = tm
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
@@ -278,12 +295,16 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 				}
 			}
 		}
-		if _, ok := toolsMap[tm.binary()]; !ok {
+		binary, err := tm.binary()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if _, ok := toolsMap[binary]; !ok {
 			tm.FullPath, _ = source.URL(tm.Path)
 			matchingTools = append(matchingTools, tm)
 		}
 	}
-	return matchingTools
+	return matchingTools, nil
 }
 
 type MetadataFile struct {
@@ -319,7 +340,10 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		if md.Size != 0 {
 			continue
 		}
-		binary := md.binary()
+		binary, err := md.binary()
+		if err != nil {
+			return errors.Annotate(err, "cannot resolve metadata")
+		}
 		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
 		// Older versions of Juju only know about ppc64, not ppc64el,
@@ -347,10 +371,17 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) {
 	merged := make(map[version.Binary]*ToolsMetadata)
 	for _, tm := range tmlist1 {
-		merged[tm.binary()] = tm
+		binary, err := tm.binary()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot merge metadata")
+		}
+		merged[binary] = tm
 	}
 	for _, tm := range tmlist2 {
-		binary := tm.binary()
+		binary, err := tm.binary()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot merge metadata")
+		}
 		if existing, ok := merged[binary]; ok {
 			if tm.Size != 0 {
 				if existing.Size == 0 {

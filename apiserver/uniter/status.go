@@ -16,10 +16,12 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	agentSetter  *common.StatusSetter
-	unitSetter   *common.StatusSetter
-	unitGetter   *common.StatusGetter
-	getCanModify common.GetAuthFunc
+	agentSetter   *common.StatusSetter
+	unitSetter    *common.StatusSetter
+	unitGetter    *common.StatusGetter
+	serviceSetter *common.ServiceStatusSetter
+	serviceGetter *common.ServiceStatusGetter
+	getCanModify  common.GetAuthFunc
 }
 
 type unitAgentFinder struct {
@@ -42,12 +44,16 @@ func (ua *unitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
+	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)
+	serviceGetter := common.NewServiceStatusGetter(st, getCanModify)
 	agentSetter := common.NewStatusSetter(&unitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
-		agentSetter:  agentSetter,
-		unitSetter:   unitSetter,
-		unitGetter:   unitGetter,
-		getCanModify: getCanModify,
+		agentSetter:   agentSetter,
+		unitSetter:    unitSetter,
+		unitGetter:    unitGetter,
+		serviceSetter: serviceSetter,
+		serviceGetter: serviceGetter,
+		getCanModify:  getCanModify,
 	}
 }
 
@@ -71,7 +77,19 @@ func (s *StatusAPI) SetUnitStatus(args params.SetStatus) (params.ErrorResults, e
 	return s.unitSetter.SetStatus(args)
 }
 
+// SetServiceStatus sets the status for all the Services in args if the given Unit is
+// the leader.
+func (s *StatusAPI) SetServiceStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return s.serviceSetter.SetStatus(args)
+}
+
 // UnitStatus returns the workload status information for the unit.
 func (s *StatusAPI) UnitStatus(args params.Entities) (params.StatusResults, error) {
 	return s.unitGetter.Status(args)
+}
+
+// ServiceStatus returns the status of the Services and its workloads
+// if the given unit is the leader.
+func (s *StatusAPI) ServiceStatus(args params.Entities) (params.ServiceStatusResults, error) {
+	return s.serviceGetter.Status(args)
 }

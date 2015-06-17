@@ -285,6 +285,11 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 		AfterStopped: "cloud-final",
 		ExecStart:    execStart,
 	}
+	// systemd uses targets for synchronization of services
+	if initSystem == service.InitSystemSystemd {
+		conf.AfterStopped = "cloud-config.target"
+	}
+
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -294,5 +299,12 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	startCommands, err := svc.StartCommands()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cmds = append(cmds, startCommands...)
+
 	return cmds, nil
 }

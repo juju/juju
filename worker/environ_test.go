@@ -4,131 +4,144 @@
 package worker_test
 
 import (
+	"errors"
 	"strings"
+	"sync"
 	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type environSuite struct {
-	testing.JujuConnSuite
+	coretesting.BaseSuite
+
+	st *fakeState
 }
 
 var _ = gc.Suite(&environSuite{})
 
+func (s *environSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.st = &fakeState{
+		Stub:    &testing.Stub{},
+		changes: make(chan struct{}, 100),
+	}
+}
+
 func (s *environSuite) TestStop(c *gc.C) {
-	w := s.State.WatchForEnvironConfigChanges()
+	s.st.SetErrors(
+		nil,                // WatchForEnvironConfigChanges
+		errors.New("err1"), // Changes (closing the channel)
+	)
+	s.st.SetConfig(c, coretesting.Attrs{
+		"type": "invalid",
+	})
+
+	w, err := s.st.WatchForEnvironConfigChanges()
+	c.Assert(err, jc.ErrorIsNil)
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
+	close(stop) // close immediately so the loop exits.
 	done := make(chan error)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.State, stop)
+		env, err := worker.WaitForEnviron(w, s.st, stop)
 		c.Check(env, gc.IsNil)
 		done <- err
 	}()
-	close(stop)
-	c.Assert(<-done, gc.Equals, tomb.ErrDying)
+	select {
+	case <-worker.LoadedInvalid:
+		c.Errorf("expected changes watcher to be closed")
+	case err := <-done:
+		c.Assert(err, gc.Equals, tomb.ErrDying)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for the WaitForEnviron to stop")
+	}
+	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges", "Changes")
 }
 
-func stopWatcher(c *gc.C, w state.NotifyWatcher) {
+func stopWatcher(c *gc.C, w apiwatcher.NotifyWatcher) {
 	err := w.Stop()
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
-	var oldType string
-	oldType = s.Environ.Config().AllAttrs()["type"].(string)
+	s.st.SetConfig(c, coretesting.Attrs{
+		"type": "unknown",
+	})
 
-	// Create an invalid config by taking the current config and
-	// tweaking the provider type.
-	info := s.MongoInfo(c)
-	opts := mongo.DefaultDialOpts()
-	st2, err := state.Open(info, opts, state.Policy(nil))
+	w, err := s.st.WatchForEnvironConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
-	defer st2.Close()
-	err = st2.UpdateEnvironConfig(map[string]interface{}{"type": "unknown"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := st2.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
-		env, err := worker.WaitForEnviron(w, st2, nil)
+		env, err := worker.WaitForEnviron(w, s.st, nil)
 		c.Check(err, jc.ErrorIsNil)
 		done <- env
 	}()
 	<-worker.LoadedInvalid
-
-	st2.UpdateEnvironConfig(map[string]interface{}{
-		"type":   oldType,
-		"secret": "environ_test",
-	}, nil, nil)
-
-	st2.StartSync()
-	env := <-done
-	c.Assert(env, gc.NotNil)
-	c.Assert(env.Config().AllAttrs()["secret"], gc.Equals, "environ_test")
+	s.st.CheckCallNames(c,
+		"WatchForEnvironConfigChanges",
+		"Changes",
+		"EnvironConfig",
+		"Changes",
+	)
 }
 
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
-	// reopen the state so that we can wangle a dodgy environ config in there.
-	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	obs, err := worker.NewEnvironObserver(s.State)
-	c.Assert(err, gc.ErrorMatches, `cannot make Environ: secret: expected string, got int\(999\)`)
+	s.st.SetConfig(c, coretesting.Attrs{
+		"type": "unknown",
+	})
+
+	obs, err := worker.NewEnvironObserver(s.st)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot create an environment: no registered provider for "unknown"`,
+	)
 	c.Assert(obs, gc.IsNil)
+	s.st.CheckCallNames(c, "EnvironConfig")
 }
 
 func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
-	originalConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	s.st.SetConfig(c, nil)
 
 	logc := make(logChan, 1009)
 	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("testing")
 
-	obs, err := worker.NewEnvironObserver(s.State)
+	obs, err := worker.NewEnvironObserver(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := obs.Environ()
-	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
-	var oldType string
-	oldType = env.Config().AllAttrs()["type"].(string)
-
-	info := s.MongoInfo(c)
-	opts := mongo.DefaultDialOpts()
-	st2, err := state.Open(info, opts, state.Policy(nil))
-	defer st2.Close()
+	s.st.AssertConfig(c, env.Config())
 
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
-	st2.UpdateEnvironConfig(map[string]interface{}{"type": "invalid"}, nil, nil)
-	s.State.StartSync()
+	originalConfig := s.st.config
+	s.st.SetConfig(c, coretesting.Attrs{
+		"type": "invalid",
+	})
 
 	// Wait for the observer to register the invalid environment
 loop:
 	for {
 		select {
 		case msg := <-logc:
-			if strings.Contains(msg, "error creating Environ") {
+			if strings.Contains(msg, "error creating an environment") {
 				break loop
 			}
 		case <-time.After(coretesting.LongWait):
@@ -137,12 +150,13 @@ loop:
 	}
 	// Check that the returned environ is still the same.
 	env = obs.Environ()
-	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
+	c.Assert(env.Config().AllAttrs(), jc.DeepEquals, originalConfig.AllAttrs())
 
 	// Change the environment back to a valid configuration
 	// with a different name and check that we see it.
-	st2.UpdateEnvironConfig(map[string]interface{}{"type": oldType, "name": "a-new-name"}, nil, nil)
-	s.State.StartSync()
+	s.st.SetConfig(c, coretesting.Attrs{
+		"name": "a-new-name",
+	})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()
@@ -159,4 +173,110 @@ type logChan chan string
 
 func (logc logChan) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
 	logc <- message
+}
+
+type fakeState struct {
+	*testing.Stub
+	apiwatcher.NotifyWatcher
+
+	mu sync.Mutex
+
+	changes chan struct{}
+	config  *config.Config
+}
+
+var _ worker.EnvironConfigObserver = (*fakeState)(nil)
+
+// WatchForEnvironConfigChanges implements EnvironConfigObserver.
+func (s *fakeState) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.MethodCall(s, "WatchForEnvironConfigChanges")
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// EnvironConfig implements EnvironConfigObserver.
+func (s *fakeState) EnvironConfig() (*config.Config, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.MethodCall(s, "EnvironConfig")
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.config, nil
+}
+
+// SetConfig changes the stored environment config with the given
+// extraAttrs (if not nil) and triggers a change for the watcher.
+func (s *fakeState) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	attrs := dummy.SampleConfig()
+	if extraAttrs != nil {
+		for k, v := range extraAttrs {
+			attrs[k] = v
+		}
+	}
+	// Simulate it's prepared.
+	attrs["broken"] = ""
+	attrs["state-id"] = "42"
+
+	changes := s.changes
+	s.config = coretesting.CustomEnvironConfig(c, attrs)
+	defer func() {
+		changes <- struct{}{}
+	}()
+}
+
+// Err implements apiwatcher.NotifyWatcher.
+func (s *fakeState) Err() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.MethodCall(s, "Err")
+	return s.NextErr()
+}
+
+// Stop implements apiwatcher.NotifyWatcher.
+func (s *fakeState) Stop() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.MethodCall(s, "Stop")
+	return s.NextErr()
+}
+
+// Changes implements apiwatcher.NotifyWatcher.
+func (s *fakeState) Changes() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.MethodCall(s, "Changes")
+	if err := s.NextErr(); err != nil && s.changes != nil {
+		close(s.changes) // simulate the watcher died.
+		s.changes = nil
+	}
+	return s.changes
+}
+
+// CheckCallNames is a thread-safe wrapper around
+// testing.Stub.CheckCallNames.
+func (s *fakeState) CheckCallNames(c *gc.C, names ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.Stub.CheckCallNames(c, names...)
+}
+
+func (s *fakeState) AssertConfig(c *gc.C, expected *config.Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	c.Assert(s.config.AllAttrs(), jc.DeepEquals, expected.AllAttrs())
 }

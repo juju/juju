@@ -45,7 +45,7 @@ func getSystemIdValues(key string, instanceIds []instance.Id) url.Values {
 // filesystem during its first startup.  That file is then read by the juju
 // agent running on the node and converted back into a machineInfo object.
 type machineInfo struct {
-	Hostname string `yaml:,omitempty`
+	Hostname string `yaml:",omitempty"`
 }
 
 var maasDataDir = paths.MustSucceed(paths.DataDir(config.LatestLtsSeries()))

@@ -99,9 +99,10 @@ func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.Volu
 	return vs
 }
 
-func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, zone string) {
-	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
-
+func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]storage.Volume, error) {
+	if instanceId == "" {
+		instanceId = s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
+	}
 	volume0 := names.NewVolumeTag("0")
 	volume1 := names.NewVolumeTag("1")
 	volume2 := names.NewVolumeTag("2")
@@ -110,47 +111,69 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, z
 		Size:     10 * 1000,
 		Provider: ec2.EBS_ProviderType,
 		Attributes: map[string]interface{}{
-			"persistent":        true,
-			"availability-zone": zone,
-			"volume-type":       "io1",
-			"iops":              100,
+			"persistent":  true,
+			"volume-type": "io1",
+			"iops":        100,
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: instance.Id(instanceId),
+			},
 		},
 	}, {
 		Tag:      volume1,
 		Size:     20 * 1000,
 		Provider: ec2.EBS_ProviderType,
 		Attributes: map[string]interface{}{
-			"persistent":        true,
-			"availability-zone": zone,
+			"persistent": true,
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: instance.Id(instanceId),
+			},
 		},
 	}, {
 		Tag:      volume2,
 		Size:     30 * 1000,
 		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			"abc": "123",
+		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.Id(instanceIdRunning),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 	}}
 	vols, _, err := vs.CreateVolumes(params)
+	return vols, err
+}
+
+func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanceId string) {
+	vols, err := s.createVolumes(vs, instanceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 3)
 	c.Assert(vols, jc.SameContents, []storage.Volume{{
-		Tag:        volume0,
-		Size:       10240,
-		VolumeId:   "vol-0",
-		Persistent: true,
+		names.NewVolumeTag("0"),
+		storage.VolumeInfo{
+			Size:       10240,
+			VolumeId:   "vol-0",
+			Persistent: true,
+		},
 	}, {
-		Tag:        volume1,
-		Size:       20480,
-		VolumeId:   "vol-1",
-		Persistent: true,
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			Size:       20480,
+			VolumeId:   "vol-1",
+			Persistent: true,
+		},
 	}, {
-		Tag:        volume2,
-		Size:       30720,
-		VolumeId:   "vol-2",
-		Persistent: false,
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			Size:       30720,
+			VolumeId:   "vol-2",
+			Persistent: false,
+		},
 	}})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
@@ -187,13 +210,57 @@ func (s volumeSorter) Less(i, j int) bool {
 
 func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	s.assertCreateVolumes(c, vs, "us-east-1")
+	s.assertCreateVolumes(c, vs, "")
+}
+
+func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	vols, err := s.createVolumes(vs, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 3)
+	c.Assert(vols, jc.SameContents, []storage.Volume{{
+		names.NewVolumeTag("0"),
+		storage.VolumeInfo{
+			Size:       10240,
+			VolumeId:   "vol-0",
+			Persistent: true,
+		},
+	}, {
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			Size:       20480,
+			VolumeId:   "vol-1",
+			Persistent: true,
+		},
+	}, {
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			Size:       30720,
+			VolumeId:   "vol-2",
+			Persistent: false,
+		},
+	}})
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
+	sortBySize(ec2Vols.Volumes)
+	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "juju-sample-volume-0"},
+	})
+	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "juju-sample-volume-1"},
+	})
+	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
+		{"Name", "juju-sample-volume-2"},
+		{"abc", "123"},
+	})
 }
 
 func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
+	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	vs := s.volumeSource(c, nil)
 	ec2Client := ec2.StorageEC2(vs)
-	zone := "us-east-1"
 	aliases := [][2]string{
 		{"magnetic", "standard"},
 		{"ssd", "gp2"},
@@ -205,9 +272,12 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 			Size:     10 * 1000,
 			Provider: ec2.EBS_ProviderType,
 			Attributes: map[string]interface{}{
-				"persistent":        true,
-				"availability-zone": zone,
-				"volume-type":       alias[0],
+				"volume-type": alias[0],
+			},
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					InstanceId: instance.Id(instanceIdRunning),
+				},
 			},
 		}}
 		if alias[1] == "io1" {
@@ -231,8 +301,12 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 
 func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	s.assertCreateVolumes(c, vs, "us-east-1")
-	vs.DestroyVolumes([]string{"vol-0"})
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	err := vs.DetachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	errs := vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,12 +317,12 @@ func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
 
 func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	s.assertCreateVolumes(c, vs, "us-east-1")
+	s.assertCreateVolumes(c, vs, "")
 
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.Volume{{
+	c.Assert(vols, jc.SameContents, []storage.VolumeInfo{{
 		Size:     10240,
 		VolumeId: "vol-0",
 	}, {
@@ -274,28 +348,14 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 		err    string
 	}{{
 		params: storage.VolumeParams{
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: &storage.VolumeAttachmentParams{},
-		},
-		err: "need running instance to provision volume",
-	}, {
-		params: storage.VolumeParams{
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
-				"persistent":        false,
-				"availability-zone": "us-east-1",
-			},
-			Attachment: &attachmentParams,
-		},
-		err: "cannot specify availability zone for non-persistent volume",
-	}, {
-		params: storage.VolumeParams{
-			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
-				"persistent": true,
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					InstanceId: "woat",
+				},
 			},
 		},
-		err: "missing availability zone for persistent volume",
+		err: `querying instance details: instance "woat" not found \(InvalidInstanceID.NotFound\)`,
 	}, {
 		params: storage.VolumeParams{
 			Provider: ec2.EBS_ProviderType,
@@ -370,47 +430,42 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 var imageId = "ami-ccf405a5" // Ubuntu Maverick, i386, EBS store
 
 func (s *ebsVolumeSuite) setupAttachVolumesTest(
-	c *gc.C, vs storage.VolumeSource, zone string, state awsec2.InstanceState,
+	c *gc.C, vs storage.VolumeSource, state awsec2.InstanceState,
 ) []storage.VolumeAttachmentParams {
 
-	s.assertCreateVolumes(c, vs, zone)
-	ids := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, state, nil)
+	instanceId := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, state, nil)[0]
+	s.assertCreateVolumes(c, vs, instanceId)
 
 	return []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-0",
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("1"),
-			InstanceId: instance.Id(ids[0]),
+			InstanceId: instance.Id(instanceId),
 		},
 	}}
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Pending)
-	_, err := vs.AttachVolumes(params)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-4")
-}
-
-func (s *ebsVolumeSuite) TestAttachVolumesWrongZone(c *gc.C) {
-	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1", ec2test.Running)
-	_, err := vs.AttachVolumes(params)
-	c.Assert(err, gc.ErrorMatches, `.* volume availability zone "us-east-1" must match instance zone "us-east-1c" .*`)
+	instanceId := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)[0]
+	_, err := s.createVolumes(vs, instanceId)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-3")
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Running)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	result, err := vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag("0"),
-		Machine:    names.NewMachineTag("1"),
-		DeviceName: "xvdf",
-		ReadOnly:   false,
+		names.NewVolumeTag("0"),
+		names.NewMachineTag("1"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "xvdf",
+			ReadOnly:   false,
+		},
 	})
 
 	ec2Client := ec2.StorageEC2(vs)
@@ -419,10 +474,11 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, jc.DeepEquals, []awsec2.VolumeAttachment{{
-		VolumeId:   "vol-0",
-		InstanceId: "i-4",
-		Device:     "/dev/sdf",
-		Status:     "attached",
+		VolumeId:            "vol-0",
+		InstanceId:          "i-3",
+		Device:              "/dev/sdf",
+		Status:              "attached",
+		DeleteOnTermination: true,
 	}})
 
 	// Test idempotency.
@@ -430,16 +486,18 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag("0"),
-		Machine:    names.NewMachineTag("1"),
-		DeviceName: "xvdf",
-		ReadOnly:   false,
+		names.NewVolumeTag("0"),
+		names.NewMachineTag("1"),
+		storage.VolumeAttachmentInfo{
+			DeviceName: "xvdf",
+			ReadOnly:   false,
+		},
 	})
 }
 
 func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Running)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	_, err := vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	err = vs.DetachVolumes(params)

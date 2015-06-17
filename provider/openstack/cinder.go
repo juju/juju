@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/nova"
@@ -45,7 +44,11 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
-	return &cinderVolumeSource{storageAdapter}, nil
+	source := &cinderVolumeSource{
+		storageAdapter: storageAdapter,
+		envName:        environConfig.Name(),
+	}
+	return source, nil
 }
 
 // FilesystemSource implements storage.Provider.
@@ -81,6 +84,7 @@ func (p *cinderProvider) Dynamic() bool {
 
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
+	envName        string // non unique, informational only
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -138,13 +142,21 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
+	if b, ok := arg.Attributes[storage.Persistent]; ok && !b.(bool) {
+		return storage.Volume{}, errors.New("cannot create a non-persistent Cinder volume")
+	}
+	var metadata interface{}
+	if len(arg.ResourceTags) > 0 {
+		metadata = arg.ResourceTags
+	}
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
 		Size: int(math.Ceil(float64(arg.Size / 1024))),
-		Name: arg.Tag.String(),
+		Name: resourceName(arg.Tag, s.envName),
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
+		Metadata:         metadata,
 	})
 	if err != nil {
 		return storage.Volume{}, errors.Trace(err)
@@ -163,11 +175,11 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 		return storage.Volume{}, errors.Errorf("waiting for volume to be provisioned: %s", err)
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
-	return cinderToJujuVolume(arg.Tag, cinderVolume), nil
+	return storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volume, error) {
+func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesSimple()
@@ -178,13 +190,13 @@ func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volu
 	for i, volume := range cinderVolumes {
 		volumesById[volume.ID] = &cinderVolumes[i]
 	}
-	volumes := make([]storage.Volume, len(volumeIds))
+	volumes := make([]storage.VolumeInfo, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		cinderVolume, ok := volumesById[volumeId]
 		if !ok {
 			return nil, errors.NotFoundf("volume %q", volumeId)
 		}
-		volumes[i] = cinderToJujuVolume(names.VolumeTag{}, cinderVolume)
+		volumes[i] = cinderToJujuVolumeInfo(cinderVolume)
 	}
 	return volumes, nil
 }
@@ -202,10 +214,6 @@ func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
 
 // ValidateVolumeParams implements storage.VolumeSource.
 func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	// TODO(axw) this should move to the storageprovisioner.
-	if params.Attachment == nil || params.Attachment.InstanceId == "" {
-		return storage.ErrVolumeNeedsInstance
-	}
 	return nil
 }
 
@@ -246,9 +254,11 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		}
 	}
 	return storage.VolumeAttachment{
-		Machine:    arg.Machine,
-		Volume:     arg.Volume,
-		DeviceName: novaAttachment.Device[len("/dev/"):],
+		arg.Volume,
+		arg.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: novaAttachment.Device[len("/dev/"):],
+		},
 	}, nil
 }
 
@@ -292,11 +302,10 @@ func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams
 	return nil
 }
 
-func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
-	return storage.Volume{
+func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
+	return storage.VolumeInfo{
 		VolumeId: volume.ID,
 		Size:     uint64(volume.Size * 1024),
-		Tag:      tag,
 		// TODO(axw) there is currently no way to mark a volume as
 		// "delete on termination", so all volumes are persistent.
 		Persistent: true,

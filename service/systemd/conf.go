@@ -183,11 +183,6 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 			Name:    "After",
 			Value:   conf.AfterStopped,
 		})
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Unit",
-			Name:    "Conflicts",
-			Value:   conf.AfterStopped,
-		})
 	}
 
 	return unitOptions
@@ -254,13 +249,11 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 func serializeInstall(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Install",
-			Name:    "WantedBy",
-			Value:   "multi-user.target",
-		})
-	}
+	unitOptions = append(unitOptions, &unit.UnitOption{
+		Section: "Install",
+		Name:    "WantedBy",
+		Value:   "multi-user.target",
+	})
 
 	return unitOptions
 }
@@ -352,3 +345,26 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 	err := validate("<>", conf, renderer)
 	return conf, errors.Trace(err)
 }
+
+// CleanShutdownService is added to machines to ensure DHCP-assigned
+// IP addresses are released on shutdown, reboot, or halt. See bug
+// http://pad.lv/1348663 for more info.
+const CleanShutdownService = `
+[Unit]
+Description=Stop all network interfaces on shutdown
+DefaultDependencies=false
+After=final.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/ifdown -a -v --force
+StandardOutput=tty
+StandardError=tty
+
+[Install]
+WantedBy=final.target
+`
+
+// CleanShutdownServicePath is the full file path where
+// CleanShutdownService is created.
+const CleanShutdownServicePath = "/etc/systemd/system/juju-clean-shutdown.service"
