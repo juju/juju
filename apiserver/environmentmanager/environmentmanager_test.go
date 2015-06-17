@@ -388,6 +388,41 @@ func (s *envManagerSuite) TestEnvironmentGetFromNonStateServer(c *gc.C) {
 	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
 }
 
+func (s *envManagerSuite) TestAllEnvironmentsNonAdminUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
+	s.setAPIUser(c, user.UserTag())
+	_, err := s.envmanager.AllEnvironments()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestAllEnvironments(c *gc.C) {
+	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "owned", Owner: admin.UserTag()}).Close()
+	remoteUserTag := names.NewUserTag("user@remote")
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "user", Owner: remoteUserTag})
+	defer st.Close()
+	st.AddEnvironmentUser(admin.UserTag(), remoteUserTag, "Foo Bar")
+
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "no-access", Owner: remoteUserTag}).Close()
+
+	s.setAPIUser(c, admin.UserTag())
+	response, err := s.envmanager.AllEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []string{"dummyenv", "owned", "user", "no-access"}
+	var obtained []string
+	for _, env := range response.UserEnvironments {
+		obtained = append(obtained, env.Name)
+		stateEnv, err := s.State.GetEnvironment(names.NewEnvironTag(env.UUID))
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEnvironmentMatches(c, env.Environment, stateEnv)
+	}
+	c.Assert(obtained, jc.SameContents, expected)
+}
+
 func (s *envManagerSuite) TestUnauthorizedEnvironmentGet(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	s.setAPIUser(c, owner)
