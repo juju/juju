@@ -597,6 +597,10 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.Filesyste
 	return filesystems, nil
 }
 
+func (s *mockManagedFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	return make([]error, len(filesystemIds))
+}
+
 func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	var filesystemAttachments []storage.FilesystemAttachment
 	for _, arg := range args {

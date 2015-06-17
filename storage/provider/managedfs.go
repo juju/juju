@@ -97,6 +97,12 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 	}, nil
 }
 
+// DestroyFilesystems is defined on storage.FilesystemSource.
+func (s *managedFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	// DestroyFilesystems is a no-op; there is nothing to destroy.
+	return make([]error, len(filesystemIds))
+}
+
 func (s *managedFilesystemSource) devicePath(dev storage.BlockDevice) string {
 	if dev.DeviceName != "" {
 		return path.Join("/dev", dev.DeviceName)
