@@ -242,20 +242,20 @@ func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
 	s.api.fakeContainerConfig.AllowLXCLoopMounts = false
-	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 	s.SetFeatureFlags(feature.AddressAllocation)
-
-	possibleTools := coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}}
-	_, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:    constraints.Value{},
-		Tools:          possibleTools,
-		InstanceConfig: instanceConfig,
-		Volumes:        []storage.VolumeParams{{Provider: provider.LoopProviderType}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	AssertFileContents(c, gc.Not(jc.Contains), filepath.Join(s.LxcDir, string(lxc.Id()), "config"),
+		"lxc.aa_profile = lxc-container-default-with-mounting")
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
