@@ -388,8 +388,10 @@ func (em *EnvironmentManagerAPI) AllEnvironments() (params.UserEnvironmentList, 
 	}
 
 	// Get all the environments that the authenticated user can see, and
-	// supplement that with the other environments that exist that the user cannot
-	// see.
+	// supplement that with the other environments that exist that the user
+	// cannot see. The reason we do this is to get the LastConnection time for
+	// the environments that the user is able to see, so we have consistent
+	// output when listing with or without --all when an admin user.
 	visibleEnvironments, err := em.ListEnvironments(params.Entity{Tag: apiUser.String()})
 	if err != nil {
 		return result, errors.Trace(err)

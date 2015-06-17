@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type envManagerSuite struct {
+type envManagerBaseSuite struct {
 	jujutesting.JujuConnSuite
 
 	envmanager *environmentmanager.EnvironmentManagerAPI
@@ -37,9 +37,7 @@ type envManagerSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&envManagerSuite{})
-
-func (s *envManagerSuite) SetUpTest(c *gc.C) {
+func (s *envManagerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -50,6 +48,19 @@ func (s *envManagerSuite) SetUpTest(c *gc.C) {
 
 	loggo.GetLogger("juju.apiserver.environmentmanager").SetLogLevel(loggo.TRACE)
 }
+
+func (s *envManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authoriser.Tag = user
+	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.envmanager = envmanager
+}
+
+type envManagerSuite struct {
+	envManagerBaseSuite
+}
+
+var _ = gc.Suite(&envManagerSuite{})
 
 func (s *envManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
@@ -84,13 +95,6 @@ func (s *envManagerSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver
 	params := s.createArgs(c, owner)
 	params.Config["agent-version"] = ver
 	return params
-}
-
-func (s *envManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
-	s.authoriser.Tag = user
-	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	s.envmanager = envmanager
 }
 
 func (s *envManagerSuite) TestUserCanCreateEnvironment(c *gc.C) {

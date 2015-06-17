@@ -24,12 +24,12 @@ import (
 )
 
 type destroyEnvironmentSuite struct {
-	envManagerSuite
+	envManagerBaseSuite
 	commontesting.BlockHelper
 }
 
 func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.envManagerSuite.SetUpTest(c)
+	s.envManagerBaseSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
@@ -201,7 +201,7 @@ func (s *destroyEnvironmentSuite) TestCannotDestroyUnsharedEnvironment(c *gc.C) 
 }
 
 type destroyTwoEnvironmentsSuite struct {
-	envManagerSuite
+	envManagerBaseSuite
 	commontesting.BlockHelper
 	otherState    *state.State
 	otherEnvOwner names.UserTag
@@ -211,7 +211,7 @@ type destroyTwoEnvironmentsSuite struct {
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
 
 func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
-	s.envManagerSuite.SetUpTest(c)
+	s.envManagerBaseSuite.SetUpTest(c)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
