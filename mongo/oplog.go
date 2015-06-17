@@ -4,12 +4,63 @@
 package mongo
 
 import (
+	"reflect"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 )
+
+// OplogDoc represents a document in the oplog.rs collection.
+// See: http://www.kchodorow.com/blog/2010/10/12/replication-internals/
+//
+// The Object and UpdateObject fields are returned raw to allow
+// unmarshalling into arbitrary types. Use the UnmarshalObject and
+// UnmarshalUpdate methods to unmarshall these fields.
+type OplogDoc struct {
+	Timestamp    bson.MongoTimestamp `bson:"ts"`
+	OperationId  int64               `bson:"h"`
+	MongoVersion int                 `bson:"v"`
+	Operation    string              `bson:"op"` // "i" - insert, "u" - update, "d" - delete
+	Namespace    string              `bson:"ns"`
+	Object       *bson.Raw           `bson:"o"`
+	UpdateObject *bson.Raw           `bson:"o2"`
+}
+
+// UnmarshalObject unmarshals the Object field into out. The out
+// argument should be a pointer or a suitable map.
+func (d *OplogDoc) UnmarshalObject(out interface{}) error {
+	return d.unmarshal(d.Object, out)
+}
+
+// UnmarshalUpdate unmarshals the UpdateObject field into out. The out
+// argument should be a pointer or a suitable map.
+func (d *OplogDoc) UnmarshalUpdate(out interface{}) error {
+	return d.unmarshal(d.UpdateObject, out)
+}
+
+func (d *OplogDoc) unmarshal(raw *bson.Raw, out interface{}) error {
+	if raw == nil {
+		// If the field is not set, set out to the zero value for its type.
+		v := reflect.ValueOf(out)
+		switch v.Kind() {
+		case reflect.Ptr:
+			v = v.Elem()
+			v.Set(reflect.Zero(v.Type()))
+		case reflect.Map:
+			// Empty the map.
+			for _, k := range v.MapKeys() {
+				v.SetMapIndex(k, reflect.Value{})
+			}
+		default:
+			return errors.New("output must be a pointer or map")
+		}
+		return nil
+	}
+	return raw.Unmarshal(out)
+}
 
 // GetOplog returns the the oplog collection in the local database.
 func GetOplog(session *mgo.Session) *mgo.Collection {
@@ -51,18 +102,6 @@ type OplogTailer struct {
 	oplog *mgo.Collection
 	query bson.D
 	outCh chan *OplogDoc
-}
-
-// OplogDoc represents a document in the oplog.rs collection.
-// See: http://www.kchodorow.com/blog/2010/10/12/replication-internals/
-type OplogDoc struct {
-	Timestamp    bson.MongoTimestamp `bson:"ts"`
-	OperationId  int64               `bson:"h"`
-	MongoVersion int                 `bson:"v"`
-	Operation    string              `bson:"op"` // "i" - insert, "u" - update, "d" - delete
-	Namespace    string              `bson:"ns"`
-	Object       bson.D              `bson:"o"`
-	UpdateObject bson.D              `bson:"o2"`
 }
 
 // Out returns a channel that reports the oplog entries matching the
