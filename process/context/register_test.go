@@ -61,6 +61,8 @@ usage: register [options] <name> <id> [<details>]
 purpose: register a workload process
 
 options:
+--definition  (= )
+    process definition filename (use "-" for STDIN)
 --extend  (= )
     extend process definition
 --override  (= )
