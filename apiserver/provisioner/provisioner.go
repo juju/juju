@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 
@@ -898,6 +899,21 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	return p.prepareOrGetContainerInterfaceInfo(args, false)
 }
 
+// MACAddressTemplate is used to generate a unique MAC address for a
+// container. Every '%x' is replaced by a random hexadecimal digit,
+// while the rest is kept as-is.
+const MACAddressTemplate = "00:16:3e:%02x:%02x:%02x"
+
+// generateMACAddress creates a random MAC address within the space defined by
+// MACAddressTemplate above.
+func generateMACAddress() string {
+	digits := make([]interface{}, 3)
+	for i := range digits {
+		digits[i] = rand.Intn(256)
+	}
+	return fmt.Sprintf(MACAddressTemplate, digits...)
+}
+
 // prepareOrGetContainerInterfaceInfo optionally allocates an address and returns information
 // for configuring networking on a container. It accepts container tags as arguments.
 func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
@@ -961,10 +977,12 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 			continue
 		}
 
+		var macAddress string
 		var addresses []*state.IPAddress
 		if provisionContainer {
 			// Allocate and set address.
-			addr, err := p.allocateAddress(environ, subnet, host, container, instId)
+			macAddress = generateMACAddress()
+			addr, err := p.allocateAddress(environ, subnet, host, container, instId, macAddress)
 			addresses = append(addresses, addr)
 			if err != nil {
 				err = errors.Annotatef(err, "failed to allocate an address for %q", container)
@@ -994,13 +1012,17 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 		for i, dns := range interfaceInfo.DNSServers {
 			dnsServers[i] = dns.Value
 		}
+
+		if macAddress == "" {
+			macAddress = interfaceInfo.MACAddress
+		}
 		// TODO(dimitern): Support allocating one address per NIC on
 		// the host, effectively creating the same number of NICs in
 		// the container.
 		result.Results[i] = params.MachineNetworkConfigResult{
 			Config: []params.NetworkConfig{{
 				DeviceIndex:      interfaceInfo.DeviceIndex,
-				MACAddress:       interfaceInfo.MACAddress,
+				MACAddress:       macAddress,
 				CIDR:             subnetInfo.CIDR,
 				NetworkName:      interfaceInfo.NetworkName,
 				ProviderId:       string(interfaceInfo.ProviderId),
@@ -1166,6 +1188,7 @@ func (p *ProvisionerAPI) allocateAddress(
 	subnet *state.Subnet,
 	host, container *state.Machine,
 	instId instance.Id,
+	macAddress string,
 ) (*state.IPAddress, error) {
 
 	subnetId := network.Id(subnet.ProviderId())
@@ -1176,7 +1199,7 @@ func (p *ProvisionerAPI) allocateAddress(
 		}
 		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
 		// Attempt to allocate with environ.
-		err = environ.AllocateAddress(instId, subnetId, addr.Address())
+		err = environ.AllocateAddress(instId, subnetId, addr.Address(), macAddress)
 		if err != nil {
 			logger.Warningf(
 				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",

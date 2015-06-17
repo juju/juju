@@ -780,7 +780,7 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}

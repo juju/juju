@@ -164,6 +164,7 @@ type OpAllocateAddress struct {
 	InstanceId instance.Id
 	SubnetId   network.Id
 	Address    network.Address
+	MACAddress string
 }
 
 type OpReleaseAddress struct {
@@ -1061,7 +1062,7 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1082,6 +1083,7 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 		InstanceId: instId,
 		SubnetId:   subnetId,
 		Address:    addr,
+		MACAddress: macAddress,
 	}
 	return nil
 }

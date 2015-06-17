@@ -1333,7 +1333,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) (err error) {
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
