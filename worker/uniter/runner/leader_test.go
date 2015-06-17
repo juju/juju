@@ -171,7 +171,7 @@ func (s *LeaderSuite) TestLeaderSettingsError(c *gc.C) {
 		Args:     []interface{}{"led-service"},
 	}}, func() {
 		s.accessor.results = []map[string]string{nil}
-		s.Stub.Errors = []error{errors.New("blort")}
+		s.Stub.SetErrors(errors.New("blort"))
 		settings, err := s.context.LeaderSettings()
 		c.Check(settings, gc.IsNil)
 		c.Check(err, gc.ErrorMatches, "cannot read settings: blort")
@@ -225,7 +225,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsError(c *gc.C) {
 		}},
 	}}, func() {
 		s.tracker.results = []StubTicket{true}
-		s.Stub.Errors = []error{errors.New("glurk")}
+		s.Stub.SetErrors(errors.New("glurk"))
 		err := s.context.WriteLeaderSettings(map[string]string{
 			"some": "very",
 			"nice": "data",

@@ -170,7 +170,7 @@ func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
 
 	// Check stub calls.
 	s.Stub.CheckCallNames(c, "Open", "Remove", "Remove", "Close")
-	s.Stub.Calls = []testing.StubCall{}
+	s.Stub.ResetCalls()
 	metricBatches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 2)
@@ -248,7 +248,7 @@ func (s *FlushContextSuite) TestRunHookMetricSendingFailedByServer(c *gc.C) {
 
 	// Check stub calls, metrics should not be removed.
 	s.Stub.CheckCallNames(c, "Open", "Close")
-	s.Stub.Calls = []testing.StubCall{}
+	s.Stub.ResetCalls()
 }
 
 func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
