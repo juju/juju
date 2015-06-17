@@ -25,10 +25,9 @@ func volumesChanged(ctx *context, changes []string) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	// Note: we don't take any action for Dying volumes. This is an
-	// intermediate state in which a volume exists until all of its
-	// dependents are removed from state, at which point it becomes
-	// Dead.
+	if err := processDyingVolumes(ctx, dying); err != nil {
+		return errors.Annotate(err, "processing dying volumes")
+	}
 	if len(alive)+len(dead) == 0 {
 		return nil
 	}
@@ -95,35 +94,58 @@ func volumeAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error
 	return nil
 }
 
+// processDyingVolumes processes the VolumeResults for Dying volumes,
+// removing them from provisioning-pending as necessary.
+func processDyingVolumes(ctx *context, tags []names.Tag) error {
+	for _, tag := range tags {
+		delete(ctx.pendingVolumes, tag.(names.VolumeTag))
+	}
+	return nil
+}
+
 // processDeadVolumes processes the VolumeResults for Dead volumes,
 // deprovisioning volumes and removing from state as necessary.
 func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []params.VolumeResult) error {
 	for _, tag := range tags {
 		delete(ctx.pendingVolumes, tag)
 	}
-	volumes := make([]params.Volume, len(volumeResults))
+	var destroy []names.VolumeTag
+	var remove []names.Tag
 	for i, result := range volumeResults {
-		if result.Error != nil {
-			return errors.Annotatef(result.Error, "getting volume information for volume %q", tags[i].Id())
-		}
-		volumes[i] = result.Result
-	}
-	if len(volumes) == 0 {
-		return nil
-	}
-	errorResults, err := destroyVolumes(volumes)
-	if err != nil {
-		return errors.Annotate(err, "destroying volumes")
-	}
-	destroyed := make([]names.Tag, 0, len(tags))
-	for i, tag := range tags {
-		if err := errorResults[i]; err != nil {
-			logger.Errorf("destroying %s: %v", names.ReadableString(tag), err)
+		tag := tags[i]
+		if result.Error == nil {
+			logger.Debugf("volume %s is provisioned, queuing for deprovisioning", tag.Id())
+			volume, err := volumeFromParams(result.Result)
+			if err != nil {
+				return errors.Annotate(err, "getting volume info")
+			}
+			ctx.volumes[tag] = volume
+			destroy = append(destroy, tag)
 			continue
 		}
-		destroyed = append(destroyed, tag)
+		if params.IsCodeNotProvisioned(result.Error) {
+			logger.Debugf("volume %s is not provisioned, queuing for removal", tag.Id())
+			remove = append(remove, tag)
+			continue
+		}
+		return errors.Annotatef(result.Error, "getting volume information for volume %s", tag.Id())
 	}
-	if err := removeEntities(ctx, destroyed); err != nil {
+	if len(destroy)+len(remove) == 0 {
+		return nil
+	}
+	if len(destroy) > 0 {
+		errorResults, err := destroyVolumes(ctx, destroy)
+		if err != nil {
+			return errors.Annotate(err, "destroying volumes")
+		}
+		for i, tag := range destroy {
+			if err := errorResults[i]; err != nil {
+				return errors.Annotatef(err, "destroying %s", names.ReadableString(tag))
+			}
+			remove = append(remove, tag)
+		}
+	}
+	if err := removeEntities(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing volumes from state")
 	}
 	return nil
@@ -202,18 +224,11 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	if len(pending) == 0 {
 		return nil
 	}
-	paramsResults, err := ctx.volumeAccessor.VolumeParams(pending)
+	volumeParams, err := volumeParams(ctx, pending)
 	if err != nil {
 		return errors.Annotate(err, "getting volume params")
 	}
-	for i, result := range paramsResults {
-		if result.Error != nil {
-			return errors.Annotate(result.Error, "getting volume parameters")
-		}
-		params, err := volumeParamsFromParams(result.Result)
-		if err != nil {
-			return errors.Annotate(err, "getting volume parameters")
-		}
+	for i, params := range volumeParams {
 		if params.Attachment.InstanceId == "" {
 			watchMachine(ctx, params.Attachment.Machine)
 		}
@@ -397,49 +412,12 @@ func createVolumes(
 	baseStorageDir string,
 	params []storage.VolumeParams,
 ) ([]storage.Volume, []storage.VolumeAttachment, error) {
-	// TODO(axw) later we may have multiple instantiations (sources)
-	// for a storage provider, e.g. multiple Ceph installations. For
-	// now we assume a single source for each provider type, with no
-	// configuration.
-
-	// Create volume sources.
-	volumeSources := make(map[string]storage.VolumeSource)
-	for _, params := range params {
-		sourceName := string(params.Provider)
-		if _, ok := volumeSources[sourceName]; ok {
-			continue
-		}
-		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
-		)
-		if errors.Cause(err) == errNonDynamic {
-			volumeSource = nil
-		} else if err != nil {
-			return nil, nil, errors.Annotate(err, "getting volume source")
-		}
-		volumeSources[sourceName] = volumeSource
+	paramsBySource, volumeSources, err := volumeParamsBySource(
+		environConfig, baseStorageDir, params,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-
-	// Validate and gather volume parameters.
-	paramsBySource := make(map[string][]storage.VolumeParams)
-	for _, params := range params {
-		sourceName := string(params.Provider)
-		volumeSource := volumeSources[sourceName]
-		if volumeSource == nil {
-			// Ignore nil volume sources; this means that the
-			// volume should be created by the machine-provisioner.
-			continue
-		}
-		err := volumeSource.ValidateVolumeParams(params)
-		switch errors.Cause(err) {
-		case nil:
-			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
-		default:
-			// TODO(axw) we should set an error status for params.Tag here.
-			logger.Errorf("ignoring invalid volume parameters: %v", err)
-		}
-	}
-
 	var allVolumes []storage.Volume
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
@@ -511,14 +489,97 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 	return nil
 }
 
-func destroyVolumes(volumes []params.Volume) ([]error, error) {
-	// TODO(axw) implement destroy
-	err := errors.New("destroy volumes is not implemented")
-	errs := make([]error, len(volumes))
-	for i := range errs {
-		errs[i] = err
+func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
+	volumeParams, err := volumeParams(ctx, tags)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	paramsBySource, volumeSources, err := volumeParamsBySource(
+		ctx.environConfig, ctx.storageDir, volumeParams,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var errs []error
+	for sourceName, params := range paramsBySource {
+		logger.Debugf("destroying volumes from %q: %v", sourceName, params)
+		volumeSource := volumeSources[sourceName]
+		volumeIds := make([]string, len(params))
+		for i, params := range params {
+			volume, ok := ctx.volumes[params.Tag]
+			if !ok {
+				return nil, errors.NotFoundf("volume %s", params.Tag.Id())
+			}
+			volumeIds[i] = volume.VolumeId
+		}
+		errs = append(errs, volumeSource.DestroyVolumes(volumeIds)...)
 	}
 	return errs, nil
+}
+
+// volumeParams obtains the specified volumes' parameters.
+func volumeParams(ctx *context, tags []names.VolumeTag) ([]storage.VolumeParams, error) {
+	paramsResults, err := ctx.volumeAccessor.VolumeParams(tags)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting volume params")
+	}
+	allParams := make([]storage.VolumeParams, len(tags))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting volume parameters")
+		}
+		params, err := volumeParamsFromParams(result.Result)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting volume parameters")
+		}
+		allParams[i] = params
+	}
+	return allParams, nil
+}
+
+func volumeParamsBySource(
+	environConfig *config.Config,
+	baseStorageDir string,
+	params []storage.VolumeParams,
+) (map[string][]storage.VolumeParams, map[string]storage.VolumeSource, error) {
+	// TODO(axw) later we may have multiple instantiations (sources)
+	// for a storage provider, e.g. multiple Ceph installations. For
+	// now we assume a single source for each provider type, with no
+	// configuration.
+	volumeSources := make(map[string]storage.VolumeSource)
+	for _, params := range params {
+		sourceName := string(params.Provider)
+		if _, ok := volumeSources[sourceName]; ok {
+			continue
+		}
+		volumeSource, err := volumeSource(
+			environConfig, baseStorageDir, sourceName, params.Provider,
+		)
+		if errors.Cause(err) == errNonDynamic {
+			volumeSource = nil
+		} else if err != nil {
+			return nil, nil, errors.Annotate(err, "getting volume source")
+		}
+		volumeSources[sourceName] = volumeSource
+	}
+	paramsBySource := make(map[string][]storage.VolumeParams)
+	for _, params := range params {
+		sourceName := string(params.Provider)
+		volumeSource := volumeSources[sourceName]
+		if volumeSource == nil {
+			// Ignore nil volume sources; this means that the
+			// volume should be created by the machine-provisioner.
+			continue
+		}
+		err := volumeSource.ValidateVolumeParams(params)
+		switch errors.Cause(err) {
+		case nil:
+			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		default:
+			return nil, nil, errors.Annotatef(err, "invalid parameters for volume %s", params.Tag.Id())
+		}
+	}
+	return paramsBySource, volumeSources, nil
 }
 
 func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) error {

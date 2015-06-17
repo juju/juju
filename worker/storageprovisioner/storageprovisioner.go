@@ -168,7 +168,11 @@ func NewStorageProvisioner(
 	}
 	go func() {
 		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
+		err := w.loop()
+		if err != tomb.ErrDying {
+			logger.Errorf("%s", err)
+		}
+		w.tomb.Kill(err)
 	}()
 	return w
 }
