@@ -36,7 +36,6 @@ type cloudImageMetadataSuite struct {
 	mongo              *gitjujutesting.MgoInstance
 	session            *mgo.Session
 	storage            cloudimagemetadata.Storage
-	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
 }
@@ -49,12 +48,10 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, jc.ErrorIsNil)
-	rs := blobstore.NewGridFS("blobstore", "my-uuid", s.session)
 	catalogue := s.session.DB("catalogue")
-	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
 	s.metadataCollection = catalogue.C("cloudimagesmetadata")
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
-	s.storage = cloudimagemetadata.NewCloudImageStorage("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
+	s.storage = cloudimagemetadata.NewStorage("my-uuid", s.metadataCollection, s.txnRunner)
 }
 
 func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
@@ -200,7 +197,7 @@ func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesExistingRemoveFails(c
 	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storage := cloudimagemetadata.NewCloudImageStorage(
+	storage := cloudimagemetadata.NewStorage(
 		"my-uuid",
 		removeFailsManagedStorage{s.managedStorage},
 		s.metadataCollection,
@@ -223,7 +220,7 @@ func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesExistingRemoveFails(c
 }
 
 func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesBlobOnFailure(c *gc.C) {
-	storage := cloudimagemetadata.NewCloudImageStorage(
+	storage := cloudimagemetadata.NewStorage(
 		"my-uuid",
 		s.managedStorage,
 		s.metadataCollection,
@@ -243,7 +240,7 @@ func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesBlobOnFailure(c *gc.C
 }
 
 func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesBlobOnFailureRemoveFails(c *gc.C) {
-	storage := cloudimagemetadata.NewCloudImageStorage(
+	storage := cloudimagemetadata.NewStorage(
 		"my-uuid",
 		removeFailsManagedStorage{s.managedStorage},
 		s.metadataCollection,
@@ -343,7 +340,7 @@ func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, v version.Binary, size
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudImageMetadataSuite) assertImages(c *gc.C, expected cloudimagemetadata.Metadata, content string) {
+func (s *cloudImageMetadataSuite) assertImages(c *gc.C, ex0 (~menn0@4.13pected cloudimagemetadata.Metadata, content string) {
 	metadata, r, err := s.storage.CloudImages(expected.Version)
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()

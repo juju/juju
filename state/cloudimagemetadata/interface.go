@@ -3,36 +3,30 @@
 
 package cloudimagemetadata
 
-import (
-	"io"
-
-	"github.com/juju/juju/version"
-)
-
-// Metadata describes a Juju cloud images metadata.
+// Metadata describes a cloud image metadata.
 type Metadata struct {
-	Version     version.Binary
 	Storage     string
 	VirtType    string
 	Arch        string
+	Version     string
 	RegionAlias string
 	RegionName  string
 	Endpoint    string
 	Stream      string
 }
 
-// Storage provides methods for storing and retrieving cloud images.
+// Storage provides methods for storing and retrieving cloud image metadata.
 type Storage interface {
 	// AddMetadata adds cloud images metadata into state,
-	AddMetadata(io.Reader, Metadata) error
+	AddMetadata(Metadata) error
 
 	// AllMetadata returns metadata for the full list of cloud images in
 	// the catalogue.
 	AllMetadata() ([]Metadata, error)
 
 	// Metadata returns the Metadata for the specified stream, version
-	// and arch if it exists, else an error satisfying errors.IsNotFound.
-	Metadata(stream string, v version.Binary, arch string) (Metadata, error)
+	// and arch if it exists or an error errors.IsNotFound.
+	Metadata(stream, version, arch string) (Metadata, error)
 }
 
 // StorageCloser extends the Storage interface with a Close method.

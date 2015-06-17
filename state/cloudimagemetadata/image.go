@@ -5,7 +5,6 @@ package cloudimagemetadata
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
@@ -28,9 +26,9 @@ type cloudImageStorage struct {
 
 var _ Storage = (*cloudImageStorage)(nil)
 
-// NewCloudImageStorage constructs a new Storage that stores  image metadata
+// NewStorage constructs a new Storage that stores  image metadata
 // in the provided collection using the provided transaction runner.
-func NewCloudImageStorage(
+func NewStorage(
 	envUUID string,
 	metadataCollection *mgo.Collection,
 	runner jujutxn.Runner,
@@ -42,7 +40,8 @@ func NewCloudImageStorage(
 	}
 }
 
-func (s *cloudImageStorage) AddMetadata(r io.Reader, metadata Metadata) (resultErr error) {
+// AddMetadata implements Storage.AddMetadata
+func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 	newDoc := imagesMetadataDoc{
 		Id:          metadata.imageId(),
 		Version:     metadata.Version,
@@ -57,12 +56,11 @@ func (s *cloudImageStorage) AddMetadata(r io.Reader, metadata Metadata) (resultE
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
-			C:  s.metadataCollection.Name,
-			Id: newDoc.Id,
+			C:      s.metadataCollection.Name,
+			Id:     newDoc.Id,
+			Assert: txn.DocMissing,
+			Insert: &newDoc,
 		}
-
-		op.Assert = txn.DocMissing
-		op.Insert = &newDoc
 		return []txn.Op{op}, nil
 	}
 
@@ -73,14 +71,16 @@ func (s *cloudImageStorage) AddMetadata(r io.Reader, metadata Metadata) (resultE
 	return nil
 }
 
-func (s *cloudImageStorage) Metadata(s string, v version.Binary, a string) (Metadata, error) {
-	metadataDoc, err := s.imagesMetadata(s, v, a)
+// Metadata implements Storage.Metadata
+func (s *cloudImageStorage) Metadata(stream, version, arch string) (Metadata, error) {
+	metadataDoc, err := s.imagesMetadata(stream, version, arch)
 	if err != nil {
 		return Metadata{}, errors.Trace(err)
 	}
 	return metadataDoc.public(), nil
 }
 
+// AllMetadata implements Storage.AllMetadata
 func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
@@ -93,11 +93,15 @@ func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	return metadata, nil
 }
 
-func (c *cloudImageStorage) imagesMetadata(s string, v version.Binary, a string) (imagesMetadataDoc, error) {
+func (c *cloudImageStorage) imagesMetadata(
+	stream, version, arch string,
+) (imagesMetadataDoc, error) {
+	// Construct metadata search id based on input
+	desiredID := createId(stream, version, arch)
 	var doc imagesMetadataDoc
-	err := c.metadataCollection.Find(bson.D{{"_id", createId(s, v, a)}}).One(&doc)
+	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return doc, errors.NotFoundf("%v cloud images metadata", v)
+		return doc, errors.NotFoundf("%v cloud images metadata", desiredID)
 	}
 	if err != nil {
 		return doc, err
@@ -106,15 +110,15 @@ func (c *cloudImageStorage) imagesMetadata(s string, v version.Binary, a string)
 }
 
 type imagesMetadataDoc struct {
-	Id          string         `bson:"_id"`
-	Storage     string         `bson:"root_store,omitempty"`
-	VirtType    string         `bson:"virt,omitempty"`
-	Arch        string         `bson:"arch,omitempty"`
-	Version     version.Binary `bson:"version"`
-	RegionAlias string         `bson:"crsn,omitempty"`
-	RegionName  string         `bson:"region,omitempty"`
-	Endpoint    string         `bson:"endpoint,omitempty"`
-	Stream      string         `json:"-"`
+	Id          string `bson:"_id"`
+	Storage     string `bson:"root_store,omitempty"`
+	VirtType    string `bson:"virt,omitempty"`
+	Arch        string `bson:"arch,omitempty"`
+	Version     string `bson:"version"`
+	RegionAlias string `bson:"crsn,omitempty"`
+	RegionName  string `bson:"region,omitempty"`
+	Endpoint    string `bson:"endpoint,omitempty"`
+	Stream      string `bson:"stream"`
 }
 
 func (m imagesMetadataDoc) public() Metadata {
