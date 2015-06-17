@@ -16,6 +16,7 @@ const (
 	tmpDir osVarType = iota
 	logDir
 	dataDir
+	confDir
 	jujuRun
 )
 
@@ -23,6 +24,7 @@ var nixVals = map[osVarType]string{
 	tmpDir:  "/tmp",
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
+	confDir: "/etc/juju",
 	jujuRun: "/usr/bin/juju-run",
 }
 
@@ -30,6 +32,7 @@ var winVals = map[osVarType]string{
 	tmpDir:  "C:/Juju/tmp",
 	logDir:  "C:/Juju/log",
 	dataDir: "C:/Juju/lib/juju",
+	confDir: "C:/Juju/etc",
 	jujuRun: "C:/Juju/bin/juju-run.exe",
 }
 
@@ -67,6 +70,12 @@ func LogDir(series string) (string, error) {
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
+}
+
+// ConfDir returns the path to the directory where Juju may store
+// configuration files.
+func ConfDir(series string) (string, error) {
+	return osVal(series, confDir)
 }
 
 // JujuRun returns the absolute path to the juju-run binary for

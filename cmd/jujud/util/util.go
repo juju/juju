@@ -6,6 +6,7 @@ package util
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -237,7 +238,14 @@ var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 	if err != nil {
 		return nil, err
 	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agentConfig.DataDir())
+	jujuConfDir := agent.DefaultConfDir
+	if namespace != "" {
+		jujuConfDir += "-" + namespace
+	}
+	if err := os.MkdirAll(jujuConfDir, 0755); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, jujuConfDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a
