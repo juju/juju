@@ -254,6 +254,21 @@ func (s *EnvUserSuite) TestIsSystemAdministrator(c *gc.C) {
 	c.Assert(isAdmin, jc.IsTrue)
 }
 
+func (s *EnvUserSuite) TestIsSystemAdministratorFromOtherState(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Owner: user.UserTag()})
+	defer otherState.Close()
+
+	isAdmin, err := otherState.IsSystemAdministrator(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsFalse)
+
+	isAdmin, err = otherState.IsSystemAdministrator(s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsTrue)
+}
+
 // UUIDOrder is used to sort the environments into a stable order
 type UUIDOrder []*state.Environment
 
