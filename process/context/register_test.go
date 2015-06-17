@@ -327,8 +327,8 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 }
 
 func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
-	s.proc.Status = process.StatusActive
 	s.init(c, s.proc.Name, "abc123", "running")
+	context.GetCmdInfo(s.cmd).Status = process.StatusActive
 
 	err := s.cmd.Run(s.cmdCtx)
 
