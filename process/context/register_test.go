@@ -129,7 +129,6 @@ func (s *registerSuite) TestInitIDMismatch(c *gc.C) {
 		s.proc.Name,
 		"abc123",
 		`{"id":"xyz789", "status":"okay"}`,
-		"other",
 	})
 
 	c.Check(err, gc.ErrorMatches, "ID in details (.*) does not match ID arg (.*)")
