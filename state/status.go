@@ -639,7 +639,7 @@ func getEntitiesWithStatuses(coll stateCollection) ([]string, error) {
 	return entityKeys, nil
 }
 
-const InstallingMessage = "installing charm software"
+const MessageInstalling = "installing charm software"
 
 // TranslateLegacyAgentStatus returns the status value clients expect to see for
 // agent-state in versions prior to 1.24
@@ -657,7 +657,7 @@ func TranslateToLegacyAgentState(agentStatus, workloadStatus Status, workloadMes
 	// For the purposes of deriving the legacy status, there's currently no better
 	// way to determine if a unit is installed.
 	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := workloadStatus != StatusMaintenance || workloadMessage != InstallingMessage
+	isInstalled := workloadStatus != StatusMaintenance || workloadMessage != MessageInstalling
 
 	switch agentStatus {
 	case StatusAllocating:

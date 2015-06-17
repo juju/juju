@@ -336,8 +336,8 @@ func (u *Unit) eraseHistory() error {
 	return nil
 }
 
-// unitAgentAllocatingOrInstalling is used to assert that a unit agent may be installing a unit.
-var unitAgentAllocatingOrInstalling = bson.D{
+// unitAgentAllocatingOrInstallingOrError is used to assert that a unit agent may be installing a unit.
+var unitAgentAllocatingOrInstallingOrError = bson.D{
 	{"$or", []bson.D{
 		{{"status", StatusAllocating}},
 		{{"status", StatusExecuting}},
@@ -349,11 +349,11 @@ var unitInstalling = bson.D{
 	{"$or", []bson.D{
 		{{"$and", []bson.D{
 			{{"status", StatusMaintenance}},
-			{{"statusinfo", InstallingMessage}},
+			{{"statusinfo", MessageInstalling}},
 		}}},
 		{{"$and", []bson.D{
 			{{"status", StatusUnknown}},
-			{{"statusinfo", WaitForAgentInitMessage}},
+			{{"statusinfo", MessageWaitForAgentInit}},
 		}}},
 	}}}
 
@@ -419,7 +419,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}
 	// There's currently no better way to determine if a unit is installed.
 	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != InstallingMessage
+	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != MessageInstalling
 
 	// If already allocated and installed, or there's an error, then we can't set directly to dead.
 	if isAllocated && isInstalled {
@@ -430,7 +430,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		{
 			C:      statusesC,
 			Id:     u.st.docID(agentStatusDocId),
-			Assert: unitAgentAllocatingOrInstalling,
+			Assert: unitAgentAllocatingOrInstallingOrError,
 		}, {
 			C:      statusesC,
 			Id:     u.st.docID(unitStatusDocId),
