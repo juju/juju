@@ -102,8 +102,12 @@ func (t *OplogTailer) loop() error {
 	// idsForLastTimestamp records the unique operation ids that have
 	// been reported for the most recently reported oplog
 	// timestamp. This is used to avoid re-reporting oplog entries
-	// when the iterator is restarted. It's possible for there to be
-	// many oplog entries for a given timestamp.
+	// when the iterator is restarted. These timestamps are unique for
+	// a given mongod but when there's multiple replicaset members
+	// it's possible for there to be multiple oplog entries for a
+	// given timestamp.
+	//
+	// See: http://docs.mongodb.org/v2.4/reference/bson-types/#timestamps
 	var idsForLastTimestamp []int64
 
 	for {
