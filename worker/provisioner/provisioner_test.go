@@ -71,16 +71,25 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 
 	s.BackingState.StartSync()
 
-	// Wait for the PA to load the new configuration.
-	select {
-	case newCfg := <-cfgObserver:
-		c.Assert(
-			newCfg.ProvisionerHarvestMode().String(),
-			gc.Equals,
-			config.HarvestAll.String(),
-		)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("PA did not action config change")
+	// Wait for the PA to load the new configuration. We wait for the change we expect
+	// like this because sometimes we pick up the initial harvest config (destroyed)
+	// rather than the one we change to (all).
+	received := []string{}
+	for {
+		select {
+		case newCfg := <-cfgObserver:
+			if newCfg.ProvisionerHarvestMode().String() == config.HarvestAll.String() {
+				return
+			}
+			received = append(received, newCfg.ProvisionerHarvestMode().String())
+		case <-time.After(coretesting.LongWait):
+			if len(received) == 0 {
+				c.Fatalf("PA did not action config change")
+			} else {
+				c.Fatalf("timed out waiting for config to change to '%s', received %+v",
+					config.HarvestAll.String(), received)
+			}
+		}
 	}
 }
 
