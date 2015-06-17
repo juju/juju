@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudimagemetadata
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
@@ -15,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/version"
 )
 
@@ -22,120 +22,59 @@ var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type cloudImageStorage struct {
 	envUUID            string
-	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
 }
 
 var _ Storage = (*cloudImageStorage)(nil)
 
-// NewCloudImageStorage constructs a new Storage that stores images tarballs
-// in the provided ManagedStorage, and image metadata in the provided
-// collection using the provided transaction runner.
+// NewCloudImageStorage constructs a new Storage that stores  image metadata
+// in the provided collection using the provided transaction runner.
 func NewCloudImageStorage(
 	envUUID string,
-	managedStorage blobstore.ManagedStorage,
 	metadataCollection *mgo.Collection,
 	runner jujutxn.Runner,
 ) Storage {
 	return &cloudImageStorage{
 		envUUID:            envUUID,
-		managedStorage:     managedStorage,
 		metadataCollection: metadataCollection,
 		txnRunner:          runner,
 	}
 }
 
-func (s *cloudImageStorage) AddCloudImages(r io.Reader, metadata Metadata) (resultErr error) {
-	// Add the images tarball to storage.
-	path := imagesPath(metadata.Version, metadata.SHA256)
-	err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size)
-	if err != nil {
-		return errors.Annotate(err, "cannot store cloud images tarball")
-	}
-	defer func() {
-		if resultErr != nil {
-			err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
-			if err != nil {
-				logger.Errorf("failed to remove cloud images blob: %v", err)
-			}
-		}
-	}()
-
+func (s *cloudImageStorage) AddMetadata(r io.Reader, metadata Metadata) (resultErr error) {
 	newDoc := imagesMetadataDoc{
-		Id:      metadata.Version.String(),
-		Version: metadata.Version,
-		Size:    metadata.Size,
-		SHA256:  metadata.SHA256,
-		Path:    path,
+		Id:          metadata.imageId(),
+		Version:     metadata.Version,
+		Storage:     metadata.Storage,
+		VirtType:    metadata.VirtType,
+		Arch:        metadata.Arch,
+		RegionAlias: metadata.RegionAlias,
+		RegionName:  metadata.RegionName,
+		Endpoint:    metadata.Endpoint,
+		Stream:      metadata.Stream,
 	}
 
-	// Add or replace metadata. If replacing, record the
-	// existing path so we can remove it later.
-	var oldPath string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
 			C:  s.metadataCollection.Name,
 			Id: newDoc.Id,
 		}
 
-		// On the first attempt we assume we're adding new images.
-		// Subsequent attempts to add images will fetch the existing
-		// doc, record the old path, and attempt to update the
-		// size, path and hash fields.
-		if attempt == 0 {
-			op.Assert = txn.DocMissing
-			op.Insert = &newDoc
-		} else {
-			oldDoc, err := s.imagesMetadata(metadata.Version)
-			if err != nil {
-				return nil, err
-			}
-			oldPath = oldDoc.Path
-			op.Assert = bson.D{{"path", oldPath}}
-			if oldPath != path {
-				op.Update = bson.D{{
-					"$set", bson.D{
-						{"size", metadata.Size},
-						{"sha256", metadata.SHA256},
-						{"path", path},
-					},
-				}}
-			}
-		}
+		op.Assert = txn.DocMissing
+		op.Insert = &newDoc
 		return []txn.Op{op}, nil
 	}
-	err = s.txnRunner.Run(buildTxn)
+
+	err := s.txnRunner.Run(buildTxn)
 	if err != nil {
 		return errors.Annotate(err, "cannot store cloud images metadata")
-	}
-
-	if oldPath != "" && oldPath != path {
-		// Attempt to remove the old path. Failure is non-fatal.
-		err := s.managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
-		if err != nil {
-			logger.Errorf("failed to remove old cloud images blob: %v", err)
-		} else {
-			logger.Debugf("removed old cloud images blob")
-		}
 	}
 	return nil
 }
 
-func (s *cloudImageStorage) CloudImages(v version.Binary) (Metadata, io.ReadCloser, error) {
-	metadataDoc, err := s.imagesMetadata(v)
-	if err != nil {
-		return Metadata{}, nil, err
-	}
-	images, err := s.imagesTarball(metadataDoc.Path)
-	if err != nil {
-		return Metadata{}, nil, err
-	}
-	return metadataDoc.public(), images, nil
-}
-
-func (s *cloudImageStorage) Metadata(v version.Binary) (Metadata, error) {
-	metadataDoc, err := s.imagesMetadata(v)
+func (s *cloudImageStorage) Metadata(s string, v version.Binary, a string) (Metadata, error) {
+	metadataDoc, err := s.imagesMetadata(s, v, a)
 	if err != nil {
 		return Metadata{}, errors.Trace(err)
 	}
@@ -154,9 +93,9 @@ func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	return metadata, nil
 }
 
-func (s *cloudImageStorage) imagesMetadata(v version.Binary) (imagesMetadataDoc, error) {
+func (c *cloudImageStorage) imagesMetadata(s string, v version.Binary, a string) (imagesMetadataDoc, error) {
 	var doc imagesMetadataDoc
-	err := s.metadataCollection.Find(bson.D{{"_id", v.String()}}).One(&doc)
+	err := c.metadataCollection.Find(bson.D{{"_id", createId(s, v, a)}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf("%v cloud images metadata", v)
 	}
@@ -166,28 +105,47 @@ func (s *cloudImageStorage) imagesMetadata(v version.Binary) (imagesMetadataDoc,
 	return doc, nil
 }
 
-func (s *cloudImageStorage) imagesTarball(path string) (io.ReadCloser, error) {
-	r, _, err := s.managedStorage.GetForEnvironment(s.envUUID, path)
-	return r, err
-}
-
 type imagesMetadataDoc struct {
-	Id      string         `bson:"_id"`
-	Version version.Binary `bson:"version"`
-	Size    int64          `bson:"size"`
-	SHA256  string         `bson:"sha256,omitempty"`
-	Path    string         `bson:"path"`
+	Id          string         `bson:"_id"`
+	Storage     string         `bson:"root_store,omitempty"`
+	VirtType    string         `bson:"virt,omitempty"`
+	Arch        string         `bson:"arch,omitempty"`
+	Version     version.Binary `bson:"version"`
+	RegionAlias string         `bson:"crsn,omitempty"`
+	RegionName  string         `bson:"region,omitempty"`
+	Endpoint    string         `bson:"endpoint,omitempty"`
+	Stream      string         `json:"-"`
 }
 
 func (m imagesMetadataDoc) public() Metadata {
 	return Metadata{
-		Version: m.Version,
-		Size:    m.Size,
-		SHA256:  m.SHA256,
+		Version:     m.Version,
+		Storage:     m.Storage,
+		VirtType:    m.VirtType,
+		Arch:        m.Arch,
+		RegionAlias: m.RegionAlias,
+		RegionName:  m.RegionName,
+		Endpoint:    m.Endpoint,
+		Stream:      m.Stream,
 	}
 }
 
-// imagesPath returns the storage path for the specified cloud images.
-func imagesPath(v version.Binary, hash string) string {
-	return fmt.Sprintf("cloudimages/%s-%s", v, hash)
+func idStream(stream string) string {
+	idstream := ""
+	if stream != "" && stream != imagemetadata.ReleasedStream {
+		idstream = "." + stream
+	}
+	return idstream
+}
+
+var createId = func(stream, version, arch string) string {
+	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+}
+
+func (im *Metadata) imageId() string {
+	return createId(idStream(im.Stream), im.Version, im.Arch)
+}
+
+func (im *Metadata) String() string {
+	return fmt.Sprintf("%#v", im)
 }

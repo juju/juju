@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudimagemetadata
@@ -9,32 +9,30 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// Metadata describes a Juju cloud images tarball.
+// Metadata describes a Juju cloud images metadata.
 type Metadata struct {
-	Version version.Binary
-	Size    int64
-	SHA256  string
+	Version     version.Binary
+	Storage     string
+	VirtType    string
+	Arch        string
+	RegionAlias string
+	RegionName  string
+	Endpoint    string
+	Stream      string
 }
 
-// Storage provides methods for storing and retrieving tools by version.
+// Storage provides methods for storing and retrieving cloud images.
 type Storage interface {
-	// AddCloudImages adds cloud images tarball and metadata into state,
-	// replacing existing metadata if any exists with the specified
-	// version.
-	AddCloudImages(io.Reader, Metadata) error
-
-	// CloudImages returns the Metadata and cloud images tarball contents
-	// for the specified version if it exists, else an error
-	// satisfying errors.IsNotFound.
-	CloudImages(version.Binary) (Metadata, io.ReadCloser, error)
+	// AddMetadata adds cloud images metadata into state,
+	AddMetadata(io.Reader, Metadata) error
 
 	// AllMetadata returns metadata for the full list of cloud images in
 	// the catalogue.
 	AllMetadata() ([]Metadata, error)
 
-	// Metadata returns the Metadata for the specified version
-	// if it exists, else an error satisfying errors.IsNotFound.
-	Metadata(v version.Binary) (Metadata, error)
+	// Metadata returns the Metadata for the specified stream, version
+	// and arch if it exists, else an error satisfying errors.IsNotFound.
+	Metadata(stream string, v version.Binary, arch string) (Metadata, error)
 }
 
 // StorageCloser extends the Storage interface with a Close method.
