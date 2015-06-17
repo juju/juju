@@ -37,6 +37,7 @@ func NewOplogTailer(oplog *mgo.Collection, query bson.D) *OplogTailer {
 	}
 	go func() {
 		defer func() {
+			close(t.outCh)
 			t.tomb.Done()
 			session.Close()
 		}()

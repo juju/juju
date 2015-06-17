@@ -62,14 +62,12 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	defer tailer.Stop()
 
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
-	doc := s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	s.getNextOplog(c, tailer)
 
 	err := tailer.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 2})
-	s.assertNoOplog(c, tailer)
+	s.assertStopped(c, tailer)
 }
 
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
@@ -163,13 +161,7 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	err := oplog.DropCollection()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// OplogTailer should die.
-	select {
-	case <-tailer.Dying():
-		// Success.
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("tailer should have died")
-	}
+	s.assertStopped(c, tailer)
 }
 
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
@@ -254,5 +246,23 @@ func (s *oplogSuite) assertNoOplog(c *gc.C, tailer *mongo.OplogTailer) {
 		c.Fatal("unexpected oplog activity reported")
 	case <-time.After(coretesting.ShortWait):
 		// Success
+	}
+}
+
+func (s *oplogSuite) assertStopped(c *gc.C, tailer *mongo.OplogTailer) {
+	// Output should close.
+	select {
+	case _, ok := <-tailer.Out():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("tailer output should have closed")
+	}
+
+	// OplogTailer should die.
+	select {
+	case <-tailer.Dying():
+		// Success.
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("tailer should have died")
 	}
 }
