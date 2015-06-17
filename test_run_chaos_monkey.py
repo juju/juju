@@ -185,11 +185,19 @@ class TestRunChaosMonkey(TestCase):
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=0'
-                 ): 'Action queued with id: chaos-monkey/0',
+                 ): 'Action queued with id: abcd',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/0', 'start', 'mode=single',
+                 'enablement-timeout=0', 'monkey-id=abcd'
+                 ): 'Action queued with id: efgh',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=0'
-                 ): 'Action queued with id: chaos-monkey/1',
+                 ): 'Action queued with id: 1234',
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/1', 'start', 'mode=single',
+                 'enablement-timeout=0', 'monkey-id=1234'
+                 ): 'Action queued with id: 5678',
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -211,6 +219,18 @@ class TestRunChaosMonkey(TestCase):
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
         self.assertEqual(co_mock.call_count, 3)
         s_mock.assert_called_with(0)
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True) as co_mock:
+            with patch('run_chaos_monkey.sleep') as s_mock:
+                monkey_runner.unleash_once()
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0',
+            'monkey-id=1234'), 1, True)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'action', 'do', '-e', 'foo',
+            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0',
+            'monkey-id=abcd'), 2, True)
 
     def test_unleash_once_raises_for_unexpected_action_output(self):
         def output(args, **kwargs):
