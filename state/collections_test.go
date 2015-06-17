@@ -34,8 +34,8 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 
 	c.Check(coll.Name(), gc.Equals, state.UsersC)
 
-	s.factory.MakeUser(c, &factory.UserParams{Name: "foo", DisplayName: "Ms Foo"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "bar"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foo", DisplayName: "Ms Foo"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "bar"})
 
 	collSnapshot := newCollectionSnapshot(c, coll.Underlying())
 
@@ -139,9 +139,9 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	// The machines collection requires filtering by env UUID. Set up
 	// 2 environments with machines in each.
-	m0 := s.factory.MakeMachine(c, nil)
-	s.factory.MakeMachine(c, nil)
-	st1 := s.factory.MakeEnvironment(c, nil)
+	m0 := s.Factory.MakeMachine(c, nil)
+	s.Factory.MakeMachine(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	f1 := factory.NewFactory(st1)
 	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})

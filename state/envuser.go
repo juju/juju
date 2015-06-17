@@ -232,3 +232,26 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 
 	return result, nil
 }
+
+// IsSystemAdministrator returns true if the user specified has access to the
+// state server environment (the system environment).
+func (st *State) IsSystemAdministrator(user names.UserTag) (bool, error) {
+	ssinfo, err := st.StateServerInfo()
+	if err != nil {
+		return false, errors.Annotate(err, "could not get state server info")
+	}
+
+	serverUUID := ssinfo.EnvironmentTag.Id()
+
+	envUsers, userCloser := st.getRawCollection(envUsersC)
+	defer userCloser()
+
+	count, err := envUsers.Find(bson.D{
+		{"env-uuid", serverUUID},
+		{"user", user.Username()},
+	}).Count()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return count == 1, nil
+}
