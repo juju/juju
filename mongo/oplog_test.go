@@ -68,6 +68,7 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStopped(c, tailer)
+	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
@@ -162,6 +163,9 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStopped(c, tailer)
+	// The actual error varies by MongoDB version so just check that
+	// there is one.
+	c.Assert(tailer.Err(), gc.Not(jc.ErrorIsNil))
 }
 
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
