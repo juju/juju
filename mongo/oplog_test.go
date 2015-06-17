@@ -32,22 +32,31 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	tailer := mongo.NewOplogTailer(oplog, bson.D{{"ns", "foo.bar"}})
 	defer tailer.Stop()
 
-	assertOplog := func(expectedOp string, expectedObj bson.D) {
+	assertOplog := func(expectedOp string, expectedObj, expectedUpdate bson.D) {
 		doc := s.getNextOplog(c, tailer)
 		c.Assert(doc.Operation, gc.Equals, expectedOp)
-		c.Assert(doc.Object, jc.DeepEquals, expectedObj)
+
+		var actualObj bson.D
+		err := doc.UnmarshalObject(&actualObj)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(actualObj, jc.DeepEquals, expectedObj)
+
+		var actualUpdate bson.D
+		err = doc.UnmarshalUpdate(&actualUpdate)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(actualUpdate, jc.DeepEquals, expectedUpdate)
 	}
 
 	// Insert into foo.bar and see that the oplog entry is reported.
 	db := session.DB("foo")
 	coll := db.C("bar")
 	s.insertDoc(c, session, coll, bson.M{"_id": "thing"})
-	assertOplog("i", bson.D{{"_id", "thing"}})
+	assertOplog("i", bson.D{{"_id", "thing"}}, nil)
 
 	// Update foo.bar and see the update reported.
 	err := coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}})
+	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}}, bson.D{{"_id", "thing"}})
 
 	// Insert into another collection (shouldn't be reported due to filter).
 	s.insertDoc(c, session, db.C("elsewhere"), bson.M{"_id": "boo"})
