@@ -1001,6 +1001,40 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	assertRemoved(c, s.unit)
 }
 
+func (s *UnitSuite) TestShortCircuitDestroyUnitStillInstalling(c *gc.C) {
+	// A unit that has not yet started is removed directly.
+	for i, test := range []struct {
+		agentStatus state.Status
+		agentInfo   string
+		unitStatus  state.Status
+		unitInfo    string
+	}{{
+		state.StatusAllocating, "blah",
+		state.StatusUnknown, "Waiting for agent initialization to finish",
+	}, {
+		state.StatusExecuting, "blah",
+		state.StatusMaintenance, "installing charm software",
+	}, {
+		state.StatusError, "blah",
+		state.StatusMaintenance, "installing charm software",
+	}} {
+		c.Logf("test %d", i)
+		unit, err := s.service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		// Allocating is default and we aren't allowed to set it ourselves.
+		if test.agentStatus != state.StatusAllocating {
+			err := unit.SetAgentStatus(test.agentStatus, test.agentInfo, nil)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		err = unit.SetStatus(test.unitStatus, test.unitInfo, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(unit.Life(), gc.Equals, state.Dying)
+		assertRemoved(c, unit)
+	}
+}
+
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
