@@ -5,15 +5,20 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/macaroon-bakery.v0/httpbakery"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -167,6 +172,13 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
+var isMeteredCharm = func(info *api.CharmInfo) bool {
+	if info.URL == "local:quantal/metered-1" {
+		return true
+	}
+	return false
+}
+
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
@@ -291,6 +303,36 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.ToMachineSpec)
 	}
+
+	if isMeteredCharm(charmInfo) {
+		httpClient := httpbakery.NewHTTPClient()
+		httpClient.Jar = csClient.jar
+		credentials, err := registerMetrics("", client.EnvironmentUUID(), curl.String(), serviceName, httpClient, func(
+			url *url.URL) error {
+			err := visitWebPage(ctx, url)
+			if err != nil {
+				// Just log, it's not a fatal error, user can copy and paste
+				// the link printed to the terminal output.
+				ctx.Verbosef("unable to open browser: %v", err)
+			}
+			return nil
+		})
+		if err != nil {
+			ctx.Infof("failed to register metrics: %v", err)
+			return err
+		}
+
+		api, cerr := getMetricCredentialsAPI(c)
+		if cerr != nil {
+			ctx.Infof("failed to get the metrics credentials setter: %v", cerr)
+		}
+		err = api.SetMetricCredentials(serviceName, credentials)
+		if err != nil {
+			ctx.Infof("failed to set metric credentials: %v", err)
+			return err
+		}
+		api.Close()
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -319,4 +361,57 @@ func networkNamesToTags(networks []string) ([]string, error) {
 		tags = append(tags, names.NewNetworkTag(network).String())
 	}
 	return tags, nil
+}
+
+func visitWebPage(ctx *cmd.Context, url *url.URL) error {
+	ctx.Infof("If a Web browser doesn't open please go here: %s\n", url)
+	switch runtime.GOOS {
+	case "linux":
+		cmd := exec.Command("sensible-browser", url.String())
+		return cmd.Start()
+	case "windows":
+		cmd := exec.Command("start", url.String())
+		return cmd.Start()
+	case "darwin":
+		cmd := exec.Command("open", url.String())
+		return cmd.Start()
+	}
+	return nil
+}
+
+type metricCredentialsAPI interface {
+	SetMetricCredentials(string, []byte) error
+	Close() error
+}
+
+var getMetricCredentialsAPI = (*DeployCommand).getMetricCredentialsAPI
+
+type metricsCredentialsAPIImpl struct {
+	api   *apiservice.Client
+	state *api.State
+}
+
+func (s *metricsCredentialsAPIImpl) SetMetricCredentials(serviceName string, data []byte) error {
+	return s.api.SetMetricCredentials(serviceName, data)
+}
+
+func (s *metricsCredentialsAPIImpl) Close() error {
+	err := s.api.Close()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.state.Close()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *DeployCommand) getMetricCredentialsAPI() (metricCredentialsAPI, error) {
+	state, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
 }
