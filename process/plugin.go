@@ -68,9 +68,6 @@ func ParseEnv(raw []string) (map[string]string, error) {
 		}
 		envVars[envVar] = value
 	}
-	if len(envVars) == 0 {
-		return nil, nil
-	}
 	return envVars, nil
 }
 

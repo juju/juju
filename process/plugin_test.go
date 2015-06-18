@@ -67,7 +67,7 @@ func (*pluginSuite) TestParseEnvEmpty(c *gc.C) {
 	env, err := process.ParseEnv(raw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(env, gc.IsNil)
+	c.Check(env, gc.HasLen, 0)
 }
 
 func (*pluginSuite) TestParseEnvEssentiallyEmpty(c *gc.C) {
@@ -75,7 +75,7 @@ func (*pluginSuite) TestParseEnvEssentiallyEmpty(c *gc.C) {
 	env, err := process.ParseEnv(raw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(env, gc.IsNil)
+	c.Check(env, gc.HasLen, 0)
 }
 
 func (*pluginSuite) TestParseEnvSkipped(c *gc.C) {
