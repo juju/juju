@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -1776,6 +1777,43 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	// The default proxy settings should still be empty.
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
+}
+
+func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
+	schema, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+	// Check that we actually returned a copy, not the original.
+	schema["foo"] = environschema.Attr{}
+	_, ok := orig["foo"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
+	extraField := environschema.Attr{
+		Description: "fooish",
+		Type:        environschema.Tstring,
+	}
+	schema, err := config.Schema(environschema.Fields{
+		"foo": extraField,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(schema["foo"], gc.DeepEquals, extraField)
+	delete(schema, "foo")
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
+	schema, err := config.Schema(environschema.Fields{
+		"type": environschema.Attr{
+			Description: "duplicate",
+			Type:        environschema.Tstring,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)
+	c.Assert(schema, gc.IsNil)
 }
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
