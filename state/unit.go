@@ -336,26 +336,6 @@ func (u *Unit) eraseHistory() error {
 	return nil
 }
 
-// unitAgentAllocatingOrInstalling is used to assert that a unit agent may be installing a unit.
-var unitAgentAllocatingOrInstalling = bson.D{
-	{"$or", []bson.D{
-		{{"status", StatusAllocating}},
-		{{"status", StatusExecuting}},
-	}}}
-
-// unitInitialisingOrInstalling is used to assert that a unit is not yet finished installing.
-var unitInitialisingOrInstalling = bson.D{
-	{"$or", []bson.D{
-		{{"$and", []bson.D{
-			{{"status", StatusMaintenance}},
-			{{"statusinfo", MessageInstalling}},
-		}}},
-		{{"$and", []bson.D{
-			{{"status", StatusUnknown}},
-			{{"statusinfo", MessageWaitForAgentInit}},
-		}}},
-	}}}
-
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
@@ -401,41 +381,23 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	agentStatusDocId := u.globalAgentKey()
 	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
-
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
 
-	// See if the unit's machine has been allocated and the unit has been installed.
-	isAllocated := agentStatusDoc.Status != StatusAllocating
-	isError := agentStatusDoc.Status == StatusError
-
-	unitStatusDocId := u.globalKey()
-	unitStatusDoc, err := getStatus(u.st, unitStatusDocId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// There's currently no better way to determine if a unit is installed.
-	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != MessageInstalling
-
-	// If already allocated and installed, or there's an error, then we can't set directly to dead.
-	if isError || isAllocated && isInstalled {
+	// See if the unit's machine has been allocated.
+	// If already allocated, then we can't set directly to dead.
+	if agentStatusDoc.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
-	ops := []txn.Op{
-		{
-			C:      statusesC,
-			Id:     u.st.docID(agentStatusDocId),
-			Assert: unitAgentAllocatingOrInstalling,
-		}, {
-			C:      statusesC,
-			Id:     u.st.docID(unitStatusDocId),
-			Assert: unitInitialisingOrInstalling,
-		}, minUnitsOp}
+	ops := []txn.Op{{
+		C:      statusesC,
+		Id:     u.st.docID(agentStatusDocId),
+		Assert: bson.D{{"status", StatusAllocating}},
+	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
