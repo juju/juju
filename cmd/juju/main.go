@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
+	_ "github.com/juju/juju/component/all" // trigger registration
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
