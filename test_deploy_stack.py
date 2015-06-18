@@ -213,6 +213,7 @@ class DeployStackTestCase(TestCase):
             env, 'bar', series='wacky', bootstrap_host='baz',
             agent_url='url', agent_stream='devel')
         self.assertEqual('bar', env.environment)
+        self.assertEqual('bar', env.config['name'])
         self.assertEqual('wacky', env.config['default-series'])
         self.assertEqual('baz', env.config['bootstrap-host'])
         self.assertEqual('url', env.config['tools-metadata-url'])
