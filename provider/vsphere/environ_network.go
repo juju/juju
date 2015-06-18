@@ -13,7 +13,7 @@ import (
 )
 
 // AllocateAddress implements environs.Environ.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, _ string) error {
 	return env.changeAddress(instID, netID, addr, true)
 }
 
