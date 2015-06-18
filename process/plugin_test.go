@@ -165,6 +165,14 @@ func (*pluginSuite) TestParseDetailsValid(c *gc.C) {
 	})
 }
 
+func (*pluginSuite) TestParseDetailsEmptyInput(c *gc.C) {
+	input := ""
+
+	_, err := process.ParseDetails(input)
+
+	c.Check(err, gc.ErrorMatches, ".*")
+}
+
 func (*pluginSuite) TestParseDetailsMissingID(c *gc.C) {
 	input := `{"status":"running"}`
 
