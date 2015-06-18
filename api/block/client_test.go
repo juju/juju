@@ -51,6 +51,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 		})
 	blockClient := block.NewClient(apiCaller)
 	err := blockClient.SwitchBlockOn(blockType, msg)
+	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -72,6 +73,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 		})
 	blockClient := block.NewClient(apiCaller)
 	err := blockClient.SwitchBlockOn("", "")
+	c.Assert(called, jc.IsTrue)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 
@@ -104,6 +106,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 		})
 	blockClient := block.NewClient(apiCaller)
 	err := blockClient.SwitchBlockOff(blockType)
+	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -125,6 +128,7 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 		})
 	blockClient := block.NewClient(apiCaller)
 	err := blockClient.SwitchBlockOff("")
+	c.Assert(called, jc.IsTrue)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 

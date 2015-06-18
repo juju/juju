@@ -65,7 +65,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           `invalid firewall mode in environment configuration: "invalid"`,
+		errorMsg:           `firewall-mode: expected one of \[instance global none ], got "invalid"`,
 	},
 }
 

@@ -4,3 +4,6 @@ description: See above
 storage:
     data:
         type: filesystem
+        read-only: true
+        multiple:
+          range: 1+

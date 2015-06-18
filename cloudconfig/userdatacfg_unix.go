@@ -25,6 +25,9 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -89,6 +92,12 @@ func (w *unixConfigure) ConfigureBasic() error {
 	switch w.os {
 	case version.Ubuntu:
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+		if w.icfg.Tools != nil {
+			initSystem, ok := service.VersionInitSystem(w.icfg.Tools.Version)
+			if ok {
+				w.addCleanShutdownJob(initSystem)
+			}
+		}
 	// On unix systems that are not ubuntu we create an ubuntu user so that we
 	// are able to ssh in the machine and have all the functionality dependant
 	// on having an ubuntu user there.
@@ -100,6 +109,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.conf.AddScripts("systemctl stop firewalld")
 		w.conf.AddScripts("systemctl disable firewalld")
 		w.conf.AddScripts(`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`)
+		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
@@ -112,6 +122,18 @@ func (w *unixConfigure) ConfigureBasic() error {
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
 	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
+}
+
+func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
+	switch initSystem {
+	case service.InitSystemUpstart:
+		path, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
+		w.conf.AddRunTextFile(path, contents, 0644)
+	case service.InitSystemSystemd:
+		path, contents := systemd.CleanShutdownServicePath, systemd.CleanShutdownService
+		w.conf.AddRunTextFile(path, contents, 0644)
+		w.conf.AddScripts(fmt.Sprintf("/bin/systemctl enable '%s'", path))
+	}
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {

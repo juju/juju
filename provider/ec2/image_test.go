@@ -182,7 +182,7 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: "bad",
 		arches: both,
-		err:    `invalid series "bad"`,
+		err:    `unknown version for series: "bad"`,
 	}, {
 		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
