@@ -9,10 +9,6 @@ import (
 	"github.com/juju/juju/process"
 )
 
-var (
-	NewProcRegistrationCommand = newProcRegistrationCommand
-)
-
 func SetComponent(cmd cmd.Command, compCtx Component) {
 	switch cmd := cmd.(type) {
 	case *ProcRegistrationCommand:

@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	_ "github.com/juju/juju/component/all" // trigger registration
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
 )

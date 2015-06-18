@@ -20,23 +20,15 @@ The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.
 `
 
-func init() {
-	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
-		cmd, err := newProcRegistrationCommand(ctx)
-		if err != nil {
-			panic(err)
-		}
-		return cmd
-	})
-}
-
 // ProcRegistrationCommand implements the register command.
 type ProcRegistrationCommand struct {
 	registeringCommand
 }
 
-// newProcRegistrationCommand returns a new ProcRegistrationCommand.
-func newProcRegistrationCommand(ctx jujuc.Context) (*ProcRegistrationCommand, error) {
+// TODO(ericsnow) Refactor so that importing jujuc is not necessary.
+
+// NewProcRegistrationCommand returns a new ProcRegistrationCommand.
+func NewProcRegistrationCommand(ctx jujuc.Context) (*ProcRegistrationCommand, error) {
 	base, err := newRegisteringCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

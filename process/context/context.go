@@ -7,31 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
-	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-func init() {
-	// TODO(ericsnow) Have registration handled by a "third party"?
-	runner.RegisterComponentFunc(process.ComponentName,
-		// TODO(ericsnow) This should be done in a way (or a place)
-		// such that we don't have to import runner or jujuc.
-		func() (jujuc.ContextComponent, error) {
-			// TODO(ericsnow) The API client or facade should be passed
-			// in to the factory func and passed to NewInternalClient.
-			client, err := api.NewInternalClient()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			component, err := NewContextAPI(client)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return component, nil
-		},
-	)
-}
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {

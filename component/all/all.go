@@ -11,5 +11,29 @@
 package all
 
 import (
-	_ "github.com/juju/juju/process/all"
+	"github.com/juju/utils/set"
 )
+
+func init() {
+	workloadProcesses{}.registerAll()
+}
+
+// registered tracks which parts of each component have been registered.
+var registered = map[string]set.Strings{}
+
+// markRegistered helps components track which things they've
+// registered. If the part has already been registered then false is
+// returned, indicating that marking failed. This way components can
+// ensure a part is registered only once.
+func markRegistered(component, part string) bool {
+	parts, ok := registered[component]
+	if !ok {
+		parts = set.NewStrings()
+		registered[component] = parts
+	}
+	if parts.Contains(part) {
+		return false
+	}
+	parts.Add(part)
+	return true
+}
