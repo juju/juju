@@ -108,7 +108,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			return canAccessStorageEntity(tag, false)
 		}, nil
 	}
-	lifeAuthFunc := func() (common.AuthFunc, error) {
+	getLifeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return canAccessStorageEntity(tag, true)
 		}, nil
@@ -160,7 +160,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:       common.NewLifeGetter(stateInterface, lifeAuthFunc),
+		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
 		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
@@ -1090,6 +1090,41 @@ func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (p
 		} else {
 			results.Results[i].Life = life
 		}
+	}
+	return results, nil
+}
+
+// Remove removes volumes and filesystems from state.
+func (s *StorageProvisionerAPI) Remove(args params.Entities) (params.ErrorResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) error {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(tag) {
+			return common.ErrPerm
+		}
+		switch tag := tag.(type) {
+		case names.FilesystemTag:
+			return s.st.RemoveFilesystem(tag)
+		case names.VolumeTag:
+			return s.st.RemoveVolume(tag)
+		default:
+			// should have been picked up by canAccess
+			logger.Debugf("unexpected %v tag", tag.Kind())
+			return common.ErrPerm
+		}
+	}
+	for i, arg := range args.Entities {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
