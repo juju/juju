@@ -195,8 +195,8 @@ func maybeUnmount(run runCommandFunc, dirFuncs dirFuncs, mountPoint string) erro
 		return nil
 	}
 	logger.Debugf("attempting to unmount filesystem at %q", mountPoint)
-	if _, err := run("unmount", mountPoint); err != nil {
-		return errors.Annotate(err, "unmount failed")
+	if _, err := run("umount", mountPoint); err != nil {
+		return errors.Annotate(err, "umount failed")
 	}
 	logger.Infof("unmounted filesystem at %q", mountPoint)
 	return nil

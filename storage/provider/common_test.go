@@ -42,7 +42,7 @@ func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.Fil
 	cmd = commands.expect("df", "--output=source", testMountPoint)
 	if mounted {
 		cmd.respond("headers\n/different/to/rootfs", nil)
-		commands.expect("unmount", testMountPoint)
+		commands.expect("umount", testMountPoint)
 	} else {
 		cmd.respond("headers\n/same/as/rootfs", nil)
 	}
