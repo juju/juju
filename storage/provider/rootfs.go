@@ -180,7 +180,8 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 
 // DestroyFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
-	// DestroyFilesystems is a no-op; there is nothing to destroy.
+	// DestroyFilesystems is a no-op; we leave the storage directory
+	// in tact for post-mortems and such.
 	return make([]error, len(filesystemIds))
 }
 

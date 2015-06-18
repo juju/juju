@@ -99,7 +99,9 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 
 // DestroyFilesystems is defined on storage.FilesystemSource.
 func (s *managedFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
-	// DestroyFilesystems is a no-op; there is nothing to destroy.
+	// DestroyFilesystems is a no-op; there is nothing to destroy,
+	// since the filesystem is just data on a volume. The volume
+	// is destroyed separately.
 	return make([]error, len(filesystemIds))
 }
 
