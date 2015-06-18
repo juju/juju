@@ -538,6 +538,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
+	cleanupOp := m.st.newCleanupOp(cleanupDyingMachine, m.doc.Id)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -629,7 +630,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 						{{"children", bson.D{{"$exists", false}}}},
 					}}},
 				}
-				return []txn.Op{op, containerCheck}, nil
+				return []txn.Op{op, containerCheck, cleanupOp}, nil
 			}
 		}
 		if len(m.doc.Principals) > 0 {
@@ -640,7 +641,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Add the additional asserts needed for this transaction.
 		op.Assert = append(advanceAsserts, noUnits)
-		return []txn.Op{op}, nil
+		return []txn.Op{op, cleanupOp}, nil
 	}
 	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
@@ -727,9 +728,19 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
+	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ops = append(ops, filesystemOps...)
+	ops = append(ops, volumeOps...)
 	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
 	if err != nil {
 		return errors.Trace(err)

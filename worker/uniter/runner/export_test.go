@@ -142,6 +142,7 @@ func NewHookContext(
 		proxySettings:      proxySettings,
 		metricsRecorder:    nil,
 		definedMetrics:     metrics,
+		metricsSender:      unit,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
@@ -232,4 +233,22 @@ func SetEnvironmentHookContextRelation(
 
 func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
 	return ctx.storageAddConstraints
+}
+
+// PatchMetricsSender patches the metricsSender used by the context to use the provided function.
+func PatchMetricsSender(ctx Context, send func(batches []params.MetricBatch) (map[string]error, error)) func() {
+	hctx := ctx.(*HookContext)
+	oldSender := hctx.metricsSender
+	hctx.metricsSender = &mockMetricsSender{send: send}
+	return func() {
+		hctx.metricsSender = oldSender
+	}
+}
+
+type mockMetricsSender struct {
+	send func(batches []params.MetricBatch) (map[string]error, error)
+}
+
+func (m mockMetricsSender) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
+	return m.send(batches)
 }

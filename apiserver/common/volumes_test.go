@@ -33,21 +33,23 @@ func (v *fakeVolume) Tag() names.Tag {
 }
 
 func (v *fakeVolume) Params() (state.VolumeParams, bool) {
+	if v.provisioned {
+		return state.VolumeParams{}, false
+	}
 	return state.VolumeParams{
 		Pool: "loop",
 		Size: 1024,
-	}, !v.provisioned
+	}, true
 }
 
-func (*volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
-	tag := names.NewVolumeTag("100")
-	_, err := common.VolumeParams(
-		&fakeVolume{tag: tag, provisioned: true},
-		nil, // StorageInstance
-		testing.EnvironConfig(c),
-		nil, // PoolManager
-	)
-	c.Assert(err, jc.Satisfies, common.IsVolumeAlreadyProvisioned)
+func (v *fakeVolume) Info() (state.VolumeInfo, error) {
+	if !v.provisioned {
+		return state.VolumeInfo{}, errors.NotProvisionedf("volume %v", v.tag.Id())
+	}
+	return state.VolumeInfo{
+		Pool: "loop",
+		Size: 1024,
+	}, nil
 }
 
 type fakePoolManager struct {
@@ -58,10 +60,18 @@ func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
 	return nil, errors.NotFoundf("pool")
 }
 
-func (*volumesSuite) TestVolumeParams(c *gc.C) {
+func (s *volumesSuite) TestVolumeParams(c *gc.C) {
+	s.testVolumeParams(c, false)
+}
+
+func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
+	s.testVolumeParams(c, false)
+}
+
+func (*volumesSuite) testVolumeParams(c *gc.C, provisioned bool) {
 	tag := names.NewVolumeTag("100")
 	p, err := common.VolumeParams(
-		&fakeVolume{tag: tag},
+		&fakeVolume{tag: tag, provisioned: provisioned},
 		nil, // StorageInstance
 		testing.CustomEnvironConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",

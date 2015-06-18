@@ -153,6 +153,12 @@ func (s *StorageStateSuiteBase) assertVolumeInfo(c *gc.C, tag names.VolumeTag, e
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *StorageStateSuiteBase) machine(c *gc.C, id string) *state.Machine {
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine
+}
+
 func (s *StorageStateSuiteBase) filesystem(c *gc.C, tag names.FilesystemTag) state.Filesystem {
 	filesystem, err := s.State.Filesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,6 +188,12 @@ func (s *StorageStateSuiteBase) volumeFilesystem(c *gc.C, tag names.VolumeTag) s
 	filesystem, err := s.State.VolumeFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem
+}
+
+func (s *StorageStateSuiteBase) volumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) state.VolumeAttachment {
+	attachment, err := s.State.VolumeAttachment(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+	return attachment
 }
 
 func (s *StorageStateSuiteBase) storageInstanceVolume(c *gc.C, tag names.StorageTag) state.Volume {

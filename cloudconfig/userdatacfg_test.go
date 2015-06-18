@@ -212,6 +212,8 @@ var cloudinitTests = []cloudinitTest{
 install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
 printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
+install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
+printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
@@ -318,6 +320,8 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 		},
 		expectScripts: `
 set -xe
+install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
+printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
@@ -342,6 +346,49 @@ echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
 cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-99
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
+`,
+	}, {
+		// non state server with systemd
+		cfg: instancecfg.InstanceConfig{
+			MachineId:          "99",
+			AuthorizedKeys:     "sshkey1",
+			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
+			DataDir:            dataDir,
+			LogDir:             jujuLogDir,
+			Jobs:               normalMachineJobs,
+			CloudInitOutputLog: cloudInitOutputLog,
+			Bootstrap:          false,
+			Tools:              newSimpleTools("1.2.3-vivid-amd64"),
+			Series:             "quantal",
+			MachineNonce:       "FAKE_NONCE",
+			MongoInfo: &mongo.MongoInfo{
+				Tag:      names.NewMachineTag("99"),
+				Password: "arble",
+				Info: mongo.Info{
+					Addrs:  []string{"state-addr.testing.invalid:12345"},
+					CACert: "CA CERT\n" + testing.CACert,
+				},
+			},
+			APIInfo: &api.Info{
+				Addrs:      []string{"state-addr.testing.invalid:54321"},
+				Tag:        names.NewMachineTag("99"),
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
+			},
+			MachineAgentServiceName: "jujud-machine-99",
+			PreferIPv6:              true,
+			EnableOSRefreshUpdate:   true,
+		},
+		inexactMatch: true,
+		expectScripts: `
+set -xe
+install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown\.service'
+printf '%s\\n' '\\n\[Unit\]\\n.*Stop all network interfaces.*WantedBy=final\.target\\n' > '/etc/systemd.*'
+/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown\.service'
+install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
+printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+.*
 `,
 	}, {
 		// check that it works ok with compound machine ids.
@@ -742,7 +789,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 				pats = pats[1:]
 				scripts = scripts[1:]
 			} else if exact {
-				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d", scripts[0].index))
+				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d; expected %q; got %q; paths: %#v", scripts[0].index, pats[0].line, scripts[0].line, pats))
 			} else {
 				scripts = scripts[1:]
 			}

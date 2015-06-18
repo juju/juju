@@ -6,7 +6,6 @@ package provider_test
 import (
 	"path/filepath"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -165,6 +164,10 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 
 func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.initSource(c)
-	err := source.DetachFilesystems(nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	testDetachFilesystems(c, s.commands, source, true)
+}
+
+func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+	source := s.initSource(c)
+	testDetachFilesystems(c, s.commands, source, false)
 }

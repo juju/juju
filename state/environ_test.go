@@ -215,6 +215,23 @@ func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
 }
 
+func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
+	// create another environment
+	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	defer otherEnvState.Close()
+	otherEnv, err := otherEnvState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// get that environment from State
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that the Users method errors
+	users, err := env.Users()
+	c.Assert(users, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot lookup environment users outside the current environment")
+}
+
 func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)

@@ -508,8 +508,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	r0.waitForWorker(c, "txnpruner")
 
 	r1 := s.singularRecord.nextRunner(c)
-	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
-	r1.waitForWorker(c, lastWorker)
+	r1.waitForWorkers(c, perEnvSingularWorkers)
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -1280,18 +1279,19 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
+	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newDiskManager, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for worker to be started.
 	select {
@@ -1328,11 +1328,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
-	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	started := make(chan struct{})
 	newWorker := func(
@@ -1352,6 +1348,11 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
+	// Start the machine agent.
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
 	// Wait for worker to be started.
 	select {
 	case <-started:
@@ -1361,11 +1362,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
@@ -1395,6 +1392,11 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Start the machine agent.
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for worker to be started.
 	select {
@@ -1725,16 +1727,18 @@ func (m *machineAgentUpgrader) SetVersion(s string, v version.Binary) error {
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
-	_, expectedWorkers, closer := s.setUpNewEnvironment(c)
+	_, closer := s.setUpNewEnvironment(c)
+	defer closer()
+	expectedWorkers, closer := s.setUpAgent(c)
 	defer closer()
 
 	r1 := s.singularRecord.nextRunner(c)
 	workers := r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+	c.Assert(workers, jc.SameContents, expectedWorkers)
 }
 
 func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
-	st, _, closer := s.setUpNewEnvironment(c)
+	st, closer := s.setUpNewEnvironment(c)
 	defer closer()
 
 	// Check that newStorageWorker is called and the environ tag is scoped to
@@ -1751,12 +1755,18 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
-			c.Check(scope, gc.Equals, st.EnvironTag())
-			close(started)
+			// If this is the worker for the new environment,
+			// close the channel.
+			if scope == st.EnvironTag() {
+				close(started)
+			}
 		}
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
+
+	_, closer = s.setUpAgent(c)
+	defer closer()
 
 	// Wait for newStorageWorker to be started.
 	select {
@@ -1766,7 +1776,20 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expectedWorkers []string, closer func()) {
+func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, closer func()) {
+	// Create a new environment, tests can now watch if workers start for it.
+	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	})
+	return newSt, func() {
+		newSt.Close()
+	}
+}
+
+func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer func()) {
 	expectedWorkers = make([]string, 0, len(perEnvSingularWorkers)+1)
 	for _, w := range perEnvSingularWorkers {
 		expectedWorkers = append(expectedWorkers, w)
@@ -1786,17 +1809,9 @@ func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, expecte
 	// firewaller is the last worker started for a new environment.
 	r0 := s.singularRecord.nextRunner(c)
 	workers := r0.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, expectedWorkers)
+	c.Assert(workers, jc.SameContents, expectedWorkers)
 
-	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		ConfigAttrs: map[string]interface{}{
-			"state-server": false,
-		},
-		Prepare: true,
-	})
-	return newSt, expectedWorkers, func() {
-		newSt.Close()
+	return expectedWorkers, func() {
 		c.Check(a.Stop(), jc.ErrorIsNil)
 	}
 }
@@ -2089,6 +2104,31 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 			}
 		case <-timeout:
 			c.Fatal("timed out waiting for " + target)
+		}
+	}
+}
+
+// waitForWorkers waits for a given worker to be started, returning all
+// workers started while waiting.
+func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
+	var seen []string
+	seenTargets := make(map[string]bool)
+	numSeenTargets := 0
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case workerName := <-r.startC:
+			if seenTargets[workerName] == true {
+				c.Fatal("worker started twice: " + workerName)
+			}
+			seenTargets[workerName] = true
+			numSeenTargets++
+			seen = append(seen, workerName)
+			if numSeenTargets == len(targets) {
+				return seen
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for %v", targets)
 		}
 	}
 }
