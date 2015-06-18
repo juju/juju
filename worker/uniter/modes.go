@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
-// setAgentStatus sets the unit's status if it has changed since last time this method was called.
+// setAgentStatus sets the unit's status if it has changed since last time this method was called,
+// it will return a bool indicating if it changed
 func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
 	u.setStatusMutex.Lock()
 	defer u.setStatusMutex.Unlock()
@@ -274,14 +275,29 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	return modeAbideAliveLoop(u)
 }
 
+func runUpdateStatusOnce(u *Uniter) error {
+	creator := newSimpleRunHookOp(hooks.UpdateStatus)
+	return errors.Trace(u.runOperation(creator))
+}
+
 // idleWaitTime is the time after which, if there are no uniter events,
 // the agent state becomes idle.
-var idleWaitTime = 2 * time.Second
+var idleWaitTime = 10 * time.Second
 
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	var leaderElected, leaderDeposed <-chan struct{}
+
+	if u.enterAbide != nil {
+		// run update-status at least once after entering mode abide loop
+		if err := u.enterAbide(u); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// we need an idle marker to know when we actually become idle.
+	idle := false
 	for {
 		// We expect one or none of these vars to be non-nil; and if none
 		// are, we set the one that should trigger when our leadership state
@@ -296,7 +312,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			}
 		}
 
-		// collect-metrics hook
+		// update-status hook
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
@@ -311,6 +327,13 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		var creator creator
 		select {
 		case <-time.After(idleWaitTime):
+			if !idle && u.enterIdle != nil {
+				if err := u.enterIdle(u); err != nil {
+					return nil, errors.Trace(err)
+				}
+
+			}
+			idle = true
 			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -349,6 +372,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case <-u.f.LeaderSettingsEvents():
 			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		}
+		idle = false
 		if err := u.runOperation(creator); err != nil {
 			return nil, errors.Trace(err)
 		}

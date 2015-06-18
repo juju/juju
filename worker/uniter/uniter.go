@@ -46,6 +46,8 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+type simpleUniterFunc func(*Uniter) error
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -83,6 +85,8 @@ type Uniter struct {
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
 
+	metricsTimer *timerChooser
+
 	// collectMetricsAt defines a function that will be used to generate signals
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
@@ -90,6 +94,8 @@ type Uniter struct {
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
+	enterAbide     func(*Uniter) error
+	enterIdle      func(*Uniter) error
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -107,8 +113,11 @@ func NewUniter(
 		paths:             NewPaths(dataDir, unitTag),
 		hookLock:          hookLock,
 		leadershipManager: leadershipManager,
+		metricsTimer:      NewTimerChooser(),
 		collectMetricsAt:  inactiveMetricsTimer,
 		updateStatusAt:    updateStatusSignal,
+		enterAbide:        runUpdateStatusOnce,
+		enterIdle:         runUpdateStatusOnce,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -329,7 +338,7 @@ func (u *Uniter) initializeMetricsCollector() error {
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimer.getMetricsTimer(charm)
 	return nil
 }
 

@@ -75,24 +75,27 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 }
 
 type context struct {
-	uuid          string
-	path          string
-	dataDir       string
-	s             *UniterSuite
-	st            *state.State
-	api           *apiuniter.State
-	leader        leadership.LeadershipManager
-	charms        map[string][]byte
-	hooks         []string
-	sch           *state.Charm
-	svc           *state.Service
-	unit          *state.Unit
-	uniter        *uniter.Uniter
-	relatedSvc    *state.Service
-	relation      *state.Relation
-	relationUnits map[string]*state.RelationUnit
-	subordinate   *state.Unit
-	ticker        *uniter.ManualTicker
+	uuid                   string
+	path                   string
+	dataDir                string
+	s                      *UniterSuite
+	st                     *state.State
+	api                    *apiuniter.State
+	leader                 leadership.LeadershipManager
+	charms                 map[string][]byte
+	hooks                  []string
+	sch                    *state.Charm
+	svc                    *state.Service
+	unit                   *state.Unit
+	uniter                 *uniter.Uniter
+	relatedSvc             *state.Service
+	relation               *state.Relation
+	relationUnits          map[string]*state.RelationUnit
+	subordinate            *state.Unit
+	metricsTicker          *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
+	enterAbide             func(u *uniter.Uniter) error
+	enterIdle              func(u *uniter.Uniter) error
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -292,7 +295,7 @@ var (
 	baseCharmHooks = []string{
 		"install", "start", "config-changed", "upgrade-charm", "stop",
 		"db-relation-joined", "db-relation-changed", "db-relation-departed",
-		"db-relation-broken", "meter-status-changed", "collect-metrics",
+		"db-relation-broken", "meter-status-changed", "collect-metrics", "update-status",
 	}
 	leaderCharmHooks = []string{
 		"leader-elected", "leader-deposed", "leader-settings-changed",
@@ -453,6 +456,20 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	ctx.uniter.ReplaceEnterAbide(func(*uniter.Uniter) error { return nil })
+	if ctx.enterAbide != nil {
+		ctx.uniter.ReplaceEnterAbide(uniter.RunUpdateStatusOnce)
+	}
+	ctx.uniter.ReplaceEnterIdle(func(*uniter.Uniter) error { return nil })
+	if ctx.enterIdle != nil {
+		ctx.uniter.ReplaceEnterIdle(uniter.RunUpdateStatusOnce)
+	}
+	if ctx.updateStatusHookTicker != nil {
+		ctx.uniter.SetUpdateStatusAt(ctx.updateStatusHookTicker.ReturnTimer)
+	}
+	if ctx.metricsTicker != nil {
+		ctx.uniter.SetActiveMetrics(ctx.metricsTicker.ReturnTimer)
+	}
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -862,7 +879,14 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 type metricsTick struct{}
 
 func (s metricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.ticker.Tick()
+	err := ctx.metricsTicker.Tick()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type updateStatusHookTick struct{}
+
+func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
+	err := ctx.updateStatusHookTicker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1676,4 +1700,11 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type useActualUpdateStatusRunners struct{}
+
+func (s useActualUpdateStatusRunners) step(c *gc.C, ctx *context) {
+	ctx.enterAbide = uniter.RunUpdateStatusOnce
+	ctx.enterIdle = uniter.RunUpdateStatusOnce
 }

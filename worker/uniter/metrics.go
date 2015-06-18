@@ -18,7 +18,7 @@ const (
 // as close to interval after the last run as possible.
 var activeMetricsTimer = func(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
 	waitDuration := interval - now.Sub(lastRun)
-	logger.Debugf("waiting for %v", waitDuration)
+	logger.Debugf("metrics waiting for %v", waitDuration)
 	return time.After(waitDuration)
 }
 
@@ -28,12 +28,24 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 	return nil
 }
 
+type timerChooser struct {
+	active   TimedSignal
+	inactive TimedSignal
+}
+
 // getMetricsTimer returns the metrics timer we should be using, given the supplied
 // charm.
-func getMetricsTimer(ch corecharm.Charm) TimedSignal {
+func (t *timerChooser) getMetricsTimer(ch corecharm.Charm) TimedSignal {
 	metrics := ch.Metrics()
 	if metrics != nil && len(metrics.Metrics) > 0 {
-		return activeMetricsTimer
+		return t.active
 	}
-	return inactiveMetricsTimer
+	return t.inactive
+}
+
+func NewTimerChooser() *timerChooser {
+	return &timerChooser{
+		active:   activeMetricsTimer,
+		inactive: inactiveMetricsTimer,
+	}
 }
