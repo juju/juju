@@ -1,35 +1,37 @@
-#!/usr/bin/env python
 from __future__ import print_function
+
+__metaclass__ = type
+
 import json
 import re
 from jujupy import yaml_loads
 from base_asses import assertion_test
 
-#Machine and unit, deprecated in unit
-AGENT_STATE_KEY="agent-state"
-AGENT_VERSION_KEY="agent-version"
-DNS_NAME_KEY="dns-name"
-INSTANCE_ID_KEY="instance-id"
-HARDWARE_KEY="hardware"
-SERIES_KEY="series"
-STATE_SERVER_MEMBER_STATUS_KEY="state-server-member-status"
-#service
-CHARM_KEY="charm"
-EXPOSED_KEY="exposed"
-SERVICE_STATUS_KEY="service-status"
-#unit
-WORKLOAD_STATUS_KEY="workload-status"
-AGENT_STATUS_KEY="agent-status"
-MACHINE_KEY="machine"
-PUBLIC_ADDRESS_KEY="public-address"
+# Machine and unit, deprecated in unit
+AGENT_STATE_KEY = "agent-state"
+AGENT_VERSION_KEY = "agent-version"
+DNS_NAME_KEY = "dns-name"
+INSTANCE_ID_KEY = "instance-id"
+HARDWARE_KEY = "hardware"
+SERIES_KEY = "series"
+STATE_SERVER_MEMBER_STATUS_KEY = "state-server-member-status"
+# service
+CHARM_KEY = "charm"
+EXPOSED_KEY = "exposed"
+SERVICE_STATUS_KEY = "service-status"
+# unit
+WORKLOAD_STATUS_KEY = "workload-status"
+AGENT_STATUS_KEY = "agent-status"
+MACHINE_KEY = "machine"
+PUBLIC_ADDRESS_KEY = "public-address"
 
-MACHINE_TAB_HEADERS=['ID', 'STATE', 'VERSION', 'DNS', 'INS-ID', 'SERIES',
-                    'HARDWARE']
-UNIT_TAB_HEADERS=['ID', 'WORKLOAD-STATE', 'AGENT-STATE', 'VERSION', 'MACHINE',
-                    'PORTS', 'PUBLIC-ADDRESS', 'MESSAGE']
-SERVICE_TAB_HEADERS=['NAME', 'STATUS', 'EXPOSED', 'CHARM']
+MACHINE_TAB_HEADERS = ['ID', 'STATE', 'VERSION', 'DNS', 'INS-ID', 'SERIES',
+                       'HARDWARE']
+UNIT_TAB_HEADERS = ['ID', 'WORKLOAD-STATE', 'AGENT-STATE', 'VERSION',
+                    'MACHINE', 'PORTS', 'PUBLIC-ADDRESS', 'MESSAGE']
+SERVICE_TAB_HEADERS = ['NAME', 'STATUS', 'EXPOSED', 'CHARM']
 
-NO_PRESENT_STR="%s key is not present in %s status"
+NO_PRESENT_STR = "%s key is not present in %s status"
 
 
 class StatusTester:
@@ -48,11 +50,14 @@ class StatusTester:
     def __str__(self):
         return self._text
 
+
 class ErrNoStatus(Exception):
     """An exception for missing juju status"""
 
+
 class ErrMalformedStatus(Exception):
     """An exception for unexpected formats of status"""
+
 
 class ErrUntestedStatusOutput(Exception):
     """An exception for results returned by status that are known not to be
@@ -78,20 +83,21 @@ def untested(obtained, expected):
 
     if obtained_diff:
         return ErrUntestedStatusOutput("status returned elements that"
-                " are not covered by this test: %s" % ", ".join(obtained_diff))
+                                       " are not covered by this test: %s"
+                                       % ", ".join(obtained_diff))
     else:
         return ErrMalformedStatus("status returned less elements than expected"
-                "by this test, the missing are: %s" % ", ".join(expected_diff))
+                                  "by this test, the missing are: %s"
+                                  % ", ".join(expected_diff))
 
 
-
-class BaseStatusParser(object):
+class BaseStatusParser:
 
     _expected = set(["environment", "services", "machines"])
 
     def __init__(self):
         super(BaseStatusParser, self).__init__()
-        #expected entity storage
+        # expected entity storage
         self._machines = dict()
         self._services = dict()
         self._units = dict()
@@ -124,9 +130,8 @@ class BaseStatusParser(object):
             for unit_name, unit in service.get("units", {}).iteritems():
                 if unit_name in self._units:
                     raise ErrMalformedStatus("Unit %s is repeated in yaml "
-                                            "status " % unit_name)
+                                             "status " % unit_name)
                 self._units[unit_name] = unit
-
 
     @assertion_test
     def assert_machines_len(self, expected_len):
@@ -151,11 +156,11 @@ class BaseStatusParser(object):
         return set(self._machines) == set(expected_ids)
 
     def _machine_key_get(self, machine_id, key):
+
         if (machine_id in self._machines) and \
-            (key in self._machines[machine_id]):
+           (key in self._machines[machine_id]):
             return True, self._machines[machine_id][key]
         return False, None
-
 
     @assertion_test
     def assert_machine_agent_state(self, machine_id, state):
@@ -209,11 +214,11 @@ class BaseStatusParser(object):
 
     def _service_key_get(self, service_name, key):
         if (service_name in self._services) and \
-            (key in self._services[service_name]):
+           (key in self._services[service_name]):
             return True, self._services[service_name][key]
         return False, None
 
-    #Service status
+    # Service status
     @assertion_test
     def assert_service_charm(self, service_name, charm):
         present, value = self._service_key_get(service_name, CHARM_KEY)
@@ -230,8 +235,9 @@ class BaseStatusParser(object):
 
     @assertion_test
     def assert_service_service_status(self, service_name,
-                                      status={"current":"", "message":""}):
-        present, value = self._service_key_get(service_name, SERVICE_STATUS_KEY)
+                                      status={"current": "", "message": ""}):
+        present, value = self._service_key_get(service_name,
+                                               SERVICE_STATUS_KEY)
         if present:
             current = value["current"] == status["current"]
             message = value["message"] == status["message"]
@@ -240,14 +246,14 @@ class BaseStatusParser(object):
 
     def _unit_key_get(self, unit_name, key):
         if (unit_name in self._units) and \
-            (key in self._units[unit_name]):
+           (key in self._units[unit_name]):
             return True, self._units[unit_name][key]
         return False, None
 
-    #Units status
+    # Units status
     @assertion_test
     def assert_unit_workload_status(self, unit_name,
-                                    status={"current":"", "message":""}):
+                                    status={"current": "", "message": ""}):
         present, value = self._unit_key_get(unit_name, WORKLOAD_STATUS_KEY)
         if present:
             current = value["current"] == status["current"]
@@ -257,7 +263,7 @@ class BaseStatusParser(object):
 
     @assertion_test
     def assert_unit_agent_status(self, unit_name,
-                                 status={"current":"", "message":""}):
+                                 status={"current": "", "message": ""}):
         present, value = self._unit_key_get(unit_name, AGENT_STATUS_KEY)
         if present:
             current = value["current"] == status["current"]
@@ -265,7 +271,6 @@ class BaseStatusParser(object):
             message = value.get("message", "") == status["message"]
             return current and message
         return NO_PRESENT_STR % (AGENT_STATUS_KEY, unit_name)
-
 
     @assertion_test
     def assert_unit_agent_state(self, unit_name, state):
@@ -307,7 +312,6 @@ class StatusYamlParser(BaseStatusParser):
             raise ErrNoStatus("Yaml status was empty")
         super(StatusYamlParser, self).__init__()
 
-
     def _parse(self):
         parsed = yaml_loads(self._yaml)
         self.store(parsed)
@@ -323,7 +327,6 @@ class StatusJsonParser(BaseStatusParser):
         if json_text == "":
             raise ErrNoStatus("JSON status was empty")
         super(StatusJsonParser, self).__init__()
-
 
     def _parse(self):
         parsed = json.loads(self._json)
@@ -346,13 +349,12 @@ class StatusTabularParser(BaseStatusParser):
         nitems.append(" ".join(items[6:]))
         if header != MACHINE_TAB_HEADERS:
             raise ErrMalformedStatus("Unexpected headers for machine:\n"
-                                    "wanted: %s"
-                                    "got: %s" % (MACHINE_TAB_HEADERS, header))
+                                     "wanted: %s"
+                                     "got: %s" % (MACHINE_TAB_HEADERS, header))
         return nitems[0], dict(zip((AGENT_STATE_KEY, AGENT_VERSION_KEY,
-                        DNS_NAME_KEY, INSTANCE_ID_KEY,
-                        SERIES_KEY, HARDWARE_KEY),
-                        nitems[1:]))
-
+                                    DNS_NAME_KEY, INSTANCE_ID_KEY,
+                                    SERIES_KEY, HARDWARE_KEY),
+                               nitems[1:]))
 
     def _normalize_units(self, header, items):
         eid, wlstate, astate, version, machine, paddress = items[:6]
@@ -362,29 +364,27 @@ class StatusTabularParser(BaseStatusParser):
         astatus = {"current": astate, "message": "", "since": "bogus date"}
         if header != UNIT_TAB_HEADERS:
             raise ErrMalformedStatus("Unexpected headers for unit.\n"
-                                    "wanted: %s"
-                                    "got: %s" % (UNIT_TAB_HEADERS, header))
+                                     "wanted: %s"
+                                     "got: %s" % (UNIT_TAB_HEADERS, header))
         return eid, dict(zip((WORKLOAD_STATUS_KEY, AGENT_STATUS_KEY,
-                               AGENT_VERSION_KEY, MACHINE_KEY,
-                               PUBLIC_ADDRESS_KEY),
-                              (wlstatus, astatus, version, machine, paddress)))
+                              AGENT_VERSION_KEY, MACHINE_KEY,
+                              PUBLIC_ADDRESS_KEY),
+                             (wlstatus, astatus, version, machine, paddress)))
 
     def _normalize_services(self, header, items):
         name, status, exposed, charm = items
-        if header !=SERVICE_TAB_HEADERS:
+        if header != SERVICE_TAB_HEADERS:
             raise ErrMalformedStatus("Unexpected headers for service.\n"
-                                    "wanted: %s"
-                                    "got: %s" % (SERVICE_TAB_HEADERS, header))
+                                     "wanted: %s"
+                                     "got: %s" % (SERVICE_TAB_HEADERS, header))
 
         return name, dict(zip((CHARM_KEY, EXPOSED_KEY, SERVICE_STATUS_KEY),
-                         (charm, exposed == "true", {"current": status,
-                            "message":""})))
-
-
+                              (charm, exposed == "true", {"current": status,
+                               "message": ""})))
 
     def _parse(self):
         section = re.compile("^\[(\w*)\]")
-        base = {"environment":"not provided"}
+        base = {"environment": "not provided"}
         current_parent = ""
         current_headers = []
         prev_was_section = False
@@ -394,7 +394,7 @@ class StatusTabularParser(BaseStatusParser):
             if len(is_section) == 1:
                 current_parent = is_section[0].lower()
                 if current_parent != "units":
-                    base[current_parent]={}
+                    base[current_parent] = {}
                 prev_was_section = True
                 continue
             # parse headers
@@ -404,7 +404,7 @@ class StatusTabularParser(BaseStatusParser):
                 continue
 
             # parse content
-            if current_parent =="" or current_headers == []:
+            if current_parent == "" or current_headers == []:
                 raise ErrMalformedStatus("Tabular status is malformed")
             items = line.split()
 
@@ -422,7 +422,8 @@ class StatusTabularParser(BaseStatusParser):
 
             if not normalize:
                 raise ErrUntestedStatusOutput("%s is not an expected tabular"
-                                            " status section" % current_parent)
+                                              " status section" %
+                                              current_parent)
             k, v = normalize(current_headers, items)
             if current_parent == "units":
                 base.setdefault("services", dict())
@@ -432,5 +433,3 @@ class StatusTabularParser(BaseStatusParser):
             else:
                 base[current_parent][k] = v
         self.store(base)
-
-

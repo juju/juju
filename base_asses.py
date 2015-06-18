@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from utility import add_basic_testing_arguments
 
 
 def get_base_parser(description=""):
@@ -11,24 +12,19 @@ def get_base_parser(description=""):
     :rtype: ArgumentParser
     """
     parser = ArgumentParser(description)
-    parser.add_argument(
-        '--debug', action='store_true', default=False,
-        help='Use --debug juju logging.')
+    parser = add_basic_testing_arguments(parser)
     parser.add_argument(
         'juju_path', help='Directory your juju binary lives in.')
-    parser.add_argument(
-        'env_name', help='Juju environment name to run tests in.')
-    parser.add_argument('logs', help='Directory to store logs in.')
-    parser.add_argument(
-        'temp_env_name', nargs='?',
-        help='Temporary environment name to use for this test.')
     return parser
+
 
 class AssertError(Exception):
     """An assert function failed"""
 
+
 class AssertFailed(Exception):
     """An assert failed"""
+
 
 def assertion_test(assertion):
     """assertion_test is a decorator to use on bool returning assert

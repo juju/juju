@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import print_function
 
 __metaclass__ = type
@@ -33,11 +32,12 @@ def run_complete_status(client, status):
     :type status: BaseStatusParser
     """
     status.s.assert_machines_len(2)
-    status.s.assert_machines_ids(("0","1"))
+    status.s.assert_machines_ids(("0", "1"))
     juju_status = client.get_status()
     for name, machine in juju_status.iter_machines(False):
         status.s.assert_machine_agent_state(name, "started")
-        status.s.assert_machine_agent_version(name, machine.get("agent-version"))
+        status.s.assert_machine_agent_version(name,
+                                              machine.get("agent-version"))
         status.s.assert_machine_dns_name(name, machine.get("dns-name"))
         status.s.assert_machine_instance_id(name, machine.get("instance-id"))
         status.s.assert_machine_series(name, machine.get("series"))
@@ -50,13 +50,15 @@ def run_complete_status(client, status):
                                   "local:trusty/statusstresser-1")
     status.s.assert_service_exposed("statusstresser", False)
     status.s.assert_service_service_status("statusstresser",
-                                    {"current": "active",
-                                    "message":"called in config-changed hook"})
+                                           {"current": "active",
+                                            "message": "called in "
+                                            "config-changed hook"})
     status.s.assert_unit_workload_status("statusstresser/0",
-                                    {"current": "active",
-                                    "message":"called in config-changed hook"})
+                                         {"current": "active",
+                                          "message": "called in "
+                                          "config-changed hook"})
     status.s.assert_unit_agent_status("statusstresser/0",
-                                    {"current": "idle", "message":""})
+                                      {"current": "idle", "message": ""})
     status.s.assert_unit_agent_state("statusstresser/0", "started")
     agent_versions = juju_status.get_agent_versions()
     for version in agent_versions:
@@ -65,8 +67,11 @@ def run_complete_status(client, status):
                 status.s.assert_unit_agent_version(item, version)
     status.s.assert_unit_machine("statusstresser/0", "1")
 
+
 def run_reduced_status(client, status):
-    """run a reduced set of tests for a StatusParser, this is useful for
+    """run a subset of the status asserts.
+
+    run a reduced set of tests for a StatusParser, this is useful for
     status outputs such as Tabular that hold less information.
 
     :param client: python juju client.
@@ -75,11 +80,12 @@ def run_reduced_status(client, status):
     :type status: BaseStatusParser
     """
     status.s.assert_machines_len(2)
-    status.s.assert_machines_ids(("0","1"))
+    status.s.assert_machines_ids(("0", "1"))
     juju_status = client.get_status()
     for name, machine in juju_status.iter_machines(False):
         status.s.assert_machine_agent_state(name, "started")
-        status.s.assert_machine_agent_version(name, machine.get("agent-version"))
+        status.s.assert_machine_agent_version(name,
+                                              machine.get("agent-version"))
         status.s.assert_machine_dns_name(name, machine.get("dns-name"))
         status.s.assert_machine_instance_id(name, machine.get("instance-id"))
         status.s.assert_machine_series(name, machine.get("series"))
@@ -89,38 +95,38 @@ def run_reduced_status(client, status):
                                   "local:trusty/statusstresser-1")
     status.s.assert_service_exposed("statusstresser", False)
     status.s.assert_service_service_status("statusstresser",
-                                    {"current": "active",
-                                    "message":""})
+                                           {"current": "active",
+                                            "message": ""})
     status.s.assert_unit_workload_status("statusstresser/0",
-                                    {"current": "active",
-                                    "message":"called in config-changed hook"})
+                                         {"current": "active",
+                                          "message": "called in "
+                                          "config-changed hook"})
     status.s.assert_unit_agent_status("statusstresser/0",
-                                    {"current": "idle", "message":""})
+                                      {"current": "idle", "message": ""})
     status.s.assert_unit_machine("statusstresser/0", "1")
 
 
 def test_status_set_on_install(client):
-    """Test that status set is proplerly called during install
-    and that status is also added to history
+    """Test the status after install.
+
+    Test that status set is proplerly called during install and
+    that all formats are returning proper information.
 
     :param client: python juju client.
     :type client: jujupy.EnvJujuClient
     """
-    status = StatusTester.from_text(client.get_raw_status(60, "--format=yaml"),
+    status = StatusTester.from_text(client.get_status(60, True,
+                                                      "--format=yaml"),
                                     "yaml")
     run_complete_status(client, status)
-
-    status = StatusTester.from_text(client.get_raw_status(60, "--format=json"),
+    status = StatusTester.from_text(client.get_status(60, True,
+                                                      "--format=json"),
                                     "json")
     run_complete_status(client, status)
-
-    status = StatusTester.from_text(client.get_raw_status(60, "--format=tabular"),
+    status = StatusTester.from_text(client.get_status(60, True,
+                                                      "--format=tabular"),
                                     "tabular")
-
     run_reduced_status(client, status)
-
-
-
 
 
 def parse_args():
@@ -152,14 +158,12 @@ def main():
         try:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(client, bootstrap_host, log_dir)
         except Exception as e:
             print_now("exception while dumping logs:\n")
             logging.exception(e)
     finally:
+        dump_env_logs(client, bootstrap_host, log_dir)
         client.destroy_environment()
 
-
-print(__name__)
 if __name__ == '__main__':
     main()

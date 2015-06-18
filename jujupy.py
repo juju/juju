@@ -124,13 +124,12 @@ class JujuClientDevel:
         return self.get_env_client(environment).get_juju_output(
             command, *args, **kwargs)
 
-    def get_status(self, environment, timeout=60):
+    def get_status(self, environment, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
+        if raw:
+            return self.get_env_client(environment).get_raw_status(timeout,
+                                                                   *args)
         return self.get_env_client(environment).get_status(timeout)
-
-    def get_raw_status(self, environment, timeout=60, *args):
-        """Get the current status as a string."""
-        return self.get_env_client(environment).get_raw_status(timeout, *args)
 
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
@@ -329,7 +328,6 @@ class EnvJujuClient:
                 pass
         raise Exception(
             'Timed out waiting for juju get %s' % (service))
-
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
@@ -944,7 +942,7 @@ class Environment(SimpleEnvironment):
     def get_status(self, timeout=60):
         return self.client.get_status(self, timeout)
 
-    def get_raw_status(self, timeout=60,*args):
+    def get_raw_status(self, timeout=60, *args):
         return self.client.get_raw_status(self, timeout, *args)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
