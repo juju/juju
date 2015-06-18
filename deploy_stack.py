@@ -94,11 +94,12 @@ def deploy_dummy_stack(client, charm_prefix):
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
-    if client.env.kvm:
+    if client.env.kvm or client.env.maas:
         # A single virtual machine may need up to 30 minutes before
         # "apt-get update" and other initialisation steps are
         # finished; two machines initializing concurrently may
-        # need even 40 minutes.
+        # need even 40 minutes. In addition Windows image blobs or
+        # any system deployment using MAAS requires extra time.
         client.wait_for_started(3600)
     else:
         client.wait_for_started()
