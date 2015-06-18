@@ -1014,9 +1014,6 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitStillInstalling(c *gc.C) {
 	}, {
 		state.StatusExecuting, "blah",
 		state.StatusMaintenance, "installing charm software",
-	}, {
-		state.StatusError, "blah",
-		state.StatusMaintenance, "installing charm software",
 	}} {
 		c.Logf("test %d", i)
 		unit, err := s.service.AddUnit()
