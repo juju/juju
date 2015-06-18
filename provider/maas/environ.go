@@ -523,6 +523,14 @@ const (
 	capStaticIPAddresses  = "static-ipaddresses"
 )
 
+func (env *maasEnviron) supportsDevices() (bool, error) {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return caps.Contains("devices-management"), nil
+}
+
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
 func (env *maasEnviron) getCapabilities() (set.Strings, error) {
@@ -1337,8 +1345,18 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
-
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
+
+	supportsDevices, err := environ.supportsDevices()
+	if err != nil {
+		return err
+	}
+	if supportsDevices {
+		// check if a device exists for macAddress
+		// if not create one
+		// allocate the address for this device
+	}
+
 	var subnets []network.SubnetInfo
 
 	subnets, err = environ.Subnets(instId, []network.Id{subnetId})
