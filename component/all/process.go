@@ -44,13 +44,31 @@ func (c workloadProcesses) registerHookContext() {
 	c.registerHookContextCommands()
 }
 
+type workloadProcessesHookContext struct {
+	jujuc.Context
+}
+
+// Component implements context.HookContext.
+func (c workloadProcessesHookContext) Component(name string) (context.Component, error) {
+	found, err := c.Context.Component(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	compCtx, ok := found.(context.Component)
+	if !ok && found != nil {
+		return nil, errors.Errorf("wrong component context type registered: %T", found)
+	}
+	return compCtx, nil
+}
+
 func (workloadProcesses) registerHookContextCommands() {
 	if !markRegistered(process.ComponentName, "hook-context-commands") {
 		return
 	}
 
 	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
-		cmd, err := context.NewProcRegistrationCommand(ctx)
+		compCtx := workloadProcessesHookContext{ctx}
+		cmd, err := context.NewProcRegistrationCommand(compCtx)
 		if err != nil {
 			panic(err)
 		}

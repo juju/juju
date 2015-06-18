@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 const registerDoc = `
@@ -25,10 +24,8 @@ type ProcRegistrationCommand struct {
 	registeringCommand
 }
 
-// TODO(ericsnow) Refactor so that importing jujuc is not necessary.
-
 // NewProcRegistrationCommand returns a new ProcRegistrationCommand.
-func NewProcRegistrationCommand(ctx jujuc.Context) (*ProcRegistrationCommand, error) {
+func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, error) {
 	base, err := newRegisteringCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

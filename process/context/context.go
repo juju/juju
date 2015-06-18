@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // APIClient represents the API needs of a Context.
@@ -64,22 +63,21 @@ func NewContextAPI(api APIClient) (*Context, error) {
 // HookContext is the portion of jujuc.Context used in this package.
 type HookContext interface {
 	// Component implements jujuc.Context.
-	Component(string) (jujuc.ContextComponent, error)
+	Component(string) (Component, error)
 }
 
 // ContextComponent returns the hook context for the workload
 // process component.
 func ContextComponent(ctx HookContext) (Component, error) {
-	found, err := ctx.Component(process.ComponentName)
+	compCtx, err := ctx.Component(process.ComponentName)
 	if errors.IsNotFound(err) {
 		return nil, errors.Errorf("component %q not registered", process.ComponentName)
 	}
-	if found == nil {
-		return nil, errors.Errorf("component %q disabled", process.ComponentName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	compCtx, ok := found.(Component)
-	if !ok {
-		return nil, errors.Errorf("wrong component context type registered: %T", found)
+	if compCtx == nil {
+		return nil, errors.Errorf("component %q disabled", process.ComponentName)
 	}
 	return compCtx, nil
 }

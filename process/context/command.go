@@ -13,7 +13,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // baseCommand implements the common portions of the workload process
@@ -21,7 +20,7 @@ import (
 type baseCommand struct {
 	cmd.CommandBase
 
-	ctx     jujuc.Context
+	ctx     HookContext
 	compCtx Component
 
 	// Name is the name of the process in charm metadata.
@@ -33,7 +32,7 @@ type baseCommand struct {
 	notFoundErr error
 }
 
-func newCommand(ctx jujuc.Context) (*baseCommand, error) {
+func newCommand(ctx HookContext) (*baseCommand, error) {
 	compCtx, err := ContextComponent(ctx)
 	if err != nil {
 		// The component wasn't registered properly.
@@ -116,7 +115,7 @@ type registeringCommand struct {
 	Definition cmd.FileVar
 }
 
-func newRegisteringCommand(ctx jujuc.Context) (*registeringCommand, error) {
+func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
 	base, err := newCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

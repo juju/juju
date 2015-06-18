@@ -21,7 +21,7 @@ type baseSuite struct {
 	proc      *process.Info
 	compCtx   *context.Context
 	apiClient *stubAPIClient
-	Ctx       *jujuctesting.Context
+	Ctx       *stubHookContext
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -37,6 +37,11 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.proc = proc
 	s.compCtx = compCtx
 	s.Ctx = hctx
+}
+
+func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInfo) {
+	ctx, info := s.ContextSuite.NewHookContext()
+	return &stubHookContext{ctx}, info
 }
 
 type contextSuite struct {
@@ -392,6 +397,22 @@ func checkProcs(c *gc.C, procs, expected []*process.Info) {
 			return
 		}
 	}
+}
+
+type stubHookContext struct {
+	*jujuctesting.Context
+}
+
+func (c stubHookContext) Component(name string) (context.Component, error) {
+	found, err := c.Context.Component(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	compCtx, ok := found.(context.Component)
+	if !ok && found != nil {
+		return nil, errors.Errorf("wrong component context type registered: %T", found)
+	}
+	return compCtx, nil
 }
 
 type stubContextComponent struct {
