@@ -13,7 +13,8 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-// FilesystemParams returns the parameters for creating the given filesystem.
+// FilesystemParams returns the parameters for creating or destroying the
+// given filesystem.
 func FilesystemParams(
 	f state.Filesystem,
 	storageInstance state.StorageInstance,
