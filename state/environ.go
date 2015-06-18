@@ -253,6 +253,9 @@ func (e *Environment) refresh(query *mgo.Query) error {
 
 // Users returns a slice of all users for this environment.
 func (e *Environment) Users() ([]*EnvironmentUser, error) {
+	if e.st.EnvironUUID() != e.UUID() {
+		return nil, errors.New("cannot lookup environment users outside the current environment")
+	}
 	coll, closer := e.st.getCollection(envUsersC)
 	defer closer()
 

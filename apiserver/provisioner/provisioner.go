@@ -572,10 +572,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := common.VolumeParams(volume, storageInstance, envConfig, poolManager)
-		if common.IsVolumeAlreadyProvisioned(err) {
-			// Already provisioned, so must be dynamic.
-			continue
-		} else if err != nil {
+		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
 		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))

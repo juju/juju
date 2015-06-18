@@ -35,9 +35,12 @@ type NotifyWatchHandler interface {
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
 
-	// Handle is called when the Watcher has indicated there are
-	// changes, do whatever work is necessary to process it
-	Handle() error
+	// Handle is called when the Watcher has indicated there are changes, do
+	// whatever work is necessary to process it. The done channel is closed if
+	// the worker is being interrupted to finish. Any worker should avoid any
+	// bare channel reads or writes, but instead use a select with the done
+	// channel.
+	Handle(done <-chan struct{}) error
 }
 
 // NewNotifyWorker starts a new worker running the business logic from
@@ -97,7 +100,7 @@ func (nw *notifyWorker) loop() error {
 			if !ok {
 				return ensureErr(w)
 			}
-			if err := nw.handler.Handle(); err != nil {
+			if err := nw.handler.Handle(nw.tomb.Dying()); err != nil {
 				return err
 			}
 		}
