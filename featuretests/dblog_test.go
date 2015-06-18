@@ -15,11 +15,9 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/lease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -40,11 +38,6 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.PatchValue(&agentcmd.JujuRun, file.Name())
-
-	// If we don't have a lease manager running somewhere, the
-	// leadership API calls made by the unit agent hang.
-	leaseWorker := worker.NewSimpleWorker(lease.WorkerLoop(s.State))
-	s.AddCleanup(func(*gc.C) { worker.Stop(leaseWorker) })
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
