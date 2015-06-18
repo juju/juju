@@ -222,8 +222,11 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 	}
 
 	mounted, err := s.tryBindMount(fsPath, target)
-	if mounted || err != nil {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if mounted {
+		return nil
 	}
 	// We couldn't bind-mount over the designated directory;
 	// carry on and check if it's on the same filesystem. If
@@ -290,6 +293,10 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 
 // DetachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotImplementedf("DetachFilesystems")
+	for _, arg := range args {
+		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+		}
+	}
+	return nil
 }

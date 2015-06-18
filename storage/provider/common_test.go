@@ -4,6 +4,9 @@
 package provider_test
 
 import (
+	"path/filepath"
+
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -27,4 +30,31 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 		provider.RootfsProviderType,
 		provider.TmpfsProviderType,
 	})
+}
+
+// testDetachFilesystems is a test-case for detaching filesystems that use
+// the common "maybeUnmount" method.
+func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.FilesystemSource, mounted bool) {
+	const testMountPoint = "/in/the/place"
+
+	cmd := commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
+	cmd.respond("headers\n/same/as/rootfs", nil)
+	cmd = commands.expect("df", "--output=source", testMountPoint)
+	if mounted {
+		cmd.respond("headers\n/different/to/rootfs", nil)
+		commands.expect("umount", testMountPoint)
+	} else {
+		cmd.respond("headers\n/same/as/rootfs", nil)
+	}
+
+	err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("0/0"),
+		FilesystemId: "filesystem-0-0",
+		AttachmentParams: storage.AttachmentParams{
+			Machine:    names.NewMachineTag("0"),
+			InstanceId: "inst-id",
+		},
+		Path: testMountPoint,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
 }
