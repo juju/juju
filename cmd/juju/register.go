@@ -11,42 +11,65 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/macaroon-bakery.v0/httpbakery"
 	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/charms"
 )
 
-type metricsRegistrarFunc func(registrationUUID, environmentUUID, charmURL, serviceName string, client *http.Client, visitWebPage func(*url.URL) error) ([]byte, error)
-
-var (
-	registerMetrics    metricsRegistrarFunc = nilMetricsRegistrar
-	registerMetricsURL                      = ""
-
-	_ metricsRegistrarFunc = nilMetricsRegistrar
-	_ metricsRegistrarFunc = httpMetricsRegistrar
-)
-
-func nilMetricsRegistrar(_, _, _, _ string, _ *http.Client, _ func(*url.URL) error) ([]byte, error) {
-	return []byte{}, nil
-}
+var registerMetricsURL = ""
 
 type metricRegistrationPost struct {
-	EnvironmentUUID  string `json:"env-uuid"`
-	RegistrationUUID string `json:"sub-uuid"`
-	CharmURL         string `json:"charm-url"`
-	ServiceName      string `json:"service-name"`
+	EnvironmentUUID string `json:"env-uuid"`
+	CharmURL        string `json:"charm-url"`
+	ServiceName     string `json:"service-name"`
 }
 
-func httpMetricsRegistrar(registrationUUID, environmentUUID, charmURL, serviceName string, client *http.Client, visitWebPage func(*url.URL) error) ([]byte, error) {
+func registerMeteredCharm(state *api.State, jar *cookiejar.Jar, charmURL string, serviceName, environmentUUID string) error {
+	charmsClient := charms.NewClient(state)
+	defer charmsClient.Close()
+	metered, err := charmsClient.IsMetered(charmURL)
+	if err != nil {
+		return err
+	}
+	if metered {
+		httpClient := httpbakery.NewHTTPClient()
+		httpClient.Jar = jar
+		credentials, err := registerMetrics(environmentUUID, charmURL, serviceName, httpClient, httpbakery.OpenWebBrowser)
+		if err != nil {
+			logger.Infof("failed to register metrics: %v", err)
+			return err
+		}
+
+		api, cerr := getMetricCredentialsAPI(state)
+		if cerr != nil {
+			logger.Infof("failed to get the metrics credentials setter: %v", cerr)
+		}
+		err = api.SetMetricCredentials(serviceName, credentials)
+		if err != nil {
+			logger.Infof("failed to set metric credentials: %v", err)
+			return err
+		}
+		api.Close()
+	}
+	return nil
+}
+
+func registerMetrics(environmentUUID, charmURL, serviceName string, client *http.Client, visitWebPage func(*url.URL) error) ([]byte, error) {
+	if registerMetricsURL == "" {
+		return nil, errors.Errorf("no metric registration url is specified")
+	}
 	registerURL, err := url.Parse(registerMetricsURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	registrationPost := metricRegistrationPost{
-		RegistrationUUID: registrationUUID,
-		EnvironmentUUID:  environmentUUID,
-		CharmURL:         charmURL,
-		ServiceName:      serviceName,
+		EnvironmentUUID: environmentUUID,
+		CharmURL:        charmURL,
+		ServiceName:     serviceName,
 	}
 
 	buff := &bytes.Buffer{}
