@@ -7,14 +7,13 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
 	NewProcRegistrationCommand = newProcRegistrationCommand
 )
 
-func SetComponent(cmd cmd.Command, compCtx jujuc.ContextComponent) {
+func SetComponent(cmd cmd.Command, compCtx Component) {
 	switch cmd := cmd.(type) {
 	case *ProcRegistrationCommand:
 		cmd.compCtx = compCtx

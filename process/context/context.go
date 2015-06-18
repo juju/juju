@@ -43,6 +43,14 @@ type APIClient interface {
 	Set(procs ...*process.Info) error
 }
 
+// omponent provides the hook context data specific to workload processes.
+type Component interface {
+	// Get returns the process info corresponding to the given ID.
+	Get(procName string) (*process.Info, error)
+	// Set records the process info in the hook context.
+	Set(procName string, info *process.Info) error
+}
+
 // Context is the workload process portion of the hook context.
 type Context struct {
 	api       APIClient
@@ -84,7 +92,7 @@ type HookContext interface {
 
 // ContextComponent returns the hook context for the workload
 // process component.
-func ContextComponent(ctx HookContext) (*Context, error) {
+func ContextComponent(ctx HookContext) (Component, error) {
 	found, err := ctx.Component(process.ComponentName)
 	if errors.IsNotFound(err) {
 		return nil, errors.Errorf("component %q not registered", process.ComponentName)
@@ -92,7 +100,7 @@ func ContextComponent(ctx HookContext) (*Context, error) {
 	if found == nil {
 		return nil, errors.Errorf("component %q disabled", process.ComponentName)
 	}
-	compCtx, ok := found.(*Context)
+	compCtx, ok := found.(Component)
 	if !ok {
 		return nil, errors.Errorf("wrong component context type registered: %T", found)
 	}
@@ -147,46 +155,34 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 	return result
 }
 
-// Get implements jujuc.ContextComponent. In this case that means result
-// is populated with the process.Info corresponding to the provided ID.
-func (c *Context) Get(id string, result interface{}) error {
-	info, ok := result.(*process.Info)
+// Get returns the process info corresponding to the given ID.
+func (c *Context) Get(procName string) (*process.Info, error) {
+	actual, ok := c.updates[procName]
 	if !ok {
-		return errors.Errorf("invalid type: expected process.Info, got %T", result)
-	}
-
-	actual, ok := c.updates[id]
-	if !ok {
-		actual, ok = c.processes[id]
+		actual, ok = c.processes[procName]
 		if !ok {
-			return errors.NotFoundf("%s", id)
+			return nil, errors.NotFoundf("%s", procName)
 		}
 	}
 	if actual == nil {
-		fetched, err := c.api.Get(id)
+		fetched, err := c.api.Get(procName)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		actual = fetched[0]
-		c.processes[id] = actual
+		c.processes[procName] = actual
 	}
-	*info = *actual
-	return nil
+	return actual, nil
 }
 
-// Set implements jujuc.ContextComponent. In this case that means the
-// provided process.Info is set on the hook context for the given ID.
-func (c *Context) Set(id string, value interface{}) error {
-	pInfo, ok := value.(*process.Info)
-	if !ok {
-		return errors.Errorf("invalid type: expected process.Info, got %T", value)
+// Set records the process info in the hook context.
+func (c *Context) Set(procName string, info *process.Info) error {
+	if procName != info.Name {
+		return errors.Errorf("mismatch on name: %s != %s", procName, info.Name)
 	}
+	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
-	if id != pInfo.Name {
-		return errors.Errorf("mismatch on name: %s != %s", id, pInfo.Name)
-	}
-
-	c.set(id, pInfo)
+	c.set(procName, info)
 	return nil
 }
 

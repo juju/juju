@@ -225,18 +225,6 @@ type ContextRelations interface {
 // See: process/context/context.go for an implementation example.
 //
 type ContextComponent interface {
-	// Get populates result with the value corresponding to the given ID.
-	// In the Get implementation, result should have a checked type-conversion
-	// to your componenets concreate type. Your implementation is also
-	// responsible for associating the id with the result.
-	Get(id string, result interface{}) error
-
-	// Set records the value for the given ID.
-	// In the Set implementation, value should have a checked type-conversion
-	// to your components concrete type. You implementation is also responsible
-	// for associating the id with the value.
-	Set(id string, value interface{}) error
-
 	// Flush pushes the component's data to Juju state.
 	// In the Flush implementation, call your components API.
 	Flush() error

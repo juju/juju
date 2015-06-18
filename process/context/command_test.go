@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/process/context"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
 
 type commandSuite struct {
@@ -76,7 +75,7 @@ func (s *commandSuite) checkHelp(c *gc.C, expected string) {
 }
 
 func (s *commandSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
-	context.SetComponent(s.cmd, jujuctesting.NewContextComponent(s.Stub, nil))
+	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	err := s.cmd.Run(s.cmdCtx)
 	c.Assert(err, jc.ErrorIsNil)

@@ -233,14 +233,14 @@ func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
 }
 
 func (s *contextSuite) TestGetOkay(c *gc.C) {
-	var info, expected, extra process.Info
+	var expected, extra process.Info
 	expected.Name = "A"
 
 	ctx := context.NewContext(s.apiClient, &expected, &extra)
-	err := ctx.Get("A", &info)
+	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(info, jc.DeepEquals, &expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -251,11 +251,10 @@ func (s *contextSuite) TestGetAPIPull(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, procs[1])
 	context.AddProc(ctx, "A", nil)
 
-	var info process.Info
-	err := ctx.Get("A", &info)
+	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(&info, jc.DeepEquals, expected)
+	c.Check(info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c, "Get")
 }
 
@@ -265,11 +264,10 @@ func (s *contextSuite) TestGetAPINoPull(c *gc.C) {
 
 	ctx := context.NewContext(s.apiClient, procs...)
 
-	var info process.Info
-	err := ctx.Get("A", &info)
+	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(&info, jc.DeepEquals, expected)
+	c.Check(info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -281,25 +279,16 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 	context.AddProc(ctx, "A", nil)
 	context.AddProc(ctx, "A", expected)
 
-	var info process.Info
-	err := ctx.Get("A", &info)
+	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(&info, jc.DeepEquals, expected)
+	c.Check(info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestGetWrongType(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
-	err := ctx.Get("A", nil)
-
-	c.Check(err, gc.ErrorMatches, "invalid type: expected process.Info, got .*")
-}
-
 func (s *contextSuite) TestGetNotFound(c *gc.C) {
-	var info process.Info
 	ctx := context.NewContext(s.apiClient)
-	err := ctx.Get("A", &info)
+	_, err := ctx.Get("A")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -335,19 +324,6 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 
 	c.Check(before, jc.DeepEquals, []*process.Info{&other})
 	c.Check(after, jc.DeepEquals, []*process.Info{&info})
-}
-
-func (s *contextSuite) TestSetWrongType(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
-	before, err2 := ctx.Processes()
-	c.Assert(err2, jc.ErrorIsNil)
-	err := ctx.Set("A", &struct{}{})
-	after, err2 := ctx.Processes()
-	c.Assert(err2, jc.ErrorIsNil)
-
-	c.Check(err, gc.ErrorMatches, "invalid type: expected process.Info, got .*")
-	c.Check(before, gc.HasLen, 0)
-	c.Check(after, gc.HasLen, 0)
 }
 
 func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
@@ -416,6 +392,53 @@ func checkProcs(c *gc.C, procs, expected []*process.Info) {
 			return
 		}
 	}
+}
+
+type stubContextComponent struct {
+	stub  *testing.Stub
+	procs map[string]*process.Info
+}
+
+func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
+	return &stubContextComponent{
+		stub:  stub,
+		procs: make(map[string]*process.Info),
+	}
+}
+
+func (c *stubContextComponent) Get(procName string) (*process.Info, error) {
+	c.stub.AddCall("Get", procName)
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info, ok := c.procs[procName]
+	if !ok {
+		return nil, errors.NotFoundf(procName)
+	}
+	return info, nil
+}
+
+func (c *stubContextComponent) Set(procName string, info *process.Info) error {
+	c.stub.AddCall("Set", procName, info)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if info.Name != procName {
+		return errors.Errorf("name mismatch")
+	}
+	c.procs[procName] = info
+	return nil
+}
+
+func (c *stubContextComponent) Flush() error {
+	c.stub.AddCall("Flush")
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 type stubAPIClient struct {

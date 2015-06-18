@@ -22,7 +22,7 @@ type baseCommand struct {
 	cmd.CommandBase
 
 	ctx     jujuc.Context
-	compCtx jujuc.ContextComponent
+	compCtx Component
 
 	// Name is the name of the process in charm metadata.
 	Name string
@@ -74,8 +74,7 @@ func (c *baseCommand) init(name string) error {
 }
 
 func (c baseCommand) getInfo() (*process.Info, error, error) {
-	var pInfo process.Info
-	err := c.compCtx.Get(c.Name, &pInfo)
+	pInfo, err := c.compCtx.Get(c.Name)
 	if errors.IsNotFound(err) {
 		return nil, err, nil
 	}
@@ -85,7 +84,7 @@ func (c baseCommand) getInfo() (*process.Info, error, error) {
 	if pInfo.Status != process.StatusPending {
 		return nil, nil, errors.Errorf("process %q already registered", c.Name)
 	}
-	return &pInfo, nil, nil
+	return pInfo, nil, nil
 }
 
 // Run implements cmd.Command.
