@@ -648,6 +648,8 @@ func (s *Service) newUnitName() (string, error) {
 	return name, nil
 }
 
+const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
+
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. Only one subordinate of a given
@@ -692,7 +694,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 	unitStatusDoc := statusDoc{
 		Status:     StatusUnknown,
-		StatusInfo: "Waiting for agent initialization to finish",
+		StatusInfo: MessageWaitForAgentInit,
 		Updated:    &now,
 		EnvUUID:    s.st.EnvironUUID(),
 	}
