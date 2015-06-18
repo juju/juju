@@ -37,7 +37,7 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:forcecharm"`
+	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
@@ -756,7 +756,10 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, url, cons)
+	ops, numStorageAttachments, err = createStorageOps(
+		s.st, tag, meta, url, cons,
+		false, // unit is not assigned yet; don't create machine storage
+	)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}

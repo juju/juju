@@ -26,32 +26,49 @@ type InterfaceSuite struct {
 
 var _ = gc.Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) TestUtils(c *gc.C) {
+func (s *InterfaceSuite) TestUnitName(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	r, found := ctx.HookRelation()
-	c.Assert(found, jc.IsFalse)
+}
+
+func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	r, ok := ctx.HookRelation()
+	c.Assert(ok, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
+}
+
+func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
 	name, found := ctx.RemoteUnitName()
 	c.Assert(found, jc.IsFalse)
 	c.Assert(name, gc.Equals, "")
-	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
-	r, found = ctx.Relation(0)
+}
+
+func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	relIds := ctx.RelationIds()
+	c.Assert(relIds, gc.HasLen, 2)
+	r, found := ctx.Relation(0)
 	c.Assert(found, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 	r, found = ctx.Relation(123)
 	c.Assert(found, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
+}
 
-	ctx = s.GetContext(c, 1, "")
-	r, found = ctx.HookRelation()
-	c.Assert(found, jc.IsTrue)
+func (s *InterfaceSuite) TestRelationContext(c *gc.C) {
+	ctx := s.GetContext(c, 1, "")
+	r, ok := ctx.HookRelation()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
+}
 
-	ctx = s.GetContext(c, 1, "u/123")
-	name, found = ctx.RemoteUnitName()
+func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
+	ctx := s.GetContext(c, 1, "u/123")
+	name, found := ctx.RemoteUnitName()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(name, gc.Equals, "u/123")
 }

@@ -35,10 +35,6 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-var _ environs.Environ = (*environ)(nil)
-var _ simplestreams.HasRegion = (*environ)(nil)
-var _ simplestreams.MetadataValidator = (*environ)(nil)
-
 // Name returns the Environ's name.
 func (env environ) Name() string {
 	return env.name

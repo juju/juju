@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/gabriel-samfira/sys/windows"
+	"github.com/gabriel-samfira/sys/windows/svc"
+	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
-	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/mgr"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows/securestring"
@@ -83,23 +83,21 @@ func enumServices(h windows.Handle) ([]enumService, error) {
 	var needed uint32
 	var returned uint32
 	var resume uint32
-	buf := make([]enumService, 1)
-	var size uint32
-	enumServiceSize := uint32(unsafe.Sizeof(enumService{}))
+	var all []enumService
 
 	for {
+		var buf [256]enumService
 		err := enumServicesStatus(h, windows.SERVICE_WIN32,
-			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), size, &needed, &returned, &resume)
+			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
 		if err != nil {
-			if err == syscall.ERROR_MORE_DATA {
-				size = needed
-				sliceSize := int(size/enumServiceSize + 1)
-				buf = make([]enumService, sliceSize)
+			if err == windows.ERROR_MORE_DATA {
+				all = append(all, buf[:returned]...)
 				continue
 			}
 			return []enumService{}, err
 		}
-		return buf[:returned], nil
+		all = append(all, buf[:returned]...)
+		return all, nil
 	}
 }
 
