@@ -170,6 +170,8 @@ func (c *Context) set(id string, pInfo *process.Info) {
 	c.updates[id] = &info
 }
 
+// TODO(ericsnow) The context machinery is not actually using this yet.
+
 // Flush implements jujuc.ContextComponent. In this case that means all
 // added and updated process.Info in the hook context are pushed to
 // Juju state via the API.
