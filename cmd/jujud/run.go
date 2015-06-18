@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -137,11 +138,12 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-	client, err := sockets.Dial(c.socketPath())
+	conn, err := sockets.Dial(c.socketPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer client.Close()
+	defer conn.Close()
+	conn.Start()
 
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
@@ -150,7 +152,9 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		RemoteUnitName:  c.remoteUnitName,
 		ForceRemoteUnit: c.forceRemoteUnit,
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = conn.Call(rpc.Request{
+		uniter.JujuRunServerType, 0, "", uniter.JujuRunRunCommandsAction,
+	}, &args, &result)
 	return &result, errors.Trace(err)
 }
 

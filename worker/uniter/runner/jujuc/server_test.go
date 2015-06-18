@@ -7,10 +7,12 @@ package jujuc_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -55,6 +58,9 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	if c.Slow {
 		time.Sleep(testing.ShortWait)
 		return nil
+	}
+	if _, err := io.Copy(ctx.Stdout, ctx.Stdin); err != nil {
+		return err
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
@@ -111,25 +117,35 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
+	return s.CallWithStdin(c, req, "")
+}
+
+func (s *ServerSuite) CallWithStdin(c *gc.C, req jujuc.Request, stdin string) (resp exec.ExecResponse, err error) {
 	client, err := sockets.Dial(s.sockPath)
 	c.Assert(err, jc.ErrorIsNil)
+	client.Serve(jujuc.NewStdioServerRoot(strings.NewReader(stdin)), nil)
+	client.Start()
 	defer client.Close()
-	err = client.Call("Jujuc.Main", req, &resp)
+	err = client.Call(rpc.Request{"Jujuc", 0, "", "Main"}, &req, &resp)
 	return resp, err
 }
 
 func (s *ServerSuite) TestHappyPath(c *gc.C) {
+	s.testHappyPath(c, "")
+	s.testHappyPath(c, "wool of bat\n")
+}
+
+func (s *ServerSuite) testHappyPath(c *gc.C, stdin string) {
 	dir := c.MkDir()
-	resp, err := s.Call(c, jujuc.Request{
+	resp, err := s.CallWithStdin(c, jujuc.Request{
 		ContextId:   "validCtx",
 		Dir:         dir,
 		CommandName: "remote",
 		Args:        []string{"--value", "something"},
-		//Stdin:       []byte("wool of bat\n"),
-	})
+	}, stdin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, 0)
-	c.Assert(string(resp.Stdout), gc.Equals, "eye of newt\n")
+	c.Assert(string(resp.Stdout), gc.Equals, stdin+"eye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
 	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,13 +181,13 @@ func (s *ServerSuite) TestBadCommandName(c *gc.C) {
 		ContextId: "validCtx",
 		Dir:       dir,
 	})
-	c.Assert(err, gc.ErrorMatches, "bad request: command not specified")
+	c.Assert(err, gc.ErrorMatches, "request error: bad request: command not specified")
 	_, err = s.Call(c, jujuc.Request{
 		ContextId:   "validCtx",
 		Dir:         dir,
 		CommandName: "witchcraft",
 	})
-	c.Assert(err, gc.ErrorMatches, `bad request: unknown command "witchcraft"`)
+	c.Assert(err, gc.ErrorMatches, `request error: bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *gc.C) {
@@ -184,7 +200,7 @@ func (s *ServerSuite) TestBadDir(c *gc.C) {
 		CommandName: "anything",
 	}} {
 		_, err := s.Call(c, req)
-		c.Assert(err, gc.ErrorMatches, "bad request: Dir is not absolute")
+		c.Assert(err, gc.ErrorMatches, "request error: bad request: Dir is not absolute")
 	}
 }
 
@@ -194,7 +210,7 @@ func (s *ServerSuite) TestBadContextId(c *gc.C) {
 		Dir:         c.MkDir(),
 		CommandName: "remote",
 	})
-	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
+	c.Assert(err, gc.ErrorMatches, `request error: bad request: unknown context "whatever"`)
 }
 
 func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {

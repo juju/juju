@@ -8,16 +8,18 @@ package uniter
 
 import (
 	"net"
-	"net/rpc"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-const JujuRunEndpoint = "JujuRunServer.RunCommands"
+const JujuRunServerType = "JujuRunServer"
+const JujuRunRunCommandsAction = "RunCommands"
 
 // RunCommandsArgs stores the arguments for a RunCommands call.
 type RunCommandsArgs struct {
@@ -43,10 +45,18 @@ type CommandRunner interface {
 // that listens and hands off the work.
 type RunListener struct {
 	listener net.Listener
-	server   *rpc.Server
+	srvRoot  *jujuRunRpcRoot
 	closed   chan struct{}
 	closing  chan struct{}
 	wg       sync.WaitGroup
+}
+
+type jujuRunRpcRoot struct {
+	runner CommandRunner
+}
+
+func (r *jujuRunRpcRoot) JujuRunServer(id string) (*JujuRunServer, error) {
+	return &JujuRunServer{r.runner}, nil
 }
 
 // The JujuRunServer is the entity that has the methods that are called over
@@ -57,14 +67,13 @@ type JujuRunServer struct {
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
+func (r *JujuRunServer) RunCommands(args RunCommandsArgs) (exec.ExecResponse, error) {
 	logger.Debugf("RunCommands: %+v", args)
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
-		return errors.Annotate(err, "r.runner.RunCommands")
+		return exec.ExecResponse{}, errors.Annotate(err, "r.runner.RunCommands")
 	}
-	*result = *runResult
-	return err
+	return *runResult, nil
 }
 
 // NewRunListener returns a new RunListener that is listening on given
@@ -72,17 +81,13 @@ func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecRespo
 // has the go routine running, and should be closed by the creator
 // when they are done with it.
 func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, error) {
-	server := rpc.NewServer()
-	if err := server.Register(&JujuRunServer{runner}); err != nil {
-		return nil, errors.Trace(err)
-	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	runListener := &RunListener{
 		listener: listener,
-		server:   server,
+		srvRoot:  &jujuRunRpcRoot{runner},
 		closed:   make(chan struct{}),
 		closing:  make(chan struct{}),
 	}
@@ -101,9 +106,17 @@ func (s *RunListener) Run() (err error) {
 			break
 		}
 		s.wg.Add(1)
-		go func(conn net.Conn) {
-			s.server.ServeConn(conn)
-			s.wg.Done()
+		go func(netConn net.Conn) {
+			defer s.wg.Done()
+			codec := jsoncodec.NewNet(netConn)
+			conn := rpc.NewConn(codec, nil)
+			conn.Serve(s.srvRoot, nil)
+			conn.Start()
+			select {
+			case <-s.closing:
+				conn.Close()
+			case <-conn.Dead():
+			}
 		}(conn)
 	}
 	logger.Debugf("juju-run listener stopping")

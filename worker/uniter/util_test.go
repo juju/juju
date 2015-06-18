@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -1388,9 +1389,12 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		client, err := sockets.Dial(socketPath)
 		c.Assert(err, jc.ErrorIsNil)
 		defer client.Close()
+		client.Start()
 
 		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, args, &result)
+		err = client.Call(rpc.Request{
+			uniter.JujuRunServerType, 0, "", uniter.JujuRunRunCommandsAction,
+		}, &args, &result)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")

@@ -4,12 +4,19 @@ package sockets
 
 import (
 	"net"
-	"net/rpc"
 	"os"
+
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-func Dial(socketPath string) (*rpc.Client, error) {
-	return rpc.Dial("unix", socketPath)
+func Dial(socketPath string) (*rpc.Conn, error) {
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		return nil, err
+	}
+	codec := jsoncodec.NewNet(conn)
+	return rpc.NewConn(codec, nil), nil
 }
 
 func Listen(socketPath string) (net.Listener, error) {

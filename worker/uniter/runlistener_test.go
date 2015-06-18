@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -65,6 +66,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	client, err := sockets.Dial(s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
+	client.Start()
 
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
@@ -73,7 +75,9 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		RemoteUnitName:  "",
 		ForceRemoteUnit: false,
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(rpc.Request{
+		uniter.JujuRunServerType, 0, "", uniter.JujuRunRunCommandsAction,
+	}, &args, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
