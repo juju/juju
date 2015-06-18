@@ -4,10 +4,9 @@
 package local_test
 
 import (
-	"errors"
 	"fmt"
-	"os/user"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -257,51 +256,66 @@ Acquire::magic::Proxy "";
 	}
 }
 
-func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
+func (s *prepareSuite) prepNamespace(c *gc.C, namespace, username, envName string, err error) *config.Config {
+	attrs := map[string]interface{}{
+		"type": "local",
+		"name": envName,
+	}
+	if namespace != "" {
+		attrs["namespace"] = namespace
+	}
+
+	s.PatchValue(local.GetNamespace, func(envName string) (string, error) {
+		return username + "-" + envName, err
+	})
+
+	basecfg, err2 := config.New(config.UseDefaults, attrs)
+	c.Assert(err2, jc.ErrorIsNil)
+	return basecfg
+}
+
+func (s *prepareSuite) TestPrepareNamespaceAlreadySet(c *gc.C) {
 	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
 		return proxy.Settings{}, nil
 	})
-	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type": "local",
-		"name": "test",
-	})
+	basecfg := s.prepNamespace(c, "a-test", "b", "test", nil)
+
 	provider, err := environs.Provider("local")
 	c.Assert(err, jc.ErrorIsNil)
+	env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
+	c.Assert(err, jc.ErrorIsNil)
 
-	type test struct {
-		userEnv   string
-		userOS    string
-		userOSErr error
-		namespace string
-		err       string
-	}
-	tests := []test{{
-		userEnv:   "someone",
-		userOS:    "other",
-		namespace: "someone-test",
-	}, {
-		userOS:    "other",
-		namespace: "other-test",
-	}, {
-		userOSErr: errors.New("oh noes"),
-		err:       "failed to determine username for namespace: oh noes",
-	}}
+	cfg := env.Config()
+	c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, "a-test")
+}
 
-	for i, test := range tests {
-		c.Logf("test %d: %v", i, test)
-		s.PatchEnvironment("USER", test.userEnv)
-		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
-			return &user.User{Username: test.userOS}, test.userOSErr
-		})
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
-		if test.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			cfg := env.Config()
-			c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, test.namespace)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.err)
-		}
-	}
+func (s *prepareSuite) TestPrepareNamespaceNotSetOkay(c *gc.C) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
+		return proxy.Settings{}, nil
+	})
+	basecfg := s.prepNamespace(c, "", "b", "test", nil)
+
+	provider, err := environs.Provider("local")
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := env.Config()
+	c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, "b-test")
+}
+
+func (s *prepareSuite) TestPrepareNamespaceNotSetError(c *gc.C) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
+		return proxy.Settings{}, nil
+	})
+	expected := errors.New("<failure>")
+	basecfg := s.prepNamespace(c, "", "a", "test", expected)
+
+	provider, err := environs.Provider("local")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
+
+	c.Check(errors.Cause(err), gc.Equals, expected)
 }
 
 func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {

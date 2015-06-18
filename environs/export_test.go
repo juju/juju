@@ -6,6 +6,8 @@ package environs
 var (
 	Providers       = &providers
 	ProviderAliases = &providerAliases
+	UserCurrent     = &userCurrent
+	GetUsername     = &localUsername
 )
 
 func UpdateEnvironAttrs(envs *Environs, name string, newAttrs map[string]interface{}) {

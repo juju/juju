@@ -2,6 +2,8 @@ package environs
 
 import (
 	"fmt"
+	"os"
+	"os/user"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +16,43 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
+
+var userCurrent = user.Current
+
+// LocalUsername determines the current username on the local host.
+func LocalUsername() (string, error) {
+	username := os.Getenv("USER")
+	if username == "" {
+		u, err := userCurrent()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		username = u.Username
+	}
+	if username == "" {
+		return "", errors.Errorf("cannot get current user from the environment: %v", os.Environ())
+	}
+
+	if username == "root" {
+		// sudo was probably called, get the original user.
+		if original := os.Getenv("SUDO_USER"); original != "" {
+			username = original
+		}
+	}
+	return username, nil
+}
+
+var localUsername = LocalUsername
+
+// LocalNamespace generates a namespace name for the given environment
+// name. The namespace is based on the current local user.
+func LocalNamespace(envName string) (string, error) {
+	username, err := localUsername()
+	if err != nil {
+		return "", errors.Annotate(err, "failed to determine username for namespace")
+	}
+	return fmt.Sprintf("%s-%s", username, envName), nil
+}
 
 // LegacyStorage creates an Environ from the config in state and returns
 // its provider storage interface if it supports one. If the environment
