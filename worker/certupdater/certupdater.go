@@ -54,7 +54,7 @@ type StateServingInfoGetter interface {
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo) error
+type StateServingInfoSetter func(info params.StateServingInfo, tombDying <-chan struct{})
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new state server certificate with those
@@ -77,7 +77,7 @@ func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) Handle() error {
+func (c *CertificateUpdater) Handle(tombDying <-chan struct{}) error {
 	addresses := c.addressWatcher.Addresses()
 	logger.Debugf("new machine addresses: %#v", addresses)
 	if reflect.DeepEqual(addresses, c.addresses) {
@@ -130,10 +130,7 @@ func (c *CertificateUpdater) Handle() error {
 	}
 	stateInfo.Cert = string(newCert)
 	stateInfo.PrivateKey = string(newKey)
-	err = c.setter(stateInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot write agent config")
-	}
+	c.setter(stateInfo, tombDying)
 	logger.Infof("State Server cerificate addresses updated to %q", addresses)
 	return nil
 }

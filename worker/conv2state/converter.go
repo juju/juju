@@ -78,7 +78,7 @@ func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
 // that the machine is now expected to manage the environment, we change its
 // password (to set its password in mongo) and restart the agent.
-func (c *converter) Handle() error {
+func (c *converter) Handle(tombDying <-chan struct{}) error {
 	results, err := c.machine.Jobs()
 	if err != nil {
 		return errors.Annotate(err, "can't get jobs for machine")

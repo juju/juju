@@ -37,7 +37,7 @@ type NotifyWatchHandler interface {
 
 	// Handle is called when the Watcher has indicated there are
 	// changes, do whatever work is necessary to process it
-	Handle() error
+	Handle(<-chan struct{}) error
 }
 
 // NewNotifyWorker starts a new worker running the business logic from
@@ -97,7 +97,7 @@ func (nw *notifyWorker) loop() error {
 			if !ok {
 				return ensureErr(w)
 			}
-			if err := nw.handler.Handle(); err != nil {
+			if err := nw.handler.Handle(nw.tomb.Dying()); err != nil {
 				return err
 			}
 		}
