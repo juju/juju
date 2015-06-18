@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/version"
 )
 
 // ToolsContentId returns the tools content id for the given stream.
@@ -51,12 +52,17 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 	indicesLegacy.Format = simplestreams.IndexFormat
 
 	for stream, metadata := range streamMetadata {
-		productIds := make([]string, len(metadata))
-		for i, t := range metadata {
-			productIds[i], err = t.productId()
+		var productIds []string
+		for _, t := range metadata {
+			id, err := t.productId()
 			if err != nil {
+				if version.IsUnknownSeriesVersionError(err) {
+					logger.Infof("ignoring tools metadata with unknown series %q", t.Release)
+					continue
+				}
 				return nil, nil, err
 			}
+			productIds = append(productIds, id)
 		}
 		indexMetadata := &simplestreams.IndexMetadata{
 			Updated:          indices.Updated,
@@ -99,6 +105,9 @@ func MarshalToolsMetadataProductsJSON(
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
+				if version.IsUnknownSeriesVersionError(err) {
+					continue
+				}
 				return nil, err
 			}
 			itemid := fmt.Sprintf("%s-%s-%s", t.Version, t.Release, t.Arch)

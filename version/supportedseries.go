@@ -62,10 +62,6 @@ func IsUnknownSeriesVersionError(err error) bool {
 	return ok
 }
 
-const (
-	unknownSeriesVersion = "unknown"
-)
-
 // seriesVersions provides a mapping between series names and versions.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
@@ -170,7 +166,7 @@ func SeriesVersion(series string) (string, error) {
 		return vers, nil
 	}
 
-	return unknownSeriesVersion, errors.Trace(unknownSeriesVersionError(series))
+	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
 // SupportedSeries returns the series on which we can run Juju workloads.

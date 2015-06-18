@@ -353,8 +353,10 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
+	expected := toolsList
 
-	// Add tools with an unknown series
+	// Add tools with an unknown series. Do not add an entry in the
+	// expected list as these tools should be ignored.
 	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
 	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
 	toolsList = append(toolsList, &coretools.Tools{
@@ -369,7 +371,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	err = tools.MergeAndWriteMetadata(writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", false)
-	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
+	assertMetadataMatches(c, dir, "proposed", expected, metadata)
 }
 
 func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
