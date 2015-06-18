@@ -85,10 +85,13 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	var toolsList coretools.List
 	for _, versionString := range versionStrings {
-		binary := version.MustParseBinary(versionString)
+		binary, err := version.ParseBinary(versionString)
+		if err != nil {
+			c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+		}
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
 		data := binary.String()
-		err := ioutil.WriteFile(path, []byte(data), 0644)
+		err = ioutil.WriteFile(path, []byte(data), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		tool := &coretools.Tools{
 			Version: binary,
@@ -164,7 +167,9 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
 				seriesVersion, err := version.SeriesVersion(toolsMetadata.Release)
-				c.Assert(err, jc.ErrorIsNil)
+				if err != nil {
+					c.Assert(err, jc.Satisfies, version.IsUnknownSeriesVersionError)
+				}
 				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)
 			}

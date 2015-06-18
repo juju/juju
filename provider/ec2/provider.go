@@ -85,7 +85,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		fmt.Errorf("region must be specified")
+		return nil, fmt.Errorf("region must be specified")
 	}
 	ec2Region, ok := allRegions[region]
 	if !ok {

@@ -42,7 +42,11 @@ var getOSFromSeriesTests = []struct {
 }, {
 	series: "centos7",
 	want:   version.CentOS,
-}}
+}, {
+	series: "",
+	err:    "series \"\" not valid",
+},
+}
 
 func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 	for _, t := range getOSFromSeriesTests {
@@ -54,6 +58,12 @@ func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 			c.Assert(got, gc.Equals, t.want)
 		}
 	}
+}
+
+func (s *supportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
+	_, err := version.GetOSFromSeries("Xuanhuaceratops")
+	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
 func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {

@@ -116,6 +116,7 @@ var (
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
+	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -1022,12 +1023,16 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Infof("update apiserver worker with new certificate")
-					certChangedChan <- info
-					return nil
+					select {
+					case certChangedChan <- info:
+						return nil
+					case <-done:
+						return nil
+					}
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
@@ -1113,9 +1118,6 @@ func (a *MachineAgent) startEnvWorkers(
 	// Start workers that depend on a *state.State.
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return cleaner.NewCleaner(st), nil
-	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
@@ -1140,6 +1142,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
 		return newInstancePoller(apiSt.InstancePoller()), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506

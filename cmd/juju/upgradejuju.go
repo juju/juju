@@ -348,11 +348,12 @@ func (context *upgradeContext) validate() (err error) {
 		// need to upgrade. If the CLI and agent major versions match, we find
 		// next available stable release to upgrade to by incrementing the
 		// minor version, starting from the current agent version and doing
-		// major.minor+1. If the CLI has a greater major version,
+		// major.minor+1.patch=0. If the CLI has a greater major version,
 		// we just use the CLI version as is.
 		nextVersion := context.agent
 		if nextVersion.Major == context.client.Major {
 			nextVersion.Minor += 1
+			nextVersion.Patch = 0
 		} else {
 			nextVersion = context.client
 		}

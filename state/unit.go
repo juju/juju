@@ -1264,23 +1264,31 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
+	return validateDynamicStorageParams(m.st, params)
+}
+
+// validateDynamicStorageParams validates that all storage providers required for
+// provisioning the storage in params support dynamic storage.
+// If any provider doesn't support dynamic storage, then an IsNotSupported error
+// is returned.
+func validateDynamicStorageParams(st *State, params *machineStorageParams) error {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := m.st.volumeParamsWithDefaults(v.Volume)
+		v, err := st.volumeParamsWithDefaults(v.Volume)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := m.st.filesystemParamsWithDefaults(f.Filesystem)
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := m.st.Volume(volumeTag)
+		volume, err := st.Volume(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1295,7 +1303,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := m.st.Filesystem(filesystemTag)
+		filesystem, err := st.Filesystem(filesystemTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1310,15 +1318,14 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(m.st, pool)
+		providerType, provider, err := poolStorageProvider(st, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !provider.Dynamic() {
-			return errors.Errorf(
-				"%s storage provider does not support dynamic storage",
-				providerType,
-			)
+			return errors.NewNotSupported(
+				err,
+				fmt.Sprintf("%q storage provider does not support dynamic storage", providerType))
 		}
 	}
 	return nil
@@ -1575,6 +1582,8 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
+	chMeta := ch.Meta()
+
 	var volumes []MachineVolumeParams
 	var filesystems []MachineFilesystemParams
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
@@ -1584,66 +1593,107 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
-
-		charmStorage := ch.Meta().Storage[storage.StorageName()]
-
-		switch storage.Kind() {
-		case StorageKindBlock:
-			volumeAttachmentParams := VolumeAttachmentParams{
-				charmStorage.ReadOnly,
-			}
-			if storage.Owner() == u.Tag() {
-				// The storage instance is owned by the unit, so we'll need
-				// to create a volume.
-				cons := allCons[storage.StorageName()]
-				volumeParams := VolumeParams{
-					storage: storage.StorageTag(),
-					Pool:    cons.Pool,
-					Size:    cons.Size,
-				}
-				volumes = append(volumes, MachineVolumeParams{
-					volumeParams, volumeAttachmentParams,
-				})
-			} else {
-				// The storage instance is owned by the service, so there
-				// should be a (shared) volume already, for which we will
-				// just add an attachment.
-				volume, err := u.st.StorageInstanceVolume(storage.StorageTag())
-				if err != nil {
-					return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
-				}
-				volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
-			}
-		case StorageKindFilesystem:
-			filesystemAttachmentParams := FilesystemAttachmentParams{
-				charmStorage.Location,
-				charmStorage.ReadOnly,
-			}
-			if storage.Owner() == u.Tag() {
-				// The storage instance is owned by the unit, so we'll need
-				// to create a filesystem.
-				cons := allCons[storage.StorageName()]
-				filesystemParams := FilesystemParams{
-					storage: storage.StorageTag(),
-					Pool:    cons.Pool,
-					Size:    cons.Size,
-				}
-				filesystems = append(filesystems, MachineFilesystemParams{
-					filesystemParams, filesystemAttachmentParams,
-				})
-			} else {
-				// The storage instance is owned by the service, so there
-				// should be a (shared) filesystem already, for which we will
-				// just add an attachment.
-				filesystem, err := u.st.StorageInstanceFilesystem(storage.StorageTag())
-				if err != nil {
-					return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
-				}
-				filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
-			}
-		default:
-			return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
+		machineParams, err := machineStorageParamsForStorageInstance(
+			u.st, chMeta, u.UnitTag(), allCons, storage,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+
+		volumes = append(volumes, machineParams.volumes...)
+		for k, v := range machineParams.volumeAttachments {
+			volumeAttachments[k] = v
+		}
+
+		filesystems = append(filesystems, machineParams.filesystems...)
+		for k, v := range machineParams.filesystemAttachments {
+			filesystemAttachments[k] = v
+		}
+	}
+	result := &machineStorageParams{
+		volumes,
+		volumeAttachments,
+		filesystems,
+		filesystemAttachments,
+	}
+	return result, nil
+}
+
+// machineStorageParamsForStorageInstance returns parameters for creating
+// volumes/filesystems and volume/filesystem attachments for a machine that
+// the unit will be assigned to. These parameters are based on a given storage
+// instance.
+func machineStorageParamsForStorageInstance(
+	st *State,
+	charmMeta *charm.Meta,
+	unit names.UnitTag,
+	allCons map[string]StorageConstraints,
+	storage StorageInstance,
+) (*machineStorageParams, error) {
+
+	charmStorage := charmMeta.Storage[storage.StorageName()]
+
+	var volumes []MachineVolumeParams
+	var filesystems []MachineFilesystemParams
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
+	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+
+	switch storage.Kind() {
+	case StorageKindBlock:
+		volumeAttachmentParams := VolumeAttachmentParams{
+			charmStorage.ReadOnly,
+		}
+		if unit == storage.Owner() {
+			// The storage instance is owned by the unit, so we'll need
+			// to create a volume.
+			cons := allCons[storage.StorageName()]
+			volumeParams := VolumeParams{
+				storage: storage.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
+			}
+			volumes = append(volumes, MachineVolumeParams{
+				volumeParams, volumeAttachmentParams,
+			})
+		} else {
+			// The storage instance is owned by the service, so there
+			// should be a (shared) volume already, for which we will
+			// just add an attachment.
+			volume, err := st.StorageInstanceVolume(storage.StorageTag())
+			if err != nil {
+				return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
+			}
+			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		}
+	case StorageKindFilesystem:
+		filesystemAttachmentParams := FilesystemAttachmentParams{
+			charmStorage.Location,
+			charmStorage.ReadOnly,
+		}
+		if unit == storage.Owner() {
+			// The storage instance is owned by the unit, so we'll need
+			// to create a filesystem.
+			cons := allCons[storage.StorageName()]
+			filesystemParams := FilesystemParams{
+				storage: storage.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
+			}
+			filesystems = append(filesystems, MachineFilesystemParams{
+				filesystemParams, filesystemAttachmentParams,
+			})
+		} else {
+			// The storage instance is owned by the service, so there
+			// should be a (shared) filesystem already, for which we will
+			// just add an attachment.
+			filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag())
+			if err != nil {
+				return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+			}
+			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+		}
+	default:
+		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 	}
 	result := &machineStorageParams{
 		volumes,
@@ -1789,16 +1839,19 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// TODO(axw) once we support dynamic storage provisioning, we
-	// should check whether all of the storage constraints can be
-	// fulfilled dynamically (by querying a policy).
-	storageCons, err := u.StorageConstraints()
+	// If any required storage s not all dynamic, then assigning
+	// to a new machine is required.
+	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	if len(storageCons) > 0 {
-		return nil, noCleanMachines
+	if err := validateDynamicStorageParams(u.st, storageParams); err != nil {
+		if errors.IsNotSupported(err) {
+			return nil, noCleanMachines
+		}
+		assignContextf(&err, u, context)
+		return nil, err
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
@@ -1871,6 +1924,15 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// provisioned without the fact having yet been recorded
 	// in state.
 	for _, m := range machines {
+		// Check that the unit storage is compatible with
+		// the machine in question.
+		if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+			if errors.IsNotSupported(err) {
+				continue
+			}
+			assignContextf(&err, u, context)
+			return nil, err
+		}
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil

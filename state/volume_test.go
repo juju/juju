@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -277,8 +278,20 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 	wc.AssertChangeInSingleEvent("3")
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Volume lifecycle.
+	err := s.State.DestroyVolume(names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0") // dying
+	wc.AssertNoChange()
+
+	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveVolume(names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0") // removed
+	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
@@ -301,8 +314,15 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	wc.AssertChangeInSingleEvent("1:3")
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Volume lifecycle.
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0") // dying
+	wc.AssertNoChange()
+
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0") // removed
+	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
@@ -325,8 +345,20 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Volume lifecycle.
+	err := s.State.DestroyVolume(names.NewVolumeTag("0/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0/1") // dying
+	wc.AssertNoChange()
+
+	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveVolume(names.NewVolumeTag("0/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0/1") // removed
+	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
@@ -349,10 +381,18 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0") // dying
+	wc.AssertNoChange()
+
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0") // removed
+	wc.AssertNoChange()
+
 	// TODO(axw) respond to changes to the same machine when we support
 	// dynamic storage and/or placement.
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Volume lifecycle.
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
@@ -378,60 +418,78 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 	assertError("bar:0", `invalid volume attachment ID "bar:0"`)
 }
 
-func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
-	_, persistentVolumes := s.assertCreateVolumes(c)
-	c.Assert(persistentVolumes, gc.HasLen, 1)
+func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
+	_, expected, _ := s.assertCreateVolumes(c)
 
-	v, err := s.State.PersistentVolumes()
+	volumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.HasLen, 1)
-	c.Assert(persistentVolumes.Contains(v[0].VolumeTag()), jc.IsTrue)
+	tags := make([]names.VolumeTag, len(volumes))
+	for i, v := range volumes {
+		tags[i] = v.VolumeTag()
+	}
+	c.Assert(tags, jc.SameContents, expected)
 }
 
-func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (all, persistent set.Tags) {
-	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
+func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
+	_, _, persistentVolumes := s.assertCreateVolumes(c)
+	c.Assert(persistentVolumes, gc.HasLen, 1)
+
+	volumes, err := s.State.PersistentVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	tags := make([]names.VolumeTag, len(volumes))
+	for i, v := range volumes {
+		tags[i] = v.VolumeTag()
+	}
+	c.Assert(tags, jc.SameContents, persistentVolumes)
+}
+
+func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
+	})
+	s.AddCleanup(func(*gc.C) {
+		registry.RegisterProvider("static", nil)
+	})
+
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType, "static")
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch := s.AddTestingCharm(c, "storage-block2")
-	storage := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
-		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024},
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048},
+		}, {
+			Volume: state.VolumeParams{Pool: "static", Size: 2048},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume1 := s.storageInstanceVolume(c, names.NewStorageTag("multi1to10/0"))
+	volume1 := s.volume(c, names.NewVolumeTag("0"))
+	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
+	volume3 := s.volume(c, names.NewVolumeTag("2"))
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume2 := s.storageInstanceVolume(c, names.NewStorageTag("multi2up/1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
 	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume3 := s.storageInstanceVolume(c, names.NewStorageTag("multi2up/2"))
-
-	return set.NewTags(volume1.VolumeTag(), volume2.VolumeTag(), volume3.VolumeTag()), set.NewTags(volume1.VolumeTag())
-}
-
-func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
-	expected, _ := s.assertCreateVolumes(c)
-
-	found, err := s.State.AllVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 3)
-	for _, one := range found {
-		c.Assert(expected.Contains(one.VolumeTag()), jc.IsTrue)
+	all = []names.VolumeTag{
+		volume1.VolumeTag(),
+		volume2.VolumeTag(),
+		volume3.VolumeTag(),
 	}
+	persistent = []names.VolumeTag{
+		volume1.VolumeTag(),
+	}
+	return machine, all, persistent
 }
 
 func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
@@ -480,4 +538,147 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume attachment 0/0:0: volume "0/0" not provisioned`)
+}
+
+func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
+	volume, _ := s.setupVolumeAttachment(c)
+	assertDestroy := func() {
+		err := s.State.DestroyVolume(volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		volume = s.volume(c, volume.VolumeTag())
+		c.Assert(volume.Life(), gc.Equals, state.Dying)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertDestroy).Check()
+	assertDestroy()
+}
+
+func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+	err := s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemove := func() {
+		err = s.State.RemoveVolume(volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.Volume(volume.VolumeTag())
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
+	assertRemove()
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeNotFound(c *gc.C) {
+	err := s.State.RemoveVolume(names.NewVolumeTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeAlive(c *gc.C) {
+	volume, _ := s.setupVolumeAttachment(c)
+	err := s.State.RemoveVolume(volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dying")
+}
+
+func (s *VolumeStateSuite) TestRemoveWithVolumeAttachments(c *gc.C) {
+	volume, _ := s.setupVolumeAttachment(c)
+	err := s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolume(volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is attached to machines \\[0\\]")
+}
+
+func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+	assertDetach := func() {
+		err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
+		c.Assert(attachment.Life(), gc.Equals, state.Dying)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertDetach).Check()
+	assertDetach()
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
+	err := s.State.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+	err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "removing attachment of volume 0/0 from machine 0: volume attachment is not dying")
+}
+
+func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	s.AddCleanup(func(*gc.C) { registry.RegisterProvider("static", nil) })
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType, "static")
+
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024}, // unprovisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // provisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // unprovisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // provisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // unprovisioned
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("3"), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allVolumes, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	persistentVolumes, err := s.State.PersistentVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
+
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// Machine is gone: non-persistent and unprovisioned static or machine-
+	// scoped storage should be gone too.
+	allVolumes, err = s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	// We should only have the persistent volume and the provisioned loop
+	// device remaining.
+	remaining := make(set.Strings)
+	for _, v := range allVolumes {
+		remaining.Add(v.Tag().String())
+	}
+	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
+		"volume-0", "volume-0-1",
+	})
+
+	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.HasLen, 0)
+}
+
+func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.storageInstanceVolume(c, storageTag), s.machine(c, assignedMachineId)
 }

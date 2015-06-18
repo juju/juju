@@ -284,6 +284,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		relationId:         -1,
 		metricsRecorder:    nil,
 		definedMetrics:     nil,
+		metricsSender:      f.unit,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 		componentFuncs:     registeredComponentFuncs,

@@ -58,8 +58,8 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 
 func (s *serviceSuite) TestIsServiceInstalledWhenInstalled(c *gc.C) {
 	namespace := "some-namespace"
-	svcData := svctesting.NewFakeServiceData()
-	svcData.InstalledNames.Add(mongo.ServiceName(namespace))
+	svcName := mongo.ServiceName(namespace)
+	svcData := svctesting.NewFakeServiceData(svcName)
 	mongo.PatchService(s.PatchValue, svcData)
 
 	isInstalled, err := mongo.IsServiceInstalled(namespace)

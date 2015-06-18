@@ -108,7 +108,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			return canAccessStorageEntity(tag, false)
 		}, nil
 	}
-	lifeAuthFunc := func() (common.AuthFunc, error) {
+	getLifeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return canAccessStorageEntity(tag, true)
 		}, nil
@@ -160,7 +160,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:       common.NewLifeGetter(stateInterface, lifeAuthFunc),
+		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
 		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
@@ -534,8 +534,8 @@ func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorage
 	return results, nil
 }
 
-// VolumeParams returns the parameters for creating the volumes
-// with the specified tags.
+// VolumeParams returns the parameters for creating or destroying
+// the volumes with the specified tags.
 func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
@@ -599,6 +599,7 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			volumeParams.Attachment = &params.VolumeAttachmentParams{
 				tag.String(),
 				machineTag.String(),
+				"", // volume ID
 				string(instanceId),
 				volumeParams.Provider,
 				volumeAttachmentParams.ReadOnly,
@@ -702,6 +703,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
+		var volumeId string
 		var pool string
 		if volumeParams, ok := volume.Params(); ok {
 			pool = volumeParams.Pool
@@ -710,6 +712,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			if err != nil {
 				return params.VolumeAttachmentParams{}, err
 			}
+			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
@@ -731,6 +734,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
+			volumeId,
 			string(instanceId),
 			string(providerType),
 			readOnly,
@@ -778,6 +782,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
+		var filesystemId string
 		var pool string
 		if filesystemParams, ok := filesystem.Params(); ok {
 			pool = filesystemParams.Pool
@@ -786,6 +791,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			if err != nil {
 				return params.FilesystemAttachmentParams{}, err
 			}
+			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
 		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
@@ -810,6 +816,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 		return params.FilesystemAttachmentParams{
 			filesystemAttachment.Filesystem().String(),
 			filesystemAttachment.Machine().String(),
+			filesystemId,
 			string(instanceId),
 			string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
@@ -1083,6 +1090,41 @@ func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (p
 		} else {
 			results.Results[i].Life = life
 		}
+	}
+	return results, nil
+}
+
+// Remove removes volumes and filesystems from state.
+func (s *StorageProvisionerAPI) Remove(args params.Entities) (params.ErrorResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) error {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(tag) {
+			return common.ErrPerm
+		}
+		switch tag := tag.(type) {
+		case names.FilesystemTag:
+			return s.st.RemoveFilesystem(tag)
+		case names.VolumeTag:
+			return s.st.RemoveVolume(tag)
+		default:
+			// should have been picked up by canAccess
+			logger.Debugf("unexpected %v tag", tag.Kind())
+			return common.ErrPerm
+		}
+	}
+	for i, arg := range args.Entities {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
