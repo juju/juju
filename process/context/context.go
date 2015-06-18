@@ -47,7 +47,7 @@ func NewContext(api APIClient, procs ...*process.Info) *Context {
 	}
 }
 
-// NewContext returns a new jujuc.ContextComponent for workload processes.
+// NewContextAPI returns a new jujuc.ContextComponent for workload processes.
 func NewContextAPI(api APIClient) (*Context, error) {
 	ids, err := api.List()
 	if err != nil {
