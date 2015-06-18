@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -55,6 +56,15 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, errors.Annotate(err, "failure setting config")
 	}
 	return environ, nil
+}
+
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 // correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
