@@ -4,6 +4,8 @@
 package certupdater
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
@@ -31,6 +33,7 @@ type CertificateUpdater struct {
 	configGetter    EnvironConfigGetter
 	hostPortsGetter APIHostPortsGetter
 	certChanged     chan params.StateServingInfo
+	addresses       []network.Address
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -54,7 +57,7 @@ type StateServingInfoGetter interface {
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo) error
+type StateServingInfoSetter func(info params.StateServingInfo, done <-chan struct{}) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
 // whose APIHostPorts method will be invoked to get state server addresses.
@@ -95,7 +98,7 @@ func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 			initialSANAddresses = append(initialSANAddresses, nhp.Address)
 		}
 	}
-	if err := c.updateCertificate(initialSANAddresses); err != nil {
+	if err := c.updateCertificate(initialSANAddresses, make(chan struct{})); err != nil {
 		return nil, errors.Annotate(err, "setting initial cerificate SAN list")
 	}
 	// Return
@@ -103,13 +106,20 @@ func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) Handle() error {
+func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 	addresses := c.addressWatcher.Addresses()
-	return c.updateCertificate(addresses)
+	return c.updateCertificate(addresses, done)
 }
 
-func (c *CertificateUpdater) updateCertificate(addresses []network.Address) error {
-	logger.Debugf("new machine addresses: %v", addresses)
+func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done <-chan struct{}) error {
+	logger.Debugf("new machine addresses: %#v", addresses)
+	if reflect.DeepEqual(addresses, c.addresses) {
+		// Sometimes the watcher will tell us things have changed, when they
+		// haven't as far as we can tell.
+		logger.Debugf("addresses haven't really changed since last updated cert")
+		return nil
+	}
+	c.addresses = addresses
 
 	// Older Juju deployments will not have the CA cert private key
 	// available.
@@ -161,10 +171,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 	}
 	stateInfo.Cert = string(newCert)
 	stateInfo.PrivateKey = string(newKey)
-	err = c.setter(stateInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot write agent config")
-	}
+	c.setter(stateInfo, done)
 	logger.Infof("State Server cerificate addresses updated to %q", newServerAddrs)
 	return nil
 }
