@@ -178,6 +178,13 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	return filesystem, nil
 }
 
+// DestroyFilesystems is defined on the FilesystemSource interface.
+func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	// DestroyFilesystems is a no-op; we leave the storage directory
+	// in tact for post-mortems and such.
+	return make([]error, len(filesystemIds))
+}
+
 // AttachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	attachments := make([]storage.FilesystemAttachment, len(args))

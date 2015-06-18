@@ -142,6 +142,14 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 	return storage.Filesystem{params.Tag, params.Volume, info}, nil
 }
 
+// DestroyFilesystems is defined on the FilesystemSource interface.
+func (s *tmpfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	// DestroyFilesystems is a no-op; there is nothing to destroy,
+	// since the filesystem is ephemeral and disappears once
+	// detached.
+	return make([]error, len(filesystemIds))
+}
+
 // AttachFilesystems is defined on the FilesystemSource interface.
 func (s *tmpfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	attachments := make([]storage.FilesystemAttachment, len(args))
