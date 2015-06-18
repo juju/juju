@@ -19,8 +19,8 @@ func init() {
 		// such that we don't have to import runner or jujuc.
 		func() (jujuc.ContextComponent, error) {
 			// TODO(ericsnow) The API client or facade should be passed
-			// in to the factory func and passed to NewClient.
-			client, err := api.NewClient()
+			// in to the factory func and passed to NewInternalClient.
+			client, err := api.NewInternalClient()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -9,32 +9,34 @@ import (
 	"github.com/juju/juju/process"
 )
 
-// Client provides methods for interacting with the Juju API relative
-// to workload processes.
-type Client struct {
+// InternalClient provides methods for interacting with Juju's internal
+// RPC API, relative to workload processes.
+type InternalClient struct {
 }
 
-// NewClient builds a new workload process API client.
-func NewClient() (*Client, error) {
+// NewInternalClient builds a new workload process API client.
+func NewInternalClient() (*InternalClient, error) {
+	client := &InternalClient{}
+
 	// TODO(ericsnow) finish
-	return &Client{}, errors.Errorf("not finished")
+	return client, errors.Errorf("not finished")
 }
 
 // List gets the list of defined workload processes from Juju
 // via the API.
-func (c *Client) List() ([]string, error) {
+func (c *InternalClient) List() ([]string, error) {
 	// TODO(ericsnow) finish
 	return nil, errors.Errorf("not finished")
 }
 
 // Get gets the info for the specified workload processes via the API.
-func (c *Client) Get(ids ...string) ([]*process.Info, error) {
+func (c *InternalClient) Get(ids ...string) ([]*process.Info, error) {
 	// TODO(ericsnow) finish
 	return nil, errors.Errorf("not finished")
 }
 
 // Set pushes the provided process info up to Juju state via the API.
-func (c *Client) Set(procs ...*process.Info) error {
+func (c *InternalClient) Set(procs ...*process.Info) error {
 	// TODO(ericsnow) finish
 	return errors.Errorf("not finished")
 }
