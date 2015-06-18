@@ -2,17 +2,20 @@ package sockets
 
 import (
 	"net"
-	"net/rpc"
 
 	"gopkg.in/natefinch/npipe.v2"
+
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-func Dial(socketPath string) (*rpc.Client, error) {
+func Dial(socketPath string) (*rpc.Conn, error) {
 	conn, err := npipe.Dial(socketPath)
 	if err != nil {
 		return nil, err
 	}
-	return rpc.NewClient(conn), nil
+	codec := jsoncodec.NewNet(conn)
+	return rpc.NewConn(codec, nil), nil
 }
 
 func Listen(socketPath string) (net.Listener, error) {

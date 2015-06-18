@@ -9,8 +9,8 @@ package jujuc
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
-	"net/rpc"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -20,6 +20,13 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
+)
+
+const (
+	StdioRpcType       = "Stdio"
+	ReadStdinRpcAction = "ReadStdin"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -102,10 +109,22 @@ type Request struct {
 // CmdGetter looks up a Command implementation connected to a particular Context.
 type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 
-// Jujuc implements the jujuc command in the form required by net/rpc.
+// rpcRoot is the RPC root for handling jujuc commands.
+type rpcRoot struct {
+	requestMutex *sync.Mutex
+	getCmd       CmdGetter
+	stdio        *StdioClient
+}
+
+func (r *rpcRoot) Jujuc(id string) (*Jujuc, error) {
+	return &Jujuc{r.requestMutex, r.getCmd, r.stdio.Stdin()}, nil
+}
+
+// Jujuc implements the jujuc command in the form required by juju/rpc.
 type Jujuc struct {
-	mu     sync.Mutex
-	getCmd CmdGetter
+	requestMutex *sync.Mutex
+	getCmd       CmdGetter
+	stdin        io.Reader
 }
 
 // badReqErrorf returns an error indicating a bad Request.
@@ -115,32 +134,34 @@ func badReqErrorf(format string, v ...interface{}) error {
 
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
-func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
+func (j *Jujuc) Main(req Request) (exec.ExecResponse, error) {
 	if req.CommandName == "" {
-		return badReqErrorf("command not specified")
+		return exec.ExecResponse{}, badReqErrorf("command not specified")
 	}
 	if !filepath.IsAbs(req.Dir) {
-		return badReqErrorf("Dir is not absolute")
+		return exec.ExecResponse{}, badReqErrorf("Dir is not absolute")
 	}
 	c, err := j.getCmd(req.ContextId, req.CommandName)
 	if err != nil {
-		return badReqErrorf("%s", err)
+		return exec.ExecResponse{}, badReqErrorf("%s", err)
 	}
-	var stdin, stdout, stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
 		Dir:    req.Dir,
-		Stdin:  &stdin,
+		Stdin:  j.stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
-	j.mu.Lock()
-	defer j.mu.Unlock()
+	j.requestMutex.Lock()
+	defer j.requestMutex.Unlock()
 	logger.Infof("running hook tool %q %q", req.CommandName, req.Args)
 	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
-	resp.Code = cmd.Main(c, ctx, req.Args)
-	resp.Stdout = stdout.Bytes()
-	resp.Stderr = stderr.Bytes()
-	return nil
+	resp := exec.ExecResponse{
+		Code:   cmd.Main(c, ctx, req.Args),
+		Stdout: stdout.Bytes(),
+		Stderr: stderr.Bytes(),
+	}
+	return resp, nil
 }
 
 // Server implements a server that serves command invocations via
@@ -148,20 +169,18 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 type Server struct {
 	socketPath string
 	listener   net.Listener
-	server     *rpc.Server
+	getCmd     CmdGetter
 	closed     chan bool
 	closing    chan bool
 	wg         sync.WaitGroup
+	// requestMutex is shared by all rpcRoots to serialise requests.
+	requestMutex sync.Mutex
 }
 
 // NewServer creates an RPC server bound to socketPath, which can execute
 // remote command invocations against an appropriate Context. It will not
 // actually do so until Run is called.
 func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
-	server := rpc.NewServer()
-	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
-		return nil, err
-	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
 		return nil, err
@@ -169,7 +188,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	s := &Server{
 		socketPath: socketPath,
 		listener:   listener,
-		server:     server,
+		getCmd:     getCmd,
 		closed:     make(chan bool),
 		closing:    make(chan bool),
 	}
@@ -186,9 +205,18 @@ func (s *Server) Run() (err error) {
 			break
 		}
 		s.wg.Add(1)
-		go func(conn net.Conn) {
-			s.server.ServeConn(conn)
-			s.wg.Done()
+		go func(netConn net.Conn) {
+			defer s.wg.Done()
+			codec := jsoncodec.NewNet(netConn)
+			conn := rpc.NewConn(codec, nil)
+			stdio := &StdioClient{conn}
+			conn.Serve(&rpcRoot{&s.requestMutex, s.getCmd, stdio}, nil)
+			conn.Start()
+			select {
+			case <-s.closing:
+				conn.Close()
+			case <-conn.Dead():
+			}
 		}(conn)
 	}
 	select {
@@ -201,7 +229,7 @@ func (s *Server) Run() (err error) {
 	}
 	s.wg.Wait()
 	close(s.closed)
-	return
+	return err
 }
 
 // Close immediately stops accepting connections, and blocks until all existing

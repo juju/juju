@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/rpc"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -73,7 +74,7 @@ func getwd() (string, error) {
 // jujuCMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func jujuCMain(commandName string, args []string) (code int, err error) {
+func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
 	code = 1
 	contextId, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
@@ -83,7 +84,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	req := jujuc.Request{
+	rpcArgs := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
 		CommandName: commandName,
@@ -93,18 +94,21 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	client, err := sockets.Dial(socketPath)
+	conn, err := sockets.Dial(socketPath)
 	if err != nil {
 		return
 	}
-	defer client.Close()
+	defer conn.Close()
+	conn.Serve(jujuc.NewStdioServerRoot(ctx.Stdin), nil)
+	conn.Start()
+
 	var resp exec.ExecResponse
-	err = client.Call("Jujuc.Main", req, &resp)
+	err = conn.Call(rpc.Request{"Jujuc", 0, "", "Main"}, &rpcArgs, &resp)
 	if err != nil {
 		return
 	}
-	os.Stdout.Write(resp.Stdout)
-	os.Stderr.Write(resp.Stderr)
+	ctx.Stdout.Write(resp.Stdout)
+	ctx.Stderr.Write(resp.Stderr)
 	return resp.Code, nil
 }
 
@@ -158,7 +162,7 @@ func Main(args []string) {
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
-		code, err = jujuCMain(commandName, args)
+		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

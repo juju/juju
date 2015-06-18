@@ -240,7 +240,7 @@ var argsTests = []struct {
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
 	{[]string{"remote", "--help"}, 0, expectUsage},
-	{[]string{"unknown"}, 1, "error: bad request: bad command: unknown\n"},
+	{[]string{"unknown"}, 1, "error: request error: bad request: bad command: unknown\n"},
 	{[]string{"remote", "--error", "borken"}, 1, "error: borken\n"},
 	{[]string{"remote", "--unknown"}, 2, "error: flag provided but not defined: --unknown\n"},
 	{[]string{"remote", "unwanted"}, 2, `error: unrecognized args: ["unwanted"]` + "\n"},
@@ -270,7 +270,7 @@ func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, s.sockPath, "ben", 1, "remote")
-	c.Assert(output, gc.Equals, "error: bad request: bad context: ben\n")
+	c.Assert(output, gc.Equals, "error: request error: bad request: bad context: ben\n")
 }
 
 func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
