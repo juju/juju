@@ -410,6 +410,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	// See if the unit's machine has been allocated and the unit has been installed.
 	isAllocated := agentStatusDoc.Status != StatusAllocating
+	isError := agentStatusDoc.Status == StatusError
 
 	unitStatusDocId := u.globalKey()
 	unitStatusDoc, err := getStatus(u.st, unitStatusDocId)
@@ -421,7 +422,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != MessageInstalling
 
 	// If already allocated and installed, or there's an error, then we can't set directly to dead.
-	if isAllocated && isInstalled || agentStatusDoc.Status == StatusError {
+	if isError || isAllocated && isInstalled {
 		return setDyingOps, nil
 	}
 
