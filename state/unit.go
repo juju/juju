@@ -1269,6 +1269,8 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 
 // validateDynamicStorageParams validates that all storage providers required for
 // provisioning the storage in params support dynamic storage.
+// If any provider doesn't support dynamic storage, then an IsNotSupported error
+// is returned.
 func validateDynamicStorageParams(st *State, params *machineStorageParams) error {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
@@ -1321,10 +1323,9 @@ func validateDynamicStorageParams(st *State, params *machineStorageParams) error
 			return errors.Trace(err)
 		}
 		if !provider.Dynamic() {
-			return errors.NotSupportedf(
-				"dynamic storage with %s storage provider",
-				providerType,
-			)
+			return errors.NewNotSupported(
+				err,
+				fmt.Sprintf("%q storage provider does not support dynamic storage", providerType))
 		}
 	}
 	return nil

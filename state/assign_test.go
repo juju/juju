@@ -1035,7 +1035,7 @@ func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
 	err = unit.AssignToMachine(machine)
 	c.Assert(
 		err, gc.ErrorMatches,
-		`cannot assign unit "storage-filesystem/0" to machine 0: dynamic storage with static storage provider not supported`,
+		`cannot assign unit "storage-filesystem/0" to machine 0: "static" storage provider does not support dynamic storage`,
 	)
 
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
@@ -1071,7 +1071,7 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	// Check that the machine is our clean one.
+	// Check that the machine isn't our clean one.
 	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
 }
 
