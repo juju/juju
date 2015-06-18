@@ -336,16 +336,15 @@ func (u *Unit) eraseHistory() error {
 	return nil
 }
 
-// unitAgentAllocatingOrInstallingOrError is used to assert that a unit agent may be installing a unit.
-var unitAgentAllocatingOrInstallingOrError = bson.D{
+// unitAgentAllocatingOrInstalling is used to assert that a unit agent may be installing a unit.
+var unitAgentAllocatingOrInstalling = bson.D{
 	{"$or", []bson.D{
 		{{"status", StatusAllocating}},
 		{{"status", StatusExecuting}},
-		{{"status", StatusError}},
 	}}}
 
-// unitInstalling is used to assert that a unit is not yet finished installing.
-var unitInstalling = bson.D{
+// unitInitialisingOrInstalling is used to assert that a unit is not yet finished installing.
+var unitInitialisingOrInstalling = bson.D{
 	{"$or", []bson.D{
 		{{"$and", []bson.D{
 			{{"status", StatusMaintenance}},
@@ -422,7 +421,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != MessageInstalling
 
 	// If already allocated and installed, or there's an error, then we can't set directly to dead.
-	if isAllocated && isInstalled {
+	if isAllocated && isInstalled || agentStatusDoc.Status == StatusError {
 		return setDyingOps, nil
 	}
 
@@ -430,11 +429,11 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		{
 			C:      statusesC,
 			Id:     u.st.docID(agentStatusDocId),
-			Assert: unitAgentAllocatingOrInstallingOrError,
+			Assert: unitAgentAllocatingOrInstalling,
 		}, {
 			C:      statusesC,
 			Id:     u.st.docID(unitStatusDocId),
-			Assert: unitInstalling,
+			Assert: unitInitialisingOrInstalling,
 		}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
