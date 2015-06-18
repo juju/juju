@@ -200,6 +200,32 @@ class TestRunChaosMonkey(TestCase):
                  ): 'Action queued with id: 5678',
                 }
             return output[args]
+
+        def output2(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {
+                    '0': {'agent-state': 'started'}
+                },
+                'services': {
+                    'jenkins': {
+                        'units': {
+                            'bar': {
+                                'subordinates': {
+                                    'chaos-monkey/1': {'abc': '123'},
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
+                 'chaos-monkey/1', 'start', 'mode=single',
+                 'enablement-timeout=0', 'monkey-id=1234'
+                 ): 'Action queued with id: abcd',
+                }
+            return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         monkey_runner = MonkeyRunner('foo', 'jenkins', 'checker', client)
         with patch('subprocess.check_output', side_effect=output,
@@ -231,6 +257,14 @@ class TestRunChaosMonkey(TestCase):
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
             'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0',
             'monkey-id=abcd'), 2, True)
+        self.assertTrue('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
+        # Test monkey_ids.get(unit_name) does not change on second call to
+        # unleash_once()
+        with patch('subprocess.check_output', side_effect=output2,
+                   autospec=True):
+            with patch('run_chaos_monkey.sleep'):
+                monkey_runner.unleash_once()
+        self.assertEqual('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
 
     def test_unleash_once_raises_for_unexpected_action_output(self):
         def output(args, **kwargs):

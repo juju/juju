@@ -87,7 +87,11 @@ class MonkeyRunner:
                     'Unexpected output from "juju action do": {}'.format(
                         action_out))
             logging.info(action_out)
-            self.monkey_ids[unit_name] = action_out.split().pop()
+            if not self.monkey_ids.get(unit_name):
+                id = action_out.split().pop()
+                logging.info('Setting the monkey-id for {} to: {}'.format(
+                    unit_name, id))
+                self.monkey_ids[unit_name] = id
         # Allow chaos time to run
         sleep(self.enablement_timeout)
 
