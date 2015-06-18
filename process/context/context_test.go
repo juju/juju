@@ -28,7 +28,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
 	s.apiClient = newStubAPIClient(s.Stub)
-	proc := process.NewInfo("proc A", "docker")
+	proc := process.NewInfoUnvalidated("proc A", "docker")
 	compCtx := context.NewContext(s.apiClient, proc)
 
 	hctx, info := s.NewHookContext()

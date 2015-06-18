@@ -27,8 +27,10 @@ type Info struct {
 	Details LaunchDetails
 }
 
-// NewInfo builds a new Info object with the provided values.
-func NewInfo(name, procType string) *Info {
+// NewInfoUnvalidated builds a new Info object with the provided
+// values. The returned Info may be invalid if the given values cause
+// that result. The Validate method can be used to check.
+func NewInfoUnvalidated(name, procType string) *Info {
 	return &Info{
 		Process: charm.Process{
 			Name: name,
