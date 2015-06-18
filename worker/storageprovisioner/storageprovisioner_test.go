@@ -818,6 +818,117 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
+func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
+	provisionedVolume := names.NewVolumeTag("1")
+	unprovisionedVolume := names.NewVolumeTag("2")
+
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionVolume(provisionedVolume)
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			results[i].Life = params.Dead
+		}
+		return results, nil
+	}
+
+	destroyedChan := make(chan interface{}, 1)
+	s.provider.destroyVolumesFunc = func(volumeIds []string) []error {
+		destroyedChan <- volumeIds
+		return make([]error, len(volumeIds))
+	}
+
+	removedChan := make(chan interface{}, 1)
+	remove := func(tags []names.Tag) ([]params.ErrorResult, error) {
+		removedChan <- tags
+		return make([]params.ErrorResult, len(tags)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		life: &mockLifecycleManager{
+			life:   life,
+			remove: remove,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.volumesWatcher.changes <- []string{
+		provisionedVolume.Id(),
+		unprovisionedVolume.Id(),
+	}
+	args.environ.watcher.changes <- struct{}{}
+
+	// Both volumes should be removed; the provisioned one
+	// should be deprovisioned first.
+
+	destroyed := waitChannel(c, destroyedChan, "waiting for volume to be deprovisioned")
+	assertNoEvent(c, destroyedChan, "volumes deprovisioned")
+	c.Assert(destroyed, jc.DeepEquals, []string{"vol-1"})
+
+	var removed []names.Tag
+	for len(removed) < 2 {
+		tags := waitChannel(c, removedChan, "waiting for volumes to be removed").([]names.Tag)
+		removed = append(removed, tags...)
+	}
+	c.Assert(removed, jc.SameContents, []names.Tag{provisionedVolume, unprovisionedVolume})
+	assertNoEvent(c, removedChan, "volumes removed")
+}
+
+func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
+	provisionedFilesystem := names.NewFilesystemTag("1")
+	unprovisionedFilesystem := names.NewFilesystemTag("2")
+
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionFilesystem(provisionedFilesystem)
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			results[i].Life = params.Dead
+		}
+		return results, nil
+	}
+
+	removedChan := make(chan interface{}, 1)
+	remove := func(tags []names.Tag) ([]params.ErrorResult, error) {
+		removedChan <- tags
+		return make([]params.ErrorResult, len(tags)), nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			life:   life,
+			remove: remove,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.filesystemsWatcher.changes <- []string{
+		provisionedFilesystem.Id(),
+		unprovisionedFilesystem.Id(),
+	}
+	args.environ.watcher.changes <- struct{}{}
+
+	// Both filesystems should be removed; the provisioned one
+	// *should* be deprovisioned first, but we don't currently
+	// have the ability to do so via the storage provider API.
+
+	var removed []names.Tag
+	for len(removed) < 2 {
+		tags := waitChannel(c, removedChan, "waiting for filesystems to be removed").([]names.Tag)
+		removed = append(removed, tags...)
+	}
+	c.Assert(removed, jc.SameContents, []names.Tag{provisionedFilesystem, unprovisionedFilesystem})
+	assertNoEvent(c, removedChan, "filesystems removed")
+}
+
 func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args == nil {
 		args = &workerArgs{}
