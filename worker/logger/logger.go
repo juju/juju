@@ -64,7 +64,7 @@ func (logger *Logger) SetUp() (watcher.NotifyWatcher, error) {
 	return logger.api.WatchLoggingConfig(logger.agentConfig.Tag())
 }
 
-func (logger *Logger) Handle() error {
+func (logger *Logger) Handle(_ <-chan struct{}) error {
 	logger.setLogging()
 	return nil
 }

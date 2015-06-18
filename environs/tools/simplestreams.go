@@ -209,7 +209,7 @@ func (t *ToolsMetadata) binary() (version.Binary, error) {
 
 func (t *ToolsMetadata) productId() (string, error) {
 	seriesVersion, err := version.SeriesVersion(t.Release)
-	if err != nil && !version.IsUnknownSeriesVersionError(err) {
+	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil

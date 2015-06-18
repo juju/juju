@@ -320,3 +320,17 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 		},
 	}})
 }
+
+func (s *rootfsSuite) TestDetachFilesystems(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, true)
+}
+
+func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+	// The "unattached" case covers both idempotency, and
+	// also the scenario where bind-mounting failed. In
+	// either case, there is no attachment-specific filesystem
+	// mount.
+	source := s.rootfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, false)
+}

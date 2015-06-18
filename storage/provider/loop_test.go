@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -126,10 +127,6 @@ func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	fileName := filepath.Join(s.storageDir, "volume-0")
-	cmd := s.commands.expect("losetup", "-j", fileName)
-	cmd.respond("/dev/loop0: foo\n/dev/loop1: bar\n", nil)
-	s.commands.expect("losetup", "-d", "/dev/loop0")
-	s.commands.expect("losetup", "-d", "/dev/loop1")
 
 	err := ioutil.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,19 +134,9 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	errs := source.DestroyVolumes([]string{"volume-0"})
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
-}
 
-func (s *loopSuite) TestDestroyVolumesDetachFails(c *gc.C) {
-	source, _ := s.loopVolumeSource(c)
-	fileName := filepath.Join(s.storageDir, "volume-0")
-	cmd := s.commands.expect("losetup", "-j", fileName)
-	cmd.respond("/dev/loop0: foo\n/dev/loop1: bar\n", nil)
-	cmd = s.commands.expect("losetup", "-d", "/dev/loop0")
-	cmd.respond("", errors.New("oy"))
-
-	errs := source.DestroyVolumes([]string{"volume-0"})
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], gc.ErrorMatches, `.* detaching loop device "loop0": oy`)
+	_, err = os.Stat(fileName)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
@@ -167,15 +154,15 @@ func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
 
 func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	cmd := s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "vol-ume0"))
+	cmd := s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-0"))
 	cmd.respond("", nil) // no existing attachment
-	cmd = s.commands.expect("losetup", "-f", "--show", filepath.Join(s.storageDir, "vol-ume0"))
+	cmd = s.commands.expect("losetup", "-f", "--show", filepath.Join(s.storageDir, "volume-0"))
 	cmd.respond("/dev/loop98", nil) // first available loop device
-	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "vol-ume1"))
+	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-1"))
 	cmd.respond("", nil) // no existing attachment
-	cmd = s.commands.expect("losetup", "-f", "--show", "-r", filepath.Join(s.storageDir, "vol-ume1"))
+	cmd = s.commands.expect("losetup", "-f", "--show", "-r", filepath.Join(s.storageDir, "volume-1"))
 	cmd.respond("/dev/loop99", nil)
-	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "vol-ume2"))
+	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-2"))
 	cmd.respond("/dev/loop42: foo\n/dev/loop1: foo\n", nil) // existing attachments
 
 	volumeAttachments, err := source.AttachVolumes([]storage.VolumeAttachmentParams{{
@@ -226,6 +213,52 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 
 func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	err := source.DetachVolumes(nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	fileName := filepath.Join(s.storageDir, "volume-0")
+	cmd := s.commands.expect("losetup", "-j", fileName)
+	cmd.respond("/dev/loop0: foo\n/dev/loop1: bar\n", nil)
+	s.commands.expect("losetup", "-d", "/dev/loop0")
+	s.commands.expect("losetup", "-d", "/dev/loop1")
+
+	err := ioutil.WriteFile(fileName, nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = source.DetachVolumes([]storage.VolumeAttachmentParams{{
+		Volume:   names.NewVolumeTag("0"),
+		VolumeId: "vol-ume0",
+		AttachmentParams: storage.AttachmentParams{
+			Machine:    names.NewMachineTag("0"),
+			InstanceId: "inst-ance",
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// file should not have been removed
+	_, err = os.Stat(fileName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
+	source, _ := s.loopVolumeSource(c)
+	fileName := filepath.Join(s.storageDir, "volume-0")
+	cmd := s.commands.expect("losetup", "-j", fileName)
+	cmd.respond("/dev/loop0: foo\n/dev/loop1: bar\n", nil)
+	cmd = s.commands.expect("losetup", "-d", "/dev/loop0")
+	cmd.respond("", errors.New("oy"))
+
+	err := ioutil.WriteFile(fileName, nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = source.DetachVolumes([]storage.VolumeAttachmentParams{{
+		Volume:   names.NewVolumeTag("0"),
+		VolumeId: "vol-ume0",
+		AttachmentParams: storage.AttachmentParams{
+			Machine:    names.NewMachineTag("0"),
+			InstanceId: "inst-ance",
+		},
+	}})
+	c.Assert(err, gc.ErrorMatches, `.* detaching loop device "loop0": oy`)
+
+	// file should not have been removed
+	_, err = os.Stat(fileName)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -1023,12 +1023,16 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Infof("update apiserver worker with new certificate")
-					certChangedChan <- info
-					return nil
+					select {
+					case certChangedChan <- info:
+						return nil
+					case <-done:
+						return nil
+					}
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
