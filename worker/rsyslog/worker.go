@@ -227,7 +227,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 	return nil
 }
 
-func (h *RsyslogConfigHandler) Handle(tombDying <-chan struct{}) error {
+func (h *RsyslogConfigHandler) Handle(_ <-chan struct{}) error {
 	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")

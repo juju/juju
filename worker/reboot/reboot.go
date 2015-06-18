@@ -74,7 +74,7 @@ func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
 	return watcher, nil
 }
 
-func (r *Reboot) Handle(tombDying <-chan struct{}) error {
+func (r *Reboot) Handle(_ <-chan struct{}) error {
 	rAction, err := r.st.GetRebootAction()
 	if err != nil {
 		return errors.Trace(err)

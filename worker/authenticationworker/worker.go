@@ -106,7 +106,7 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (kw *keyupdaterWorker) Handle(tombDying <-chan struct{}) error {
+func (kw *keyupdaterWorker) Handle(_ <-chan struct{}) error {
 	// Read the keys that Juju has.
 	newKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {

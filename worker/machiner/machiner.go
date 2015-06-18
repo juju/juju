@@ -95,7 +95,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 	return m.SetMachineAddresses(hostAddresses)
 }
 
-func (mr *Machiner) Handle(tombDying <-chan struct{}) error {
+func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {

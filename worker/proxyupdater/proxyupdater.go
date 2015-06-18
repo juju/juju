@@ -212,7 +212,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) Handle(tombDying <-chan struct{}) error {
+func (w *proxyWorker) Handle(_ <-chan struct{}) error {
 	return w.onChange()
 }
 

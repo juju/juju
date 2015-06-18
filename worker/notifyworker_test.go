@@ -93,7 +93,7 @@ func (nh *notifyHandler) TearDown() error {
 	return nh.teardownError
 }
 
-func (nh *notifyHandler) Handle(tombDying <-chan struct{}) error {
+func (nh *notifyHandler) Handle(_ <-chan struct{}) error {
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
 	nh.actions = append(nh.actions, "handler")
