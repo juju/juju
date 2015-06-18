@@ -385,7 +385,7 @@ func (st *State) obliterateUnit(unitName string) error {
 	// prevent further dependencies being added. If we're really lucky, the
 	// unit will be removed immediately.
 	if err := unit.Destroy(); err != nil {
-		return err
+		return errors.Annotatef(err, "cannot destroy unit %q", unitName)
 	}
 	if err := unit.Refresh(); errors.IsNotFound(err) {
 		return nil

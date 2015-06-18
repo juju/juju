@@ -336,12 +336,6 @@ func (u *Unit) eraseHistory() error {
 	return nil
 }
 
-// unitAgentAllocating actually refers to the unit's agent.
-var unitAgentAllocating = bson.D{
-	{"$or", []bson.D{
-		{{"status", StatusAllocating}},
-	}}}
-
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
@@ -387,34 +381,22 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	agentStatusDocId := u.globalAgentKey()
 	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
-
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
 
-	// See if the unit's machine has been allocated and the unit has been installed.
-	isAllocated := agentStatusDoc.Status != StatusAllocating
-	isError := agentStatusDoc.Status == StatusError
-
-	unitStatusDoc, err := getStatus(u.st, u.globalKey())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// There's currently no better way to determine if a unit is installed.
-	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != "installing charm software"
-
-	// If already allocated and installed, or there's an error, then we can't set directly to dead.
-	if isError || isAllocated && isInstalled {
+	// See if the unit's machine has been allocated.
+	// If already allocated, then we can't set directly to dead.
+	if agentStatusDoc.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: unitAgentAllocating,
+		Assert: bson.D{{"status", StatusAllocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
