@@ -15,6 +15,7 @@ var (
 	NewStateStorage           = &newStateStorage
 	StateToolsStorage         = &stateToolsStorage
 	AddAZToInstData           = &addAZToInstData
+	GetSyslogNamespace        = &getSyslogNamespace
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
