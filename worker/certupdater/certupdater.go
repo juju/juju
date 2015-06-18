@@ -54,7 +54,7 @@ type StateServingInfoGetter interface {
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo, tombDying <-chan struct{})
+type StateServingInfoSetter func(info params.StateServingInfo, tombDying <-chan struct{}) error
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new state server certificate with those

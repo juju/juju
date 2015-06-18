@@ -90,7 +90,9 @@ func (g *mockConfigGetter) EnvironConfig() (*config.Config, error) {
 }
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) {}
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
+		return nil
+	}
 	changes := make(chan struct{})
 	certChangedChan := make(chan params.StateServingInfo)
 	worker := certupdater.NewCertificateUpdater(
@@ -103,7 +105,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
 		c.Assert(err, jc.ErrorIsNil)
@@ -114,6 +116,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
 			close(updated)
 		}
+		return nil
 	}
 	changes := make(chan struct{})
 	certChangedChan := make(chan params.StateServingInfo)
@@ -153,8 +156,9 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		close(updated)
+		return nil
 	}
 	changes := make(chan struct{})
 	certChangedChan := make(chan params.StateServingInfo)
