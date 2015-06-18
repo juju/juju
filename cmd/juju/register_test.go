@@ -13,41 +13,43 @@ import (
 	"gopkg.in/macaroon.v1"
 )
 
-var _ = gc.Suite(&metricsSuite{})
+var _ = gc.Suite(&registrationSuite{})
 
-type metricsSuite struct {
+type registrationSuite struct {
 	handler *testMetricsRegistrationHandler
 	server  *httptest.Server
 }
 
-func (s *metricsSuite) SetUpTest(c *gc.C) {
+func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.handler = &testMetricsRegistrationHandler{}
 	s.server = httptest.NewServer(s.handler)
 }
 
-func (s *metricsSuite) TearDownTest(c *gc.C) {
+func (s *registrationSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 }
 
-func (s *metricsSuite) TestNilMetricsRegistrar(c *gc.C) {
-	data, err := nilMetricsRegistrar("registration uuid", "environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
+/*
+func (s *registrationSuite) TestNilMetricsRegistrar(c *gc.C) {
+	data, err := nilMetricsRegistrar("environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
 	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.DeepEquals, []byte{})
 }
+*/
 
-func (s *metricsSuite) TestHttpMetricsRegistrar(c *gc.C) {
+func (s *registrationSuite) TestHttpMetricsRegistrar(c *gc.C) {
 	cleanup := jujutesting.PatchValue(&registerMetricsURL, s.server.URL)
 	defer cleanup()
 
-	data, err := httpMetricsRegistrar("registration uuid", "environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
+	data, err := registerMetrics("environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
 	c.Assert(err, gc.IsNil)
 	var ms macaroon.Slice
 	err = json.Unmarshal(data, &ms)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ms, gc.HasLen, 1)
-	c.Assert(ms[0].Id(), gc.Equals, "hello metrics")
+	c.Assert(ms[0].Id(), gc.Equals, "hello registration")
 	c.Assert(s.handler.registrationCalls, gc.HasLen, 1)
-	c.Assert(s.handler.registrationCalls[0], gc.DeepEquals, metricRegistrationPost{RegistrationUUID: "registration uuid", EnvironmentUUID: "environment uuid", CharmURL: "charm url", ServiceName: "service name"})
+	c.Assert(s.handler.registrationCalls[0], gc.DeepEquals, metricRegistrationPost{EnvironmentUUID: "environment uuid", CharmURL: "charm url", ServiceName: "service name"})
 }
 
 type testMetricsRegistrationHandler struct {
@@ -69,7 +71,7 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 		return
 	}
 
-	m, err := macaroon.New(nil, "hello metrics", "test")
+	m, err := macaroon.New(nil, "hello registration", "test")
 	if err != nil {
 		panic(err)
 	}

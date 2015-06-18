@@ -26,6 +26,7 @@ import (
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
@@ -557,14 +558,23 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 		assert: func(serviceName string, data []byte) {
 			called = true
 			c.Assert(serviceName, gc.DeepEquals, "metered")
-			c.Assert(data, gc.DeepEquals, []byte{})
+			var ms macaroon.Slice
+			err := json.Unmarshal(data, &ms)
+			c.Assert(err, gc.IsNil)
+			c.Assert(ms, gc.HasLen, 1)
+			c.Assert(ms[0].Id(), gc.Equals, "hello registration")
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
+
+	handler := &testMetricsRegistrationHandler{}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	cleanup.Add(jujutesting.PatchValue(&registerMetricsURL, server.URL))
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
 	err := runDeploy(c, "local:quantal/metered-1")
@@ -584,7 +594,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -611,16 +621,15 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 			err := json.Unmarshal(data, &ms)
 			c.Assert(err, gc.IsNil)
 			c.Assert(ms, gc.HasLen, 1)
-			c.Assert(ms[0].Id(), gc.Equals, "hello metrics")
+			c.Assert(ms[0].Id(), gc.Equals, "hello registration")
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(c *DeployCommand) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
 
-	cleanup.Add(jujutesting.PatchValue(&registerMetrics, httpMetricsRegistrar))
 	cleanup.Add(jujutesting.PatchValue(&registerMetricsURL, server.URL))
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
