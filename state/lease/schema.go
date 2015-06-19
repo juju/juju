@@ -34,12 +34,13 @@ const (
 	fieldClockWriters = "writers"
 )
 
-// toInt64 converts a local time.Time into a database value.
+// toInt64 converts a local time.Time into a database value that doesn't
+// silently lose precision.
 func toInt64(t time.Time) int64 {
 	return t.UnixNano()
 }
 
-// toTime converts a database value into a time.Time.
+// toTime converts a toInt64 result, as loaded from the db, back to a time.Time.
 func toTime(v int64) time.Time {
 	return time.Unix(0, v)
 }

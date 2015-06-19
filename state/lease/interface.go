@@ -79,5 +79,8 @@ func (request Request) Validate() error {
 }
 
 // ErrInvalid indicates that a client operation failed because latest state
-// indicates that it's a logical impossibility.
+// indicates that it's a logical impossibility. It's a short-range signal to
+// calling code only; that code should never pass it on, but should inspect
+// the Client's updated Leases() and either attempt a new operation or return
+// a new error at a suitable level of abstraction.
 var ErrInvalid = errors.New("invalid lease operation")

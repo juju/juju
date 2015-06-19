@@ -38,7 +38,7 @@ func NewClient(config ClientConfig) (Client, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := client.Refresh(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return client, nil
 }
@@ -114,7 +114,8 @@ func (client *client) request(name string, request Request, getOps opsFunc, verb
 		cacheEntry = nextEntry
 		if errors.Cause(err) == errNoExtension {
 			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return ops, nil
@@ -123,7 +124,8 @@ func (client *client) request(name string, request Request, getOps opsFunc, verb
 	// Unwrap ErrInvalid if necessary.
 	if errors.Cause(err) == ErrInvalid {
 		return ErrInvalid
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -160,7 +162,8 @@ func (client *client) ExpireLease(name string) error {
 	// Unwrap ErrInvalid if necessary.
 	if errors.Cause(err) == ErrInvalid {
 		return ErrInvalid
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -203,7 +206,6 @@ func (client *client) Refresh() error {
 // ensureClockDoc returns an error if it can neither find nor create a
 // valid clock document for the client's namespace.
 func (client *client) ensureClockDoc() error {
-
 	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
 	defer closer()
 
@@ -218,7 +220,8 @@ func (client *client) ensureClockDoc() error {
 				return nil, errors.Annotatef(err, "corrupt clock document")
 			}
 			return nil, jujutxn.ErrNoOperations
-		} else if err != mgo.ErrNotFound {
+		}
+		if err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
 		client.logger.Debugf("creating clock")
