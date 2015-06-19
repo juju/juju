@@ -52,9 +52,8 @@ func Find(name string) (*Plugin, error) {
 type ProcDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
-	// Status represents the human-readable string returned by the plugin for
-	// the launched process.
-	Status string `json:"status"`
+	// ProcStatus is the status of the process after launch.
+	ProcStatus
 }
 
 // ProcStatus represents the data returned from the Status call.
@@ -82,13 +81,34 @@ type Plugin struct {
 	Path string
 }
 
-// Launch runs the given plugin, passing it the "launch" command, with the path
-// to the image to launch as an argument.
+// Launch runs the given plugin, passing it the "launch" command, with the
+// process definition passed as json to launch as an argument:
 //
-//		launch <image>
+//		<plugin> launch <process-definition>
+//
+// Process definition is the serialization of the Process struct from
+// github.com/juju/charm, for example:
+//
+//		{
+//			"name" : "procname",
+//			"description" : "desc",
+//			"type" : "proctype",
+//			"typeOptions" : {
+//				"key1" : "val1"
+//			},
+//			"command" : "cmd",
+//			"image" : "img",
+//			"ports" : [ { "internal" : 80, "external" : 8080 } ]
+//			"volumes" : [{"externalmount" : "mnt", "internalmount" : "extmnt", "mode" : "rw", "name" : "name"}]
+//			"envvars" : {
+//				"key1" : "val1"
+//			}
+//		}
 //
 // The plugin is expected to start the image as a new process, and write json
-// output to stdout.  The form of the output is expected to be:
+// output to stdout.  The form of the output is expected to conform to the
+// ProcDetails struct.
+//
 //		{
 //			"id" : "some-id", # unique id of the process
 //			"status" : "details" # plugin-specific metadata about the started process
@@ -120,7 +140,7 @@ func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
 // process to destroy as an argument.
 //
-// 		destroy <id>
+// 		<plugin> destroy <id>
 func (p Plugin) Destroy(id string) error {
 	_, err := p.run("destroy", id)
 	return errors.Trace(err)
@@ -129,7 +149,7 @@ func (p Plugin) Destroy(id string) error {
 // Status runs the given plugin, passing it the "status" command, with the id of
 // the process to get status about.
 //
-//		status <id>
+//		<plugin> status <id>
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
