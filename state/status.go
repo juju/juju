@@ -10,6 +10,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var (
@@ -601,7 +603,7 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 
 // getOldestTimeToKeep returns the create time for the oldest
 // status log to be kept.
-func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int, bool, error) {
+func getOldestTimeToKeep(coll mongo.Collection, globalKey string, size int) (int, bool, error) {
 	result := historicalStatusDoc{}
 	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Skip(size - 1).One(&result)
 	if err == mgo.ErrNotFound {
@@ -616,7 +618,7 @@ func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int,
 
 // getEntitiesWithStatuses returns the ids for all entities that
 // have history entries
-func getEntitiesWithStatuses(coll stateCollection) ([]string, error) {
+func getEntitiesWithStatuses(coll mongo.Collection) ([]string, error) {
 	var entityKeys []string
 	err := coll.Find(nil).Distinct("entityid", &entityKeys)
 	if err != nil {

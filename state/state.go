@@ -788,6 +788,31 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var placeholderDoc struct {
+			Placeholder bool `bson:"placeholder"`
+		}
+		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
+			return st.insertCharmOps(ch, curl, storagePath, bundleSha256)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else if placeholderDoc.Placeholder {
+			return st.updateCharmOps(ch, curl, storagePath, bundleSha256, stillPlaceholder)
+		}
+		return nil, errors.AlreadyExistsf("charm %q", curl)
+	}
+	if err = st.run(buildTxn); err == nil {
+		return st.Charm(curl)
+	}
+	return nil, errors.Trace(err)
+}
+
+func (st *State) insertCharmOps(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) []txn.Op {
 	// The charm may already exist in state as a placeholder, so we
 	// check for that situation and update the existing charm record
 	// if necessary, otherwise add a new record.
@@ -808,7 +833,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 			BundleSha256: bundleSha256,
 			StoragePath:  storagePath,
 		}
-		err = charms.Insert(cdoc)
+		err = charms.Underlying().Insert(cdoc)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add charm %q", curl)
 		}
@@ -1173,7 +1198,8 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 // charm is no longer a placeholder or pending (depending on preReq),
 // it returns ErrCharmRevisionAlreadyModified.
 func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
+	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{},
+) (*Charm, error) {
 
 	// Make sure we escape any "$" and "." in config option names
 	// first. See http://pad.lv/1308146.
@@ -1203,6 +1229,37 @@ func (st *State) updateCharmDoc(
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(curl)
+}
+
+func (st *State) updateCharmOps(
+	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{},
+) (*Charm, error) {
+
+	// Make sure we escape any "$" and "." in config option names
+	// first. See http://pad.lv/1308146.
+	cfg := ch.Config()
+	escapedConfig := charm.NewConfig()
+	for optionName, option := range cfg.Options {
+		escapedName := escapeReplacer.Replace(optionName)
+		escapedConfig.Options[escapedName] = option
+	}
+
+	updateFields := bson.D{{"$set", bson.D{
+		{"meta", ch.Meta()},
+		{"config", escapedConfig},
+		{"actions", ch.Actions()},
+		{"metrics", ch.Metrics()},
+		{"storagepath", storagePath},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+		{"placeholder", false},
+	}}}
+	ops := []txn.Op{{
+		C:      charmsC,
+		Id:     st.docID(curl.String()),
+		Assert: preReq,
+		Update: updateFields,
+	}}
 }
 
 // addPeerRelationsOps returns the operations necessary to add the

@@ -13,22 +13,31 @@ import (
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
 	DocID   string     `bson:"_id"`
-	URL     *charm.URL `bson:"url"`
+	URL     *charm.URL `bson:"url"` // DANGEROUS see below
 	EnvUUID string     `bson:"env-uuid"`
-	Meta    *charm.Meta
-	Config  *charm.Config
-	Actions *charm.Actions
-	Metrics *charm.Metrics
+
+	// XXX(fwereade) 2015-06-18
+	// DANGEROUS: our schema can change any time the charm package changes,
+	// and we have no automated way to detect when that happens. We *must*
+	// not depend upon serializations we cannot control from inside this
+	// package. What's in a *charm.Meta? What will be tomorrow? What logic
+	// will we be writing on the assumption that all stored Metas have set
+	// some field? What fields might lose precision when they go into the
+	// database?
+	Meta    *charm.Meta    `bson:"meta"`
+	Config  *charm.Config  `bson:"config"`
+	Actions *charm.Actions `bson:"actions"`
+	Metrics *charm.Metrics `bson:"metrics"`
 
 	// DEPRECATED: BundleURL is deprecated, and exists here
 	// only for migration purposes. We should remove this
 	// when migrations are no longer necessary.
 	BundleURL *url.URL `bson:"bundleurl,omitempty"`
 
-	BundleSha256  string
-	StoragePath   string
-	PendingUpload bool
-	Placeholder   bool
+	BundleSha256  string `bson:"bundlesha256"`
+	StoragePath   string `bson:"storagepath"`
+	PendingUpload bool   `bson:"pendingupload"`
+	Placeholder   bool   `bson:"placeholder"`
 }
 
 // Charm represents the state of a charm in the environment.
