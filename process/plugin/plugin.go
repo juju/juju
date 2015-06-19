@@ -39,7 +39,7 @@ func IsInvalid(e error) bool {
 	return ok
 }
 
-// Find returns the path for the plugin with the given name.
+// Find returns the plugin for the given name.
 func Find(name string) (*Plugin, error) {
 	path, err := exec.LookPath("juju-process-" + name)
 	if err != nil {
@@ -50,12 +50,17 @@ func Find(name string) (*Plugin, error) {
 
 // ProcDetails represents information about a process launched by a plugin.
 type ProcDetails struct {
-	ID     string `json:"id"`
+	// ID is a unique string identifying the process to the plugin.
+	ID string `json:"id"`
+	// Status represents the human-readable string returned by the plugin for
+	// the launched process.
 	Status string `json:"status"`
 }
 
 // ProcStatus represents the data returned from the Status call.
 type ProcStatus struct {
+	// Status represents the human-readable string returned by the plugin for
+	// the process.
 	Status string `json:"status"`
 }
 
@@ -71,7 +76,9 @@ func (p ProcDetails) Validate() error {
 // Plugin represents a provider for launching, destroying, and introspecting
 // workload processes via a specific technology such as Docker or systemd.
 type Plugin struct {
+	// Name is the name of the plugin.
 	Name string
+	// Path is the filename disk where the plugin executable resides.
 	Path string
 }
 
@@ -139,10 +146,14 @@ func (p Plugin) Status(id string) (ProcStatus, error) {
 	return status, nil
 }
 
+// run runs the given subcommand of the plugin with the given args.
 func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
 	return runCmd(p.Name, p.Path, subcommand, args...)
 }
 
+// runCmd runs the executable at path with the subcommand as the first argument
+// and any args in args as further arguments.  It logs to loggo using the name
+// as a namespace.
 var runCmd = func(name, path, subcommand string, args ...string) ([]byte, error) {
 	cmd := exec.Command(path, append([]string{subcommand}, args...)...)
 	log := getLogger("juju.process.plugin." + name)
