@@ -576,21 +576,26 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 // PruneStatusHistory removes status history entries until
 // only the maxLogsPerEntity newest records per unit remain.
 func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
-	historyColl, closer := st.getCollection(statusesHistoryC)
+	history, closer := st.getCollection(statusesHistoryC)
 	defer closer()
-	globalKeys, err := getEntitiesWithStatuses(historyColl)
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	historyW := history.Writeable()
+
+	globalKeys, err := getEntitiesWithStatuses(historyW)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, globalKey := range globalKeys {
-		keepUpTo, ok, err := getOldestTimeToKeep(historyColl, globalKey, maxLogsPerEntity)
+		keepUpTo, ok, err := getOldestTimeToKeep(historyW, globalKey, maxLogsPerEntity)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !ok {
 			continue
 		}
-		_, err = historyColl.RemoveAll(bson.D{
+		_, err = historyW.RemoveAll(bson.D{
 			{"entityid", globalKey},
 			{"_id", bson.M{"$lt": keepUpTo}},
 		})

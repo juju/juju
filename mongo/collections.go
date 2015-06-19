@@ -14,10 +14,13 @@ func CollectionFromName(db *mgo.Database, coll string) (Collection, func()) {
 	return WrapCollection(newColl), session.Close
 }
 
-// ReadCollection imperfectly insulates clients from the capacity to write to
-// MongoDB. Query results can still be used to write; and the WriteCollection
-// allows access to the underlying *mgo.Collection when absolutely required.
-type ReadCollection interface {
+// Collection imperfectly insulates clients from the capacity to write to
+// MongoDB. Query results can still be used to write; and the Writeable
+// method exposes the underlying *mgo.Collection when absolutely required;
+// but the general expectation in juju is that writes will occur only via
+// mgo/txn, and any layer-skipping is done only in exceptional and well-
+// supported circumstances.
+type Collection interface {
 
 	// Name returns the name of the collection.
 	Name() string
@@ -27,14 +30,14 @@ type ReadCollection interface {
 	Find(query interface{}) *mgo.Query
 	FindId(id interface{}) *mgo.Query
 
-	// WriteCollection gives access to methods that enable direct DB access.
-	// It should be used with judicious care, and for only the best of reasons.
-	WriteCollection() WriteCollection
+	// Writeable gives access to methods that enable direct DB access. It
+	// should be used with judicious care, and for only the best of reasons.
+	Writeable() WriteCollection
 }
 
 // WriteCollection allows read/write access to a MongoDB collection.
 type WriteCollection interface {
-	ReadCollection
+	Collection
 
 	// Underlying returns the underlying *mgo.Collection.
 	Underlying() *mgo.Collection
@@ -49,23 +52,23 @@ type WriteCollection interface {
 }
 
 // WrapCollection returns a Collection that wraps the supplied *mgo.Collection.
-func WrapCollection(coll *mgo.Collection) ReadCollection {
+func WrapCollection(coll *mgo.Collection) Collection {
 	return collectionWrapper{coll}
 }
 
-// collectionWrapper wraps a *mgo.Collection and implements ReadCollection and
+// collectionWrapper wraps a *mgo.Collection and implements Collection and
 // WriteCollection.
 type collectionWrapper struct {
 	*mgo.Collection
 }
 
-// Name is part of the ReadCollection interface.
+// Name is part of the Collection interface.
 func (cw collectionWrapper) Name() string {
 	return cw.Collection.Name
 }
 
-// WriteCollection is part of the ReadCollection interface.
-func (cw collectionWrapper) WriteCollection() WriteCollection {
+// Writeable is part of the Collection interface.
+func (cw collectionWrapper) Writeable() WriteCollection {
 	return cw
 }
 

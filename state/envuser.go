@@ -90,16 +90,21 @@ func (e *EnvironmentUser) LastConnection() *time.Time {
 func (e *EnvironmentUser) UpdateLastConnection() error {
 	envUsers, closer := e.st.getCollection(envUsersC)
 	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	envUsersW := envUsers.Writeable()
+
 	// Update the safe mode of the underlying session to be not require
 	// write majority, nor sync to disk.
-	session := envUsers.Underlying().Database.Session
+	session := envUsersW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
 	timestamp := nowToTheSecond()
 	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
 
 	id := strings.ToLower(e.UserName())
-	if err := envUsers.UpdateId(id, update); err != nil {
+	if err := envUsersW.UpdateId(id, update); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
 
