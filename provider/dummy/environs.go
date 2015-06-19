@@ -637,7 +637,7 @@ func (e *environ) checkBroken(method string) error {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
+	return []string{arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64}, nil
 }
 
 // PrecheckInstance is specified in the state.Prechecker interface.
@@ -958,9 +958,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for i, v := range args.Volumes {
 		persistent, _ := v.Attributes[storage.Persistent].(bool)
 		volumes[i] = storage.Volume{
-			Tag:        names.NewVolumeTag(strconv.Itoa(i + 1)),
-			Size:       v.Size,
-			Persistent: persistent,
+			Tag: names.NewVolumeTag(strconv.Itoa(i + 1)),
+			VolumeInfo: storage.VolumeInfo{
+				Size:       v.Size,
+				Persistent: persistent,
+			},
 		}
 	}
 	estate.insts[i.id] = i

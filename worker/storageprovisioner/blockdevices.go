@@ -41,6 +41,7 @@ func machineBlockDevicesChanged(ctx *context) error {
 // previously observed block devices.
 func processPendingVolumeBlockDevices(ctx *context) error {
 	if len(ctx.pendingVolumeBlockDevices) == 0 {
+		logger.Tracef("no pending volume block devices")
 		return nil
 	}
 	volumeTags := make([]names.VolumeTag, len(ctx.pendingVolumeBlockDevices))

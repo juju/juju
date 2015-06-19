@@ -4,6 +4,8 @@
 package certupdater
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -28,6 +30,7 @@ type CertificateUpdater struct {
 	setter         StateServingInfoSetter
 	configGetter   EnvironConfigGetter
 	certChanged    chan params.StateServingInfo
+	addresses      []network.Address
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -51,7 +54,7 @@ type StateServingInfoGetter interface {
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo) error
+type StateServingInfoSetter func(info params.StateServingInfo, done <-chan struct{}) error
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new state server certificate with those
@@ -74,9 +77,16 @@ func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) Handle() error {
+func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 	addresses := c.addressWatcher.Addresses()
-	logger.Debugf("new machine addresses: %v", addresses)
+	logger.Debugf("new machine addresses: %#v", addresses)
+	if reflect.DeepEqual(addresses, c.addresses) {
+		// Sometimes the watcher will tell us things have changed, when they
+		// haven't as far as we can tell.
+		logger.Debugf("addresses haven't really changed since last updated cert")
+		return nil
+	}
+	c.addresses = addresses
 
 	// Older Juju deployments will not have the CA cert private key
 	// available.
@@ -120,10 +130,7 @@ func (c *CertificateUpdater) Handle() error {
 	}
 	stateInfo.Cert = string(newCert)
 	stateInfo.PrivateKey = string(newKey)
-	err = c.setter(stateInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot write agent config")
-	}
+	c.setter(stateInfo, done)
 	logger.Infof("State Server cerificate addresses updated to %q", addresses)
 	return nil
 }

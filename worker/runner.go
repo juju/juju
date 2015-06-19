@@ -264,5 +264,6 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 		runner.startedc <- startInfo{id, worker}
 		err = worker.Wait()
 	}
+	logger.Infof("stopped %q, err: %v", id, err)
 	runner.donec <- doneInfo{id, err}
 }

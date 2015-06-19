@@ -43,11 +43,13 @@ type LeadershipLeaseManager interface {
 	// RetrieveLease retrieves the current lease token for a given
 	// namespace. This is not intended to be exposed to clients, and is
 	// only available within a server-process.
-	RetrieveLease(namespace string) lease.Token
+	RetrieveLease(namespace string) (lease.Token, error)
 
 	// LeaseReleasedNotifier returns a channel a caller can block on to be
-	// notified of when a lease is released for namespace. This channel is
-	// reusable, but will be closed if it does not respond within
-	// "notificationTimeout".
-	LeaseReleasedNotifier(namespace string) (notifier <-chan struct{})
+	// notified of when a lease is released for namespace. The caller must
+	// use a comma-ok to decide whether or not the channel was notified or
+	// was closed: if notified, then the lease has been released; if closed,
+	// then the lease manager has been disrupted before it could notify
+	// the caller.
+	LeaseReleasedNotifier(namespace string) (notifier <-chan struct{}, err error)
 }

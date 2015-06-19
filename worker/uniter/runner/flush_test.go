@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -169,7 +170,7 @@ func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
 
 	// Check stub calls.
 	s.Stub.CheckCallNames(c, "Open", "Remove", "Remove", "Close")
-	s.Stub.Calls = []testing.StubCall{}
+	s.Stub.ResetCalls()
 	metricBatches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 2)
@@ -202,6 +203,52 @@ func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
 	// Only one additional metric has been recorded.
 	c.Assert(metricBatches, gc.HasLen, 3)
 
+}
+
+func (s *FlushContextSuite) TestRunHookMetricSendingFailedByServer(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
+
+	// Send batches once.
+	batches := []runner.MetricsBatch{
+		{
+			CharmURL: s.meteredCharm.URL().String(),
+			UUID:     utils.MustNewUUID().String(),
+			Created:  time.Now(),
+			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
+		}, {
+			CharmURL: s.meteredCharm.URL().String(),
+			UUID:     utils.MustNewUUID().String(),
+			Created:  time.Now(),
+			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
+		},
+	}
+
+	reader := &StubMetricsReader{
+		Stub:    &s.Stub,
+		Batches: batches,
+	}
+
+	restoreRunner := runner.PatchMetricsReader(ctx, reader)
+	defer restoreRunner()
+
+	restoreSender := runner.PatchMetricsSender(ctx, func(batches []params.MetricBatch) (map[string]error, error) {
+		responses := make(map[string]error, len(batches))
+		for i := range responses {
+			responses[i] = errors.New("failed to store")
+		}
+		return responses, nil
+	})
+	defer restoreSender()
+
+	// Flush the context.
+	err = ctx.FlushContext("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check stub calls, metrics should not be removed.
+	s.Stub.CheckCallNames(c, "Open", "Close")
+	s.Stub.ResetCalls()
 }
 
 func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
@@ -335,4 +382,49 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	unitRanges, err = s.unit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
+}
+
+func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with an error.
+	msg := "test fail run hook"
+	err = ctx.FlushContext("test fail run hook", errors.New(msg))
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with a success.
+	err = ctx.FlushContext("success", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
 }

@@ -28,6 +28,11 @@ var dyingVolumeAttachmentId = params.MachineStorageId{
 	AttachmentTag: "volume-0",
 }
 
+var dyingFilesystemAttachmentId = params.MachineStorageId{
+	MachineTag:    "machine-0",
+	AttachmentTag: "filesystem-0",
+}
+
 var missingVolumeAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-3",
 	AttachmentTag: "volume-1",
@@ -124,6 +129,17 @@ type mockVolumeAccessor struct {
 	setVolumeAttachmentInfo func([]params.VolumeAttachment) ([]params.ErrorResult, error)
 }
 
+func (m *mockVolumeAccessor) provisionVolume(tag names.VolumeTag) params.Volume {
+	v := params.Volume{
+		VolumeTag: tag.String(),
+		Info: params.VolumeInfo{
+			VolumeId: "vol-" + tag.Id(),
+		},
+	}
+	m.provisionedVolumes[tag.String()] = v
+	return v
+}
+
 func (w *mockVolumeAccessor) WatchVolumes() (apiwatcher.StringsWatcher, error) {
 	return w.volumesWatcher, nil
 }
@@ -181,28 +197,27 @@ func (v *mockVolumeAccessor) VolumeBlockDevices(ids []params.MachineStorageId) (
 func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.VolumeParamsResult, error) {
 	var result []params.VolumeParamsResult
 	for _, tag := range volumes {
-		if _, ok := v.provisionedVolumes[tag.String()]; ok {
-			result = append(result, params.VolumeParamsResult{
-				Error: &params.Error{Message: "already provisioned"},
-			})
-		} else {
-			volumeParams := params.VolumeParams{
-				VolumeTag: tag.String(),
-				Size:      1024,
-				Provider:  "dummy",
-				Attributes: map[string]interface{}{
-					"persistent": tag.String() == "volume-1",
-				},
-			}
-			if tag.Id() == attachedVolumeId {
-				volumeParams.Attachment = &params.VolumeAttachmentParams{
-					VolumeTag:  tag.String(),
-					MachineTag: "machine-1",
-					Provider:   "dummy",
-				}
-			}
-			result = append(result, params.VolumeParamsResult{Result: volumeParams})
+		// Parameters are returned regardless of whether the volume
+		// exists; this is to support destruction.
+		volumeParams := params.VolumeParams{
+			VolumeTag: tag.String(),
+			Size:      1024,
+			Provider:  "dummy",
+			Attributes: map[string]interface{}{
+				"persistent": tag.String() == "volume-1",
+			},
+			Tags: map[string]string{
+				"very": "fancy",
+			},
 		}
+		volumeParams.Attachment = &params.VolumeAttachmentParams{
+			VolumeTag:  tag.String(),
+			MachineTag: "machine-1",
+			InstanceId: string(v.provisionedMachines["machine-1"]),
+			Provider:   "dummy",
+			ReadOnly:   tag.String() == "volume-1",
+		}
+		result = append(result, params.VolumeParamsResult{Result: volumeParams})
 	}
 	return result, nil
 }
@@ -210,19 +225,16 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
 	var result []params.VolumeAttachmentParamsResult
 	for _, id := range ids {
-		if _, ok := v.provisionedAttachments[id]; ok {
-			result = append(result, params.VolumeAttachmentParamsResult{
-				Error: &params.Error{Message: "already provisioned"},
-			})
-		} else {
-			instanceId, _ := v.provisionedMachines[id.MachineTag]
-			result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
-				MachineTag: id.MachineTag,
-				VolumeTag:  id.AttachmentTag,
-				InstanceId: string(instanceId),
-				Provider:   "dummy",
-			}})
-		}
+		// Parameters are returned regardless of whether the attachment
+		// exists; this is to support reattachment.
+		instanceId, _ := v.provisionedMachines[id.MachineTag]
+		result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
+			MachineTag: id.MachineTag,
+			VolumeTag:  id.AttachmentTag,
+			InstanceId: string(instanceId),
+			Provider:   "dummy",
+			ReadOnly:   id.AttachmentTag == "volume-1",
+		}})
 	}
 	return result, nil
 }
@@ -232,7 +244,10 @@ func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.Er
 }
 
 func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
-	return v.setVolumeAttachmentInfo(volumeAttachments)
+	if v.setVolumeAttachmentInfo != nil {
+		return v.setVolumeAttachmentInfo(volumeAttachments)
+	}
+	return nil, nil
 }
 
 func newMockVolumeAccessor() *mockVolumeAccessor {
@@ -256,6 +271,17 @@ type mockFilesystemAccessor struct {
 
 	setFilesystemInfo           func([]params.Filesystem) ([]params.ErrorResult, error)
 	setFilesystemAttachmentInfo func([]params.FilesystemAttachment) ([]params.ErrorResult, error)
+}
+
+func (m *mockFilesystemAccessor) provisionFilesystem(tag names.FilesystemTag) params.Filesystem {
+	f := params.Filesystem{
+		FilesystemTag: tag.String(),
+		Info: params.FilesystemInfo{
+			FilesystemId: "vol-" + tag.Id(),
+		},
+	}
+	m.provisionedFilesystems[tag.String()] = f
+	return f
 }
 
 func (w *mockFilesystemAccessor) WatchFilesystems() (apiwatcher.StringsWatcher, error) {
@@ -306,6 +332,9 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 				FilesystemTag: tag.String(),
 				Size:          1024,
 				Provider:      "dummy",
+				Tags: map[string]string{
+					"very": "fancy",
+				},
 			}
 			if _, ok := names.FilesystemMachine(tag); ok {
 				// place all volume-backed filesystems on machine-scoped
@@ -321,19 +350,16 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
 	var result []params.FilesystemAttachmentParamsResult
 	for _, id := range ids {
-		if _, ok := f.provisionedAttachments[id]; ok {
-			result = append(result, params.FilesystemAttachmentParamsResult{
-				Error: &params.Error{Message: "already provisioned"},
-			})
-		} else {
-			instanceId, _ := f.provisionedMachines[id.MachineTag]
-			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
-				MachineTag:    id.MachineTag,
-				FilesystemTag: id.AttachmentTag,
-				InstanceId:    string(instanceId),
-				Provider:      "dummy",
-			}})
-		}
+		// Parameters are returned regardless of whether the attachment
+		// exists; this is to support reattachment.
+		instanceId := f.provisionedMachines[id.MachineTag]
+		result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
+			MachineTag:    id.MachineTag,
+			FilesystemTag: id.AttachmentTag,
+			InstanceId:    string(instanceId),
+			Provider:      "dummy",
+			ReadOnly:      true,
+		}})
 	}
 	return result, nil
 }
@@ -343,7 +369,10 @@ func (f *mockFilesystemAccessor) SetFilesystemInfo(filesystems []params.Filesyst
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
-	return f.setFilesystemAttachmentInfo(filesystemAttachments)
+	if f.setFilesystemAttachmentInfo != nil {
+		return f.setFilesystemAttachmentInfo(filesystemAttachments)
+	}
+	return nil, nil
 }
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
@@ -357,11 +386,18 @@ func newMockFilesystemAccessor() *mockFilesystemAccessor {
 }
 
 type mockLifecycleManager struct {
+	life              func([]names.Tag) ([]params.LifeResult, error)
+	attachmentLife    func(ids []params.MachineStorageId) ([]params.LifeResult, error)
+	removeAttachments func([]params.MachineStorageId) ([]params.ErrorResult, error)
+	remove            func([]names.Tag) ([]params.ErrorResult, error)
 }
 
-func (m *mockLifecycleManager) Life(volumes []names.Tag) ([]params.LifeResult, error) {
+func (m *mockLifecycleManager) Life(tags []names.Tag) ([]params.LifeResult, error) {
+	if m.life != nil {
+		return m.life(tags)
+	}
 	var result []params.LifeResult
-	for _, tag := range volumes {
+	for _, tag := range tags {
 		id, _ := strconv.Atoi(tag.Id())
 		if id <= 100 {
 			result = append(result, params.LifeResult{Life: params.Alive})
@@ -373,10 +409,13 @@ func (m *mockLifecycleManager) Life(volumes []names.Tag) ([]params.LifeResult, e
 }
 
 func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+	if m.attachmentLife != nil {
+		return m.attachmentLife(ids)
+	}
 	var result []params.LifeResult
 	for _, id := range ids {
 		switch id {
-		case dyingVolumeAttachmentId:
+		case dyingVolumeAttachmentId, dyingFilesystemAttachmentId:
 			result = append(result, params.LifeResult{Life: params.Dying})
 		case missingVolumeAttachmentId:
 			result = append(result, params.LifeResult{
@@ -389,16 +428,18 @@ func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]
 	return result, nil
 }
 
-func (m *mockLifecycleManager) EnsureDead([]names.Tag) ([]params.ErrorResult, error) {
-	return nil, nil
+func (m *mockLifecycleManager) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
+	if m.remove != nil {
+		return m.remove(tags)
+	}
+	return make([]params.ErrorResult, len(tags)), nil
 }
 
-func (m *mockLifecycleManager) Remove([]names.Tag) ([]params.ErrorResult, error) {
-	return nil, nil
-}
-
-func (m *mockLifecycleManager) RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error) {
-	return nil, nil
+func (m *mockLifecycleManager) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+	if m.removeAttachments != nil {
+		return m.removeAttachments(ids)
+	}
+	return make([]params.ErrorResult, len(ids)), nil
 }
 
 // Set up a dummy storage provider so we can stub out volume creation.
@@ -406,26 +447,37 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	detachVolumesFunc     func([]storage.VolumeAttachmentParams) error
+	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
+	destroyVolumesFunc    func([]string) []error
 }
 
 type dummyVolumeSource struct {
 	storage.VolumeSource
+	provider          *dummyProvider
+	createVolumesArgs [][]storage.VolumeParams
 }
 
 type dummyFilesystemSource struct {
 	storage.FilesystemSource
+	provider              *dummyProvider
+	createFilesystemsArgs [][]storage.FilesystemParams
 }
 
 func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	if p.volumeSourceFunc != nil {
 		return p.volumeSourceFunc(environConfig, providerConfig)
 	}
-	return &dummyVolumeSource{}, nil
+	return &dummyVolumeSource{provider: p}, nil
 }
 
-func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
-	return &dummyFilesystemSource{}, nil
+func (p *dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	if p.filesystemSourceFunc != nil {
+		return p.filesystemSourceFunc(environConfig, providerConfig)
+	}
+	return &dummyFilesystemSource{provider: p}, nil
 }
 
 func (p *dummyProvider) Dynamic() bool {
@@ -433,34 +485,38 @@ func (p *dummyProvider) Dynamic() bool {
 }
 
 func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	if params.Tag.Id() == needsInstanceVolumeId {
-		return storage.ErrVolumeNeedsInstance
-	}
 	return nil
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
-func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+	paramsCopy := make([]storage.VolumeParams, len(params))
+	copy(paramsCopy, params)
+	s.createVolumesArgs = append(s.createVolumesArgs, paramsCopy)
+
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	for _, p := range params {
 		persistent, _ := p.Attributes["persistent"].(bool)
 		volumes = append(volumes, storage.Volume{
-			Tag:        p.Tag,
-			Size:       p.Size,
-			HardwareId: "serial-" + p.Tag.Id(),
-			VolumeId:   "id-" + p.Tag.Id(),
-			Persistent: persistent,
+			p.Tag,
+			storage.VolumeInfo{
+				Size:       p.Size,
+				HardwareId: "serial-" + p.Tag.Id(),
+				VolumeId:   "id-" + p.Tag.Id(),
+				Persistent: persistent,
+			},
 		})
-		if p.Attachment != nil {
-			volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-				Volume:     p.Tag,
-				Machine:    p.Attachment.Machine,
-				DeviceName: "/dev/sda" + p.Tag.Id(),
-			})
-		}
 	}
 	return volumes, volumeAttachments, nil
+}
+
+// DestroyVolumes destroys volumes.
+func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) []error {
+	if s.provider.destroyVolumesFunc != nil {
+		return s.provider.destroyVolumesFunc(volumeIds)
+	}
+	return make([]error, len(volumeIds))
 }
 
 // AttachVolumes attaches volumes to machines.
@@ -474,12 +530,23 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 			panic("AttachVolumes called with unprovisioned machine")
 		}
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
-			Volume:     p.Volume,
-			Machine:    p.Machine,
-			DeviceName: "/dev/sda" + p.Volume.Id(),
+			p.Volume,
+			p.Machine,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "/dev/sda" + p.Volume.Id(),
+				ReadOnly:   p.ReadOnly,
+			},
 		})
 	}
 	return volumeAttachments, nil
+}
+
+// DetachVolumes detaches volumes from machines.
+func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) error {
+	if s.provider.detachVolumesFunc != nil {
+		return s.provider.detachVolumesFunc(params)
+	}
+	return nil
 }
 
 func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
@@ -487,13 +554,19 @@ func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 }
 
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
-func (*dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
+func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
+	paramsCopy := make([]storage.FilesystemParams, len(params))
+	copy(paramsCopy, params)
+	s.createFilesystemsArgs = append(s.createFilesystemsArgs, paramsCopy)
+
 	var filesystems []storage.Filesystem
 	for _, p := range params {
 		filesystems = append(filesystems, storage.Filesystem{
-			Tag:          p.Tag,
-			Size:         p.Size,
-			FilesystemId: "id-" + p.Tag.Id(),
+			Tag: p.Tag,
+			FilesystemInfo: storage.FilesystemInfo{
+				Size:         p.Size,
+				FilesystemId: "id-" + p.Tag.Id(),
+			},
 		})
 	}
 	return filesystems, nil
@@ -510,12 +583,22 @@ func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttac
 			panic("AttachFilesystems called with unprovisioned machine")
 		}
 		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
-			Filesystem: p.Filesystem,
-			Machine:    p.Machine,
-			Path:       "/srv/" + p.FilesystemId,
+			p.Filesystem,
+			p.Machine,
+			storage.FilesystemAttachmentInfo{
+				Path: "/srv/" + p.FilesystemId,
+			},
 		})
 	}
 	return filesystemAttachments, nil
+}
+
+// DetachFilesystems detaches filesystems from machines.
+func (s *dummyFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
+	if s.provider.detachFilesystemsFunc != nil {
+		return s.provider.detachFilesystemsFunc(params)
+	}
+	return nil
 }
 
 type mockManagedFilesystemSource struct {
@@ -535,12 +618,18 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.Filesyste
 			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", arg.Tag.Id())
 		}
 		filesystems = append(filesystems, storage.Filesystem{
-			Tag:          arg.Tag,
-			Size:         blockDevice.Size,
-			FilesystemId: blockDevice.DeviceName,
+			Tag: arg.Tag,
+			FilesystemInfo: storage.FilesystemInfo{
+				Size:         blockDevice.Size,
+				FilesystemId: blockDevice.DeviceName,
+			},
 		})
 	}
 	return filesystems, nil
+}
+
+func (s *mockManagedFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	return make([]error, len(filesystemIds))
 }
 
 func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
@@ -561,9 +650,12 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", filesystem.Tag.Id())
 		}
 		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
-			Filesystem: arg.Filesystem,
-			Machine:    arg.Machine,
-			Path:       "/mnt/" + blockDevice.DeviceName,
+			arg.Filesystem,
+			arg.Machine,
+			storage.FilesystemAttachmentInfo{
+				Path:     "/mnt/" + blockDevice.DeviceName,
+				ReadOnly: arg.ReadOnly,
+			},
 		})
 	}
 	return filesystemAttachments, nil
@@ -571,4 +663,35 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 
 func (s *mockManagedFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
 	return errors.NotImplementedf("DetachFilesystems")
+}
+
+type mockMachineAccessor struct {
+	instanceIds map[names.MachineTag]instance.Id
+	watcher     *mockNotifyWatcher
+}
+
+func (a *mockMachineAccessor) WatchMachine(names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+	return a.watcher, nil
+}
+
+func (a *mockMachineAccessor) InstanceIds(tags []names.MachineTag) ([]params.StringResult, error) {
+	results := make([]params.StringResult, len(tags))
+	for i, tag := range tags {
+		instanceId, ok := a.instanceIds[tag]
+		if !ok {
+			results[i].Error = &params.Error{Code: params.CodeNotFound}
+		} else if instanceId == "" {
+			results[i].Error = &params.Error{Code: params.CodeNotProvisioned}
+		} else {
+			results[i].Result = string(instanceId)
+		}
+	}
+	return results, nil
+}
+
+func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
+	return &mockMachineAccessor{
+		instanceIds: make(map[names.MachineTag]instance.Id),
+		watcher:     &mockNotifyWatcher{make(chan struct{}, 1)},
+	}
 }

@@ -19,8 +19,10 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
@@ -154,6 +156,10 @@ const (
 
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// ResourceTagsKey is an optional list or space-separated string
+	// of k=v pairs, defining the tags for ResourceTags.
+	ResourceTagsKey = "resource-tags"
 
 	// For LXC containers, is the container allowed to mount block
 	// devices. A theoretical security issue, so must be explicitly
@@ -577,13 +583,6 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Check firewall mode.
-	switch mode := cfg.FirewallMode(); mode {
-	case FwInstance, FwGlobal, FwNone:
-	default:
-		return fmt.Errorf("invalid firewall mode in environment configuration: %q", mode)
-	}
-
 	caCert, caCertOK := cfg.CACert()
 	caKey, caKeyOK := cfg.CAPrivateKey()
 	if caCertOK || caKeyOK {
@@ -592,11 +591,13 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Ensure that the given harvesting method is valid.
-	if hvstMeth, ok := cfg.defined[ProvisionerHarvestModeKey].(string); ok {
-		if _, err := ParseHarvestMode(hvstMeth); err != nil {
-			return err
-		}
+	if uuid, ok := cfg.defined["uuid"]; ok && !utils.IsValidUUIDString(uuid.(string)) {
+		return errors.Errorf("uuid: expected uuid, got string(%q)", uuid)
+	}
+
+	// Ensure the resource tags have the expected k=v format.
+	if _, err := cfg.resourceTags(); err != nil {
+		return errors.Annotate(err, "validating resource tags")
 	}
 
 	// Check the immutable config values.  These can't change
@@ -646,10 +647,14 @@ func isEmpty(val interface{}) bool {
 	case int:
 		// TODO(rog) fix this to return false when
 		// we can lose backward compatibility.
-		// https://bugs.github.com/juju/juju/+bug/1224492
+		// https://bugs.launchpad.net/juju-core/+bug/1224492
 		return val == 0
 	case string:
 		return val == ""
+	case []interface{}:
+		return len(val) == 0
+	case map[string]string:
+		return len(val) == 0
 	}
 	panic(fmt.Errorf("unexpected type %T in configuration", val))
 }
@@ -1146,6 +1151,31 @@ func (c *Config) AllowLXCLoopMounts() (bool, bool) {
 	return v, ok
 }
 
+// ResourceTags returns a set of tags to set on environment resources
+// that Juju creates and manages, if the provider supports them. These
+// tags have no special meaning to Juju, but may be used for existing
+// chargeback accounting schemes or other identification purposes.
+func (c *Config) ResourceTags() (map[string]string, bool) {
+	tags, err := c.resourceTags()
+	if err != nil {
+		panic(err) // should be prevented by Validate
+	}
+	return tags, tags != nil
+}
+
+func (c *Config) resourceTags() (map[string]string, error) {
+	v, ok := c.defined[ResourceTagsKey].(map[string]string)
+	if !ok {
+		return nil, nil
+	}
+	for k := range v {
+		if strings.HasPrefix(k, tags.JujuTagPrefix) {
+			return nil, errors.Errorf("tag %q uses reserved prefix %q", k, tags.JujuTagPrefix)
+		}
+	}
+	return v, nil
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1185,66 +1215,14 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	return New(NoDefaults, defined)
 }
 
-var fields = schema.Fields{
-	"type":                       schema.String(),
-	"name":                       schema.String(),
-	"uuid":                       schema.UUID(),
-	"default-series":             schema.String(),
-	AgentMetadataURLKey:          schema.String(),
-	"image-metadata-url":         schema.String(),
-	"image-stream":               schema.String(),
-	AgentStreamKey:               schema.String(),
-	"authorized-keys":            schema.String(),
-	"authorized-keys-path":       schema.String(),
-	"firewall-mode":              schema.String(),
-	"agent-version":              schema.String(),
-	"development":                schema.Bool(),
-	"admin-secret":               schema.String(),
-	"ca-cert":                    schema.String(),
-	"ca-cert-path":               schema.String(),
-	"ca-private-key":             schema.String(),
-	"ca-private-key-path":        schema.String(),
-	"ssl-hostname-verification":  schema.Bool(),
-	"state-port":                 schema.ForceInt(),
-	"api-port":                   schema.ForceInt(),
-	"syslog-port":                schema.ForceInt(),
-	"rsyslog-ca-cert":            schema.String(),
-	"rsyslog-ca-key":             schema.String(),
-	"logging-config":             schema.String(),
-	ProvisionerHarvestModeKey:    schema.String(),
-	HttpProxyKey:                 schema.String(),
-	HttpsProxyKey:                schema.String(),
-	FtpProxyKey:                  schema.String(),
-	NoProxyKey:                   schema.String(),
-	AptHttpProxyKey:              schema.String(),
-	AptHttpsProxyKey:             schema.String(),
-	AptFtpProxyKey:               schema.String(),
-	"apt-mirror":                 schema.String(),
-	"bootstrap-timeout":          schema.ForceInt(),
-	"bootstrap-retry-delay":      schema.ForceInt(),
-	"bootstrap-addresses-delay":  schema.ForceInt(),
-	"test-mode":                  schema.Bool(),
-	"proxy-ssh":                  schema.Bool(),
-	LxcClone:                     schema.Bool(),
-	"lxc-clone-aufs":             schema.Bool(),
-	LXCDefaultMTU:                schema.ForceInt(),
-	"prefer-ipv6":                schema.Bool(),
-	"enable-os-refresh-update":   schema.Bool(),
-	"enable-os-upgrade":          schema.Bool(),
-	"disable-network-management": schema.Bool(),
-	SetNumaControlPolicyKey:      schema.Bool(),
-	PreventDestroyEnvironmentKey: schema.Bool(),
-	PreventRemoveObjectKey:       schema.Bool(),
-	PreventAllChangesKey:         schema.Bool(),
-	StorageDefaultBlockSourceKey: schema.String(),
-	AllowLXCLoopMounts:           schema.Bool(),
-
-	// Deprecated fields, retain for backwards compatibility.
-	ToolsMetadataURLKey:    schema.String(),
-	LxcUseClone:            schema.Bool(),
-	ProvisionerSafeModeKey: schema.Bool(),
-	ToolsStreamKey:         schema.String(),
-}
+// fields holds the validation schema fields derived from configSchema.
+var fields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
 
 // alwaysOptional holds configuration defaults for attributes that may
 // be unspecified even after a configuration has been created with all
@@ -1282,6 +1260,7 @@ var alwaysOptional = schema.Defaults{
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
+	ResourceTagsKey:              schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1500,4 +1479,335 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	addIfNotEmpty(settings, AptHttpsProxyKey, proxySettings.Https)
 	addIfNotEmpty(settings, AptFtpProxyKey, proxySettings.Ftp)
 	return settings
+}
+
+// configSchema holds information on all the fields defined by
+// the config package.
+// TODO(rog) make this available to external packages.
+var configSchema = environschema.Fields{
+	"admin-secret": {
+		Description: "The password for the administrator user",
+		Type:        environschema.Tstring,
+		Secret:      true,
+		Example:     "<random secret>",
+		Group:       environschema.EnvironGroup,
+	},
+	AgentMetadataURLKey: {
+		Description: "URL of private stream",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AgentStreamKey: {
+		Description: `Version of Juju to use for deploy/upgrades.`,
+		Type:        environschema.Tstring,
+		Values:      []interface{}{"released", "devel", "proposed"},
+		Group:       environschema.EnvironGroup,
+	},
+	"agent-version": {
+		Description: "The desired Juju agent version to use",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	AllowLXCLoopMounts: {
+		Description: `whether loop devices are allowed to be mounted inside lxc containers.`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"api-port": {
+		Description: "The TCP port for the API servers to listen on",
+		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+		Immutable:   true,
+	},
+	AptFtpProxyKey: {
+		// TODO document acceptable format
+		Description: "The APT FTP proxy for the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AptHttpProxyKey: {
+		// TODO document acceptable format
+		Description: "The APT HTTP proxy for the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AptHttpsProxyKey: {
+		// TODO document acceptable format
+		Description: "The APT HTTPS proxy for the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"apt-mirror": {
+		// TODO document acceptable format
+		Description: "The APT mirror for the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"authorized-keys": {
+		// TODO what to do about authorized-keys-path ?
+		Description: "Any authorized SSH public keys for the environment, as found in a ~/.ssh/authorized_keys file",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"authorized-keys-path": {
+		Description: "Path to file containing SSH authorized keys",
+		Type:        environschema.Tstring,
+	},
+	PreventAllChangesKey: {
+		Description: `Whether all changes to the environment will be prevented`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	PreventDestroyEnvironmentKey: {
+		Description: `Whether the environment will be prevented from destruction`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	PreventRemoveObjectKey: {
+		Description: `Whether remove operations (machine, service, unit or relation) will be prevented`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"bootstrap-addresses-delay": {
+		Description: "The amount of time between refreshing the addresses in seconds. Not too frequent as we refresh addresses from the provider each time.",
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"bootstrap-retry-delay": {
+		Description: "Time between attempts to connect to an address in seconds.",
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"bootstrap-timeout": {
+		Description: "The amount of time to wait contacting a state server in seconds",
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"ca-cert": {
+		Description: `The certificate of the CA that signed the state server certificate, in PEM format`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"ca-cert-path": {
+		Description: "Path to file containing CA certificate",
+		Type:        environschema.Tstring,
+	},
+	"ca-private-key": {
+		Description: `The private key of the CA that signed the state server certificate, in PEM format`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"ca-private-key-path": {
+		Description: "Path to file containing CA private key",
+		Type:        environschema.Tstring,
+	},
+	"default-series": {
+		Description: "The default series of Ubuntu to use for deploying charms",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"development": {
+		Description: "Whether the environment is in development mode",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"disable-network-management": {
+		Description: "Whether the provider should control networks (on MAAS environments, set to true for MAAS to control networks",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"enable-os-refresh-update": {
+		Description: `Whether newly provisioned instances should run their respective OS's update capability.`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"enable-os-upgrade": {
+		Description: `Whether newly provisioned instances should run their respective OS's upgrade capability.`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"firewall-mode": {
+		Description: `The mode to use for network firewalling.
+
+'instance' requests the use of an individual firewall per instance.
+
+'global' uses a single firewall for all instances (access
+for a network port is enabled to one instance if any instance requires
+that port).
+
+'none' requests that no firewalling should be performed
+inside the environment. It's useful for clouds without support for either
+global or per instance security groups.`,
+		Type: environschema.Tstring,
+		// Note that we need the empty value because it can
+		// be found in legacy environments.
+		Values:    []interface{}{FwInstance, FwGlobal, FwNone, ""},
+		Immutable: true,
+		Group:     environschema.EnvironGroup,
+	},
+	FtpProxyKey: {
+		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	HttpProxyKey: {
+		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	HttpsProxyKey: {
+		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"image-metadata-url": {
+		Description: "The URL at which the metadata used to locate OS image ids is located",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"image-stream": {
+		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"logging-config": {
+		Description: `The configuration string to use when configuring Juju agent logging (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details)`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LxcClone: {
+		Description: "Whether to use lxc-clone to create new LXC containers",
+		Type:        environschema.Tbool,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"lxc-clone-aufs": {
+		Description: `Whether the LXC provisioner should creat an LXC clone using AUFS if available`,
+		Type:        environschema.Tbool,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	LXCDefaultMTU: {
+		// default: the default MTU setting for the container
+		Description: `The MTU setting to use for network interfaces in LXC containers`,
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	LxcUseClone: {
+		Description: `Whether the LXC provisioner should create a template and use cloning to speed up container provisioning. (deprecated by lxc-clone)`,
+		Type:        environschema.Tbool,
+	},
+	"name": {
+		Description: "The name of the current environment",
+		Type:        environschema.Tstring,
+		Mandatory:   true,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	NoProxyKey: {
+		Description: "List of domain addresses not to be proxied (comma-separated)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"prefer-ipv6": {
+		Description: `Whether to prefer IPv6 over IPv4 addresses for API endpoints and machines`,
+		Type:        environschema.Tbool,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	ProvisionerHarvestModeKey: {
+		// default: destroyed, but also depends on current setting of ProvisionerSafeModeKey
+		Description: "What to do with unknown machines. See https://jujucharms.com/docs/stable/config-general#juju-lifecycle-and-harvesting (default destroyed)",
+		Type:        environschema.Tstring,
+		Values:      []interface{}{"all", "none", "unknown", "destroyed"},
+		Group:       environschema.EnvironGroup,
+	},
+	ProvisionerSafeModeKey: {
+		Description: `Whether to run the provisioner in "destroyed" harvest mode (deprecated, superceded by provisioner-harvest-mode)`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"proxy-ssh": {
+		// default: true
+		Description: `Whether SSH commands should be proxied through the API server`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	ResourceTagsKey: {
+		Description: "resource tags",
+		Type:        environschema.Tattrs,
+		Group:       environschema.EnvironGroup,
+	},
+	"rsyslog-ca-cert": {
+		Description: `The certificate of the CA that signed the rsyslog certificate, in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"rsyslog-ca-key": {
+		Description: `The private key of the CA that signed the rsyslog certificate, in PEM format`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SetNumaControlPolicyKey: {
+		Description: "Tune Juju state-server to work with NUMA if present (default false)",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"ssl-hostname-verification": {
+		Description: "Whether SSL hostname verification is enabled (default true)",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	StorageDefaultBlockSourceKey: {
+		Description: "The default block storage source for the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"state-port": {
+		Description: "Port for the API server to listen on.",
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"syslog-port": {
+		Description: "Port for the syslog UDP/TCP listener to listen on.",
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"test-mode": {
+		Description: `Whether the environment is intended for testing.
+If true, accessing the charm store does not affect statistical
+data of the store. (default false)`,
+		Type:  environschema.Tbool,
+		Group: environschema.EnvironGroup,
+	},
+	ToolsMetadataURLKey: {
+		Description: `deprecated, superceded by agent-metadata-url`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ToolsStreamKey: {
+		Description: `deprecated, superceded by agent-stream`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"type": {
+		Description: "Type of environment, e.g. local, ec2",
+		Type:        environschema.Tstring,
+		Mandatory:   true,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	"uuid": {
+		Description: "The UUID of the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
 }

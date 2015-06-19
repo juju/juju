@@ -52,14 +52,21 @@ type UnitAgent struct {
 	logToStdErr      bool
 	ctx              *cmd.Context
 	apiStateUpgrader APIStateUpgrader
+
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
 	return &UnitAgent{
-		AgentConf:    NewAgentConf(""),
-		ctx:          ctx,
-		bufferedLogs: bufferedLogs,
+		AgentConf:                        NewAgentConf(""),
+		ctx:                              ctx,
+		bufferedLogs:                     bufferedLogs,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
 }
 
@@ -202,11 +209,12 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		})
 	}
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
+		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
 			agentConfig,
 			agentConfig.UpgradedToVersion(),
 			func() bool { return false },
+			a.initialAgentUpgradeCheckComplete,
 		), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {

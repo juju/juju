@@ -126,7 +126,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 	}
 
 	// Further Write attempts should fail.
-	c.Assert(func() { s.writeAndReceive(c) }, gc.PanicMatches, ".+ send on closed channel")
+	c.Assert(func() { s.writeAndReceive(c) }, gc.PanicMatches, ".*send on closed channel")
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {

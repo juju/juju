@@ -176,7 +176,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	options = map[string]string{
 		"yummy": "didgeridoo",
 	}
-	settings, err = service.ParseSettingsCompatible(ch, options)
+	_, err = service.ParseSettingsCompatible(ch, options)
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 

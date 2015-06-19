@@ -4,17 +4,15 @@
 package worker
 
 import (
-	"errors"
-	"fmt"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -61,31 +59,41 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-
 	}
 }
 
+// EnvironConfigObserver interface defines a way to read the
+// environment configuration and watch for changes.
+type EnvironConfigObserver interface {
+	EnvironConfigGetter
+	WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error)
+}
+
 // EnvironObserver watches the current environment configuration
 // and makes it available. It discards invalid environment
 // configurations.
 type EnvironObserver struct {
 	tomb           tomb.Tomb
-	environWatcher state.NotifyWatcher
-	st             *state.State
+	environWatcher apiwatcher.NotifyWatcher
+	st             EnvironConfigObserver
 	mu             sync.Mutex
 	environ        environs.Environ
 }
 
-// NewEnvironObserver waits for the state to have a valid environment
-// configuration and returns a new environment observer. While waiting
-// for the first environment configuration, it will return with
-// tomb.ErrDying if it receives a value on dying.
-func NewEnvironObserver(st *state.State) (*EnvironObserver, error) {
+// NewEnvironObserver waits for the environment to have a valid
+// environment configuration and returns a new environment observer.
+// While waiting for the first environment configuration, it will
+// return with tomb.ErrDying if it receives a value on dying.
+func NewEnvironObserver(st EnvironConfigObserver) (*EnvironObserver, error) {
 	config, err := st.EnvironConfig()
 	if err != nil {
 		return nil, err
 	}
 	environ, err := environs.New(config)
 	if err != nil {
-		return nil, fmt.Errorf("cannot make Environ: %v", err)
+		return nil, errors.Annotate(err, "cannot create an environment")
 	}
-	environWatcher := st.WatchForEnvironConfigChanges()
+	environWatcher, err := st.WatchForEnvironConfigChanges()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot watch environment config")
+	}
 	obs := &EnvironObserver{
 		st:             st,
 		environ:        environ,
@@ -116,7 +124,7 @@ func (obs *EnvironObserver) loop() error {
 		}
 		environ, err := environs.New(config)
 		if err != nil {
-			logger.Warningf("error creating Environ: %v", err)
+			logger.Warningf("error creating an environment: %v", err)
 			continue
 		}
 		obs.mu.Lock()

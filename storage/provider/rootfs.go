@@ -60,7 +60,6 @@ func (p *rootfsProvider) FilesystemSource(environConfig *config.Config, sourceCo
 	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
-
 	return &rootfsFilesystemSource{
 		&osDirFuncs{p.run},
 		p.run,
@@ -169,11 +168,21 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
 	filesystem = storage.Filesystem{
-		Tag:          params.Tag,
-		FilesystemId: params.Tag.Id(),
-		Size:         sizeInMiB,
+		params.Tag,
+		names.VolumeTag{},
+		storage.FilesystemInfo{
+			FilesystemId: params.Tag.Id(),
+			Size:         sizeInMiB,
+		},
 	}
 	return filesystem, nil
+}
+
+// DestroyFilesystems is defined on the FilesystemSource interface.
+func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	// DestroyFilesystems is a no-op; we leave the storage directory
+	// in tact for post-mortems and such.
+	return make([]error, len(filesystemIds))
 }
 
 // AttachFilesystems is defined on the FilesystemSource interface.
@@ -200,9 +209,11 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 		return storage.FilesystemAttachment{}, err
 	}
 	return storage.FilesystemAttachment{
-		Filesystem: arg.Filesystem,
-		Machine:    arg.Machine,
-		Path:       mountPoint,
+		arg.Filesystem,
+		arg.Machine,
+		storage.FilesystemAttachmentInfo{
+			Path: mountPoint,
+		},
 	}, nil
 }
 
@@ -218,8 +229,11 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 	}
 
 	mounted, err := s.tryBindMount(fsPath, target)
-	if mounted || err != nil {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if mounted {
+		return nil
 	}
 	// We couldn't bind-mount over the designated directory;
 	// carry on and check if it's on the same filesystem. If
@@ -286,6 +300,10 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 
 // DetachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotImplementedf("DetachFilesystems")
+	for _, arg := range args {
+		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+		}
+	}
+	return nil
 }

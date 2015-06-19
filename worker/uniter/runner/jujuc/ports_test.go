@@ -78,7 +78,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(hctx.ports, gc.DeepEquals, t.expect)
+		hctx.info.CheckPorts(c, t.expect)
 	}
 }
 

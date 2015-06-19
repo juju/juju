@@ -27,14 +27,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	currentConfig := agent.CurrentConfig()
 	upgraderFacade := upgrader.NewState(apiCaller)
-	return NewUpgrader(
+	return NewAgentUpgrader(
 		upgraderFacade,
 		currentConfig,
 		// TODO(fwereade): surely we shouldn't need both currentConfig
 		// *and* currentConfig.UpgradedToVersion?
 		currentConfig.UpgradedToVersion(),
-		// TODO(fwereade): this is unit-agent-specific, and very much
+		// TODO(fwereade): these are unit-agent-specific, and very much
 		// unsuitable for use in a machine agent.
 		func() bool { return false },
+		make(chan struct{}),
 	), nil
 }

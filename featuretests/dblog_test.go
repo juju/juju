@@ -19,7 +19,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -40,11 +39,6 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.PatchValue(&agentcmd.JujuRun, file.Name())
-
-	// If we don't have a lease manager running somewhere, the
-	// leadership API calls made by the unit agent hang.
-	leaseWorker := worker.NewSimpleWorker(lease.WorkerLoop(s.State))
-	s.AddCleanup(func(*gc.C) { worker.Stop(leaseWorker) })
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
@@ -108,6 +102,13 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 }
 
 func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
+	// Lease setup stuff, only needed when running a uniter.
+	m, err := lease.NewLeaseManager(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		m.Kill()
+		c.Assert(m.Wait(), jc.ErrorIsNil)
+	})
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password, version.Current)

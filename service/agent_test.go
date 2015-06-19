@@ -53,6 +53,13 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -61,7 +68,9 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
@@ -73,6 +82,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
+	jujud := dataDir + "/tools/machine-0/jujud"
 	cmd := strings.Join([]string{
 		shquote(dataDir + "/tools/machine-0/jujud"),
 		"machine",
@@ -80,6 +90,13 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -88,7 +105,9 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
@@ -100,13 +119,21 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
+	jujud := dataDir + `\tools\machine-0\jujud.exe`
 	cmd := strings.Join([]string{
-		shquote(dataDir + `\tools\machine-0\jujud.exe`),
+		shquote(jujud),
 		"machine",
 		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -115,7 +142,9 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
@@ -135,12 +164,21 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"unit",
+		"--data-dir", dataDir,
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju unit agent for wordpress/0",
-		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
-		Env:       osenv.FeatureFlags(),
-		Timeout:   300,
+		Desc:          "juju unit agent for wordpress/0",
+		ExecStart:     cmd,
+		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
+		Env:           osenv.FeatureFlags(),
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
@@ -160,14 +198,23 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"unit",
+		"--data-dir", dataDir,
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}
 	env := osenv.FeatureFlags()
 	env[osenv.JujuContainerTypeEnvKey] = "cont"
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju unit agent for wordpress/0",
-		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
-		Env:       env,
-		Timeout:   300,
+		Desc:          "juju unit agent for wordpress/0",
+		ExecStart:     cmd,
+		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
+		Env:           env,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 

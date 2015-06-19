@@ -13,16 +13,19 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
@@ -237,6 +240,12 @@ func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
 }
 
+// Resumer returns a version of the state that provides functionality
+// required by the resumer worker.
+func (st *State) Resumer() *resumer.API {
+	return resumer.NewAPI(st)
+}
+
 // Networker returns a version of the state that provides functionality
 // required by the networker worker.
 func (st *State) Networker() networker.State {
@@ -326,9 +335,19 @@ func (st *State) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
 }
 
+// InstancePoller returns access to the InstancePoller API
+func (st *State) InstancePoller() *instancepoller.API {
+	return instancepoller.NewAPI(st)
+}
+
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
 func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
+}
+
+// Cleaner returns a version of the state that provides access to the cleaner API
+func (st *State) Cleaner() *cleaner.API {
+	return cleaner.NewAPI(st)
 }
 
 // Rsyslog returns access to the Rsyslog API

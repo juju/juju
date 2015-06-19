@@ -12,10 +12,16 @@ import (
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
-	ep := p.(*environProvisioner)
-	ep.Lock()
-	ep.observer = observer
-	ep.Unlock()
+	var configObserver *configObserver
+	if ep, ok := p.(*environProvisioner); ok {
+		configObserver = &ep.configObserver
+	} else {
+		cp := p.(*containerProvisioner)
+		configObserver = &cp.configObserver
+	}
+	configObserver.Lock()
+	configObserver.observer = observer
+	configObserver.Unlock()
 }
 
 func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {

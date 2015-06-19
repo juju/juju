@@ -4,12 +4,11 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -27,25 +26,44 @@ func IsVolumeAlreadyProvisioned(err error) bool {
 	return ok
 }
 
-// VolumeParams returns the parameters for creating the given volume.
-func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.VolumeParams, error) {
-	stateVolumeParams, ok := v.Params()
-	if !ok {
-		err := &volumeAlreadyProvisionedError{fmt.Errorf(
-			"volume %q is already provisioned", v.Tag().Id(),
-		)}
-		return params.VolumeParams{}, err
+// VolumeParams returns the parameters for creating or destroying
+// the given volume.
+func VolumeParams(
+	v state.Volume,
+	storageInstance state.StorageInstance,
+	environConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+) (params.VolumeParams, error) {
+
+	var pool string
+	var size uint64
+	if stateVolumeParams, ok := v.Params(); ok {
+		pool = stateVolumeParams.Pool
+		size = stateVolumeParams.Size
+	} else {
+		volumeInfo, err := v.Info()
+		if err != nil {
+			return params.VolumeParams{}, errors.Trace(err)
+		}
+		pool = volumeInfo.Pool
+		size = volumeInfo.Size
 	}
 
-	providerType, cfg, err := StoragePoolConfig(stateVolumeParams.Pool, poolManager)
+	volumeTags, err := storageTags(storageInstance, environConfig)
+	if err != nil {
+		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
+	}
+
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
 	if err != nil {
 		return params.VolumeParams{}, errors.Trace(err)
 	}
 	return params.VolumeParams{
 		v.Tag().String(),
-		stateVolumeParams.Size,
+		size,
 		string(providerType),
 		cfg.Attrs(),
+		volumeTags,
 		nil, // attachment params set by the caller
 	}, nil
 }
@@ -95,11 +113,11 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 		return names.VolumeTag{}, state.VolumeInfo{}, errors.Trace(err)
 	}
 	return volumeTag, state.VolumeInfo{
-		v.HardwareId,
-		v.Size,
+		v.Info.HardwareId,
+		v.Info.Size,
 		"", // pool is set by state
-		v.VolumeId,
-		v.Persistent,
+		v.Info.VolumeId,
+		v.Info.Persistent,
 	}, nil
 }
 
@@ -111,10 +129,12 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 	}
 	return params.Volume{
 		v.VolumeTag().String(),
-		info.VolumeId,
-		info.HardwareId,
-		info.Size,
-		info.Persistent,
+		params.VolumeInfo{
+			info.VolumeId,
+			info.HardwareId,
+			info.Size,
+			info.Persistent,
+		},
 	}, nil
 }
 
@@ -127,27 +147,30 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 	return params.VolumeAttachment{
 		v.Volume().String(),
 		v.Machine().String(),
-		info.DeviceName,
-		info.ReadOnly,
+		params.VolumeAttachmentInfo{
+			info.DeviceName,
+			info.ReadOnly,
+		},
 	}, nil
 }
 
-// VolumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
-// mapping of volume tags to state.VolumeAttachmentInfo.
-func VolumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
+// VolumeAttachmentInfosToState converts a map of volume tags to
+// params.VolumeAttachmentInfo to a map of volume tags to
+// state.VolumeAttachmentInfo.
+func VolumeAttachmentInfosToState(in map[string]params.VolumeAttachmentInfo) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
 	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
-	for _, v := range in {
-		_, volumeTag, info, err := VolumeAttachmentToState(v)
+	for k, v := range in {
+		volumeTag, err := names.ParseVolumeTag(k)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		m[volumeTag] = info
+		m[volumeTag] = VolumeAttachmentInfoToState(v)
 	}
 	return m, nil
 }
 
-// VolumeAttachmentToState converts a storage.VolumeAttachment
-// to a state.VolumeAttachmentInfo.
+// VolumeAttachmentToState converts a params.VolumeAttachment
+// to a state.VolumeAttachmentInfo and tags.
 func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo, error) {
 	machineTag, err := names.ParseMachineTag(in.MachineTag)
 	if err != nil {
@@ -157,11 +180,17 @@ func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, name
 	if err != nil {
 		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentInfo{}, err
 	}
-	info := state.VolumeAttachmentInfo{
+	info := VolumeAttachmentInfoToState(in.Info)
+	return machineTag, volumeTag, info, nil
+}
+
+// VolumeAttachmentInfoToState converts a params.VolumeAttachmentInfo
+// to a state.VolumeAttachmentInfo.
+func VolumeAttachmentInfoToState(in params.VolumeAttachmentInfo) state.VolumeAttachmentInfo {
+	return state.VolumeAttachmentInfo{
 		in.DeviceName,
 		in.ReadOnly,
 	}
-	return machineTag, volumeTag, info, nil
 }
 
 // ParseVolumeAttachmentIds parses the strings, returning machine storage IDs.

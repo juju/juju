@@ -239,7 +239,7 @@ type imageKey struct {
 // appendMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
 func appendMatchingImages(source simplestreams.DataSource, matchingImages []interface{},
-	images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+	images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
 
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
@@ -255,7 +255,7 @@ func appendMatchingImages(source simplestreams.DataSource, matchingImages []inte
 			matchingImages = append(matchingImages, im)
 		}
 	}
-	return matchingImages
+	return matchingImages, nil
 }
 
 // GetLatestImageIdMetadata is provided so it can be call by tests outside the imagemetadata package.

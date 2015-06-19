@@ -105,13 +105,17 @@ func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
-		Tag:          names.NewFilesystemTag("6"),
-		FilesystemId: "6",
-		Size:         2,
+		Tag: names.NewFilesystemTag("6"),
+		FilesystemInfo: storage.FilesystemInfo{
+			FilesystemId: "6",
+			Size:         2,
+		},
 	}, {
-		Tag:          names.NewFilesystemTag("7"),
-		FilesystemId: "7",
-		Size:         4,
+		Tag: names.NewFilesystemTag("7"),
+		FilesystemInfo: storage.FilesystemInfo{
+			FilesystemId: "7",
+			Size:         4,
+		},
 	}})
 }
 
@@ -184,7 +188,9 @@ func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("6"),
-		Path:       "/srv",
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path: "/srv",
+		},
 	}})
 }
 
@@ -203,7 +209,9 @@ func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("6"),
-		Path:       "/srv",
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path: "/srv",
+		},
 	}})
 }
 
@@ -253,7 +261,9 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("6"),
-		Path:       "/srv",
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path: "/srv",
+		},
 	}})
 }
 
@@ -305,6 +315,22 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
 		Filesystem: names.NewFilesystemTag("6"),
-		Path:       "/srv/666",
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path: "/srv/666",
+		},
 	}})
+}
+
+func (s *rootfsSuite) TestDetachFilesystems(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, true)
+}
+
+func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+	// The "unattached" case covers both idempotency, and
+	// also the scenario where bind-mounting failed. In
+	// either case, there is no attachment-specific filesystem
+	// mount.
+	source := s.rootfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, false)
 }

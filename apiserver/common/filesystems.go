@@ -4,47 +4,54 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-type filesystemAlreadyProvisionedError struct {
-	error
-}
+// FilesystemParams returns the parameters for creating or destroying the
+// given filesystem.
+func FilesystemParams(
+	f state.Filesystem,
+	storageInstance state.StorageInstance,
+	environConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+) (params.FilesystemParams, error) {
 
-// IsFilesystemAlreadyProvisioned returns true if the specified error
-// is caused by a filesystem already being provisioned.
-func IsFilesystemAlreadyProvisioned(err error) bool {
-	_, ok := err.(*filesystemAlreadyProvisionedError)
-	return ok
-}
-
-// FilesystemParams returns the parameters for creating the given filesystem.
-func FilesystemParams(f state.Filesystem, poolManager poolmanager.PoolManager) (params.FilesystemParams, error) {
-	stateFilesystemParams, ok := f.Params()
-	if !ok {
-		err := &filesystemAlreadyProvisionedError{fmt.Errorf(
-			"filesystem %q is already provisioned", f.Tag().Id(),
-		)}
-		return params.FilesystemParams{}, err
+	var pool string
+	var size uint64
+	if stateFilesystemParams, ok := f.Params(); ok {
+		pool = stateFilesystemParams.Pool
+		size = stateFilesystemParams.Size
+	} else {
+		filesystemInfo, err := f.Info()
+		if err != nil {
+			return params.FilesystemParams{}, errors.Trace(err)
+		}
+		pool = filesystemInfo.Pool
+		size = filesystemInfo.Size
 	}
 
-	providerType, cfg, err := StoragePoolConfig(stateFilesystemParams.Pool, poolManager)
+	filesystemTags, err := storageTags(storageInstance, environConfig)
+	if err != nil {
+		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
+	}
+
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}
 	result := params.FilesystemParams{
 		f.Tag().String(),
 		"", // volume tag
-		stateFilesystemParams.Size,
+		size,
 		string(providerType),
 		cfg.Attrs(),
+		filesystemTags,
 		nil, // attachment params set by the caller
 	}
 
@@ -80,9 +87,9 @@ func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.Filesyst
 		return names.FilesystemTag{}, state.FilesystemInfo{}, errors.Trace(err)
 	}
 	return filesystemTag, state.FilesystemInfo{
-		v.Size,
+		v.Info.Size,
 		"", // pool is set by state
-		v.FilesystemId,
+		v.Info.FilesystemId,
 	}, nil
 }
 
@@ -95,8 +102,10 @@ func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
 	result := params.Filesystem{
 		f.FilesystemTag().String(),
 		"",
-		info.FilesystemId,
-		info.Size,
+		params.FilesystemInfo{
+			info.FilesystemId,
+			info.Size,
+		},
 	}
 	volumeTag, err := f.Volume()
 	if err == nil {
@@ -119,7 +128,8 @@ func FilesystemAttachmentToState(in params.FilesystemAttachment) (names.MachineT
 		return names.MachineTag{}, names.FilesystemTag{}, state.FilesystemAttachmentInfo{}, err
 	}
 	info := state.FilesystemAttachmentInfo{
-		in.MountPoint,
+		in.Info.MountPoint,
+		in.Info.ReadOnly,
 	}
 	return machineTag, filesystemTag, info, nil
 }
@@ -133,7 +143,10 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 	return params.FilesystemAttachment{
 		v.Filesystem().String(),
 		v.Machine().String(),
-		info.MountPoint,
+		params.FilesystemAttachmentInfo{
+			info.MountPoint,
+			info.ReadOnly,
+		},
 	}, nil
 }
 

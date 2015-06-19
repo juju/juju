@@ -52,7 +52,6 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	s.createPools(c, 2)
 	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-
 	assertPoolNames(c, pools.Results,
 		"testpool0", "testpool1",
 		"dummy", "loop",
@@ -83,7 +82,6 @@ func (s *poolSuite) TestListByType(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 2)
 	assertPoolNames(c, pools.Results, "rayofsunshine", "tmpfs")
 }
 
@@ -142,11 +140,7 @@ func (s *poolSuite) TestListByTypesOr(c *gc.C) {
 	pools, err := s.api.ListPools(params.StoragePoolFilter{
 		Providers: []string{tstType, string(provider.LoopProviderType)}})
 	c.Assert(err, jc.ErrorIsNil)
-
-	assertPoolNames(c, pools.Results,
-		"testpool0", "testpool1",
-		"rayofsunshine", "loop",
-		"tmpfs")
+	assertPoolNames(c, pools.Results, "testpool0", "testpool1", "rayofsunshine", "loop", "tmpfs")
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {

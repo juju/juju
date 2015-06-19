@@ -80,6 +80,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+	instanceConfig.Tags = instancecfg.InstanceTags(env.Config(), instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC

@@ -185,5 +185,5 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		InstanceConfig: &instancecfg.InstanceConfig{Tools: toolsVal},
 	})
 	c.Check(res, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "cannot make user data: invalid series \"\"")
+	c.Check(err, gc.ErrorMatches, "cannot make user data: series \"\" not valid")
 }
