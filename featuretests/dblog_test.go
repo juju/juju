@@ -15,6 +15,7 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/lease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -101,6 +102,13 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 }
 
 func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
+	// Lease setup stuff, only needed when running a uniter.
+	m, err := lease.NewLeaseManager(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		m.Kill()
+		c.Assert(m.Wait(), jc.ErrorIsNil)
+	})
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password, version.Current)
