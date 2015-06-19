@@ -42,9 +42,7 @@ func (*statusSuite) TestStringKnown(c *gc.C) {
 	}
 	c.Assert(expected, gc.HasLen, len(process.KnownStatuses))
 
-	for _, status := range process.KnownStatuses {
-		str := fmt.Sprintf("%s", status)
-
+	for status, str := range process.KnownStatuses {
 		c.Check(str, gc.Equals, expected[status])
 	}
 }

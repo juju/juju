@@ -26,6 +26,20 @@ var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
+// ComponentFunc is a factory function for Context components.
+type ComponentFunc func() (jujuc.ContextComponent, error)
+
+var registeredComponentFuncs = map[string]ComponentFunc{}
+
+// Add the named component factory func to the registry.
+func RegisterComponentFunc(name string, f ComponentFunc) error {
+	if _, ok := registeredComponentFuncs[name]; ok {
+		return errors.AlreadyExistsf("%s", name)
+	}
+	registeredComponentFuncs[name] = f
+	return nil
+}
+
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
 	code string
@@ -176,6 +190,21 @@ type HookContext struct {
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
 	storageAddConstraints map[string][]params.StorageConstraints
+
+	componentFuncs map[string]ComponentFunc
+}
+
+// Component implements jujuc.Context.
+func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
+	compCtxFunc, ok := ctx.componentFuncs[name]
+	if !ok {
+		return nil, errors.NotFoundf("context component %q", name)
+	}
+	compCtx, err := compCtxFunc()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return compCtx, nil
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
