@@ -8,10 +8,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	_ "github.com/juju/juju/component/all" // trigger registration
+	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/utils"
 )
+
+func init() {
+	utils.Must(components.RegisterForServer())
+}
 
 type registerSuite struct {
 	commandSuite
