@@ -54,6 +54,11 @@ type ProcDetails struct {
 	Status string `json:"status"`
 }
 
+// ProcStatus represents the data returned from the Status call.
+type ProcStatus struct {
+	Status string `json:"status"`
+}
+
 // Validate returns nil if this value is valid, and an error if it is not.
 func (p ProcDetails) Validate() error {
 	if p.ID == "" {
@@ -91,21 +96,12 @@ func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
 	if err != nil {
 		return ProcDetails{}, errors.Annotate(err, "can't convert charm.Process to json")
 	}
-
-	cmd := exec.Command(p.Path, "launch", string(b))
-	log := getLogger("juju.process.plugin." + p.Name)
-	stdout := &bytes.Buffer{}
-	cmd.Stdout = stdout
-	err = deputy.Deputy{
-		Errors:    deputy.FromStdout,
-		StderrLog: func(s string) { log.Infof(s) },
-	}.Run(cmd)
-
 	details := ProcDetails{}
+	out, err := p.run("launch", string(b))
 	if err != nil {
 		return details, errors.Trace(err)
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &details); err != nil {
+	if err := json.Unmarshal(out, &details); err != nil {
 		return details, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
 	}
 	if err := details.Validate(); err != nil {
@@ -119,12 +115,7 @@ func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
 //
 // 		destroy <id>
 func (p Plugin) Destroy(id string) error {
-	cmd := exec.Command(p.Path, "destroy", id)
-	log := getLogger("juju.process.plugin." + p.Name)
-	err := deputy.Deputy{
-		Errors:    deputy.FromStdout,
-		StderrLog: func(s string) { log.Infof(s) },
-	}.Run(cmd)
+	_, err := p.run("destroy", id)
 	return errors.Trace(err)
 }
 
@@ -135,20 +126,17 @@ func (p Plugin) Destroy(id string) error {
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func (p Plugin) Status(id string) (string, error) {
-	cmd := exec.Command(p.Path, "status", id)
-	log := getLogger("juju.process.plugin." + p.Name)
-	stdout := &bytes.Buffer{}
-	cmd.Stdout = stdout
-
-	err := deputy.Deputy{
-		Errors:    deputy.FromStdout,
-		StderrLog: func(s string) { log.Infof(s) },
-	}.Run(cmd)
+func (p Plugin) Status(id string) (ProcStatus, error) {
+	out, err := p.run("status", id)
+	status := ProcStatus{}
 	if err != nil {
-		return "", errors.Trace(err)
+		return status, errors.Trace(err)
 	}
-	return stdout.String(), nil
+	if err := json.Unmarshal(out, &status); err != nil {
+		return status, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
+	}
+
+	return status, nil
 }
 
 type infoLogger interface {
@@ -157,4 +145,19 @@ type infoLogger interface {
 
 var getLogger = func(name string) infoLogger {
 	return loggo.GetLogger(name)
+}
+
+func (p Plugin) run(args ...string) ([]byte, error) {
+	cmd := exec.Command(p.Path, args...)
+	log := getLogger("juju.process.plugin." + p.Name)
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	err := deputy.Deputy{
+		Errors:    deputy.FromStdout,
+		StderrLog: func(s string) { log.Infof(s) },
+	}.Run(cmd)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stdout.Bytes(), nil
 }

@@ -94,12 +94,12 @@ func (s *suite) TestStatus(c *gc.C) {
 	s.PatchValue(&getLogger, f.getLogger)
 	p := maker{
 		c:      c,
-		stdout: `status!`,
+		stdout: `{ "status" : "status!" }`,
 	}.make()
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.TrimSpace(status), gc.Equals, "status!")
+	c.Assert(status, gc.Equals, ProcStatus{Status: "status!"})
 	c.Assert(f.logs, gc.DeepEquals, []string{"status id"})
 	c.Assert(f.name, gc.Equals, "juju.process.plugin."+p.Name)
 }
