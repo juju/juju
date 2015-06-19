@@ -1,50 +1,73 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// package plugin contains the code that interfaces with plugins for workload
+// Package plugin contains the code that interfaces with plugins for workload
 // process technologies such as Docker, Rocket, or systemd.
 //
 // Plugins of this type are expected to handle three commands: launch, status,
 // and stop.  See the functions of the same name for more information about each
 // command.
 //
-// If the plugin command  completes successfully, the plugin should exit with a
+// If the plugin command completes successfully, the plugin should exit with a
 // 0 exit code. If there is a problem completing the command, the plugin should
 // print the error details to stdout and return a non-zero exit code.
-//
-// If the plugin takes more than 30 seconds to execute its task, it will be
-// killed and an error returned.
 //
 // Any information written to stderr will be piped to the unit log.
 package plugin
 
 import (
 	"bytes"
+	"encoding/json"
 	"os/exec"
-	"path/filepath"
-	"time"
 
+	"github.com/juju/deputy"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/juju/charm.v5"
 )
 
 var logger = loggo.GetLogger("juju.process.plugin")
 
-const timeout = time.Second * 30
-
-type timeoutErr struct {
+// validationErr represents an error signifying an object with an invalid value.
+type validationErr struct {
 	*errors.Err
 }
 
-func (t timeoutErr) IsTimeout() bool {
-	return true
+// IsInvalid returns whether the given error indicates an invalid value.
+func IsInvalid(e error) bool {
+	_, ok := e.(validationErr)
+	return ok
+}
+
+// Find returns the path for the plugin with the given name.
+func Find(name string) (*Plugin, error) {
+	path, err := exec.LookPath("juju-process-" + name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &Plugin{Name: name, Path: path}, nil
 }
 
 // ProcDetails represents information about a process launched by a plugin.
 type ProcDetails struct {
-	ID      string                 `yaml:"id"`
-	Details map[string]interface{} `yaml:"details"`
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+// Validate returns nil if this value is valid, and an error if it is not.
+func (p ProcDetails) Validate() error {
+	if p.ID == "" {
+		e := errors.NewErr("ID cannot be empty")
+		return validationErr{&e}
+	}
+	return nil
+}
+
+// Plugin represents a provider for launching, destroying, and introspecting
+// workload processes via a specific technology such as Docker or systemd.
+type Plugin struct {
+	Name string
+	Path string
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the path
@@ -52,44 +75,57 @@ type ProcDetails struct {
 //
 // 		launch <image>
 //
-// The plugin is expected to start the image as a new process, and write yaml
+// The plugin is expected to start the image as a new process, and write json
 // output to stdout.  The form of the output is expected to be:
-//
-// 		id: "some-id" # unique id of the process
-//		details:      # plugin-specific metadata about the started process
-//			foo: bar
-//			baz: 5
+//		{
+// 			"id" : "some-id", # unique id of the process
+//			"status" : "details" # plugin-specific metadata about the started process
+//		}
 //
 // The id should be a unique identifier of the process that the plugin can use
-// later to introspect the process and/or stop it. The contents of details can
+// later to introspect the process and/or stop it. The contents of status can
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
-func Launch(plugin, image string) (ProcDetails, error) {
-	cmd := exec.Command(plugin, "launch", image)
-	cmd.Stderr = logwriter{loggo.GetLogger("juju.process.plugin." + filepath.Base(plugin))}
-	stdout, err := outputWithTimeout(cmd, timeout)
-	p := ProcDetails{}
+func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
+	b, err := json.Marshal(proc)
 	if err != nil {
-		return p, err
+		return ProcDetails{}, errors.Annotate(err, "can't convert charm.Process to json")
 	}
-	if err := yaml.Unmarshal(stdout, &p); err != nil {
-		return p, errors.Annotatef(err, "error parsing data returned from %q", plugin)
+
+	cmd := exec.Command(p.Path, "launch", string(b))
+	log := getLogger("juju.process.plugin." + p.Name)
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	err = deputy.Deputy{
+		Errors:    deputy.FromStdout,
+		StderrLog: func(s string) { log.Infof(s) },
+	}.Run(cmd)
+
+	details := ProcDetails{}
+	if err != nil {
+		return details, errors.Trace(err)
 	}
-	if p.ID == "" {
-		return p, errors.Errorf("no id set by plugin %q", plugin)
+	if err := json.Unmarshal(stdout.Bytes(), &details); err != nil {
+		return details, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
 	}
-	return p, nil
+	if err := details.Validate(); err != nil {
+		return details, errors.Annotatef(err, "invalid details returned by plugin %q", p.Name)
+	}
+	return details, nil
 }
 
-// Stop runs the given plugin, passing it the "stop" command, with the id of the
-// process to stop as an argument.
+// Destroy runs the given plugin, passing it the "destroy" command, with the id of the
+// process to destroy as an argument.
 //
-// 		stop <id>
-func Stop(plugin, id string) error {
-	cmd := exec.Command(plugin, "stop", id)
-	cmd.Stderr = logwriter{loggo.GetLogger("juju.process.plugin." + filepath.Base(plugin))}
-	_, err := outputWithTimeout(cmd, timeout)
-	return err
+// 		destroy <id>
+func (p Plugin) Destroy(id string) error {
+	cmd := exec.Command(p.Path, "destroy", id)
+	log := getLogger("juju.process.plugin." + p.Name)
+	err := deputy.Deputy{
+		Errors:    deputy.FromStdout,
+		StderrLog: func(s string) { log.Infof(s) },
+	}.Run(cmd)
+	return errors.Trace(err)
 }
 
 // Status runs the given plugin, passing it the "status" command, with the id of
@@ -99,63 +135,26 @@ func Stop(plugin, id string) error {
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func Status(plugin, id string) (string, error) {
-	cmd := exec.Command(plugin, "status", id)
-	cmd.Stderr = logwriter{loggo.GetLogger("juju.process.plugin." + filepath.Base(plugin))}
-	stdout, err := outputWithTimeout(cmd, timeout)
+func (p Plugin) Status(id string) (string, error) {
+	cmd := exec.Command(p.Path, "status", id)
+	log := getLogger("juju.process.plugin." + p.Name)
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+
+	err := deputy.Deputy{
+		Errors:    deputy.FromStdout,
+		StderrLog: func(s string) { log.Infof(s) },
+	}.Run(cmd)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	return string(stdout), nil
+	return stdout.String(), nil
 }
 
-// outputWithTimeout runs the Cmd and kills if it takes longer than timeout. If
-// the cmd fails and there is output to stdout, the output is converted into the
-// string for the error returned.
-var outputWithTimeout = func(cmd *exec.Cmd, timeout time.Duration) ([]byte, error) {
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	done := make(chan error)
-
-	var err error
-	go func() {
-		err = cmd.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-time.After(timeout):
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Warningf("error killing plugin %q", cmd.Path)
-		}
-		err := errors.NewErr("timed out waiting for plugin %q to execute", cmd.Path)
-		return nil, timeoutErr{&err}
-	case <-done:
-	}
-
-	if err != nil {
-		if stdout.Len() > 0 {
-			return nil, errors.Wrap(err, errors.New(stdout.String()))
-		}
-		return nil, err
-	}
-
-	return stdout.Bytes(), nil
+type infoLogger interface {
+	Infof(s string, args ...interface{})
 }
 
-// logwriter is a little helper that can be used as an io.Writer and writes to a
-// loggo.Logger.
-type logwriter struct {
-	loggo.Logger
-}
-
-// Write implements io.Write.
-func (l logwriter) Write(b []byte) (n int, err error) {
-	l.Infof(string(b))
-	return len(b), nil
+var getLogger = func(name string) infoLogger {
+	return loggo.GetLogger(name)
 }
