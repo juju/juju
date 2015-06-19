@@ -139,17 +139,13 @@ func (p Plugin) Status(id string) (ProcStatus, error) {
 	return status, nil
 }
 
-type infoLogger interface {
-	Infof(s string, args ...interface{})
+func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
+	return runCmd(p.Name, p.Path, subcommand, args...)
 }
 
-var getLogger = func(name string) infoLogger {
-	return loggo.GetLogger(name)
-}
-
-func (p Plugin) run(args ...string) ([]byte, error) {
-	cmd := exec.Command(p.Path, args...)
-	log := getLogger("juju.process.plugin." + p.Name)
+var runCmd = func(name, path, subcommand string, args ...string) ([]byte, error) {
+	cmd := exec.Command(path, append([]string{subcommand}, args...)...)
+	log := getLogger("juju.process.plugin." + name)
 	stdout := &bytes.Buffer{}
 	cmd.Stdout = stdout
 	err := deputy.Deputy{
@@ -160,4 +156,12 @@ func (p Plugin) run(args ...string) ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 	return stdout.Bytes(), nil
+}
+
+type infoLogger interface {
+	Infof(s string, args ...interface{})
+}
+
+var getLogger = func(name string) infoLogger {
+	return loggo.GetLogger(name)
 }
