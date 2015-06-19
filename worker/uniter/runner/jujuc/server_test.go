@@ -7,6 +7,7 @@ package jujuc_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -29,6 +30,7 @@ type RpcCommand struct {
 	cmd.CommandBase
 	Value string
 	Slow  bool
+	Echo  bool
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
@@ -42,6 +44,7 @@ func (c *RpcCommand) Info() *cmd.Info {
 func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 	f.BoolVar(&c.Slow, "slow", false, "doc")
+	f.BoolVar(&c.Echo, "echo", false, "doc")
 }
 
 func (c *RpcCommand) Init(args []string) error {
@@ -55,6 +58,11 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	if c.Slow {
 		time.Sleep(testing.ShortWait)
 		return nil
+	}
+	if c.Echo {
+		if _, err := io.Copy(ctx.Stdout, ctx.Stdin); err != nil {
+			return err
+		}
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
@@ -124,16 +132,28 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 		ContextId:   "validCtx",
 		Dir:         dir,
 		CommandName: "remote",
-		Args:        []string{"--value", "something"},
-		//Stdin:       []byte("wool of bat\n"),
+		Args:        []string{"--value", "something", "--echo"},
+		StdinSet:    true,
+		Stdin:       []byte("wool of bat\n"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, 0)
-	c.Assert(string(resp.Stdout), gc.Equals, "eye of newt\n")
+	c.Assert(string(resp.Stdout), gc.Equals, "wool of bat\neye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
 	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "something")
+}
+
+func (s *ServerSuite) TestNoStdin(c *gc.C) {
+	dir := c.MkDir()
+	_, err := s.Call(c, jujuc.Request{
+		ContextId:   "validCtx",
+		Dir:         dir,
+		CommandName: "remote",
+		Args:        []string{"--echo"},
+	})
+	c.Assert(err, gc.ErrorMatches, jujuc.ErrNoStdin.Error())
 }
 
 func (s *ServerSuite) TestLocks(c *gc.C) {
