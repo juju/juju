@@ -1007,7 +1007,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 				continue
 			}
 			// TODO(mfoord): when the IP address model includes MAC
-			// address we should set macAddress from it.
+			// address we should set macAddress from the IP address.
 		}
 		// Store it on the machine, construct and set an interface result.
 		dnsServers := make([]string, len(interfaceInfo.DNSServers))
