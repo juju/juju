@@ -14,45 +14,62 @@ func CollectionFromName(db *mgo.Database, coll string) (Collection, func()) {
 	return WrapCollection(newColl), session.Close
 }
 
-// Collection allows us to construct wrappers for *mgo.Collection objects.
-// It's not generally useful for mocking, because (1) you need a real mongo
-// in the background to implement Find[Id], not to mention Underlying; and
-// (2) if you're working at the level where you're directly concerned with
-// collections, it's important to write tests that verify their practical
-// behaviour.
-type Collection interface {
+// ReadCollection imperfectly insulates clients from the capacity to write to
+// MongoDB. Query results can still be used to write; and the WriteCollection
+// allows access to the underlying *mgo.Collection when absolutely required.
+type ReadCollection interface {
 
 	// Name returns the name of the collection.
 	Name() string
 
-	// Underlying returns the underlying *mgo.Collection. If you're using
-	// the collection with mgo/txn, you should be very wary of this method:
-	// careless use will disrupt the operation of mgo/txn and cause arbitrary
-	// badness.
-	Underlying() *mgo.Collection
-
-	// All other methods act as documented for *mgo.Collection.
+	// Count, Find, and FindId methods act as documented for *mgo.Collection.
 	Count() (int, error)
 	Find(query interface{}) *mgo.Query
 	FindId(id interface{}) *mgo.Query
+
+	// WriteCollection gives access to methods that enable direct DB access.
+	// It should be used with judicious care, and for only the best of reasons.
+	WriteCollection() WriteCollection
+}
+
+// WriteCollection allows read/write access to a MongoDB collection.
+type WriteCollection interface {
+	ReadCollection
+
+	// Underlying returns the underlying *mgo.Collection.
+	Underlying() *mgo.Collection
+
+	// All other methods act as documented for *mgo.Collection.
+	Insert(docs ...interface{}) error
+	Update(selector interface{}, update interface{}) error
+	UpdateId(id interface{}, update interface{}) error
+	Remove(sel interface{}) error
+	RemoveId(id interface{}) error
+	RemoveAll(sel interface{}) (*mgo.ChangeInfo, error)
 }
 
 // WrapCollection returns a Collection that wraps the supplied *mgo.Collection.
-func WrapCollection(coll *mgo.Collection) Collection {
+func WrapCollection(coll *mgo.Collection) ReadCollection {
 	return collectionWrapper{coll}
 }
 
-// collectionWrapper wraps a *mgo.Collection and implements Collection.
+// collectionWrapper wraps a *mgo.Collection and implements ReadCollection and
+// WriteCollection.
 type collectionWrapper struct {
 	*mgo.Collection
 }
 
-// Name is part of the Collection interface.
+// Name is part of the ReadCollection interface.
 func (cw collectionWrapper) Name() string {
 	return cw.Collection.Name
 }
 
-// Underlying is part of the Collection interface.
+// WriteCollection is part of the ReadCollection interface.
+func (cw collectionWrapper) WriteCollection() WriteCollection {
+	return cw
+}
+
+// Underlying is part of the WriteCollection interface.
 func (cw collectionWrapper) Underlying() *mgo.Collection {
 	return cw.Collection
 }
