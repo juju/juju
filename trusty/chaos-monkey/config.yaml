@@ -2,11 +2,13 @@ options:
   chaos-dir:
     type: string
     default: /home/ubuntu/chaos-monkey
-    description: The chaos-monkey project directory.
+    description: |
+      The top level directory for storing runtime files and logs.
   chaos-source:
     type: string
     default: https://github.com/juju/chaos-monkey/archive/master.tar.gz
-    description: URL to Chaos Monkey source as a gzip'd compressed tar archive.
+    description: |
+      The URL to Chaos Monkey source as a gzip'd compressed tar archive.
   dry-run:
     type: boolean
     default: false
