@@ -85,12 +85,12 @@ type Plugin struct {
 // Launch runs the given plugin, passing it the "launch" command, with the path
 // to the image to launch as an argument.
 //
-// 		launch <image>
+//		launch <image>
 //
 // The plugin is expected to start the image as a new process, and write json
 // output to stdout.  The form of the output is expected to be:
 //		{
-// 			"id" : "some-id", # unique id of the process
+//			"id" : "some-id", # unique id of the process
 //			"status" : "details" # plugin-specific metadata about the started process
 //		}
 //
@@ -129,7 +129,7 @@ func (p Plugin) Destroy(id string) error {
 // Status runs the given plugin, passing it the "status" command, with the id of
 // the process to get status about.
 //
-// 		status <id>
+//		status <id>
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
