@@ -11,11 +11,39 @@
 package all
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 )
 
-func init() {
-	workloadProcesses{}.registerAll()
+type component interface {
+	registerForServer() error
+	registerForClient() error
+}
+
+var components = []component{
+	&workloadProcesses{},
+}
+
+// RegisterForServer registers all the parts of the components with the
+// Juju machinery for use as a server (e.g. jujud, jujuc).
+func RegisterForServer() error {
+	for _, c := range components {
+		if err := c.registerForServer(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// RegisterForServer registers all the parts of the components with the
+// Juju machinery for use as a client (e.g. juju).
+func RegisterForClient() error {
+	for _, c := range components {
+		if err := c.registerForClient(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // registered tracks which parts of each component have been registered.

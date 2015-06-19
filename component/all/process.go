@@ -16,8 +16,13 @@ import (
 
 type workloadProcesses struct{}
 
-func (c workloadProcesses) registerAll() {
+func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
+	return nil
+}
+
+func (c workloadProcesses) registerForClient() error {
+	return nil
 }
 
 func (c workloadProcesses) registerHookContext() {
@@ -70,6 +75,7 @@ func (workloadProcesses) registerHookContextCommands() {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcRegistrationCommand(compCtx)
 		if err != nil {
+			// TODO(ericsnow) Return an error instead.
 			panic(err)
 		}
 		return cmd
