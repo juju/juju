@@ -28,6 +28,8 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 	return nil
 }
 
+// timerChooser allows modeAbide to choose a proper timer for metrics
+// depending on the charm.
 type timerChooser struct {
 	active   TimedSignal
 	inactive TimedSignal
@@ -43,12 +45,8 @@ func (t *timerChooser) getMetricsTimer(ch corecharm.Charm) TimedSignal {
 	return t.inactive
 }
 
-// defaultTimer returns the timer that is to be used when there is no charm
-// to supply.
-func (t *timerChooser) defaultTimer() TimedSignal {
-	return t.inactive
-}
-
+// NewMetricsTimerChooser returns a timerChooser for
+// collect-metrics.
 func NewMetricsTimerChooser() *timerChooser {
 	return &timerChooser{
 		active:   activeMetricsTimer,

@@ -46,8 +46,6 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
-type simpleUniterFunc func(*Uniter) error
-
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -85,9 +83,9 @@ type Uniter struct {
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
 
-	// metricsTimer is a struct that allows metrics to switch between
+	// metricsTimerChooser is a struct that allows metrics to switch between
 	// active and inactive timers.
-	metricsTimer *timerChooser
+	metricsTimerChooser *timerChooser
 
 	// collectMetricsAt defines a function that will be used to generate signals
 	// for the collect-metrics hook.
@@ -100,13 +98,13 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	St                 *uniter.State
-	UnitTag            names.UnitTag
-	LeadershipManager  coreleadership.LeadershipManager
-	DataDir            string
-	HookLock           *fslock.Lock
-	MetricsTimer       *timerChooser
-	UpdateStatusSignal TimedSignal
+	St                  *uniter.State
+	UnitTag             names.UnitTag
+	LeadershipManager   coreleadership.LeadershipManager
+	DataDir             string
+	HookLock            *fslock.Lock
+	MetricsTimerChooser *timerChooser
+	UpdateStatusSignal  TimedSignal
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -114,15 +112,13 @@ type UniterParams struct {
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                uniterParams.St,
-		paths:             NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:          uniterParams.HookLock,
-		leadershipManager: uniterParams.LeadershipManager,
-		metricsTimer:      uniterParams.MetricsTimer,
-		// TODO(perrito666) make these signals directly fetched from
-		// the timer.
-		collectMetricsAt: uniterParams.MetricsTimer.defaultTimer(),
-		updateStatusAt:   uniterParams.UpdateStatusSignal,
+		st:                  uniterParams.St,
+		paths:               NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		hookLock:            uniterParams.HookLock,
+		leadershipManager:   uniterParams.LeadershipManager,
+		metricsTimerChooser: uniterParams.MetricsTimerChooser,
+		collectMetricsAt:    uniterParams.MetricsTimerChooser.inactive,
+		updateStatusAt:      uniterParams.UpdateStatusSignal,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -343,7 +339,7 @@ func (u *Uniter) initializeMetricsCollector() error {
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = u.metricsTimer.getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimerChooser.getMetricsTimer(charm)
 	return nil
 }
 

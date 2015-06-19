@@ -276,7 +276,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 
 // idleWaitTime is the time after which, if there are no uniter events,
 // the agent state becomes idle.
-var idleWaitTime = 10 * time.Second
+var idleWaitTime = 2 * time.Second
 
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
