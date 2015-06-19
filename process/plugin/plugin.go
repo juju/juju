@@ -140,7 +140,7 @@ func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
 // process to destroy as an argument.
 //
-// 		<plugin> destroy <id>
+//		<plugin> destroy <id>
 func (p Plugin) Destroy(id string) error {
 	_, err := p.run("destroy", id)
 	return errors.Trace(err)
