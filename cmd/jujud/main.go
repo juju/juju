@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
@@ -73,7 +75,7 @@ func getwd() (string, error) {
 // jujuCMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func jujuCMain(commandName string, args []string) (code int, err error) {
+func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
 	code = 1
 	contextId, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
@@ -100,6 +102,15 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	defer client.Close()
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
+	if err != nil && err.Error() == jujuc.ErrNoStdin.Error() {
+		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			err = errors.Annotate(err, "cannot read stdin")
+			return
+		}
+		req.StdinSet = true
+		err = client.Call("Jujuc.Main", req, &resp)
+	}
 	if err != nil {
 		return
 	}
@@ -160,7 +171,7 @@ func Main(args []string) {
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
-		code, err = jujuCMain(commandName, args)
+		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
