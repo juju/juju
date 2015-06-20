@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/plugin"
 )
 
 const registerDoc = `
@@ -39,7 +40,7 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 func (c *ProcRegistrationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
-		Args:    "<name> <id> [<details>]",
+		Args:    "<name> <proc-details>",
 		Purpose: "register a workload process",
 		Doc:     registerDoc,
 	}
@@ -47,38 +48,22 @@ func (c *ProcRegistrationCommand) Info() *cmd.Info {
 
 // Init implements cmd.Command.
 func (c *ProcRegistrationCommand) Init(args []string) error {
-	switch len(args) {
-	case 0, 1:
-		return errors.Errorf("expected at least 2 args, got: %v", args)
-	case 2:
-		return c.init(args[0], args[1], "")
-	case 3:
-		return c.init(args[0], args[1], args[2])
-	default:
-		return errors.Errorf("expected at most 3 args, got: %v", args)
+	if len(args) != 2 {
+		return errors.Errorf("expected <name> <proc-details>, got: %v", args)
 	}
+	return c.init(args[0], args[1])
 }
 
-func (c *ProcRegistrationCommand) init(name, id, detailsStr string) error {
+func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
 	if err := c.registeringCommand.init(name); err != nil {
 		return errors.Trace(err)
 	}
 
-	if id == "" {
-		return errors.Errorf("got empty id")
+	details, err := plugin.UnmarshalDetails([]byte(detailsStr))
+	if err != nil {
+		return errors.Trace(err)
 	}
-	c.ID = id
-
-	if detailsStr != "" {
-		details, err := process.ParseDetails(detailsStr)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if details.ID != id {
-			return errors.Errorf("ID in details (%s) does not match ID arg (%s)", details.ID, id)
-		}
-		c.Details = *details
-	}
+	c.Details = details
 
 	return nil
 }

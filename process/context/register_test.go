@@ -4,19 +4,21 @@
 package context_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/process/plugin"
 )
 
 type registerSuite struct {
 	commandSuite
 
 	registerCmd *context.ProcRegistrationCommand
-	details     *process.LaunchDetails
+	details     plugin.ProcDetails
 }
 
 var _ = gc.Suite(&registerSuite{})
@@ -34,13 +36,12 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	err := s.registerCmd.Init([]string{
 		name,
-		id,
 		`{"id":"` + id + `", "status":"` + status + `"}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.details = &process.LaunchDetails{
-		ID:     id,
-		Status: status,
+	s.details = plugin.ProcDetails{
+		ID:         id,
+		ProcStatus: plugin.ProcStatus{Status: status},
 	}
 }
 
@@ -57,7 +58,7 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: register [options] <name> <id> [<details>]
+usage: register [options] <name> <proc-details>
 purpose: register a workload process
 
 options:
@@ -80,58 +81,33 @@ the charm's metadata.yaml.
 func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		"abc123",
 		`{"id":"abc123", "status":"okay"}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.ID, gc.Equals, "abc123")
-	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{
-		ID:     "abc123",
-		Status: "okay",
+	c.Check(s.registerCmd.Details, jc.DeepEquals, plugin.ProcDetails{
+		ID:         "abc123",
+		ProcStatus: plugin.ProcStatus{Status: "okay"},
 	})
-}
-
-func (s *registerSuite) TestInitMinArgs(c *gc.C) {
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.ID, gc.Equals, "abc123")
-	c.Check(s.registerCmd.Details, jc.DeepEquals, process.LaunchDetails{})
 }
 
 func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{})
-	c.Check(err, gc.ErrorMatches, "expected at least 2 args, got: .*")
+	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
 
 	err = s.registerCmd.Init([]string{s.proc.Name})
-	c.Check(err, gc.ErrorMatches, "expected at least 2 args, got: .*")
+	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
 }
 
 func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		"abc123",
 		`{"id":"abc123", "status":"okay"}`,
 		"other",
 	})
 
-	c.Check(err, gc.ErrorMatches, "expected at most 3 args, got: .*")
-}
-
-func (s *registerSuite) TestInitIDMismatch(c *gc.C) {
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		"abc123",
-		`{"id":"xyz789", "status":"okay"}`,
-	})
-
-	c.Check(err, gc.ErrorMatches, "ID in details (.*) does not match ID arg (.*)")
+	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
 }
 
 func (s *registerSuite) TestInitEmptyName(c *gc.C) {
@@ -149,37 +125,34 @@ func (s *registerSuite) TestInitEmptyID(c *gc.C) {
 		"",
 	})
 
-	c.Check(err, gc.ErrorMatches, "got empty id")
+	c.Check(errors.Cause(err), gc.ErrorMatches, "unexpected end of JSON input")
 }
 
 func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		"abc123",
 		`{"status":"okay"}`,
 	})
 
-	c.Check(err, gc.ErrorMatches, "ID must be set")
+	c.Check(errors.Cause(err), jc.Satisfies, plugin.IsInvalid)
 }
 
 func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		"abc123",
 		`{"id":"abc123"}`,
 	})
 
-	c.Check(err, gc.ErrorMatches, "Status must be set")
+	c.Check(errors.Cause(err), jc.Satisfies, plugin.IsInvalid)
 }
 
 func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		"abc123",
 		`{"id":"abc123", "status":"okay"`,
 	})
 
-	c.Check(err, gc.ErrorMatches, "unexpected end of JSON input")
+	c.Check(errors.Cause(err), gc.ErrorMatches, "unexpected end of JSON input")
 }
 
 func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
@@ -319,7 +292,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 
 	s.proc.Process = *s.registerCmd.UpdatedProcess
 	s.proc.Status = process.StatusActive
-	s.proc.Details = *s.details
+	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Set",
 		Args:     []interface{}{s.proc.Name, s.proc},

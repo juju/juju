@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/process/plugin"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -46,9 +47,9 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 	c.Check(s.cmdCtx.Stderr.(*bytes.Buffer).String(), gc.Equals, expected)
 }
 
-func (s *commandSuite) checkDetails(c *gc.C, expected *process.LaunchDetails) {
+func (s *commandSuite) checkDetails(c *gc.C, expected plugin.ProcDetails) {
 	info := context.GetCmdInfo(s.cmd)
-	c.Check(&info.Details, jc.DeepEquals, expected)
+	c.Check(info.Details, jc.DeepEquals, expected)
 }
 
 func (s *commandSuite) checkStatus(c *gc.C, expected process.Status) {

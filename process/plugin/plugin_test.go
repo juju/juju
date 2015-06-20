@@ -34,7 +34,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, ProcDetails{"foo", "bar"})
+	c.Assert(pd, gc.Equals, ProcDetails{"foo", ProcStatus{"bar"}})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Path)
@@ -54,12 +54,25 @@ func (s *suite) TestLaunchBadOutput(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(err, gc.ErrorMatches, `error parsing data returned from "Name".*`)
+	c.Assert(err, gc.ErrorMatches, `error parsing data for procdetails.*`)
 }
 
 func (s *suite) TestLaunchNoId(c *gc.C) {
 	f := &fakeRunner{
 		out: []byte(`{ "status" : "bar" }`),
+	}
+	s.PatchValue(&runCmd, f.runCmd)
+
+	p := Plugin{"Name", "Path"}
+	proc := charm.Process{Image: "img"}
+
+	_, err := p.Launch(proc)
+	c.Assert(errors.Cause(err), jc.Satisfies, IsInvalid)
+}
+
+func (s *suite) TestLaunchNoStatus(c *gc.C) {
+	f := &fakeRunner{
+		out: []byte(`{ "id" : "foo" }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 

@@ -56,6 +56,16 @@ type ProcDetails struct {
 	ProcStatus
 }
 
+// validate returns nil if this value is valid, and an error that satisfies
+// IsValid if it is not.
+func (p ProcDetails) validate() error {
+	if p.ID == "" {
+		e := errors.NewErr("ID cannot be empty")
+		return validationErr{&e}
+	}
+	return p.ProcStatus.validate()
+}
+
 // ProcStatus represents the data returned from the Status call.
 type ProcStatus struct {
 	// Status represents the human-readable string returned by the plugin for
@@ -63,10 +73,11 @@ type ProcStatus struct {
 	Status string `json:"status"`
 }
 
-// Validate returns nil if this value is valid, and an error if it is not.
-func (p ProcDetails) Validate() error {
-	if p.ID == "" {
-		e := errors.NewErr("ID cannot be empty")
+// validate returns nil if this value is valid, and an error that satisfies
+// IsValid if it is not.
+func (p ProcStatus) validate() error {
+	if p.Status == "" {
+		e := errors.NewErr("Status cannot be empty")
 		return validationErr{&e}
 	}
 	return nil
@@ -119,22 +130,28 @@ type Plugin struct {
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
 func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
+	details := ProcDetails{}
 	b, err := json.Marshal(proc)
 	if err != nil {
-		return ProcDetails{}, errors.Annotate(err, "can't convert charm.Process to json")
+		return details, errors.Annotate(err, "can't convert charm.Process to json")
 	}
-	details := ProcDetails{}
 	out, err := p.run("launch", string(b))
 	if err != nil {
 		return details, errors.Trace(err)
 	}
-	if err := json.Unmarshal(out, &details); err != nil {
-		return details, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
+	return UnmarshalDetails(out)
+}
+
+func UnmarshalDetails(b []byte) (ProcDetails, error) {
+	details := ProcDetails{}
+	if err := json.Unmarshal(b, &details); err != nil {
+		return details, errors.Annotate(err, "error parsing data for procdetails")
 	}
-	if err := details.Validate(); err != nil {
-		return details, errors.Annotatef(err, "invalid details returned by plugin %q", p.Name)
+	if err := details.validate(); err != nil {
+		return details, errors.Annotate(err, "invalid procdetails")
 	}
 	return details, nil
+
 }
 
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
@@ -162,7 +179,9 @@ func (p Plugin) Status(id string) (ProcStatus, error) {
 	if err := json.Unmarshal(out, &status); err != nil {
 		return status, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
 	}
-
+	if err := status.validate(); err != nil {
+		return status, errors.Annotatef(err, "invalid details returned by plugin %q", p.Name)
+	}
 	return status, nil
 }
 
