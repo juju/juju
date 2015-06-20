@@ -168,8 +168,10 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 		},
 		expected: []interface{}{
 			map[string]interface{}{
-				"MachineId": "1",
-				"Stdout":    "",
+				"MachineId":  "1",
+				"Stdout":     "",
+				"ReturnCode": 0,
+				"Stderr":     "",
 			}},
 	}, {
 		message: "other fields are copied if there",
@@ -209,6 +211,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 				"Stdout":          "/w==",
 				"Stdout.encoding": "base64",
 				"Stderr":          "/g==",
+				"ReturnCode":      0,
 				"Stderr.encoding": "base64",
 			}},
 	}, {
@@ -220,16 +223,22 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 		},
 		expected: []interface{}{
 			map[string]interface{}{
-				"MachineId": "1",
-				"Stdout":    "",
+				"ReturnCode": 0,
+				"MachineId":  "1",
+				"Stdout":     "",
+				"Stderr":     "",
 			},
 			map[string]interface{}{
-				"MachineId": "2",
-				"Stdout":    "",
+				"ReturnCode": 0,
+				"MachineId":  "2",
+				"Stdout":     "",
+				"Stderr":     "",
 			},
 			map[string]interface{}{
-				"MachineId": "3",
-				"Stdout":    "",
+				"ReturnCode": 0,
+				"MachineId":  "3",
+				"Stdout":     "",
+				"Stderr":     "",
 			},
 		},
 	}} {
