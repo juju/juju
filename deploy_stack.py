@@ -28,7 +28,10 @@ from jujupy import (
     SimpleEnvironment,
     temp_bootstrap_env,
 )
-from remote import Remote
+from remote import (
+    remote_from_address,
+    remote_from_unit,
+)
 from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
@@ -124,10 +127,13 @@ def check_token(client, token):
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    remote = Remote(client, "dummy-sink/0")
+    remote = remote_from_unit(client, "dummy-sink/0")
     start = time.time()
     while True:
-        result = remote.run(GET_TOKEN_SCRIPT)
+        if remote.is_windows():
+            result = remote.cat("%ProgramData%\\dummy-sink\\token")
+        else:
+            result = remote.run(GET_TOKEN_SCRIPT)
         result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
@@ -239,7 +245,7 @@ def copy_remote_logs(host, directory):
         '/var/log/cloud-init*.log',
         '/var/log/juju/*.log',
     ]
-    remote = Remote(address=host)
+    remote = remote_from_address(address=host)
 
     try:
         wait_for_port(host, 22, timeout=60)
