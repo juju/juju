@@ -256,6 +256,34 @@ class TestHUploader(TestCase):
                     ValueError, 'Build number is not set'):
                 h.upload_by_env_build_number()
 
+    def test_upload_latest_test_results(self):
+        class Response:
+            text = "console content"
+        build_info = {"artifacts": [], 'url': 'fake', "number": BUILD_NUM}
+        last_build = {"lastBuild": {"number": BUILD_NUM}}
+        cred = Credentials('joe', 'password')
+        jenkins_build = JenkinsBuild(cred, None, None, build_info)
+        s3_mock = MagicMock()
+        h = HUploader(s3_mock, jenkins_build)
+        with patch("upload_hetero_control.get_job_data", autospec=True,
+                   return_value=last_build) as gjd_mock:
+            with patch("upload_hetero_control.get_build_data", autospec=True,
+                       return_value=build_info) as gbd_mock:
+                with patch('upload_hetero_control.requests.get', autospec=True,
+                           return_value=Response):
+                    h.upload_latest_test_result()
+        self.assertEqual(s3_mock.store.mock_calls, [
+            call('1277-result-results.json', json.dumps(build_info),
+                 headers={"Content-Type": "application/json"}),
+            call('1277-console-consoleText.txt', Response.text,
+                 headers={"Content-Type": "text/plain; charset=utf8"})
+        ])
+        gjd_mock.assert_called_once_with(None, cred, None)
+        self.assertEqual(gbd_mock.mock_calls, [
+            call(None, cred, None, BUILD_NUM),
+            call(None, cred, None, BUILD_NUM)
+        ])
+
 
 class OtherTests(TestCase):
 
