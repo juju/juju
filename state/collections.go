@@ -20,9 +20,9 @@ import (
 // If the collection stores documents for multiple environments, the
 // returned collection will automatically perform environment
 // filtering where possible. See envStateCollection below.
-func (st *State) getCollection(name string) (stateCollection, func()) {
-	coll, closer := mongo.CollectionFromName(st.db, name)
-	return newStateCollection(coll, st.EnvironUUID()), closer
+func (st *State) getCollection(name string) (mongo.Collection, func()) {
+	collection, closer := mongo.CollectionFromName(st.db, name)
+	return newStateCollection(collection, st.EnvironUUID()), closer
 }
 
 // getRawCollection returns the named mgo Collection. As no automatic
@@ -30,7 +30,9 @@ func (st *State) getCollection(name string) (stateCollection, func()) {
 // should be rarely used. getCollection() should be used in almost all
 // cases.
 func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
-	return mongo.CollectionFromName(st.db, name)
+	// TODO(fwereade): drop all [gG]etRawCollection usage?
+	collection, closer := mongo.CollectionFromName(st.db, name)
+	return collection.Writeable().Underlying(), closer
 }
 
 // getCollectionFromDB returns the specified collection from the given
@@ -39,22 +41,9 @@ func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
 // An environment UUID must be provided so that environment filtering
 // can be automatically applied if the collection stores data for
 // multiple environments.
-func getCollectionFromDB(db *mgo.Database, name, envUUID string) stateCollection {
-	return newStateCollection(db.C(name), envUUID)
-}
-
-type stateCollection interface {
-	Name() string
-	Underlying() *mgo.Collection
-	Count() (int, error)
-	Find(query interface{}) *mgo.Query
-	FindId(id interface{}) *mgo.Query
-	Insert(docs ...interface{}) error
-	Update(selector interface{}, update interface{}) error
-	UpdateId(id interface{}, update interface{}) error
-	Remove(sel interface{}) error
-	RemoveId(id interface{}) error
-	RemoveAll(sel interface{}) (*mgo.ChangeInfo, error)
+func getCollectionFromDB(db *mgo.Database, name, envUUID string) mongo.Collection {
+	collection := mongo.WrapCollection(db.C(name))
+	return newStateCollection(collection, envUUID)
 }
 
 // This is all collections that contain data for multiple
@@ -100,57 +89,46 @@ var multiEnvCollections = set.NewStrings(
 	volumeAttachmentsC,
 )
 
-func newStateCollection(coll *mgo.Collection, envUUID string) stateCollection {
-	if multiEnvCollections.Contains(coll.Name) {
+func newStateCollection(collection mongo.Collection, envUUID string) mongo.Collection {
+	if multiEnvCollections.Contains(collection.Name()) {
 		return &envStateCollection{
-			Collection: coll,
-			envUUID:    envUUID,
+			WriteCollection: collection.Writeable(),
+			envUUID:         envUUID,
 		}
 	}
-	return &genericStateCollection{Collection: coll}
+	return collection
 }
 
-// genericStateCollection wraps a mgo Collection. It acts as a
-// pass-through which implements the stateCollection interface.
-type genericStateCollection struct {
-	*mgo.Collection
-}
-
-// Name returns the MongoDB collection name.
-func (c *genericStateCollection) Name() string {
-	return c.Collection.Name
-}
-
-// Underlying returns the mgo Collection that the
-// genericStateCollection is wrapping.
-func (c *genericStateCollection) Underlying() *mgo.Collection {
-	return c.Collection
-}
-
-// envStateCollection wraps a mgo Collection, implementing the
-// stateCollection interface. It will automatically modify query
-// selectors so that so that the query only interacts with data for a
-// single environment (where possible).
+// envStateCollection wraps a mongo.Collection, preserving the
+// mongo.Collection interface and its Writeable behaviour.. It will
+// automatically modify query selectors so that so that the query only
+// interacts with data for a single environment (where possible).
+// In particular, Inserts are not trapped at all. Be careful.
 type envStateCollection struct {
-	*mgo.Collection
+	mongo.WriteCollection
 	envUUID string
 }
 
 // Name returns the MongoDB collection name.
 func (c *envStateCollection) Name() string {
-	return c.Collection.Name
+	return c.WriteCollection.Name()
+}
+
+// Writeable is part of the Collection interface.
+func (c *envStateCollection) Writeable() mongo.WriteCollection {
+	return c
 }
 
 // Underlying returns the mgo Collection that the
-// envStateCollection is wrapping.
+// envStateCollection is ultimately wrapping.
 func (c *envStateCollection) Underlying() *mgo.Collection {
-	return c.Collection
+	return c.WriteCollection.Underlying()
 }
 
 // Count returns the number of documents in the collection that belong
 // to the environment that the envStateCollection is filtering on.
 func (c *envStateCollection) Count() (int, error) {
-	return c.Collection.Find(bson.D{{"env-uuid", c.envUUID}}).Count()
+	return c.WriteCollection.Find(bson.D{{"env-uuid", c.envUUID}}).Count()
 }
 
 // Find performs a query on the collection. The query must be given as
@@ -166,7 +144,7 @@ func (c *envStateCollection) Count() (int, error) {
 // these cases it is up to the caller to add environment UUID
 // prefixes when necessary.
 func (c *envStateCollection) Find(query interface{}) *mgo.Query {
-	return c.Collection.Find(c.mungeQuery(query))
+	return c.WriteCollection.Find(c.mungeQuery(query))
 }
 
 // FindId looks up a single document by _id. If the id is a string the
@@ -174,7 +152,7 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 // query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 	if sid, ok := id.(string); ok {
-		return c.Collection.FindId(addEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.FindId(addEnvUUID(c.envUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
 }
@@ -192,7 +170,7 @@ func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 // these cases it is up to the caller to add environment UUID
 // prefixes when necessary.
 func (c *envStateCollection) Update(query interface{}, update interface{}) error {
-	return c.Collection.Update(c.mungeQuery(query), update)
+	return c.WriteCollection.Update(c.mungeQuery(query), update)
 }
 
 // UpdateId finds a single document by _id and modifies it according to the
@@ -201,15 +179,15 @@ func (c *envStateCollection) Update(query interface{}, update interface{}) error
 // prefix isn't there already.
 func (c *envStateCollection) UpdateId(id interface{}, update interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.Collection.UpdateId(addEnvUUID(c.envUUID, sid), update)
+		return c.WriteCollection.UpdateId(addEnvUUID(c.envUUID, sid), update)
 	}
-	return c.Collection.UpdateId(bson.D{{"_id", id}}, update)
+	return c.WriteCollection.UpdateId(bson.D{{"_id", id}}, update)
 }
 
 // Remove deletes a single document using the query provided. The
 // query will be handled as per Find().
 func (c *envStateCollection) Remove(query interface{}) error {
-	return c.Collection.Remove(c.mungeQuery(query))
+	return c.WriteCollection.Remove(c.mungeQuery(query))
 }
 
 // RemoveId deletes a single document by id. If the id is a string the
@@ -217,7 +195,7 @@ func (c *envStateCollection) Remove(query interface{}) error {
 // query will be handled as per Find().
 func (c *envStateCollection) RemoveId(id interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.Collection.RemoveId(addEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.RemoveId(addEnvUUID(c.envUUID, sid))
 	}
 	return c.Remove(bson.D{{"_id", id}})
 }
@@ -225,7 +203,7 @@ func (c *envStateCollection) RemoveId(id interface{}) error {
 // RemoveAll deletes all docuemnts that match a query. The query will
 // be handled as per Find().
 func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, error) {
-	return c.Collection.RemoveAll(c.mungeQuery(query))
+	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
 }
 
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
