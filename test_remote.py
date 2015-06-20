@@ -2,6 +2,7 @@
 
 import logging
 from mock import patch
+import os
 from StringIO import StringIO
 import subprocess
 import unittest
@@ -16,6 +17,10 @@ from jujupy import (
 from remote import (
     remote_from_address,
     remote_from_unit,
+    WinRmRemote,
+)
+from utility import (
+    temp_dir,
 )
 
 
@@ -214,3 +219,19 @@ class TestRemote(unittest.TestCase):
         st.assert_called_once_with()
         mock_run.assert_called_once_with(
             '"C:\\Program Files\\bin.exe"', ['/IN "Bob\'s Stuff"'])
+
+    def test_encoded_copy_to_dir_one(self):
+        output = "testfile|K0ktLuECAA==\r\n"
+        with temp_dir() as dest:
+            WinRmRemote._encoded_copy_to_dir(dest, output)
+            with open(os.path.join(dest, "testfile")) as f:
+                self.assertEqual(f.read(), "test\n")
+
+    def test_encoded_copy_to_dir_many(self):
+        output = "test one|K0ktLuECAA==\r\ntest two|K0ktLuECAA==\r\n\r\n"
+        with temp_dir() as dest:
+            WinRmRemote._encoded_copy_to_dir(dest, output)
+            with open(os.path.join(dest, "test one")) as f:
+                self.assertEqual(f.read(), "test\n")
+            with open(os.path.join(dest, "test two")) as f:
+                self.assertEqual(f.read(), "test\n")

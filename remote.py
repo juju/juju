@@ -4,7 +4,9 @@ __metaclass__ = type
 
 import abc
 import logging
+import os
 import subprocess
+import zlib
 
 import winrm
 
@@ -149,6 +151,47 @@ class _SSLSession(winrm.Session):
                                        cert_key_pem=key, cert_pem=cert)
 
 
+_ps_copy_script = """\
+function CopyText {
+    param([String]$file, [IO.Stream]$outstream)
+    $enc = New-Object Text.UTF8Encoding($False)
+    $us = New-Object IO.StreamWriter($outstream, $enc)
+    $us.NewLine = "\n"
+    $uin = New-Object IO.StreamReader($file)
+    while (($line = $uin.ReadLine()) -ne $Null) {
+        $us.WriteLine($line)
+    }
+    $uin.Close()
+    $us.Close()
+}
+
+function CopyBinary {
+    param([String]$file, [IO.Stream]$outstream)
+    $in = New-Object IO.FileStream($file, [IO.FileMode]::Open,
+        [IO.FileAccess]::Read)
+    $in.CopyTo($outstream)
+    $in.Close()
+}
+
+ForEach ($pattern in %s) {
+    $path = [Environment]::ExpandEnvironmentVariables($pattern)
+    $files = Get-Item -path $path
+    ForEach ($file in $files) {
+        [Console]::Out.Write($file.name + "|")
+        $trans = New-Object Security.Cryptography.ToBase64Transform
+        $out = [Console]::OpenStandardOutput()
+        $bs = New-Object Security.Cryptography.CryptoStream($out, $trans,
+            [Security.Cryptography.CryptoStreamMode]::Write)
+        $zs = New-Object IO.Compression.DeflateStream($bs,
+            [IO.Compression.CompressionMode]::Compress)
+        CopyBinary -file $file -outstream $zs
+        $zs.Close()
+        [Console]::Out.Write("\n")
+    }
+}
+"""
+
+
 class WinRmRemote(_Remote):
 
     def __init__(self, *args, **kwargs):
@@ -181,4 +224,30 @@ class WinRmRemote(_Remote):
 
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
-        raise NotImplementedError
+        script = _ps_copy_script % ",".join(s.join('""') for s in source_globs)
+        result = self.run_ps(script)
+        if result.status_code or result.std_err:
+            logging.error("winrm copy failed with:\n%s", result.std_err)
+            raise ValueError("winrm copy failed")
+        self._encoded_copy_to_dir(destination_dir, result.std_out)
+
+    @staticmethod
+    def _encoded_copy_to_dir(destination_dir, output):
+        """Write remote files from powershell script to disk."""
+        start = 0
+        while True:
+            end = output.find("\n", start)
+            if end == -1:
+                break
+            mid = output.find("|", start, end)
+            if mid == -1:
+                if not output[start:end].rstrip("\r\n"):
+                    break
+                raise ValueError("missing filename in encoded copy data")
+            filename = output[start:mid]
+            if "/" in filename:
+                raise AssertionError("path not filename %s" % filename)
+            with open(os.path.join(destination_dir, filename), "wb") as f:
+                f.write(zlib.decompress(output[mid+1:end].decode("base64"),
+                                        -zlib.MAX_WBITS))
+            start = end + 1
