@@ -231,7 +231,6 @@ class TestRemote(unittest.TestCase):
         output = "test one|K0ktLuECAA==\r\ntest two|K0ktLuECAA==\r\n\r\n"
         with temp_dir() as dest:
             WinRmRemote._encoded_copy_to_dir(dest, output)
-            with open(os.path.join(dest, "test one")) as f:
-                self.assertEqual(f.read(), "test\n")
-            with open(os.path.join(dest, "test two")) as f:
-                self.assertEqual(f.read(), "test\n")
+            for name in ("test one", "test two"):
+                with open(os.path.join(dest, name)) as f:
+                    self.assertEqual(f.read(), "test\n")

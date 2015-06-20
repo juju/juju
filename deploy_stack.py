@@ -128,6 +128,8 @@ def check_token(client, token):
     # package updates.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
+    if client.env.config['type'] == 'maas':
+        fixup_maas_addresses(client, [remote])
     start = time.time()
     while True:
         if remote.is_windows():
@@ -150,14 +152,14 @@ def get_random_string():
 
 
 def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
-    machine_addrs = get_machines_for_logs(client, bootstrap_host)
+    remote_machines = get_remote_machines(client, bootstrap_host)
 
-    for machine_id, addr in machine_addrs.iteritems():
+    for machine_id, remote in remote_machines.iteritems():
         logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, "machine-%s" % machine_id)
         os.mkdir(machine_directory)
         local_state_server = client.env.local and machine_id == '0'
-        dump_logs(client, addr, machine_directory,
+        dump_logs(client.env, remote, machine_directory,
                   local_state_server=local_state_server)
     retain_jenv(jenv_path, directory)
 
@@ -175,47 +177,59 @@ def retain_jenv(jenv_path, log_directory):
     return False
 
 
-def get_machines_for_logs(client, bootstrap_host):
-    """Return a dict of machine_id and address.
+def get_remote_machines(client, bootstrap_host):
+    """Return a dict of machine_id to remote address.
 
     With a maas environment, the maas api will be queried for the real
     ip addresses. Otherwise, bootstrap_host may be provided to
     override the address of machine 0.
     """
     # Try to get machine details from environment if possible.
-    machine_addrs = dict(get_machine_addrs(client))
+    machines = dict(iter_remote_machines(client))
 
     if client.env.config['type'] == 'maas':
-        # Maas hostnames are not resolvable, but we can adapt them to IPs.
-        with MAASAccount.manager_from_config(client.env.config) as account:
-            allocated_ips = account.get_allocated_ips()
-        for machine_id, hostname in machine_addrs.items():
-            machine_addrs[machine_id] = allocated_ips.get(hostname, hostname)
+        fixup_maas_addresses(client, machines.itervalues())
     elif bootstrap_host:
         # The bootstrap host overrides the status output if provided in case
         # status failed.
-        machine_addrs['0'] = bootstrap_host
-    return machine_addrs
+        if '0' not in machines:
+            machines['0'] = remote_from_address(bootstrap_host)
+        else:
+            # TODO(gz): Do we ever actually want to do this?
+            machines['0'].address = bootstrap_host
+    return machines
 
 
-def get_machine_addrs(client):
+def fixup_maas_addresses(client, remote_machines):
+    # Maas hostnames are not resolvable, but we can adapt them to IPs.
+    with MAASAccount.manager_from_config(client.env.config) as account:
+        allocated_ips = account.get_allocated_ips()
+    for remote in remote_machines:
+        remote._ensure_address()
+        if remote.address in allocated_ips:
+            remote.address = allocated_ips[remote.address]
+
+
+def iter_remote_machines(client):
     try:
         status = client.get_status()
     except Exception as err:
         logging.warning("Failed to retrieve status for dumping logs: %s", err)
         return
+
     for machine_id, machine in status.iter_machines():
         hostname = machine.get('dns-name')
         if hostname:
-            yield machine_id, hostname
+            remote = remote_from_address(hostname, machine.get('series'))
+            yield machine_id, remote
 
 
-def dump_logs(client, host, directory, local_state_server=False):
+def dump_logs(env, remote, directory, local_state_server=False):
     try:
         if local_state_server:
-            copy_local_logs(directory, client)
+            copy_local_logs(env, directory)
         else:
-            copy_remote_logs(host, directory)
+            copy_remote_logs(remote, directory)
         subprocess.check_call(
             ['gzip', '-f'] +
             glob.glob(os.path.join(directory, '*.log')))
@@ -227,8 +241,8 @@ def dump_logs(client, host, directory, local_state_server=False):
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
 
 
-def copy_local_logs(directory, client):
-    local = get_local_root(get_juju_home(), client.env)
+def copy_local_logs(env, directory):
+    local = get_local_root(get_juju_home(), env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
     log_names.extend(glob.glob(lxc_template_glob))
@@ -237,28 +251,33 @@ def copy_local_logs(directory, client):
     subprocess.check_call(['cp'] + log_names + [directory])
 
 
-def copy_remote_logs(host, directory):
+def copy_remote_logs(remote, directory):
     """Copy as many logs from the remote host as possible to the directory."""
     # This list of names must be in the order of creation to ensure they
     # are retrieved.
-    log_paths = [
-        '/var/log/cloud-init*.log',
-        '/var/log/juju/*.log',
-    ]
-    remote = remote_from_address(address=host)
+    if remote.is_windows():
+        log_paths = [
+            "%ProgramFiles(x86)%\\Cloudbase Solutions\\Cloudbase-Init\\log\\*",
+            "C:\\Juju\\log\\juju\\*",
+        ]
+    else:
+        log_paths = [
+            '/var/log/cloud-init*.log',
+            '/var/log/juju/*.log',
+        ]
 
-    try:
-        wait_for_port(host, 22, timeout=60)
-    except PortTimeoutError:
-        logging.warning("Could not dump logs because port 22 was closed.")
-        return
+        try:
+            wait_for_port(remote.address, 22, timeout=60)
+        except PortTimeoutError:
+            logging.warning("Could not dump logs because port 22 was closed.")
+            return
 
-    try:
-        remote.run('sudo chmod go+r /var/log/juju/*')
-    except subprocess.CalledProcessError as e:
-        # The juju log dir is not created until after cloud-init succeeds.
-        logging.warning("Could not change the permission of the juju logs:")
-        logging.warning(e.output)
+        try:
+            remote.run('sudo chmod go+r /var/log/juju/*')
+        except subprocess.CalledProcessError as e:
+            # The juju log dir is not created until after cloud-init succeeds.
+            logging.warning("Could not allow access to the juju logs:")
+            logging.warning(e.output)
 
     try:
         remote.copy(directory, log_paths)

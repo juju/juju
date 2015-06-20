@@ -10,7 +10,6 @@ import zlib
 
 import winrm
 
-from substrate import MAASAccount
 import utility
 
 
@@ -89,13 +88,6 @@ class _Remote:
         status = self._get_status()
         unit = status.get_unit(self.unit)
         self.address = unit['public-address']
-        # TODO(gz): Avoid special casing MAAS here and in deploy_stack
-        if self.client.env.config['type'] == 'maas':
-            config = self.client.env.config
-            with MAASAccount.manager_from_config(config) as account:
-                allocated_ips = account.get_allocated_ips()
-            if self.address in allocated_ips:
-                self.address = allocated_ips[self.address]
 
 
 class SSHRemote(_Remote):
@@ -228,7 +220,8 @@ class WinRmRemote(_Remote):
         result = self.run_ps(script)
         if result.status_code or result.std_err:
             logging.error("winrm copy failed with:\n%s", result.std_err)
-            raise ValueError("winrm copy failed")
+            raise subprocess.CalledProcessError(result.status_code,
+                                                "powershell", result)
         self._encoded_copy_to_dir(destination_dir, result.std_out)
 
     @staticmethod
