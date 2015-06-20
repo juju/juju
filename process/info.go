@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
+
+	"github.com/juju/juju/process/plugin"
 )
 
 // Info holds information about a process that Juju needs. Iff the
@@ -24,7 +26,7 @@ type Info struct {
 	Status Status
 
 	// Details is the information about the process which the plugin provided.
-	Details LaunchDetails
+	Details plugin.ProcDetails
 }
 
 // NewInfoUnvalidated builds a new Info object with the provided

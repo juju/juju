@@ -4,48 +4,10 @@
 package process
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/juju/errors"
 )
-
-// LaunchDetails holds information about an existing process as provided by
-// a workload process plugin.
-type LaunchDetails struct {
-	// ID is provided by the plugin as a guaranteed way
-	// to uniquely identify the process to the plugin.
-	ID string `json:"id"`
-
-	// Status is the status of the process as reported by the plugin.
-	Status string `json:"status"`
-}
-
-// Validate returns an error if LaunchDetails is not well-formed.
-func (ld LaunchDetails) Validate() error {
-	if ld.ID == "" {
-		return errors.Errorf("ID must be set")
-	}
-	if ld.Status == "" {
-		return errors.Errorf("Status must be set")
-	}
-	return nil
-}
-
-// ParseDetails parses the input string in to a LaunchDetails struct.
-// ParseDetails expects the plugin to return JSON.
-func ParseDetails(input string) (*LaunchDetails, error) {
-	var details LaunchDetails
-	if err := json.Unmarshal([]byte(input), &details); err != nil {
-		if strings.TrimSpace(input) != "" {
-			return nil, errors.Trace(err)
-		}
-	}
-	if err := details.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &details, nil
-}
 
 // ParseEnv converts the provided strings into a mapping of environment
 // variable names to values. The entries must be formatted as

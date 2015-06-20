@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/plugin"
 )
 
 // baseCommand implements the common portions of the workload process
@@ -96,11 +97,8 @@ func (c *baseCommand) Run(ctx *cmd.Context) error {
 type registeringCommand struct {
 	baseCommand
 
-	// ID is the unique ID for the launched process.
-	ID string
-
 	// Details is the launch details returned from the process plugin.
-	Details process.LaunchDetails
+	Details plugin.ProcDetails
 
 	// Overrides overwrite the process definition.
 	Overrides []string
