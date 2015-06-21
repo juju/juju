@@ -155,7 +155,8 @@ def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
     remote_machines = get_remote_machines(client, bootstrap_host)
 
     for machine_id, remote in remote_machines.iteritems():
-        logging.info("Retrieving logs for machine-%s", machine_id)
+        logging.info("Retrieving logs for machine-%s using %r", machine_id,
+                     remote)
         machine_directory = os.path.join(directory, "machine-%s" % machine_id)
         os.mkdir(machine_directory)
         local_state_server = client.env.local and machine_id == '0'
@@ -258,7 +259,7 @@ def copy_remote_logs(remote, directory):
     if remote.is_windows():
         log_paths = [
             "%ProgramFiles(x86)%\\Cloudbase Solutions\\Cloudbase-Init\\log\\*",
-            "C:\\Juju\\log\\juju\\*",
+            "C:\\Juju\\log\\juju\\*.log",
         ]
     else:
         log_paths = [
@@ -312,6 +313,7 @@ def assess_upgrade(old_client, juju_path):
     else:
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
+    # TODO(gz): Don't call juju run against windows charms
     assess_juju_run(client)
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
@@ -516,7 +518,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
             return
         client.juju('status', ())
         deploy_dummy_stack(client, charm_prefix)
-        assess_juju_run(client)
+        if not charm_prefix.startswith("local:win"):
+            assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
             assess_upgrade(client, juju_path)

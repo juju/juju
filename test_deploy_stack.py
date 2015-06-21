@@ -256,9 +256,9 @@ class DumpEnvLogsTestCase(TestCase):
               {'local_state_server': False})],
             call_list)
         self.assertEqual(
-            ['INFO Retrieving logs for machine-0',
-             'INFO Retrieving logs for machine-1',
-             'INFO Retrieving logs for machine-2'],
+            ['INFO Retrieving logs for machine-0 using ' + repr(self.r0),
+             'INFO Retrieving logs for machine-1 using ' + repr(self.r1),
+             'INFO Retrieving logs for machine-2 using ' + repr(self.r2)],
             sorted(self.log_stream.getvalue().splitlines()))
 
     def test_dump_env_logs_local_env(self):
@@ -369,7 +369,7 @@ class DumpEnvLogsTestCase(TestCase):
             copy_remote_logs(remote, '/foo')
         paths = [
             "%ProgramFiles(x86)%\\Cloudbase Solutions\\Cloudbase-Init\\log\\*",
-            "C:\\Juju\\log\\juju\\*",
+            "C:\\Juju\\log\\juju\\*.log",
         ]
         copy_mock.assert_called_once_with("/foo", paths)
 

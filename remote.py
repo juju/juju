@@ -160,7 +160,7 @@ function CopyText {
 function CopyBinary {
     param([String]$file, [IO.Stream]$outstream)
     $in = New-Object IO.FileStream($file, [IO.FileMode]::Open,
-        [IO.FileAccess]::Read)
+        [IO.FileAccess]::Read, [IO.FileShare]"ReadWrite,Delete")
     $in.CopyTo($outstream)
     $in.Close()
 }
@@ -186,11 +186,10 @@ ForEach ($pattern in %s) {
 
 class WinRmRemote(_Remote):
 
-    def __init__(self, *args, **kwargs):
-        super(WinRmRemote, self).__init__(*args, **kwargs)
+    def _session(self):
         self._ensure_address()
         certs = utility.get_winrm_certs()
-        self.session = _SSLSession(self.address, certs)
+        return _SSLSession(self.address, certs)
 
     _escape = staticmethod(subprocess.list2cmdline)
 
@@ -201,15 +200,15 @@ class WinRmRemote(_Remote):
         # pywinrm does not correctly escape arguments, fix up before passing.
         cmd = self._escape(cmd_list[:1])
         args = [self._escape(cmd_list[1:])]
-        return self.session.run_cmd(cmd, args)
+        return self._session().run_cmd(cmd, args)
 
     def run_ps(self, script):
         """Run string of powershell returning response object."""
-        return self.session.run_ps(script)
+        return self._session().run_ps(script)
 
     def cat(self, filename):
         """Get the contents of filename from the remote machine."""
-        result = self.session.run_cmd("type", [self._escape([filename])])
+        result = self._session().run_cmd("type", [self._escape([filename])])
         if result.status_code:
             logging.warning("winrm cat failed %r", result)
         return result.std_out
@@ -218,8 +217,9 @@ class WinRmRemote(_Remote):
         """Copy files from the remote machine."""
         script = _ps_copy_script % ",".join(s.join('""') for s in source_globs)
         result = self.run_ps(script)
-        if result.status_code or result.std_err:
-            logging.error("winrm copy failed with:\n%s", result.std_err)
+        if result.std_err:
+            logging.warning("winrm copy stderr:\n%s", result.std_err)
+        if result.status_code:
             raise subprocess.CalledProcessError(result.status_code,
                                                 "powershell", result)
         self._encoded_copy_to_dir(destination_dir, result.std_out)

@@ -89,7 +89,7 @@ class TestRemote(unittest.TestCase):
         remote = remote_from_unit(client, unit, status=status)
         self.assertEqual(
             repr(remote),
-            "<WinRmRemote env='an-env' unit='a-service/0' addr='10.55.60.2'>")
+            "<WinRmRemote env='an-env' unit='a-service/0'>")
         self.assertIs(True, remote.is_windows())
 
     def test_remote_from_address(self):
