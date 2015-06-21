@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Pre-exec
+status-set maintenance "installing charm helpers"
 if [[ -d exec.d ]]; then
     shopt -s nullglob
     for f in exec.d/*/charm-pre-install; do
@@ -13,6 +14,7 @@ if [[ -d exec.d ]]; then
     done
 fi
 
+status-set maintenance "installing dependencies"
 apt-get update
 apt-get install -y debconf-utils python-mysqldb uuid pwgen dnsutils || exit 1
 

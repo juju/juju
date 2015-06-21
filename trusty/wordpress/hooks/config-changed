@@ -50,6 +50,7 @@ engine=${engine,,}
 
 
 if [ "$engine" == "apache" ] || [ "$engine" == "apache2" ]; then
+	status-set maintenance "configuring apache"
 	if [ -f .web-engine ]; then
 		web_engine=`cat .web-engine`
 		service $web_engine stop
@@ -78,6 +79,7 @@ if [ "$engine" == "apache" ] || [ "$engine" == "apache2" ]; then
 
 	echo "apache2" > .web-engine
 else
+	status-set maintenance "configuring nginx"
 	if [ -f .web-engine ]; then
 		web_engine=`cat .web-engine`
 		service $web_engine stop
@@ -113,11 +115,13 @@ fi
 # http://i.imgur.com/TUF91.gif
 hooks/loadbalancer-rebuild
 
+status-set maintenance "restarting services"
 juju-log "Restarting Services ..."
 source hooks/restart
 
 if [ ! -f $config_file_path ]; then
 	juju-log "Nothing to configure, since nothing is installed"
+	status-set blocked "Waiting for database"
 	exit 0
 fi
 
@@ -162,3 +166,5 @@ do_cache
 chown -R www-data.www-data $wp_install_path
 
 . hooks/restart
+
+status-set active

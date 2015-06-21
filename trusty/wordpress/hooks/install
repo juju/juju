@@ -14,6 +14,7 @@ if [[ -d exec.d ]]; then
     done
 fi
 
+status-set maintenance "installing dependencies"
 add-apt-repository ppa:charmers/charm-helpers
 apt-get update && apt-get -y upgrade
 
@@ -49,6 +50,7 @@ if [ ! -f .wp-secret ]; then
 fi
 
 juju-log "Installing wp-cli to make this charm's life a little easier ..."
+status-set maintenance "installing components"
 git clone https://github.com/wp-cli/wp-cli.git /usr/src/wp-cli
 # other hooks call hooks/install and don't expect the CWD to change so
 # run this section in a subshell

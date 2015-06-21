@@ -79,7 +79,7 @@ make_single()
 	make_bare
 	juju-log "Installing PHP apc.ini ..."
 	rm -f /etc/php5/conf.d/apc.ini
-	install -o root -g root -m 0644 files/charm/php/php5_conf.d_apc.ini /etc/php5/conf.d/apc.ini
+	install -D -o root -g root -m 0644 files/charm/php/php5_conf.d_apc.ini /etc/php5/conf.d/apc.ini
 
 	shm_size=`apc_shm_size`
 	sed -i -e "s/^apc\.shm_size=.*$/apc.shm_size=${shm_size}M/" /etc/php5/conf.d/apc.ini

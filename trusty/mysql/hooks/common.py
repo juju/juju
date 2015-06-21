@@ -9,6 +9,8 @@ import uuid
 def get_service_user_file(service):
     return '/var/lib/mysql/%s.service_user2' % service
 
+def status_set(mode, message):
+    subprocess.check_call(["status-set", mode, message])
 
 def get_service_user(service):
     if service == '':

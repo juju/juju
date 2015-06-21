@@ -12,6 +12,8 @@ if [ -f "$config_file_path" ]; then
 	exit 0
 fi
 
+status-set waiting "connecting to database"
+
 database=`relation-get database`
 user=`relation-get user`
 password=`relation-get password`
