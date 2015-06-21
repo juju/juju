@@ -366,9 +366,13 @@ def deploy_job():
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
+    # Don't need windows state server to test windows charms, trusty is faster.
+    if series.startswith("win"):
+        logging.info('Setting default series to trusty for windows deploy.')
+        series = 'trusty'
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
-                       args.series, args.logs, args.debug, juju_path,
+                       series, args.logs, args.debug, juju_path,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools)
 
