@@ -72,7 +72,7 @@ func Find(name string) (*Plugin, error) {
 //
 // The plugin is expected to start the image as a new process, and write json
 // output to stdout.  The form of the output is expected to conform to the
-// ProcDetails struct.
+// LaunchDetails struct.
 //
 //		{
 //			"id" : "some-id", # unique id of the process
@@ -83,8 +83,8 @@ func Find(name string) (*Plugin, error) {
 // later to introspect the process and/or stop it. The contents of status can
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
-func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
-	details := ProcDetails{}
+func (p Plugin) Launch(proc charm.Process) (LaunchDetails, error) {
+	details := LaunchDetails{}
 	b, err := json.Marshal(proc)
 	if err != nil {
 		return details, errors.Annotate(err, "can't convert charm.Process to json")

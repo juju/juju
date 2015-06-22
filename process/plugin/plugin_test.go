@@ -34,7 +34,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, ProcDetails{"foo", Status{"bar"}})
+	c.Assert(pd, gc.Equals, LaunchDetails{"foo", Status{"bar"}})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Path)
