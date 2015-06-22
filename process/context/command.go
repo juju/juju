@@ -13,7 +13,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
 )
 
 // baseCommand implements the common portions of the workload process
@@ -88,7 +87,7 @@ type registeringCommand struct {
 	baseCommand
 
 	// Details is the launch details returned from the process plugin.
-	Details plugin.Details
+	Details process.Details
 
 	// Overrides overwrite the process definition.
 	Overrides []string

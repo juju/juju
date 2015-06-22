@@ -11,14 +11,13 @@ import (
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
-	"github.com/juju/juju/process/plugin"
 )
 
 type registerSuite struct {
 	commandSuite
 
 	registerCmd *context.ProcRegistrationCommand
-	details     plugin.Details
+	details     process.Details
 }
 
 var _ = gc.Suite(&registerSuite{})
@@ -39,9 +38,9 @@ func (s *registerSuite) init(c *gc.C, name, id, status string) {
 		`{"id":"` + id + `", "status":{"status":"` + status + `"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.details = plugin.Details{
+	s.details = process.Details{
 		ID:            id,
-		CurrentStatus: plugin.Status{Status: status},
+		CurrentStatus: process.RawStatus{Status: status},
 	}
 }
 
@@ -86,9 +85,9 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.Details, jc.DeepEquals, plugin.Details{
+	c.Check(s.registerCmd.Details, jc.DeepEquals, process.Details{
 		ID:            "abc123",
-		CurrentStatus: plugin.Status{Status: "okay"},
+		CurrentStatus: process.RawStatus{Status: "okay"},
 	})
 }
 
@@ -134,7 +133,7 @@ func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 		`{"status":{"status":"okay"}}`,
 	})
 
-	c.Check(errors.Cause(err), jc.Satisfies, plugin.IsInvalid)
+	c.Check(errors.Cause(err), jc.Satisfies, process.IsInvalid)
 }
 
 func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
@@ -143,7 +142,7 @@ func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
 		`{"id":"abc123"}`,
 	})
 
-	c.Check(errors.Cause(err), jc.Satisfies, plugin.IsInvalid)
+	c.Check(errors.Cause(err), jc.Satisfies, process.IsInvalid)
 }
 
 func (s *registerSuite) TestInitBadJSON(c *gc.C) {

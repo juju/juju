@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
 )
 
@@ -34,7 +35,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, Details{"foo", Status{"bar"}})
+	c.Assert(pd, gc.Equals, process.Details{"foo", process.RawStatus{"bar"}})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Executable)
@@ -67,7 +68,7 @@ func (s *suite) TestLaunchNoId(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, IsInvalid)
+	c.Assert(errors.Cause(err), jc.Satisfies, process.IsInvalid)
 }
 
 func (s *suite) TestLaunchNoStatus(c *gc.C) {
@@ -80,7 +81,7 @@ func (s *suite) TestLaunchNoStatus(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, IsInvalid)
+	c.Assert(errors.Cause(err), jc.Satisfies, process.IsInvalid)
 }
 
 func (s *suite) TestLaunchErr(c *gc.C) {
@@ -106,7 +107,7 @@ func (s *suite) TestStatus(c *gc.C) {
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, Status{Status: "status!"})
+	c.Assert(status, gc.Equals, process.RawStatus{Status: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "status")

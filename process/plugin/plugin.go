@@ -24,6 +24,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
+
+	"github.com/juju/juju/process"
 )
 
 const pluginPrefix = "juju-process-"
@@ -74,7 +76,7 @@ func Find(name string) (*Plugin, error) {
 //
 // The plugin is expected to start the image as a new process, and write json
 // output to stdout.  The form of the output is expected to conform to the
-// Details struct.
+// process.Details struct.
 //
 //		{
 //			"id" : "some-id", # unique id of the process
@@ -85,8 +87,8 @@ func Find(name string) (*Plugin, error) {
 // later to introspect the process and/or stop it. The contents of status can
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
-func (p Plugin) Launch(proc charm.Process) (Details, error) {
-	var details Details
+func (p Plugin) Launch(proc charm.Process) (process.Details, error) {
+	var details process.Details
 	b, err := json.Marshal(proc)
 	if err != nil {
 		return details, errors.Annotate(err, "can't convert charm.Process to json")
@@ -95,7 +97,7 @@ func (p Plugin) Launch(proc charm.Process) (Details, error) {
 	if err != nil {
 		return details, errors.Trace(err)
 	}
-	return UnmarshalDetails(out)
+	return process.UnmarshalDetails(out)
 }
 
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
@@ -114,9 +116,9 @@ func (p Plugin) Destroy(id string) error {
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func (p Plugin) Status(id string) (Status, error) {
+func (p Plugin) Status(id string) (process.RawStatus, error) {
 	out, err := p.run("status", id)
-	var status Status
+	var status process.RawStatus
 	if err != nil {
 		return status, errors.Trace(err)
 	}
