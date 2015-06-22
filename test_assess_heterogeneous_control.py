@@ -10,7 +10,6 @@ from assess_heterogeneous_control import (
     dumping_env,
     get_clients,
     parse_args,
-    upload_heterogeneous,
     )
 from jujupy import (
     EnvJujuClient,
@@ -90,19 +89,3 @@ class TestGetClients(TestCase):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
                                                        'qux', True, None)
         self.assertTrue('tools-metadata-url' not in initial.env.config)
-
-
-class TestUploadHeterogeneous(TestCase):
-
-    def test_upload_heterogeneous(self):
-        args = Namespace(user='foo', password='bar')
-        env_ctx = patch(
-            'upload_hetero_control.HUploader.upload_by_env_build_number')
-        with patch('upload_hetero_control.get_s3_access',
-                   return_value=('name', 'pass')) as a_mock:
-            with patch('upload_hetero_control.S3Connection') as c_mock:
-                with env_ctx as u_mock:
-                    upload_heterogeneous(args)
-        a_mock.assert_called_once_with()
-        c_mock.assert_called_once_with('name', 'pass')
-        u_mock.assert_called_once_with()
