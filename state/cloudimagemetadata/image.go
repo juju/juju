@@ -97,17 +97,17 @@ func (c *cloudImageStorage) imagesMetadata(desiredID string) (imagesMetadataDoc,
 	logger.Infof("looking for cloud image metadata with id %v", desiredID)
 	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return doc, errors.NotFoundf("%v cloud images metadata", desiredID)
+		return doc, errors.NotFoundf("cloud image metadata with id %v", desiredID)
 	}
 	return doc, err
 }
 
 type imagesMetadataDoc struct {
 	Id          string `bson:"_id"`
+	Arch        string `bson:"arch"`
+	Series      string `bson:"series"`
 	Storage     string `bson:"root_store,omitempty"`
 	VirtType    string `bson:"virt,omitempty"`
-	Arch        string `bson:"arch,omitempty"`
-	Series      string `bson:"series"`
 	RegionAlias string `bson:"crsn,omitempty"`
 	RegionName  string `bson:"region,omitempty"`
 	Endpoint    string `bson:"endpoint,omitempty"`
