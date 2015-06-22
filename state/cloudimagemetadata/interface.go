@@ -24,9 +24,9 @@ type Storage interface {
 	// the catalogue.
 	AllMetadata() ([]Metadata, error)
 
-	// Metadata returns the Metadata for the specified stream, series
+	// FindMetadata returns the Metadata for the specified stream, series
 	// and arch if it exists or an error errors.IsNotFound.
-	Metadata(stream, series, arch string) (Metadata, error)
+	FindMetadata(stream, series, arch string) (Metadata, error)
 }
 
 // StorageCloser extends the Storage interface with a Close method.

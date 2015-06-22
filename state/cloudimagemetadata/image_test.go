@@ -170,7 +170,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, jc.SameContents, expected)
 }
 
-func (s *cloudImageMetadataSuite) TestMetadata(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	m := cloudimagemetadata.Metadata{
 		Series:      "quantal",
 		Arch:        "amd64",
@@ -182,7 +182,7 @@ func (s *cloudImageMetadataSuite) TestMetadata(c *gc.C) {
 		Endpoint:    "endpoint",
 	}
 
-	_, err := s.storage.Metadata(m.Series, m.Arch, m.Stream)
+	_, err := s.storage.FindMetadata(m.Series, m.Arch, m.Stream)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.addMetadataDoc(c,

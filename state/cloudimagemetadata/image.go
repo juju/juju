@@ -69,8 +69,8 @@ func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 	return nil
 }
 
-// Metadata implements Storage.Metadata.
-func (s *cloudImageStorage) Metadata(series, arch, stream string) (Metadata, error) {
+// FindMetadata implements Storage.FindMetadata.
+func (s *cloudImageStorage) FindMetadata(series, arch, stream string) (Metadata, error) {
 	desiredID := createKey(series, arch, stream)
 	doc, err := s.imagesMetadata(desiredID)
 	if err != nil {
