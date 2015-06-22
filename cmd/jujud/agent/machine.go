@@ -754,7 +754,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	if !featureflag.Enabled(feature.DisableRsyslogLogSending) {
+	if !featureflag.Enabled(feature.DisableRsyslog) {
 		rsyslogMode := rsyslog.RsyslogModeForwarding
 		if isEnvironManager {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
