@@ -42,42 +42,41 @@ func NewStorage(
 
 // AddMetadata implements Storage.AddMetadata.
 func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
-	newDoc := imagesMetadataDoc{
-		Id:          metadata.imageId(),
-		Version:     metadata.Version,
-		Storage:     metadata.Storage,
-		VirtType:    metadata.VirtType,
-		Arch:        metadata.Arch,
-		RegionAlias: metadata.RegionAlias,
-		RegionName:  metadata.RegionName,
-		Endpoint:    metadata.Endpoint,
-		Stream:      metadata.Stream,
-	}
-
+	newDoc := metadata.doc()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
-			C:      s.metadataCollection.Name,
-			Id:     newDoc.Id,
-			Assert: txn.DocMissing,
-			Insert: &newDoc,
+			C:  s.metadataCollection.Name,
+			Id: newDoc.Id,
+		}
+		if attempt == 0 {
+			// On the first attempt we assume we're adding new cloud image metadata.
+			op.Assert = txn.DocMissing
+			op.Insert = &newDoc
+			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
+		} else {
+			// Subsequent attempts to add metadata will update the fields.
+			op.Assert = txn.DocExists
+			op.Update = bson.D{{"$set", newDoc.updates()}}
+			logger.Debugf("updating cloud image metadata for %v", newDoc.Id)
 		}
 		return []txn.Op{op}, nil
 	}
 
 	err := s.txnRunner.Run(buildTxn)
 	if err != nil {
-		return errors.Annotate(err, "cannot store cloud images metadata")
+		return errors.Annotatef(err, "cannot add cloud image metadata for %v", newDoc.Id)
 	}
 	return nil
 }
 
 // Metadata implements Storage.Metadata.
-func (s *cloudImageStorage) Metadata(stream, version, arch string) (Metadata, error) {
-	metadataDoc, err := s.imagesMetadata(stream, version, arch)
+func (s *cloudImageStorage) Metadata(stream, series, arch string) (Metadata, error) {
+	desiredID := createKey(stream, series, arch)
+	doc, err := s.imagesMetadata(desiredID)
 	if err != nil {
 		return Metadata{}, errors.Trace(err)
 	}
-	return metadataDoc.public(), nil
+	return doc.metadata(), nil
 }
 
 // AllMetadata implements Storage.AllMetadata.
@@ -88,25 +87,19 @@ func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	}
 	metadata := make([]Metadata, len(docs))
 	for i, doc := range docs {
-		metadata[i] = doc.public()
+		metadata[i] = doc.metadata()
 	}
 	return metadata, nil
 }
 
-func (c *cloudImageStorage) imagesMetadata(
-	stream, version, arch string,
-) (imagesMetadataDoc, error) {
-	// Construct metadata search id based on input.
-	desiredID := createId(stream, version, arch)
+func (c *cloudImageStorage) imagesMetadata(desiredID string) (imagesMetadataDoc, error) {
 	var doc imagesMetadataDoc
+	logger.Infof("looking for cloud image metadata with id %v", desiredID)
 	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf("%v cloud images metadata", desiredID)
 	}
-	if err != nil {
-		return doc, err
-	}
-	return doc, nil
+	return doc, err
 }
 
 type imagesMetadataDoc struct {
@@ -114,16 +107,42 @@ type imagesMetadataDoc struct {
 	Storage     string `bson:"root_store,omitempty"`
 	VirtType    string `bson:"virt,omitempty"`
 	Arch        string `bson:"arch,omitempty"`
-	Version     string `bson:"version"`
+	Series      string `bson:"series"`
 	RegionAlias string `bson:"crsn,omitempty"`
 	RegionName  string `bson:"region,omitempty"`
 	Endpoint    string `bson:"endpoint,omitempty"`
-	Stream      string `bson:"stream"`
+	Stream      string `bson:"stream,omitempty"`
 }
 
-func (m imagesMetadataDoc) public() Metadata {
+func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
-		Version:     m.Version,
+		Series:      m.Series,
+		Storage:     m.Storage,
+		VirtType:    m.VirtType,
+		Arch:        m.Arch,
+		RegionAlias: m.RegionAlias,
+		RegionName:  m.RegionName,
+		Endpoint:    m.Endpoint,
+		Stream:      m.Stream,
+	}
+}
+func (m imagesMetadataDoc) updates() bson.D {
+	return bson.D{
+		{"root_store", m.Storage},
+		{"virt", m.VirtType},
+		{"arch", m.Arch},
+		{"series", m.Series},
+		{"crsn", m.RegionAlias},
+		{"region", m.RegionName},
+		{"endpoint", m.Endpoint},
+		{"stream", m.Stream},
+	}
+}
+
+func (m *Metadata) doc() imagesMetadataDoc {
+	return imagesMetadataDoc{
+		Id:          m.key(),
+		Series:      m.Series,
 		Storage:     m.Storage,
 		VirtType:    m.VirtType,
 		Arch:        m.Arch,
@@ -134,22 +153,18 @@ func (m imagesMetadataDoc) public() Metadata {
 	}
 }
 
-func idStream(stream string) string {
-	idstream := ""
+func streamKey(stream string) string {
+	//stream is optional, default is empty.
 	if stream != "" && stream != imagemetadata.ReleasedStream {
-		idstream = "." + stream
+		return "." + stream
 	}
-	return idstream
+	return ""
 }
 
-var createId = func(stream, version, arch string) string {
-	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+var createKey = func(stream, series, arch string) string {
+	return fmt.Sprintf("%s-%s-%s", streamKey(stream), series, arch)
 }
 
-func (im *Metadata) imageId() string {
-	return createId(idStream(im.Stream), im.Version, im.Arch)
-}
-
-func (im *Metadata) String() string {
-	return fmt.Sprintf("%#v", im)
+func (im *Metadata) key() string {
+	return createKey(im.Stream, im.Series, im.Arch)
 }

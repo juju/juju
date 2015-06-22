@@ -4,14 +4,6 @@
 package cloudimagemetadata_test
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"strings"
-	stdtesting "testing"
-
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,25 +12,63 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&cloudImageMetadataSuite{})
+type keyMetadataSuite struct {
+	testing.BaseSuite
+}
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+var _ = gc.Suite(&keyMetadataSuite{})
+
+var keyTestData = []struct {
+	about       string
+	stream      string
+	series      string
+	arch        string
+	expectedKey string
+}{{
+	`non "released" stream`,
+	"test",
+	"a",
+	"b",
+	".test-a-b",
+}, {
+	`"released" stream`,
+	imagemetadata.ReleasedStream,
+	"a",
+	"b",
+	"-a-b",
+}, {
+	"empty stream",
+	"",
+	"a",
+	"b",
+	"-a-b",
+}}
+
+func (s *cloudImageMetadataSuite) TestCreateMetadataKey(c *gc.C) {
+	for i, t := range keyTestData {
+		c.Logf("%d: %v", i, t.about)
+		key := cloudimagemetadata.CreateKey(t.stream, t.series, t.arch)
+		c.Assert(key, gc.Equals, t.expectedKey)
+	}
 }
 
 type cloudImageMetadataSuite struct {
 	testing.BaseSuite
-	mongo              *gitjujutesting.MgoInstance
-	session            *mgo.Session
+
+	mongo     *gitjujutesting.MgoInstance
+	session   *mgo.Session
+	txnRunner jujutxn.Runner
+
 	storage            cloudimagemetadata.Storage
 	metadataCollection *mgo.Collection
-	txnRunner          jujutxn.Runner
 }
+
+var _ = gc.Suite(&cloudImageMetadataSuite{})
 
 func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -50,6 +80,7 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	catalogue := s.session.DB("catalogue")
 	s.metadataCollection = catalogue.C("cloudimagesmetadata")
+
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
 	s.storage = cloudimagemetadata.NewStorage("my-uuid", s.metadataCollection, s.txnRunner)
 }
@@ -60,39 +91,41 @@ func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *cloudImageMetadataSuite) TestAddImages(c *gc.C) {
-	s.testAddImages(c, "some-cloudimages")
+func (s *cloudImageMetadataSuite) TestAddMetadata(c *gc.C) {
+	s.assertAddMetadataWithDefaults(c, "test", "quantal", "amd64")
 }
 
-func (s *cloudImageMetadataSuite) TestAddToolsReplaces(c *gc.C) {
-	s.testAddImages(c, "abc")
-	s.testAddImages(c, "def")
+func (s *cloudImageMetadataSuite) TestAddMetadataUpdates(c *gc.C) {
+	s.assertAddMetadataWithDefaults(c, "test", "quantal", "amd64")
+	s.assertAddMetadata(c, "test", "quantal", "amd64",
+		"storage-test", "virtType-test", "regionAlias-test", "regionName-test", "endpoint-test",
+	)
 }
 
-func (s *cloudImageMetadataSuite) testAddImages(c *gc.C, content string) {
-	var r io.Reader = bytes.NewReader([]byte(content))
-	addedMetadata := cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    int64(len(content)),
-		SHA256:  "hash(" + content + ")",
+func (s *cloudImageMetadataSuite) assertAddMetadataWithDefaults(c *gc.C, stream, series, arch string) {
+	s.assertAddMetadata(c, stream, series, arch,
+		"storage", "virtType", "regionAlias", "regionName", "endpoint",
+	)
+}
+
+func (s *cloudImageMetadataSuite) assertAddMetadata(c *gc.C,
+	stream, series, arch,
+	storage, virtType, regionAlias, regionName, endpoint string,
+) {
+	added := cloudimagemetadata.Metadata{
+		Storage:     storage,
+		VirtType:    virtType,
+		Arch:        arch,
+		Series:      series,
+		RegionAlias: regionAlias,
+		RegionName:  regionName,
+		Endpoint:    endpoint,
+		Stream:      stream,
 	}
-	err := s.storage.AddCloudImages(r, addedMetadata)
+	err := s.storage.AddMetadata(added)
 	c.Assert(err, jc.ErrorIsNil)
 
-	metadata, rc, err := s.storage.CloudImages(version.Current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.NotNil)
-	defer rc.Close()
-	c.Assert(metadata, gc.Equals, addedMetadata)
-
-	data, err := ioutil.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, content)
-}
-
-func bumpVersion(v version.Binary) version.Binary {
-	v.Build++
-	return v
+	s.assertMetadata(c, added)
 }
 
 func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
@@ -100,263 +133,162 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 
-	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
+	m := cloudimagemetadata.Metadata{
+		Stream:      "test",
+		Series:      "quantal",
+		Arch:        "amd64",
+		Storage:     "storage",
+		VirtType:    "virtType",
+		RegionAlias: "regionAlias",
+		RegionName:  "regionName",
+		Endpoint:    "endpoint",
+	}
+	s.addMetadataDoc(c,
+		m.Stream,
+		m.Series,
+		m.Arch,
+		m.Storage,
+		m.VirtType,
+		m.RegionAlias,
+		m.RegionName,
+		m.Endpoint,
+	)
+
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 1)
-	expected := []cloudimagemetadata.Metadata{{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "hash(abc)",
-	}}
+	expected := []cloudimagemetadata.Metadata{m}
 	c.Assert(metadata, jc.SameContents, expected)
 
-	alias := bumpVersion(version.Current)
-	s.addMetadataDoc(c, alias, 3, "hash(abc)", "path")
+	m.Arch = "my one"
+	s.addMetadataDoc(c,
+		m.Stream,
+		m.Series,
+		m.Arch,
+		m.Storage,
+		m.VirtType,
+		m.RegionAlias,
+		m.RegionName,
+		m.Endpoint,
+	)
 
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 2)
-	expected = append(expected, cloudimagemetadata.Metadata{
-		Version: alias,
-		Size:    3,
-		SHA256:  "hash(abc)",
-	})
+	expected = append(expected, m)
 	c.Assert(metadata, jc.SameContents, expected)
 }
 
 func (s *cloudImageMetadataSuite) TestMetadata(c *gc.C) {
-	metadata, err := s.storage.Metadata(version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
-	metadata, err = s.storage.Metadata(version.Current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.Equals, cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "hash(abc)",
-	})
-}
-
-func (s *cloudImageMetadataSuite) TestCloudImages(c *gc.C) {
-	_, _, err := s.storage.CloudImages(version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `.* cloud images metadata not found`)
-
-	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
-	_, _, err = s.storage.CloudImages(version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
-
-	err = s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metadata, r, err := s.storage.CloudImages(version.Current)
-	c.Assert(err, jc.ErrorIsNil)
-	defer r.Close()
-	c.Assert(metadata, gc.Equals, cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "hash(abc)",
-	})
-
-	data, err := ioutil.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "blah")
-}
-
-func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesExisting(c *gc.C) {
-	// Add a metadata doc and a blob at a known path, then
-	// call AddCloudImages and ensure the original blob is removed.
-	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addedMetadata := cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    6,
-		SHA256:  "hash(xyzzzz)",
+	m := cloudimagemetadata.Metadata{
+		Stream:      "test",
+		Series:      "quantal",
+		Arch:        "amd64",
+		Storage:     "storage",
+		VirtType:    "virtType",
+		RegionAlias: "regionAlias",
+		RegionName:  "regionName",
+		Endpoint:    "endpoint",
 	}
-	err = s.storage.AddCloudImages(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, jc.ErrorIsNil)
 
-	// old blob should be gone
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "path")
+	_, err := s.storage.Metadata(m.Stream, m.Series, m.Arch)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	s.assertImages(c, addedMetadata, "xyzzzz")
-}
-
-func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesExistingRemoveFails(c *gc.C) {
-	// Add a metadata doc and a blob at a known path, then
-	// call AddCloudImages and ensure that AddCloudImages attempts to remove
-	// the original blob, but does not return an error if it
-	// fails.
-	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
-
-	storage := cloudimagemetadata.NewStorage(
-		"my-uuid",
-		removeFailsManagedStorage{s.managedStorage},
-		s.metadataCollection,
-		s.txnRunner,
+	s.addMetadataDoc(c,
+		m.Stream,
+		m.Series,
+		m.Arch,
+		m.Storage,
+		m.VirtType,
+		m.RegionAlias,
+		m.RegionName,
+		m.Endpoint,
 	)
-	addedMetadata := cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    6,
-		SHA256:  "hash(xyzzzz)",
-	}
-	err = storage.AddCloudImages(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// old blob should still be there
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "path")
-	c.Assert(err, jc.ErrorIsNil)
-	r.Close()
-
-	s.assertImages(c, addedMetadata, "xyzzzz")
+	s.assertMetadata(c, m)
 }
 
-func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesBlobOnFailure(c *gc.C) {
-	storage := cloudimagemetadata.NewStorage(
-		"my-uuid",
-		s.managedStorage,
-		s.metadataCollection,
-		errorTransactionRunner{s.txnRunner},
-	)
-	addedMetadata := cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    6,
-		SHA256:  "hash",
+func (s *cloudImageMetadataSuite) TestAddMetadataDuplicate(c *gc.C) {
+	metadata := cloudimagemetadata.Metadata{
+		Stream: "test",
+		Series: "quantal",
+		Arch:   "amd64",
 	}
-	err := storage.AddCloudImages(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, gc.ErrorMatches, "cannot store cloud images metadata: Run fails")
-
-	path := fmt.Sprintf("cloudimages/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *cloudImageMetadataSuite) TestAddCloudImagesRemovesBlobOnFailureRemoveFails(c *gc.C) {
-	storage := cloudimagemetadata.NewStorage(
-		"my-uuid",
-		removeFailsManagedStorage{s.managedStorage},
-		s.metadataCollection,
-		errorTransactionRunner{s.txnRunner},
-	)
-	addedMetadata := cloudimagemetadata.Metadata{
-		Version: version.Current,
-		Size:    6,
-		SHA256:  "hash",
-	}
-	err := storage.AddCloudImages(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, gc.ErrorMatches, "cannot store cloud images metadata: Run fails")
-
-	// blob should still be there, because the removal failed.
-	path := fmt.Sprintf("cloudimages/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
-	c.Assert(err, jc.ErrorIsNil)
-	r.Close()
-}
-
-func (s *cloudImageMetadataSuite) TestAddCloudImagesSame(c *gc.C) {
-	metadata := cloudimagemetadata.Metadata{Version: version.Current, Size: 1, SHA256: "0"}
 	for i := 0; i < 2; i++ {
-		err := s.storage.AddCloudImages(strings.NewReader("0"), metadata)
+		err := s.storage.AddMetadata(metadata)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertImages(c, metadata, "0")
+		s.assertMetadata(c, metadata)
 	}
+	all, err := s.storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	expected := []cloudimagemetadata.Metadata{metadata}
+	c.Assert(all, jc.SameContents, expected)
+
 }
 
-func (s *cloudImageMetadataSuite) TestAddCloudImagesConcurrent(c *gc.C) {
-	metadata0 := cloudimagemetadata.Metadata{Version: version.Current, Size: 1, SHA256: "0"}
-	metadata1 := cloudimagemetadata.Metadata{Version: version.Current, Size: 1, SHA256: "1"}
+func (s *cloudImageMetadataSuite) TestAddMetadataConcurrent(c *gc.C) {
+	metadata0 := cloudimagemetadata.Metadata{
+		Stream: "test",
+		Series: "quantal",
+		Arch:   "amd64",
+	}
+	metadata1 := cloudimagemetadata.Metadata{
+		Stream: "test2",
+		Series: "quantal",
+		Arch:   "amd64",
+	}
 
 	addMetadata := func() {
-		err := s.storage.AddCloudImages(strings.NewReader("0"), metadata0)
+		err := s.storage.AddMetadata(metadata0)
 		c.Assert(err, jc.ErrorIsNil)
-		r, _, err := s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("cloudimages/%s-0", version.Current))
-		c.Assert(err, jc.ErrorIsNil)
-		r.Close()
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata).Check()
 
-	err := s.storage.AddCloudImages(strings.NewReader("1"), metadata1)
+	err := s.storage.AddMetadata(metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Blob added in before-hook should be removed.
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("cloudimages/%s-0", version.Current))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	s.assertImages(c, metadata1, "1")
+	s.assertMetadata(c, metadata1)
 }
 
-func (s *cloudImageMetadataSuite) TestAddCloudImagesExcessiveContention(c *gc.C) {
-	metadata := []cloudimagemetadata.Metadata{
-		{Version: version.Current, Size: 1, SHA256: "0"},
-		{Version: version.Current, Size: 1, SHA256: "1"},
-		{Version: version.Current, Size: 1, SHA256: "2"},
-		{Version: version.Current, Size: 1, SHA256: "3"},
-	}
-
-	i := 1
-	addMetadata := func() {
-		err := s.storage.AddCloudImages(strings.NewReader(metadata[i].SHA256), metadata[i])
-		c.Assert(err, jc.ErrorIsNil)
-		i++
-	}
-	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata, addMetadata, addMetadata).Check()
-
-	err := s.storage.AddCloudImages(strings.NewReader(metadata[0].SHA256), metadata[0])
-	c.Assert(err, gc.ErrorMatches, "cannot store cloud images metadata: state changing too quickly; try again soon")
-
-	// There should be no blobs apart from the last one added by the before-hook.
-	for _, metadata := range metadata[:3] {
-		path := fmt.Sprintf("cloudimages/%s-%s", metadata.Version, metadata.SHA256)
-		_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	}
-
-	s.assertImages(c, metadata[3], "3")
-}
-
-func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
+func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C,
+	stream,
+	series,
+	arch,
+	storage,
+	virtType,
+	regionAlias,
+	regionName,
+	endpoint string,
+) {
 	doc := struct {
-		Id      string         `bson:"_id"`
-		Version version.Binary `bson:"version"`
-		Size    int64          `bson:"size"`
-		SHA256  string         `bson:"sha256,omitempty"`
-		Path    string         `bson:"path"`
+		Id          string `bson:"_id"`
+		Storage     string `bson:"root_store,omitempty"`
+		VirtType    string `bson:"virt,omitempty"`
+		Arch        string `bson:"arch,omitempty"`
+		Series      string `bson:"series"`
+		RegionAlias string `bson:"crsn,omitempty"`
+		RegionName  string `bson:"region,omitempty"`
+		Endpoint    string `bson:"endpoint,omitempty"`
+		Stream      string `bson:"stream,omitempty"`
 	}{
-		Id:      v.String(),
-		Version: v,
-		Size:    size,
-		SHA256:  hash,
-		Path:    path,
+		Id:          cloudimagemetadata.CreateKey(stream, series, arch),
+		Storage:     storage,
+		VirtType:    virtType,
+		Arch:        arch,
+		Series:      series,
+		RegionAlias: regionAlias,
+		RegionName:  regionName,
+		Endpoint:    endpoint,
+		Stream:      stream,
 	}
 	err := s.metadataCollection.Insert(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudImageMetadataSuite) assertImages(c *gc.C, ex0 (~menn0@4.13pected cloudimagemetadata.Metadata, content string) {
-	metadata, r, err := s.storage.CloudImages(expected.Version)
+func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, expected cloudimagemetadata.Metadata) {
+	metadata, err := s.storage.Metadata(expected.Stream, expected.Series, expected.Arch)
 	c.Assert(err, jc.ErrorIsNil)
-	defer r.Close()
-	c.Assert(metadata, gc.Equals, expected)
-
-	data, err := ioutil.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, content)
-}
-
-type removeFailsManagedStorage struct {
-	blobstore.ManagedStorage
-}
-
-func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
-	return errors.Errorf("cannot remove %s:%s", uuid, path)
+	c.Assert(metadata, gc.DeepEquals, expected)
 }
 
 type errorTransactionRunner struct {
