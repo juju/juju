@@ -81,6 +81,7 @@ var multiEnvCollections = set.NewStrings(
 	networkInterfacesC,
 	networksC,
 	openedPortsC,
+	workloadProcessesC,
 	rebootC,
 	relationScopesC,
 	relationsC,
