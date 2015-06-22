@@ -26,7 +26,7 @@ type Info struct {
 	Status Status
 
 	// Details is the information about the process which the plugin provided.
-	Details plugin.ProcDetails
+	Details plugin.Details
 }
 
 // NewInfoUnvalidated builds a new Info object with the provided
