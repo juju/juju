@@ -26,6 +26,8 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
+const pluginPrefix = "juju-process-"
+
 var logger = loggo.GetLogger("juju.process.plugin")
 
 // Plugin represents a provider for launching, destroying, and introspecting
@@ -39,7 +41,7 @@ type Plugin struct {
 
 // Find returns the plugin for the given name.
 func Find(name string) (*Plugin, error) {
-	path, err := exec.LookPath("juju-process-" + name)
+	path, err := exec.LookPath(pluginPrefix + name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
