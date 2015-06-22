@@ -14,9 +14,9 @@ type Status struct {
 	Status string `json:"status"`
 }
 
-// validate returns nil if this value is valid, and an error that satisfies
+// Validate returns nil if this value is valid, and an error that satisfies
 // IsValid if it is not.
-func (s Status) validate() error {
+func (s Status) Validate() error {
 	if s.Status == "" {
 		e := errors.NewErr("Status cannot be empty")
 		return validationErr{&e}

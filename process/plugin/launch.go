@@ -22,19 +22,19 @@ func UnmarshalDetails(b []byte) (ProcDetails, error) {
 	if err := json.Unmarshal(b, &details); err != nil {
 		return details, errors.Annotate(err, "error parsing data for procdetails")
 	}
-	if err := details.validate(); err != nil {
+	if err := details.Validate(); err != nil {
 		return details, errors.Annotate(err, "invalid procdetails")
 	}
 	return details, nil
 
 }
 
-// validate returns nil if this value is valid, and an error that satisfies
+// Validate returns nil if this value is valid, and an error that satisfies
 // IsValid if it is not.
-func (p ProcDetails) validate() error {
+func (p ProcDetails) Validate() error {
 	if p.ID == "" {
 		e := errors.NewErr("ID cannot be empty")
 		return validationErr{&e}
 	}
-	return p.Status.validate()
+	return p.Status.Validate()
 }

@@ -121,7 +121,7 @@ func (p Plugin) Status(id string) (Status, error) {
 	if err := json.Unmarshal(out, &status); err != nil {
 		return status, errors.Annotatef(err, "error parsing data returned from %q", p.Name)
 	}
-	if err := status.validate(); err != nil {
+	if err := status.Validate(); err != nil {
 		return status, errors.Annotatef(err, "invalid details returned by plugin %q", p.Name)
 	}
 	return status, nil
