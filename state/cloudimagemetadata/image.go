@@ -154,15 +154,15 @@ func (m *Metadata) mongoDoc() imagesMetadataDoc {
 }
 
 func streamKey(stream string) string {
-	//stream is optional, default is empty.
-	if stream != "" && stream != imagemetadata.ReleasedStream {
-		return "." + stream
+	if stream != "" {
+		return stream
 	}
-	return ""
+	// Since stream is optional,when omitted, assume "released" is desired.
+	return imagemetadata.ReleasedStream
 }
 
 var createKey = func(stream, series, arch string) string {
-	return fmt.Sprintf("%s-%s-%s", streamKey(stream), series, arch)
+	return fmt.Sprintf("%s-%s-%s", series, arch, streamKey(stream))
 }
 
 func (im *Metadata) key() string {

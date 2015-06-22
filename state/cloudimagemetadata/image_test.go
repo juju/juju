@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
@@ -30,23 +29,17 @@ var keyTestData = []struct {
 	arch        string
 	expectedKey string
 }{{
-	`non "released" stream`,
-	"test",
-	"a",
-	"b",
-	".test-a-b",
-}, {
-	`"released" stream`,
-	imagemetadata.ReleasedStream,
-	"a",
-	"b",
-	"-a-b",
+	`non empty stream`,
+	"stream",
+	"series",
+	"arch",
+	"series-arch-stream",
 }, {
 	"empty stream",
 	"",
-	"a",
-	"b",
-	"-a-b",
+	"series",
+	"arch",
+	"series-arch-released",
 }}
 
 func (s *cloudImageMetadataSuite) TestCreateMetadataKey(c *gc.C) {
