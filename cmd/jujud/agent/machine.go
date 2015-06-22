@@ -754,14 +754,16 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	if isEnvironManager {
-		rsyslogMode = rsyslog.RsyslogModeAccumulate
-	}
+	if !featureflag.Enabled(feature.DisableRsyslogLogSending) {
+		rsyslogMode := rsyslog.RsyslogModeForwarding
+		if isEnvironManager {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+		}
 
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		})
+	}
 
 	if !isEnvironManager {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
