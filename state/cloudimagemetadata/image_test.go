@@ -92,19 +92,19 @@ func (s *cloudImageMetadataSuite) TestAddMetadata(c *gc.C) {
 func (s *cloudImageMetadataSuite) TestAddMetadataUpdates(c *gc.C) {
 	s.assertAddMetadataWithDefaults(c, "quantal", "amd64", "test")
 	s.assertAddMetadata(c, "quantal", "amd64", "test",
-		"storage-test", "virtType-test", "regionAlias-test", "regionName-test", "endpoint-test",
+		"rootstore-test", "virtType-test", "regionAlias-test", "regionName-test", "endpoint-test",
 	)
 }
 
 func (s *cloudImageMetadataSuite) assertAddMetadataWithDefaults(c *gc.C, series, arch, stream string) {
 	s.assertAddMetadata(c, series, arch, stream,
-		"storage", "virtType", "regionAlias", "regionName", "endpoint",
+		"rootstore", "virtType", "regionAlias", "regionName", "endpoint",
 	)
 }
 
-func (s *cloudImageMetadataSuite) assertAddMetadata(c *gc.C, series, arch, stream, storage, virtType, regionAlias, regionName, endpoint string) {
+func (s *cloudImageMetadataSuite) assertAddMetadata(c *gc.C, series, arch, stream, rootStore, virtType, regionAlias, regionName, endpoint string) {
 	added := cloudimagemetadata.Metadata{
-		Storage:     storage,
+		RootStore:   rootStore,
 		VirtType:    virtType,
 		Arch:        arch,
 		Series:      series,
@@ -128,7 +128,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 		Series:      "quantal",
 		Arch:        "amd64",
 		Stream:      "test",
-		Storage:     "storage",
+		RootStore:   "rootStore",
 		VirtType:    "virtType",
 		RegionAlias: "regionAlias",
 		RegionName:  "regionName",
@@ -138,7 +138,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 		m.Series,
 		m.Arch,
 		m.Stream,
-		m.Storage,
+		m.RootStore,
 		m.VirtType,
 		m.RegionAlias,
 		m.RegionName,
@@ -156,7 +156,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 		m.Series,
 		m.Arch,
 		m.Stream,
-		m.Storage,
+		m.RootStore,
 		m.VirtType,
 		m.RegionAlias,
 		m.RegionName,
@@ -175,7 +175,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 		Series:      "quantal",
 		Arch:        "amd64",
 		Stream:      "test",
-		Storage:     "storage",
+		RootStore:   "rootStore",
 		VirtType:    "virtType",
 		RegionAlias: "regionAlias",
 		RegionName:  "regionName",
@@ -189,7 +189,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 		m.Series,
 		m.Arch,
 		m.Stream,
-		m.Storage,
+		m.RootStore,
 		m.VirtType,
 		m.RegionAlias,
 		m.RegionName,
@@ -245,7 +245,7 @@ func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C,
 	series,
 	arch,
 	stream,
-	storage,
+	rootStore,
 	virtType,
 	regionAlias,
 	regionName,
@@ -256,7 +256,7 @@ func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C,
 		Series:      series,
 		Arch:        arch,
 		Stream:      stream,
-		Storage:     storage,
+		RootStore:   rootStore,
 		VirtType:    virtType,
 		RegionAlias: regionAlias,
 		RegionName:  regionName,
@@ -271,7 +271,7 @@ type testMetadataDoc struct {
 	Series      string `bson:"series"`
 	Arch        string `bson:"arch,omitempty"`
 	Stream      string `bson:"stream,omitempty"`
-	Storage     string `bson:"root_store,omitempty"`
+	RootStore   string `bson:"root_store,omitempty"`
 	VirtType    string `bson:"virt,omitempty"`
 	RegionAlias string `bson:"crsn,omitempty"`
 	RegionName  string `bson:"region,omitempty"`
@@ -289,7 +289,7 @@ func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, expected cloudimagemet
 		Series:      m.Series,
 		Arch:        m.Arch,
 		Stream:      m.Stream,
-		Storage:     m.Storage,
+		RootStore:   m.RootStore,
 		VirtType:    m.VirtType,
 		RegionAlias: m.RegionAlias,
 		RegionName:  m.RegionName,

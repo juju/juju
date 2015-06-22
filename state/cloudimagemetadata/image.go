@@ -107,7 +107,7 @@ type imagesMetadataDoc struct {
 	Series      string `bson:"series"`
 	Arch        string `bson:"arch"`
 	Stream      string `bson:"stream,omitempty"`
-	Storage     string `bson:"root_store,omitempty"`
+	RootStore   string `bson:"root_store,omitempty"`
 	VirtType    string `bson:"virt,omitempty"`
 	RegionAlias string `bson:"crsn,omitempty"`
 	RegionName  string `bson:"region,omitempty"`
@@ -119,7 +119,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 		Series:      m.Series,
 		Arch:        m.Arch,
 		Stream:      m.Stream,
-		Storage:     m.Storage,
+		RootStore:   m.RootStore,
 		VirtType:    m.VirtType,
 		RegionAlias: m.RegionAlias,
 		RegionName:  m.RegionName,
@@ -132,7 +132,7 @@ func (m imagesMetadataDoc) updates() bson.D {
 		{"series", m.Series},
 		{"arch", m.Arch},
 		{"stream", m.Stream},
-		{"root_store", m.Storage},
+		{"root_store", m.RootStore},
 		{"virt", m.VirtType},
 		{"crsn", m.RegionAlias},
 		{"region", m.RegionName},
@@ -146,7 +146,7 @@ func (m *Metadata) mongoDoc() imagesMetadataDoc {
 		Series:      m.Series,
 		Arch:        m.Arch,
 		Stream:      m.Stream,
-		Storage:     m.Storage,
+		RootStore:   m.RootStore,
 		VirtType:    m.VirtType,
 		RegionAlias: m.RegionAlias,
 		RegionName:  m.RegionName,

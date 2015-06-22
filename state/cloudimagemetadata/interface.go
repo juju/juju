@@ -5,7 +5,7 @@ package cloudimagemetadata
 
 // Metadata describes a cloud image metadata.
 type Metadata struct {
-	Storage     string
+	RootStore   string
 	VirtType    string
 	Arch        string
 	Series      string
