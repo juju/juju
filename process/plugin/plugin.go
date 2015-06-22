@@ -28,17 +28,6 @@ import (
 
 var logger = loggo.GetLogger("juju.process.plugin")
 
-// validationErr represents an error signifying an object with an invalid value.
-type validationErr struct {
-	*errors.Err
-}
-
-// IsInvalid returns whether the given error indicates an invalid value.
-func IsInvalid(e error) bool {
-	_, ok := e.(validationErr)
-	return ok
-}
-
 // ProcDetails represents information about a process launched by a plugin.
 type ProcDetails struct {
 	// ID is a unique string identifying the process to the plugin.
