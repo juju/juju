@@ -79,7 +79,7 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	catalogue := s.session.DB("catalogue")
-	s.metadataCollection = catalogue.C("cloudimagesmetadata")
+	s.metadataCollection = catalogue.C("cloudimagemetadata")
 
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
 	s.storage = cloudimagemetadata.NewStorage("my-uuid", s.metadataCollection, s.txnRunner)
