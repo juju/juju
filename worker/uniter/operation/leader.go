@@ -9,7 +9,9 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-type acceptLeadership struct{}
+type acceptLeadership struct {
+	DoesNotRequireMachineLock
+}
 
 // String is part of the Operation interface.
 func (al *acceptLeadership) String() string {
@@ -58,7 +60,9 @@ func (al *acceptLeadership) checkState(state State) error {
 	return nil
 }
 
-type resignLeadership struct{}
+type resignLeadership struct {
+	DoesNotRequireMachineLock
+}
 
 // String is part of the Operation interface.
 func (rl *resignLeadership) String() string {
