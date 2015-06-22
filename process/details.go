@@ -11,16 +11,16 @@ import (
 
 // RawStatus represents the data returned from the Plugin.Status call.
 type RawStatus struct {
-	// Status represents the human-readable string returned by the plugin for
-	// the process.
-	Status string `json:"status"`
+	// Value represents the human-readable string returned by the plugin for
+	// the status of the process.
+	Value string `json:"status"`
 }
 
 // Validate returns nil if this value is valid, and an error that satisfies
 // IsValid if it is not.
 func (s RawStatus) Validate() error {
-	if s.Status == "" {
-		return errors.NotValidf("Status cannot be empty")
+	if s.Value == "" {
+		return errors.NotValidf("Value cannot be empty")
 	}
 	return nil
 }
