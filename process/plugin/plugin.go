@@ -39,21 +39,24 @@ func IsInvalid(e error) bool {
 	return ok
 }
 
-// Find returns the plugin for the given name.
-func Find(name string) (*Plugin, error) {
-	path, err := exec.LookPath("juju-process-" + name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &Plugin{Name: name, Path: path}, nil
-}
-
 // ProcDetails represents information about a process launched by a plugin.
 type ProcDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
 	// ProcStatus is the status of the process after launch.
 	ProcStatus
+}
+
+func UnmarshalDetails(b []byte) (ProcDetails, error) {
+	details := ProcDetails{}
+	if err := json.Unmarshal(b, &details); err != nil {
+		return details, errors.Annotate(err, "error parsing data for procdetails")
+	}
+	if err := details.validate(); err != nil {
+		return details, errors.Annotate(err, "invalid procdetails")
+	}
+	return details, nil
+
 }
 
 // validate returns nil if this value is valid, and an error that satisfies
@@ -90,6 +93,15 @@ type Plugin struct {
 	Name string
 	// Path is the filename disk where the plugin executable resides.
 	Path string
+}
+
+// Find returns the plugin for the given name.
+func Find(name string) (*Plugin, error) {
+	path, err := exec.LookPath("juju-process-" + name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &Plugin{Name: name, Path: path}, nil
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
@@ -140,18 +152,6 @@ func (p Plugin) Launch(proc charm.Process) (ProcDetails, error) {
 		return details, errors.Trace(err)
 	}
 	return UnmarshalDetails(out)
-}
-
-func UnmarshalDetails(b []byte) (ProcDetails, error) {
-	details := ProcDetails{}
-	if err := json.Unmarshal(b, &details); err != nil {
-		return details, errors.Annotate(err, "error parsing data for procdetails")
-	}
-	if err := details.validate(); err != nil {
-		return details, errors.Annotate(err, "invalid procdetails")
-	}
-	return details, nil
-
 }
 
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
