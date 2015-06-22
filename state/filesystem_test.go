@@ -477,6 +477,26 @@ func (s *FilesystemStateSuite) TestDestroyFilesystem(c *gc.C) {
 	assertDestroy()
 }
 
+func (s *FilesystemStateSuite) TestDestroyFilesystemNoAttachments(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+
+	// There are no more attachments, so the filesystem should
+	// have been progressed directly to Dead.
+	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+}
+
 func (s *FilesystemStateSuite) TestRemoveFilesystem(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
 	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
@@ -565,18 +585,14 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FilesystemStateSuite) TestRemoveFilesystemAlive(c *gc.C) {
+func (s *FilesystemStateSuite) TestRemoveFilesystemNotDead(c *gc.C) {
 	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
 	err := s.State.RemoveFilesystem(filesystem.FilesystemTag())
-	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dying")
-}
-
-func (s *FilesystemStateSuite) TestRemoveWithFilesystemAttachments(c *gc.C) {
-	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
-	err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dead")
+	err = s.State.DestroyFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
-	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is attached to machines \\[0\\]")
+	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dead")
 }
 
 func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
@@ -589,6 +605,28 @@ func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, assertDetach).Check()
 	assertDetach()
+}
+
+func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachment(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		filesystem := s.filesystem(c, filesystem.FilesystemTag())
+		c.Assert(filesystem.Life(), gc.Equals, state.Dying)
+	}).Check()
+
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Last attachment was removed, and the filesystem was (concurrently)
+	// destroyed, so the filesystem should be Dead.
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentNotFound(c *gc.C) {

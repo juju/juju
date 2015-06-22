@@ -93,14 +93,17 @@ type filesystemAttachment struct {
 
 // filesystemDoc records information about a filesystem in the environment.
 type filesystemDoc struct {
-	DocID        string            `bson:"_id"`
-	FilesystemId string            `bson:"filesystemid"`
-	EnvUUID      string            `bson:"env-uuid"`
-	Life         Life              `bson:"life"`
-	StorageId    string            `bson:"storageid,omitempty"`
-	VolumeId     string            `bson:"volumeid,omitempty"`
-	Info         *FilesystemInfo   `bson:"info,omitempty"`
-	Params       *FilesystemParams `bson:"params,omitempty"`
+	DocID        string `bson:"_id"`
+	FilesystemId string `bson:"filesystemid"`
+	EnvUUID      string `bson:"env-uuid"`
+	Life         Life   `bson:"life"`
+	StorageId    string `bson:"storageid,omitempty"`
+	VolumeId     string `bson:"volumeid,omitempty"`
+	// TODO(axw) 2015-06-22 #1467379
+	// upgrade step to set this for 1.24 environments
+	AttachmentCount int               `bson:"attachmentcount"`
+	Info            *FilesystemInfo   `bson:"info,omitempty"`
+	Params          *FilesystemParams `bson:"params,omitempty"`
 }
 
 // filesystemAttachmentDoc records information about a filesystem attachment.
@@ -233,17 +236,14 @@ func (f *filesystemAttachment) Params() (FilesystemAttachmentParams, bool) {
 
 // Filesystem returns the Filesystem with the specified name.
 func (st *State) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
-	coll, cleanup := st.getCollection(filesystemsC)
-	defer cleanup()
+	f, err := st.filesystemInternal(tag)
+	return f, err
+}
 
-	var fs filesystem
-	err := coll.FindId(tag.Id()).One(&fs.doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("filesystem %q", tag.Id())
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get filesystem")
-	}
-	return &fs, nil
+func (st *State) filesystemInternal(tag names.FilesystemTag) (*filesystem, error) {
+	query := bson.D{{"_id", tag.Id()}}
+	description := names.ReadableString(tag)
+	return st.filesystem(query, description)
 }
 
 // StorageInstanceFilesystem returns the Filesystem assigned to the specified
@@ -251,17 +251,19 @@ func (st *State) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
 func (st *State) StorageInstanceFilesystem(tag names.StorageTag) (Filesystem, error) {
 	query := bson.D{{"storageid", tag.Id()}}
 	description := fmt.Sprintf("filesystem for storage instance %q", tag.Id())
-	return st.filesystem(query, description)
+	f, err := st.filesystem(query, description)
+	return f, err
 }
 
 // VolumeFilesystem returns the Filesystem backed by the specified volume.
 func (st *State) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
 	query := bson.D{{"volumeid", tag.Id()}}
 	description := fmt.Sprintf("filesystem for volume %q", tag.Id())
-	return st.filesystem(query, description)
+	f, err := st.filesystem(query, description)
+	return f, err
 }
 
-func (st *State) filesystem(query bson.D, description string) (Filesystem, error) {
+func (st *State) filesystem(query bson.D, description string) (*filesystem, error) {
 	coll, cleanup := st.getCollection(filesystemsC)
 	defer cleanup()
 
@@ -346,6 +348,11 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 	ops := make([]txn.Op, 0, len(attachments))
 	for _, a := range attachments {
 		filesystemTag := a.Filesystem()
+		// When removing the machine, there should only remain
+		// non-persistent storage. This will be implicitly
+		// removed when the machine is removed, so we do not
+		// use removeFilesystemAttachmentOps or removeFilesystemOps,
+		// which track and update related documents.
 		ops = append(ops, txn.Op{
 			C:      filesystemAttachmentsC,
 			Id:     filesystemAttachmentId(machine.Id(), filesystemTag.Id()),
@@ -427,7 +434,11 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 		if attachment.Life() != Dying {
 			return nil, errors.New("filesystem attachment is not dying")
 		}
-		ops := removeFilesystemAttachmentOps(machine, filesystem)
+		f, err := st.filesystemInternal(filesystem)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := removeFilesystemAttachmentOps(machine, f)
 		// If the filesystem is backed by a volume, the volume
 		// attachment can and should be destroyed once the
 		// filesystem attachment is removed.
@@ -444,39 +455,53 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 	return st.run(buildTxn)
 }
 
-func removeFilesystemAttachmentOps(m names.MachineTag, f names.FilesystemTag) []txn.Op {
+func removeFilesystemAttachmentOps(m names.MachineTag, f *filesystem) []txn.Op {
+	decrefFilesystemOp := machineStorageDecrefOp(
+		filesystemsC, f.doc.FilesystemId,
+		f.doc.AttachmentCount, f.doc.Life,
+	)
 	return []txn.Op{{
 		C:      filesystemAttachmentsC,
-		Id:     filesystemAttachmentId(m.Id(), f.Id()),
+		Id:     filesystemAttachmentId(m.Id(), f.doc.FilesystemId),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}}
+	}, decrefFilesystemOp}
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
 // be destroyed and removed from state at some point in the future.
 func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		filesystem, err := st.Filesystem(tag)
+		filesystem, err := st.filesystemInternal(tag)
 		if errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if filesystem.Life() != Alive {
+		if filesystem.doc.Life != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyFilesystemOps(st, tag), nil
+		return destroyFilesystemOps(st, filesystem), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyFilesystemOps(st *State, tag names.FilesystemTag) []txn.Op {
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingFilesystem, tag.Id())
+func destroyFilesystemOps(st *State, f *filesystem) []txn.Op {
+	if f.doc.AttachmentCount == 0 {
+		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		return []txn.Op{{
+			C:      filesystemsC,
+			Id:     f.doc.FilesystemId,
+			Assert: append(hasNoAttachments, isAliveDoc...),
+			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		}}
+	}
+	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
+	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingFilesystem, f.doc.FilesystemId)
 	return []txn.Op{{
 		C:      filesystemsC,
-		Id:     tag.Id(),
-		Assert: isAliveDoc,
+		Id:     f.doc.FilesystemId,
+		Assert: append(hasAttachments, isAliveDoc...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}, cleanupOp}
 }
@@ -494,39 +519,38 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if filesystem.Life() != Dying {
-			return nil, errors.New("filesystem is not dying")
+		if filesystem.Life() != Dead {
+			return nil, errors.New("filesystem is not dead")
 		}
-		// The filesystem is dying, so no more attachments can
-		// be added to it.
-		attachments, err := st.FilesystemAttachments(tag)
+		return removeFilesystemOps(st, filesystem)
+	}
+	return st.run(buildTxn)
+}
+
+func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
+	ops := []txn.Op{{
+		C:      filesystemsC,
+		Id:     filesystem.Tag().Id(),
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	// TODO(axw) The below should only be done if the volume's
+	// lifecycle is bound to the filesystem, or to the machine
+	// that the filesystem is scoped to and the machine is Dying.
+	//
+	// If the filesystem is backed by a volume, the volume can and
+	// should be destroyed once the filesystem is removed.
+	volumeTag, err := filesystem.Volume()
+	if err == nil {
+		volume, err := st.volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(attachments) > 0 {
-			machines := make([]string, len(attachments))
-			for i, a := range attachments {
-				machines[i] = a.Machine().Id()
-			}
-			return nil, errors.Errorf("filesystem is attached to machines %s", machines)
-		}
-		ops := []txn.Op{{
-			C:      filesystemsC,
-			Id:     tag.Id(),
-			Assert: txn.DocExists,
-			Remove: true,
-		}}
-		// If the filesystem is backed by a volume, the volume can and
-		// should be destroyed once the filesystem is removed.
-		volumeTag, err := filesystem.Volume()
-		if err == nil {
-			ops = append(ops, destroyVolumeOps(st, volumeTag)...)
-		} else if err != ErrNoBackingVolume {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
+		ops = append(ops, destroyVolumeOps(st, volume)...)
+	} else if err != ErrNoBackingVolume {
+		return nil, errors.Trace(err)
 	}
-	return st.run(buildTxn)
+	return ops, nil
 }
 
 // filesystemAttachmentId returns a filesystem attachment document ID,
@@ -613,6 +637,8 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 			VolumeId:     volumeId,
 			StorageId:    params.storage.Id(),
 			Params:       &params,
+			// Every filesystem is created with one attachment.
+			AttachmentCount: 1,
 		},
 	}
 	ops = append(ops, filesystemOp)
