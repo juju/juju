@@ -156,32 +156,36 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 	return &EnvironmentUser{st: st, doc: *doc}, nil
 }
 
-func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
+// envUserID returns the document id of the environment user
+func envUserID(user names.UserTag) string {
 	username := user.Username()
-	usernameLowerCase := strings.ToLower(username)
+	return strings.ToLower(username)
+}
+
+func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
 	creatorname := createdBy.Username()
 	doc := &envUserDoc{
-		ID:          usernameLowerCase,
+		ID:          envUserID(user),
 		EnvUUID:     envuuid,
-		UserName:    username,
+		UserName:    user.Username(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
 	}
 	op := txn.Op{
 		C:      envUsersC,
-		Id:     usernameLowerCase,
+		Id:     envUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
 	return op, doc
 }
 
-// RemoveEnvironmentUser adds a new user to the database.
+// RemoveEnvironmentUser removes a user from the database.
 func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      envUsersC,
-		Id:     user.Username(),
+		Id:     envUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
