@@ -70,8 +70,8 @@ func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 }
 
 // Metadata implements Storage.Metadata.
-func (s *cloudImageStorage) Metadata(stream, series, arch string) (Metadata, error) {
-	desiredID := createKey(stream, series, arch)
+func (s *cloudImageStorage) Metadata(series, arch, stream string) (Metadata, error) {
+	desiredID := createKey(series, arch, stream)
 	doc, err := s.imagesMetadata(desiredID)
 	if err != nil {
 		return Metadata{}, errors.Trace(err)
@@ -104,38 +104,39 @@ func (c *cloudImageStorage) imagesMetadata(desiredID string) (imagesMetadataDoc,
 
 type imagesMetadataDoc struct {
 	Id          string `bson:"_id"`
-	Arch        string `bson:"arch"`
 	Series      string `bson:"series"`
+	Arch        string `bson:"arch"`
+	Stream      string `bson:"stream,omitempty"`
 	Storage     string `bson:"root_store,omitempty"`
 	VirtType    string `bson:"virt,omitempty"`
 	RegionAlias string `bson:"crsn,omitempty"`
 	RegionName  string `bson:"region,omitempty"`
 	Endpoint    string `bson:"endpoint,omitempty"`
-	Stream      string `bson:"stream,omitempty"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
 		Series:      m.Series,
+		Arch:        m.Arch,
+		Stream:      m.Stream,
 		Storage:     m.Storage,
 		VirtType:    m.VirtType,
-		Arch:        m.Arch,
 		RegionAlias: m.RegionAlias,
 		RegionName:  m.RegionName,
 		Endpoint:    m.Endpoint,
-		Stream:      m.Stream,
 	}
 }
+
 func (m imagesMetadataDoc) updates() bson.D {
 	return bson.D{
+		{"series", m.Series},
+		{"arch", m.Arch},
+		{"stream", m.Stream},
 		{"root_store", m.Storage},
 		{"virt", m.VirtType},
-		{"arch", m.Arch},
-		{"series", m.Series},
 		{"crsn", m.RegionAlias},
 		{"region", m.RegionName},
 		{"endpoint", m.Endpoint},
-		{"stream", m.Stream},
 	}
 }
 
@@ -143,13 +144,13 @@ func (m *Metadata) mongoDoc() imagesMetadataDoc {
 	return imagesMetadataDoc{
 		Id:          m.key(),
 		Series:      m.Series,
+		Arch:        m.Arch,
+		Stream:      m.Stream,
 		Storage:     m.Storage,
 		VirtType:    m.VirtType,
-		Arch:        m.Arch,
 		RegionAlias: m.RegionAlias,
 		RegionName:  m.RegionName,
 		Endpoint:    m.Endpoint,
-		Stream:      m.Stream,
 	}
 }
 
@@ -161,10 +162,10 @@ func streamKey(stream string) string {
 	return imagemetadata.ReleasedStream
 }
 
-var createKey = func(stream, series, arch string) string {
+var createKey = func(series, arch, stream string) string {
 	return fmt.Sprintf("%s-%s-%s", series, arch, streamKey(stream))
 }
 
 func (im *Metadata) key() string {
-	return createKey(im.Stream, im.Series, im.Arch)
+	return createKey(im.Series, im.Arch, im.Stream)
 }
