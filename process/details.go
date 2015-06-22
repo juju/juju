@@ -38,10 +38,10 @@ type Details struct {
 func UnmarshalDetails(b []byte) (Details, error) {
 	var details Details
 	if err := json.Unmarshal(b, &details); err != nil {
-		return details, errors.Annotate(err, "error parsing data for procdetails")
+		return details, errors.Annotate(err, "error parsing data for workload process details")
 	}
 	if err := details.Validate(); err != nil {
-		return details, errors.Annotate(err, "invalid procdetails")
+		return details, errors.Annotate(err, "invalid workload process details")
 	}
 	return details, nil
 

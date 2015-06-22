@@ -55,7 +55,7 @@ func (s *suite) TestLaunchBadOutput(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(err, gc.ErrorMatches, `error parsing data for procdetails.*`)
+	c.Assert(err, gc.ErrorMatches, `error parsing data for workload process details.*`)
 }
 
 func (s *suite) TestLaunchNoId(c *gc.C) {
