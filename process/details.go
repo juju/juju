@@ -30,8 +30,8 @@ func (s RawStatus) Validate() error {
 type Details struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
-	// CurrentStatus is the most recent plugin-defined status of the process.
-	CurrentStatus RawStatus `json:"status"`
+	// Status is the most recent plugin-defined status of the process.
+	Status RawStatus `json:"status"`
 }
 
 // UnmarshalDetails de-serialized the provided data into a Details.
@@ -54,5 +54,5 @@ func (p Details) Validate() error {
 		e := errors.NewErr("ID cannot be empty")
 		return validationErr{&e}
 	}
-	return p.CurrentStatus.Validate()
+	return p.Status.Validate()
 }

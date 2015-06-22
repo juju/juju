@@ -39,8 +39,8 @@ func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.details = process.Details{
-		ID:            id,
-		CurrentStatus: process.RawStatus{Status: status},
+		ID:     id,
+		Status: process.RawStatus{Status: status},
 	}
 }
 
@@ -86,8 +86,8 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.Details{
-		ID:            "abc123",
-		CurrentStatus: process.RawStatus{Status: "okay"},
+		ID:     "abc123",
+		Status: process.RawStatus{Status: "okay"},
 	})
 }
 

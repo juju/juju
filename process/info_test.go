@@ -47,7 +47,7 @@ func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
 
 	info = process.NewInfoUnvalidated("a proc", "docker")
 	info.Details.ID = "abc123"
-	info.Details.CurrentStatus.Status = "running"
+	info.Details.Status.Status = "running"
 	isRegistered = info.IsRegistered()
 	c.Check(isRegistered, jc.IsTrue)
 }
