@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from __future__ import print_function
 
 __metaclass__ = type
@@ -140,7 +141,7 @@ def main():
     log_dir = args.logs
 
     client = make_client(
-        args.juju_path, args.debug, args.env_name, args.temp_env_name)
+        args.juju_path, args.debug, args.env, args.temp_env_name)
     client.destroy_environment()
     juju_home = get_juju_home()
     try:
