@@ -1118,6 +1118,7 @@ class TestTempJujuEnv(TestCase):
                     'root-dir': get_local_root(fake_home, client.env),
                     'agent-version': agent_version,
                     'test-mode': True,
+                    'name': 'qux',
                 }}})
                 stub_bootstrap()
 
