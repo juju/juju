@@ -112,9 +112,9 @@ func (p Plugin) Destroy(id string) error {
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func (p Plugin) Status(id string) (ProcStatus, error) {
+func (p Plugin) Status(id string) (Status, error) {
 	out, err := p.run("status", id)
-	status := ProcStatus{}
+	var status Status
 	if err != nil {
 		return status, errors.Trace(err)
 	}

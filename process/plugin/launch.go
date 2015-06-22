@@ -13,8 +13,8 @@ import (
 type ProcDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
-	// ProcStatus is the status of the process after launch.
-	ProcStatus
+	// Status is the plugin-defined status of the process after launch.
+	Status
 }
 
 func UnmarshalDetails(b []byte) (ProcDetails, error) {
@@ -36,5 +36,5 @@ func (p ProcDetails) validate() error {
 		e := errors.NewErr("ID cannot be empty")
 		return validationErr{&e}
 	}
-	return p.ProcStatus.validate()
+	return p.Status.validate()
 }

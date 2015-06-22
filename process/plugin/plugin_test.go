@@ -34,7 +34,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, ProcDetails{"foo", ProcStatus{"bar"}})
+	c.Assert(pd, gc.Equals, ProcDetails{"foo", Status{"bar"}})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Path)
@@ -106,7 +106,7 @@ func (s *suite) TestStatus(c *gc.C) {
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, ProcStatus{Status: "status!"})
+	c.Assert(status, gc.Equals, Status{Status: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Path)
 	c.Assert(f.subcommand, gc.Equals, "status")

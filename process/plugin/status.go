@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// ProcStatus represents the data returned from the Status call.
-type ProcStatus struct {
+// Status represents the data returned from the Plugin.Status call.
+type Status struct {
 	// Status represents the human-readable string returned by the plugin for
 	// the process.
 	Status string `json:"status"`
@@ -16,8 +16,8 @@ type ProcStatus struct {
 
 // validate returns nil if this value is valid, and an error that satisfies
 // IsValid if it is not.
-func (p ProcStatus) validate() error {
-	if p.Status == "" {
+func (s Status) validate() error {
+	if s.Status == "" {
 		e := errors.NewErr("Status cannot be empty")
 		return validationErr{&e}
 	}
