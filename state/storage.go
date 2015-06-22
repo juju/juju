@@ -282,27 +282,38 @@ func removeStorageInstanceOps(
 		Assert: assert,
 		Remove: true,
 	}}
-	// If the storage instance has an assigned volume and/or filesystem,
-	// unassign them.
-	volume, err := st.StorageInstanceVolume(tag)
-	if err == nil {
-		ops = append(ops, txn.Op{
-			C:      volumesC,
-			Id:     volume.Tag().Id(),
+
+	machineStorageOp := func(c string, id string) txn.Op {
+		return txn.Op{
+			C:      c,
+			Id:     id,
 			Assert: bson.D{{"storageid", tag.Id()}},
 			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
-		})
+		}
+	}
+
+	// If the storage instance has an assigned volume and/or filesystem,
+	// unassign them. Any volumes and filesystems bound to the storage
+	// will be destroyed.
+	volume, err := st.storageInstanceVolume(tag)
+	if err == nil {
+		ops = append(ops, machineStorageOp(
+			volumesC, volume.Tag().Id(),
+		))
+		if volume.Binding() == tag {
+			ops = append(ops, destroyVolumeOps(st, volume)...)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	filesystem, err := st.StorageInstanceFilesystem(tag)
+	filesystem, err := st.storageInstanceFilesystem(tag)
 	if err == nil {
-		ops = append(ops, txn.Op{
-			C:      filesystemsC,
-			Id:     filesystem.Tag().Id(),
-			Assert: bson.D{{"storageid", tag.Id()}},
-			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
-		})
+		ops = append(ops, machineStorageOp(
+			filesystemsC, filesystem.Tag().Id(),
+		))
+		if filesystem.Binding() == tag {
+			ops = append(ops, destroyFilesystemOps(st, filesystem)...)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}

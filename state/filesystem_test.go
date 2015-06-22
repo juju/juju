@@ -637,6 +637,58 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 0)
 }
 
+func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
+	// Filesystems created unassigned to a storage instance are
+	// bound to the initially attached machine.
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	c.Assert(filesystem.Binding(), gc.Equals, machine.Tag())
+
+	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemBindingStorage(c *gc.C) {
+	// Filesystems created assigned to a storage instance are bound
+	// to the storage instance.
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	c.Assert(filesystem.Binding(), gc.Equals, storageTag)
+
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments, err := s.State.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err = s.State.DestroyStorageAttachment(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// The storage instance should be removed,
+	// and the filesystem should be Dying.
+	_, err = s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemVolumeBinding(c *gc.C) {
+	// A volume backing a filesystem is bound to the filesystem.
+	filesystem, _ := s.setupFilesystemAttachment(c, "loop")
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
+	c.Assert(volume.Binding(), gc.Equals, filesystem.Tag())
+
+	// TestRemoveFilesystemVolumeBacked tests that removal of
+	// filesystem destroys volume.
+}
+
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
