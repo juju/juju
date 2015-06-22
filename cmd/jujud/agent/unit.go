@@ -235,9 +235,11 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		}
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
-	})
+	if !featureflag.Enabled(feature.DisableRsyslog) {
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+		})
+	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
