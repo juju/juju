@@ -18,13 +18,13 @@ import (
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
-type cloudImageStorage struct {
+type storage struct {
 	envUUID            string
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
 }
 
-var _ Storage = (*cloudImageStorage)(nil)
+var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores  image metadata
 // in the provided collection using the provided transaction runner.
@@ -33,7 +33,7 @@ func NewStorage(
 	metadataCollection *mgo.Collection,
 	runner jujutxn.Runner,
 ) Storage {
-	return &cloudImageStorage{
+	return &storage{
 		envUUID:            envUUID,
 		metadataCollection: metadataCollection,
 		txnRunner:          runner,
@@ -41,7 +41,7 @@ func NewStorage(
 }
 
 // AddMetadata implements Storage.AddMetadata.
-func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
+func (s *storage) AddMetadata(metadata Metadata) error {
 	newDoc := metadata.mongoDoc()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
@@ -70,7 +70,7 @@ func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
 }
 
 // FindMetadata implements Storage.FindMetadata.
-func (s *cloudImageStorage) FindMetadata(series, arch, stream string) (Metadata, error) {
+func (s *storage) FindMetadata(series, arch, stream string) (Metadata, error) {
 	desiredID := createKey(series, arch, stream)
 	doc, err := s.imagesMetadata(desiredID)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *cloudImageStorage) FindMetadata(series, arch, stream string) (Metadata,
 }
 
 // AllMetadata implements Storage.AllMetadata.
-func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
+func (s *storage) AllMetadata() ([]Metadata, error) {
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
 		return nil, errors.Trace(err)
@@ -92,7 +92,7 @@ func (s *cloudImageStorage) AllMetadata() ([]Metadata, error) {
 	return metadata, nil
 }
 
-func (c *cloudImageStorage) imagesMetadata(desiredID string) (imagesMetadataDoc, error) {
+func (c *storage) imagesMetadata(desiredID string) (imagesMetadataDoc, error) {
 	var doc imagesMetadataDoc
 	logger.Infof("looking for cloud image metadata with id %v", desiredID)
 	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
