@@ -25,7 +25,7 @@ const exitstatus1 = "exit status 1: "
 
 func (s *suite) TestLaunch(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo", "status" : "bar" }`),
+		out: []byte(`{ "id" : "foo", "status": { "status" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -59,7 +59,7 @@ func (s *suite) TestLaunchBadOutput(c *gc.C) {
 
 func (s *suite) TestLaunchNoId(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "status" : "bar" }`),
+		out: []byte(`{ "status" : { "status" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 

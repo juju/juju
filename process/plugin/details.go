@@ -13,8 +13,8 @@ import (
 type Details struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
-	// Status is the plugin-defined status of the process after launch.
-	Status
+	// CurrentStatus is the most recent plugin-defined status of the process.
+	CurrentStatus Status `json:"status"`
 }
 
 // UnmarshalDetails de-serialized the provided data into a Details.
@@ -37,5 +37,5 @@ func (p Details) Validate() error {
 		e := errors.NewErr("ID cannot be empty")
 		return validationErr{&e}
 	}
-	return p.Status.Validate()
+	return p.CurrentStatus.Validate()
 }
