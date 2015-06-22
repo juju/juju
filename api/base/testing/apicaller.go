@@ -50,7 +50,10 @@ type CheckArgs struct {
 }
 
 func checkArgs(c *gc.C, args *CheckArgs, facade string, version int, id, method string, inArgs, outResults interface{}) {
-	if args != nil {
+	if args == nil {
+		c.Logf("checkArgs: args is nil!")
+		return
+	} else {
 		if args.Facade != "" {
 			c.Check(facade, gc.Equals, args.Facade)
 		}
@@ -89,21 +92,25 @@ func CheckingAPICaller(c *gc.C, args *CheckArgs, numCalls *int, err error) base.
 			if numCalls != nil {
 				*numCalls++
 			}
-			checkArgs(c, args, facade, version, id, method, inArgs, outResults)
+			if args != nil {
+				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
+			}
 			return err
 		},
 	)
 }
 
-// PingingCheckingAPICaller returns an APICallerFunc which sends a message on the channel "called" every
+// NotifyingCheckingAPICaller returns an APICallerFunc which sends a message on the channel "called" every
 // time it recives a call, as well as check if any of the arguments passed to the APICall() method match
 // the values given in args (if args itself is not nil, otherwise no arguments are checked). The final
 // error result of the APICall() will be set to err.
-func PingingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, err error) base.APICaller {
+func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, err error) base.APICaller {
 	return APICallerFunc(
 		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
 			called <- struct{}{}
-			checkArgs(c, args, facade, version, id, method, inArgs, outResults)
+			if args != nil {
+				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
+			}
 			return err
 		},
 	)

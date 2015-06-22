@@ -43,7 +43,7 @@ func Init(c *gc.C, method string, expectArgs, useResults interface{}, err error)
 	}
 
 	t.called = make(chan struct{}, 100)
-	t.apiCaller = apitesting.PingingCheckingAPICaller(c, &t.apiArgs, t.called, err)
+	t.apiCaller = apitesting.NotifyingCheckingAPICaller(c, &t.apiArgs, t.called, err)
 	t.api = cleaner.NewAPI(t.apiCaller)
 
 	c.Check(t.api, gc.NotNil)
