@@ -41,7 +41,7 @@ type Server struct {
 	tomb              tomb.Tomb
 	wg                sync.WaitGroup
 	state             *state.State
-	addr              string
+	addr              *net.TCPAddr
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -145,7 +145,6 @@ func (cl *changeCertListener) processCertChanges() error {
 			return tomb.ErrDying
 		}
 	}
-	return nil
 }
 
 // updateCertificate generates a new TLS certificate and assigns it
@@ -173,18 +172,18 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	l, ok := lis.(*net.TCPListener)
+	if !ok {
+		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
+	}
+	return newServer(s, l, cfg)
+}
+
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
 	logger.Infof("listening on %q", lis.Addr())
-	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
-	if err != nil {
-		return nil, err
-	}
-	_, listeningPort, err := net.SplitHostPort(lis.Addr().String())
-	if err != nil {
-		return nil, err
-	}
 	srv := &Server{
 		state:     s,
-		addr:      net.JoinHostPort("localhost", listeningPort),
+		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
 		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
@@ -195,6 +194,10 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 			1: newAdminApiV1,
 			2: newAdminApiV2,
 		},
+	}
+	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
+	if err != nil {
+		return nil, err
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -427,7 +430,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Addr returns the address that the server is listening on.
-func (srv *Server) Addr() string {
+func (srv *Server) Addr() *net.TCPAddr {
 	return srv.addr
 }
 

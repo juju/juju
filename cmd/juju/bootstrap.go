@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
@@ -74,6 +75,12 @@ Juju tools to cloud storage if no outgoing Internet access is available. In this
 use the --metadata-source paramater to tell bootstrap a local directory from which to
 upload tools and/or image metadata.
 
+If agent-version is specifed, this is the default tools version to use when running the Juju agents.
+Only the numeric version is relevant. To enable ease of scripting, the full binary version
+is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
+An alias for bootstrapping Juju with the exact same version as the client is to use the
+--no-auto-upgrade parameter.
+
 See Also:
    juju help switch
    juju help constraints
@@ -92,6 +99,9 @@ type BootstrapCommand struct {
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
+	NoAutoUpgrade         bool
+	AgentVersionParam     string
+	AgentVersion          *version.Number
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -110,6 +120,8 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
+	f.BoolVar(&c.NoAutoUpgrade, "no-auto-upgrade", false, "do not upgrade to newer tools on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -122,6 +134,12 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
 		return fmt.Errorf("--upload-series and --series can't be used together")
 	}
+	if c.AgentVersionParam != "" && c.UploadTools {
+		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
+	}
+	if c.AgentVersionParam != "" && c.NoAutoUpgrade {
+		return fmt.Errorf("--agent-version and --no-auto-upgrade can't be used together")
+	}
 
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
@@ -131,6 +149,21 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 			// We only support unscoped placement directives for bootstrap.
 			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
+	}
+	if c.NoAutoUpgrade {
+		vers := version.Current.Number
+		c.AgentVersion = &vers
+	} else if c.AgentVersionParam != "" {
+		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
+			c.AgentVersion = &vers.Number
+		} else if vers, err := version.Parse(c.AgentVersionParam); err == nil {
+			c.AgentVersion = &vers
+		} else {
+			return err
+		}
+	}
+	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -271,10 +304,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		Constraints: c.Constraints,
-		Placement:   c.Placement,
-		UploadTools: c.UploadTools,
-		MetadataDir: metadataDir,
+		Constraints:  c.Constraints,
+		Placement:    c.Placement,
+		UploadTools:  c.UploadTools,
+		AgentVersion: c.AgentVersion,
+		MetadataDir:  metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")

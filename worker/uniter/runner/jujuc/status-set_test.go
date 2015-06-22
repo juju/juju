@@ -106,7 +106,7 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Service.Status, gc.Equals, args[1])
 		c.Assert(status.Service.Info, gc.Equals, args[2])
-		c.Assert(status.Units, gc.DeepEquals, []jujuc.StatusInfo{})
+		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
 	}
 }

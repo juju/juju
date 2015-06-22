@@ -119,8 +119,7 @@ func (*Factory) RandomSuffix(prefix string) string {
 }
 
 func uniqueInteger() int {
-	index = atomic.AddUint32(&index, 1)
-	return int(index)
+	return int(atomic.AddUint32(&index, 1))
 }
 
 func uniqueString(prefix string) string {

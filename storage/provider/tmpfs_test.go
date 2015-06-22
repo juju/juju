@@ -249,3 +249,13 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
 	}})
 	c.Assert(err, gc.ErrorMatches, "attaching filesystem 6: reading filesystem info from disk: open .*/6.info: no such file or directory")
 }
+
+func (s *tmpfsSuite) TestDetachFilesystems(c *gc.C) {
+	source := s.tmpfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, true)
+}
+
+func (s *tmpfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+	source := s.tmpfsFilesystemSource(c)
+	testDetachFilesystems(c, s.commands, source, false)
+}

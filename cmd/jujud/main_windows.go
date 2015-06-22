@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/sys/windows/svc"
+	"github.com/gabriel-samfira/sys/windows/svc"
 
 	"github.com/juju/juju/cmd/service"
 	"github.com/juju/juju/juju/names"

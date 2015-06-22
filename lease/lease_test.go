@@ -340,7 +340,11 @@ func (s *leaseSuite) TestLeaseExpiration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	receivedSignal := make(chan struct{})
 
-	var leaseClaimedTime time.Time
+	// Grab a lease.
+	_, err = s.manager.ClaimLease(testNamespace, testId, leaseDuration)
+	leaseClaimedTime := time.Now()
+	c.Assert(err, jc.ErrorIsNil)
+
 	go func() {
 
 		<-subscription
@@ -360,11 +364,6 @@ func (s *leaseSuite) TestLeaseExpiration(c *gc.C) {
 			)
 		}
 	}()
-
-	// Grab a lease.
-	_, err = s.manager.ClaimLease(testNamespace, testId, leaseDuration)
-	leaseClaimedTime = time.Now()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the all-clear, or a time-out.
 	select {

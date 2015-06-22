@@ -4,11 +4,9 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -167,21 +165,14 @@ func (c *RemoteCommand) Run(ctx *cmd.Context) error {
 	if c.msg != "" {
 		return errors.New(c.msg)
 	}
-	n, err := io.Copy(ctx.Stdout, ctx.Stdin)
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		fmt.Fprintf(ctx.Stdout, "success!\n")
-	}
+	fmt.Fprintf(ctx.Stdout, "success!\n")
 	return nil
 }
 
-func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd ...string) string {
+func run(c *gc.C, sockPath string, contextId string, exit int, cmd ...string) string {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, cmd...)
 	c.Logf("check %v %#v", os.Args[0], args)
 	ps := exec.Command(os.Args[0], args...)
-	ps.Stdin = bytes.NewBuffer(stdin)
 	ps.Dir = c.MkDir()
 	ps.Env = []string{
 		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
@@ -261,7 +252,7 @@ func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	}
 	for _, t := range argsTests {
 		c.Log(t.args)
-		output := run(c, s.sockPath, "bill", t.code, nil, t.args...)
+		output := run(c, s.sockPath, "bill", t.code, t.args...)
 		c.Assert(output, gc.Equals, t.output)
 	}
 }
@@ -270,7 +261,7 @@ func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
-	output := run(c, s.sockPath, "", 1, nil, "remote")
+	output := run(c, s.sockPath, "", 1, "remote")
 	c.Assert(output, gc.Equals, "error: JUJU_CONTEXT_ID not set\n")
 }
 
@@ -278,7 +269,7 @@ func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
-	output := run(c, s.sockPath, "ben", 1, nil, "remote")
+	output := run(c, s.sockPath, "ben", 1, "remote")
 	c.Assert(output, gc.Equals, "error: bad request: bad context: ben\n")
 }
 
@@ -286,7 +277,7 @@ func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
-	output := run(c, "", "bill", 1, nil, "remote")
+	output := run(c, "", "bill", 1, "remote")
 	c.Assert(output, gc.Equals, "error: JUJU_AGENT_SOCKET not set\n")
 }
 
@@ -295,15 +286,7 @@ func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
-	output := run(c, badSock, "bill", 1, nil, "remote")
+	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
 	c.Assert(output, gc.Matches, err)
-}
-
-func (s *JujuCMainSuite) TestStdin(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
-	output := run(c, s.sockPath, "bill", 0, []byte("some standard input"), "remote")
-	c.Assert(output, gc.Equals, "some standard input")
 }

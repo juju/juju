@@ -651,7 +651,7 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 }
 
 func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag names.EnvironTag, validator apiserver.LoginValidator) (*api.Info, func()) {
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
 		s.State,
@@ -673,7 +673,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 		Tag:        nil,
 		Password:   "",
 		EnvironTag: envTag,
-		Addrs:      []string{srv.Addr()},
+		Addrs:      []string{srv.Addr().String()},
 		CACert:     coretesting.CACert,
 	}
 	return info, func() {

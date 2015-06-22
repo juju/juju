@@ -70,21 +70,6 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 	return alive, dying, dead, nil
 }
 
-// ensureDead ensures that each specified entity immediately becomes Dead
-// if it is not already Dead or removed.
-func ensureDead(ctx *context, tags []names.Tag) error {
-	errorResults, err := ctx.life.EnsureDead(tags)
-	if err != nil {
-		return errors.Annotate(err, "ensuring storage entities dead")
-	}
-	for i, result := range errorResults {
-		if result.Error != nil {
-			return errors.Annotatef(result.Error, "ensuring %s dead", names.ReadableString(tags[i]))
-		}
-	}
-	return nil
-}
-
 // removeEntities removes each specified Dead entity from state.
 func removeEntities(ctx *context, tags []names.Tag) error {
 	errorResults, err := ctx.life.Remove(tags)

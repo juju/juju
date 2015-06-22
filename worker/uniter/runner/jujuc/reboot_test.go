@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type JujuRebootSuite struct{}
+type JujuRebootSuite struct {
+	ContextSuite
+}
 
 var _ = gc.Suite(&JujuRebootSuite{})
 
@@ -84,12 +86,15 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 	for i, t := range jujuRebootTests {
 		c.Logf("Test %d: %s", i, t.summary)
 
-		com, err := jujuc.NewCommand(t.hctx, cmdString("juju-reboot"))
+		hctx := s.newHookContext(c)
+		hctx.shouldError = t.hctx.shouldError
+		hctx.rebootPriority = t.hctx.rebootPriority
+		com, err := jujuc.NewCommand(hctx, cmdString("juju-reboot"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
-		c.Check(t.hctx.rebootPriority, gc.Equals, t.priority)
+		c.Check(hctx.rebootPriority, gc.Equals, t.priority)
 	}
 }
 
