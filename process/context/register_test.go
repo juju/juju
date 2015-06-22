@@ -18,7 +18,7 @@ type registerSuite struct {
 	commandSuite
 
 	registerCmd *context.ProcRegistrationCommand
-	details     plugin.ProcDetails
+	details     plugin.Details
 }
 
 var _ = gc.Suite(&registerSuite{})
@@ -36,12 +36,12 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	err := s.registerCmd.Init([]string{
 		name,
-		`{"id":"` + id + `", "status":"` + status + `"}`,
+		`{"id":"` + id + `", "status":{"status":"` + status + `"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.details = plugin.ProcDetails{
-		ID:         id,
-		ProcStatus: plugin.ProcStatus{Status: status},
+	s.details = plugin.Details{
+		ID:            id,
+		CurrentStatus: plugin.Status{Status: status},
 	}
 }
 
@@ -81,14 +81,14 @@ the charm's metadata.yaml.
 func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":"okay"}`,
+		`{"id":"abc123", "status":{"status":"okay"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
-	c.Check(s.registerCmd.Details, jc.DeepEquals, plugin.ProcDetails{
-		ID:         "abc123",
-		ProcStatus: plugin.ProcStatus{Status: "okay"},
+	c.Check(s.registerCmd.Details, jc.DeepEquals, plugin.Details{
+		ID:            "abc123",
+		CurrentStatus: plugin.Status{Status: "okay"},
 	})
 }
 
@@ -103,7 +103,7 @@ func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":"okay"}`,
+		`{"id":"abc123", "status":{"status":"okay"}}`,
 		"other",
 	})
 
@@ -131,7 +131,7 @@ func (s *registerSuite) TestInitEmptyID(c *gc.C) {
 func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"status":"okay"}`,
+		`{"status":{"status":"okay"}}`,
 	})
 
 	c.Check(errors.Cause(err), jc.Satisfies, plugin.IsInvalid)

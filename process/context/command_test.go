@@ -47,7 +47,7 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 	c.Check(s.cmdCtx.Stderr.(*bytes.Buffer).String(), gc.Equals, expected)
 }
 
-func (s *commandSuite) checkDetails(c *gc.C, expected plugin.ProcDetails) {
+func (s *commandSuite) checkDetails(c *gc.C, expected plugin.Details) {
 	info := context.GetCmdInfo(s.cmd)
 	c.Check(info.Details, jc.DeepEquals, expected)
 }

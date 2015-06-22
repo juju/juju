@@ -88,7 +88,7 @@ type registeringCommand struct {
 	baseCommand
 
 	// Details is the launch details returned from the process plugin.
-	Details plugin.ProcDetails
+	Details plugin.Details
 
 	// Overrides overwrite the process definition.
 	Overrides []string
