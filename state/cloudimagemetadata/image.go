@@ -42,7 +42,7 @@ func NewStorage(
 
 // AddMetadata implements Storage.AddMetadata.
 func (s *cloudImageStorage) AddMetadata(metadata Metadata) error {
-	newDoc := metadata.doc()
+	newDoc := metadata.mongoDoc()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
 			C:  s.metadataCollection.Name,
@@ -139,7 +139,7 @@ func (m imagesMetadataDoc) updates() bson.D {
 	}
 }
 
-func (m *Metadata) doc() imagesMetadataDoc {
+func (m *Metadata) mongoDoc() imagesMetadataDoc {
 	return imagesMetadataDoc{
 		Id:          m.key(),
 		Series:      m.Series,
