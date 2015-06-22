@@ -26,15 +26,16 @@ var (
 )
 
 type executor struct {
-	file  *StateFile
-	state *State
+	file               *StateFile
+	state              *State
+	acquireMachineLock func(string) (func() error, error)
 }
 
 // NewExecutor returns an Executor which takes its starting state from the
 // supplied path, and records state changes there. If no state file exists,
 // the executor's starting state will include a queued Install hook, for
 // the charm identified by the supplied func.
-func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error)) (Executor, error) {
+func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
 	if err == ErrNoStateFile {
@@ -51,8 +52,9 @@ func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, e
 		return nil, err
 	}
 	return &executor{
-		file:  file,
-		state: state,
+		file:               file,
+		state:              state,
+		acquireMachineLock: acquireLock,
 	}, nil
 }
 
@@ -62,8 +64,27 @@ func (x *executor) State() State {
 }
 
 // Run is part of the Executor interface.
-func (x *executor) Run(op Operation) error {
+func (x *executor) Run(op Operation) (runErr error) {
 	logger.Infof("running operation %v", op)
+
+	if op.NeedsGlobalMachineLock() {
+		unlock, err := x.acquireMachineLock(fmt.Sprintf("executing operation: %s", op.String()))
+		if err != nil {
+			return errors.Annotate(err, "could not acquire lock")
+		}
+		// There is nothing theoretically stopping us from unlocking
+		// between execute and commit, but since we're not looking for the
+		// efficiency provided by that right now, we prefer to keep the logic
+		// simple. This could be changed in the future.
+		defer func() {
+			unlockErr := unlock()
+			if unlockErr != nil {
+				logger.Errorf("operation failed with error %v; error overriden by unlock failure error", runErr)
+				runErr = unlockErr
+			}
+		}()
+	}
+
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {
 	case ErrSkipExecute:
 	case nil:
