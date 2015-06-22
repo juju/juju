@@ -37,7 +37,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 	c.Assert(pd, gc.Equals, LaunchDetails{"foo", Status{"bar"}})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "launch")
 	c.Assert(f.args, gc.HasLen, 1)
 	// fix this to be more stringent when we fix json serialization for charm.Process
@@ -108,7 +108,7 @@ func (s *suite) TestStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, Status{Status: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "status")
 	c.Assert(f.args, gc.DeepEquals, []string{"id"})
 }
@@ -134,7 +134,7 @@ func (s *suite) TestDestroy(c *gc.C) {
 	err := p.Destroy("id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "destroy")
 	c.Assert(f.args, gc.DeepEquals, []string{"id"})
 }

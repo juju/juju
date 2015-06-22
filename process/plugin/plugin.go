@@ -33,8 +33,8 @@ var logger = loggo.GetLogger("juju.process.plugin")
 type Plugin struct {
 	// Name is the name of the plugin.
 	Name string
-	// Path is the filename disk where the plugin executable resides.
-	Path string
+	// Executable is the filename disk where the plugin executable resides.
+	Executable string
 }
 
 // Find returns the plugin for the given name.
@@ -43,7 +43,7 @@ func Find(name string) (*Plugin, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Plugin{Name: name, Path: path}, nil
+	return &Plugin{Name: name, Executable: path}, nil
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
@@ -129,7 +129,7 @@ func (p Plugin) Status(id string) (Status, error) {
 
 // run runs the given subcommand of the plugin with the given args.
 func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
-	return runCmd(p.Name, p.Path, subcommand, args...)
+	return runCmd(p.Name, p.Executable, subcommand, args...)
 }
 
 // runCmd runs the executable at path with the subcommand as the first argument
