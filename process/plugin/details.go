@@ -17,6 +17,7 @@ type LaunchDetails struct {
 	Status
 }
 
+// UnmarshalDetails de-serialized the provided data into a LaunchDetails.
 func UnmarshalDetails(b []byte) (LaunchDetails, error) {
 	var details LaunchDetails
 	if err := json.Unmarshal(b, &details); err != nil {
