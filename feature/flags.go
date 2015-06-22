@@ -53,9 +53,9 @@ func IsDbLogEnabled() bool {
 	return featureflag.Enabled(dbLog) || featureflag.Enabled(JES)
 }
 
-// DisableRsyslogLogSending will stop the writing of the rsyslog
-// accumulation and forwarding configuration files.
-const DisableRsyslogLogSending = "disable-rsyslog"
+// DisableRsyslog will stop the writing of the rsyslog accumulation and
+// forwarding configuration files by stopping the rsyslog workers.
+const DisableRsyslog = "disable-rsyslog"
 
 // CloudSigma enables the CloudSigma provider.
 const CloudSigma = "cloudsigma"
