@@ -20,8 +20,7 @@ type RawStatus struct {
 // IsValid if it is not.
 func (s RawStatus) Validate() error {
 	if s.Status == "" {
-		e := errors.NewErr("Status cannot be empty")
-		return validationErr{&e}
+		return errors.NotValidf("Status cannot be empty")
 	}
 	return nil
 }
@@ -51,8 +50,7 @@ func UnmarshalDetails(b []byte) (Details, error) {
 // IsValid if it is not.
 func (p Details) Validate() error {
 	if p.ID == "" {
-		e := errors.NewErr("ID cannot be empty")
-		return validationErr{&e}
+		return errors.NotValidf("ID cannot be empty")
 	}
 	return p.Status.Validate()
 }

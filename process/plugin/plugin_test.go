@@ -68,7 +68,7 @@ func (s *suite) TestLaunchNoId(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, process.IsInvalid)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *suite) TestLaunchNoStatus(c *gc.C) {
@@ -81,7 +81,7 @@ func (s *suite) TestLaunchNoStatus(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, process.IsInvalid)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *suite) TestLaunchErr(c *gc.C) {

@@ -133,7 +133,7 @@ func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 		`{"status":{"status":"okay"}}`,
 	})
 
-	c.Check(errors.Cause(err), jc.Satisfies, process.IsInvalid)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
 		`{"id":"abc123"}`,
 	})
 
-	c.Check(errors.Cause(err), jc.Satisfies, process.IsInvalid)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *registerSuite) TestInitBadJSON(c *gc.C) {
