@@ -9,17 +9,17 @@ import (
 	"github.com/juju/errors"
 )
 
-// LaunchDetails represents information about a process launched by a plugin.
-type LaunchDetails struct {
+// Details represents information about a process launched by a plugin.
+type Details struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
 	// Status is the plugin-defined status of the process after launch.
 	Status
 }
 
-// UnmarshalDetails de-serialized the provided data into a LaunchDetails.
-func UnmarshalDetails(b []byte) (LaunchDetails, error) {
-	var details LaunchDetails
+// UnmarshalDetails de-serialized the provided data into a Details.
+func UnmarshalDetails(b []byte) (Details, error) {
+	var details Details
 	if err := json.Unmarshal(b, &details); err != nil {
 		return details, errors.Annotate(err, "error parsing data for procdetails")
 	}
@@ -32,7 +32,7 @@ func UnmarshalDetails(b []byte) (LaunchDetails, error) {
 
 // Validate returns nil if this value is valid, and an error that satisfies
 // IsValid if it is not.
-func (p LaunchDetails) Validate() error {
+func (p Details) Validate() error {
 	if p.ID == "" {
 		e := errors.NewErr("ID cannot be empty")
 		return validationErr{&e}
