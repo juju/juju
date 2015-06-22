@@ -649,3 +649,26 @@ func (s *DeploySuite) TestCommitInterruptedHook_RevertUpgrade(c *gc.C) {
 func (s *DeploySuite) TestCommitInterruptedHook_ResolvedUpgrade(c *gc.C) {
 	s.testCommitInterruptedHook(c, (operation.Factory).NewResolvedUpgrade)
 }
+
+func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *gc.C, newDeploy newDeploy) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+}
+
+func (s *DeploySuite) TestDoesNotNeedGlobalMachineLock_Install(c *gc.C) {
+	s.testDoesNotNeedGlobalMachineLock(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestDoesNotNeedGlobalMachineLock_Upgrade(c *gc.C) {
+	s.testDoesNotNeedGlobalMachineLock(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestDoesNotNeedGlobalMachineLock_RevertUpgrade(c *gc.C) {
+	s.testDoesNotNeedGlobalMachineLock(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestDoesNotNeedGlobalMachineLock_ResolvedUpgrade(c *gc.C) {
+	s.testDoesNotNeedGlobalMachineLock(c, (operation.Factory).NewResolvedUpgrade)
+}

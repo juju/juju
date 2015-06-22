@@ -16,6 +16,8 @@ import (
 
 // deploy implements charm install and charm upgrade operations.
 type deploy struct {
+	DoesNotRequireMachineLock
+
 	kind     Kind
 	charmURL *corecharm.URL
 	revert   bool

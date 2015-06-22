@@ -1284,7 +1284,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
+func createMachineLock(c *gc.C, dataDir string) *fslock.Lock {
 	lockDir := filepath.Join(dataDir, "locks")
 	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1296,26 +1296,26 @@ type acquireHookSyncLock struct {
 }
 
 func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
+	lock := createMachineLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsFalse)
 	err := lock.Lock(s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
+	lock := createMachineLock(c, ctx.dataDir)
 	// Force the release.
 	err := lock.BreakLock()
 	c.Assert(err, jc.ErrorIsNil)
 }}
 
 var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
+	lock := createMachineLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsFalse)
 }}
 
 var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
+	lock := createMachineLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
 

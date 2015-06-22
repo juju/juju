@@ -147,7 +147,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
-	hookLock, err := cmdutil.HookExecutionLock(dataDir)
+	machineLock, err := cmdutil.HookExecutionLock(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return uniter.NewUniter(uniterFacade, unitTag, leadership.NewClient(st), dataDir, hookLock), nil
+		return uniter.NewUniter(uniterFacade, unitTag, leadership.NewClient(st), dataDir, machineLock), nil
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
