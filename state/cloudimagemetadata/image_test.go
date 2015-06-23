@@ -36,7 +36,7 @@ var keyTestData = []struct {
 	"released",
 }}
 
-func (s *cloudImageMetadataSuite) TestCreateMetadataKey(c *gc.C) {
+func (s *keyMetadataSuite) TestCreateMetadataKey(c *gc.C) {
 	for i, t := range keyTestData {
 		c.Logf("%d: %v", i, t.about)
 		key := cloudimagemetadata.StreamKey(t.stream)
@@ -236,8 +236,8 @@ func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemet
 
 type testMetadataDoc struct {
 	Id              string `bson:"_id"`
-	Stream          string `bson:"stream,omitempty"`
-	Region          string `bson:"region,omitempty"`
+	Stream          string `bson:"stream"`
+	Region          string `bson:"region`
 	Series          string `bson:"series"`
 	Arch            string `bson:"arch"`
 	VirtualType     string `bson:"virtual_type,omitempty"`

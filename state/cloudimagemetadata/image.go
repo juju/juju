@@ -26,7 +26,7 @@ type storage struct {
 
 var _ Storage = (*storage)(nil)
 
-// NewStorage constructs a new Storage that stores  image metadata
+// NewStorage constructs a new Storage that stores image metadata
 // in the provided collection using the provided transaction runner.
 func NewStorage(
 	envUUID string,
@@ -69,17 +69,13 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 	return nil
 }
 
-// FindMetadata implements Storage.FindMetadata.
-func (s *storage) FindMetadata(criteria Metadata) ([]Metadata, error) {
-	return s.imagesMetadata(criteria)
-}
-
 // AllMetadata implements Storage.AllMetadata.
 func (s *storage) AllMetadata() ([]Metadata, error) {
-	return s.imagesMetadata(Metadata{})
+	return s.FindMetadata(Metadata{})
 }
 
-func (s *storage) imagesMetadata(criteria Metadata) ([]Metadata, error) {
+// FindMetadata implements Storage.FindMetadata.
+func (s *storage) FindMetadata(criteria Metadata) ([]Metadata, error) {
 	searchCriteria := searchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(searchCriteria).All(&docs); err != nil {
@@ -87,7 +83,7 @@ func (s *storage) imagesMetadata(criteria Metadata) ([]Metadata, error) {
 	}
 	if searchCriteria != nil && len(docs) == 0 {
 		// If criteria had values and no metadata was found, err
-		return nil, errors.NotFoundf("cloud image metadata")
+		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
 	metadata := make([]Metadata, len(docs))
 	for i, doc := range docs {
@@ -96,7 +92,7 @@ func (s *storage) imagesMetadata(criteria Metadata) ([]Metadata, error) {
 	return metadata, nil
 }
 
-var searchClauses = func(criteria Metadata) bson.D {
+func searchClauses(criteria Metadata) bson.D {
 	all := bson.D{}
 
 	if criteria.Stream != "" {
@@ -131,8 +127,8 @@ var searchClauses = func(criteria Metadata) bson.D {
 
 type imagesMetadataDoc struct {
 	Id              string `bson:"_id"`
-	Stream          string `bson:"stream,omitempty"`
-	Region          string `bson:"region,omitempty"`
+	Stream          string `bson:"stream"`
+	Region          string `bson:"region"`
 	Series          string `bson:"series"`
 	Arch            string `bson:"arch"`
 	VirtualType     string `bson:"virtual_type,omitempty"`
