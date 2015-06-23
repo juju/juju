@@ -36,7 +36,8 @@ SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
 retry_ssh() {
     for attempt in $(seq 3); do
         $@
-        if [[ $? != "255" ]]; then
+        EXIT_STATUS=$?
+        if [[ $EXIT_STATUS != "255" ]]; then
             # SSH didn't fail.
             break
         fi
@@ -50,7 +51,8 @@ installer=$(
 echo "Downloaded $installer"
 retry_ssh scp $SSH_OPTIONS \
     $SCRIPTS/deploy_stack.py $SCRIPTS/jujupy.py $SCRIPTS/jujuconfig.py \
-    $SCRIPTS/substrate.py $SCRIPTS/utility.py $installer \
+    $SCRIPTS/remote.py $SCRIPTS/substrate.py $SCRIPTS/utility.py \
+    $SCRIPTS/get_ami.py $installer \
     Administrator@$HOST:/cygdrive/c/Users/Administrator/ci/
 if [ $? -ne 0 ]; then
     exit 1
@@ -61,7 +63,6 @@ retry_ssh ssh $SSH_OPTIONS Administrator@$HOST <<EOT
 /cygdrive/c/Users/Administrator/ci/$installer /verysilent
 juju version
 juju destroy-environment --force -y test-win-client
-python \\Users\\Administrator\\ci\\deploy_stack.py test-win-client
+python \\\\Users\\\\Administrator\\\\ci\\\\deploy_stack.py test-win-client
 EOT
-EXIT_STATUS=$?
 exit $EXIT_STATUS
