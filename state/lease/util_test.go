@@ -61,7 +61,7 @@ func NewMongo(database *mgo.Database) *Mongo {
 }
 
 // GetCollection is part of the lease.Mongo interface.
-func (m *Mongo) GetCollection(name string) (*mgo.Collection, func()) {
+func (m *Mongo) GetCollection(name string) (mongo.Collection, func()) {
 	return mongo.CollectionFromName(m.database, name)
 }
 

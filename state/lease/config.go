@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/mongo"
 )
 
 // Mongo exposes MongoDB operations for use by the lease package.
@@ -18,7 +19,7 @@ type Mongo interface {
 	RunTransaction(jujutxn.TransactionSource) error
 
 	// GetCollection should probably call the mongo.CollectionFromName func.
-	GetCollection(name string) (collection *mgo.Collection, closer func())
+	GetCollection(name string) (collection mongo.Collection, closer func())
 }
 
 // Clock exposes wall-clock time for use by the lease package.
