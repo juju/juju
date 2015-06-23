@@ -20,6 +20,12 @@ import (
 type Info struct {
 	charm.Process
 
+	// CharmID is the Juju ID for the process's charm.
+	CharmID string
+
+	// CharmID is the Juju ID for the process's unit.
+	UnitID string
+
 	// Details is the information about the process which the plugin provided.
 	Details Details
 }
@@ -42,6 +48,14 @@ func NewInfoUnvalidated(name, procType string) *Info {
 func (info Info) Validate() error {
 	if err := info.Process.Validate(); err != nil {
 		return errors.Trace(err)
+	}
+
+	if info.CharmID == "" {
+		return errors.Errorf("missing CharmID")
+	}
+
+	if info.Details.ID != "" && info.UnitID == "" {
+		return errors.Errorf("missing UnitID")
 	}
 
 	return nil

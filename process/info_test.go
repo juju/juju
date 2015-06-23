@@ -29,6 +29,8 @@ func (s *infoSuite) newInfo(name, procType string) *process.Info {
 
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
+	info.CharmID = "somecharm"
+	info.UnitID = "somecharm/0"
 	err := info.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
@@ -39,6 +41,24 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 	err := info.Validate()
 
 	c.Check(err, gc.ErrorMatches, ".*type: name is required")
+}
+
+func (s *infoSuite) TestValidateMissingCharmID(c *gc.C) {
+	info := s.newInfo("a proc", "docker")
+	err := info.Validate()
+
+	c.Check(err, gc.ErrorMatches, "missing CharmID")
+}
+
+func (s *infoSuite) TestValidateMissingUnitID(c *gc.C) {
+	info := s.newInfo("a proc", "docker")
+	info.CharmID = "somecharm"
+	err := info.Validate()
+	c.Check(err, jc.ErrorIsNil)
+
+	info.Details.ID = "my-proc"
+	err = info.Validate()
+	c.Check(err, gc.ErrorMatches, "missing UnitID")
 }
 
 func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
