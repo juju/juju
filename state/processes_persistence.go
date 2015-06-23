@@ -11,6 +11,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
@@ -83,8 +84,25 @@ func (pp processesPersistence) insert(info process.Info) error {
 }
 
 func (pp processesPersistence) setStatus(id string, status process.Status) error {
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
+	var ops []txn.Op
+	ops = append(ops, pp.newSetRawStatusOp(id, status))
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			proc, err := pp.proc(id)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if proc.Life != Alive {
+				return nil, jujutxn.ErrNoOperations
+			}
+			// Otherwise try again...
+		}
+		return ops, nil
+	}
+	if err := pp.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
@@ -97,18 +115,29 @@ func (pp processesPersistence) remove(id string) error {
 	return errors.Errorf("not finished")
 }
 
+func (pp processesPersistence) proc(id string) (*processDoc, error) {
+	coll, closeColl := pp.st.getCollection(workloadProcessesC)
+	defer closeColl()
+	id = pp.processID(id)
+	var doc processDoc
+	if err := coll.FindId(id).One(&doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &doc, nil
+}
+
 func (pp processesPersistence) definitionID(name string) string {
 	// The URL will always parse successfully.
 	charmURL, _ := charm.ParseURL(pp.charm.Id())
 	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
 }
 
-func (pp processesPersistence) processID(info process.Info) string {
-	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), info.ID())
+func (pp processesPersistence) processID(id string) string {
+	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), id)
 }
 
-func (pp processesPersistence) launchID(info process.Info) string {
-	return pp.processID(info) + "#launch"
+func (pp processesPersistence) launchID(id string) string {
+	return pp.processID(id) + "#launch"
 }
 
 func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
@@ -145,6 +174,16 @@ func (pp processesPersistence) newInsertProcOp(info process.Info) txn.Op {
 		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+func (pp processesPersistence) newSetRawStatusOp(id string, status process.RawStatus) txn.Op {
+	id = pp.processID(id)
+	return txn.Op{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Value}}}},
 	}
 }
 
@@ -205,7 +244,7 @@ type processLaunchDoc struct {
 }
 
 func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
-	id := pp.launchID(info)
+	id := pp.launchID(info.ID())
 	return &processLaunchDoc{
 		DocID: id,
 
@@ -224,7 +263,7 @@ type processDoc struct {
 }
 
 func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
-	id := pp.processID(info)
+	id := pp.processID(info.ID())
 
 	var status string
 	switch info.Status {
