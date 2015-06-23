@@ -85,16 +85,14 @@ class JenkinsBuild:
             log_url, auth=HTTPBasicAuth(
                 self.credentials.user, self.credentials.password)).text
 
-    def get_latest_build_number(self):
+    def get_last_completed_build_number(self):
         """
         Returns latest Jenkins build number
         :rtype: int
         """
         job_info = get_job_data(
             self.jenkins_url, self.credentials, self.job_name)
-        if not job_info or not job_info.get('lastBuild'):
-            return None
-        return job_info.get('lastBuild').get('number')
+        return job_info['lastCompletedBuild']['number']
 
     def artifacts(self):
         """
@@ -211,10 +209,16 @@ class HUploader:
         Uploads all the test results to S3. It starts with the build_number 1
         :return: None
         """
-        latest_build_num = self.jenkins_build.get_latest_build_number()
+        latest_build_num = self.jenkins_build.get_last_completed_build_number()
         for build_number in range(1, latest_build_num + 1):
             self.jenkins_build.set_build_number(build_number)
             self.upload()
+
+    def upload_last_completed_test_result(self):
+        """Upload the latest test result to S3."""
+        latest_build_num = self.jenkins_build.get_last_completed_build_number()
+        self.jenkins_build.set_build_number(latest_build_num)
+        self.upload()
 
     def upload_test_results(self):
         filename = self._create_filename('result-results.json')
@@ -260,24 +264,26 @@ def get_s3_access():
 if __name__ == '__main__':
     parser = ArgumentParser()
     add_credential_args(parser)
-
     parser.add_argument(
-        '-b', '--build_number', action='append',
+        '-b', '--build_number', type=int, default=None,
         help="Specify build number to upload")
     parser.add_argument(
         '-a', '--all', action='store_true', default=False,
         help="Upload all test results")
-
-    args = parser.parse_args(sys.argv[1:])
+    parser.add_argument(
+        '-l', '--latest', action='store_true', default=False,
+        help="Upload the latest test result.")
+    args = parser.parse_args()
     cred = get_credentials(args)
-    build_num = None
 
+    uploader = HUploader.factory(
+        credentials=cred, build_number=args.build_number)
     if args.build_number:
-        build_num = args.build_number[0]
-        print('Uploading build number ' + build_num)
-        u = HUploader.factory(credentials=cred, build_number=int(build_num))
-        sys.exit(u.upload())
+        print('Uploading build number {:d}.'.format(args.build_number))
+        sys.exit(uploader.upload())
     elif args.all:
-        print('Uploading all test results')
-        u = HUploader.factory(credentials=cred)
-        sys.exit(u.upload_all_test_results())
+        print('Uploading all test results.')
+        sys.exit(uploader.upload_all_test_results())
+    elif args.latest:
+        print('Uploading the latest test result.')
+        sys.exit(uploader.upload_last_completed_test_result())
