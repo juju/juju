@@ -695,6 +695,22 @@ class TestBootContext(TestCase):
         dl_mock.assert_called_once_with(
             client, 'foo', 'log_dir', jenv_path=jenv_path)
 
+    def test_bootstrap_context_set_juju_home(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.25', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                              return_value='foo'))
+        c_mock = self.addContext(patch('subprocess.call'))
+        dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
+        with boot_context('bar', client, None, [], None, None, None, 'log_dir',
+                          keep_env=False, upload_tools=False, juju_home='/testing/.juju'):
+            pass
+        jenv_path = os.path.join('/testing/.juju', 'environments', 'bar.jenv')
+        dl_mock.assert_called_once_with(
+            client, 'foo', 'log_dir', jenv_path=jenv_path)
+        
+
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
@@ -785,6 +801,7 @@ class TestDeployJobParseArgs(TestCase):
             upgrade=False,
             verbose=False,
             upload_tools=False,
+            juju_home=None,
         ))
 
     def test_upload_tools(self):

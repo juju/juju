@@ -352,6 +352,8 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument(
         '--upload-tools', action='store_true', default=False,
         help='upload local version of tools before bootstrapping')
+    parser.add_argument('--juju_home', help='Juju home directory to bootstrap in.',
+                        default=None)
     add_juju_args(parser)
     add_output_args(parser)
     add_path_args(parser)
@@ -370,7 +372,7 @@ def deploy_job():
                        charm_prefix, args.bootstrap_host, args.machine,
                        args.series, args.logs, args.debug, juju_path,
                        args.agent_url, args.agent_stream,
-                       args.keep_env, args.upload_tools)
+                       args.keep_env, args.upload_tools, args.juju_home)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -390,7 +392,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 @contextmanager
 def boot_context(job_name, client, bootstrap_host, machines, series,
-                 agent_url, agent_stream, log_dir, keep_env, upload_tools):
+                 agent_url, agent_stream, log_dir, keep_env, upload_tools, juju_home=None):
     created_machines = False
     bootstrap_id = None
     running_domains = dict()
@@ -428,12 +430,18 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             for machine in ssh_machines:
                 logging.info('Waiting for port 22 on %s' % machine)
                 wait_for_port(machine, 22, timeout=120)
-            juju_home = get_juju_home()
+            make_tmp_juju_home = False
+            if juju_home is None:
+                make_tmp_juju_home = True
+                juju_home = get_juju_home()
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
             try:
-                with temp_bootstrap_env(juju_home, client) as temp_juju_home:
-                    client.bootstrap(upload_tools, temp_juju_home)
+                if make_tmp_juju_home:
+                    with temp_bootstrap_env(juju_home, client) as temp_juju_home:
+                        client.bootstrap(upload_tools, temp_juju_home)    
+                else: 
+                    client.bootstrap(upload_tools, juju_home) 
             except:
                 if host is not None:
                     dump_logs(client, host, log_dir, bootstrap_id)
@@ -474,7 +482,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                agent_stream, keep_env, upload_tools):
+                agent_stream, keep_env, upload_tools, juju_home):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -483,7 +491,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     with boot_context(job_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools):
+                      upload_tools, juju_home):
         prepare_environment(
             client, already_bootstrapped=True, machines=machines)
         if sys.platform in ('win32', 'darwin'):
