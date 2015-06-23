@@ -97,6 +97,27 @@ func (s *infoSuite) TestFullIDMissingDetailsID(c *gc.C) {
 	c.Check(id, gc.Equals, "somecharm/0/a-proc")
 }
 
+func (s *infoSuite) TestParseIDFull(c *gc.C) {
+	name, id := process.ParseID("a-proc/my-proc")
+
+	c.Check(name, gc.Equals, "a-proc")
+	c.Check(id, gc.Equals, "my-proc")
+}
+
+func (s *infoSuite) TestParseIDNameOnly(c *gc.C) {
+	name, id := process.ParseID("a-proc")
+
+	c.Check(name, gc.Equals, "a-proc")
+	c.Check(id, gc.Equals, "")
+}
+
+func (s *infoSuite) TestParseIDExtras(c *gc.C) {
+	name, id := process.ParseID("somecharm/0/a-proc/my-proc")
+
+	c.Check(name, gc.Equals, "somecharm")
+	c.Check(id, gc.Equals, "0/a-proc/my-proc")
+}
+
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
 	info.CharmID = "somecharm"

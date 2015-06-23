@@ -6,6 +6,7 @@ package process
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
@@ -52,6 +53,15 @@ func (info Info) ID() string {
 		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
 	}
 	return id
+}
+
+// ParseID extracts the process name and details ID from the provided string.
+func ParseID(id string) (string, string) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return id, ""
 }
 
 // FullID composes a unique ID for the process. Note that FullID()
