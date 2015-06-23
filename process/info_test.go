@@ -27,6 +27,76 @@ func (s *infoSuite) newInfo(name, procType string) *process.Info {
 	}
 }
 
+func (s *infoSuite) TestIDFull(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.CharmID = "somecharm"
+	info.UnitID = "somecharm/0"
+	info.Details.ID = "my-proc"
+	id := info.ID()
+
+	c.Check(id, gc.Equals, "a-proc/my-proc")
+}
+
+func (s *infoSuite) TestIDMissingDetailsID(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.CharmID = "somecharm"
+	info.UnitID = "somecharm/0"
+	id := info.ID()
+
+	c.Check(id, gc.Equals, "a-proc")
+}
+
+func (s *infoSuite) TestIDNameOnly(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	id := info.ID()
+
+	c.Check(id, gc.Equals, "a-proc")
+}
+
+func (s *infoSuite) TestFullIDFull(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.CharmID = "somecharmX" // doesn't match UnitID...
+	info.UnitID = "somecharm/0"
+	info.Details.ID = "my-proc"
+	id := info.FullID()
+
+	c.Check(id, gc.Equals, "somecharm/0/a-proc/my-proc")
+}
+
+func (s *infoSuite) TestFullIDNameOnly(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	id := info.FullID()
+
+	c.Check(id, gc.Equals, "a-proc")
+}
+
+func (s *infoSuite) TestFullIDMissingCharmID(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.UnitID = "somecharm/0"
+	info.Details.ID = "my-proc"
+	id := info.FullID()
+
+	c.Check(id, gc.Equals, "somecharm/0/a-proc/my-proc")
+}
+
+func (s *infoSuite) TestFullIDMissingUnitID(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.CharmID = "somecharm"
+	info.Details.ID = "my-proc"
+	id := info.FullID()
+
+	c.Check(id, gc.Equals, "somecharm/a-proc")
+}
+
+func (s *infoSuite) TestFullIDMissingDetailsID(c *gc.C) {
+	info := s.newInfo("a-proc", "docker")
+	info.CharmID = "somecharm"
+	info.UnitID = "somecharm/0"
+	id := info.FullID()
+
+	c.Check(id, gc.Equals, "somecharm/0/a-proc")
+}
+
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
 	info.CharmID = "somecharm"

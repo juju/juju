@@ -4,6 +4,7 @@
 package process
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -42,6 +43,32 @@ func NewInfoUnvalidated(name, procType string) *Info {
 			Type: procType,
 		},
 	}
+}
+
+// ID composes a unique ID for the process (relative to the unit/charm).
+func (info Info) ID() string {
+	id := info.Process.Name
+	if info.Details.ID != "" {
+		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
+	}
+	return id
+}
+
+// FullID composes a unique ID for the process. Note that FullID()
+// does not validate the Info. To ensure that the returned ID is
+// complete, call Info.Validate before calling FullID.
+func (info Info) FullID() string {
+	id := info.Process.Name
+	if info.UnitID != "" {
+		id = fmt.Sprintf("%s/%s", info.UnitID, id)
+	} else if info.CharmID != "" {
+		// No unit so we ignore Details (which should be empty).
+		return fmt.Sprintf("%s/%s", info.CharmID, id)
+	}
+	if info.Details.ID != "" {
+		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
+	}
+	return id
 }
 
 // Validate checks the process info to ensure it is correct.
