@@ -113,6 +113,14 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*type: name is required")
 }
 
+func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
+	info := s.newInfo("a proc", "docker")
+	info.Details.ID = "my-proc"
+	err := info.Validate()
+
+	c.Check(err, gc.ErrorMatches, ".*Label cannot be empty.*")
+}
+
 func (s *infoSuite) TestValidateMissingCharmID(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
 	err := info.Validate()
@@ -127,6 +135,7 @@ func (s *infoSuite) TestValidateMissingUnitID(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	info.Details.ID = "my-proc"
+	info.Details.Status.Label = "running"
 	err = info.Validate()
 	c.Check(err, gc.ErrorMatches, "missing UnitID")
 }
