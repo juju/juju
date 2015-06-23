@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -141,9 +142,9 @@ type lifecycleWatcher struct {
 	commonWatcher
 	out chan []string
 
-	// coll is a function returning the stateCollection holding all
+	// coll is a function returning the mongo.Collection holding all
 	// interesting entities
-	coll     func() (stateCollection, func())
+	coll     func() (mongo.Collection, func())
 	collName string
 
 	// members is used to select the initial set of interesting entities.
@@ -157,8 +158,8 @@ type lifecycleWatcher struct {
 	life map[string]Life
 }
 
-func collFactory(st *State, collName string) func() (stateCollection, func()) {
-	return func() (stateCollection, func()) {
+func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
+	return func() (mongo.Collection, func()) {
 		return st.getCollection(collName)
 	}
 }
@@ -1500,7 +1501,7 @@ func (w *docWatcher) Changes() <-chan struct{} {
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll stateCollection, key interface{}) (int64, error) {
+func getTxnRevno(coll mongo.Collection, key interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
