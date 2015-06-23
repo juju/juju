@@ -24,6 +24,8 @@ type Info struct {
 	Details Details
 }
 
+// TODO(ericsnow) Eliminate NewInfoUnvalidated.
+
 // NewInfoUnvalidated builds a new Info object with the provided
 // values. The returned Info may be invalid if the given values cause
 // that result. The Validate method can be used to check.
