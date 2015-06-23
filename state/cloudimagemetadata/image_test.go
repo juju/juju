@@ -93,18 +93,19 @@ func (s *cloudImageMetadataSuite) assertSaveMetadataWithDefaults(c *gc.C, stream
 }
 
 func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, series, arch, virtType, rootStorageType string) {
-	added := cloudimagemetadata.Metadata{
+	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          stream,
 		Region:          region,
 		Series:          series,
 		Arch:            arch,
 		VirtualType:     virtType,
-		RootStorageType: rootStorageType,
-	}
+		RootStorageType: rootStorageType}
+
+	added := cloudimagemetadata.Metadata{attrs, "1"}
 	err := s.storage.SaveMetadata(added)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertMetadata(c, added, added)
+	s.assertMetadata(c, attrs, added)
 }
 
 func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
@@ -113,12 +114,14 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, gc.HasLen, 0)
 
 	m := cloudimagemetadata.Metadata{
-		Stream:          "stream",
-		Region:          "region",
-		Series:          "series",
-		Arch:            "arch",
-		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType",
+		cloudimagemetadata.MetadataAttributes{
+			Stream:          "stream",
+			Region:          "region",
+			Series:          "series",
+			Arch:            "arch",
+			VirtualType:     "virtualType",
+			RootStorageType: "rootStorageType"},
+		"1",
 	}
 
 	s.addMetadataDoc(c, m)
@@ -129,7 +132,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	expected := []cloudimagemetadata.Metadata{m}
 	c.Assert(metadata, jc.SameContents, expected)
 
-	m.Arch = "my one"
+	m.Series = "series2"
 	s.addMetadataDoc(c, m)
 
 	metadata, err = s.storage.AllMetadata()
@@ -140,40 +143,43 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
-	m := cloudimagemetadata.Metadata{
+	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType",
-	}
+		RootStorageType: "rootStorageType"}
 
-	_, err := s.storage.FindMetadata(m)
+	m := cloudimagemetadata.Metadata{attrs, "1"}
+
+	_, err := s.storage.FindMetadata(attrs)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.addMetadataDoc(c, m)
 	expected := []cloudimagemetadata.Metadata{m}
-	s.assertMetadata(c, m, expected...)
+	s.assertMetadata(c, attrs, expected...)
 
-	m.Stream = "another_stream"
+	attrs.Stream = "another_stream"
+	m = cloudimagemetadata.Metadata{attrs, "2"}
 	s.addMetadataDoc(c, m)
 
 	expected = append(expected, m)
 	// Should find both
-	s.assertMetadata(c, cloudimagemetadata.Metadata{Region: "region"}, expected...)
+	s.assertMetadata(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicate(c *gc.C) {
-	metadata := cloudimagemetadata.Metadata{
+	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
-		Arch:   "arch",
-	}
+		Arch:   "arch"}
+	metadata := cloudimagemetadata.Metadata{attrs, "1"}
+
 	for i := 0; i < 2; i++ {
 		err := s.storage.SaveMetadata(metadata)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertMetadata(c, metadata, metadata)
+		s.assertMetadata(c, attrs, metadata)
 	}
 	all, err := s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,16 +190,13 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicate(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
-	metadata0 := cloudimagemetadata.Metadata{
+	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
 		Arch:   "arch",
 	}
-	metadata1 := cloudimagemetadata.Metadata{
-		Stream: "stream2",
-		Series: "series",
-		Arch:   "arch",
-	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, "1"}
+	metadata1 := cloudimagemetadata.Metadata{attrs, "2"}
 
 	addMetadata := func() {
 		err := s.storage.SaveMetadata(metadata0)
@@ -204,7 +207,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
 	err := s.storage.SaveMetadata(metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertMetadata(c, metadata1, metadata1)
+	s.assertMetadata(c, attrs, metadata1)
 }
 
 func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, m cloudimagemetadata.Metadata) {
@@ -213,7 +216,7 @@ func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, m cloudimagemetadata.M
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemetadata.Metadata, expected ...cloudimagemetadata.Metadata) {
+func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
 	var docs []testMetadataDoc
 	searchCriteria := cloudimagemetadata.SearchClauses(criteria)
 	c.Logf("looking for cloud image metadata with id %v", criteria)
@@ -223,13 +226,14 @@ func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemet
 	metadata := make([]cloudimagemetadata.Metadata, len(docs))
 	for i, m := range docs {
 		metadata[i] = cloudimagemetadata.Metadata{
-			Stream:          m.Stream,
-			Region:          m.Region,
-			Series:          m.Series,
-			Arch:            m.Arch,
-			VirtualType:     m.VirtualType,
-			RootStorageType: m.RootStorageType,
-		}
+			cloudimagemetadata.MetadataAttributes{
+				Stream:          m.Stream,
+				Region:          m.Region,
+				Series:          m.Series,
+				Arch:            m.Arch,
+				VirtualType:     m.VirtualType,
+				RootStorageType: m.RootStorageType,
+			}, m.ImageId}
 	}
 	c.Assert(metadata, jc.SameContents, expected)
 }
@@ -240,6 +244,7 @@ type testMetadataDoc struct {
 	Region          string `bson:"region`
 	Series          string `bson:"series"`
 	Arch            string `bson:"arch"`
+	ImageId         string `bson:"image_id"`
 	VirtualType     string `bson:"virtual_type,omitempty"`
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 }
@@ -254,6 +259,7 @@ func createTestDoc(m cloudimagemetadata.Metadata) testMetadataDoc {
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
+		ImageId:         m.ImageId,
 	}
 }
 

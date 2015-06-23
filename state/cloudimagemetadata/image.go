@@ -71,11 +71,11 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 
 // AllMetadata implements Storage.AllMetadata.
 func (s *storage) AllMetadata() ([]Metadata, error) {
-	return s.FindMetadata(Metadata{})
+	return s.FindMetadata(MetadataAttributes{})
 }
 
 // FindMetadata implements Storage.FindMetadata.
-func (s *storage) FindMetadata(criteria Metadata) ([]Metadata, error) {
+func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
 	searchCriteria := searchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(searchCriteria).All(&docs); err != nil {
@@ -92,7 +92,7 @@ func (s *storage) FindMetadata(criteria Metadata) ([]Metadata, error) {
 	return metadata, nil
 }
 
-func searchClauses(criteria Metadata) bson.D {
+func searchClauses(criteria MetadataAttributes) bson.D {
 	all := bson.D{}
 
 	if criteria.Stream != "" {
@@ -131,18 +131,21 @@ type imagesMetadataDoc struct {
 	Region          string `bson:"region"`
 	Series          string `bson:"series"`
 	Arch            string `bson:"arch"`
+	ImageId         string `bson:"image_id"`
 	VirtualType     string `bson:"virtual_type,omitempty"`
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
-		Series:          m.Series,
-		Arch:            m.Arch,
-		Stream:          m.Stream,
-		RootStorageType: m.RootStorageType,
-		VirtualType:     m.VirtualType,
-		Region:          m.Region,
+		MetadataAttributes{
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Series:          m.Series,
+			Arch:            m.Arch,
+			RootStorageType: m.RootStorageType,
+			VirtualType:     m.VirtualType},
+		m.ImageId,
 	}
 }
 
@@ -154,6 +157,7 @@ func (m imagesMetadataDoc) updates() bson.D {
 		{"arch", m.Arch},
 		{"virtual_type", m.VirtualType},
 		{"root_storage_type", m.RootStorageType},
+		{"image_id", m.ImageId},
 	}
 }
 
@@ -166,6 +170,7 @@ func (m *Metadata) mongoDoc() imagesMetadataDoc {
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
+		ImageId:         m.ImageId,
 	}
 }
 

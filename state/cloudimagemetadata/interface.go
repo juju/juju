@@ -3,14 +3,20 @@
 
 package cloudimagemetadata
 
-// Metadata describes a cloud image metadata.
-type Metadata struct {
+// MetadataAttributes contains cloud image metadata attributes.
+type MetadataAttributes struct {
 	Stream          string
 	Region          string
 	Series          string
 	Arch            string
 	VirtualType     string
 	RootStorageType string
+}
+
+// Metadata describes a cloud image metadata.
+type Metadata struct {
+	MetadataAttributes
+	ImageId string
 }
 
 // Storage provides methods for storing and retrieving cloud image metadata.
@@ -25,7 +31,7 @@ type Storage interface {
 
 	// FindMetadata returns all Metadata that match specified
 	// criteria or a "not found" error if none match.
-	FindMetadata(criteria Metadata) ([]Metadata, error)
+	FindMetadata(MetadataAttributes) ([]Metadata, error)
 }
 
 // StorageCloser extends the Storage interface with a Close method.
