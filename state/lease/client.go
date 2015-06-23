@@ -13,6 +13,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 // NewClient returns a new Client using the supplied config, or an error. Any
@@ -240,7 +242,7 @@ func (client *client) ensureClockDoc() error {
 }
 
 // readEntries reads all lease data for the client's namespace.
-func (client *client) readEntries(collection *mgo.Collection) (map[string]entry, error) {
+func (client *client) readEntries(collection mongo.Collection) (map[string]entry, error) {
 
 	// Read all lease documents in the client's namespace.
 	query := bson.M{
@@ -266,7 +268,7 @@ func (client *client) readEntries(collection *mgo.Collection) (map[string]entry,
 }
 
 // readSkews reads all clock data for the client's namespace.
-func (client *client) readSkews(collection *mgo.Collection) (map[string]Skew, error) {
+func (client *client) readSkews(collection mongo.Collection) (map[string]Skew, error) {
 
 	// Read the clock document, recording the time before and after completion.
 	readBefore := client.config.Clock.Now()

@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/mongo"
 )
 
 // Mongo exposes MongoDB operations for use by the lease package.
@@ -18,21 +19,25 @@ type Mongo interface {
 	RunTransaction(jujutxn.TransactionSource) error
 
 	// GetCollection should probably call the mongo.CollectionFromName func.
-	GetCollection(name string) (collection *mgo.Collection, closer func())
+	GetCollection(name string) (collection mongo.Collection, closer func())
 }
 
-// Clock exposes wall-clock time for use by the lease package.
+// Clock exposes wall-clock time for use by and with the lease package.
 type Clock interface {
 
 	// Now returns the current wall-clock time.
 	Now() time.Time
+
+	// Alarm returns a channel that will have the time sent on it at some point
+	// after the supplied time occurs.
+	Alarm(time.Time) <-chan time.Time
 }
 
 // ClientConfig contains the resources and information required to create
 // a Client. Multiple clients can collaborate if they share a collection and
 // namespace, so long as they do not share ids; but within a collection,
 // clients for different namespaces will not interfere with one another,
-// regardlless of id.
+// regardless of id.
 type ClientConfig struct {
 
 	// Id uniquely identifies the client. Multiple clients with the same id
@@ -70,12 +75,4 @@ func (config ClientConfig) Validate() error {
 		return errors.New("missing clock")
 	}
 	return nil
-}
-
-// SystemClock exposes wall-clock time as returned by time.Now.
-type SystemClock struct{}
-
-// Now is part of the Clock interface.
-func (SystemClock) Now() time.Time {
-	return time.Now()
 }
