@@ -930,7 +930,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		if c.subsidiary {
 			continue
 		}
-		col := newStateCollection(db.C(c.Name), envUUID)
+		col := getCollectionFromDB(db, c.Name, envUUID)
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
 		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
