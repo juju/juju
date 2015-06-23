@@ -126,13 +126,29 @@ func searchClauses(criteria MetadataAttributes) bson.D {
 }
 
 type imagesMetadataDoc struct {
-	Id              string `bson:"_id"`
-	Stream          string `bson:"stream"`
-	Region          string `bson:"region"`
-	Series          string `bson:"series"`
-	Arch            string `bson:"arch"`
-	ImageId         string `bson:"image_id"`
-	VirtualType     string `bson:"virtual_type,omitempty"`
+	// Id contains unique natural key for cloud image metadata
+	Id string `bson:"_id"`
+
+	// Stream contains reference to a particular stream,
+	// for e.g. "daily" or "released"
+	Stream string `bson:"stream"`
+
+	// Region is the name of cloud region associated with the image.
+	Region string `bson:"region"`
+
+	// Series is Os version, for e.g. "quantal".
+	Series string `bson:"series"`
+
+	// Arch is the architecture for this cloud image, for e.g. "amd64"
+	Arch string `bson:"arch"`
+
+	// ImageId is an image identifier.
+	ImageId string `bson:"image_id"`
+
+	// VirtualType contains the type of the cloud image, for e.g. "pv", "hvm". "kvm".
+	VirtualType string `bson:"virtual_type,omitempty"`
+
+	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 }
 
