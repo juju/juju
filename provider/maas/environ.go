@@ -75,6 +75,15 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
+func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) error {
+	device := devices.GetSubObject(deviceId)
+	params := url.Values{}
+	params.Add("requested_address", addr.Value)
+	_, err := device.CallPost("claim_sticky_ip_address", params)
+	return err
+
+}
+
 func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
 	params := url.Values{}
 	params.Add("ip", addr.Value)
@@ -1344,6 +1353,24 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
+// newDevice creates a new MAAS device for a MAC address, returning the Id of
+// the new device.
+func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id) (string, error) {
+	return "", nil
+}
+
+// fetchDevice fetches an existing device Id associated with a MAC address, or
+// returns an error if there is no device.
+func (environ *maasEnviron) fetchDevice(macAddress string, instId instance.Id) (string, error) {
+	return "", nil
+}
+
+// createOrFetchDevice returns a device Id associated with a MAC address. If
+// there is not already one it will create one.
+func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id) (string, error) {
+	return "", nil
+}
+
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) (err error) {
@@ -1352,40 +1379,58 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 
+	client := environ.getMAASClient()
+	var maasErr gomaasapi.ServerError
 	supportsDevices, err := environ.supportsDevices()
 	if err != nil {
 		return err
 	}
 	if supportsDevices {
-		// check if a device exists for macAddress
-		// if not create one
-		// allocate the address for this device
-	}
+		device, err := environ.createOrFetchDevice(macAddress, instId)
+		if err != nil {
+			return err
+		}
 
-	var subnets []network.SubnetInfo
+		devices := client.GetSubObject("devices")
+		err = reserveIPAddressOnDevice(devices, device, addr)
+		if err == nil {
+			logger.Infof("allocated address %q for instance %q on device %q", addr, instId, device)
+			return nil
+		}
 
-	subnets, err = environ.Subnets(instId, []network.Id{subnetId})
-	logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, addr, subnets, err)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(subnets) != 1 {
-		return errors.Errorf("could not find subnet matching %q", subnetId)
-	}
-	foundSub := subnets[0]
-	logger.Tracef("found subnet %#v", foundSub)
+		var ok bool
+		maasErr, ok = err.(gomaasapi.ServerError)
+		if !ok {
+			return errors.Trace(err)
+		}
+	} else {
 
-	cidr := foundSub.CIDR
-	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
-	err = ReserveIPAddress(ipaddresses, cidr, addr)
-	if err == nil {
-		logger.Infof("allocated address %q for instance %q on subnet %q", addr, instId, cidr)
-		return nil
-	}
+		var subnets []network.SubnetInfo
 
-	maasErr, ok := err.(gomaasapi.ServerError)
-	if !ok {
-		return errors.Trace(err)
+		subnets, err = environ.Subnets(instId, []network.Id{subnetId})
+		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, addr, subnets, err)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(subnets) != 1 {
+			return errors.Errorf("could not find subnet matching %q", subnetId)
+		}
+		foundSub := subnets[0]
+		logger.Tracef("found subnet %#v", foundSub)
+
+		cidr := foundSub.CIDR
+		ipaddresses := client.GetSubObject("ipaddresses")
+		err = ReserveIPAddress(ipaddresses, cidr, addr)
+		if err == nil {
+			logger.Infof("allocated address %q for instance %q on subnet %q", addr, instId, cidr)
+			return nil
+		}
+
+		var ok bool
+		maasErr, ok = err.(gomaasapi.ServerError)
+		if !ok {
+			return errors.Trace(err)
+		}
 	}
 	// For an "out of range" IP address, maas raises
 	// StaticIPAddressOutOfRange - an error 403
