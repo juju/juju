@@ -40,8 +40,8 @@ func NewStorage(
 	}
 }
 
-// AddMetadata implements Storage.AddMetadata.
-func (s *storage) AddMetadata(metadata Metadata) error {
+// SaveMetadata implements Storage.SaveMetadata.
+func (s *storage) SaveMetadata(metadata Metadata) error {
 	newDoc := metadata.mongoDoc()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
@@ -70,20 +70,24 @@ func (s *storage) AddMetadata(metadata Metadata) error {
 }
 
 // FindMetadata implements Storage.FindMetadata.
-func (s *storage) FindMetadata(series, arch, stream string) (Metadata, error) {
-	desiredID := createKey(series, arch, stream)
-	doc, err := s.imagesMetadata(desiredID)
-	if err != nil {
-		return Metadata{}, errors.Trace(err)
-	}
-	return doc.metadata(), nil
+func (s *storage) FindMetadata(criteria Metadata) ([]Metadata, error) {
+	return s.imagesMetadata(criteria)
 }
 
 // AllMetadata implements Storage.AllMetadata.
 func (s *storage) AllMetadata() ([]Metadata, error) {
+	return s.imagesMetadata(Metadata{})
+}
+
+func (s *storage) imagesMetadata(criteria Metadata) ([]Metadata, error) {
+	searchCriteria := searchClauses(criteria)
 	var docs []imagesMetadataDoc
-	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
+	if err := s.metadataCollection.Find(searchCriteria).All(&docs); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if searchCriteria != nil && len(docs) == 0 {
+		// If criteria had values and no metadata was found, err
+		return nil, errors.NotFoundf("cloud image metadata")
 	}
 	metadata := make([]Metadata, len(docs))
 	for i, doc := range docs {
@@ -92,65 +96,80 @@ func (s *storage) AllMetadata() ([]Metadata, error) {
 	return metadata, nil
 }
 
-func (c *storage) imagesMetadata(desiredID string) (imagesMetadataDoc, error) {
-	var doc imagesMetadataDoc
-	logger.Infof("looking for cloud image metadata with id %v", desiredID)
-	err := c.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&doc)
-	if err == mgo.ErrNotFound {
-		return doc, errors.NotFoundf("cloud image metadata with id %v", desiredID)
+var searchClauses = func(criteria Metadata) bson.D {
+	all := bson.D{}
+
+	if criteria.Stream != "" {
+		all = append(all, bson.DocElem{"stream", criteria.Stream})
 	}
-	return doc, err
+
+	if criteria.Region != "" {
+		all = append(all, bson.DocElem{"region", criteria.Region})
+	}
+
+	if criteria.Series != "" {
+		all = append(all, bson.DocElem{"series", criteria.Series})
+	}
+
+	if criteria.Arch != "" {
+		all = append(all, bson.DocElem{"arch", criteria.Arch})
+	}
+
+	if criteria.VirtualType != "" {
+		all = append(all, bson.DocElem{"virtual_type", criteria.VirtualType})
+	}
+
+	if criteria.RootStorageType != "" {
+		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
+	}
+
+	if len(all.Map()) == 0 {
+		return nil
+	}
+	return all
 }
 
 type imagesMetadataDoc struct {
-	Id          string `bson:"_id"`
-	Series      string `bson:"series"`
-	Arch        string `bson:"arch"`
-	Stream      string `bson:"stream,omitempty"`
-	RootStore   string `bson:"root_store,omitempty"`
-	VirtType    string `bson:"virt,omitempty"`
-	RegionAlias string `bson:"crsn,omitempty"`
-	RegionName  string `bson:"region,omitempty"`
-	Endpoint    string `bson:"endpoint,omitempty"`
+	Id              string `bson:"_id"`
+	Stream          string `bson:"stream,omitempty"`
+	Region          string `bson:"region,omitempty"`
+	Series          string `bson:"series"`
+	Arch            string `bson:"arch"`
+	VirtualType     string `bson:"virtual_type,omitempty"`
+	RootStorageType string `bson:"root_storage_type,omitempty"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
-		Series:      m.Series,
-		Arch:        m.Arch,
-		Stream:      m.Stream,
-		RootStore:   m.RootStore,
-		VirtType:    m.VirtType,
-		RegionAlias: m.RegionAlias,
-		RegionName:  m.RegionName,
-		Endpoint:    m.Endpoint,
+		Series:          m.Series,
+		Arch:            m.Arch,
+		Stream:          m.Stream,
+		RootStorageType: m.RootStorageType,
+		VirtualType:     m.VirtualType,
+		Region:          m.Region,
 	}
 }
 
 func (m imagesMetadataDoc) updates() bson.D {
 	return bson.D{
+		{"stream", m.Stream},
+		{"region", m.Region},
 		{"series", m.Series},
 		{"arch", m.Arch},
-		{"stream", m.Stream},
-		{"root_store", m.RootStore},
-		{"virt", m.VirtType},
-		{"crsn", m.RegionAlias},
-		{"region", m.RegionName},
-		{"endpoint", m.Endpoint},
+		{"virtual_type", m.VirtualType},
+		{"root_storage_type", m.RootStorageType},
 	}
 }
 
 func (m *Metadata) mongoDoc() imagesMetadataDoc {
 	return imagesMetadataDoc{
-		Id:          m.key(),
-		Series:      m.Series,
-		Arch:        m.Arch,
-		Stream:      m.Stream,
-		RootStore:   m.RootStore,
-		VirtType:    m.VirtType,
-		RegionAlias: m.RegionAlias,
-		RegionName:  m.RegionName,
-		Endpoint:    m.Endpoint,
+		Id:              key(m),
+		Stream:          m.Stream,
+		Region:          m.Region,
+		Series:          m.Series,
+		Arch:            m.Arch,
+		VirtualType:     m.VirtualType,
+		RootStorageType: m.RootStorageType,
 	}
 }
 
@@ -162,10 +181,12 @@ func streamKey(stream string) string {
 	return imagemetadata.ReleasedStream
 }
 
-var createKey = func(series, arch, stream string) string {
-	return fmt.Sprintf("%s-%s-%s", series, arch, streamKey(stream))
-}
-
-func (im *Metadata) key() string {
-	return createKey(im.Series, im.Arch, im.Stream)
+func key(m *Metadata) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s",
+		streamKey(m.Stream),
+		m.Region,
+		m.Series,
+		m.Arch,
+		m.VirtualType,
+		m.RootStorageType)
 }

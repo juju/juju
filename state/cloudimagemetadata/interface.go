@@ -5,28 +5,27 @@ package cloudimagemetadata
 
 // Metadata describes a cloud image metadata.
 type Metadata struct {
-	RootStore   string
-	VirtType    string
-	Arch        string
-	Series      string
-	RegionAlias string
-	RegionName  string
-	Endpoint    string
-	Stream      string
+	Stream          string
+	Region          string
+	Series          string
+	Arch            string
+	VirtualType     string
+	RootStorageType string
 }
 
 // Storage provides methods for storing and retrieving cloud image metadata.
 type Storage interface {
-	// AddMetadata adds cloud images metadata into state,
-	AddMetadata(Metadata) error
+	// SaveMetadata adds cloud images metadata into state if it's new or
+	// updates metadata if it already exists,
+	SaveMetadata(Metadata) error
 
 	// AllMetadata returns metadata for the full list of cloud images in
 	// the catalogue.
 	AllMetadata() ([]Metadata, error)
 
-	// FindMetadata returns the Metadata for the specified stream, series
-	// and arch if it exists or an error errors.IsNotFound.
-	FindMetadata(stream, series, arch string) (Metadata, error)
+	// FindMetadata returns all Metadata that match specified
+	// criteria or a "not found" error if none match.
+	FindMetadata(criteria Metadata) ([]Metadata, error)
 }
 
 // StorageCloser extends the Storage interface with a Close method.

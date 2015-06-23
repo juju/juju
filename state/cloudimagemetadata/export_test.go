@@ -3,4 +3,8 @@
 
 package cloudimagemetadata
 
-var CreateKey = createKey
+var (
+	StreamKey     = streamKey
+	Key           = key
+	SearchClauses = searchClauses
+)

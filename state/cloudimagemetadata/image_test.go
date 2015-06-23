@@ -11,7 +11,6 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
@@ -25,28 +24,22 @@ var _ = gc.Suite(&keyMetadataSuite{})
 
 var keyTestData = []struct {
 	about       string
-	series      string
-	arch        string
 	stream      string
 	expectedKey string
 }{{
 	`non empty stream`,
-	"series",
-	"arch",
 	"stream",
-	"series-arch-stream",
+	"stream",
 }, {
 	"empty stream",
-	"series",
-	"arch",
 	"",
-	"series-arch-released",
+	"released",
 }}
 
 func (s *cloudImageMetadataSuite) TestCreateMetadataKey(c *gc.C) {
 	for i, t := range keyTestData {
 		c.Logf("%d: %v", i, t.about)
-		key := cloudimagemetadata.CreateKey(t.series, t.arch, t.stream)
+		key := cloudimagemetadata.StreamKey(t.stream)
 		c.Assert(key, gc.Equals, t.expectedKey)
 	}
 }
@@ -85,38 +78,33 @@ func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *cloudImageMetadataSuite) TestAddMetadata(c *gc.C) {
-	s.assertAddMetadataWithDefaults(c, "quantal", "amd64", "test")
+func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
+	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
 }
 
-func (s *cloudImageMetadataSuite) TestAddMetadataUpdates(c *gc.C) {
-	s.assertAddMetadataWithDefaults(c, "quantal", "amd64", "test")
-	s.assertAddMetadata(c, "quantal", "amd64", "test",
-		"rootstore-test", "virtType-test", "regionAlias-test", "regionName-test", "endpoint-test",
-	)
+func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
+	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
+	s.assertSaveMetadata(c, "stream", "region-test", "series",
+		"arch", "virtual-type-test", "root-storage-type-test")
 }
 
-func (s *cloudImageMetadataSuite) assertAddMetadataWithDefaults(c *gc.C, series, arch, stream string) {
-	s.assertAddMetadata(c, series, arch, stream,
-		"rootstore", "virtType", "regionAlias", "regionName", "endpoint",
-	)
+func (s *cloudImageMetadataSuite) assertSaveMetadataWithDefaults(c *gc.C, stream, series, arch string) {
+	s.assertSaveMetadata(c, stream, "region", series, arch, "virtType", "rootType")
 }
 
-func (s *cloudImageMetadataSuite) assertAddMetadata(c *gc.C, series, arch, stream, rootStore, virtType, regionAlias, regionName, endpoint string) {
+func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, series, arch, virtType, rootStorageType string) {
 	added := cloudimagemetadata.Metadata{
-		RootStore:   rootStore,
-		VirtType:    virtType,
-		Arch:        arch,
-		Series:      series,
-		RegionAlias: regionAlias,
-		RegionName:  regionName,
-		Endpoint:    endpoint,
-		Stream:      stream,
+		Stream:          stream,
+		Region:          region,
+		Series:          series,
+		Arch:            arch,
+		VirtualType:     virtType,
+		RootStorageType: rootStorageType,
 	}
-	err := s.storage.AddMetadata(added)
+	err := s.storage.SaveMetadata(added)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertMetadata(c, added)
+	s.assertMetadata(c, added, added)
 }
 
 func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
@@ -125,25 +113,15 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, gc.HasLen, 0)
 
 	m := cloudimagemetadata.Metadata{
-		Series:      "quantal",
-		Arch:        "amd64",
-		Stream:      "test",
-		RootStore:   "rootStore",
-		VirtType:    "virtType",
-		RegionAlias: "regionAlias",
-		RegionName:  "regionName",
-		Endpoint:    "endpoint",
+		Stream:          "stream",
+		Region:          "region",
+		Series:          "series",
+		Arch:            "arch",
+		VirtualType:     "virtualType",
+		RootStorageType: "rootStorageType",
 	}
-	s.addMetadataDoc(c,
-		m.Series,
-		m.Arch,
-		m.Stream,
-		m.RootStore,
-		m.VirtType,
-		m.RegionAlias,
-		m.RegionName,
-		m.Endpoint,
-	)
+
+	s.addMetadataDoc(c, m)
 
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,16 +130,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, jc.SameContents, expected)
 
 	m.Arch = "my one"
-	s.addMetadataDoc(c,
-		m.Series,
-		m.Arch,
-		m.Stream,
-		m.RootStore,
-		m.VirtType,
-		m.RegionAlias,
-		m.RegionName,
-		m.Endpoint,
-	)
+	s.addMetadataDoc(c, m)
 
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,42 +141,39 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	m := cloudimagemetadata.Metadata{
-		Series:      "quantal",
-		Arch:        "amd64",
-		Stream:      "test",
-		RootStore:   "rootStore",
-		VirtType:    "virtType",
-		RegionAlias: "regionAlias",
-		RegionName:  "regionName",
-		Endpoint:    "endpoint",
+		Stream:          "stream",
+		Region:          "region",
+		Series:          "series",
+		Arch:            "arch",
+		VirtualType:     "virtualType",
+		RootStorageType: "rootStorageType",
 	}
 
-	_, err := s.storage.FindMetadata(m.Series, m.Arch, m.Stream)
+	_, err := s.storage.FindMetadata(m)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	s.addMetadataDoc(c,
-		m.Series,
-		m.Arch,
-		m.Stream,
-		m.RootStore,
-		m.VirtType,
-		m.RegionAlias,
-		m.RegionName,
-		m.Endpoint,
-	)
-	s.assertMetadata(c, m)
+	s.addMetadataDoc(c, m)
+	expected := []cloudimagemetadata.Metadata{m}
+	s.assertMetadata(c, m, expected...)
+
+	m.Stream = "another_stream"
+	s.addMetadataDoc(c, m)
+
+	expected = append(expected, m)
+	// Should find both
+	s.assertMetadata(c, cloudimagemetadata.Metadata{Region: "region"}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) TestAddMetadataDuplicate(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicate(c *gc.C) {
 	metadata := cloudimagemetadata.Metadata{
-		Series: "quantal",
-		Arch:   "amd64",
-		Stream: "test",
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
 	}
 	for i := 0; i < 2; i++ {
-		err := s.storage.AddMetadata(metadata)
+		err := s.storage.SaveMetadata(metadata)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertMetadata(c, metadata)
+		s.assertMetadata(c, metadata, metadata)
 	}
 	all, err := s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,85 +183,78 @@ func (s *cloudImageMetadataSuite) TestAddMetadataDuplicate(c *gc.C) {
 
 }
 
-func (s *cloudImageMetadataSuite) TestAddMetadataConcurrent(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
 	metadata0 := cloudimagemetadata.Metadata{
-		Series: "quantal",
-		Arch:   "amd64",
-		Stream: "test",
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
 	}
 	metadata1 := cloudimagemetadata.Metadata{
-		Series: "quantal",
-		Arch:   "amd64",
-		Stream: "test2",
+		Stream: "stream2",
+		Series: "series",
+		Arch:   "arch",
 	}
 
 	addMetadata := func() {
-		err := s.storage.AddMetadata(metadata0)
+		err := s.storage.SaveMetadata(metadata0)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata).Check()
 
-	err := s.storage.AddMetadata(metadata1)
+	err := s.storage.SaveMetadata(metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertMetadata(c, metadata1)
+	s.assertMetadata(c, metadata1, metadata1)
 }
 
-func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C,
-	series,
-	arch,
-	stream,
-	rootStore,
-	virtType,
-	regionAlias,
-	regionName,
-	endpoint string,
-) {
-	doc := testMetadataDoc{
-		Id:          cloudimagemetadata.CreateKey(series, arch, stream),
-		Series:      series,
-		Arch:        arch,
-		Stream:      stream,
-		RootStore:   rootStore,
-		VirtType:    virtType,
-		RegionAlias: regionAlias,
-		RegionName:  regionName,
-		Endpoint:    endpoint,
-	}
+func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, m cloudimagemetadata.Metadata) {
+	doc := createTestDoc(m)
 	err := s.metadataCollection.Insert(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type testMetadataDoc struct {
-	Id          string `bson:"_id"`
-	Series      string `bson:"series"`
-	Arch        string `bson:"arch,omitempty"`
-	Stream      string `bson:"stream,omitempty"`
-	RootStore   string `bson:"root_store,omitempty"`
-	VirtType    string `bson:"virt,omitempty"`
-	RegionAlias string `bson:"crsn,omitempty"`
-	RegionName  string `bson:"region,omitempty"`
-	Endpoint    string `bson:"endpoint,omitempty"`
-}
-
-func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, expected cloudimagemetadata.Metadata) {
-	var m testMetadataDoc
-	desiredID := cloudimagemetadata.CreateKey(expected.Series, expected.Arch, expected.Stream)
-	c.Logf("looking for cloud image metadata with id %v", desiredID)
-	err := s.metadataCollection.Find(bson.D{{"_id", desiredID}}).One(&m)
+func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemetadata.Metadata, expected ...cloudimagemetadata.Metadata) {
+	var docs []testMetadataDoc
+	searchCriteria := cloudimagemetadata.SearchClauses(criteria)
+	c.Logf("looking for cloud image metadata with id %v", criteria)
+	err := s.metadataCollection.Find(searchCriteria).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	metadata := cloudimagemetadata.Metadata{
-		Series:      m.Series,
-		Arch:        m.Arch,
-		Stream:      m.Stream,
-		RootStore:   m.RootStore,
-		VirtType:    m.VirtType,
-		RegionAlias: m.RegionAlias,
-		RegionName:  m.RegionName,
-		Endpoint:    m.Endpoint,
+	metadata := make([]cloudimagemetadata.Metadata, len(docs))
+	for i, m := range docs {
+		metadata[i] = cloudimagemetadata.Metadata{
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Series:          m.Series,
+			Arch:            m.Arch,
+			VirtualType:     m.VirtualType,
+			RootStorageType: m.RootStorageType,
+		}
 	}
-	c.Assert(metadata, gc.DeepEquals, expected)
+	c.Assert(metadata, jc.SameContents, expected)
+}
+
+type testMetadataDoc struct {
+	Id              string `bson:"_id"`
+	Stream          string `bson:"stream,omitempty"`
+	Region          string `bson:"region,omitempty"`
+	Series          string `bson:"series"`
+	Arch            string `bson:"arch"`
+	VirtualType     string `bson:"virtual_type,omitempty"`
+	RootStorageType string `bson:"root_storage_type,omitempty"`
+}
+
+func createTestDoc(m cloudimagemetadata.Metadata) testMetadataDoc {
+	key := cloudimagemetadata.Key(&m)
+	return testMetadataDoc{
+		Id:              key,
+		Stream:          m.Stream,
+		Region:          m.Region,
+		Series:          m.Series,
+		Arch:            m.Arch,
+		VirtualType:     m.VirtualType,
+		RootStorageType: m.RootStorageType,
+	}
 }
 
 type errorTransactionRunner struct {
