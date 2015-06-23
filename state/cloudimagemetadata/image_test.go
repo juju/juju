@@ -11,16 +11,17 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
-type keyMetadataSuite struct {
+type funcMetadataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&keyMetadataSuite{})
+var _ = gc.Suite(&funcMetadataSuite{})
 
 var keyTestData = []struct {
 	about       string
@@ -36,11 +37,75 @@ var keyTestData = []struct {
 	"released",
 }}
 
-func (s *keyMetadataSuite) TestCreateMetadataKey(c *gc.C) {
+func (s *funcMetadataSuite) TestCreateMetadataKey(c *gc.C) {
 	for i, t := range keyTestData {
 		c.Logf("%d: %v", i, t.about)
 		key := cloudimagemetadata.StreamKey(t.stream)
 		c.Assert(key, gc.Equals, t.expectedKey)
+	}
+}
+
+var searchTestData = []struct {
+	about    string
+	criteria cloudimagemetadata.MetadataAttributes
+	expected bson.D
+}{{
+	`empty criteria`,
+	cloudimagemetadata.MetadataAttributes{},
+	nil,
+}, {
+	`only stream supplied`,
+	cloudimagemetadata.MetadataAttributes{Stream: "stream-value"},
+	bson.D{{"stream", "stream-value"}},
+}, {
+	`only region supplied`,
+	cloudimagemetadata.MetadataAttributes{Region: "region-value"},
+	bson.D{{"region", "region-value"}},
+}, {
+	`only series supplied`,
+	cloudimagemetadata.MetadataAttributes{Series: "series-value"},
+	bson.D{{"series", "series-value"}},
+}, {
+	`only arch supplied`,
+	cloudimagemetadata.MetadataAttributes{Arch: "arch-value"},
+	bson.D{{"arch", "arch-value"}},
+}, {
+	`only virtual type supplied`,
+	cloudimagemetadata.MetadataAttributes{VirtualType: "vtype-value"},
+	bson.D{{"virtual_type", "vtype-value"}},
+}, {
+	`only root storage type supplied`,
+	cloudimagemetadata.MetadataAttributes{RootStorageType: "rootstorage-value"},
+	bson.D{{"root_storage_type", "rootstorage-value"}},
+}, {
+	`two search criteria supplied`,
+	cloudimagemetadata.MetadataAttributes{RootStorageType: "rootstorage-value", Series: "series-value"},
+	bson.D{{"root_storage_type", "rootstorage-value"}, {"series", "series-value"}},
+}, {
+	`all serach criteria supplied`,
+	cloudimagemetadata.MetadataAttributes{
+		RootStorageType: "rootstorage-value",
+		Series:          "series-value",
+		Stream:          "stream-value",
+		Region:          "region-value",
+		Arch:            "arch-value",
+		VirtualType:     "vtype-value",
+	},
+	bson.D{
+		{"root_storage_type", "rootstorage-value"},
+		{"series", "series-value"},
+		{"stream", "stream-value"},
+		{"region", "region-value"},
+		{"arch", "arch-value"},
+		{"virtual_type", "vtype-value"},
+	},
+}}
+
+func (s *funcMetadataSuite) TestSearchCriteria(c *gc.C) {
+	for i, t := range searchTestData {
+		c.Logf("%d: %v", i, t.about)
+		clause := cloudimagemetadata.SearchClauses(t.criteria)
+		c.Assert(clause, jc.SameContents, t.expected)
 	}
 }
 
