@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
@@ -15,13 +13,14 @@ import (
 
 // RegisterProcess registers a workload process in state.
 func (st *State) RegisterProcess(unit names.UnitTag, info process.Info) error {
-	ps := newUnitProcesses(st, unit)
 	charm, err := st.unitCharm(unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	charmTag := charm.Tag().(names.CharmTag)
-	if err := ps.register(charmTag, info); err != nil {
+
+	ps := newUnitProcesses(st, unit)
+	if err := ps.register(info, charmTag); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -75,34 +74,21 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 
 type processDefinitions struct {
 	persist *processesPersistence
-	charm   names.CharmTag
-	unit    names.UnitTag
 }
 
 func newProcessDefinitions(st *State, charm names.CharmTag) *processDefinitions {
 	return &processDefinitions{
-		persist: &processesPersistence{st: st},
-		charm:   charm,
+		persist: &processesPersistence{st: st, charm: charm},
 	}
 }
 
-// TODO(ericsnow) Move ID generation into the persistence layer.
-
-func (pd processDefinitions) resolve(name string) string {
-	// The URL will always parse successfully.
-	charmURL, _ := charm.ParseURL(pd.charm.Id())
-	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
-}
-
 func (pd processDefinitions) ensureDefined(definitions ...charm.Process) error {
-	var ids []string
 	for _, definition := range definitions {
 		if err := definition.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-		ids = append(ids, pd.resolve(definition.Name))
 	}
-	if err := pd.persist.ensureDefinitions(ids, definitions, pd.unit.Id()); err != nil {
+	if err := pd.persist.ensureDefinitions(definitions...); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -117,31 +103,24 @@ type unitProcesses struct {
 
 func newUnitProcesses(st *State, unit names.UnitTag) *unitProcesses {
 	return &unitProcesses{
-		persist: &processesPersistence{st: st},
+		persist: &processesPersistence{st: st, unit: unit},
 		unit:    unit,
 	}
 }
 
-func (ps unitProcesses) resolve(id string) string {
-	return fmt.Sprintf("%s#%s", unitGlobalKey(ps.unit.Id()), id)
-}
-
-func (ps unitProcesses) register(charm names.CharmTag, info process.Info) error {
+func (ps unitProcesses) register(info process.Info, charm names.CharmTag) error {
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	pd := processDefinitions{
-		persist: ps.persist,
-		charm:   charm,
-		unit:    ps.unit,
-	}
-	if err := pd.ensureDefined(info.Process); err != nil {
+	// TODO(ericsnow) Use a safer mechanism,
+	// e.g. pass charm to ensureDefinitions?
+	ps.persist.charm = charm
+	if err := ps.persist.ensureDefinitions(info.Process); err != nil {
 		return errors.Trace(err)
 	}
 
-	id := ps.resolve(info.Name)
-	if err := ps.persist.insert(id, charm.Id(), info); err != nil {
+	if err := ps.persist.insert(info); err != nil {
 		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
 	}
@@ -149,7 +128,6 @@ func (ps unitProcesses) register(charm names.CharmTag, info process.Info) error 
 }
 
 func (ps unitProcesses) setStatus(id string, status process.Status) error {
-	id = ps.resolve(id)
 	if err := ps.persist.setStatus(id, status); err != nil {
 		return errors.Trace(err)
 	}
@@ -157,9 +135,6 @@ func (ps unitProcesses) setStatus(id string, status process.Status) error {
 }
 
 func (ps unitProcesses) list(ids ...string) ([]process.Info, error) {
-	for i, id := range ids {
-		ids[i] = ps.resolve(id)
-	}
 	results, err := ps.persist.list(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -168,7 +143,6 @@ func (ps unitProcesses) list(ids ...string) ([]process.Info, error) {
 }
 
 func (ps unitProcesses) unregister(id string) error {
-	id = ps.resolve(id)
 	err := ps.persist.remove(id)
 	if errors.IsNotFound(err) {
 		// We're already done!

@@ -4,9 +4,13 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
@@ -22,19 +26,16 @@ type processesPersistenceBase interface {
 }
 
 type processesPersistence struct {
-	st processesPersistenceBase
+	st    processesPersistenceBase
+	charm names.CharmTag
+	unit  names.UnitTag
 }
 
-func (pp processesPersistence) ensureDefinitions(ids []string, definitions []charm.Process, unit string) error {
-	if len(ids) != len(definitions) {
-		return errors.Errorf("mismatch between ids and definitions")
-	}
-
+func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) error {
 	// Add definition if not already added (or ensure matches).
 	var ops []txn.Op
-	for i, definition := range definitions {
-		id := ids[i]
-		ops = append(ops, pp.newInsertOp(id, definition, unit))
+	for _, definition := range definitions {
+		ops = append(ops, pp.newInsertDefinitionOp(definition))
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -54,20 +55,20 @@ func (pp processesPersistence) ensureDefinitions(ids []string, definitions []cha
 				// Otherwise the op is dropped.
 			}
 			if len(okOps) == 0 {
-				return nil, txn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			}
 			ops = okOps
 		}
 		return ops, nil
 	}
-	if err := pp.st.run(builTxn); err != nil {
+	if err := pp.st.run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (pp processesPersistence) insert(id, charm string, info process.Info) error {
+func (pp processesPersistence) insert(info process.Info) error {
 	// Ensure defined.
 
 	// Add launch info.
@@ -92,11 +93,21 @@ func (pp processesPersistence) remove(id string) error {
 	return errors.Errorf("not finished")
 }
 
-func (processesPersistence) newInsertOp(id string, definition charm.Process, unit string) txn.Op {
-	doc := newProcessDefinitionDoc(id, definition, unit)
+func (pp processesPersistence) definitionID(name string) string {
+	// The URL will always parse successfully.
+	charmURL, _ := charm.ParseURL(pp.charm.Id())
+	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
+}
+
+func (pp processesPersistence) processID(id string) string {
+	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), id)
+}
+
+func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
+	doc := pp.newProcessDefinitionDoc(definition)
 	return txn.Op{
 		C:      workloadProcessesC,
-		Id:     id,
+		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -119,10 +130,11 @@ type processDefinitionDoc struct {
 	EnvVars     XXX    `bson:"envvars"`
 }
 
-func newProcessDefinitionDoc(id string, definition charm.Process, unit string) *processDefinitionDoc {
+func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
+	id := pp.definitionID(definition.Name)
 	return &processDefinitionDoc{
 		DocID:  id,
-		UnitID: unit,
+		UnitID: pp.unit.Id(),
 
 		Name:        definition.Name,
 		Description: definition.Description,
