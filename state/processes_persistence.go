@@ -154,19 +154,32 @@ type processDefinitionDoc struct {
 
 	UnitID string `bson:"unitid"`
 
-	Name        string `bson:"name"`
-	Description string `bson:"description"`
-	Type        string `bson:"type"`
-	//TypeOptions XXX    `bson:"typeoptions"`
-	Command string `bson:"command"`
-	Image   string `bson:"image"`
-	//Ports       XXX    `bson:"ports"`
-	//Volumes     XXX    `bson:"volumes"`
-	//EnvVars     XXX    `bson:"envvars"`
+	Name        string            `bson:"name"`
+	Description string            `bson:"description"`
+	Type        string            `bson:"type"`
+	TypeOptions map[string]string `bson:"typeoptions"`
+	Command     string            `bson:"command"`
+	Image       string            `bson:"image"`
+	Ports       []string          `bson:"ports"`
+	Volumes     []string          `bson:"volumes"`
+	EnvVars     map[string]string `bson:"envvars"`
 }
 
 func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
 	id := pp.definitionID(definition.Name)
+
+	var ports []string
+	for _, p := range definition.Ports {
+		// TODO(ericsnow) Ensure p.Endpoint is in state?
+		ports = append(ports, fmt.Sprintf("%d:%d:%s", p.External, p.Internal, p.Endpoint))
+	}
+
+	var volumes []string
+	for _, v := range definition.Volumes {
+		// TODO(ericsnow) Ensure v.Name is in state?
+		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
+	}
+
 	return &processDefinitionDoc{
 		DocID:  id,
 		UnitID: pp.unit.Id(),
@@ -174,12 +187,12 @@ func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process)
 		Name:        definition.Name,
 		Description: definition.Description,
 		Type:        definition.Type,
-		//TypeOptions: definition.TypeOptions,
-		Command: definition.Command,
-		Image:   definition.Image,
-		//Ports:       definition.Ports,
-		//Volumes:     definition.Volumes,
-		//EnvVars:     definition.EnvVars,
+		TypeOptions: definition.TypeOptions,
+		Command:     definition.Command,
+		Image:       definition.Image,
+		Ports:       ports,
+		Volumes:     volumes,
+		EnvVars:     definition.EnvVars,
 	}
 }
 
