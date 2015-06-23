@@ -32,6 +32,10 @@ type processesPersistence struct {
 	unit  names.UnitTag
 }
 
+func (pp processesPersistence) coll() (stateCollection, func()) {
+	return pp.st.getCollection(workloadProcessesC)
+}
+
 func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) error {
 	// Add definition if not already added (or ensure matches).
 	var ops []txn.Op
@@ -42,8 +46,9 @@ func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) e
 		if attempt > 0 {
 			// The last attempt aborted so clear out any ops that failed
 			// the DocMissing assertion and try again.
-			coll, closeColl := pp.st.getCollection(workloadProcessesC)
+			coll, closeColl := pp.coll()
 			defer closeColl()
+
 			var okOps []txn.Op
 			for _, op := range ops {
 				var doc processDefinitionDoc
@@ -106,27 +111,44 @@ func (pp processesPersistence) setStatus(id string, status process.Status) error
 }
 
 func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
-	// TODO(ericsnow) finish!
-	return nil, errors.Errorf("not finished")
+	procDocs, err := pp.procs(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	launchDocs, err := pp.launches(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	definitionDocs, err := pp.definitions(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]process.Info, len(ids))
+	for i := range results {
+		doc := processInfoDoc{
+			definition: definitionDocs[i],
+			launch:     launchDocs[i],
+			proc:       procDocs[i],
+		}
+		info := doc.info()
+		info.CharmID = pp.charm.Id()
+		info.UnitID = pp.unit.Id()
+		results[i] = doc.info()
+	}
+	return results, nil
 }
+
+// TODO(ericsnow) Add procs to state/cleanup.go.
 
 func (pp processesPersistence) remove(id string) error {
 	// TODO(ericsnow) finish!
 	return errors.Errorf("not finished")
 }
 
-func (pp processesPersistence) proc(id string) (*processDoc, error) {
-	coll, closeColl := pp.st.getCollection(workloadProcessesC)
-	defer closeColl()
-	id = pp.processID(id)
-	var doc processDoc
-	if err := coll.FindId(id).One(&doc); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &doc, nil
-}
+// TODO(ericsnow) Factor most of the below into a processesCollection type.
 
-func (pp processesPersistence) definitionID(name string) string {
+func (pp processesPersistence) definitionID(id string) string {
+	name, _ := process.ParseID(id)
 	// The URL will always parse successfully.
 	charmURL, _ := charm.ParseURL(pp.charm.Id())
 	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
@@ -187,6 +209,24 @@ func (pp processesPersistence) newSetRawStatusOp(id string, status process.RawSt
 	}
 }
 
+type processInfoDoc struct {
+	definition processDefinitionDoc
+	launch     processLaunchDoc
+	proc       processDoc
+}
+
+func (d processInfoDoc) info() process.Info {
+	info := d.proc.info()
+
+	info.Process = d.definition.definition()
+
+	rawStatus := info.Details.Status
+	info.Details = d.launch.details()
+	info.Details.Status = rawStatus
+
+	return info
+}
+
 type processDefinitionDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
@@ -202,6 +242,32 @@ type processDefinitionDoc struct {
 	Ports       []string          `bson:"ports"`
 	Volumes     []string          `bson:"volumes"`
 	EnvVars     map[string]string `bson:"envvars"`
+}
+
+func (d processDefinitionDoc) definition() charm.Process {
+	ports := make([]charm.ProcessPort, len(d.Ports))
+	for i, raw := range d.Ports {
+		p := ports[i]
+		fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
+	}
+
+	volumes := make([]charm.ProcessVolume, len(d.Volumes))
+	for i, raw := range d.Volumes {
+		v := volumes[i]
+		fmt.Sscanf(raw, "%d:%d:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
+	}
+
+	return charm.Process{
+		Name:        d.Name,
+		Description: d.Description,
+		Type:        d.Type,
+		TypeOptions: d.TypeOptions,
+		Command:     d.Command,
+		Image:       d.Image,
+		Ports:       ports,
+		Volumes:     volumes,
+		EnvVars:     d.EnvVars,
+	}
 }
 
 func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
@@ -235,12 +301,37 @@ func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process)
 	}
 }
 
+func (pp processesPersistence) definitions(ids []string) ([]processDefinitionDoc, error) {
+	coll, closeColl := pp.coll()
+	defer closeColl()
+
+	for i, id := range ids {
+		ids[i] = pp.definitionID(id)
+	}
+	q := bson.M{"_id": bson.M{"$in": ids}}
+
+	var docs []processDefinitionDoc
+	if err := coll.FindId(q).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 type processLaunchDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
 	PluginID  string `bson:"pluginid"`
 	RawStatus string `bson:"rawstatus"`
+}
+
+func (d processLaunchDoc) details() process.Details {
+	return process.Details{
+		ID: d.PluginID,
+		Status: process.RawStatus{
+			Value: d.RawStatus,
+		},
+	}
 }
 
 func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
@@ -253,6 +344,22 @@ func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc
 	}
 }
 
+func (pp processesPersistence) launches(ids []string) ([]processLaunchDoc, error) {
+	coll, closeColl := pp.coll()
+	defer closeColl()
+
+	for i, id := range ids {
+		ids[i] = pp.launchID(id)
+	}
+	q := bson.M{"_id": bson.M{"$in": ids}}
+
+	var docs []processLaunchDoc
+	if err := coll.FindId(q).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 type processDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
@@ -260,6 +367,30 @@ type processDoc struct {
 	Life         Life   `bson:"life"`
 	Status       string `bson:"status"`
 	PluginStatus string `bson:"pluginstatus"`
+}
+
+func (d processDoc) info() process.Info {
+	var status process.Status
+	switch d.Status {
+	case "pending":
+		status = process.StatusPending
+	case "active":
+		status = process.StatusActive
+	case "failed":
+		status = process.StatusFailed
+	case "stopped":
+		status = process.StatusStopped
+	}
+	if d.Life != Alive {
+		if status != process.StatusFailed && status != process.StatusStopped {
+			// TODO(ericsnow) Is this the right place to do this?
+			status = process.StatusStopped
+		}
+	}
+
+	return process.Info{
+		Status: status,
+	}
 }
 
 func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
@@ -287,4 +418,33 @@ func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
 		Status:       status,
 		PluginStatus: info.Details.Status.Value,
 	}
+}
+
+func (pp processesPersistence) proc(id string) (*processDoc, error) {
+	coll, closeColl := pp.coll()
+	defer closeColl()
+
+	id = pp.processID(id)
+
+	var doc processDoc
+	if err := coll.FindId(id).One(&doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &doc, nil
+}
+
+func (pp processesPersistence) procs(ids []string) ([]processDoc, error) {
+	coll, closeColl := pp.coll()
+	defer closeColl()
+
+	for i, id := range ids {
+		ids[i] = pp.processID(id)
+	}
+	q := bson.M{"_id": bson.M{"$in": ids}}
+
+	var docs []processDoc
+	if err := coll.FindId(q).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
 }
