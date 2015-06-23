@@ -58,6 +58,9 @@ func (st *State) UnregisterProcess(unit names.UnitTag, id string) error {
 	return nil
 }
 
+// TODO(ericsnow) DestroyProcess: Mark the proc as Dying.
+// TODO(ericsnow) We need a worker to clean up dying procs.
+
 // defineProcesses adds the workload process definitions from the provided
 // charm metadata to state.
 func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error {

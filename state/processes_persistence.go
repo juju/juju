@@ -90,6 +90,7 @@ func (pp processesPersistence) insert(info process.Info) error {
 
 func (pp processesPersistence) setStatus(id string, status process.Status) error {
 	var ops []txn.Op
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newSetRawStatusOp(id, status))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -111,6 +112,7 @@ func (pp processesPersistence) setStatus(id string, status process.Status) error
 }
 
 func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
+	// TODO(ericsnow) Ensure that the unit is Alive?
 	procDocs, err := pp.procs(ids)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -140,9 +142,20 @@ func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
 
 // TODO(ericsnow) Add procs to state/cleanup.go.
 
+// TODO(ericsnow) How to ensure they are completely removed from state?
+
 func (pp processesPersistence) remove(id string) error {
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
+	var ops []txn.Op
+	// TODO(ericsnow) Remove unit-based definition when no procs left.
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+	ops = append(ops, pp.newRemoveProcessOps(id)...)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	}
+	if err := pp.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // TODO(ericsnow) Factor most of the below into a processesCollection type.
@@ -206,6 +219,33 @@ func (pp processesPersistence) newSetRawStatusOp(id string, status process.RawSt
 		Id:     id,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Value}}}},
+	}
+}
+
+func (pp processesPersistence) newRemoveProcessOps(id string) []txn.Op {
+	var ops []txn.Op
+	ops = append(ops, pp.newRemoveLaunchOp(id))
+	ops = append(ops, pp.newRemoveProcOp(id))
+	return ops
+}
+
+func (pp processesPersistence) newRemoveLaunchOp(id string) txn.Op {
+	id = pp.launchID(id)
+	return txn.Op{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
+}
+
+func (pp processesPersistence) newRemoveProcOp(id string) txn.Op {
+	id = pp.processID(id)
+	return txn.Op{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
 	}
 }
 
