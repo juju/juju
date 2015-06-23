@@ -487,7 +487,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 		return nil
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
-		if err := s.updatedUnitStatus(st, store, id.(string), &newInfo); err != nil {
+		// Get the unit's current recorded status from state.
+		// It's needed to reset the unit status when a unit comes off error.
+		sdoc, err := getStatus(st, unitGlobalKey(newInfo.Name))
+		if err != nil {
+			return err
+		}
+		if err := s.updatedUnitStatus(st, store, id.(string), sdoc, &newInfo); err != nil {
 			return err
 		}
 		info0 = &newInfo
@@ -511,7 +517,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 	return nil
 }
 
-func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, newInfo *multiwatcher.UnitInfo) error {
+func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus statusDoc, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
@@ -523,6 +529,14 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
 		newInfo.AgentStatus.Since = s.Updated
+		// If the unit was in error and now it's not, we need to reset its
+		// status back to what was previously recorded.
+		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
+			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
+			newInfo.WorkloadStatus.Message = unitStatus.StatusInfo
+			newInfo.WorkloadStatus.Data = unitStatus.StatusData
+			newInfo.WorkloadStatus.Since = s.Updated
+		}
 	}
 
 	// Legacy status info - it is an aggregated value between workload and agent statuses.
