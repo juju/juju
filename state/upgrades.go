@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/bson"
@@ -569,6 +570,40 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 			Update: bson.D{{"$set", bson.D{
 				{"instanceid", instanceId},
 			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddUUIDToIPAddresses creates and populates the uuid field
+// for all IP addresses.
+func AddUUIDToIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		logger.Tracef("AddUUIDToIPAddresses: processing address %s", address["value"])
+
+		// Skip addresses which already have the UUID field.
+		if _, ok := address["uuid"]; ok {
+			logger.Tracef("skipping address %s, already has uuid", address["value"])
+			continue
+		}
+
+		// Add op for setting the UUID.
+		ops = append(ops, txn.Op{
+			C:      ipaddressesC,
+			Id:     address["_id"],
+			Update: bson.D{{"$set", bson.D{{"uuid", utils.MustNewUUID().String()}}}},
 		})
 		address = nil
 	}

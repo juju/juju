@@ -4,8 +4,12 @@
 package state
 
 import (
+	"net"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -13,6 +17,107 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
+
+// addIPAddress implements the State method to add an IP address.
+func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
+
+	// This checks for a missing value as well as invalid values
+	ip := net.ParseIP(addr.Value)
+	if ip == nil {
+		return nil, errors.NotValidf("address")
+	}
+
+	addressID := st.docID(addr.Value)
+	ipDoc := ipaddressDoc{
+		DocID:    addressID,
+		EnvUUID:  st.EnvironUUID(),
+		UUID:     utils.MustNewUUID().String(),
+		Life:     Alive,
+		State:    AddressStateUnknown,
+		SubnetId: subnetid,
+		Value:    addr.Value,
+		Type:     string(addr.Type),
+		Scope:    string(addr.Scope),
+	}
+
+	ipaddress = &IPAddress{doc: ipDoc, st: st}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     addressID,
+		Assert: txn.DocMissing,
+		Insert: ipDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.IPAddress(addr.Value); err == nil {
+			return nil, errors.AlreadyExistsf("address")
+		}
+	case nil:
+		return ipaddress, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// ipAddress implements the State method to return an existing IP
+// address by its value.
+func ipAddress(st *State, value string) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.FindId(st.docID(value)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", value)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
+	}
+	return &IPAddress{st, *doc}, nil
+}
+
+// ipAddressByTag implements the State method to return an existing IP
+// address by its value.
+func ipAddressByTag(st *State, tag names.Tag) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.Find(bson.D{{"uuid", tag.Id()}}).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", tag)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", tag)
+	}
+	return &IPAddress{st, *doc}, nil
+}
+
+// fetchIPAddresses is a helper function for finding IP addresses
+func fetchIPAddresses(st *State, query bson.D) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Value string
+	}
+	iter := addresses.Find(query).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Value)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
 
 // AddressState represents the states an IP address can be in. They are created
 // in an unknown state and then either become allocated or unavailable if
@@ -52,6 +157,7 @@ type IPAddress struct {
 type ipaddressDoc struct {
 	DocID       string       `bson:"_id"`
 	EnvUUID     string       `bson:"env-uuid"`
+	UUID        string       `bson:"uuid"`
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
@@ -71,6 +177,16 @@ func (i *IPAddress) Life() Life {
 // Id returns the ID of the IP address.
 func (i *IPAddress) Id() string {
 	return i.doc.DocID
+}
+
+// UUID returns the global unique ID of the IP address.
+func (i *IPAddress) UUID() string {
+	return i.doc.UUID
+}
+
+// Tag returns the tag of the IP address.
+func (i *IPAddress) Tag() names.Tag {
+	return names.NewIPAddressTag(i.doc.UUID)
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If
