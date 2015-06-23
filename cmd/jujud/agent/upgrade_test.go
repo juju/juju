@@ -62,7 +62,7 @@ var (
 const fails = true
 const succeeds = false
 
-func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) { 
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) {
 	s.aptMutex.Lock()
 	defer s.aptMutex.Unlock()
 	if cmd == nil {
