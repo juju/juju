@@ -6,6 +6,7 @@ package systemd_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/juju/juju/juju/paths"
 	"os"
 	"strings"
 
@@ -71,9 +72,10 @@ var _ = gc.Suite(&initSystemSuite{})
 func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	dataDir, err := paths.DataDir("vivid")
+	c.Assert(err, jc.ErrorIsNil)
+	s.dataDir = dataDir
 	// Patch things out.
-	s.dataDir = "/juju/data/dir" // This is never used concretely in tests.
-	systemd.PatchFindDataDir(s, s.dataDir)
 	s.ch = systemd.PatchNewChan(s)
 
 	s.stub = &testing.Stub{}
@@ -91,11 +93,16 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 		Desc:      "juju agent for " + tagStr,
 		ExecStart: jujud + " " + tagStr,
 	}
-	s.service, err = systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	s.service = s.newService(c)
 
 	// Reset any incidental calls.
 	s.stub.ResetCalls()
+}
+
+func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
+	service, err := systemd.NewService(s.name, s.conf, s.dataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	return service
 }
 
 func (s *initSystemSuite) newConfStr(name string) string {
@@ -213,9 +220,7 @@ func (s *initSystemSuite) TestListServicesEmpty(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestNewService(c *gc.C) {
-	service, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
+	service := s.newService(c)
 	c.Check(service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -230,9 +235,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
-
-	service, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	service := s.newService(c)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
@@ -267,7 +270,7 @@ exec 2>&1
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
-	service, err := systemd.NewService(s.name, common.Conf{})
+	service, err := systemd.NewService(s.name, common.Conf{}, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, jc.DeepEquals, &systemd.Service{
@@ -283,9 +286,7 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 
 func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
-
-	svc, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.newService(c)
 
 	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
@@ -301,9 +302,7 @@ func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 
 func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 	s.conf.ExtraScript = "'/path/to/another/command'"
-
-	svc, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.newService(c)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
@@ -331,9 +330,7 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 
 func (s *initSystemSuite) TestNewServiceMultiline(c *gc.C) {
 	s.conf.ExecStart = "a\nb\nc"
-
-	svc, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.newService(c)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
@@ -706,7 +703,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.ch <- "done"
 
 	conf.Env["a"] = "c"
-	service, err := systemd.NewService(s.name, conf)
+	service, err := systemd.NewService(s.name, conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Install()
 	c.Assert(err, jc.ErrorIsNil)
@@ -771,9 +768,6 @@ func (s *initSystemSuite) TestInstallEmptyConf(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	name := "jujud-machine-0"
-	s.dataDir = "/tmp"
-	s.service.Dirname = "/tmp/init/jujud-machine-0"
-
 	commands, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -787,12 +781,8 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	name := "jujud-machine-0"
-	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
-
-	service, err := systemd.NewService(s.name, s.conf)
-	c.Assert(err, jc.ErrorIsNil)
+	service := s.newService(c)
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -802,7 +792,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 		Expected: strings.Replace(
 			s.newConfStr(name),
 			"ExecStart=/var/lib/juju/bin/jujud machine-0",
-			"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
+			"ExecStart=/var/lib/juju/init/jujud-machine-0/exec-start.sh",
 			-1),
 		Script: `
 # Set up logging.
@@ -819,13 +809,10 @@ exec 2>&1
 }
 
 func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
-	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
-
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := systemd.NewService(name, conf)
+	svc, err := systemd.NewService(name, conf, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)

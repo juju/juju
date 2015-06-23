@@ -93,10 +93,11 @@ func (w *unixConfigure) ConfigureBasic() error {
 	case version.Ubuntu:
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 		if w.icfg.Tools != nil {
-			initSystem, ok := service.VersionInitSystem(w.icfg.Tools.Version)
-			if ok {
-				w.addCleanShutdownJob(initSystem)
+			initSystem, err := service.VersionInitSystem(w.icfg.Series)
+			if err != nil {
+				return errors.Trace(err)
 			}
+			w.addCleanShutdownJob(initSystem)
 		}
 	// On unix systems that are not ubuntu we create an ubuntu user so that we
 	// are able to ssh in the machine and have all the functionality dependant

@@ -193,21 +193,12 @@ func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service
 	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
-	initSystem, ok := cfg.initSystem()
-	if !ok {
-		return nil, errors.New("could not identify init system")
-	}
-	logger.Debugf("using init system %q for machine agent script", initSystem)
-	svc, err := newService(name, conf, initSystem)
+	svc, err := newService(name, conf, cfg.Series)
 	return svc, errors.Trace(err)
 }
 
-func (cfg *InstanceConfig) initSystem() (string, bool) {
-	return service.VersionInitSystem(cfg.Tools.Version)
-}
-
-var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
-	return service.NewService(name, conf, initSystem)
+var newService = func(name string, conf common.Conf, series string) (service.Service, error) {
+	return service.NewService(name, conf, series)
 }
 
 func (cfg *InstanceConfig) AgentConfig(

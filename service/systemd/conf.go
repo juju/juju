@@ -148,8 +148,9 @@ func serialize(name string, conf common.Conf, renderer shell.Renderer) ([]byte, 
 	unitOptions = append(unitOptions, serializeUnit(conf)...)
 	unitOptions = append(unitOptions, serializeService(conf)...)
 	unitOptions = append(unitOptions, serializeInstall(conf)...)
-
-	data, err := ioutil.ReadAll(unit.Serialize(unitOptions))
+	// Don't use unit.Serialize because it has map ordering issues.
+	// Serialize copied locally, and outputs sections in alphabetical order.
+	data, err := ioutil.ReadAll(UnitSerialize(unitOptions))
 	return data, errors.Trace(err)
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -197,11 +196,11 @@ func TemplateUserData(
 	}
 	config.AddPackageCommands(aptProxy, aptMirror, enablePackageUpdates, enableOSUpgrades)
 
-	initSystem, err := containerInitSystem(series)
+	initSystem, err := service.VersionInitSystem(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cmds, err := shutdownInitCommands(initSystem)
+	cmds, err := shutdownInitCommands(initSystem, series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -212,23 +211,6 @@ func TemplateUserData(
 		return nil, err
 	}
 	return data, nil
-}
-
-func containerInitSystem(series string) (string, error) {
-	osName, err := version.GetOSFromSeries(series)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	vers := version.Binary{
-		OS:     osName,
-		Series: series,
-	}
-	initSystem, ok := service.VersionInitSystem(vers)
-	if !ok {
-		return "", errors.NotFoundf("init system for series %q", series)
-	}
-	logger.Debugf("using init system %q for shutdown script", initSystem)
-	return initSystem, nil
 }
 
 // defaultEtcNetworkInterfaces is the contents of
@@ -246,7 +228,7 @@ auto eth0
 iface eth0 inet dhcp
 `
 
-func shutdownInitCommands(initSystem string) ([]string, error) {
+func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	// These files are removed just before the template shuts down.
 	cleanupOnShutdown := []string{
 		// We remove any dhclient lease files so there's no chance a
@@ -290,7 +272,7 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 		conf.AfterStopped = "cloud-config.target"
 	}
 
-	svc, err := service.NewService(name, conf, initSystem)
+	svc, err := service.NewService(name, conf, series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
