@@ -81,7 +81,6 @@ var multiEnvCollections = set.NewStrings(
 	networkInterfacesC,
 	networksC,
 	openedPortsC,
-	workloadProcessesC,
 	rebootC,
 	relationScopesC,
 	relationsC,
@@ -99,6 +98,7 @@ var multiEnvCollections = set.NewStrings(
 	unitsC,
 	volumesC,
 	volumeAttachmentsC,
+	workloadProcessesC,
 )
 
 func newStateCollection(coll *mgo.Collection, envUUID string) stateCollection {
