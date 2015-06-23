@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
 )
 
@@ -83,6 +85,14 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
+		fmt.Sprintf(`New-Item -Path '%s'`, osenv.JujuRegistryKey),
+		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey),
+		fmt.Sprintf(`Set-ItemProperty -Path '%s' -Name '%s' -Value '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey,
+			featureflag.AsEnvironmentValue()),
 	)
 
 	if w.icfg.Bootstrap == true {
