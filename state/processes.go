@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
@@ -87,6 +86,8 @@ func newProcessDefinitions(st *State, charm names.CharmTag) *processDefinitions 
 	}
 }
 
+// TODO(ericsnow) Move ID generation into the persistence layer.
+
 func (pd processDefinitions) resolve(name string) string {
 	// The URL will always parse successfully.
 	charmURL, _ := charm.ParseURL(pd.charm.Id())
@@ -141,6 +142,7 @@ func (ps unitProcesses) register(charm names.CharmTag, info process.Info) error 
 
 	id := ps.resolve(info.Name)
 	if err := ps.persist.insert(id, charm.Id(), info); err != nil {
+		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
 	}
 	return nil
@@ -176,44 +178,4 @@ func (ps unitProcesses) unregister(id string) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-type processesPersistenceBase interface {
-	run(transactions jujutxn.TransactionSource) error
-}
-
-type processesPersistence struct {
-	st processesPersistenceBase
-}
-
-func (pp processesPersistence) ensureDefinitions(ids []string, definitions []charm.Process, unit string) error {
-	// Add definition if not already added (or ensure matches).
-
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
-}
-
-func (pp processesPersistence) insert(id, charm string, info process.Info) error {
-	// Ensure defined.
-
-	// Add launch info.
-	// Add process info.
-
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
-}
-
-func (pp processesPersistence) setStatus(id string, status process.Status) error {
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
-}
-
-func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
-	// TODO(ericsnow) finish!
-	return nil, errors.Errorf("not finished")
-}
-
-func (pp processesPersistence) remove(id string) error {
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
 }
