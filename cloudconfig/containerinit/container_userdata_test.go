@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/service"
 	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -157,7 +156,7 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 
 func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
-	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart)
+	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart, "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
 	filename := "/etc/init/juju-template-restart.conf"
@@ -190,8 +189,7 @@ end script
 
 func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
-	s.PatchValue(&version.Current.Series, "vivid")
-	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
+	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd, "vivid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	test := systemdtesting.WriteConfTest{
