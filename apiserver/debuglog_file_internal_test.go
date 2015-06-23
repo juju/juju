@@ -253,7 +253,7 @@ line 3
 
 	stream.logTailer.Stop()
 
-	err = stream.wait()
+	err = stream.wait(nil)
 	if errMatch == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
