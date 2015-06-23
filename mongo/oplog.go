@@ -62,6 +62,20 @@ func (d *OplogDoc) unmarshal(raw *bson.Raw, out interface{}) error {
 	return raw.Unmarshal(out)
 }
 
+// NewMongoTimestamp returns a bson.MongoTimestamp repesentation for
+// the time.Time given. Note that these timestamps are not the same
+// the usual MongoDB time fields. These are an internal format used
+// only in a few places such as the replication oplog.
+//
+// See: http://docs.mongodb.org/manual/reference/bson-types/#timestamps
+func NewMongoTimestamp(t time.Time) bson.MongoTimestamp {
+	unixTime := t.Unix()
+	if unixTime < 0 {
+		unixTime = 0
+	}
+	return bson.MongoTimestamp(unixTime << 32)
+}
+
 // GetOplog returns the the oplog collection in the local database.
 func GetOplog(session *mgo.Session) *mgo.Collection {
 	return session.DB("local").C("oplog.rs")

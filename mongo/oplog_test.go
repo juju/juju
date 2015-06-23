@@ -177,6 +177,18 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	c.Assert(tailer.Err(), gc.Not(jc.ErrorIsNil))
 }
 
+func (s *oplogSuite) TestNewMongoTimestamp(c *gc.C) {
+	t := time.Date(2015, 6, 24, 12, 47, 0, 0, time.FixedZone("somewhere", 5*3600))
+
+	expected := bson.MongoTimestamp(6163845091342417920)
+	c.Assert(mongo.NewMongoTimestamp(t), gc.Equals, expected)
+	c.Assert(mongo.NewMongoTimestamp(t.In(time.UTC)), gc.Equals, expected)
+}
+
+func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
+	c.Assert(mongo.NewMongoTimestamp(time.Time{}), gc.Equals, bson.MongoTimestamp(0))
+}
+
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
 	inst := &jujutesting.MgoInstance{
 		Params: []string{
