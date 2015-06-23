@@ -85,16 +85,14 @@ class JenkinsBuild:
             log_url, auth=HTTPBasicAuth(
                 self.credentials.user, self.credentials.password)).text
 
-    def get_latest_build_number(self):
+    def get_last_completed_build_number(self):
         """
         Returns latest Jenkins build number
         :rtype: int
         """
         job_info = get_job_data(
             self.jenkins_url, self.credentials, self.job_name)
-        if not job_info or not job_info.get('lastBuild'):
-            return None
-        return job_info.get('lastBuild').get('number')
+        return job_info['lastCompletedBuild']['number']
 
     def artifacts(self):
         """
@@ -211,14 +209,14 @@ class HUploader:
         Uploads all the test results to S3. It starts with the build_number 1
         :return: None
         """
-        latest_build_num = self.jenkins_build.get_latest_build_number()
+        latest_build_num = self.jenkins_build.get_last_completed_build_number()
         for build_number in range(1, latest_build_num + 1):
             self.jenkins_build.set_build_number(build_number)
             self.upload()
 
-    def upload_latest_test_result(self):
+    def upload_last_completed_test_result(self):
         """Upload the latest test result to S3."""
-        latest_build_num = self.jenkins_build.get_latest_build_number()
+        latest_build_num = self.jenkins_build.get_last_completed_build_number()
         self.jenkins_build.set_build_number(latest_build_num)
         self.upload()
 
@@ -288,4 +286,4 @@ if __name__ == '__main__':
         sys.exit(uploader.upload_all_test_results())
     elif args.latest:
         print('Uploading the latest test result.')
-        sys.exit(uploader.upload_latest_test_result())
+        sys.exit(uploader.upload_last_completed_test_result())

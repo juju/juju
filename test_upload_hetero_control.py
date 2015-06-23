@@ -96,6 +96,16 @@ class TestJenkinsBuild(TestCase):
             BUILD_INFO['url'] + 'consoleText', auth=h_mock.return_value)
         h_mock.assert_called_once_with(credentials[0], credentials[1])
 
+    def test_get_last_completed_build_number(self):
+        last_build = {"lastCompletedBuild": {"number": BUILD_NUM}}
+        credentials = fake_credentials()
+        with patch("upload_hetero_control.get_job_data", autospec=True,
+                   return_value=last_build) as gjd_mock:
+            j = JenkinsBuild(credentials, JOB_NAME, None, BUILD_INFO)
+            last_build_number = j.get_last_completed_build_number()
+        self.assertEqual(last_build_number, BUILD_NUM)
+        gjd_mock.assert_called_once_with(None, credentials, JOB_NAME)
+
     def test_artifacts(self):
         class Response:
             content = "artifact content"
@@ -167,7 +177,7 @@ class TestHUploader(TestCase):
         filename = '1200-result-results.json'
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
-        jenkins_mock.get_latest_build_number.return_value = 1200
+        jenkins_mock.get_last_completed_build_number.return_value = 1200
         jenkins_mock.get_build_number.return_value = 1200
         jenkins_mock.get_build_info.return_value = {"build_info": "1200"}
         jenkins_mock.get_console_text.return_value = "console text"
@@ -186,7 +196,7 @@ class TestHUploader(TestCase):
     def test_upload_all_test_results(self):
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
-        jenkins_mock.get_latest_build_number.return_value = 3
+        jenkins_mock.get_last_completed_build_number.return_value = 3
         jenkins_mock.get_build_info.return_value = BUILD_INFO
         h = HUploader(s3_mock, jenkins_mock)
         h.upload_all_test_results()
@@ -256,11 +266,11 @@ class TestHUploader(TestCase):
                     ValueError, 'Build number is not set'):
                 h.upload_by_env_build_number()
 
-    def test_upload_latest_test_results(self):
+    def test_last_completed_test_results(self):
         class Response:
             text = "console content"
         build_info = {"artifacts": [], 'url': 'fake', "number": BUILD_NUM}
-        last_build = {"lastBuild": {"number": BUILD_NUM}}
+        last_build = {"lastCompletedBuild": {"number": BUILD_NUM}}
         cred = Credentials('joe', 'password')
         jenkins_build = JenkinsBuild(cred, None, None, build_info)
         s3_mock = MagicMock()
@@ -271,14 +281,20 @@ class TestHUploader(TestCase):
                        return_value=build_info) as gbd_mock:
                 with patch('upload_hetero_control.requests.get', autospec=True,
                            return_value=Response):
-                    h.upload_latest_test_result()
+                    h.upload_last_completed_test_result()
+                    self.assertEqual(
+                        h.jenkins_build.get_last_completed_build_number(),
+                        BUILD_NUM)
         self.assertEqual(s3_mock.store.mock_calls, [
             call('1277-result-results.json', json.dumps(build_info),
                  headers={"Content-Type": "application/json"}),
             call('1277-console-consoleText.txt', Response.text,
                  headers={"Content-Type": "text/plain; charset=utf8"})
         ])
-        gjd_mock.assert_called_once_with(None, cred, None)
+        self.assertEqual(gjd_mock.mock_calls, [
+            call(None, cred, None),
+            call(None, cred, None)
+        ])
         self.assertEqual(gbd_mock.mock_calls, [
             call(None, cred, None, BUILD_NUM),
             call(None, cred, None, BUILD_NUM)
