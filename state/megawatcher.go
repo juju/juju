@@ -529,7 +529,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
 		newInfo.AgentStatus.Since = s.Updated
-		// If the unit was in error and now it's now, we need to reset its
+		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
 			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
