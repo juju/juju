@@ -52,9 +52,9 @@ type Factory interface {
 // for a jujuc.Context.
 type StorageContextAccessor interface {
 
-	// Storage returns the jujuc.ContextStorage with the supplied tag if
-	// it was found, and whether it was found.
-	Storage(names.StorageTag) (jujuc.ContextStorage, bool)
+	// Storage returns the jujuc.ContextStorageAttachment with the
+	// supplied tag if it was found, and whether it was found.
+	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, bool)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -284,6 +284,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		relationId:         -1,
 		metricsRecorder:    nil,
 		definedMetrics:     nil,
+		metricsSender:      f.unit,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 	}

@@ -115,6 +115,10 @@ type FilesystemSource interface {
 	// CreateFilesystems creates filesystems with the specified size, in MiB.
 	CreateFilesystems(params []FilesystemParams) ([]Filesystem, error)
 
+	// DestroyFilesystems destroys the filesystems with the specified
+	// providerd filesystem IDs.
+	DestroyFilesystems(fsIds []string) []error
+
 	// AttachFilesystems attaches filesystems to machines.
 	//
 	// AttachFilesystems must be idempotent; it may be called even if

@@ -1136,8 +1136,13 @@ EOF
 grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
 sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
 
-# Finally, stop $PRIMARY_IFACE and start the bridge instead.
+# Stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
+
+# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't
+# clash with the same automatically added route for juju-br0 (except
+# for the device name).
+ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
 `
 
 // setupJujuNetworking returns a string representing the script to run

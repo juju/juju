@@ -438,9 +438,16 @@ var setupRoutesAndIPTables = func(
 			}
 		}
 
-		_, err := runTemplateCommand(ipRouteAdd, false, data)
-		if err != nil {
+		code, err := runTemplateCommand(ipRouteAdd, false, data)
+		// Ignore errors if the exit code was 2, which signals that the route was not added
+		// because it already exists.
+		if code != 2 && err != nil {
 			return errors.Trace(err)
+		}
+		if code == 2 {
+			logger.Tracef("route already exists - not added")
+		} else {
+			logger.Tracef("route added: container uses host network interface")
 		}
 	}
 	logger.Infof("successfully configured iptables and routes for container interfaces")
@@ -587,7 +594,13 @@ func configureContainerNetwork(
 // rules to make the container visible to both the host and other machines on the same subnet.
 func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineId := args.InstanceConfig.MachineId
-	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+	if !environs.AddressAllocationEnabled() {
+		lxcLogger.Debugf("address allocation disabled: Not running maintenance for lxc container with machineId: %s",
+			machineId)
+		return nil
+	}
+
+	lxcLogger.Debugf("running maintenance for lxc container with machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)

@@ -538,6 +538,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
+	cleanupOp := m.st.newCleanupOp(cleanupDyingMachine, m.doc.Id)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -629,7 +630,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 						{{"children", bson.D{{"$exists", false}}}},
 					}}},
 				}
-				return []txn.Op{op, containerCheck}, nil
+				return []txn.Op{op, containerCheck, cleanupOp}, nil
 			}
 		}
 		if len(m.doc.Principals) > 0 {
@@ -640,7 +641,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Add the additional asserts needed for this transaction.
 		op.Assert = append(advanceAsserts, noUnits)
-		return []txn.Op{op}, nil
+		return []txn.Op{op, cleanupOp}, nil
 	}
 	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
@@ -727,9 +728,19 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
+	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ops = append(ops, filesystemOps...)
+	ops = append(ops, volumeOps...)
 	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
 	if err != nil {
 		return errors.Trace(err)
@@ -1033,9 +1044,14 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
 func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
-	if err = m.setAddresses(addresses, &m.doc.Addresses, "addresses"); err != nil {
+	mdoc, err := m.st.getMachineDoc(m.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
+	}
+	if err = m.setAddresses(addresses, &mdoc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
+	m.doc.Addresses = mdoc.Addresses
 	return nil
 }
 
@@ -1060,14 +1076,21 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
 func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
-	if err = m.setAddresses(addresses, &m.doc.MachineAddresses, "machineaddresses"); err != nil {
+	mdoc, err := m.st.getMachineDoc(m.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
+	}
+	if err = m.setAddresses(addresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
 		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
 	}
+	m.doc.MachineAddresses = mdoc.MachineAddresses
 	return nil
 }
 
 // setAddresses updates the machine's addresses (either Addresses or
-// MachineAddresses, depending on the field argument).
+// MachineAddresses, depending on the field argument). Changes are
+// only predicated on the machine not being Dead; concurrent address
+// changes are ignored.
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
 	var addressesToSet []network.Address
 	if !m.IsContainer() {
@@ -1100,45 +1123,28 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		addressesToSet = make([]network.Address, len(addresses))
 		copy(addressesToSet, addresses)
 	}
+
 	// Update addresses now.
-	var changed bool
 	envConfig, err := m.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
-
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
 	stateAddresses := fromNetworkAddresses(addressesToSet)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		changed = false
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, err
-			}
-		}
-		if m.doc.Life == Dead {
-			return nil, ErrDead
-		}
-		op := txn.Op{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
-		}
-		if !addressesEqual(addressesToSet, networkAddresses(*field)) {
-			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
-			changed = true
-		}
-		return []txn.Op{op}, nil
-	}
-	switch err := m.st.run(buildTxn); err {
-	case nil:
-	case jujutxn.ErrExcessiveContention:
-		return errors.Annotatef(err, "cannot set %s for machine %s", fieldName, m)
-	default:
-		return err
-	}
-	if !changed {
+
+	if addressesEqual(addressesToSet, networkAddresses(*field)) {
 		return nil
+	}
+	if err := m.st.runTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+	}}); err != nil {
+		if err == txn.ErrAborted {
+			return ErrDead
+		}
+		return errors.Trace(err)
 	}
 	*field = stateAddresses
 	return nil

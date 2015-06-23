@@ -116,10 +116,6 @@ type LifecycleManager interface {
 	// Life returns the lifecycle state of the specified entities.
 	Life([]names.Tag) ([]params.LifeResult, error)
 
-	// EnsureDead ensures that the specified entities become Dead if
-	// they are Alive or Dying.
-	EnsureDead([]names.Tag) ([]params.ErrorResult, error)
-
 	// Remove removes the specified entities from state.
 	Remove([]names.Tag) ([]params.ErrorResult, error)
 
@@ -172,7 +168,11 @@ func NewStorageProvisioner(
 	}
 	go func() {
 		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
+		err := w.loop()
+		if err != tomb.ErrDying {
+			logger.Errorf("%s", err)
+		}
+		w.tomb.Kill(err)
 	}()
 	return w
 }

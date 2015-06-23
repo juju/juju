@@ -224,24 +224,12 @@ func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*w
 	}
 	pool.AddCert(xcert)
 
-	// If they exist, only use localhost addresses.
-	var addrs []string
-	for _, addr := range info.Addrs {
-		if strings.HasPrefix(addr, "localhost:") {
-			addrs = append(addrs, addr)
-			break
-		}
-	}
-	if len(addrs) == 0 {
-		addrs = info.Addrs
-	}
-
 	path := makeAPIPath(info.EnvironTag.Id(), pathTail)
 
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
-	for _, addr := range addrs {
+	for _, addr := range info.Addrs {
 		err := dialWebsocket(addr, path, header, opts, pool, try)
 		if err == parallel.ErrStopped {
 			break

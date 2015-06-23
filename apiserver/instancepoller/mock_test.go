@@ -343,12 +343,14 @@ func (m *mockBaseWatcher) Kill() {}
 
 // Stop implements state.Watcher.
 func (m *mockBaseWatcher) Stop() error {
-	if m.done != nil {
+	select {
+	case <-m.done:
+		// already closed
+	default:
 		// Signal the loop we want to stop.
 		close(m.done)
 		// Signal the clients we've closed.
 		m.closeChanges()
-		m.done = nil
 	}
 	return m.err
 }

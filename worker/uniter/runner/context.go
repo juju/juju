@@ -38,6 +38,12 @@ type MetricsRecorder interface {
 	Close() error
 }
 
+// metricsSender is used to send metrics to state. Its default implementation is
+// *uniter.Unit.
+type metricsSender interface {
+	AddMetricBatches(batches []params.MetricBatch) (map[string]error, error)
+}
+
 // MetricsReader is used to read metrics batches stored by the metrics recorder
 // and remove metrics batches that have been marked as succesfully sent.
 type MetricsReader interface {
@@ -121,6 +127,9 @@ type HookContext struct {
 
 	// metricsReader is used to read metric batches from storage.
 	metricsReader MetricsReader
+
+	// metricsSender is used to send metrics to state.
+	metricsSender metricsSender
 
 	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
 	definedMetrics *charm.Metrics
@@ -330,11 +339,11 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	return ctx.storage.Storage(tag)
 }
 
@@ -680,7 +689,7 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		}
 		sendBatches = append(sendBatches, batchParam)
 	}
-	results, err := ctx.unit.AddMetricBatches(sendBatches)
+	results, err := ctx.metricsSender.AddMetricBatches(sendBatches)
 	if err != nil {
 		// Do not return metric sending error.
 		logger.Errorf("%v", err)

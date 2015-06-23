@@ -63,7 +63,6 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping lxc tests on windows")
 	}
@@ -158,68 +157,117 @@ func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []s
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *lxcBrokerSuite) assertDefaultStorageConfig(c *gc.C, lxc instance.Instance) {
+	config := filepath.Join(s.LxcDir, string(lxc.Id()), "config")
+	AssertFileContents(c, gc.Not(jc.Contains), config, "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) assertDefaultNetworkConfig(c *gc.C, lxc instance.Instance) {
+	lxc_conf := filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf")
+	expect := []string{
+		"lxc.network.type = veth",
+		"lxc.network.link = lxcbr0",
+	}
+	AssertFileContains(c, lxc_conf, expect...)
+}
+
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
+	s.SetFeatureFlags(feature.AddressAllocation)
 	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
 	machineId := "1/lxc/0"
+	s.SetFeatureFlags(feature.AddressAllocation)
 	lxc := s.startInstance(c, machineId, nil)
+	s.api.ResetCalls()
+
 	s.maintainInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.ResetCalls()
+
+	s.maintainInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 	s.api.fakeContainerConfig.AllowLXCLoopMounts = true
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Check storage config.
-	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(containerConfigContents), jc.Contains, "lxc.aa_profile = lxc-container-default-with-mounting")
+	config := filepath.Join(s.LxcDir, string(lxc.Id()), "config")
+	AssertFileContents(c, jc.Contains, config, "lxc.aa_profile = lxc-container-default-with-mounting")
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
 	s.api.fakeContainerConfig.AllowLXCLoopMounts = false
-	instanceConfig := s.instanceConfig(c, "1/lxc/0")
-
-	possibleTools := coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}}
-	_, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:    constraints.Value{},
-		Tools:          possibleTools,
-		InstanceConfig: instanceConfig,
-		Volumes:        []storage.VolumeParams{{Provider: provider.LoopProviderType}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.SetFeatureFlags(feature.AddressAllocation)
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
@@ -266,17 +314,23 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	s.agentConfig.SetValue(agent.LxcBridge, "br0")
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
+	lxc_conf := filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf")
+	expect := []string{
+		"lxc.network.type = veth",
+		"lxc.network.link = br0",
+	}
+	AssertFileContains(c, lxc_conf, expect...)
 }
 
 func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
 		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
 	})
@@ -323,6 +377,7 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc1 := s.startInstance(c, "1/lxc/1", nil)
 	lxc2 := s.startInstance(c, "1/lxc/2", nil)
 
+	s.assertInstances(c, lxc0, lxc1, lxc2)
 	err := s.broker.StopInstances(lxc0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c, lxc1, lxc2)
@@ -856,6 +911,7 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	remainder := strings.Replace(macAddress[8:], ":", "", 3)
 	c.Assert(remainder, gc.HasLen, 6)
 	_, err = hex.DecodeString(remainder)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -891,6 +947,7 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		NetworkName:    network.DefaultPrivate,
 		ProviderId:     network.DefaultProviderId,
 	}})
+
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("42")},

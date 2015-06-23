@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -306,6 +307,210 @@ func (st *State) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
 	return attachments, nil
 }
 
+type errContainsFilesystem struct {
+	error
+}
+
+func IsContainsFilesystem(err error) bool {
+	_, ok := errors.Cause(err).(*errContainsFilesystem)
+	return ok
+}
+
+// removeMachineVolumesOps returns txn.Ops to remove non-persistent volumes
+// attached to the specified machine. This is used when the given machine is
+// being removed from state.
+func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, error) {
+	attachments, err := st.MachineVolumeAttachments(machine)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops := make([]txn.Op, 0, len(attachments))
+	for _, a := range attachments {
+		volumeTag := a.Volume()
+		ops = append(ops, txn.Op{
+			C:      volumeAttachmentsC,
+			Id:     volumeAttachmentId(machine.Id(), volumeTag.Id()),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+		volume, err := st.Volume(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var remove bool
+		volumeInfo, err := volume.Info()
+		if errors.IsNotProvisioned(err) {
+			params, _ := volume.Params()
+			_, provider, err := poolStorageProvider(st, params.Pool)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if provider.Dynamic() && provider.Scope() == storage.ScopeEnviron {
+				// Leave cleanup to the environ storage provisioner.
+				continue
+			}
+			// Volume will never be provisioned; remove from state.
+			remove = true
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			// If volume does not outlive machine it can be removed.
+			remove = !volumeInfo.Persistent
+		}
+		if !remove {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      volumesC,
+			Id:     volumeTag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
+// DetachVolume marks the volume attachment identified by the specified machine
+// and volume tags as Dying, if it is Alive. DetachVolume will fail with a
+// IsContainsFilesystem error if the volume contains an attached filesystem; the
+// filesystem attachment must be removed first.
+func (st *State) DetachVolume(machine names.MachineTag, volume names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "detaching volume %s from machine %s", volume.Id(), machine.Id())
+	// If the volume is backing a filesystem, the volume cannot be detached
+	// until the filesystem has been detached.
+	if _, err := st.volumeFilesystemAttachment(machine, volume); err == nil {
+		return &errContainsFilesystem{errors.New("volume contains attached filesystem")}
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		va, err := st.VolumeAttachment(machine, volume)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if va.Life() != Alive {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return detachVolumeOps(machine, volume), nil
+	}
+	return st.run(buildTxn)
+}
+
+func (st *State) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
+	filesystem, err := st.VolumeFilesystem(volume)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.FilesystemAttachment(machine, filesystem.FilesystemTag())
+}
+
+func detachVolumeOps(m names.MachineTag, v names.VolumeTag) []txn.Op {
+	return []txn.Op{{
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(m.Id(), v.Id()),
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+}
+
+// RemoveVolumeAttachment removes the volume attachment from state.
+// RemoveVolumeAttachment will fail if the attachment is not Dying.
+func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from machine %s", volume.Id(), machine.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		attachment, err := st.VolumeAttachment(machine, volume)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if attachment.Life() != Dying {
+			return nil, errors.New("volume attachment is not dying")
+		}
+		return []txn.Op{{
+			C:      volumeAttachmentsC,
+			Id:     volumeAttachmentId(machine.Id(), volume.Id()),
+			Assert: bson.D{{"life", Dying}},
+			Remove: true,
+		}}, nil
+	}
+	return st.run(buildTxn)
+}
+
+// DestroyVolume ensures that the volume and any attachments to it will be
+// destroyed and removed from state at some point in the future. DestroyVolume
+// will fail with a IsContainsFilesystem error if the volume contains a
+// filesystem; the filesystem must be fully removed first.
+func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
+	if _, err := st.VolumeFilesystem(tag); err == nil {
+		return &errContainsFilesystem{errors.New("volume contains filesystem")}
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		volume, err := st.Volume(tag)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if volume.Life() != Alive {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return destroyVolumeOps(st, tag), nil
+	}
+	return st.run(buildTxn)
+}
+
+func destroyVolumeOps(st *State, tag names.VolumeTag) []txn.Op {
+	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, tag.Id())
+	return []txn.Op{{
+		C:      volumesC,
+		Id:     tag.Id(),
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}, cleanupOp}
+}
+
+// RemoveVolume removes the volume from state. RemoveVolume will fail if
+// there are any attachments remaining, if it contains a filesystem, or if
+// the volume is not Dying.
+func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "removing volume %s", tag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		volume, err := st.Volume(tag)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if volume.Life() != Dying {
+			return nil, errors.New("volume is not dying")
+		}
+		// The volume is dying, so no more attachments can
+		// be added to it.
+		attachments, err := st.VolumeAttachments(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(attachments) > 0 {
+			machines := make([]string, len(attachments))
+			for i, a := range attachments {
+				machines[i] = a.Machine().Id()
+			}
+			return nil, errors.Errorf("volume is attached to machines %s", machines)
+		}
+		return []txn.Op{{
+			C:      volumesC,
+			Id:     tag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		}}, nil
+	}
+	return st.run(buildTxn)
+}
+
 // newVolumeName returns a unique volume name.
 // If the machine ID supplied is non-empty, the
 // volume ID will incorporate it as the volume's
@@ -434,11 +639,16 @@ func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAtt
 // info for the specified machine. Each volume attachment info
 // structure is keyed by the name of the volume it corresponds
 // to.
-func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) error {
+func setMachineVolumeAttachmentInfo(
+	st *State,
+	machineId string,
+	attachments map[names.VolumeTag]VolumeAttachmentInfo,
+) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set volume attachment info for machine %s", machineId)
 	machineTag := names.NewMachineTag(machineId)
 	for volumeTag, info := range attachments {
-		if err := st.SetVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
-			return errors.Trace(err)
+		if err := st.setVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
+			return errors.Annotatef(err, "setting attachment info for volume %s", volumeTag.Id())
 		}
 	}
 	return nil
@@ -448,9 +658,33 @@ func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map
 // volume attachment.
 func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
+	v, err := st.Volume(volumeTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure volume is provisioned before setting attachment info.
+	// A volume cannot go from being provisioned to unprovisioned,
+	// so there is no txn.Op for this below.
+	if _, err := v.Info(); err != nil {
+		return errors.Trace(err)
+	}
+	// Also ensure the machine is provisioned.
+	m, err := st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := m.InstanceId(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.setVolumeAttachmentInfo(machineTag, volumeTag, info)
+}
+
+func (st *State) setVolumeAttachmentInfo(
+	machineTag names.MachineTag,
+	volumeTag names.VolumeTag,
+	info VolumeAttachmentInfo,
+) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// TODO(axw) attempting to set volume attachment info for a
-		// volume that hasn't been provisioned should fail.
 		va, err := st.VolumeAttachment(machineTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -1,12 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
-
 // TODO(dimitern): bug http://pad.lv/1425569
 // Disabled until we have time to fix these tests on i386 properly.
 //
 // +build !386
+
+package main
 
 import (
 	"flag"

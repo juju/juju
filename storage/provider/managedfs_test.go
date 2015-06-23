@@ -4,7 +4,8 @@
 package provider_test
 
 import (
-	"github.com/juju/errors"
+	"path/filepath"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -100,21 +101,35 @@ func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 }
 
 func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
-	s.testAttachFilesystems(c, false)
+	s.testAttachFilesystems(c, false, false)
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *gc.C) {
-	s.testAttachFilesystems(c, true)
+	s.testAttachFilesystems(c, true, false)
 }
 
-func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
+func (s *managedfsSuite) TestAttachFilesystemsReattach(c *gc.C) {
+	s.testAttachFilesystems(c, true, true)
+}
+
+func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool) {
+	const testMountPoint = "/in/the/place"
+
 	source := s.initSource(c)
-	var args []string
-	if readOnly {
-		args = append(args, "-o", "ro")
+	cmd := s.commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
+	cmd.respond("headers\n/same/as/rootfs", nil)
+	cmd = s.commands.expect("df", "--output=source", testMountPoint)
+	if reattach {
+		cmd.respond("headers\n/different/to/rootfs", nil)
+	} else {
+		cmd.respond("headers\n/same/as/rootfs", nil)
+		var args []string
+		if readOnly {
+			args = append(args, "-o", "ro")
+		}
+		args = append(args, "/dev/sda", testMountPoint)
+		s.commands.expect("mount", args...)
 	}
-	args = append(args, "/dev/sda", "/in/the/place")
-	s.commands.expect("mount", args...)
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
@@ -134,14 +149,14 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
 			InstanceId: "inst-ance",
 			ReadOnly:   readOnly,
 		},
-		Path: "/in/the/place",
+		Path: testMountPoint,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, jc.DeepEquals, []storage.FilesystemAttachment{{
 		names.NewFilesystemTag("0/0"),
 		names.NewMachineTag("0"),
 		storage.FilesystemAttachmentInfo{
-			Path:     "/in/the/place",
+			Path:     testMountPoint,
 			ReadOnly: readOnly,
 		},
 	}})
@@ -149,6 +164,10 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly bool) {
 
 func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.initSource(c)
-	err := source.DetachFilesystems(nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	testDetachFilesystems(c, s.commands, source, true)
+}
+
+func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+	source := s.initSource(c)
+	testDetachFilesystems(c, s.commands, source, false)
 }
