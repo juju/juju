@@ -4,9 +4,11 @@
 package peergrouper
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"path"
+	"reflect"
 	"strconv"
 	"sync"
 
@@ -108,7 +110,7 @@ func NewFakeState() *fakeState {
 		machines: make(map[string]*fakeMachine),
 	}
 	st.session = newFakeMongoSession(st)
-	st.stateServers.Set(nil)
+	st.stateServers.Set(&state.StateServerInfo{})
 	return st
 }
 
@@ -123,7 +125,8 @@ func (st *fakeState) checkInvariants() {
 	if err := st.check(st); err != nil {
 		// Force a panic, otherwise we can deadlock
 		// when called from within the worker.
-		panic(err)
+		go panic(err)
+		select {}
 	}
 }
 
@@ -220,16 +223,7 @@ func (st *fakeState) StateServerInfo() (*state.StateServerInfo, error) {
 	if err := errorFor("State.StateServerInfo"); err != nil {
 		return nil, err
 	}
-	v := st.stateServers.Get().(*state.StateServerInfo)
-	mids := make([]string, len(v.MachineIds))
-	vids := make([]string, len(v.VotingMachineIds))
-	copy(mids, v.MachineIds)
-	copy(vids, v.VotingMachineIds)
-	return &state.StateServerInfo{
-		EnvironmentTag:   v.EnvironmentTag,
-		MachineIds:       mids,
-		VotingMachineIds: vids,
-	}, nil
+	return deepCopy(st.stateServers.Get()).(*state.StateServerInfo), nil
 }
 
 func (st *fakeState) WatchStateServerInfo() state.NotifyWatcher {
@@ -387,15 +381,15 @@ type fakeMongoSession struct {
 
 	checker invariantChecker
 	members voyeur.Value // of []replicaset.Member
-	status  voyeur.Value // of replicaset.Status
+	status  voyeur.Value // of *replicaset.Status
 }
 
 // newFakeMongoSession returns a mock implementation of mongoSession.
 func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
 	s := new(fakeMongoSession)
 	s.checker = checker
-	s.members.Set(nil)
-	s.status.Set(nil)
+	s.members.Set([]replicaset.Member(nil))
+	s.status.Set(&replicaset.Status{})
 	return s
 }
 
@@ -404,11 +398,7 @@ func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
 	if err := errorFor("Session.CurrentMembers"); err != nil {
 		return nil, err
 	}
-
-	v := session.members.Get().([]replicaset.Member)
-	m := make([]replicaset.Member, len(v))
-	copy(m, v)
-	return m, nil
+	return deepCopy(session.members.Get()).([]replicaset.Member), nil
 }
 
 // CurrentStatus implements mongoSession.CurrentStatus.
@@ -416,23 +406,14 @@ func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 	if err := errorFor("Session.CurrentStatus"); err != nil {
 		return nil, err
 	}
-
-	// return a duplicate the stored replicaset.Status
-	v := session.status.Get().(*replicaset.Status)
-	m := make([]replicaset.MemberStatus, len(v.Members))
-	copy(m, v.Members)
-	return &replicaset.Status{
-		Members: m,
-	}, nil
+	return deepCopy(session.status.Get()).(*replicaset.Status), nil
 }
 
 // setStatus sets the status of the current members of the session.
 func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
-	m := make([]replicaset.MemberStatus, len(members))
-	copy(m, members)
-	session.status.Set(&replicaset.Status{
+	session.status.Set(deepCopy(&replicaset.Status{
 		Members: members,
-	})
+	}))
 }
 
 // Set implements mongoSession.Set
@@ -442,9 +423,7 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 		return err
 	}
 	logger.Infof("setting replicaset members to %#v", members)
-	m := make([]replicaset.Member, len(members))
-	copy(m, members)
-	session.members.Set(m)
+	session.members.Set(deepCopy(members))
 	if session.InstantlyReady {
 		statuses := make([]replicaset.MemberStatus, len(members))
 		for i, m := range members {
@@ -462,6 +441,26 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	}
 	session.checker.checkInvariants()
 	return nil
+}
+
+// deepCopy makes a deep copy of any type by marshalling
+// it as JSON, then unmarshalling it.
+func deepCopy(x interface{}) interface{} {
+	v := reflect.ValueOf(x)
+	data, err := json.Marshal(x)
+	if err != nil {
+		panic(fmt.Errorf("cannot marshal %#v: %v", x, err))
+	}
+	newv := reflect.New(v.Type())
+	if err := json.Unmarshal(data, newv.Interface()); err != nil {
+		panic(fmt.Errorf("cannot unmarshal %q into %s", data, newv.Type()))
+	}
+	// sanity check
+	newx := newv.Elem().Interface()
+	if !reflect.DeepEqual(newx, x) {
+		panic(fmt.Errorf("value not deep-copied correctly"))
+	}
+	return newx
 }
 
 type notifier struct {
