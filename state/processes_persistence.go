@@ -69,13 +69,17 @@ func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) e
 }
 
 func (pp processesPersistence) insert(info process.Info) error {
-	// Ensure defined.
-
-	// Add launch info.
-	// Add process info.
-
-	// TODO(ericsnow) finish!
-	return errors.Errorf("not finished")
+	var ops []txn.Op
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
+	ops = append(ops, pp.newInsertProcessOps(info)...)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	}
+	if err := pp.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (pp processesPersistence) setStatus(id string, status process.Status) error {
@@ -99,8 +103,12 @@ func (pp processesPersistence) definitionID(name string) string {
 	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
 }
 
-func (pp processesPersistence) processID(id string) string {
-	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), id)
+func (pp processesPersistence) processID(info process.Info) string {
+	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), info.ID())
+}
+
+func (pp processesPersistence) launchID(info process.Info) string {
+	return pp.processID(info) + "#launch"
 }
 
 func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
@@ -113,21 +121,48 @@ func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) t
 	}
 }
 
+func (pp processesPersistence) newInsertProcessOps(info process.Info) []txn.Op {
+	var ops []txn.Op
+	ops = append(ops, pp.newInsertLaunchOp(info))
+	ops = append(ops, pp.newInsertProcOp(info))
+	return ops
+}
+
+func (pp processesPersistence) newInsertLaunchOp(info process.Info) txn.Op {
+	doc := pp.newLaunchDoc(info)
+	return txn.Op{
+		C:      workloadProcessesC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}
+}
+
+func (pp processesPersistence) newInsertProcOp(info process.Info) txn.Op {
+	doc := pp.newProcessDoc(info)
+	return txn.Op{
+		C:      workloadProcessesC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}
+}
+
 type processDefinitionDoc struct {
 	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"` // XXX needed?
+	EnvUUID string `bson:"env-uuid"`
 
 	UnitID string `bson:"unitid"`
 
 	Name        string `bson:"name"`
 	Description string `bson:"description"`
 	Type        string `bson:"type"`
-	TypeOptions XXX    `bson:"typeoptions"`
-	Command     string `bson:"command"`
-	Image       string `bson:"image"`
-	Ports       XXX    `bson:"ports"`
-	Volumes     XXX    `bson:"volumes"`
-	EnvVars     XXX    `bson:"envvars"`
+	//TypeOptions XXX    `bson:"typeoptions"`
+	Command string `bson:"command"`
+	Image   string `bson:"image"`
+	//Ports       XXX    `bson:"ports"`
+	//Volumes     XXX    `bson:"volumes"`
+	//EnvVars     XXX    `bson:"envvars"`
 }
 
 func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
@@ -139,11 +174,65 @@ func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process)
 		Name:        definition.Name,
 		Description: definition.Description,
 		Type:        definition.Type,
-		TypeOptions: definition.TypeOptions,
-		Command:     definition.Command,
-		Image:       definition.Image,
-		Ports:       definition.Ports,
-		Volumes:     definition.Volumes,
-		EnvVars:     definition.EnvVars,
+		//TypeOptions: definition.TypeOptions,
+		Command: definition.Command,
+		Image:   definition.Image,
+		//Ports:       definition.Ports,
+		//Volumes:     definition.Volumes,
+		//EnvVars:     definition.EnvVars,
+	}
+}
+
+type processLaunchDoc struct {
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+
+	PluginID  string `bson:"pluginid"`
+	RawStatus string `bson:"rawstatus"`
+}
+
+func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
+	id := pp.launchID(info)
+	return &processLaunchDoc{
+		DocID: id,
+
+		PluginID:  info.Details.ID,
+		RawStatus: info.Details.Status.Value,
+	}
+}
+
+type processDoc struct {
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+
+	Life         Life   `bson:"life"`
+	Status       string `bson:"status"`
+	PluginStatus string `bson:"pluginstatus"`
+}
+
+func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
+	id := pp.processID(info)
+
+	var status string
+	switch info.Status {
+	case process.StatusPending:
+		status = "pending"
+	case process.StatusActive:
+		status = "active"
+	case process.StatusFailed:
+		status = "failed"
+	case process.StatusStopped:
+		status = "stopped"
+	default:
+		// TODO(ericsnow) disallow? don't worry (shouldn't happen)?
+		status = "unknown"
+	}
+
+	return &processDoc{
+		DocID: id,
+
+		Life:         Alive,
+		Status:       status,
+		PluginStatus: info.Details.Status.Value,
 	}
 }
