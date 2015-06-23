@@ -62,7 +62,7 @@ var (
 const fails = true
 const succeeds = false
 
-func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) { 
 	s.aptMutex.Lock()
 	defer s.aptMutex.Unlock()
 	if cmd == nil {
@@ -70,7 +70,6 @@ func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
 	} else {
 		s.aptCmds = append(s.aptCmds, cmd)
 	}
-	return s.aptCmds
 }
 
 func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
@@ -82,8 +81,10 @@ func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
+	// clear s.aptCmds
+	s.setAptCmds(nil)
+
 	// Capture all apt commands.
-	s.aptCmds = nil
 	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
