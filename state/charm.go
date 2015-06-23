@@ -22,7 +22,7 @@ type charmDoc struct {
 	URL     *charm.URL `bson:"url"` // DANGEROUS see below
 	EnvUUID string     `bson:"env-uuid"`
 
-	// XXX(fwereade) 2015-06-18
+	// TODO(fwereade) 2015-06-18 lp:1467964
 	// DANGEROUS: our schema can change any time the charm package changes,
 	// and we have no automated way to detect when that happens. We *must*
 	// not depend upon serializations we cannot control from inside this
@@ -52,7 +52,7 @@ func insertCharmOps(
 	st *State, ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string,
 ) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
-		DocID:        st.docID(curl.String()),
+		DocID:        curl.String(),
 		URL:          curl,
 		EnvUUID:      st.EnvironTag().Id(),
 		Meta:         ch.Meta(),
@@ -69,7 +69,7 @@ func insertCharmOps(
 // within the environment.
 func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
-		DocID:       st.docID(curl.String()),
+		DocID:       curl.String(),
 		URL:         curl,
 		EnvUUID:     st.EnvironTag().Id(),
 		Placeholder: true,
@@ -80,7 +80,7 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // document referencing a charm that has yet to be uploaded to the environment.
 func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
-		DocID:         st.docID(curl.String()),
+		DocID:         curl.String(),
 		URL:           curl,
 		EnvUUID:       st.EnvironTag().Id(),
 		PendingUpload: true,
@@ -117,7 +117,7 @@ func updateCharmOps(
 	}}}
 	return []txn.Op{{
 		C:      charmsC,
-		Id:     st.docID(curl.String()),
+		Id:     curl.String(),
 		Assert: assert,
 		Update: updateFields,
 	}}, nil
@@ -172,7 +172,8 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 }
 
 // safeConfig is a travesty which attempts to work around our continued failure
-// to properly insulate our database from code changes.
+// to properly insulate our database from code changes; it escapes mongo-
+// significant characters in config options. See lp:1467964.
 func safeConfig(ch charm.Charm) *charm.Config {
 	// Make sure we escape any "$" and "." in config option names
 	// first. See http://pad.lv/1308146.

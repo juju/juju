@@ -30,7 +30,6 @@ func (st *State) getCollection(name string) (mongo.Collection, func()) {
 // should be rarely used. getCollection() should be used in almost all
 // cases.
 func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
-	// TODO(fwereade): drop all [gG]etRawCollection usage?
 	collection, closer := mongo.CollectionFromName(st.db, name)
 	return collection.Writeable().Underlying(), closer
 }
