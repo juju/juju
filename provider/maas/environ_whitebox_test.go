@@ -1286,7 +1286,7 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1294,7 +1294,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
-	err := env.AllocateAddress(instId, "bar", addr, "foo")
+	err := env.AllocateAddress(instId, "bar", addr, "foo", "bar")
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -1302,7 +1302,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
-	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo")
+	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
 }
 
@@ -1316,7 +1316,7 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err := env.AllocateAddress(testInstance.Id(), "LAN", ipAddress, "foo")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", ipAddress, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
@@ -1334,7 +1334,7 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
