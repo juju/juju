@@ -12,52 +12,73 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+var _ = gc.Suite(&utilsSuite{})
+
 type utilsSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *utilsSuite) TestLocalUsername(c *gc.C) {
+func (s *utilsSuite) TestResolveUsername(c *gc.C) {
 	type test struct {
-		userEnv   string
-		sudoEnv   string
-		userOS    string
-		userOSErr error
-		namespace string
-		err       string
+		userEnv  string
+		sudoEnv  string
+		userOS   string
+		expected string
+		err      string
 	}
 	tests := []test{{
-		userEnv:   "someone",
-		sudoEnv:   "notroot",
-		userOS:    "other",
-		namespace: "someone-test",
+		userEnv:  "someone",
+		sudoEnv:  "notroot",
+		userOS:   "other",
+		expected: "someone",
 	}, {
-		userOS:    "other",
-		namespace: "other-test",
+		userOS:   "other",
+		expected: "other",
 	}, {
-		userEnv:   "root",
-		namespace: "root-test",
+		userEnv:  "root",
+		expected: "root",
 	}, {
-		userEnv:   "root",
-		sudoEnv:   "other",
-		namespace: "other-test",
+		userEnv:  "root",
+		sudoEnv:  "other",
+		expected: "other",
 	}, {
-		userOSErr: errors.New("oh noes"),
-		err:       "failed to determine username for namespace: oh noes",
+		err: "failed to determine username for namespace: oh noes",
 	}}
+
+	resolveUsername := func(t test) (string, error) {
+		if t.err != "" {
+			return "", errors.Errorf(t.err)
+		}
+
+		var funcs []func() (string, error)
+		if t.userEnv != "" {
+			funcs = append(funcs, func() (string, error) {
+				return t.userEnv, nil
+			})
+		}
+		if t.userOS != "" {
+			funcs = append(funcs, func() (string, error) {
+				return t.userOS, nil
+			})
+		}
+
+		resolveSudo := func(username string) string {
+			return environs.ResolveSudoByFunc(username, func(string) string {
+				return t.sudoEnv
+			})
+		}
+
+		return environs.ResolveUsername(resolveSudo, funcs...)
+	}
 
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
-		s.PatchEnvironment("USER", test.userEnv)
-		s.PatchEnvironment("SUDO_USER", test.sudoEnv)
-		s.PatchValue(environs.UserCurrent, func() (string, error) {
-			return test.userOS, test.userOSErr
-		})
 
-		namespace, err := environs.LocalUsername()
+		username, err := resolveUsername(test)
 
 		if test.err == "" {
 			if c.Check(err, jc.ErrorIsNil) {
-				c.Check(namespace, gc.Equals, test.namespace)
+				c.Check(username, gc.Equals, test.expected)
 			}
 		} else {
 			c.Check(err, gc.ErrorMatches, test.err)
@@ -65,24 +86,8 @@ func (s *utilsSuite) TestLocalUsername(c *gc.C) {
 	}
 }
 
-func (s *utilsSuite) TestLocalNamespaceOkay(c *gc.C) {
-	s.PatchValue(&environs.GetUsername, func() (string, error) {
-		return "a", nil
-	})
-
-	namespace, err := environs.LocalNamespace("test")
-	c.Assert(err, jc.ErrorIsNil)
+func (s *utilsSuite) TestNamespace(c *gc.C) {
+	namespace := environs.Namespace("a", "test")
 
 	c.Check(namespace, gc.Equals, "a-test")
-}
-
-func (s *utilsSuite) TestLocalNamespaceError(c *gc.C) {
-	expected := errors.New("<failure>")
-	s.PatchValue(&environs.GetUsername, func() (string, error) {
-		return "", expected
-	})
-
-	_, err := environs.LocalNamespace("test")
-
-	c.Check(errors.Cause(err), gc.Equals, expected)
 }
