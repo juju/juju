@@ -26,6 +26,13 @@ import (
 const logsDB = "logs"
 const logsC = "logs"
 
+// LoggingState describes the methods on State required for logging to
+// the database.
+type LoggingState interface {
+	EnvironUUID() string
+	MongoSession() *mgo.Session
+}
+
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
 func InitDbLogs(session *mgo.Session) error {
@@ -63,7 +70,7 @@ type DbLogger struct {
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
 // to the database.
-func NewDbLogger(st *State, entity names.Tag) *DbLogger {
+func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl: logsColl,
@@ -140,13 +147,13 @@ type LogTailerParams struct {
 }
 
 // This is the maximum number of log document ids that will be tracked
-// to avoid re-reporting messages when moving querying the logs
-// collection and tailing the oplog.
+// to avoid re-reporting logs when transitioning between querying the
+// logs collection and tailing the oplog.
 const maxRecentLogIds = 5192
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st *State, params *LogTailerParams) LogTailer {
+func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		envUUID:   st.EnvironUUID(),
@@ -393,7 +400,7 @@ func logDocToRecord(doc *logDoc) *LogRecord {
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
+func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
@@ -474,7 +481,7 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
 // initLogsSession creates a new session suitable for logging updates,
 // returning the session and a logs mgo.Collection connected to that
 // session.
-func initLogsSession(st *State) (*mgo.Session, *mgo.Collection) {
+func initLogsSession(st LoggingState) (*mgo.Session, *mgo.Collection) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).

@@ -18,15 +18,9 @@ import (
 	"github.com/juju/utils/tailer"
 )
 
-func newDebugLogFileHandler(st *state.State, logDir string) http.Handler {
-	fileHandler := &debugLogFileHandler{
-		logDir: logDir,
-	}
-
-	h := new(debugLogHandler)
-	h.httpHandler = httpHandler{ssState: st}
-	h.handle = fileHandler.handle
-	return h
+func newDebugLogFileHandler(ssState *state.State, stop <-chan struct{}, logDir string) http.Handler {
+	fileHandler := &debugLogFileHandler{logDir: logDir}
+	return newDebugLogHandler(ssState, stop, fileHandler.handle)
 }
 
 // debugLogFileHandler handles requests to watch all-machines.log.
@@ -34,7 +28,12 @@ type debugLogFileHandler struct {
 	logDir string
 }
 
-func (h *debugLogFileHandler) handle(params *debugLogParams, socket *debugLogSocket) error {
+func (h *debugLogFileHandler) handle(
+	_ state.LoggingState,
+	params *debugLogParams,
+	socket debugLogSocket,
+	stop <-chan struct{},
+) error {
 	stream := newLogFileStream(params)
 
 	// Open log file.
@@ -57,7 +56,7 @@ func (h *debugLogFileHandler) handle(params *debugLogParams, socket *debugLogSoc
 	}
 
 	stream.start(logFile, socket)
-	return stream.wait()
+	return stream.wait(stop)
 }
 
 func newLogFileStream(params *debugLogParams) *logFileStream {
@@ -150,12 +149,14 @@ func (stream *logFileStream) start(logFile io.ReadSeeker, writer io.Writer) {
 }
 
 // wait blocks until the logTailer is done or the maximum line count
-// has been reached.
-func (stream *logFileStream) wait() error {
+// has been reached or the stop channel is closed.
+func (stream *logFileStream) wait(stop <-chan struct{}) error {
 	select {
 	case <-stream.logTailer.Dead():
 		return stream.logTailer.Err()
 	case <-stream.maxLinesReached:
+		stream.logTailer.Stop()
+	case <-stop:
 		stream.logTailer.Stop()
 	}
 	return nil
