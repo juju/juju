@@ -1362,14 +1362,33 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id) (st
 
 // fetchDevice fetches an existing device Id associated with a MAC address, or
 // returns an error if there is no device.
-func (environ *maasEnviron) fetchDevice(macAddress string, instId instance.Id) (string, error) {
-	return "", nil
+func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+	client := environ.getMAASClient()
+	devices := client.GetSubObject("devices")
+	params := url.Values{}
+	params.Add("mac_address", macAddress)
+	_, err := devices.CallPost("list", params)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return "", errors.NotFoundf("no device for MAC %q", macAddress)
 }
 
 // createOrFetchDevice returns a device Id associated with a MAC address. If
 // there is not already one it will create one.
 func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id) (string, error) {
-	return "", nil
+	device, err := environ.fetchDevice(macAddress)
+	if err == nil {
+		return device, nil
+	}
+	if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	device, err = environ.newDevice(macAddress, instId)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return device, nil
 }
 
 // AllocateAddress requests an address to be allocated for the
