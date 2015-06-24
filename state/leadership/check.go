@@ -9,7 +9,7 @@ import (
 )
 
 // check is used to deliver leadership-check requests to a manager's loop
-// goroutine.
+// goroutine on behalf of CheckLeadership.
 type check struct {
 	serviceName string
 	unitName    string

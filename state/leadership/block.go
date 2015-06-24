@@ -9,7 +9,7 @@ import (
 )
 
 // block is used to deliver leaderlessness-notification requests to a manager's
-// loop goroutine.
+// loop goroutine on behalf of BlockUntilLeadershipReleased.
 type block struct {
 	serviceName string
 	unblock     chan struct{}

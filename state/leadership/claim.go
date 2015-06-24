@@ -13,7 +13,7 @@ import (
 )
 
 // claim is used to deliver leadership-claim requests to a manager's loop
-// goroutine.
+// goroutine on behalf of ClaimLeadership.
 type claim struct {
 	serviceName string
 	unitName    string
