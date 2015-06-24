@@ -531,6 +531,13 @@ func (s *JujuConnSuite) DataDir() string {
 	return filepath.Join(s.RootDir, "/var/lib/juju")
 }
 
+func (s *JujuConnSuite) ConfDir() string {
+	if s.RootDir == "" {
+		panic("DataDir called out of test context")
+	}
+	return filepath.Join(s.RootDir, "/etc/juju")
+}
+
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
