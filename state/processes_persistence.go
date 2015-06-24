@@ -21,22 +21,22 @@ import (
 // in the business logic) with ops factories available from the
 // persistence layer.
 
-type processesPersistenceBase interface {
+type procsPersistenceBase interface {
 	getCollection(name string) (stateCollection, func())
 	run(transactions jujutxn.TransactionSource) error
 }
 
-type processesPersistence struct {
-	st    processesPersistenceBase
+type procsPersistence struct {
+	st    procsPersistenceBase
 	charm names.CharmTag
 	unit  names.UnitTag
 }
 
-func (pp processesPersistence) coll() (stateCollection, func()) {
+func (pp procsPersistence) coll() (stateCollection, func()) {
 	return pp.st.getCollection(workloadProcessesC)
 }
 
-func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) error {
+func (pp procsPersistence) ensureDefinitions(definitions ...charm.Process) error {
 	// Add definition if not already added (or ensure matches).
 	var ops []txn.Op
 	for _, definition := range definitions {
@@ -74,7 +74,7 @@ func (pp processesPersistence) ensureDefinitions(definitions ...charm.Process) e
 	return nil
 }
 
-func (pp processesPersistence) insert(info process.Info) error {
+func (pp procsPersistence) insert(info process.Info) error {
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
@@ -88,7 +88,7 @@ func (pp processesPersistence) insert(info process.Info) error {
 	return nil
 }
 
-func (pp processesPersistence) setStatus(id string, status process.Status) error {
+func (pp procsPersistence) setStatus(id string, status process.Status) error {
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newSetRawStatusOp(id, status))
@@ -111,7 +111,7 @@ func (pp processesPersistence) setStatus(id string, status process.Status) error
 	return nil
 }
 
-func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
+func (pp procsPersistence) list(ids ...string) ([]process.Info, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 	procDocs, err := pp.procs(ids)
 	if err != nil {
@@ -144,7 +144,7 @@ func (pp processesPersistence) list(ids ...string) ([]process.Info, error) {
 
 // TODO(ericsnow) How to ensure they are completely removed from state?
 
-func (pp processesPersistence) remove(id string) error {
+func (pp procsPersistence) remove(id string) error {
 	var ops []txn.Op
 	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
@@ -160,22 +160,22 @@ func (pp processesPersistence) remove(id string) error {
 
 // TODO(ericsnow) Factor most of the below into a processesCollection type.
 
-func (pp processesPersistence) definitionID(id string) string {
+func (pp procsPersistence) definitionID(id string) string {
 	name, _ := process.ParseID(id)
 	// The URL will always parse successfully.
 	charmURL, _ := charm.ParseURL(pp.charm.Id())
 	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
 }
 
-func (pp processesPersistence) processID(id string) string {
+func (pp procsPersistence) processID(id string) string {
 	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), id)
 }
 
-func (pp processesPersistence) launchID(id string) string {
+func (pp procsPersistence) launchID(id string) string {
 	return pp.processID(id) + "#launch"
 }
 
-func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
+func (pp procsPersistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
 	doc := pp.newProcessDefinitionDoc(definition)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -185,14 +185,14 @@ func (pp processesPersistence) newInsertDefinitionOp(definition charm.Process) t
 	}
 }
 
-func (pp processesPersistence) newInsertProcessOps(info process.Info) []txn.Op {
+func (pp procsPersistence) newInsertProcessOps(info process.Info) []txn.Op {
 	var ops []txn.Op
 	ops = append(ops, pp.newInsertLaunchOp(info))
 	ops = append(ops, pp.newInsertProcOp(info))
 	return ops
 }
 
-func (pp processesPersistence) newInsertLaunchOp(info process.Info) txn.Op {
+func (pp procsPersistence) newInsertLaunchOp(info process.Info) txn.Op {
 	doc := pp.newLaunchDoc(info)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -202,7 +202,7 @@ func (pp processesPersistence) newInsertLaunchOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp processesPersistence) newInsertProcOp(info process.Info) txn.Op {
+func (pp procsPersistence) newInsertProcOp(info process.Info) txn.Op {
 	doc := pp.newProcessDoc(info)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -212,7 +212,7 @@ func (pp processesPersistence) newInsertProcOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp processesPersistence) newSetRawStatusOp(id string, status process.RawStatus) txn.Op {
+func (pp procsPersistence) newSetRawStatusOp(id string, status process.RawStatus) txn.Op {
 	id = pp.processID(id)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -222,14 +222,14 @@ func (pp processesPersistence) newSetRawStatusOp(id string, status process.RawSt
 	}
 }
 
-func (pp processesPersistence) newRemoveProcessOps(id string) []txn.Op {
+func (pp procsPersistence) newRemoveProcessOps(id string) []txn.Op {
 	var ops []txn.Op
 	ops = append(ops, pp.newRemoveLaunchOp(id))
 	ops = append(ops, pp.newRemoveProcOp(id))
 	return ops
 }
 
-func (pp processesPersistence) newRemoveLaunchOp(id string) txn.Op {
+func (pp procsPersistence) newRemoveLaunchOp(id string) txn.Op {
 	id = pp.launchID(id)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -239,7 +239,7 @@ func (pp processesPersistence) newRemoveLaunchOp(id string) txn.Op {
 	}
 }
 
-func (pp processesPersistence) newRemoveProcOp(id string) txn.Op {
+func (pp procsPersistence) newRemoveProcOp(id string) txn.Op {
 	id = pp.processID(id)
 	return txn.Op{
 		C:      workloadProcessesC,
@@ -310,7 +310,7 @@ func (d processDefinitionDoc) definition() charm.Process {
 	}
 }
 
-func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
+func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
 	id := pp.definitionID(definition.Name)
 
 	var ports []string
@@ -341,7 +341,7 @@ func (pp processesPersistence) newProcessDefinitionDoc(definition charm.Process)
 	}
 }
 
-func (pp processesPersistence) definitions(ids []string) ([]processDefinitionDoc, error) {
+func (pp procsPersistence) definitions(ids []string) ([]processDefinitionDoc, error) {
 	coll, closeColl := pp.coll()
 	defer closeColl()
 
@@ -374,7 +374,7 @@ func (d processLaunchDoc) details() process.Details {
 	}
 }
 
-func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
+func (pp procsPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
 	id := pp.launchID(info.ID())
 	return &processLaunchDoc{
 		DocID: id,
@@ -384,7 +384,7 @@ func (pp processesPersistence) newLaunchDoc(info process.Info) *processLaunchDoc
 	}
 }
 
-func (pp processesPersistence) launches(ids []string) ([]processLaunchDoc, error) {
+func (pp procsPersistence) launches(ids []string) ([]processLaunchDoc, error) {
 	coll, closeColl := pp.coll()
 	defer closeColl()
 
@@ -433,7 +433,7 @@ func (d processDoc) info() process.Info {
 	}
 }
 
-func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
+func (pp procsPersistence) newProcessDoc(info process.Info) *processDoc {
 	id := pp.processID(info.ID())
 
 	var status string
@@ -460,7 +460,7 @@ func (pp processesPersistence) newProcessDoc(info process.Info) *processDoc {
 	}
 }
 
-func (pp processesPersistence) proc(id string) (*processDoc, error) {
+func (pp procsPersistence) proc(id string) (*processDoc, error) {
 	coll, closeColl := pp.coll()
 	defer closeColl()
 
@@ -473,7 +473,7 @@ func (pp processesPersistence) proc(id string) (*processDoc, error) {
 	return &doc, nil
 }
 
-func (pp processesPersistence) procs(ids []string) ([]processDoc, error) {
+func (pp procsPersistence) procs(ids []string) ([]processDoc, error) {
 	coll, closeColl := pp.coll()
 	defer closeColl()
 
