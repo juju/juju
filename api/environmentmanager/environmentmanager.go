@@ -146,6 +146,25 @@ func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 // will fail if there are any manually-provisioned non-manager machines
 // in state.
 func (c *Client) DestroyEnvironment(envUUID string) error {
-	env := params.EnvironmentDestroyArgs{envUUID}
+	env := params.DestroyEnvironmentArgs{envUUID}
 	return c.facade.FacadeCall("DestroyEnvironment", env, nil)
+}
+
+// DestroySystem destroys the state server environment, and if
+// specified, hosted environments on that system.
+func (c *Client) DestroySystem(envUUID string, killEnvs bool, ignoreBlocks bool) error {
+	args := params.DestroySystemArgs{
+		EnvUUID:      envUUID,
+		KillEnvs:     killEnvs,
+		IgnoreBlocks: ignoreBlocks,
+	}
+	return c.facade.FacadeCall("DestroySystem", args, nil)
+}
+
+// ListBlockedEnvironments returns a list of the environments in
+// the system which have a block in place.
+func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
+	result := params.EnvironmentBlockInfoList{}
+	err := c.facade.FacadeCall("ListBlockedEnvironments", nil, &result)
+	return result.Environments, err
 }

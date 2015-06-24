@@ -33,9 +33,12 @@ var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the environmentmanager API
 type fakeDestroyAPI struct {
-	err     error
-	env     map[string]interface{}
-	envUUID string
+	err         error
+	env         map[string]interface{}
+	envUUID     string
+	killAll     bool
+	ignoreBlock bool
+	blocks      []params.EnvironmentBlockInfo
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -50,6 +53,17 @@ func (f *fakeDestroyAPI) EnvironmentGet() (map[string]interface{}, error) {
 func (f *fakeDestroyAPI) DestroyEnvironment(envUUID string) error {
 	f.envUUID = envUUID
 	return f.err
+}
+
+func (f *fakeDestroyAPI) DestroySystem(envUUID string, killAll bool, ignoreBlock bool) error {
+	f.envUUID = envUUID
+	f.killAll = killAll
+	f.ignoreBlock = ignoreBlock
+	return f.err
+}
+
+func (f *fakeDestroyAPI) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
+	return f.blocks, nil
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -258,7 +272,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction aborted")
+		c.Check(err, gc.ErrorMatches, "system destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
@@ -271,7 +285,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction aborted")
+		c.Check(err, gc.ErrorMatches, "system destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}

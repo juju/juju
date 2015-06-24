@@ -131,6 +131,49 @@ func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
 	s.assertNoTypedBlock(c, t)
 }
 
+func (s *blockSuite) TestAllBlocksForSystem(c *gc.C) {
+	_, st2 := s.createTestEnv(c)
+	defer st2.Close()
+
+	err := st2.SwitchBlockOn(state.ChangeBlock, "block test")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SwitchBlockOn(state.ChangeBlock, "block test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(blocks), gc.Equals, 2)
+}
+
+func (s *blockSuite) TestRemoveAllBlocksForSystem(c *gc.C) {
+	_, st2 := s.createTestEnv(c)
+	defer st2.Close()
+
+	err := st2.SwitchBlockOn(state.ChangeBlock, "block test")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SwitchBlockOn(state.ChangeBlock, "block test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveAllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(blocks), gc.Equals, 0)
+}
+
+func (s *blockSuite) TestEnvUUID(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+	err := st.SwitchBlockOn(state.ChangeBlock, "blocktest")
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := st.AllBlocks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(blocks), gc.Equals, 1)
+	c.Assert(blocks[0].EnvUUID(), gc.Equals, st.EnvironUUID())
+}
+
 func (s *blockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)

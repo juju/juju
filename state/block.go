@@ -21,6 +21,9 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
+	// EnvUUID returns the environment UUID associated with this block.
+	EnvUUID() string
+
 	// Tag returns tag for the entity that is being blocked
 	Tag() (names.Tag, error)
 
@@ -103,6 +106,11 @@ func (b *block) Id() string {
 	return b.doc.DocID
 }
 
+// Implementation for Block.EnvUUID().
+func (b *block) EnvUUID() string {
+	return b.doc.EnvUUID
+}
+
 // Implementation for Block.Message().
 func (b *block) Message() string {
 	return b.doc.Message
@@ -171,6 +179,37 @@ func (st *State) AllBlocks() ([]Block, error) {
 		blocks[i] = &block{doc}
 	}
 	return blocks, nil
+}
+
+// AllBlocksForSystem returns all blocks in any environments on
+// the system.
+func (st *State) AllBlocksForSystem() ([]Block, error) {
+	blocksCollection, closer := st.getRawCollection(blocksC)
+	defer closer()
+
+	var bdocs []blockDoc
+	err := blocksCollection.Find(nil).All(&bdocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all blocks")
+	}
+	blocks := make([]Block, len(bdocs))
+	for i, doc := range bdocs {
+		blocks[i] = &block{doc}
+	}
+	return blocks, nil
+}
+
+// RemoveAllBlocksForSystem removes all blocks in a system in preparation
+// for system destruction.
+func (st *State) RemoveAllBlocksForSystem() error {
+	blocksCollection, closer := st.getRawCollection(blocksC)
+	defer closer()
+
+	_, err := blocksCollection.RemoveAll(nil)
+	if err != nil {
+		return errors.Annotate(err, "unable to remove all blocks in the system")
+	}
+	return nil
 }
 
 // setEnvironmentBlock updates the blocks collection with the

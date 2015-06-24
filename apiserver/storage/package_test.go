@@ -476,6 +476,10 @@ func (b mockBlock) Id() string {
 	panic("not implemented for test")
 }
 
+func (b mockBlock) EnvUUID() string {
+	panic("not implemented for test")
+}
+
 func (b mockBlock) Tag() (names.Tag, error) {
 	panic("not implemented for test")
 }

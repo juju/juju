@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -151,3 +152,15 @@ func (s *environmentmanagerSuite) TestEnvironmentGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env["name"], gc.Equals, "dummyenv")
 }
+
+func (s *environmentmanagerSuite) TestDestroyEnvironment(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for state server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	envManager := s.OpenAPI(c)
+	err = envManager.DestroyEnvironment(s.State.EnvironUUID())
+	c.Assert(err, gc.ErrorMatches, "change block for state server")
+}
+
+// TODO (cherylj) Add tests for DestroySystem and ListBlockedEnvironments

@@ -80,3 +80,15 @@ func NewDestroyCommand(api destroyEnvironmentAPI, clientapi destroyEnvironmentCl
 		apierr:    apierr,
 	}
 }
+
+// NewForceDestroyCommand returns a ForceDestroyCommand with the the environmentmanager and client
+// endpoints mocked out.
+func NewForceDestroyCommand(api destroyEnvironmentAPI, clientapi destroyEnvironmentClientAPI, apierr error) *ForceDestroyCommand {
+	return &ForceDestroyCommand{
+		DestroyCommand: DestroyCommand{
+			api:       api,
+			clientapi: clientapi,
+			apierr:    apierr,
+		},
+	}
+}
