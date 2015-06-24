@@ -480,6 +480,7 @@ func machineStorageDecrefOp(
 			// marked Dead. There can be no concurrent attachments
 			// since it is Dying.
 			op.Assert = bson.D{
+				{"life", Dying},
 				{"attachmentcount", 1},
 			}
 			op.Update = bson.D{
@@ -492,6 +493,7 @@ func machineStorageDecrefOp(
 			// ensuring we don't drop to zero without marking
 			// the volume Dead.
 			op.Assert = bson.D{
+				{"life", Dying},
 				{"attachmentcount", bson.D{{"$gt", 1}}},
 			}
 			op.Update = bson.D{

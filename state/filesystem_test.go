@@ -613,6 +613,23 @@ func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachment(c *gc.C) {
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.DestroyFilesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	// The filesystem had no attachments when it was destroyed,
+	// so it should be Dead.
+	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+}
+
+func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachmentConcurrently(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DestroyFilesystem(filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
