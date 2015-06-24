@@ -1,41 +1,10 @@
-#!/bin/bash
-set -eux
-
-
-usage() {
-    echo "usage: $0 ADDRESS"
-    echo "  ADDRESS: The IP or DNS address the windows test machine."
-    echo "  --juju-home: The location of cloud-city and staging-juju-rsa."
-    exit 1
-}
-
-while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
-    case $1 in
-        --juju-home)
-            shift
-            JUJU_HOME=$(cd $1; pwd)
-            ;;
-        --help)
-            usage
-            ;;
-    esac
-    shift
-done
-
-
-test $# -eq 1 || usage
-
-HOST="$1"
-: ${SCRIPTS=$(readlink -f $(dirname $0))}
-export PATH="$SCRIPTS:$PATH"
-
-python - $SCRIPTS $HOST --juju-home $JUJU_HOME <<'EOT'
+#!/usr/bin/env python
 from argparse import ArgumentParser
 import os
-import sys
 import subprocess
 from textwrap import dedent
 import yaml
+
 
 def win_test(script_dir, address, juju_home):
     host = 'Administrator@{}'.format(address)
@@ -51,7 +20,6 @@ def win_test(script_dir, address, juju_home):
             python ci\\\\deploy_stack.py test-win-client
             """))
 
-
     ci = [os.path.join(script_dir, f) for f in [
         'deploy_stack.py', 'jujupy.py', 'jujuconfig.py', 'remote.py',
         'substrate.py', 'utility.py', 'get_ami.py',
@@ -66,11 +34,16 @@ def win_test(script_dir, address, juju_home):
                            private_key])
 
 
-parser = ArgumentParser()
-parser.add_argument('script_dir')
-parser.add_argument('address',
-                    help='The IP or DNS address the windows test machine.')
-parser.add_argument('--juju-home', default=os.environ.get('JUJU_HOME'),
-                    help='The location of cloud-city and staging-juju-rsa.')
-win_test(**parser.parse_args().__dict__)
-EOT
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('address',
+                        help='The IP or DNS address the windows test machine.')
+    parser.add_argument(
+        '--juju-home', default=os.environ.get('JUJU_HOME'),
+        help='The location of cloud-city and staging-juju-rsa.')
+    script_dir = os.path.dirname(__file__)
+    win_test(script_dir=script_dir, **parser.parse_args().__dict__)
+
+
+if __name__ == '__main__':
+    main()
