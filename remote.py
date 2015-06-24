@@ -64,7 +64,12 @@ class _Remote:
 
     @abc.abstractmethod
     def cat(self, filename):
-        """Get the contents of filename from the remote machine."""
+        """
+        Get the contents of filename from the remote machine.
+
+        Environment variables in the filename will be expanded in a according
+        to platform-specific rules.
+        """
 
     @abc.abstractmethod
     def copy(self, destination_dir, source_globs):
@@ -131,7 +136,11 @@ class SSHRemote(_Remote):
         self._run_subprocess(args)
 
     def cat(self, filename):
-        """Get the contents of filename from the remote machine."""
+        """
+        Get the contents of filename from the remote machine.
+
+        Tildes and environment variables in the form $TMP will be expanded.
+        """
         return self.run("cat " + utility.quote(filename))
 
     def _run_subprocess(self, command):
@@ -163,7 +172,8 @@ class WinRmRemote(_Remote):
         """Run cmd and arguments given as a list returning response object."""
         if isinstance(cmd_list, basestring):
             raise ValueError("run_cmd requires a list not a string")
-        # pywinrm does not correctly escape arguments, fix up before passing.
+        # pywinrm does not correctly escape arguments, fix up by escaping cmd
+        # and giving args as a list of a single pre-escaped string.
         cmd = self._escape(cmd_list[:1])
         args = [self._escape(cmd_list[1:])]
         return self.session.run_cmd(cmd, args)
@@ -173,7 +183,12 @@ class WinRmRemote(_Remote):
         return self.session.run_ps(script)
 
     def cat(self, filename):
-        """Get the contents of filename from the remote machine."""
+        """
+        Get the contents of filename from the remote machine.
+
+        Backslashes will be treated as directory seperators. Environment
+        variables in the form %TMP% will be expanded.
+        """
         result = self.session.run_cmd("type", [self._escape([filename])])
         if result.status_code:
             logging.warning("winrm cat failed %r", result)
