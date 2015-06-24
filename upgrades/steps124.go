@@ -46,32 +46,9 @@ func stepsFor124() []Step {
 	}
 }
 
-var getSyslogNamespace = func(context Context) (string, error) {
-	st := context.State()
-	if st == nil {
-		// We're running on a different node than the state server.
-		return "", nil
-	}
-
-	envConfig, err := st.EnvironConfig()
-	if err != nil {
-		return "", errors.Annotate(err, "failed to read current config")
-	}
-
-	namespace, err := getNamespace(envConfig)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return namespace, nil
-}
-
 func moveSyslogConfig(context Context) error {
-	namespace, err := getSyslogNamespace(context)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	config := context.AgentConfig()
+	namespace := config.Value(agent.Namespace)
 	logdir := config.LogDir()
 	confdir := agent.DefaultConfDir
 	if namespace != "" {

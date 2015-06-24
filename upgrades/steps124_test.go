@@ -104,10 +104,6 @@ func (s *steps124SyslogSuite) SetUpTest(c *gc.C) {
 	logDir := c.MkDir()
 	confDir := c.MkDir()
 	s.setPaths(logDir, confDir)
-
-	s.PatchValue(upgrades.GetSyslogNamespace, func(ctx upgrades.Context) (string, error) {
-		return "", nil
-	})
 }
 
 func (s *steps124SyslogSuite) setPaths(logDir, confDir string) {
@@ -252,6 +248,10 @@ type fakeConfig struct {
 	agent.ConfigSetter
 	logdir  string
 	datadir string
+}
+
+func (f fakeConfig) Value(key string) string {
+	return ""
 }
 
 func (f fakeConfig) LogDir() string {
