@@ -1387,7 +1387,7 @@ func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
 	devices := client.GetSubObject("devices")
 	params := url.Values{}
 	params.Add("mac_address", macAddress)
-	result, err := devices.CallPost("list", params)
+	result, err := devices.CallGet("list", params)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1399,7 +1399,7 @@ func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
 		return "", errors.NotFoundf("no device for MAC %q", macAddress)
 	}
 	if len(resultArray) != 1 {
-		return "", errors.New("unexpected response")
+		return "", errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
 	}
 	resultMap, err := resultArray[0].GetMap()
 	if err != nil {
