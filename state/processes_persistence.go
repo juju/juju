@@ -94,17 +94,17 @@ func (pp procsPersistence) insert(info process.Info) error {
 func (pp procsPersistence) setStatus(id string, status process.Status) error {
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOp(id, status))
+	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			proc, err := pp.proc(id)
-			if err != nil {
-				return nil, errors.Trace(err)
+			_, err := pp.proc(id)
+			if err == mgo.ErrNotFound {
+				return errors.NotFoundf(id)
+			} else if err != nil {
+				return errors.Trace(err)
 			}
-			if proc.Life != Alive {
-				return nil, jujutxn.ErrNoOperations
-			}
-			// Otherwise try again...
+			// We ignore the request since the proc is dying.
+			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
 	}
@@ -215,14 +215,18 @@ func (pp procsPersistence) newInsertProcOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp procsPersistence) newSetRawStatusOp(id string, status process.RawStatus) txn.Op {
+func (pp procsPersistence) newSetRawStatusOp(id string, status process.RawStatus) []txn.Op {
 	id = pp.processID(id)
-	return txn.Op{
+	return []txn.Op{{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: txn.DocExists,
+	}, {
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Value}}}},
-	}
+	}}
 }
 
 func (pp procsPersistence) newRemoveProcessOps(id string) []txn.Op {
