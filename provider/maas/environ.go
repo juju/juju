@@ -1357,7 +1357,27 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // newDevice creates a new MAAS device for a MAC address, returning the Id of
 // the new device.
 func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
-	return "", nil
+	client := environ.getMAASClient()
+	devices := client.GetSubObject("devices")
+	params := url.Values{}
+	params.Add("mac_addresses", macAddress)
+	params.Add("hostname", hostname)
+	params.Add("parent", string(instId))
+	result, err := devices.CallPost("new", params)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	resultMap, err := result.GetMap()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	device, err := resultMap["system_id"].GetString()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return device, nil
 }
 
 // fetchDevice fetches an existing device Id associated with a MAC address, or
