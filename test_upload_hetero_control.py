@@ -1,5 +1,6 @@
 from ConfigParser import NoOptionError
 import json
+from time import sleep
 from unittest import TestCase
 
 from mock import patch, MagicMock, call
@@ -299,11 +300,27 @@ class TestHUploader(TestCase):
             with self.assertRaisesRegexp(
                     Exception, "Build fails to complete: 9988"):
                 uploader.upload_by_build_number(
-                    build_number=9988, pause_time_in_seconds=.1,
-                    total_timeout_in_seconds=.1)
+                    build_number=9988, pause_time=.1, timeout=.1)
         self.assertEqual(
             gbd_mock.mock_calls,
             create_build_data_calls(build_num=9988, calls=2))
+
+    def test_upload_by_build_number_waits(self):
+        credentials = fake_credentials()
+        build_info = {"number": BUILD_NUM, 'building': True}
+        build_info_done = {"number": BUILD_NUM, 'building': False}
+        jb = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
+        uploader = HUploader(None, jb)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   side_effect=[build_info, build_info, build_info_done]) as m:
+            with patch.object(uploader, 'upload', autospec=True) as u_mock:
+                with patch('upload_hetero_control.sleep', autospec=True,
+                           side_effect=sleep(.1)) as s_mock:
+                    uploader.upload_by_build_number(
+                        build_number=BUILD_NUM, pause_time=.1, timeout=1)
+        self.assertEqual(m.mock_calls, create_build_data_calls(calls=3))
+        u_mock.assert_called_once_with()
+        s_mock.assert_called_once_with(.1)
 
     def test_last_completed_test_results(self):
         class Response:

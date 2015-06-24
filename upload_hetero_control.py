@@ -71,7 +71,8 @@ class JenkinsBuild:
 
     def is_build_completed(self):
         """Check if the build is completed and return boolean."""
-        return not self.get_build_info()['building']
+        build_info = self.get_build_info()
+        return not build_info['building']
 
     @property
     def result(self):
@@ -199,18 +200,24 @@ class HUploader:
         self.upload_console_log()
         self.upload_artifacts()
 
-    def upload_by_build_number(
-            self, build_number=None, pause_time_in_seconds=120,
-            total_timeout_in_seconds=3600):
-        """Upload build_number's test result."""
+    def upload_by_build_number(self, build_number=None, pause_time=120,
+                               timeout=600):
+        """
+        Upload build_number's test result.
+
+        :param build_number:
+        :param pause_time: Pause time in seconds between polling.
+        :param timeout: Timeout in seconds.
+        :return: None
+        """
         build_number = build_number or os.getenv('BUILD_NUMBER')
         if not build_number:
             raise ValueError('Build number is not set')
         self.jenkins_build.set_build_number(build_number)
-        for _ in until_timeout(total_timeout_in_seconds):
+        for _ in until_timeout(timeout):
             if self.jenkins_build.is_build_completed():
                 break
-            sleep(pause_time_in_seconds)
+            sleep(pause_time)
         else:
             raise Exception("Build fails to complete: {}".format(build_number))
         self.upload()
