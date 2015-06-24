@@ -116,6 +116,7 @@ func (pp procsPersistence) setStatus(id string, status process.Status) error {
 
 func (pp procsPersistence) list(ids ...string) ([]process.Info, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
+	// TODO(ericsnow) possible race here
 	procDocs, err := pp.procs(ids)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -128,6 +129,7 @@ func (pp procsPersistence) list(ids ...string) ([]process.Info, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(ericsnow) charm-defined proc definitions must be accommodated.
 	results := make([]process.Info, len(ids))
 	for i := range results {
 		doc := processInfoDoc{
