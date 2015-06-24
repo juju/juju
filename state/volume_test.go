@@ -552,6 +552,26 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 	assertDestroy()
 }
 
+func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+
+	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	volume = s.volume(c, volume.VolumeTag())
+
+	// There are no more attachments, so the volume should
+	// have been progressed directly to Dead.
+	c.Assert(volume.Life(), gc.Equals, state.Dead)
+}
+
 func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 	volume, machine := s.setupVolumeAttachment(c)
 	err := s.State.DestroyVolume(volume.VolumeTag())
@@ -575,18 +595,14 @@ func (s *VolumeStateSuite) TestRemoveVolumeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *VolumeStateSuite) TestRemoveVolumeAlive(c *gc.C) {
+func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
 	volume, _ := s.setupVolumeAttachment(c)
 	err := s.State.RemoveVolume(volume.VolumeTag())
-	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dying")
-}
-
-func (s *VolumeStateSuite) TestRemoveWithVolumeAttachments(c *gc.C) {
-	volume, _ := s.setupVolumeAttachment(c)
-	err := s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
+	err = s.State.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolume(volume.VolumeTag())
-	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is attached to machines \\[0\\]")
+	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
 }
 
 func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
@@ -599,6 +615,48 @@ func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, assertDetach).Check()
 	assertDetach()
+}
+
+func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+
+	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dying)
+
+	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The volume was Dying when the last attachment was
+	// removed, so the volume should now be Dead.
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dead)
+}
+
+func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+
+	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DestroyVolume(volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		volume := s.volume(c, volume.VolumeTag())
+		c.Assert(volume.Life(), gc.Equals, state.Dying)
+	}).Check()
+
+	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Last attachment was removed, and the volume was (concurrently)
+	// destroyed, so the volume should be Dead.
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dead)
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {

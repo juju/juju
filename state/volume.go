@@ -80,13 +80,16 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID     string        `bson:"_id"`
-	Name      string        `bson:"name"`
-	EnvUUID   string        `bson:"env-uuid"`
-	Life      Life          `bson:"life"`
-	StorageId string        `bson:"storageid,omitempty"`
-	Info      *VolumeInfo   `bson:"info,omitempty"`
-	Params    *VolumeParams `bson:"params,omitempty"`
+	DocID     string `bson:"_id"`
+	Name      string `bson:"name"`
+	EnvUUID   string `bson:"env-uuid"`
+	Life      Life   `bson:"life"`
+	StorageId string `bson:"storageid,omitempty"`
+	// TODO(axw) 2015-06-22 #1467379
+	// upgrade step to set this for 1.24 environments
+	AttachmentCount int           `bson:"attachmentcount"`
+	Info            *VolumeInfo   `bson:"info,omitempty"`
+	Params          *VolumeParams `bson:"params,omitempty"`
 }
 
 // volumeAttachmentDoc records information about a volume attachment.
@@ -205,6 +208,11 @@ func (v *volumeAttachment) Params() (VolumeAttachmentParams, bool) {
 
 // Volume returns the Volume with the specified name.
 func (st *State) Volume(tag names.VolumeTag) (Volume, error) {
+	v, err := st.volume(tag)
+	return v, err
+}
+
+func (st *State) volume(tag names.VolumeTag) (*volume, error) {
 	coll, cleanup := st.getCollection(volumesC)
 	defer cleanup()
 
@@ -327,16 +335,21 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 	ops := make([]txn.Op, 0, len(attachments))
 	for _, a := range attachments {
 		volumeTag := a.Volume()
+		volume, err := st.volume(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// When removing the machine, there should only remain
+		// non-persistent storage. This will be implicitly
+		// removed when the machine is removed, so we do not
+		// use removeVolumeAttachmentOps or removeVolumeOps,
+		// which track and update related documents.
 		ops = append(ops, txn.Op{
 			C:      volumeAttachmentsC,
 			Id:     volumeAttachmentId(machine.Id(), volumeTag.Id()),
 			Assert: txn.DocExists,
 			Remove: true,
 		})
-		volume, err := st.Volume(volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		var remove bool
 		volumeInfo, err := volume.Info()
 		if errors.IsNotProvisioned(err) {
@@ -427,19 +440,85 @@ func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.V
 		if attachment.Life() != Dying {
 			return nil, errors.New("volume attachment is not dying")
 		}
-		return []txn.Op{{
-			C:      volumeAttachmentsC,
-			Id:     volumeAttachmentId(machine.Id(), volume.Id()),
-			Assert: bson.D{{"life", Dying}},
-			Remove: true,
-		}}, nil
+		v, err := st.volume(volume)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return removeVolumeAttachmentOps(machine, v), nil
 	}
 	return st.run(buildTxn)
 }
 
+func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
+	decrefVolumeOp := machineStorageDecrefOp(
+		volumesC, v.doc.Name,
+		v.doc.AttachmentCount, v.doc.Life,
+	)
+	return []txn.Op{{
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(m.Id(), v.doc.Name),
+		Assert: bson.D{{"life", Dying}},
+		Remove: true,
+	}, decrefVolumeOp}
+}
+
+// machineStorageDecrefOp returns a txn.Op that will decrement the attachment
+// count for a given machine storage entity (volume or filesystem), given its
+// current attachment count and lifecycle state. If the attachment count goes
+// to zero, then the entity should become Dead.
+func machineStorageDecrefOp(
+	collection, id string,
+	attachmentCount int, life Life,
+) txn.Op {
+	op := txn.Op{
+		C:  collection,
+		Id: id,
+	}
+	if life == Dying {
+		if attachmentCount == 1 {
+			// This is the last attachment: the volume can be
+			// marked Dead. There can be no concurrent attachments
+			// since it is Dying.
+			op.Assert = bson.D{
+				{"life", Dying},
+				{"attachmentcount", 1},
+			}
+			op.Update = bson.D{
+				{"$inc", bson.D{{"attachmentcount", -1}}},
+				{"$set", bson.D{{"life", Dead}}},
+			}
+		} else {
+			// This is not the last attachment; just decref,
+			// allowing for concurrent attachment removals but
+			// ensuring we don't drop to zero without marking
+			// the volume Dead.
+			op.Assert = bson.D{
+				{"life", Dying},
+				{"attachmentcount", bson.D{{"$gt", 1}}},
+			}
+			op.Update = bson.D{
+				{"$inc", bson.D{{"attachmentcount", -1}}},
+			}
+		}
+	} else {
+		// The volume is still Alive: decref, retrying if the
+		// volume is destroyed concurrently. Otherwise, when
+		// DestroyVolume is called, the volume will be marked
+		// Dead if it has no attachments.
+		op.Assert = bson.D{
+			{"life", Alive},
+			{"attachmentcount", bson.D{{"$gt", 0}}},
+		}
+		op.Update = bson.D{
+			{"$inc", bson.D{{"attachmentcount", -1}}},
+		}
+	}
+	return op
+}
+
 // DestroyVolume ensures that the volume and any attachments to it will be
 // destroyed and removed from state at some point in the future. DestroyVolume
-// will fail with a IsContainsFilesystem error if the volume contains a
+// will fail with an IsContainsFilesystem error if the volume contains a
 // filesystem; the filesystem must be fully removed first.
 func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
@@ -449,7 +528,7 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		volume, err := st.Volume(tag)
+		volume, err := st.volume(tag)
 		if errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -458,24 +537,34 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 		if volume.Life() != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyVolumeOps(st, tag), nil
+		return destroyVolumeOps(st, volume), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyVolumeOps(st *State, tag names.VolumeTag) []txn.Op {
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, tag.Id())
+func destroyVolumeOps(st *State, v *volume) []txn.Op {
+	logger.Debugf("destroyVolumeOps(%v)", v.Tag())
+	if v.doc.AttachmentCount == 0 {
+		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		return []txn.Op{{
+			C:      volumesC,
+			Id:     v.doc.Name,
+			Assert: append(hasNoAttachments, isAliveDoc...),
+			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		}}
+	}
+	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
+	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
 	return []txn.Op{{
 		C:      volumesC,
-		Id:     tag.Id(),
-		Assert: isAliveDoc,
+		Id:     v.doc.Name,
+		Assert: append(hasAttachments, isAliveDoc...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}, cleanupOp}
 }
 
 // RemoveVolume removes the volume from state. RemoveVolume will fail if
-// there are any attachments remaining, if it contains a filesystem, or if
-// the volume is not Dying.
+// the volume is not Dead, which implies that it still has attachments.
 func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "removing volume %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -485,21 +574,8 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if volume.Life() != Dying {
-			return nil, errors.New("volume is not dying")
-		}
-		// The volume is dying, so no more attachments can
-		// be added to it.
-		attachments, err := st.VolumeAttachments(tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(attachments) > 0 {
-			machines := make([]string, len(attachments))
-			for i, a := range attachments {
-				machines[i] = a.Machine().Id()
-			}
-			return nil, errors.Errorf("volume is attached to machines %s", machines)
+		if volume.Life() != Dead {
+			return nil, errors.New("volume is not dead")
 		}
 		return []txn.Op{{
 			C:      volumesC,
@@ -553,6 +629,8 @@ func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, nam
 			Name:      name,
 			StorageId: params.storage.Id(),
 			Params:    &params,
+			// Every volume is created with one attachment.
+			AttachmentCount: 1,
 		},
 	}
 	return op, names.NewVolumeTag(name), nil
@@ -616,7 +694,8 @@ type volumeAttachmentTemplate struct {
 
 // createMachineVolumeAttachmentInfo creates volume attachments
 // for the specified machine, and attachment parameters keyed
-// by volume tags.
+// by volume tags. The caller is responsible for incrementing
+// the volume's attachmentcount field.
 func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAttachmentTemplate) []txn.Op {
 	ops := make([]txn.Op, len(attachments))
 	for i, attachment := range attachments {
