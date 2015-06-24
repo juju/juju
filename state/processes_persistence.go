@@ -99,9 +99,9 @@ func (pp procsPersistence) setStatus(id string, status process.Status) error {
 		if attempt > 0 {
 			_, err := pp.proc(id)
 			if err == mgo.ErrNotFound {
-				return errors.NotFoundf(id)
+				return nil, errors.NotFoundf(id)
 			} else if err != nil {
-				return errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			// We ignore the request since the proc is dying.
 			return nil, jujutxn.ErrNoOperations
@@ -217,7 +217,7 @@ func (pp procsPersistence) newInsertProcOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp procsPersistence) newSetRawStatusOp(id string, status process.RawStatus) []txn.Op {
+func (pp procsPersistence) newSetRawStatusOps(id string, status process.RawStatus) []txn.Op {
 	id = pp.processID(id)
 	return []txn.Op{{
 		C:      workloadProcessesC,
