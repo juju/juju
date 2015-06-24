@@ -45,11 +45,6 @@ func waitForFile(c *gc.C, file string) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for %s to be written", file)
 		case <-time.After(coretesting.ShortWait):
-			c.Logf("-----------")
-			filepath.Walk(filepath.Dir(filepath.Dir(filepath.Dir(file))), func(path string, _ os.FileInfo, _ error) error {
-				c.Logf(path)
-				return nil
-			})
 			if _, err := os.Stat(file); err == nil {
 				return
 			}
