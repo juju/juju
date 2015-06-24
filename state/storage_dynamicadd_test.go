@@ -334,7 +334,7 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, "adding storage to unit storage-filesystem/0: "+
 		"creating machine storage for storage data/1: "+
-		"static storage provider does not support dynamic storage")
+		`"static" storage provider does not support dynamic storage`)
 	s.assertStorageCount(c, 1)    // no change
 	s.assertFileSystemCount(c, 1) // no change
 }
