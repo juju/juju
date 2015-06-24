@@ -359,7 +359,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-vivid-amd64"),
-			Series:             "quantal",
+			Series:             "vivid",
 			MachineNonce:       "FAKE_NONCE",
 			MongoInfo: &mongo.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
@@ -1072,7 +1072,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
-
 	}
 }
 
