@@ -2685,6 +2685,127 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("instance"))
 }
 
+func (s *upgradesSuite) TestIPAddressAddUUID(c *gc.C) {
+	addresses, addrCloser := s.state.getRawCollection(ipaddressesC)
+	defer addrCloser()
+	instances, instanceCloser := s.state.getRawCollection(instanceDataC)
+	defer instanceCloser()
+
+	s.addMachineWithLife(c, 1, Alive)
+
+	envUUID := s.state.EnvironUUID()
+
+	err := instances.Insert(
+		bson.D{
+			{"_id", envUUID + ":1"},
+			{"env-uuid", envUUID},
+			{"machineid", "1"},
+			{"instanceid", "instance"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addresses.Insert(
+		// Two addresses without UUID.
+		bson.D{
+			{"_id", envUUID + ":0.1.2.3"},
+			{"env-uuid", envUUID},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", AddressStateAllocated},
+		},
+		bson.D{
+			{"_id", envUUID + ":0.1.2.4"},
+			{"env-uuid", envUUID},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.4"},
+			{"state", AddressStateAllocated},
+		},
+		// Two addresses with UUID.
+		bson.D{
+			{"_id", envUUID + ":0.1.2.5"},
+			{"env-uuid", envUUID},
+			{"uuid", "42424242-1111-2222-3333-0123456789ab"},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.5"},
+			{"state", AddressStateAllocated},
+		},
+		bson.D{
+			{"_id", envUUID + ":0.1.2.6"},
+			{"env-uuid", envUUID},
+			{"uuid", "42424242-4444-5555-6666-0123456789ab"},
+			{"life", Alive},
+			{"subnetid", "foo"},
+			{"machineid", "1"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.6"},
+			{"state", AddressStateAllocated},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddUUIDToIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(utils.IsValidUUIDString(ipAddr.UUID()), gc.Equals, true)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(utils.IsValidUUIDString(ipAddr.UUID()), gc.Equals, true)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.UUID(), gc.Equals, "42424242-1111-2222-3333-0123456789ab")
+
+	ipAddr, err = s.state.IPAddress("0.1.2.6")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.UUID(), gc.Equals, "42424242-4444-5555-6666-0123456789ab")
+}
+
+func (s *upgradesSuite) TestIPAddressAddUUIDIdempotent(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	s.addMachineWithLife(c, 1, Alive)
+	envUUID := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		bson.D{
+			{"_id", envUUID + ":0.1.2.3"},
+			{"env-uuid", envUUID},
+			{"subnetid", "foo"},
+			{"machineid", 1},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", ""},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddUUIDToIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	before, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddUUIDToIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := s.state.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(after, jc.DeepEquals, before)
+}
+
 func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {
 	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()

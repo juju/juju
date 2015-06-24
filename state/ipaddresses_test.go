@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -88,6 +89,34 @@ func (s *IPAddressSuite) TestIPAddressNotFound(c *gc.C) {
 	_, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
+}
+
+func (s *IPAddressSuite) TestIPAddressByTag(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	added, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := names.NewIPAddressTag(added.UUID())
+	found, err := s.State.IPAddressByTag(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Id(), gc.Equals, added.Id())
+}
+
+func (s *IPAddressSuite) TestIPAddressFindEntity(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	added, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := names.NewIPAddressTag(added.UUID())
+	found, err := s.State.FindEntity(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Tag(), gc.Equals, tag)
+}
+
+func (s *IPAddressSuite) TestIPAddressByTagNotFound(c *gc.C) {
+	tag := names.NewIPAddressTag("42424242-1111-2222-3333-0123456789ab")
+	_, err := s.State.IPAddressByTag(tag)
+	c.Assert(err, gc.ErrorMatches, `IP address "ipaddress-42424242-1111-2222-3333-0123456789ab" not found`)
 }
 
 func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
