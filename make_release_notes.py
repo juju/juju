@@ -26,7 +26,7 @@ This release replaces version {previous}.
 
 ## Getting Juju
 
-juju-core {version} is available for vivid and backported to earlier
+juju-core {version} is available for Wily and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/devel
@@ -70,7 +70,7 @@ This release may replace version {previous} on {release_date}.
 
 ## Getting Juju
 
-juju-core {version} is available for vivid and backported to earlier
+juju-core {version} is available for Wily and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/proposed
