@@ -51,7 +51,7 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eux
     echo "\nBuilding the packages.\n"
     cd workspace
-    rm *build-deps*.deb
+    rm *build-deps*.deb || true
     dpkg-source -x *.dsc
     cd $(basename *.orig.tar.gz .orig.tar.gz | tr _ -)
     dpkg-buildpackage -us -uc
@@ -186,7 +186,7 @@ def main(argv):
     args = get_args(argv)
     if args.command == 'binary':
         exitcode = build_binary(
-            args.dsc,  args.location, args.series, args.arch,
+            args.dsc, args.location, args.series, args.arch,
             ppa=args.ppa, verbose=args.verbose)
     return exitcode
 
