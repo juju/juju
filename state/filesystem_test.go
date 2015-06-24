@@ -9,11 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type FilesystemStateSuite struct {
@@ -364,39 +361,6 @@ func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {
 	assertError("0", `invalid filesystem attachment ID "0"`)
 	assertError("0:foo", `invalid filesystem attachment ID "0:foo"`)
 	assertError("bar:0", `invalid filesystem attachment ID "bar:0"`)
-}
-
-func (s *FilesystemStateSuite) TestAssignToMachine(c *gc.C) {
-	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-	filesystemAttachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystemAttachments, gc.HasLen, 1)
-}
-
-func (s *FilesystemStateSuite) TestAssignToMachineErrors(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders("someprovider", "static")
-	defer registry.RegisterProvider("static", nil)
-
-	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0: static storage provider does not support dynamic storage`)
-
-	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, machine.Id(), instance.LXC)
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(container)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxc/0: adding storage to lxc container not supported`)
 }
 
 func (s *FilesystemStateSuite) TestRemoveStorageInstanceUnassignsFilesystem(c *gc.C) {

@@ -73,7 +73,9 @@ func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, e
 		err = fmt.Errorf("command timed out")
 		command.Kill()
 	}
+
 	// In either case, gather as much as we have from stdout and stderr
+	<-commandDone // command.Wait is not current, must wait for the other waiter to exit.
 	command.Wait()
 	result.Stderr = stderr.Bytes()
 	result.Stdout = stdout.Bytes()

@@ -5,6 +5,7 @@ package config
 
 var (
 	DistroLtsSeries = &distroLtsSeries
+	ConfigSchema    = configSchema
 )
 
 func ResetCachedLtsSeries() {
