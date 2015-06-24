@@ -1023,7 +1023,11 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		status state.Status
 		info   string
 	}{{
-		state.StatusExecuting, "",
+		state.StatusExecuting, "blah",
+	}, {
+		state.StatusIdle, "blah",
+	}, {
+		state.StatusFailed, "blah",
 	}, {
 		state.StatusRebooting, "blah",
 	}} {

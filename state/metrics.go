@@ -176,12 +176,13 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(CleanupAge))
 	metricsLogger.Tracef("cleaning up metrics created before %v", age)
-	c, closer := st.getCollection(metricsC)
+	metrics, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
 	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
-	info, err := c.RemoveAll(bson.M{
+	metricsW := metrics.Writeable()
+	info, err := metricsW.RemoveAll(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})

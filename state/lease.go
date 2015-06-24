@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/lease"
+	"github.com/juju/juju/mongo"
 )
 
 // leaseEntity represents a lease in mongo.
@@ -30,7 +31,7 @@ type leaseEntity struct {
 func NewLeasePersistor(
 	collectionName string,
 	runTransaction func(jujutxn.TransactionSource) error,
-	getCollection func(string) (_ stateCollection, closer func()),
+	getCollection func(string) (_ mongo.Collection, closer func()),
 ) *LeasePersistor {
 	getLeaseCollection := func(name string) (_ leaseCollection, closer func()) {
 		sc, closer := getCollection(name)
@@ -54,14 +55,14 @@ type LeasePersistor struct {
 // leaseCollection provides bespoke lease methods on top of a standard
 // state collection.
 type leaseCollection interface {
-	stateCollection
+	mongo.Collection
 
 	// FindById finds the lease with the specified id.
 	FindById(id string) (*leaseEntity, error)
 }
 
 type genericLeaseCollection struct {
-	stateCollection
+	mongo.Collection
 }
 
 // FindById finds the lease with the specified id.

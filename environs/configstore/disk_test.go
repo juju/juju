@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
@@ -221,4 +223,30 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
 	c.Assert(yaInfo.APIEndpoint().Hostnames, gc.DeepEquals, []string{"just this"})
+}
+
+func (*diskStoreSuite) TestConcurrentAccess(c *gc.C) {
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test-log", &tw, loggo.DEBUG), gc.IsNil)
+
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	envDir := storePath(dir, "")
+	lock, err := configstore.AcquireEnvironmentLock(envDir, "blocking-op")
+	c.Assert(err, jc.ErrorIsNil)
+	defer lock.Unlock()
+
+	_, err = store.ReadInfo("someenv")
+	c.Assert(errors.Cause(err), gc.Equals, fslock.ErrTimeout)
+
+	// Using . between environments and env.lock so we don't have to care
+	// about forward vs. backwards slash separator.
+	messages := []jc.SimpleMessage{
+		{loggo.WARNING, `configstore lock held, lock dir: .*environments.env\.lock`},
+		{loggo.WARNING, `lock holder message: pid: \d+, operation: blocking-op`},
+	}
+
+	c.Check(tw.Log(), jc.LogMatches, messages)
 }

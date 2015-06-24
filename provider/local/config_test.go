@@ -190,3 +190,14 @@ func (s *configSuite) TestLocalRespectsUpgradeSettings(c *gc.C) {
 	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 }
+
+func (*configSuite) TestSchema(c *gc.C) {
+	fields := local.Provider.Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
+}
