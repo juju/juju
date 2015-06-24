@@ -300,6 +300,20 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.assertTailer(c, tailer, 5, expected)
 }
 
+func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
+	expected := logTemplate{Message: "want"}
+	s.writeLogs(c, 2, expected)
+
+	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+		InitialLines: 5,
+	})
+	defer tailer.Stop()
+
+	// Should see just the 2 lines that existed, even though 5 were
+	// asked for.
+	s.assertTailer(c, tailer, 2, expected)
+}
+
 func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}

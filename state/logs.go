@@ -219,7 +219,9 @@ func (t *logTailer) processCollection() error {
 		if err != nil {
 			return errors.Annotate(err, "query count failed")
 		}
-		query = query.Skip(count - t.params.InitialLines)
+		if skipOver := count - t.params.InitialLines; skipOver > 0 {
+			query = query.Skip(skipOver)
+		}
 	}
 
 	iter := query.Sort("t", "_id").Iter()
