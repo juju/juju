@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
@@ -37,12 +38,11 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate       = "ubuntu-cloud"
-	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
-	LxcRestartDir         = "/etc/lxc/auto"
-	LxcObjectFactory      = golxc.Factory()
-	initProcessCgroupFile = "/proc/1/cgroup"
-	runtimeGOOS           = runtime.GOOS
+	defaultTemplate  = "ubuntu-cloud"
+	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
+	LxcRestartDir    = "/etc/lxc/auto"
+	LxcObjectFactory = golxc.Factory()
+	runtimeGOOS      = runtime.GOOS
 )
 
 const (
@@ -82,37 +82,17 @@ func containerDirFilesystem() (string, error) {
 }
 
 // IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers
+// we can run LXC containers.
 func IsLXCSupported() (bool, error) {
 	if runtimeGOOS != "linux" {
 		return false, nil
 	}
-
-	file, err := os.Open(initProcessCgroupFile)
+	// We do not support running nested LXC containers.
+	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Split(line, ":")
-		if len(fields) != 3 {
-			return false, errors.Errorf("Malformed cgroup file")
-		}
-		if fields[2] != "/" {
-			// When running in a container the anchor point will be something
-			// other then "/". Return false here as we do not support nested LXC
-			// containers
-			return false, nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return false, errors.Errorf("Failed to read cgroup file")
-	}
-	return true, nil
+	return !insideLXC, nil
 }
 
 type containerManager struct {

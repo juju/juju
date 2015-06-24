@@ -1256,7 +1256,7 @@ func (s *LxcSuite) TestIsLXCSupportedMalformedCgroupFile(c *gc.C) {
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(err.Error(), gc.Equals, "Malformed cgroup file")
+	c.Assert(err.Error(), gc.Equals, "malformed cgroup file")
 	c.Assert(supports, jc.IsFalse)
 }
 
