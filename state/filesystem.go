@@ -426,9 +426,13 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 	defer errors.DeferredAnnotatef(&err, "removing attachment of filesystem %s from machine %s", filesystem.Id(), machine.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		attachment, err := st.FilesystemAttachment(machine, filesystem)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// We only ignore IsNotFound on attempts after the
+			// first, since we expect the filesystem attachment to
+			// be there initially.
 			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if attachment.Life() != Dying {
