@@ -260,11 +260,7 @@ func newMachineStorageIdsWatcher(
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvMachineStorageIdsWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: resources,
-	}, nil
+	return &srvMachineStorageIdsWatcher{watcher, id, resources, parser}, nil
 }
 
 // Next returns when a change has occured to an entity of the
@@ -272,7 +268,7 @@ func newMachineStorageIdsWatcher(
 // or the Watch call that created the srvMachineStorageIdsWatcher.
 func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResult, error) {
 	if stringChanges, ok := <-w.watcher.Changes(); ok {
-		changes, err := common.ParseVolumeAttachmentIds(stringChanges)
+		changes, err := w.parser(stringChanges)
 		if err != nil {
 			return params.MachineStorageIdsWatchResult{}, err
 		}
