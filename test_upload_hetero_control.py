@@ -140,6 +140,25 @@ class TestJenkinsBuild(TestCase):
             JENKINS_URL, credentials, JOB_NAME, BUILD_NUM)
         self.assertEqual(2, gbd_mock.call_count)
 
+    def test_is_build_completed(self):
+        credentials = fake_credentials()
+        j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   return_value=BUILD_INFO) as gbd_mock:
+            build_status = j.is_build_completed()
+        self.assertIs(build_status, True)
+        self.assertEqual(gbd_mock.mock_calls, create_build_data_calls())
+
+    def test_is_build_completed_return_false(self):
+        credentials = fake_credentials()
+        build_info = json.loads('{"building": true}')
+        j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   return_value=build_info) as gbd_mock:
+            build_status = j.is_build_completed()
+        self.assertIs(build_status, False)
+        self.assertEqual(gbd_mock.mock_calls, create_build_data_calls())
+
 
 class TestS3(TestCase):
     def test_factory(self):
@@ -244,27 +263,47 @@ class TestHUploader(TestCase):
         self.assertEqual(s3_mock.store.mock_calls, calls)
         jenkins_mock.artifacts.assert_called_once_with()
 
-    def test_upload_by_env_build_number(self):
-        jenkins_mock = MagicMock()
-        h = HUploader(None, jenkins_mock)
+    def test_upload_by_build_number(self):
+        credentials = fake_credentials()
+        build_info = {"number": 9988, 'building': False}
+        j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
+        uploader = HUploader(None, j)
         with patch('upload_hetero_control.os.getenv',
-                   return_value='399993', autospec=True) as g_mock:
-            with patch.object(jenkins_mock, 'set_build_number',
-                              autospec=True) as s_mock:
-                with patch.object(h, 'upload', autospec=True) as u_mock:
-                    h.upload_by_env_build_number()
+                   return_value=9988, autospec=True) as g_mock:
+            with patch('upload_hetero_control.get_build_data', autospec=True,
+                       return_value=build_info) as gbd_mock:
+                with patch.object(uploader, 'upload', autospec=True) as u_mock:
+                    uploader.upload_by_build_number()
         g_mock.assert_called_once_with('BUILD_NUMBER')
-        s_mock.assert_called_once_with('399993')
         u_mock.assert_called_once_with()
+        self.assertEqual(
+            gbd_mock.mock_calls,
+            create_build_data_calls(build_num=9988, calls=2))
 
-    def test_upload_by_env_build_number_no_build_number(self):
+    def test_upload_by_build_number_no_build_number(self):
         jenkins_mock = MagicMock()
         h = HUploader(None, jenkins_mock)
         with patch('upload_hetero_control.os.getenv',
                    return_value=None, autospec=True):
             with self.assertRaisesRegexp(
                     ValueError, 'Build number is not set'):
-                h.upload_by_env_build_number()
+                h.upload_by_build_number()
+
+    def test_upload_by_build_number_timeout(self):
+        credentials = fake_credentials()
+        build_info = {"number": 9988, 'building': True}
+        j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
+        uploader = HUploader(None, j)
+        with patch('upload_hetero_control.get_build_data', autospec=True,
+                   return_value=build_info) as gbd_mock:
+            with self.assertRaisesRegexp(
+                    Exception, "Build fails to complete: 9988"):
+                uploader.upload_by_build_number(
+                    build_number=9988, pause_time_in_seconds=.1,
+                    total_timeout_in_seconds=.1)
+        self.assertEqual(
+            gbd_mock.mock_calls,
+            create_build_data_calls(build_num=9988, calls=2))
 
     def test_last_completed_test_results(self):
         class Response:
@@ -359,6 +398,13 @@ class OtherTests(TestCase):
                             get_s3_access()
         j_mock.assert_called_once_with(path, relative_path)
         g_mock.assert_called_once_with('HOME')
+
+
+def create_build_data_calls(
+        url=JENKINS_URL, cred=None, job_name=JOB_NAME,
+        build_num=BUILD_NUM, calls=1):
+    cred = Credentials('fake_username', 'fake_pass') if not cred else cred
+    return [call(url, cred, job_name, build_num) for _ in xrange(calls)]
 
 
 def fake_credentials():

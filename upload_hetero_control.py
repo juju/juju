@@ -7,6 +7,7 @@ from ConfigParser import ConfigParser
 import json
 import os
 import sys
+from time import sleep
 import urlparse
 
 from boto.s3.connection import S3Connection
@@ -20,6 +21,7 @@ from jujuci import(
     get_job_data,
     JENKINS_URL,
 )
+from utility import until_timeout
 
 
 __metaclass__ = type
@@ -63,8 +65,13 @@ class JenkinsBuild:
         :rtype: dict
         """
         build_number = build_number or self.get_build_number()
-        return get_build_data(
+        self.build_info = get_build_data(
             self.jenkins_url, self.credentials, self.job_name, build_number)
+        return self.build_info
+
+    def is_build_completed(self):
+        """Check if the build is completed and return boolean."""
+        return not self.get_build_info()['building']
 
     @property
     def result(self):
@@ -119,7 +126,7 @@ class JenkinsBuild:
         return self.build_info.get('number')
 
     def set_build_number(self, build_number):
-        self.build_info = self.get_build_info(build_number)
+        self.get_build_info(build_number)
 
 
 class S3:
@@ -192,16 +199,20 @@ class HUploader:
         self.upload_console_log()
         self.upload_artifacts()
 
-    def upload_by_env_build_number(self):
-        """
-        Uploads a test result by first getting the build number from  the
-        environment variable
-        :return: None
-        """
-        build_number = os.getenv('BUILD_NUMBER')
+    def upload_by_build_number(
+            self, build_number=None, pause_time_in_seconds=120,
+            total_timeout_in_seconds=3600):
+        """Upload build_number's test result."""
+        build_number = build_number or os.getenv('BUILD_NUMBER')
         if not build_number:
             raise ValueError('Build number is not set')
-        self.jenkins_build.set_build_number(int(build_number))
+        self.jenkins_build.set_build_number(build_number)
+        for _ in until_timeout(total_timeout_in_seconds):
+            if self.jenkins_build.is_build_completed():
+                break
+            sleep(pause_time_in_seconds)
+        else:
+            raise Exception("Build fails to complete: {}".format(build_number))
         self.upload()
 
     def upload_all_test_results(self):
@@ -265,7 +276,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     add_credential_args(parser)
     parser.add_argument(
-        '-b', '--build_number', type=int, default=None,
+        '-b', '--build-number', type=int, default=None,
         help="Specify build number to upload")
     parser.add_argument(
         '-a', '--all', action='store_true', default=False,
