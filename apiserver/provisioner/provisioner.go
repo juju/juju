@@ -1192,6 +1192,7 @@ func (p *ProvisionerAPI) allocateAddress(
 ) (*state.IPAddress, error) {
 
 	subnetId := network.Id(subnet.ProviderId())
+	name := names.NewMachineTag(container.Id()).String()
 	for {
 		addr, err := subnet.PickNewAddress()
 		if err != nil {
@@ -1199,7 +1200,7 @@ func (p *ProvisionerAPI) allocateAddress(
 		}
 		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
 		// Attempt to allocate with environ.
-		err = environ.AllocateAddress(instId, subnetId, addr.Address(), macAddress)
+		err = environ.AllocateAddress(instId, subnetId, addr.Address(), macAddress, name)
 		if err != nil {
 			logger.Warningf(
 				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",

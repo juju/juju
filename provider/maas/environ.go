@@ -1356,7 +1356,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 
 // newDevice creates a new MAAS device for a MAC address, returning the Id of
 // the new device.
-func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id) (string, error) {
+func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
 	return "", nil
 }
 
@@ -1395,7 +1395,7 @@ func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
 
 // createOrFetchDevice returns a device Id associated with a MAC address. If
 // there is not already one it will create one.
-func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id) (string, error) {
+func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
 	device, err := environ.fetchDevice(macAddress)
 	if err == nil {
 		return device, nil
@@ -1403,7 +1403,7 @@ func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instan
 	if !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
 	}
-	device, err = environ.newDevice(macAddress, instId)
+	device, err = environ.newDevice(macAddress, instId, hostname)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1412,7 +1412,7 @@ func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instan
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) (err error) {
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1425,7 +1425,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return err
 	}
 	if supportsDevices {
-		device, err := environ.createOrFetchDevice(macAddress, instId)
+		device, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
 			return err
 		}
