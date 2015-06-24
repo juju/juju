@@ -56,10 +56,11 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 var (
-	ReleaseNodes         = releaseNodes
-	ReserveIPAddress     = reserveIPAddress
-	ReleaseIPAddress     = releaseIPAddress
-	DeploymentStatusCall = deploymentStatusCall
+	ReleaseNodes             = releaseNodes
+	ReserveIPAddress         = reserveIPAddress
+	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
+	ReleaseIPAddress         = releaseIPAddress
+	DeploymentStatusCall     = deploymentStatusCall
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -1392,7 +1393,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		}
 
 		devices := client.GetSubObject("devices")
-		err = reserveIPAddressOnDevice(devices, device, addr)
+		err = ReserveIPAddressOnDevice(devices, device, addr)
 		if err == nil {
 			logger.Infof("allocated address %q for instance %q on device %q", addr, instId, device)
 			return nil
