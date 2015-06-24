@@ -92,7 +92,6 @@ type Service struct {
 // NewService returns a new value that implements Service for systemd.
 func NewService(name string, conf common.Conf, dataDir string) (*Service, error) {
 	confName := name + ".service"
-	// TODO(ericsnow) Factor out the datadir-related code.
 	var volName string
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))

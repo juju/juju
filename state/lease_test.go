@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/lease"
+	"github.com/juju/juju/mongo"
 )
 
 const (
@@ -35,12 +36,16 @@ func stubRunTransaction(txns jujutxn.TransactionSource) error {
 	return nil
 }
 
-func stubGetCollection(collectionName string) (stateCollection, func()) {
+func stubGetCollection(collectionName string) (mongo.Collection, func()) {
 	return &genericStateCollection{}, func() {}
 }
 
+type genericStateCollection struct {
+	mongo.Collection
+}
+
 type stubLeaseCollection struct {
-	stateCollection
+	mongo.Collection
 	tokenToReturn *leaseEntity
 }
 
@@ -155,7 +160,7 @@ func (s *leaseSuite) TestRemoveToken(c *gc.C) {
 func (s *leaseSuite) TestPersistedTokens(c *gc.C) {
 
 	closerCallCount := 0
-	stubGetCollection := func(collectionName string) (stateCollection, func()) {
+	stubGetCollection := func(collectionName string) (mongo.Collection, func()) {
 		c.Check(collectionName, gc.Equals, testCollectionName)
 		return &genericStateCollection{}, func() { closerCallCount++ }
 	}

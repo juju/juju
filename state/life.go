@@ -3,7 +3,11 @@
 
 package state
 
-import "gopkg.in/mgo.v2/bson"
+import (
+	"gopkg.in/mgo.v2/bson"
+
+	"github.com/juju/juju/mongo"
+)
 
 // Life represents the lifecycle state of the entities
 // Relation, Unit, Service and Machine.
@@ -54,7 +58,7 @@ func isAlive(st *State, collName string, id interface{}) (bool, error) {
 	return isAliveWithSession(coll, id)
 }
 
-func isAliveWithSession(coll stateCollection, id interface{}) (bool, error) {
+func isAliveWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(bson.D{{"_id", id}, {"life", Alive}}).Count()
 	return n == 1, err
 }
@@ -65,7 +69,7 @@ func isNotDead(st *State, collName string, id interface{}) (bool, error) {
 	return isNotDeadWithSession(coll, id)
 }
 
-func isNotDeadWithSession(coll stateCollection, id interface{}) (bool, error) {
+func isNotDeadWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(bson.D{{"_id", id}, {"life", bson.D{{"$ne", Dead}}}}).Count()
 	return n == 1, err
 }

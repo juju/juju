@@ -325,22 +325,21 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	unit, closer := u.st.getCollection(statusesHistoryC)
+	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	historyW := history.Writeable()
+
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
 		return err
 	}
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
 		return err
 	}
 	return nil
 }
-
-// unitAgentAllocating actually refers to the unit's agent.
-var unitAgentAllocating = bson.D{
-	{"$or", []bson.D{
-		{{"status", StatusAllocating}},
-	}}}
 
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
@@ -387,34 +386,22 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	agentStatusDocId := u.globalAgentKey()
 	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
-
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
 
-	// See if the unit's machine has been allocated and the unit has been installed.
-	isAllocated := agentStatusDoc.Status != StatusAllocating
-	isError := agentStatusDoc.Status == StatusError
-
-	unitStatusDoc, err := getStatus(u.st, u.globalKey())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// There's currently no better way to determine if a unit is installed.
-	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != "installing charm software"
-
-	// If already allocated and installed, or there's an error, then we can't set directly to dead.
-	if isError || isAllocated && isInstalled {
+	// See if the unit's machine has been allocated.
+	// If already allocated, then we can't set directly to dead.
+	if agentStatusDoc.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: unitAgentAllocating,
+		Assert: bson.D{{"status", StatusAllocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -1264,23 +1251,31 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
+	return validateDynamicStorageParams(m.st, params)
+}
+
+// validateDynamicStorageParams validates that all storage providers required for
+// provisioning the storage in params support dynamic storage.
+// If any provider doesn't support dynamic storage, then an IsNotSupported error
+// is returned.
+func validateDynamicStorageParams(st *State, params *machineStorageParams) error {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := m.st.volumeParamsWithDefaults(v.Volume)
+		v, err := st.volumeParamsWithDefaults(v.Volume)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := m.st.filesystemParamsWithDefaults(f.Filesystem)
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := m.st.Volume(volumeTag)
+		volume, err := st.Volume(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1295,7 +1290,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := m.st.Filesystem(filesystemTag)
+		filesystem, err := st.Filesystem(filesystemTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1310,15 +1305,14 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(m.st, pool)
+		providerType, provider, err := poolStorageProvider(st, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !provider.Dynamic() {
-			return errors.Errorf(
-				"%s storage provider does not support dynamic storage",
-				providerType,
-			)
+			return errors.NewNotSupported(
+				err,
+				fmt.Sprintf("%q storage provider does not support dynamic storage", providerType))
 		}
 	}
 	return nil
@@ -1832,16 +1826,19 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// TODO(axw) once we support dynamic storage provisioning, we
-	// should check whether all of the storage constraints can be
-	// fulfilled dynamically (by querying a policy).
-	storageCons, err := u.StorageConstraints()
+	// If any required storage s not all dynamic, then assigning
+	// to a new machine is required.
+	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	if len(storageCons) > 0 {
-		return nil, noCleanMachines
+	if err := validateDynamicStorageParams(u.st, storageParams); err != nil {
+		if errors.IsNotSupported(err) {
+			return nil, noCleanMachines
+		}
+		assignContextf(&err, u, context)
+		return nil, err
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
@@ -1914,6 +1911,15 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// provisioned without the fact having yet been recorded
 	// in state.
 	for _, m := range machines {
+		// Check that the unit storage is compatible with
+		// the machine in question.
+		if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+			if errors.IsNotSupported(err) {
+				continue
+			}
+			assignContextf(&err, u, context)
+			return nil, err
+		}
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil

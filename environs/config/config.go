@@ -1481,6 +1481,24 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	return settings
 }
 
+// Schema returns a configuration schema that includes both
+// the given extra fields and all the fields defined in this package.
+// It returns an error if extra defines any fields defined in this
+// package.
+func Schema(extra environschema.Fields) (environschema.Fields, error) {
+	fields := make(environschema.Fields)
+	for name, field := range configSchema {
+		fields[name] = field
+	}
+	for name, field := range extra {
+		if _, ok := fields[name]; ok {
+			return nil, errors.Errorf("config field %q clashes with global config", name)
+		}
+		fields[name] = field
+	}
+	return fields, nil
+}
+
 // configSchema holds information on all the fields defined by
 // the config package.
 // TODO(rog) make this available to external packages.
