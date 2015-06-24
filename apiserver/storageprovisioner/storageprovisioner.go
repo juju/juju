@@ -1139,7 +1139,7 @@ func (s *StorageProvisionerAPI) RemoveAttachment(args params.MachineStorageIds) 
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Ids)),
 	}
-	one := func(arg params.MachineStorageId) error {
+	removeAttachment := func(arg params.MachineStorageId) error {
 		machineTag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
 			return err
@@ -1161,7 +1161,7 @@ func (s *StorageProvisionerAPI) RemoveAttachment(args params.MachineStorageIds) 
 		}
 	}
 	for i, arg := range args.Ids {
-		if err := one(arg); err != nil {
+		if err := removeAttachment(arg); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
 	}
