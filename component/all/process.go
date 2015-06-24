@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
 	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/process/plugin"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -74,6 +75,16 @@ func (workloadProcesses) registerHookContextCommands() {
 	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcRegistrationCommand(compCtx)
+		if err != nil {
+			// TODO(ericsnow) Return an error instead.
+			panic(err)
+		}
+		return cmd
+	})
+
+	jujuc.RegisterCommand("launch", func(ctx jujuc.Context) cmd.Command {
+		compCtx := workloadProcessesHookContext{ctx}
+		cmd, err := context.NewProcLaunchCommand(plugin.Find, plugin.Plugin.Launch, compCtx)
 		if err != nil {
 			// TODO(ericsnow) Return an error instead.
 			panic(err)

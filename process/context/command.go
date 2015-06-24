@@ -45,11 +45,6 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 	}, nil
 }
 
-// Info implements cmd.Command.
-func (c *baseCommand) Info() *cmd.Info {
-	panic("not implemented")
-}
-
 // Init implements cmd.Command.
 func (c *baseCommand) Init(args []string) error {
 	if len(args) == 0 {
@@ -85,11 +80,6 @@ func (c baseCommand) getInfo() (*process.Info, error, error) {
 		return nil, nil, errors.Errorf("process %q already registered", c.Name)
 	}
 	return pInfo, nil, nil
-}
-
-// Run implements cmd.Command.
-func (c *baseCommand) Run(ctx *cmd.Context) error {
-	panic("not implemented")
 }
 
 // registeringCommand is the base for commands that register a process
