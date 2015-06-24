@@ -24,18 +24,27 @@ type serviceSuite struct {
 var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) TestNewServiceKnown(c *gc.C) {
-	initSystems := []string{
-		service.InitSystemSystemd,
-		service.InitSystemUpstart,
-		service.InitSystemWindows,
-	}
-	for _, initSystem := range initSystems {
-		svc, err := service.NewService(s.Name, s.Conf, initSystem)
+	for _, test := range []struct {
+		series     string
+		initSystem string
+	}{
+		{
+			series:     "vivid",
+			initSystem: service.InitSystemSystemd,
+		}, {
+			series:     "trusty",
+			initSystem: service.InitSystemUpstart,
+		}, {
+			series:     "win2012",
+			initSystem: service.InitSystemWindows,
+		},
+	} {
+		svc, err := service.NewService(s.Name, s.Conf, test.series)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 
-		switch initSystem {
+		switch test.initSystem {
 		case service.InitSystemSystemd:
 			c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
 		case service.InitSystemUpstart:

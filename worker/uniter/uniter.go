@@ -83,6 +83,10 @@ type Uniter struct {
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
 
+	// metricsTimerChooser is a struct that allows metrics to switch between
+	// active and inactive timers.
+	metricsTimerChooser *timerChooser
+
 	// collectMetricsAt defines a function that will be used to generate signals
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
@@ -92,28 +96,34 @@ type Uniter struct {
 	updateStatusAt TimedSignal
 }
 
+// UniterParams hold all the necessary parameters for a new Uniter.
+type UniterParams struct {
+	St                  *uniter.State
+	UnitTag             names.UnitTag
+	LeadershipManager   coreleadership.LeadershipManager
+	DataDir             string
+	HookLock            *fslock.Lock
+	MetricsTimerChooser *timerChooser
+	UpdateStatusSignal  TimedSignal
+}
+
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(
-	st *uniter.State,
-	unitTag names.UnitTag,
-	leadershipManager coreleadership.LeadershipManager,
-	dataDir string,
-	hookLock *fslock.Lock,
-) *Uniter {
+func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                st,
-		paths:             NewPaths(dataDir, unitTag),
-		hookLock:          hookLock,
-		leadershipManager: leadershipManager,
-		collectMetricsAt:  inactiveMetricsTimer,
-		updateStatusAt:    updateStatusSignal,
+		st:                  uniterParams.St,
+		paths:               NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		hookLock:            uniterParams.HookLock,
+		leadershipManager:   uniterParams.LeadershipManager,
+		metricsTimerChooser: uniterParams.MetricsTimerChooser,
+		collectMetricsAt:    uniterParams.MetricsTimerChooser.inactive,
+		updateStatusAt:      uniterParams.UpdateStatusSignal,
 	}
 	go func() {
 		defer u.tomb.Done()
 		defer u.runCleanups()
-		u.tomb.Kill(u.loop(unitTag))
+		u.tomb.Kill(u.loop(uniterParams.UnitTag))
 	}()
 	return u
 }
@@ -329,7 +339,7 @@ func (u *Uniter) initializeMetricsCollector() error {
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimerChooser.getMetricsTimer(charm)
 	return nil
 }
 

@@ -119,16 +119,18 @@ func (st *State) Cleanup() (err error) {
 }
 
 func (st *State) cleanupRelationSettings(prefix string) error {
+	settings, closer := st.getCollection(settingsC)
+	defer closer()
 	// Documents marked for cleanup are not otherwise referenced in the
 	// system, and will not be under watch, and are therefore safe to
 	// delete directly.
-	settings, closer := st.getCollection(settingsC)
-	defer closer()
+	settingsW := settings.Writeable()
+
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}
-	if count, err := settings.Find(sel).Count(); err != nil {
+	if count, err := settingsW.Find(sel).Count(); err != nil {
 		return fmt.Errorf("cannot detect cleanup targets: %v", err)
 	} else if count != 0 {
-		if _, err := settings.RemoveAll(sel); err != nil {
+		if _, err := settingsW.RemoveAll(sel); err != nil {
 			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
 		}
 	}

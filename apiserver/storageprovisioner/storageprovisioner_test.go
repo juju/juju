@@ -1094,7 +1094,7 @@ func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: nil},
-			{Error: &params.Error{Message: "removing volume 2: volume is not dying"}},
+			{Error: &params.Error{Message: "removing volume 2: volume is not dead"}},
 			{Error: nil},
 			{Error: &params.Error{Message: `"volume-invalid" is not a valid volume tag`}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
@@ -1122,7 +1122,7 @@ func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: nil},
-			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dying"}},
+			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dead"}},
 			{Error: nil},
 			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},

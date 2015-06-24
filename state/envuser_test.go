@@ -112,7 +112,7 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 }
 
 func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validUsername"})
 	_, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 

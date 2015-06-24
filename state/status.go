@@ -10,6 +10,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var (
@@ -574,21 +576,26 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 // PruneStatusHistory removes status history entries until
 // only the maxLogsPerEntity newest records per unit remain.
 func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
-	historyColl, closer := st.getCollection(statusesHistoryC)
+	history, closer := st.getCollection(statusesHistoryC)
 	defer closer()
-	globalKeys, err := getEntitiesWithStatuses(historyColl)
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	historyW := history.Writeable()
+
+	globalKeys, err := getEntitiesWithStatuses(historyW)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, globalKey := range globalKeys {
-		keepUpTo, ok, err := getOldestTimeToKeep(historyColl, globalKey, maxLogsPerEntity)
+		keepUpTo, ok, err := getOldestTimeToKeep(historyW, globalKey, maxLogsPerEntity)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !ok {
 			continue
 		}
-		_, err = historyColl.RemoveAll(bson.D{
+		_, err = historyW.RemoveAll(bson.D{
 			{"entityid", globalKey},
 			{"_id", bson.M{"$lt": keepUpTo}},
 		})
@@ -601,7 +608,7 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 
 // getOldestTimeToKeep returns the create time for the oldest
 // status log to be kept.
-func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int, bool, error) {
+func getOldestTimeToKeep(coll mongo.Collection, globalKey string, size int) (int, bool, error) {
 	result := historicalStatusDoc{}
 	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Skip(size - 1).One(&result)
 	if err == mgo.ErrNotFound {
@@ -616,7 +623,7 @@ func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int,
 
 // getEntitiesWithStatuses returns the ids for all entities that
 // have history entries
-func getEntitiesWithStatuses(coll stateCollection) ([]string, error) {
+func getEntitiesWithStatuses(coll mongo.Collection) ([]string, error) {
 	var entityKeys []string
 	err := coll.Find(nil).Distinct("entityid", &entityKeys)
 	if err != nil {
