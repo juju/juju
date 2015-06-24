@@ -4,7 +4,6 @@
 package charmresources_test
 
 import (
-	"io"
 	"strings"
 	stdtesting "testing"
 
@@ -92,7 +91,7 @@ func (s *baseResourcesSuite) constructState(c *gc.C) *mockState {
 }
 
 func (s *baseResourcesSuite) addBlock(c *gc.C, t state.BlockType, msg string) {
-	s.blocks[t] = mockBlock{t, msg}
+	s.blocks[t] = mockBlock{t: t, msg: msg}
 }
 
 func (s *baseResourcesSuite) blockAllChanges(c *gc.C, msg string) {
@@ -138,6 +137,7 @@ func (s *baseResourcesSuite) addResource(res resources.Resource) {
 }
 
 type mockResourceManager struct {
+	resources.ResourceManager
 	resourceList   func(filter resources.ResourceAttributes) ([]resources.Resource, error)
 	resourceDelete func(resourcePath string) error
 }
@@ -148,14 +148,6 @@ func (m *mockResourceManager) ResourceList(filter resources.ResourceAttributes) 
 
 func (m *mockResourceManager) ResourceDelete(resourcePath string) error {
 	return m.resourceDelete(resourcePath)
-}
-
-func (m *mockResourceManager) ResourceGet(resourcePath string) ([]resources.ResourceReader, error) {
-	panic("not implemented")
-}
-
-func (m *mockResourceManager) ResourcePut(metadata resources.Resource, rdr io.ReadCloser) error {
-	panic("not implemented")
 }
 
 type mockState struct {
@@ -177,16 +169,9 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 }
 
 type mockBlock struct {
+	state.Block
 	t   state.BlockType
 	msg string
-}
-
-func (b mockBlock) Id() string {
-	panic("not implemented for test")
-}
-
-func (b mockBlock) Tag() (names.Tag, error) {
-	panic("not implemented for test")
 }
 
 func (b mockBlock) Type() state.BlockType {

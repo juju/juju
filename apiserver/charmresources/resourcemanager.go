@@ -66,7 +66,7 @@ func NewResourceManagerAPI(st *state.State, resources *common.Resources, authori
 	return createAPI(getState(st), resources, authorizer)
 }
 
-// ResourceList is implemented on charmresources.ResourceManager
+// ResourceList implements charmresources.ResourceManager
 func (api *ResourceManagerAPI) ResourceList(arg params.ResourceFilterParams) (params.ListResourcesResult, error) {
 	var result params.ListResourcesResult
 	manager := api.st.ResourceManager()
@@ -100,7 +100,7 @@ func (api *ResourceManagerAPI) ResourceList(arg params.ResourceFilterParams) (pa
 	return result, nil
 }
 
-// ResourceDelete is implemented on charmresources.ResourceManager
+// ResourceDelete implements charmresources.ResourceManager
 func (api *ResourceManagerAPI) ResourceDelete(arg params.ResourceFilterParams) (params.ErrorResults, error) {
 	// Permission checks
 	if !api.canWrite() {
