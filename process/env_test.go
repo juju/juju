@@ -86,7 +86,7 @@ func (*envSuite) TestUnparseEnvOkay(c *gc.C) {
 	raw, err := process.UnparseEnv(env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(raw, jc.DeepEquals, []string{"A=1", "B=2", "C=3"})
+	c.Check(raw, jc.SameContents, []string{"A=1", "B=2", "C=3"})
 }
 
 func (*envSuite) TestUnparseEnvEmpty(c *gc.C) {
@@ -117,5 +117,5 @@ func (*envSuite) TestUnparseEnvMissing(c *gc.C) {
 	raw, err := process.UnparseEnv(env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(raw, jc.DeepEquals, []string{"A=1", "B=", "C=3"})
+	c.Check(raw, jc.SameContents, []string{"A=1", "B=", "C=3"})
 }
