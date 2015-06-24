@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -43,6 +44,14 @@ var isLocalEnviron = func(envConfig *config.Config) bool {
 	return envConfig.Type() == "local"
 }
 
+func getNamespace(envConfig *config.Config) (string, error) {
+	if isLocalEnviron(envConfig) {
+		return environs.LocalNamespace(envConfig.Name())
+	}
+	// The environment does not support namespaces.
+	return "", nil
+}
+
 func migrateLocalProviderAgentConfig(context Context) error {
 	st := context.State()
 	if st == nil {
@@ -50,6 +59,7 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		// We're running on a different node than the state server.
 		return nil
 	}
+
 	envConfig, err := st.EnvironConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read current config: %v", err)
@@ -67,15 +77,11 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	container, _ := attrs["container"].(string)
 
 	if namespace == "" {
-		username := os.Getenv("USER")
-		if username == "root" {
-			// sudo was probably called, get the original user.
-			username = os.Getenv("SUDO_USER")
+		ns, err := getNamespace(envConfig)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		if username == "" {
-			return fmt.Errorf("cannot get current user from the environment: %v", os.Environ())
-		}
-		namespace = username + "-" + envConfig.Name()
+		namespace = ns
 	}
 	if container == "" {
 		container = "lxc"

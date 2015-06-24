@@ -4,8 +4,9 @@
 package environs
 
 var (
-	Providers       = &providers
-	ProviderAliases = &providerAliases
+	Providers         = &providers
+	ProviderAliases   = &providerAliases
+	ResolveSudoByFunc = resolveSudo
 )
 
 func UpdateEnvironAttrs(envs *Environs, name string, newAttrs map[string]interface{}) {

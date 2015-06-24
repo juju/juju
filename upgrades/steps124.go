@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 )
 
@@ -45,8 +48,12 @@ func stepsFor124() []Step {
 
 func moveSyslogConfig(context Context) error {
 	config := context.AgentConfig()
+	namespace := config.Value(agent.Namespace)
 	logdir := config.LogDir()
-	datadir := config.DataDir()
+	confdir := agent.DefaultConfDir
+	if namespace != "" {
+		confdir += "-" + namespace
+	}
 
 	// these values were copied from
 	// github.com/juju/juju/utils/syslog/config.go
@@ -62,8 +69,10 @@ func moveSyslogConfig(context Context) error {
 	var errs []string
 	for _, f := range files {
 		oldpath := filepath.Join(logdir, f)
-		newpath := filepath.Join(datadir, f)
-		if err := copyFile(newpath, oldpath); err != nil {
+		newpath := filepath.Join(confdir, f)
+		if err := copyFile(newpath, oldpath); errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			errs = append(errs, err.Error())
 			continue
 		}
@@ -91,7 +100,7 @@ func copyFile(to, from string) error {
 	if os.IsNotExist(err) {
 		logger.Debugf("Old file %q does not exist, skipping.", from)
 		// original doesn't exist, that's fine.
-		return nil
+		return errors.NotFoundf(from)
 	}
 	if err != nil {
 		return err

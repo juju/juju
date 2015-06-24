@@ -32,20 +32,27 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
-// logDir returns a filesystem path to the location where juju
-// may create a folder containing its logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+// These are base values used for the corresponding defaults.
+var (
+	logDir  = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+)
 
-// dataDir returns the default data directory for this running system
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+var (
+	// DefaultLogDir defines the default log directory for juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultLogDir = path.Join(logDir, "juju")
 
-// DefaultLogDir defines the default log directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultLogDir = path.Join(logDir, "juju")
+	// DefaultDataDir defines the default data directory for juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultDataDir = dataDir
 
-// DefaultDataDir defines the default data directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultDataDir = dataDir
+	// DefaultConfDir defines the default config file directory for
+	// Juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultConfDir = confDir
+)
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"

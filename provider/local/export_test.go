@@ -20,7 +20,7 @@ var (
 	DetectPackageProxies = &detectPackageProxies
 	ExecuteCloudConfig   = &executeCloudConfig
 	Provider             = providerInstance
-	UserCurrent          = &userCurrent
+	GetNamespace         = &getNamespace
 )
 
 // CheckConfigNamespace checks the result of the namespace call on the

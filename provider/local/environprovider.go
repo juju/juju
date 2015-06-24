@@ -4,11 +4,8 @@
 package local
 
 import (
-	"fmt"
 	"net"
 	"net/url"
-	"os"
-	"os/user"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,7 +31,7 @@ type environProvider struct{}
 
 var providerInstance = &environProvider{}
 
-var userCurrent = user.Current
+var getNamespace = environs.LocalNamespace
 
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -100,15 +97,11 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 		attrs["agent-version"] = version.Current.Number.String()
 	}
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
-		username := os.Getenv("USER")
-		if username == "" {
-			u, err := userCurrent()
-			if err != nil {
-				return nil, errors.Annotate(err, "failed to determine username for namespace")
-			}
-			username = u.Username
+		namespace, err := getNamespace(cfg.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		attrs["namespace"] = fmt.Sprintf("%s-%s", username, cfg.Name())
+		attrs["namespace"] = namespace
 	}
 
 	setIfNotBlank := func(key, value string) {
