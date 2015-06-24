@@ -15,12 +15,12 @@ const launchDoc = `
 "launch" is used to launch a workload process.
 
 The process name must correspond to one of the processes defined in
-the charm's metadata.yaml.  `
+the charm's metadata.yaml.`
 
 // FindPluginFn will find a plugin given its name.
 type FindPluginFn func(string) (*plugin.Plugin, error)
 
-// LaunchPluginFn will launch a plugin given a plugin and a charm's process.
+// LaunchPluginFn will launch a plugin given a plugin and a process definition.
 type LaunchPluginFn func(plugin.Plugin, charm.Process) (plugin.ProcDetails, error)
 
 // NewProcLaunchCommand constructs a new ProcLaunchCommand.
@@ -38,6 +38,8 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 	}, nil
 }
 
+// ProcLaunchCommand implements the launch command for launching
+// workflow processes.
 type ProcLaunchCommand struct {
 	registeringCommand
 
