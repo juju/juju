@@ -57,6 +57,9 @@ func (pp procsPersistence) ensureDefinitions(definitions ...charm.Process) error
 					okOps = append(okOps, op)
 				} else if err != nil {
 					return nil, errors.Trace(err)
+				} else {
+					// TODO(ericsnow) compare ops to corresponding
+					// definitions; fail if not the same.
 				}
 				// Otherwise the op is dropped.
 			}
