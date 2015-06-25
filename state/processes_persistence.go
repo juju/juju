@@ -36,14 +36,22 @@ func (pp procsPersistence) coll() (stateCollection, func()) {
 	return pp.st.getCollection(workloadProcessesC)
 }
 
-func (pp procsPersistence) ensureDefinitions(definitions ...charm.Process) error {
-	// Add definition if not already added (or ensure matches).
+// EnsureDefinitions checks persistence to see if records for the
+// definitions are already there. If not then they are added. If so then
+// they are checked to be sure they match those provided. The lists of
+// names for those that already exist and that don't match are returned.
+func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error) {
+	var found []string
+	var mismatched []string
+
 	var ops []txn.Op
 	for _, definition := range definitions {
 		ops = append(ops, pp.newInsertDefinitionOp(definition))
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			// TODO(ericsnow) Track found and mismatched.
+
 			// The last attempt aborted so clear out any ops that failed
 			// the DocMissing assertion and try again.
 			coll, closeColl := pp.coll()
@@ -71,27 +79,36 @@ func (pp procsPersistence) ensureDefinitions(definitions ...charm.Process) error
 		return ops, nil
 	}
 	if err := pp.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return nil
+	return found, mismatched, nil
 }
 
-func (pp procsPersistence) insert(info process.Info) error {
+// Insert adds records for the process to persistence. If the process
+// is already there then false gets returned (true if inserted).
+// Existing records are not checked for consistency.
+func (pp procsPersistence) Insert(info process.Info) (bool, error) {
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
 	ops = append(ops, pp.newInsertProcessOps(info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(ericsnow) Return false if found.
 		return ops, nil
 	}
 	if err := pp.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	return nil
+	return true, nil
 }
 
-func (pp procsPersistence) setStatus(id string, status process.Status) error {
+// SetStatus updates the raw status for the identified process in
+// persistence. The return value corresponds to whether or not the
+// record was found in persistence. Any other problem results in
+// an error. The process is not checked for inconsistent records.
+func (pp procsPersistence) SetStatus(id string, status process.Status) (bool, error) {
+	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
@@ -99,36 +116,46 @@ func (pp procsPersistence) setStatus(id string, status process.Status) error {
 		if attempt > 0 {
 			_, err := pp.proc(id)
 			if err == mgo.ErrNotFound {
-				return nil, errors.NotFoundf(id)
+				found = false
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 			// We ignore the request since the proc is dying.
 			return nil, jujutxn.ErrNoOperations
 		}
+		found = true
 		return ops, nil
 	}
 	if err := pp.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	return nil
+	return found, nil
 }
 
-func (pp procsPersistence) list(ids ...string) ([]process.Info, error) {
+// List builds the list of processes found in persistence which match
+// the provided IDs. The lists of IDs with missing records is also
+// returned. Inconsistent records result in errors.NotValid.
+func (pp procsPersistence) List(ids ...string) ([]process.Info, []string, error) {
+	var missing []string
+
+	// TODO(ericsnow) Track missing records.
+	// TODO(ericsnow) Fail for inconsistent records.
 	// TODO(ericsnow) Ensure that the unit is Alive?
 	// TODO(ericsnow) possible race here
 	procDocs, err := pp.procs(ids)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	launchDocs, err := pp.launches(ids)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	definitionDocs, err := pp.definitions(ids)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
+
 	// TODO(ericsnow) charm-defined proc definitions must be accommodated.
 	results := make([]process.Info, len(ids))
 	for i := range results {
@@ -142,25 +169,32 @@ func (pp procsPersistence) list(ids ...string) ([]process.Info, error) {
 		info.UnitID = pp.unit.Id()
 		results[i] = doc.info()
 	}
-	return results, nil
+	return results, missing, nil
 }
 
 // TODO(ericsnow) Add procs to state/cleanup.go.
 
 // TODO(ericsnow) How to ensure they are completely removed from state?
 
-func (pp procsPersistence) remove(id string) error {
+// Remove removes all records associated with the identified process
+// from persistence. Also returned is whether or not the process was
+// found. If the records for the process are not consistent then
+// errors.NotValid is returned.
+func (pp procsPersistence) Remove(id string) (bool, error) {
+	var found bool
 	var ops []txn.Op
-	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newRemoveProcessOps(id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(ericsnow) Fail if records not consistent.
+		// TODO(ericsnow) Set found back to false if missing.
+		found = true
 		return ops, nil
 	}
 	if err := pp.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	return nil
+	return found, nil
 }
 
 // TODO(ericsnow) Factor most of the below into a processesCollection type.

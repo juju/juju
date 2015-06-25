@@ -75,12 +75,13 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 	return nil
 }
 
+// The persistence methods needed for workload processes in state.
 type processesPersistence interface {
-	ensureDefinitions(definitions ...charm.Process) error
-	insert(info process.Info) error
-	setStatus(id string, status process.RawStatus) error
-	list(ids ...string) ([]process.Info, error)
-	remove(id string) error
+	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
+	Insert(info process.Info) (bool, error)
+	SetStatus(id string, status process.RawStatus) (bool, error)
+	List(ids ...string) ([]process.Info, []string, error)
+	Remove(id string) (bool, error)
 }
 
 type processDefinitions struct {
@@ -101,8 +102,12 @@ func (pd processDefinitions) EnsureDefined(definitions ...charm.Process) error {
 			return errors.Trace(err)
 		}
 	}
-	if err := pd.persist.ensureDefinitions(definitions...); err != nil {
+	_, mismatched, err := pd.persist.EnsureDefinitions(definitions...)
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if len(mismatched) > 0 {
+		return errors.NotValidf("mismatched definitions for %v", mismatched)
 	}
 	return nil
 }
@@ -131,47 +136,62 @@ func (ps unitProcesses) Register(info process.Info, charm names.CharmTag) error 
 		return errors.Trace(err)
 	}
 
-	if err := ps.persist.ensureDefinitions(info.Process); err != nil {
+	_, mismatched, err := ps.persist.EnsureDefinitions(info.Process)
+	if err != nil {
 		return errors.Trace(err)
 	}
+	if len(mismatched) > 0 {
+		return errors.NotValidf("mismatched definition for %q", info.Name)
+	}
 
-	if err := ps.persist.insert(info); err != nil {
+	ok, err := ps.persist.Insert(info)
+	if err != nil {
 		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
 	}
+	if !ok {
+		return errors.NotValidf("process %s (already in state)", info.ID())
+	}
+
 	return nil
 }
 
 // SetStatus updates the raw status for the identified process to the
 // provided value.
 func (ps unitProcesses) SetStatus(id string, status process.Status) error {
-	if err := ps.persist.setStatus(id, status); err != nil {
+	found, err := ps.persist.SetStatus(id, status)
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if !found {
+		return errors.NotFoundf(id)
 	}
 	return nil
 }
 
 // List builds the list of process information for the provided process
 // IDs. If none are provided then the list contains the info for all
-// workload processes associated with the unit.
+// workload processes associated with the unit. Missing processes
+// are ignored.
 func (ps unitProcesses) List(ids ...string) ([]process.Info, error) {
-	results, err := ps.persist.list(ids...)
+	// TODO(ericsnow) Call ListAll if ids is empty.
+	results, _, err := ps.persist.List(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(ericsnow) Ensure that the number returned matches the
+	// number expected.
 	return results, nil
 }
 
 // Unregister removes the identified process from state. It does not
 // trigger the actual destruction of the process.
 func (ps unitProcesses) Unregister(id string) error {
-	err := ps.persist.remove(id)
-	if errors.IsNotFound(err) {
-		// We're already done!
-		return nil
-	}
+	// If the record wasn't found then we're already done.
+	_, err := ps.persist.Remove(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	return nil
 }
