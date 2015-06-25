@@ -4,6 +4,9 @@
 package state_test
 
 import (
+	"reflect"
+
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -83,4 +86,124 @@ type fakeProcsPersistence struct {
 	definitions  map[string]*charm.Process
 	procs        map[string]*process.Info
 	inconsistent []string
+}
+
+func (s *fakeProcsPersistence) setDefinitions(definitions ...*charm.Process) {
+	if s.definitions == nil {
+		s.definitions = make(map[string]*charm.Process)
+	}
+	for _, definition := range definitions {
+		s.definitions[definition.Name] = definition
+	}
+}
+
+func (s *fakeProcsPersistence) setProcesses(procs ...*process.Info) {
+	if s.procs == nil {
+		s.procs = make(map[string]*process.Info)
+	}
+	for _, proc := range procs {
+		s.procs[proc.ID()] = proc
+	}
+}
+
+func (s *fakeProcsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error) {
+	s.AddCall("EnsureDefinitions", definitions)
+	if err := s.NextErr(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	var existing []string
+	var mismatched []string
+	for _, definition := range definitions {
+		if added, ok := s.ensureDefinition(definition); !added {
+			existing = append(existing, definition.Name)
+			if !ok {
+				mismatched = append(mismatched, definition.Name)
+			}
+		} else {
+			s.definitions[definition.Name] = &definition
+		}
+	}
+	return existing, mismatched, nil
+}
+
+func (s *fakeProcsPersistence) ensureDefinition(definition charm.Process) (bool, bool) {
+	if expected, ok := s.definitions[definition.Name]; ok {
+		if !reflect.DeepEqual(definition, expected) {
+			return false, false
+		}
+		return false, true
+	} else {
+		s.definitions[definition.Name] = &definition
+		return true, true
+	}
+}
+
+func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
+	s.AddCall("Insert", info)
+	if err := s.NextErr(); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	if _, ok := s.procs[info.ID()]; ok {
+		return false, nil
+	}
+	s.procs[info.ID()] = &info
+	return true, nil
+}
+
+func (s *fakeProcsPersistence) SetStatus(id string, status process.RawStatus) (bool, error) {
+	s.AddCall("SetStatus", id, status)
+	if err := s.NextErr(); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	proc, ok := s.procs[id]
+	if !ok {
+		return false, nil
+	}
+	proc.Details.Status = status
+	return true, nil
+}
+
+func (s *fakeProcsPersistence) List(ids ...string) ([]process.Info, []string, error) {
+	s.AddCall("List", ids)
+	if err := s.NextErr(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	var procs []process.Info
+	var missing []string
+	for _, id := range ids {
+		if proc, ok := s.procs[id]; !ok {
+			missing = append(missing, id)
+		} else {
+			for _, inconsistent := range s.inconsistent {
+				if id == inconsistent {
+					return nil, nil, errors.NotValidf(id)
+				}
+			}
+			procs = append(procs, *proc)
+		}
+	}
+	return procs, missing, nil
+}
+
+func (s *fakeProcsPersistence) Remove(id string) (bool, error) {
+	s.AddCall("Remove", id)
+	if err := s.NextErr(); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	if _, ok := s.procs[id]; !ok {
+		return false, nil
+	}
+	for _, inconsistent := range s.inconsistent {
+		if id == inconsistent {
+			return false, errors.NotValidf(id)
+		}
+	}
+	delete(s.procs, id)
+	// TODO(ericsnow) Remove definition if appropriate.
+	return true, nil
 }
