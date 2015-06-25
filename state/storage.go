@@ -300,7 +300,7 @@ func removeStorageInstanceOps(
 		ops = append(ops, machineStorageOp(
 			volumesC, volume.Tag().Id(),
 		))
-		if volume.Binding() == tag {
+		if volume.LifeBinding() == tag {
 			ops = append(ops, destroyVolumeOps(st, volume)...)
 		}
 	} else if !errors.IsNotFound(err) {
@@ -311,7 +311,7 @@ func removeStorageInstanceOps(
 		ops = append(ops, machineStorageOp(
 			filesystemsC, filesystem.Tag().Id(),
 		))
-		if filesystem.Binding() == tag {
+		if filesystem.LifeBinding() == tag {
 			ops = append(ops, destroyFilesystemOps(st, filesystem)...)
 		}
 	} else if !errors.IsNotFound(err) {

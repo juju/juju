@@ -641,7 +641,7 @@ func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
 	// Filesystems created unassigned to a storage instance are
 	// bound to the initially attached machine.
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
-	c.Assert(filesystem.Binding(), gc.Equals, machine.Tag())
+	c.Assert(filesystem.LifeBinding(), gc.Equals, machine.Tag())
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -658,7 +658,7 @@ func (s *FilesystemStateSuite) TestFilesystemBindingStorage(c *gc.C) {
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
-	c.Assert(filesystem.Binding(), gc.Equals, storageTag)
+	c.Assert(filesystem.LifeBinding(), gc.Equals, storageTag)
 
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -683,7 +683,7 @@ func (s *FilesystemStateSuite) TestFilesystemVolumeBinding(c *gc.C) {
 	// A volume backing a filesystem is bound to the filesystem.
 	filesystem, _ := s.setupFilesystemAttachment(c, "loop")
 	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
-	c.Assert(volume.Binding(), gc.Equals, filesystem.Tag())
+	c.Assert(volume.LifeBinding(), gc.Equals, filesystem.Tag())
 
 	// TestRemoveFilesystemVolumeBacked tests that removal of
 	// filesystem destroys volume.

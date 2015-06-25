@@ -308,6 +308,8 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
+	// Create a unit with static storage; ensure that storage-add
+	// fails to add more of this kind of storage.
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "static")
 	s.assertStorageCount(c, 1)
 

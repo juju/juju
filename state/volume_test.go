@@ -458,9 +458,9 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
 	volume3 := s.volume(c, names.NewVolumeTag("2"))
 
-	c.Assert(volume1.Binding(), gc.Equals, machine.MachineTag())
-	c.Assert(volume2.Binding(), gc.Equals, machine.MachineTag())
-	c.Assert(volume3.Binding(), gc.Equals, machine.MachineTag())
+	c.Assert(volume1.LifeBinding(), gc.Equals, machine.MachineTag())
+	c.Assert(volume2.LifeBinding(), gc.Equals, machine.MachineTag())
+	c.Assert(volume3.LifeBinding(), gc.Equals, machine.MachineTag())
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
@@ -726,7 +726,7 @@ func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
 	// Volumes created unassigned to a storage instance are
 	// bound to the initially attached machine.
 	volume := s.volume(c, names.NewVolumeTag("0"))
-	c.Assert(volume.Binding(), gc.Equals, machine.Tag())
+	c.Assert(volume.LifeBinding(), gc.Equals, machine.Tag())
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
 
 	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
@@ -743,7 +743,7 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 	volume, _ := s.setupVolumeAttachment(c)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.Binding(), gc.Equals, storageTag)
+	c.Assert(volume.LifeBinding(), gc.Equals, storageTag)
 
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

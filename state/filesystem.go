@@ -26,33 +26,10 @@ var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
 // entities managed by a filesystem provider.
 type Filesystem interface {
 	Entity
+	LifeBinder
 
 	// FilesystemTag returns the tag for the filesystem.
 	FilesystemTag() names.FilesystemTag
-
-	// Life returns the life of the filesystem.
-	Life() Life
-
-	// Binding is the tag of an entity that the filesystem's life span is
-	// bound to. This may be nil (i.e. the filesystem may persist beyond
-	// the span of environment), or one of EnvironmentTag, StorageTag, or
-	// MachineTag. The filesystem will be destroyed when the identified
-	// entity is destroyed.
-	//
-	// The following is a description of the effects of binding to
-	// different entities:
-	//   Machine:     If the filesystem is bound to a machine, then the
-	//                filesystem will be destroyed when it is detached from
-	//                the machine. It is not permitted for a filesystem to
-	//                be attached to multiple machines while it is bound to
-	//                a machine.
-	//   Storage:     If the filesystem is bound to a storage instance,
-	//                then the filesystem will be destroyed when the
-	//                storage insance is removed from state.
-	//   Environment: If the filesystem is bound to the environment, then
-	//                the filesystem must be destroyed prior to the
-	//                environment being destroyed.
-	Binding() names.Tag
 
 	// Storage returns the tag of the storage instance that this
 	// filesystem is assigned to, if any. If the filesystem is not
@@ -80,14 +57,13 @@ type Filesystem interface {
 
 // FilesystemAttachment describes an attachment of a filesystem to a machine.
 type FilesystemAttachment interface {
+	Lifer
+
 	// Filesystem returns the tag of the related Filesystem.
 	Filesystem() names.FilesystemTag
 
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
-
-	// Life returns the life of the filesystem attachment.
-	Life() Life
 
 	// Info returns the filesystem attachment's FilesystemAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
@@ -217,8 +193,23 @@ func (f *filesystem) Life() Life {
 	return f.doc.Life
 }
 
-// Binding is required to implement Filesystem.
-func (f *filesystem) Binding() names.Tag {
+// LifeBinding is required to implement LifeBinder.
+//
+// Below is the set of possible entity types that a volume may be bound
+// to, and a description of the effects of doing so:
+//
+//   Machine:     If the filesystem is bound to a machine, then the
+//                filesystem will be destroyed when it is detached from
+//                the machine. It is not permitted for a filesystem to
+//                be attached to multiple machines while it is bound to
+//                a machine.
+//   Storage:     If the filesystem is bound to a storage instance,
+//                then the filesystem will be destroyed when the
+//                storage insance is removed from state.
+//   Environment: If the filesystem is bound to the environment, then
+//                the filesystem must be destroyed prior to the
+//                environment being destroyed.
+func (f *filesystem) LifeBinding() names.Tag {
 	if f.doc.Binding == "" {
 		return nil
 	}
@@ -612,7 +603,7 @@ func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if volume.Binding() == filesystem.Tag() {
+		if volume.LifeBinding() == filesystem.Tag() {
 			ops = append(ops, destroyVolumeOps(st, volume)...)
 		}
 	} else if err != ErrNoBackingVolume {

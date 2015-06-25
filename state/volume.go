@@ -20,35 +20,10 @@ import (
 // Volume describes a volume (disk, logical volume, etc.) in the environment.
 type Volume interface {
 	Entity
+	LifeBinder
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
-
-	// Life returns the life of the volume.
-	Life() Life
-
-	// Binding is the tag of an entity that the volume's life span is bound
-	// to. This may be nil (i.e. the volume may persist beyond the span of
-	// environment), or one of EnvironmentTag, StorageTag, FilesystemTag,
-	// or MachineTag.
-	//
-	// The following is a description of the effects of binding to
-	// different entities:
-	//   Machine:     If the volume is bound to a machine, then the volume
-	//                will be destroyed when it is detached from the
-	//                machine. It is not permitted for a volume to be
-	//                attached to multiple machines while it is bound to a
-	//                machine.
-	//   Storage:     If the volume is bound to a storage instance, then
-	//                the volume will be destroyed when the storage insance
-	//                is removed from state.
-	//   Filesystem:  If the volume is bound to a filesystem, i.e. the
-	//                volume backs that filesystem, then it will be
-	//                destroyed when the filesystem is removed from state.
-	//   Environment: If the volume is bound to the environment, then the
-	//                volume must be destroyed prior to the environment
-	//                being destroyed.
-	Binding() names.Tag
 
 	// StorageInstance returns the tag of the storage instance that this
 	// volume is assigned to, if any. If the volume is not assigned to
@@ -71,14 +46,13 @@ type Volume interface {
 
 // VolumeAttachment describes an attachment of a volume to a machine.
 type VolumeAttachment interface {
+	Lifer
+
 	// Volume returns the tag of the related Volume.
 	Volume() names.VolumeTag
 
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
-
-	// Life returns the life of the volume attachment.
-	Life() Life
 
 	// Info returns the volume attachment's VolumeAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
@@ -200,8 +174,26 @@ func (v *volume) Life() Life {
 	return v.doc.Life
 }
 
-// Binding is required to implement Volume.
-func (v *volume) Binding() names.Tag {
+// LifeBinding is required to implement LifeBinder.
+//
+// Below is the set of possible entity types that a volume may be bound
+// to, and a description of the effects of doing so:
+//
+//   Machine:     If the volume is bound to a machine, then the volume
+//                will be destroyed when it is detached from the
+//                machine. It is not permitted for a volume to be
+//                attached to multiple machines while it is bound to a
+//                machine.
+//   Storage:     If the volume is bound to a storage instance, then
+//                the volume will be destroyed when the storage insance
+//                is removed from state.
+//   Filesystem:  If the volume is bound to a filesystem, i.e. the
+//                volume backs that filesystem, then it will be
+//                destroyed when the filesystem is removed from state.
+//   Environment: If the volume is bound to the environment, then the
+//                volume must be destroyed prior to the environment
+//                being destroyed.
+func (v *volume) LifeBinding() names.Tag {
 	if v.doc.Binding == "" {
 		return nil
 	}

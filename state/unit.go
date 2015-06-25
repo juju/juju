@@ -1635,10 +1635,10 @@ func machineStorageParamsForStorageInstance(
 			// to create a volume.
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
-				storage.StorageTag(),
-				storage.StorageTag(),
-				cons.Pool,
-				cons.Size,
+				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
 			}
 			volumes = append(volumes, MachineVolumeParams{
 				volumeParams, volumeAttachmentParams,
@@ -1663,10 +1663,10 @@ func machineStorageParamsForStorageInstance(
 			// to create a filesystem.
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
-				storage.StorageTag(),
-				storage.StorageTag(),
-				cons.Pool,
-				cons.Size,
+				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
 			}
 			filesystems = append(filesystems, MachineFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
