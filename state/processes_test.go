@@ -4,12 +4,14 @@
 package state_test
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -55,6 +57,14 @@ func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []proce
 	for _, definition := range s.newDefinitions(pType, names...) {
 		processes = append(processes, process.Info{
 			Process: definition,
+			CharmID: s.charm.Id(),
+			UnitID:  s.unit.Id(),
+			Details: process.Details{
+				ID: fmt.Sprintf("%s-%s", definition.Name, utils.MustNewUUID()),
+				Status: process.RawStatus{
+					Value: "running",
+				},
+			},
 		})
 	}
 	return processes
@@ -121,16 +131,85 @@ type unitProcessesSuite struct {
 	baseProcessesSuite
 }
 
-func (s *unitProcessesSuite) TestRegister(c *gc.C) {
+func (s *unitProcessesSuite) TestRegisterOkay(c *gc.C) {
+	procs := s.newProcesses("docker", "procA")
+	proc := procs[0]
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "EnsureDefinitions", "Insert")
+	s.persist.checkProcesses(c, procs)
+}
+
+func (s *unitProcessesSuite) TestRegisterInvalid(c *gc.C) {
+	proc := s.newProcesses("", "procA")[0]
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *unitProcessesSuite) TestRegisterEnsureDefinitionFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+	proc := s.newProcesses("docker", "procA")[0]
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *unitProcessesSuite) TestRegisterMismatchedDefinition(c *gc.C) {
+	s.persist.setDefinitions(&charm.Process{Name: "procA", Type: "kvm"})
+	proc := s.newProcesses("docker", "procA")[0]
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *unitProcessesSuite) TestRegisterInsertFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(nil, failure)
+	proc := s.newProcesses("docker", "procA")[0]
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
+	proc := s.newProcesses("docker", "procA")[0]
+	s.persist.setProcesses(&proc)
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Register(proc, s.charm)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *unitProcessesSuite) TestSetStatus(c *gc.C) {
+	//err := ps.SetStatus()
+	//c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (s *unitProcessesSuite) TestList(c *gc.C) {
+	//procs, err := ps.List()
+	//c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (s *unitProcessesSuite) TestUnregister(c *gc.C) {
+	//err := ps.Unregister()
+	//c.Assert(err, jc.ErrorIsNil)
+
 }
 
 type fakeProcsPersistence struct {
@@ -148,6 +227,25 @@ func (s *fakeProcsPersistence) checkDefinitions(c *gc.C, expectedList []charm.Pr
 			c.Errorf("definition %q not found", expected.Name)
 		} else {
 			c.Check(definition, jc.DeepEquals, &expected)
+		}
+	}
+}
+
+func (s *fakeProcsPersistence) checkProcesses(c *gc.C, expectedList []process.Info) {
+	c.Check(s.procs, gc.HasLen, len(expectedList))
+	for _, expected := range expectedList {
+		proc, ok := s.procs[expected.ID()]
+		if !ok {
+			c.Errorf("process %q not found", expected.ID())
+		} else {
+			c.Check(proc, jc.DeepEquals, &expected)
+		}
+
+		definition, ok := s.definitions[expected.Name]
+		if !ok {
+			c.Errorf("definition %q not found", expected.Name)
+		} else {
+			c.Check(definition, jc.DeepEquals, &expected.Process)
 		}
 	}
 }
