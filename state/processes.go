@@ -20,7 +20,7 @@ func (st *State) RegisterProcess(unit names.UnitTag, info process.Info) error {
 	charmTag := charm.Tag().(names.CharmTag)
 
 	ps := newUnitProcesses(st, unit, &charmTag)
-	if err := ps.register(info, charmTag); err != nil {
+	if err := ps.Register(info, charmTag); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -31,7 +31,7 @@ func (st *State) RegisterProcess(unit names.UnitTag, info process.Info) error {
 // SetProcessStatus sets the raw status of a workload process.
 func (st *State) SetProcessStatus(unit names.UnitTag, id string, status process.Status) error {
 	ps := newUnitProcesses(st, unit, nil)
-	if err := ps.setStatus(id, status); err != nil {
+	if err := ps.SetStatus(id, status); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -42,7 +42,7 @@ func (st *State) SetProcessStatus(unit names.UnitTag, id string, status process.
 // processes for the unit are returned.
 func (st *State) ListProcesses(unit names.UnitTag, ids ...string) ([]process.Info, error) {
 	ps := newUnitProcesses(st, unit, nil)
-	results, err := ps.list(ids...)
+	results, err := ps.List(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,7 +52,7 @@ func (st *State) ListProcesses(unit names.UnitTag, ids ...string) ([]process.Inf
 // UnregisterProcess marks the identified process as unregistered.
 func (st *State) UnregisterProcess(unit names.UnitTag, id string) error {
 	ps := newUnitProcesses(st, unit, nil)
-	if err := ps.unregister(id); err != nil {
+	if err := ps.Unregister(id); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -69,7 +69,7 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 		definitions = append(definitions, definition)
 	}
 	pd := newProcessDefinitions(st, charmTag)
-	if err := pd.ensureDefined(definitions...); err != nil {
+	if err := pd.EnsureDefined(definitions...); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -93,7 +93,9 @@ func newProcessDefinitions(st *State, charm names.CharmTag) *processDefinitions 
 	}
 }
 
-func (pd processDefinitions) ensureDefined(definitions ...charm.Process) error {
+// EnsureDefined makes sure that all the provided definitions exist in
+// state. So either they are there already or they get added.
+func (pd processDefinitions) EnsureDefined(definitions ...charm.Process) error {
 	for _, definition := range definitions {
 		if err := definition.Validate(); err != nil {
 			return errors.Trace(err)
@@ -123,7 +125,8 @@ func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *uni
 	}
 }
 
-func (ps unitProcesses) register(info process.Info, charm names.CharmTag) error {
+// Register adds the provided process info to state.
+func (ps unitProcesses) Register(info process.Info, charm names.CharmTag) error {
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -139,14 +142,19 @@ func (ps unitProcesses) register(info process.Info, charm names.CharmTag) error 
 	return nil
 }
 
-func (ps unitProcesses) setStatus(id string, status process.Status) error {
+// SetStatus updates the raw status for the identified process to the
+// provided value.
+func (ps unitProcesses) SetStatus(id string, status process.Status) error {
 	if err := ps.persist.setStatus(id, status); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (ps unitProcesses) list(ids ...string) ([]process.Info, error) {
+// List builds the list of process information for the provided process
+// IDs. If none are provided then the list contains the info for all
+// workload processes associated with the unit.
+func (ps unitProcesses) List(ids ...string) ([]process.Info, error) {
 	results, err := ps.persist.list(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,7 +162,9 @@ func (ps unitProcesses) list(ids ...string) ([]process.Info, error) {
 	return results, nil
 }
 
-func (ps unitProcesses) unregister(id string) error {
+// Unregister removes the identified process from state. It does not
+// trigger the actual destruction of the process.
+func (ps unitProcesses) Unregister(id string) error {
 	err := ps.persist.remove(id)
 	if errors.IsNotFound(err) {
 		// We're already done!
