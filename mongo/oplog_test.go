@@ -29,7 +29,11 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// Watch for oplog entries for the "bar" collection in the "foo"
 	// DB.
 	oplog := mongo.GetOplog(session)
-	tailer := mongo.NewOplogTailer(oplog, bson.D{{"ns", "foo.bar"}})
+	tailer := mongo.NewOplogTailer(
+		oplog,
+		bson.D{{"ns", "foo.bar"}},
+		time.Now().Add(-time.Minute),
+	)
 	defer tailer.Stop()
 
 	assertOplog := func(expectedOp string, expectedObj, expectedUpdate bson.D) {
@@ -63,11 +67,34 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	s.assertNoOplog(c, tailer)
 }
 
+func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
+	_, session := s.startMongo(c)
+
+	t := time.Now()
+
+	oplog := s.makeFakeOplog(c, session)
+	for offset := -1; offset <= 1; offset++ {
+		tDoc := t.Add(time.Duration(offset) * time.Second)
+		s.insertDoc(c, session, oplog,
+			&mongo.OplogDoc{Timestamp: mongo.NewMongoTimestamp(tDoc)},
+		)
+	}
+
+	tailer := mongo.NewOplogTailer(oplog, nil, t)
+	defer tailer.Stop()
+
+	for offset := 0; offset <= 1; offset++ {
+		doc := s.getNextOplog(c, tailer)
+		tExpected := t.Add(time.Duration(offset) * time.Second)
+		c.Assert(doc.Timestamp, gc.Equals, mongo.NewMongoTimestamp(tExpected))
+	}
+}
+
 func (s *oplogSuite) TestStops(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil)
+	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
 	defer tailer.Stop()
 
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
@@ -84,7 +111,7 @@ func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil)
+	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
 	defer tailer.Stop()
 
 	// First, ensure that the tailer is seeing oplog inserts.
@@ -110,7 +137,7 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil)
+	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
 	defer tailer.Stop()
 
 	// Insert a bunch of oplog entries with the same timestamp (but
@@ -161,7 +188,7 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	oplog := s.makeFakeOplog(c, session)
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
 
-	tailer := mongo.NewOplogTailer(oplog, nil)
+	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
 	defer tailer.Stop()
 
 	doc := s.getNextOplog(c, tailer)
