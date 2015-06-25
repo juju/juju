@@ -28,11 +28,17 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 		return nil, errors.NotValidf("address")
 	}
 
+	// Generate the UUID for the new IP address.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+
 	addressID := st.docID(addr.Value)
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
-		UUID:     utils.MustNewUUID().String(),
+		UUID:     uuid.String(),
 		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
@@ -68,7 +74,7 @@ func ipAddress(st *State, value string) (*IPAddress, error) {
 	defer closer()
 
 	doc := &ipaddressDoc{}
-	err := addresses.FindId(st.docID(value)).One(doc)
+	err := addresses.FindId(value).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("IP address %q", value)
 	}
@@ -79,8 +85,8 @@ func ipAddress(st *State, value string) (*IPAddress, error) {
 }
 
 // ipAddressByTag implements the State method to return an existing IP
-// address by its value.
-func ipAddressByTag(st *State, tag names.Tag) (*IPAddress, error) {
+// address by its tag.
+func ipAddressByTag(st *State, tag names.IPAddressTag) (*IPAddress, error) {
 	addresses, closer := st.getCollection(ipaddressesC)
 	defer closer()
 
@@ -100,16 +106,12 @@ func fetchIPAddresses(st *State, query bson.D) ([]*IPAddress, error) {
 	addresses, closer := st.getCollection(ipaddressesC)
 	result := []*IPAddress{}
 	defer closer()
-	var doc struct {
-		Value string
-	}
+	doc := ipaddressDoc{}
 	iter := addresses.Find(query).Iter()
 	for iter.Next(&doc) {
-		addr, err := st.IPAddress(doc.Value)
-		if err != nil {
-			// shouldn't happen as we're only fetching
-			// addresses we know exist.
-			continue
+		addr := &IPAddress{
+			st:  st,
+			doc: doc,
 		}
 		result = append(result, addr)
 	}
@@ -179,9 +181,9 @@ func (i *IPAddress) Id() string {
 	return i.doc.DocID
 }
 
-// UUID returns the global unique ID of the IP address.
-func (i *IPAddress) UUID() string {
-	return i.doc.UUID
+// UUID returns the globally unique ID of the IP address.
+func (i *IPAddress) UUID() (utils.UUID, error) {
+	return utils.UUIDFromString(i.doc.UUID)
 }
 
 // Tag returns the tag of the IP address.

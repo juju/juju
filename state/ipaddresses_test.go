@@ -96,7 +96,9 @@ func (s *IPAddressSuite) TestIPAddressByTag(c *gc.C) {
 	added, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	tag := names.NewIPAddressTag(added.UUID())
+	uuid, err := added.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewIPAddressTag(uuid.String())
 	found, err := s.State.IPAddressByTag(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Id(), gc.Equals, added.Id())
@@ -107,7 +109,9 @@ func (s *IPAddressSuite) TestIPAddressFindEntity(c *gc.C) {
 	added, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	tag := names.NewIPAddressTag(added.UUID())
+	uuid, err := added.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewIPAddressTag(uuid.String())
 	found, err := s.State.FindEntity(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Tag(), gc.Equals, tag)

@@ -2758,19 +2758,27 @@ func (s *upgradesSuite) TestIPAddressAddUUID(c *gc.C) {
 
 	ipAddr, err := s.state.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(utils.IsValidUUIDString(ipAddr.UUID()), gc.Equals, true)
+	uuid, err := ipAddr.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.String(), jc.Satisfies, utils.IsValidUUIDString)
 
 	ipAddr, err = s.state.IPAddress("0.1.2.4")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(utils.IsValidUUIDString(ipAddr.UUID()), gc.Equals, true)
+	uuid, err = ipAddr.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.String(), jc.Satisfies, utils.IsValidUUIDString)
 
 	ipAddr, err = s.state.IPAddress("0.1.2.5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.UUID(), gc.Equals, "42424242-1111-2222-3333-0123456789ab")
+	uuid, err = ipAddr.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.String(), gc.Equals, "42424242-1111-2222-3333-0123456789ab")
 
 	ipAddr, err = s.state.IPAddress("0.1.2.6")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.UUID(), gc.Equals, "42424242-4444-5555-6666-0123456789ab")
+	uuid, err = ipAddr.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.String(), gc.Equals, "42424242-4444-5555-6666-0123456789ab")
 }
 
 func (s *upgradesSuite) TestIPAddressAddUUIDIdempotent(c *gc.C) {

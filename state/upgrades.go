@@ -580,7 +580,7 @@ func AddInstanceIdFieldOfIPAddresses(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
-// AddUUIDToIPAddresses creates and populates the uuid field
+// AddUUIDToIPAddresses creates and populates the UUID field
 // for all IP addresses.
 func AddUUIDToIPAddresses(st *State) error {
 	addresses, iCloser := st.getCollection(ipaddressesC)
@@ -599,11 +599,18 @@ func AddUUIDToIPAddresses(st *State) error {
 			continue
 		}
 
+		// Generate new UUID.
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			logger.Errorf("failed generating UUID for IP address: %v", err)
+			return errors.Trace(err)
+		}
+
 		// Add op for setting the UUID.
 		ops = append(ops, txn.Op{
 			C:      ipaddressesC,
 			Id:     address["_id"],
-			Update: bson.D{{"$set", bson.D{{"uuid", utils.MustNewUUID().String()}}}},
+			Update: bson.D{{"$set", bson.D{{"uuid", uuid.String()}}}},
 		})
 		address = nil
 	}

@@ -1202,7 +1202,7 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 
 // IPAddressByTag returns an existing IP address from the state
 // identified by its tag.
-func (st *State) IPAddressByTag(tag names.Tag) (*IPAddress, error) {
+func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
 	return ipAddressByTag(st, tag)
 }
 
@@ -1213,7 +1213,7 @@ func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
 
 // DeadIPAddresses returns all IP addresses with a Life of Dead
 func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return fetchIPAddresses(st, bson.D{{"life", Dead}})
+	return fetchIPAddresses(st, isDeadDoc)
 }
 
 // AddSubnet creates and returns a new subnet
