@@ -30,7 +30,7 @@ def win_test(script_dir, address, juju_home):
             'install': {'ci': ci},
             'command': ['ci/run-file', install_file],
             }, config)
-    subprocess.check_call(['workspace-run', 'foo.yaml', host, '-i',
+    subprocess.check_call(['workspace-run', '-v', 'foo.yaml', host, '-i',
                            private_key])
 
 
