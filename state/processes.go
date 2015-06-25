@@ -157,6 +157,7 @@ func (ps UnitProcesses) Register(info process.Info, charm names.CharmTag) error 
 		return errors.Trace(err)
 	}
 	if !ok {
+		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.NotValidf("process %s (already in state)", info.ID())
 	}
 
