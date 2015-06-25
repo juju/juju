@@ -147,11 +147,6 @@ type LogTailerParams struct {
 	Oplog         *mgo.Collection // For testing only
 }
 
-// This is the maximum number of log document ids that will be tracked
-// to avoid re-reporting logs when transitioning between querying the
-// logs collection and tailing the oplog.
-const maxRecentLogIds = 5192
-
 // oplogOverlap is used to decide on the initial oplog timestamp to
 // use when the LogTailer transitions from querying the logs
 // collection to tailing the oplog. Oplog records with a timestamp >=
@@ -160,6 +155,14 @@ const maxRecentLogIds = 5192
 // cluster hosts and log writes that occur during the transition
 // period.
 const oplogOverlap = time.Minute
+
+// This is the maximum number of log document ids that will be tracked
+// to avoid re-reporting logs when transitioning between querying the
+// logs collection and tailing the oplog.
+//
+// The value was calculated by looking at the per-minute peak log
+// output of large broken environments with logging at DEBUG.
+var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
