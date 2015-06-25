@@ -34,7 +34,7 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 
 func (s *steps124Suite) TestStepsFor124(c *gc.C) {
 	expected := []string{
-		"move syslog config from LogDir to DataDir",
+		"move syslog config from LogDir to ConfDir",
 	}
 	assertSteps(c, version.MustParse("1.24.0"), expected)
 }
