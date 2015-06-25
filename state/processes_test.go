@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -88,6 +89,18 @@ type fakeProcsPersistence struct {
 	inconsistent []string
 }
 
+func (s *fakeProcsPersistence) checkDefinitions(c *gc.C, expectedList []charm.Process) {
+	c.Check(s.definitions, gc.HasLen, len(expectedList))
+	for _, expected := range expectedList {
+		definition, ok := s.definitions[expected.Name]
+		if !ok {
+			c.Errorf("definition %q not found", expected.Name)
+		} else {
+			c.Check(definition, jc.DeepEquals, &expected)
+		}
+	}
+}
+
 func (s *fakeProcsPersistence) setDefinitions(definitions ...*charm.Process) {
 	if s.definitions == nil {
 		s.definitions = make(map[string]*charm.Process)
@@ -120,8 +133,6 @@ func (s *fakeProcsPersistence) EnsureDefinitions(definitions ...charm.Process) (
 			if !ok {
 				mismatched = append(mismatched, definition.Name)
 			}
-		} else {
-			s.definitions[definition.Name] = &definition
 		}
 	}
 	return existing, mismatched, nil
@@ -129,12 +140,12 @@ func (s *fakeProcsPersistence) EnsureDefinitions(definitions ...charm.Process) (
 
 func (s *fakeProcsPersistence) ensureDefinition(definition charm.Process) (bool, bool) {
 	if expected, ok := s.definitions[definition.Name]; ok {
-		if !reflect.DeepEqual(definition, expected) {
+		if !reflect.DeepEqual(&definition, expected) {
 			return false, false
 		}
 		return false, true
 	} else {
-		s.definitions[definition.Name] = &definition
+		s.setDefinitions(&definition)
 		return true, true
 	}
 }
@@ -148,7 +159,7 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	if _, ok := s.procs[info.ID()]; ok {
 		return false, nil
 	}
-	s.procs[info.ID()] = &info
+	s.setProcesses(&info)
 	return true, nil
 }
 
