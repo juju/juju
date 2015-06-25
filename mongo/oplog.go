@@ -89,16 +89,24 @@ func GetOplog(session *mgo.Session) *mgo.Collection {
 // - "query" can be used to limit the returned oplog entries. A
 //    typical filter would limit based on ns ("<database>.<collection>")
 //    and o (object).
+// - "initialTs" sets the operation timestamp to start returning
+//    results from. This can be used to avoid an expensive initial search
+//    through the oplog when the tailer first starts.
 //
 // Remember to call Stop on the returned OplogTailer when it is no
 // longer needed.
-func NewOplogTailer(oplog *mgo.Collection, query bson.D) *OplogTailer {
+func NewOplogTailer(
+	oplog *mgo.Collection,
+	query bson.D,
+	initialTs time.Time,
+) *OplogTailer {
 	// Use a fresh session for the tailer.
 	session := oplog.Database.Session.Copy()
 	t := &OplogTailer{
-		oplog: oplog.With(session),
-		query: query,
-		outCh: make(chan *OplogDoc),
+		oplog:     oplog.With(session),
+		query:     query,
+		initialTs: NewMongoTimestamp(initialTs),
+		outCh:     make(chan *OplogDoc),
 	}
 	go func() {
 		defer func() {
@@ -113,10 +121,11 @@ func NewOplogTailer(oplog *mgo.Collection, query bson.D) *OplogTailer {
 
 // OplogTailer tails MongoDB's replication oplog.
 type OplogTailer struct {
-	tomb  tomb.Tomb
-	oplog *mgo.Collection
-	query bson.D
-	outCh chan *OplogDoc
+	tomb      tomb.Tomb
+	oplog     *mgo.Collection
+	query     bson.D
+	initialTs bson.MongoTimestamp
+	outCh     chan *OplogDoc
 }
 
 // Out returns a channel that reports the oplog entries matching the
@@ -150,7 +159,7 @@ func (t *OplogTailer) loop() error {
 	var iter *mgo.Iter
 
 	// lastTimestamp tracks the most recent oplog timestamp reported.
-	var lastTimestamp bson.MongoTimestamp
+	lastTimestamp := t.initialTs
 
 	// idsForLastTimestamp records the unique operation ids that have
 	// been reported for the most recently reported oplog
