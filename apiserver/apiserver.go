@@ -377,6 +377,16 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler{ssState: srv.state},
 		}},
 	)
+	handleAll(mux, "/environment/:envuuid/resources",
+		&resourcesUploadHandler{resourcesHandler{
+			httpHandler{ssState: srv.state},
+		}},
+	)
+	handleAll(mux, "/environment/:envuuid/resources/:basepath",
+		&resourcesDownloadHandler{resourcesHandler{
+			httpHandler{ssState: srv.state},
+		}},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {

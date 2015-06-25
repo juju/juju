@@ -8,10 +8,20 @@ import (
 	"time"
 )
 
+type ResourceType string
+
+const (
+	// These constants represent the supported resource types.
+	ResourceTypeBlob = ResourceType("blob")
+	ResourceTypeZip  = ResourceType("zip")
+
+	DefaultResourceType = ResourceTypeBlob
+)
+
 // ResourceReader is used to gain access to a resource's data bytes.
 type ResourceReader struct {
-	io.Reader
-	PathName string
+	io.ReadCloser
+	Resource
 }
 
 // ResourceAttributes describe a resource and are used to form
@@ -61,7 +71,8 @@ type ResourceManager interface {
 	ResourceGet(resourcePath string) ([]ResourceReader, error)
 
 	// ResourcePut stores the resource with the specified metadata.
-	ResourcePut(metadata Resource, rdr io.ReadCloser) error
+	// Returned is the metadata with additional attributes filled in.
+	ResourcePut(metadata Resource, rdr io.Reader) (Resource, error)
 
 	// ResourceList returns resource metadata matching the specified filter.
 	ResourceList(filter ResourceAttributes) ([]Resource, error)
