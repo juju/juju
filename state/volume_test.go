@@ -735,6 +735,10 @@ func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
+
+	// TODO(axw) when we can assign storage to an existing volume, we
+	// should test that a machine-bound volume is not destroyed when
+	// its assigned storage instance is removed.
 }
 
 func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {

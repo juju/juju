@@ -649,6 +649,10 @@ func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	filesystem = s.filesystem(c, filesystem.FilesystemTag())
 	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+
+	// TODO(axw) when we can assign storage to an existing filesystem, we
+	// should test that a machine-bound filesystem is not destroyed when
+	// its assigned storage instance is removed.
 }
 
 func (s *FilesystemStateSuite) TestFilesystemBindingStorage(c *gc.C) {
