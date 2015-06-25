@@ -50,9 +50,13 @@ func moveSyslogConfig(context Context) error {
 	config := context.AgentConfig()
 	namespace := config.Value(agent.Namespace)
 	logdir := config.LogDir()
+
 	confdir := agent.DefaultConfDir
 	if namespace != "" {
 		confdir += "-" + namespace
+	}
+	if err := os.MkdirAll(confdir, 0755); err != nil {
+		return errors.Trace(err)
 	}
 
 	// these values were copied from
