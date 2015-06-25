@@ -11,10 +11,11 @@ import (
 	"github.com/juju/errors"
 )
 
+var initProcessCgroupFile = "/proc/1/cgroup"
+
 // RunningInsideLXC reports whether or not we are running inside an
 // LXC container.
 func RunningInsideLXC() (bool, error) {
-	const initProcessCgroupFile = "/proc/1/cgroup"
 	file, err := os.Open(initProcessCgroupFile)
 	if err != nil {
 		return false, errors.Trace(err)

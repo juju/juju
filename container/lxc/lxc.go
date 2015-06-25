@@ -43,6 +43,7 @@ var (
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
 	runtimeGOOS      = runtime.GOOS
+	runningInsideLXC = lxcutils.RunningInsideLXC
 )
 
 const (
@@ -88,7 +89,7 @@ func IsLXCSupported() (bool, error) {
 		return false, nil
 	}
 	// We do not support running nested LXC containers.
-	insideLXC, err := lxcutils.RunningInsideLXC()
+	insideLXC, err := runningInsideLXC()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

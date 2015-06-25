@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -1218,52 +1217,28 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 }
 
 func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
-	baseDir := c.MkDir()
-	cgroup := filepath.Join(baseDir, "cgroup")
-
-	ft.File{"cgroup", hostCgroupContents, 0400}.Create(c, baseDir)
-
-	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
+	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
+		return false, nil
+	})
 	supports, err := lxc.IsLXCSupported()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsTrue)
 }
 
 func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
-	baseDir := c.MkDir()
-	cgroup := filepath.Join(baseDir, "cgroup")
-
-	ft.File{"cgroup", lxcCgroupContents, 0400}.Create(c, baseDir)
-
-	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
+	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
+		return true, nil
+	})
 	supports, err := lxc.IsLXCSupported()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
 }
 
-func (s *LxcSuite) TestIsLXCSupportedMissingCgroupFile(c *gc.C) {
-	s.PatchValue(lxc.InitProcessCgroupFile, "")
-	supports, err := lxc.IsLXCSupported()
-	c.Assert(err.Error(), gc.Matches, "open : no such file or directory")
-	c.Assert(supports, jc.IsFalse)
-}
-
-func (s *LxcSuite) TestIsLXCSupportedMalformedCgroupFile(c *gc.C) {
-	baseDir := c.MkDir()
-	cgroup := filepath.Join(baseDir, "cgroup")
-
-	ft.File{"cgroup", malformedCgroupFile, 0400}.Create(c, baseDir)
-
-	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
-	supports, err := lxc.IsLXCSupported()
-	c.Assert(err.Error(), gc.Equals, "malformed cgroup file")
-	c.Assert(supports, jc.IsFalse)
-}
-
 func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
-	if runtime.GOOS == "linux" {
-		s.PatchValue(lxc.RuntimeGOOS, "windows")
-	}
+	s.PatchValue(lxc.RuntimeGOOS, "windows")
+	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
+		panic("should not be called")
+	})
 	supports, err := lxc.IsLXCSupported()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
