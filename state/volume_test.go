@@ -12,13 +12,10 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type VolumeStateSuite struct {
@@ -77,6 +74,8 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 
 	_, err = s.State.VolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineStorageRefs(c, s.State, machine.MachineTag())
 }
 
 func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
@@ -444,18 +443,6 @@ func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider("static", nil)
-	})
-
-	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType, "static")
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
-	c.Assert(err, jc.ErrorIsNil)
-
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -468,10 +455,15 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	assertMachineStorageRefs(c, s.State, machine.MachineTag())
 
 	volume1 := s.volume(c, names.NewVolumeTag("0"))
 	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
 	volume3 := s.volume(c, names.NewVolumeTag("2"))
+
+	c.Assert(volume1.LifeBinding(), gc.Equals, machine.MachineTag())
+	c.Assert(volume2.LifeBinding(), gc.Equals, machine.MachineTag())
+	c.Assert(volume3.LifeBinding(), gc.Equals, machine.MachineTag())
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
@@ -517,7 +509,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	_, err = s.State.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
-	// The volume should not have been destroyed, though.
+	// The volume should not have been removed, though.
 	s.volume(c, volumeTag)
 }
 
@@ -661,7 +653,21 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 	err := s.State.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on machine "42" not found`)
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
+	remove := func() {
+		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		assertMachineStorageRefs(c, s.State, machine.MachineTag())
+	}
+	defer state.SetBeforeHooks(c, s.State, remove).Check()
+	remove()
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
@@ -671,14 +677,6 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
-	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
-	s.AddCleanup(func(*gc.C) { registry.RegisterProvider("static", nil) })
-	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType, "static")
-
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
-	c.Assert(err, jc.ErrorIsNil)
-
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -688,6 +686,8 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // provisioned
 		}, {
 			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // unprovisioned
+		}, {
+			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // provisioned, non-persistent
 		}, {
 			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // provisioned
 		}, {
@@ -700,7 +700,10 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("3"), volumeInfoSet)
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/3"), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet = state.VolumeInfo{Size: 789, Persistent: false}
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("4"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	allVolumes, err := s.State.AllVolumes()
@@ -710,6 +713,15 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
 
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+
+	// Cannot advance to Dead while there are persistent, or
+	// unprovisioned dynamic volumes (regardless of scope).
+	err = machine.EnsureDead()
+	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
+	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1 volume-0-2\\]")
+	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
+	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/1"))
+	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/2"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
@@ -717,19 +729,117 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	// scoped storage should be gone too.
 	allVolumes, err = s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	// We should only have the persistent volume and the provisioned loop
-	// device remaining.
+	// We should only have the persistent volume and the loop devices remaining.
 	remaining := make(set.Strings)
 	for _, v := range allVolumes {
 		remaining.Add(v.Tag().String())
 	}
 	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
-		"volume-0", "volume-0-1",
+		"volume-0", "volume-0-1", "volume-0-2",
 	})
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 0)
+}
+
+func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "static", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addVolume := func() {
+		_, u, _ := s.setupSingleStorage(c, "block", "environscoped")
+		err := u.AssignToMachine(machine)
+		c.Assert(err, jc.ErrorIsNil)
+		s.obliterateUnit(c, u.UnitTag())
+	}
+	defer state.SetBeforeHooks(c, s.State, addVolume).Check()
+
+	// The static volume the machine was provisioned with does not matter,
+	// but the volume added concurrently does.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, `machine 0 has attachments \[volume-1\]`)
+}
+
+func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "static", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	removeVolume := func() {
+		s.obliterateVolume(c, names.NewVolumeTag("0"))
+	}
+	defer state.SetBeforeHooks(c, s.State, removeVolume).Check()
+
+	// Removing a volume concurrently does not cause a transaction failure.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "environscoped", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Volumes created unassigned to a storage instance are
+	// bound to the initially attached machine.
+	volume := s.volume(c, names.NewVolumeTag("0"))
+	c.Assert(volume.LifeBinding(), gc.Equals, machine.Tag())
+	c.Assert(volume.Life(), gc.Equals, state.Alive)
+
+	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dead)
+
+	// TODO(axw) when we can assign storage to an existing volume, we
+	// should test that a machine-bound volume is not destroyed when
+	// its assigned storage instance is removed.
+}
+
+func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
+	// Volumes created assigned to a storage instance are bound
+	// to the storage instance.
+	volume, _ := s.setupVolumeAttachment(c)
+	storageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.LifeBinding(), gc.Equals, storageTag)
+
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments, err := s.State.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err = s.State.DestroyStorageAttachment(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// The storage instance should be removed,
+	// and the volume should be Dying.
+	_, err = s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dying)
 }
 
 func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {

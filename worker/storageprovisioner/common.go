@@ -72,6 +72,7 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 
 // removeEntities removes each specified Dead entity from state.
 func removeEntities(ctx *context, tags []names.Tag) error {
+	logger.Debugf("removing entities: %v", tags)
 	errorResults, err := ctx.life.Remove(tags)
 	if err != nil {
 		return errors.Annotate(err, "removing storage entities")

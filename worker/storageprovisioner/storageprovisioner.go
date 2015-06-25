@@ -262,24 +262,25 @@ func (w *storageprovisioner) loop() error {
 	}
 
 	ctx := context{
-		scope:                        w.scope,
-		storageDir:                   w.storageDir,
-		volumeAccessor:               w.volumes,
-		filesystemAccessor:           w.filesystems,
-		life:                         w.life,
-		machineAccessor:              w.machines,
-		volumes:                      make(map[names.VolumeTag]storage.Volume),
-		volumeAttachments:            make(map[params.MachineStorageId]storage.VolumeAttachment),
-		volumeBlockDevices:           make(map[names.VolumeTag]storage.BlockDevice),
-		filesystems:                  make(map[names.FilesystemTag]storage.Filesystem),
-		filesystemAttachments:        make(map[params.MachineStorageId]storage.FilesystemAttachment),
-		machines:                     make(map[names.MachineTag]*machineWatcher),
-		machineChanges:               machineChanges,
-		pendingVolumes:               make(map[names.VolumeTag]storage.VolumeParams),
-		pendingVolumeAttachments:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
-		pendingVolumeBlockDevices:    make(set.Tags),
-		pendingFilesystems:           make(map[names.FilesystemTag]storage.FilesystemParams),
-		pendingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
+		scope:                             w.scope,
+		storageDir:                        w.storageDir,
+		volumeAccessor:                    w.volumes,
+		filesystemAccessor:                w.filesystems,
+		life:                              w.life,
+		machineAccessor:                   w.machines,
+		volumes:                           make(map[names.VolumeTag]storage.Volume),
+		volumeAttachments:                 make(map[params.MachineStorageId]storage.VolumeAttachment),
+		volumeBlockDevices:                make(map[names.VolumeTag]storage.BlockDevice),
+		filesystems:                       make(map[names.FilesystemTag]storage.Filesystem),
+		filesystemAttachments:             make(map[params.MachineStorageId]storage.FilesystemAttachment),
+		machines:                          make(map[names.MachineTag]*machineWatcher),
+		machineChanges:                    machineChanges,
+		pendingVolumes:                    make(map[names.VolumeTag]storage.VolumeParams),
+		pendingVolumeAttachments:          make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
+		pendingVolumeBlockDevices:         make(set.Tags),
+		pendingFilesystems:                make(map[names.FilesystemTag]storage.FilesystemParams),
+		pendingFilesystemAttachments:      make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
+		pendingDyingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
 	}
 	ctx.managedFilesystemSource = newManagedFilesystemSource(
 		ctx.volumeBlockDevices, ctx.filesystems,
@@ -373,6 +374,9 @@ func processPending(ctx *context) error {
 	if err := processPendingFilesystems(ctx); err != nil {
 		return errors.Annotate(err, "processing pending filesystems")
 	}
+	if err := processPendingDyingFilesystemAttachments(ctx); err != nil {
+		return errors.Annotate(err, "processing pending, dying filesystem attachments")
+	}
 	if err := processPendingFilesystemAttachments(ctx); err != nil {
 		return errors.Annotate(err, "processing pending filesystem attachments")
 	}
@@ -437,6 +441,10 @@ type context struct {
 	// pendingFilesystemAttachments contains parameters for filesystem attachments
 	// that are yet to be created.
 	pendingFilesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachmentParams
+
+	// pendingDyingFilesystemAttachments contains parameters for filesystem attachments
+	// that are to be destroyed.
+	pendingDyingFilesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachmentParams
 
 	// managedFilesystemSource is a storage.FilesystemSource that
 	// manages filesystems backed by volumes attached to the host
