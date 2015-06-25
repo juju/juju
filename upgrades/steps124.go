@@ -103,20 +103,23 @@ func copyFile(to, from string) error {
 		return errors.NotFoundf(from)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer orig.Close()
 	info, err := orig.Stat()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	target, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_EXCL, info.Mode())
 	if os.IsExist(err) {
 		return nil
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer target.Close()
 	if _, err := io.Copy(target, orig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
