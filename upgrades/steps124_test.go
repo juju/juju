@@ -195,6 +195,24 @@ func (s *steps124SyslogSuite) TestMoveSyslogConfigCantDeleteOld(c *gc.C) {
 	s.newFile("logrotate.conf").checkExists(c)
 }
 
+func (s *steps124SyslogSuite) TestMoveSyslogConfigTargetDirMissing(c *gc.C) {
+	err := os.Remove(s.confDir)
+	c.Assert(err, jc.ErrorIsNil)
+	files := []string{
+		"ca-cert.pem",
+		"rsyslog-cert.pem",
+		"rsyslog-key.pem",
+		"logrotate.conf",
+		"logrotate.run",
+	}
+	s.writeOldFiles(c, files)
+
+	err = upgrades.MoveSyslogConfig(s.ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkFiles(c, files)
+}
+
 type testFile struct {
 	path     string
 	dirname  string
