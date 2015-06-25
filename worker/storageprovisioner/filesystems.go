@@ -30,8 +30,8 @@ func filesystemsChanged(ctx *context, changes []string) error {
 		return nil
 	}
 
-	// Get filesystem information for alive and dead filesystems, so
-	// we can provision/deprovision.
+	// Get filesystem information for filesystems, so we can provision,
+	// deprovision, attach and detach.
 	filesystemTags := make([]names.FilesystemTag, 0, len(alive)+len(dying)+len(dead))
 	for _, tag := range alive {
 		filesystemTags = append(filesystemTags, tag.(names.FilesystemTag))
