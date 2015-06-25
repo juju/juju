@@ -1,7 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Low-level functionality for interacting with the logs collection.
+// Low-level functionality for interacting with the logs collection
+// and tailing logs from the replication oplog.
 
 package state
 
@@ -151,6 +152,15 @@ type LogTailerParams struct {
 // logs collection and tailing the oplog.
 const maxRecentLogIds = 5192
 
+// oplogOverlap is used to decide on the initial oplog timestamp to
+// use when the LogTailer transitions from querying the logs
+// collection to tailing the oplog. Oplog records with a timestamp >=
+// tolastTsFromLogsCollection - oplogOverlap will be considered. This
+// is to allow for delayed log writes, clock skew between the Juju
+// cluster hosts and log writes that occur during the transition
+// period.
+const oplogOverlap = time.Minute
+
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
 func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
@@ -258,9 +268,15 @@ func (t *logTailer) tailOplog() error {
 	if oplog == nil {
 		oplog = mongo.GetOplog(t.session)
 	}
-	oplogTailer := mongo.NewOplogTailer(oplog, oplogSel)
+
+	minOplogTs := t.lastTime.Add(-oplogOverlap)
+	oplogTailer := mongo.NewOplogTailer(oplog, oplogSel, minOplogTs)
 	defer oplogTailer.Stop()
 
+	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
+		recentIds.Length(), t.lastTime, minOplogTs)
+
+	skipCount := 0
 	for {
 		select {
 		case <-t.tomb.Dying():
@@ -278,6 +294,10 @@ func (t *logTailer) tailOplog() error {
 
 			if recentIds.Contains(doc.Id) {
 				// This document has already been reported.
+				skipCount++
+				if skipCount%1000 == 0 {
+					logger.Tracef("LogTailer duplicates skipped: %d", skipCount)
+				}
 				continue
 			}
 
@@ -383,6 +403,10 @@ func (s *objectIdSet) Add(id bson.ObjectId) {
 
 func (s *objectIdSet) Contains(id bson.ObjectId) bool {
 	return s.ids.Contains(string(id))
+}
+
+func (s *objectIdSet) Length() int {
+	return len(s.ids)
 }
 
 func logDocToRecord(doc *logDoc) *LogRecord {
