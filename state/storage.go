@@ -480,10 +480,15 @@ func unitAssignedMachineStorageOps(
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, err := st.machineStorageOps(&m.doc, storageParams)
+	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
+		&m.doc, storageParams,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 	return storageOps, nil
 }
 

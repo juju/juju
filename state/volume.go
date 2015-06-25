@@ -406,10 +406,6 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 	ops := make([]txn.Op, 0, len(attachments))
 	for _, a := range attachments {
 		volumeTag := a.Volume()
-		volume, err := st.Volume(volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		// When removing the machine, there should only remain
 		// non-persistent storage. This will be implicitly
 		// removed when the machine is removed, so we do not
@@ -421,28 +417,12 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 			Assert: txn.DocExists,
 			Remove: true,
 		})
-		var remove bool
-		volumeInfo, err := volume.Info()
-		if errors.IsNotProvisioned(err) {
-			params, _ := volume.Params()
-			_, provider, err := poolStorageProvider(st, params.Pool)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if provider.Dynamic() && provider.Scope() == storage.ScopeEnviron {
-				// Leave cleanup to the environ storage provisioner.
-				continue
-			}
-			// Volume will never be provisioned; remove from state.
-			remove = true
-		} else if err != nil {
+		canRemove, err := isVolumeInherentlyMachineBound(st, volumeTag)
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else {
-			// If volume does not outlive machine it can be removed.
-			remove = !volumeInfo.Persistent
 		}
-		if !remove {
-			continue
+		if !canRemove {
+			return nil, errors.Errorf("machine has non-machine bound volume %v", volumeTag.Id())
 		}
 		ops = append(ops, txn.Op{
 			C:      volumesC,
@@ -452,6 +432,43 @@ func (st *State) removeMachineVolumesOps(machine names.MachineTag) ([]txn.Op, er
 		})
 	}
 	return ops, nil
+}
+
+// isVolumeInherentlyMachineBound reports whether or not the volume with the
+// specified tag is inherently bound to the lifetime of the machine, and will
+// be removed along with it, leaving no resources dangling.
+func isVolumeInherentlyMachineBound(st *State, tag names.VolumeTag) (bool, error) {
+	volume, err := st.Volume(tag)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	volumeInfo, err := volume.Info()
+	if errors.IsNotProvisioned(err) {
+		params, _ := volume.Params()
+		_, provider, err := poolStorageProvider(st, params.Pool)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if provider.Dynamic() {
+			// Even machine-scoped storage could be provisioned
+			// while the machine is Dying, and we don't know at
+			// this layer whether or not it will be Persistent.
+			//
+			// TODO(axw) extend storage provider interface to
+			// determine up-front whether or not a volume will
+			// be persistent. This will have to depend on the
+			// machine type, since, e.g., loop devices will
+			// outlive LXC containers.
+			return false, nil
+		}
+		// Volume is static, so even if it is provisioned, it will
+		// be tied to the machine.
+		return true, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	// If volume does not outlive machine it can be removed.
+	return !volumeInfo.Persistent, nil
 }
 
 // DetachVolume marks the volume attachment identified by the specified machine
@@ -535,7 +552,12 @@ func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
 		Id:     volumeAttachmentId(m.Id(), v.doc.Name),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, decrefVolumeOp}
+	}, decrefVolumeOp, {
+		C:      machinesC,
+		Id:     m.Id(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$pull", bson.D{{"volumes", v.doc.Name}}}},
+	}}
 }
 
 // machineStorageDecrefOp returns a txn.Op that will decrement the attachment

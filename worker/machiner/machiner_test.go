@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +27,91 @@ import (
 	"github.com/juju/juju/worker/machiner"
 )
 
+type MachinerSuite struct {
+	coretesting.BaseSuite
+	accessor    *mockMachineAccessor
+	agentConfig agent.Config
+	addresses   []net.Addr
+}
+
+var _ = gc.Suite(&MachinerSuite{})
+
+func (s *MachinerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.accessor = &mockMachineAccessor{}
+	s.accessor.machine.watcher.changes = make(chan struct{})
+	s.accessor.machine.life = params.Alive
+	s.agentConfig = agentConfig(names.NewMachineTag("123"))
+	s.addresses = []net.Addr{ // anything will do
+		&net.IPAddr{IP: net.IPv4bcast},
+		&net.IPAddr{IP: net.IPv4zero},
+	}
+	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
+		return s.addresses, nil
+	})
+}
+
+func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
+	// Machine is dying. We'll respond to "EnsureDead" by
+	// saying that there are still storage attachments;
+	// this should not cause an error.
+	s.accessor.machine.life = params.Dying
+	s.accessor.machine.SetErrors(
+		nil, // SetMachineAddresses
+		nil, // SetStatus
+		nil, // Watch
+		nil, // Refresh
+		nil, // SetStatus
+		&params.Error{Code: params.CodeMachineHasAttachedStorage},
+	)
+
+	worker := machiner.NewMachiner(s.accessor, s.agentConfig)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	worker.Kill()
+	c.Check(worker.Wait(), jc.ErrorIsNil)
+
+	s.accessor.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "Machine",
+		Args:     []interface{}{s.agentConfig.Tag()},
+	}})
+
+	s.accessor.machine.watcher.CheckCalls(c, []gitjujutesting.StubCall{
+		{FuncName: "Changes"}, {FuncName: "Changes"}, {FuncName: "Stop"},
+	})
+
+	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "SetMachineAddresses",
+		Args: []interface{}{
+			network.NewAddresses(
+				"255.255.255.255",
+				"0.0.0.0",
+			),
+		},
+	}, {
+		FuncName: "SetStatus",
+		Args: []interface{}{
+			params.StatusStarted,
+			"",
+			map[string]interface{}(nil),
+		},
+	}, {
+		FuncName: "Watch",
+	}, {
+		FuncName: "Refresh",
+	}, {
+		FuncName: "Life",
+	}, {
+		FuncName: "SetStatus",
+		Args: []interface{}{
+			params.StatusStopped,
+			"",
+			map[string]interface{}(nil),
+		},
+	}, {
+		FuncName: "EnsureDead",
+	}})
+}
+
 // worstCase is used for timeouts when timing out
 // will fail the test. Raising this value should
 // not affect the overall running time of the tests
@@ -36,7 +122,7 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type MachinerSuite struct {
+type MachinerStateSuite struct {
 	testing.JujuConnSuite
 
 	st            *api.State
@@ -45,9 +131,9 @@ type MachinerSuite struct {
 	apiMachine    *apimachiner.Machine
 }
 
-var _ = gc.Suite(&MachinerSuite{})
+var _ = gc.Suite(&MachinerStateSuite{})
 
-func (s *MachinerSuite) SetUpTest(c *gc.C) {
+func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 
@@ -71,7 +157,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 
 }
 
-func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus state.Status) {
+func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus state.Status) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -104,23 +190,29 @@ func agentConfig(tag names.Tag) agent.Config {
 	return &mockConfig{tag: tag}
 }
 
-func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, agentConfig(names.NewMachineTag("99")))
+func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
+	mr := machiner.NewMachiner(
+		machiner.APIMachineAccessor{s.machinerState},
+		agentConfig(names.NewMachineTag("99")),
+	)
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) makeMachiner() worker.Worker {
-	return machiner.NewMachiner(s.machinerState, agentConfig(s.apiMachine.Tag()))
+func (s *MachinerStateSuite) makeMachiner() worker.Worker {
+	return machiner.NewMachiner(
+		machiner.APIMachineAccessor{s.machinerState},
+		agentConfig(s.apiMachine.Tag()),
+	)
 }
 
-func (s *MachinerSuite) TestRunStop(c *gc.C) {
+func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
 	mr := s.makeMachiner()
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
 	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
 }
 
-func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
+func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
@@ -132,14 +224,14 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	s.waitMachineStatus(c, s.machine, state.StatusStarted)
 }
 
-func (s *MachinerSuite) TestSetsStatusWhenDying(c *gc.C) {
+func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
 	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, state.StatusStopped)
 }
 
-func (s *MachinerSuite) TestSetDead(c *gc.C) {
+func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
 	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
@@ -149,7 +241,7 @@ func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 }
 
-func (s *MachinerSuite) TestSetDeadWithDyingUnit(c *gc.C) {
+func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 
@@ -181,7 +273,7 @@ func (s *MachinerSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 
 }
 
-func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
+func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
   # comments ignored

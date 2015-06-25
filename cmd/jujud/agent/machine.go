@@ -728,7 +728,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+		accessor := machiner.APIMachineAccessor{st.Machiner()}
+		return machiner.NewMachiner(accessor, agentConfig), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
