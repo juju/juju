@@ -35,24 +35,31 @@ func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
 
 	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
 	})
 	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
 		StorageScope: storage.ScopeMachine,
+		IsDynamic:    true,
 	})
 	registry.RegisterProvider("environscoped-block", &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
 		SupportsFunc: func(k storage.StorageKind) bool {
 			return k == storage.StorageKindBlock
 		},
+		IsDynamic: true,
+	})
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
 	})
 	registry.RegisterEnvironStorageProviders(
 		"someprovider", "environscoped", "machinescoped",
-		"environscoped-block",
+		"environscoped-block", "static",
 	)
 	s.AddSuiteCleanup(func(c *gc.C) {
 		registry.RegisterProvider("environscoped", nil)
 		registry.RegisterProvider("machinescoped", nil)
 		registry.RegisterProvider("environscoped-block", nil)
+		registry.RegisterProvider("static", nil)
 	})
 }
 
@@ -64,6 +71,12 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
+	// Create a pool that creates persistent block devices.
+	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
+		"persistent": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {

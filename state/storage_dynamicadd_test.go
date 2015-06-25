@@ -10,8 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type storageAddSuite struct {
@@ -312,11 +310,6 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	// Create a unit with static storage; ensure that storage-add
 	// fails to add more of this kind of storage.
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders("someprovider", "static")
-	defer registry.RegisterProvider("static", nil)
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "static")
 	s.assertStorageCount(c, 1)
 
