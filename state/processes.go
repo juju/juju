@@ -140,7 +140,7 @@ func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *Uni
 // Register adds the provided process info to state.
 func (ps UnitProcesses) Register(info process.Info, charm names.CharmTag) error {
 	if err := info.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.NewNotValid(err, "bad process info")
 	}
 
 	_, mismatched, err := ps.Persist.EnsureDefinitions(info.Process)
