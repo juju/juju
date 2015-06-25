@@ -1363,6 +1363,7 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	params.Add("mac_addresses", macAddress)
 	params.Add("hostname", hostname)
 	params.Add("parent", string(instId))
+	logger.Debugf("creating a new MAAS device for MAC %q, hostname %q, parent %q", macAddress, hostname, string(instId))
 	result, err := devices.CallPost("new", params)
 	if err != nil {
 		return "", errors.Trace(err)

@@ -1169,9 +1169,9 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 
 // These are defined like this to allow mocking in tests.
 var (
-	allocateAddrTo = func(a *state.IPAddress, m *state.Machine) error {
+	allocateAddrTo = func(a *state.IPAddress, m *state.Machine, macAddress string) error {
 		// TODO(mfoord): populate proper interface ID (in state).
-		return a.AllocateTo(m.Id(), "")
+		return a.AllocateTo(m.Id(), "", macAddress)
 	}
 	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
 		return m.SetProviderAddresses(a.Address())
@@ -1226,7 +1226,7 @@ func (p *ProvisionerAPI) allocateAddress(
 			"allocated address %q on instance %q and subnet %q",
 			addr.String(), instId, subnetId,
 		)
-		err = p.setAllocatedOrRelease(addr, environ, instId, container, subnetId)
+		err = p.setAllocatedOrRelease(addr, environ, instId, container, subnetId, macAddress)
 		if err != nil {
 			// Something went wrong - retry.
 			continue
@@ -1244,6 +1244,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 	instId instance.Id,
 	container *state.Machine,
 	subnetId network.Id,
+	macAddress string,
 ) (err error) {
 	defer func() {
 		if errors.Cause(err) == nil {
@@ -1276,7 +1277,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 
 	// Any errors returned below will trigger the release/cleanup
 	// steps above.
-	if err = allocateAddrTo(addr, container); err != nil {
+	if err = allocateAddrTo(addr, container, macAddress); err != nil {
 		return errors.Trace(err)
 	}
 	if err = setAddrsTo(addr, container); err != nil {
