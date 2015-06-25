@@ -743,6 +743,50 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 0)
 }
 
+func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "static", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addVolume := func() {
+		_, u, _ := s.setupSingleStorage(c, "block", "environscoped")
+		err := u.AssignToMachine(machine)
+		c.Assert(err, jc.ErrorIsNil)
+		s.obliterateUnit(c, u.UnitTag())
+	}
+	defer state.SetBeforeHooks(c, s.State, addVolume).Check()
+
+	// The static volume the machine was provisioned with does not matter,
+	// but the volume added concurrently does.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, `machine 0 has attachments \[volume-1\]`)
+}
+
+func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: "static", Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	removeVolume := func() {
+		s.obliterateVolume(c, names.NewVolumeTag("0"))
+	}
+	defer state.SetBeforeHooks(c, s.State, removeVolume).Check()
+
+	// Removing a volume concurrently does not cause a transaction failure.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",

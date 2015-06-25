@@ -715,6 +715,35 @@ func (s *FilesystemStateSuite) TestFilesystemVolumeBinding(c *gc.C) {
 	// filesystem destroys volume.
 }
 
+func (s *FilesystemStateSuite) TestEnsureMachineDeadAddFilesystemConcurrently(c *gc.C) {
+	_, machine := s.setupFilesystemAttachment(c, "rootfs")
+	addFilesystem := func() {
+		_, u, _ := s.setupSingleStorage(c, "filesystem", "rootfs")
+		err := u.AssignToMachine(machine)
+		c.Assert(err, jc.ErrorIsNil)
+		s.obliterateUnit(c, u.UnitTag())
+	}
+	defer state.SetBeforeHooks(c, s.State, addFilesystem).Check()
+
+	// Adding another filesystem to the machine will cause EnsureDead to
+	// retry, but it will succeed because both filesystems are inherently
+	// machine-bound.
+	err := machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestEnsureMachineDeadRemoveFilesystemConcurrently(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	removeFilesystem := func() {
+		s.obliterateFilesystem(c, filesystem.FilesystemTag())
+	}
+	defer state.SetBeforeHooks(c, s.State, removeFilesystem).Check()
+
+	// Removing a filesystem concurrently does not cause a transaction failure.
+	err := machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",

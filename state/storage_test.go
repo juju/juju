@@ -221,6 +221,29 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 	return filesystem
 }
 
+func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
+	u, err := s.State.Unit(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.obliterateUnitStorage(c, tag)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag) {
+	attachments, err := s.State.UnitStorageAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err = s.State.DestroyStorageAttachment(a.StorageInstance(), a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
 	err := s.State.DestroyVolume(tag)
 	if errors.IsNotFound(err) {
@@ -239,6 +262,20 @@ func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.Mach
 	err := s.State.DetachVolume(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.FilesystemTag) {
+	err := s.State.DestroyFilesystem(tag)
+	if errors.IsNotFound(err) {
+		return
+	}
+	attachments, err := s.State.FilesystemAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		s.obliterateFilesystemAttachment(c, a.Machine(), a.Filesystem())
+	}
+	err = s.State.RemoveFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
