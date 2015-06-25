@@ -102,7 +102,7 @@ func newProcessDefinitions(st *State, charm names.CharmTag) *ProcessDefinitions 
 func (pd ProcessDefinitions) EnsureDefined(definitions ...charm.Process) error {
 	for _, definition := range definitions {
 		if err := definition.Validate(); err != nil {
-			return errors.Trace(err)
+			return errors.NewNotValid(err, "bad definition")
 		}
 	}
 	_, mismatched, err := pd.Persist.EnsureDefinitions(definitions...)
