@@ -39,7 +39,7 @@ func stateStepsFor124() []Step {
 func stepsFor124() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "move syslog config from LogDir to DataDir",
+			description: "move syslog config from LogDir to ConfDir",
 			targets:     []Target{AllMachines},
 			run:         moveSyslogConfig,
 		},
