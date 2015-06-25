@@ -612,7 +612,20 @@ func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachmentConcurrently(c 
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentNotFound(c *gc.C) {
 	err := s.State.RemoveFilesystemAttachment(names.NewMachineTag("42"), names.NewFilesystemTag("42"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `removing attachment of filesystem 42 from machine 42: filesystem "42" on machine "42" not found`)
+}
+
+func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentConcurrently(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
+	remove := func() {
+		err := s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, remove).Check()
+	remove()
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentAlive(c *gc.C) {

@@ -432,9 +432,13 @@ func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.V
 	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from machine %s", volume.Id(), machine.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		attachment, err := st.VolumeAttachment(machine, volume)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// We only ignore IsNotFound on attempts after the
+			// first, since we expect the volume attachment to
+			// be there initially.
 			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if attachment.Life() != Dying {

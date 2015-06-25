@@ -661,7 +661,20 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 	err := s.State.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on machine "42" not found`)
+}
+
+func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
+	volume, machine := s.setupVolumeAttachment(c)
+	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
+	remove := func() {
+		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, remove).Check()
+	remove()
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
