@@ -68,7 +68,7 @@ swift_cmds = [
 
 def run_cmds(commands):
     for cmd in commands:
-        return run_command(cmd, verbose=True)
+        run_command(cmd, verbose=True)
 
 
 if __name__ == '__main__':
