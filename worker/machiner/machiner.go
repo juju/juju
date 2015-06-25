@@ -109,13 +109,17 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 
-	// Attempt to mark the machine Dead. If the
-	// machine still has units assigned, this
-	// will fail with CodeHasAssignedUnits. Once
-	// the units are removed, the watcher will
-	// trigger again and we'll reattempt.
+	// Attempt to mark the machine Dead. If the machine still has units
+	// assigned, or storage attached, this will fail with
+	// CodeHasAssignedUnits or CodeMachineHasAttachedStorage respectively.
+	// Once units or storage are removed, the watcher will trigger again
+	// and we'll reattempt.
 	if err := mr.machine.EnsureDead(); err != nil {
 		if params.IsCodeHasAssignedUnits(err) {
+			return nil
+		}
+		if params.IsCodeMachineHasAttachedStorage(err) {
+			logger.Tracef("machine still has storage attached")
 			return nil
 		}
 		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)

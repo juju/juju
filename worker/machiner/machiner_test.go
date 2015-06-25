@@ -228,3 +228,10 @@ LXC_BRIDGE="ignored"`[1:])
 		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 	})
 }
+
+// TODO(axw) add test for IsCodeMachineHasAttachedStorage when one of the
+//           following is true:
+//            - we can unbind volumes/filesystems from storage instances, or
+//            - we can dynamically add volumes/filesystems to machines
+//              independent of storage, or
+//            - these tests are made into unit tests, with mocked out state
