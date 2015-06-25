@@ -50,6 +50,8 @@ var (
 	AddVolumeOp            = (*State).addVolumeOp
 	CombineMeterStatus     = combineMeterStatus
 	NewStatusNotFound      = newStatusNotFound
+	NewProcessDefinitions  = newProcessDefinitions
+	NewUnitProcesses       = newUnitProcesses
 )
 
 type (

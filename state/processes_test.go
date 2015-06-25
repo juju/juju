@@ -34,6 +34,27 @@ func (s *baseProcessesSuite) SetUpTest(c *gc.C) {
 	s.unit = names.NewUnitTag("a-unit/0")
 }
 
+func (s *baseProcessesSuite) newDefinitions(pType string, names ...string) []charm.Process {
+	var definitions []charm.Process
+	for _, name := range names {
+		definitions = append(definitions, charm.Process{
+			Name: name,
+			Type: pType,
+		})
+	}
+	return definitions
+}
+
+func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []process.Info {
+	var processes []process.Info
+	for _, definition := range s.newDefinitions(pType, names...) {
+		processes = append(processes, process.Info{
+			Process: definition,
+		})
+	}
+	return processes
+}
+
 type processDefinitionsSuite struct {
 	baseProcessesSuite
 }
