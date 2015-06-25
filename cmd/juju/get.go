@@ -4,9 +4,11 @@
 package main
 
 import (
-	"errors"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -57,6 +59,7 @@ func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
+		"set":  formatGetForSet,
 	})
 }
 
@@ -89,4 +92,55 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 		"settings": results.Config,
 	}
 	return c.out.Write(ctx, resultsMap)
+}
+
+// formatGetForSet outputs the provided get structure in a format that can be used with
+// `juju set`.
+func formatGetForSet(cfgRaw interface{}) ([]byte, error) {
+	if cfgRaw == nil {
+		return nil, nil
+	}
+	cfg, ok := cfgRaw.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected value type: %T", cfgRaw)
+	}
+
+	serviceName, ok := cfg["service"].(string)
+	if !ok {
+		return nil, errors.Errorf("could not determine service name")
+	}
+	settings, ok := cfg["settings"].(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("could not determine service settings")
+	}
+	if settings == nil {
+		return nil, nil
+	}
+
+	simpleSettings, err := simplifySettings(settings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result, err := goyaml.Marshal(map[string]interface{}{
+		serviceName: simpleSettings,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result = []byte(strings.TrimRight(string(result), "\n"))
+	return result, nil
+}
+
+func simplifySettings(cfg map[string]interface{}) (map[string]interface{}, error) {
+	out := map[string]interface{}{}
+
+	for key, settingsRaw := range cfg {
+		settings, ok := settingsRaw.(map[string]interface{})
+		if !ok {
+			return nil, errors.Errorf("could not determine config for key %s", key)
+		}
+		out[key] = settings["value"]
+	}
+	return out, nil
 }
