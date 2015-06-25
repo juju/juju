@@ -30,7 +30,7 @@ func stateStepsFor124() []Step {
 			}},
 		&upgradeStep{
 			description: "add UUID field to IP addresses",
-			targets: []Target{DatabaseMaster},
+			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddUUIDToIPAddresses(context.State())
 			}},
