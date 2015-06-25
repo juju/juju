@@ -84,25 +84,28 @@ type processesPersistence interface {
 	Remove(id string) (bool, error)
 }
 
-type processDefinitions struct {
-	persist processesPersistence
+// ProcessDefinitions provides the definition-related functionality
+// needed by state.
+type ProcessDefinitions struct {
+	// Persist is the persistence layer that will be used.
+	Persist processesPersistence
 }
 
-func newProcessDefinitions(st *State, charm names.CharmTag) *processDefinitions {
-	return &processDefinitions{
-		persist: &procsPersistence{st: st, charm: charm},
+func newProcessDefinitions(st *State, charm names.CharmTag) *ProcessDefinitions {
+	return &ProcessDefinitions{
+		Persist: &procsPersistence{st: st, charm: charm},
 	}
 }
 
 // EnsureDefined makes sure that all the provided definitions exist in
 // state. So either they are there already or they get added.
-func (pd processDefinitions) EnsureDefined(definitions ...charm.Process) error {
+func (pd ProcessDefinitions) EnsureDefined(definitions ...charm.Process) error {
 	for _, definition := range definitions {
 		if err := definition.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	_, mismatched, err := pd.persist.EnsureDefinitions(definitions...)
+	_, mismatched, err := pd.Persist.EnsureDefinitions(definitions...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,29 +117,33 @@ func (pd processDefinitions) EnsureDefined(definitions ...charm.Process) error {
 
 // TODO(ericsnow) Auto-add definitions when a charm is added.
 
-type unitProcesses struct {
-	persist processesPersistence
-	unit    names.UnitTag
+// UnitProcesses provides the functionality related to a unit's
+// processes, as needed by state.
+type UnitProcesses struct {
+	// Persist is the persistence layer that will be used.
+	Persist processesPersistence
+	// Unit identifies the unit associated with the processes.
+	Unit names.UnitTag
 }
 
-func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *unitProcesses {
+func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *UnitProcesses {
 	persist := &procsPersistence{st: st, unit: unit}
 	if charm != nil {
 		persist.charm = *charm
 	}
-	return &unitProcesses{
-		persist: persist,
-		unit:    unit,
+	return &UnitProcesses{
+		Persist: persist,
+		Unit:    unit,
 	}
 }
 
 // Register adds the provided process info to state.
-func (ps unitProcesses) Register(info process.Info, charm names.CharmTag) error {
+func (ps UnitProcesses) Register(info process.Info, charm names.CharmTag) error {
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	_, mismatched, err := ps.persist.EnsureDefinitions(info.Process)
+	_, mismatched, err := ps.Persist.EnsureDefinitions(info.Process)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -144,7 +151,7 @@ func (ps unitProcesses) Register(info process.Info, charm names.CharmTag) error 
 		return errors.NotValidf("mismatched definition for %q", info.Name)
 	}
 
-	ok, err := ps.persist.Insert(info)
+	ok, err := ps.Persist.Insert(info)
 	if err != nil {
 		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
@@ -158,8 +165,8 @@ func (ps unitProcesses) Register(info process.Info, charm names.CharmTag) error 
 
 // SetStatus updates the raw status for the identified process to the
 // provided value.
-func (ps unitProcesses) SetStatus(id string, status process.Status) error {
-	found, err := ps.persist.SetStatus(id, status)
+func (ps UnitProcesses) SetStatus(id string, status process.Status) error {
+	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -173,9 +180,9 @@ func (ps unitProcesses) SetStatus(id string, status process.Status) error {
 // IDs. If none are provided then the list contains the info for all
 // workload processes associated with the unit. Missing processes
 // are ignored.
-func (ps unitProcesses) List(ids ...string) ([]process.Info, error) {
+func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
 	// TODO(ericsnow) Call ListAll if ids is empty.
-	results, _, err := ps.persist.List(ids...)
+	results, _, err := ps.Persist.List(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,9 +193,9 @@ func (ps unitProcesses) List(ids ...string) ([]process.Info, error) {
 
 // Unregister removes the identified process from state. It does not
 // trigger the actual destruction of the process.
-func (ps unitProcesses) Unregister(id string) error {
+func (ps UnitProcesses) Unregister(id string) error {
 	// If the record wasn't found then we're already done.
-	_, err := ps.persist.Remove(id)
+	_, err := ps.Persist.Remove(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
