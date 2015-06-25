@@ -71,7 +71,8 @@ deptree.py -v $JUJU_DEPS $ECO_DEPS || deptree.py -v $JUJU_DEPS $ECO_DEPS
 echo ""
 echo "Testing $ECO_PACKAGE $SHORTHASH with Juju $JUJU_REVISION"
 set +e
-go test $ECO_PROJECT/... || go test $ECO_PROJECT/...
+go test $ECO_PROJECT/... -test.v -gocheck.vv ||\
+  go test $ECO_PROJECT/... -test.v -gocheck.vv
 EXITCODE=$?
 if [[ $((EXITCODE)) == 0 ]]; then
     echo "SUCCESS"
