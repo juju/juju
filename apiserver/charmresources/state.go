@@ -30,10 +30,6 @@ var getState = func(st *state.State) managerState {
 	return stateShim{st}
 }
 
-func (s stateShim) ResourceManager() resources.ResourceManager {
-	return s.State.ResourceManager()
-}
-
 func (s stateShim) EnvOwner() (names.UserTag, error) {
 	env, err := s.State.Environment()
 	if err != nil {
