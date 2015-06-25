@@ -26,6 +26,7 @@ from utility import (
     get_auth_token,
     get_candidates_path,
     get_deb_arch,
+    run_command,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -270,3 +271,16 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
+
+
+class TestRunCommand(TestCase):
+
+    def test_run_command(self):
+        with patch('subprocess.check_output') as co_mock:
+            run_command(['foo', 'bar'])
+        args, kwargs = co_mock.call_args
+        self.assertEqual((['foo', 'bar'], ), args)
+        run_command(['foo', 'bar'], dry_run=True, verbose=True)
+        with patch('subprocess.check_output') as co_mock:
+            run_command(['foo', 'bar'], dry_run=True, verbose=True)
+            self.assertEqual(0, co_mock.call_count)
