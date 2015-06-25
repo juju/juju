@@ -221,6 +221,71 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 	return filesystem
 }
 
+func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
+	err := s.State.DestroyVolume(tag)
+	if errors.IsNotFound(err) {
+		return
+	}
+	attachments, err := s.State.VolumeAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		s.obliterateVolumeAttachment(c, a.Machine(), a.Volume())
+	}
+	err = s.State.RemoveVolume(tag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) {
+	err := s.State.DetachVolume(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, m names.MachineTag, f names.FilesystemTag) {
+	err := s.State.DetachFilesystem(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertMachineStorageRefs ensures that the specified machine's set of volume
+// and filesystem references corresponds exactly to the volume and filesystem
+// attachments that relate to the machine.
+func assertMachineStorageRefs(c *gc.C, st *state.State, m names.MachineTag) {
+	machines, closer := state.GetRawCollection(st, state.MachinesC)
+	defer closer()
+
+	var doc struct {
+		Volumes     []string `bson:"volumes,omitempty"`
+		Filesystems []string `bson:"filesystems,omitempty"`
+	}
+	err := machines.FindId(state.DocID(st, m.Id())).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	have := make(set.Tags)
+	for _, v := range doc.Volumes {
+		have.Add(names.NewVolumeTag(v))
+	}
+	for _, f := range doc.Filesystems {
+		have.Add(names.NewFilesystemTag(f))
+	}
+
+	expect := make(set.Tags)
+	volumeAttachments, err := st.MachineVolumeAttachments(m)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range volumeAttachments {
+		expect.Add(a.Volume())
+	}
+	filesystemAttachments, err := st.MachineFilesystemAttachments(m)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range filesystemAttachments {
+		expect.Add(a.Filesystem())
+	}
+
+	c.Assert(have, jc.DeepEquals, expect)
+}
+
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }

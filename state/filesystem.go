@@ -398,12 +398,6 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	shouldRemoveFilesystem := func(filesystem Filesystem) (bool, error) {
-		// TODO(axw) when we have support for persistent filesystems,
-		// e.g. NFS shares, then we need to check the filesystem info
-		// to decide whether or not to remove.
-		return true, nil
-	}
 	ops := make([]txn.Op, 0, len(attachments))
 	for _, a := range attachments {
 		filesystemTag := a.Filesystem()
@@ -418,16 +412,12 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 			Assert: txn.DocExists,
 			Remove: true,
 		})
-		filesystem, err := st.Filesystem(filesystemTag)
+		canRemove, err := isFilesystemInherentlyMachineBound(st, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ok, err := shouldRemoveFilesystem(filesystem)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !ok {
-			continue
+		if !canRemove {
+			return nil, errors.Errorf("machine has non-machine bound filesystem %v", filesystemTag.Id())
 		}
 		ops = append(ops, txn.Op{
 			C:      filesystemsC,
@@ -437,6 +427,16 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 		})
 	}
 	return ops, nil
+}
+
+// isFilesystemInherentlyMachineBound reports whether or not the filesystem
+// with the specified tag is inherently bound to the lifetime of the machine,
+// and will be removed along with it, leaving no resources dangling.
+func isFilesystemInherentlyMachineBound(st *State, tag names.FilesystemTag) (bool, error) {
+	// TODO(axw) when we have support for persistent filesystems,
+	// e.g. NFS shares, then we need to check the filesystem info
+	// to decide whether or not to remove.
+	return true, nil
 }
 
 // DetachFilesystem marks the filesystem attachment identified by the specified machine
@@ -529,7 +529,12 @@ func removeFilesystemAttachmentOps(m names.MachineTag, f *filesystem) []txn.Op {
 		Id:     filesystemAttachmentId(m.Id(), f.doc.FilesystemId),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, decrefFilesystemOp}
+	}, decrefFilesystemOp, {
+		C:      machinesC,
+		Id:     m.Id(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
+	}}
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
