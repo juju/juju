@@ -157,6 +157,7 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 				remainder := strings.Replace(macAddress[8:], ":", "", 3)
 				c.Assert(remainder, gc.HasLen, 6)
 				_, err = hex.DecodeString(remainder)
+				c.Assert(err, jc.ErrorIsNil)
 				expectResults.Results[i].Config[j].MACAddress = macAddress
 			}
 		}
