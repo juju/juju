@@ -831,13 +831,12 @@ mkdir 'C:\Juju\log\juju'
 mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.zip") }
-$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.zip").hash
+ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") }
+$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.tar.gz").hash
 $dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
 if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
-[System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
-[System.IO.Compression.ZipFile]::ExtractToDirectory("$binDir\tools.zip", "$binDir")
-rm "$binDir\tools.zip*"
+& "${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"
+rm "$binDir\tools.tar*"
 Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz","sha256":"1234","size":10}'
 mkdir 'C:\Juju\lib\juju\agents\machine-10'
 Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"

@@ -312,6 +312,15 @@ type MetadataFile struct {
 	Data []byte
 }
 
+// UseZipToolsWindows returns whether we should use zip tools on windows based on version.Binary.
+// From version 1.26 we're switching to providing tools archived in zip on Windows.
+func UseZipToolsWindows(version version.Binary) bool {
+	if version.OS == version.Windows && version.Major >= 1 && version.Minor >= 26 {
+		return true
+	}
+	return false
+}
+
 // MetadataFromTools returns a tools metadata list derived from the
 // given tools list. The size and sha256 will not be computed if
 // missing.
@@ -319,7 +328,7 @@ func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetada
 	metadata := make([]*ToolsMetadata, len(toolsList))
 	for i, t := range toolsList {
 		var fileType, path string
-		if t.Version.OS == version.Windows {
+		if UseZipToolsWindows(t.Version) {
 			path = fmt.Sprintf("%s/juju-%s-%s-%s.zip", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
 			fileType = "zip"
 		} else {
