@@ -795,7 +795,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(containerId, "")
+		err = ipaddr.AllocateTo(containerId, "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 }

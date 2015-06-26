@@ -883,7 +883,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "")
+		err = ipaddr.AllocateTo(container.Id(), "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)
