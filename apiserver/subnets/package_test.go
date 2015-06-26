@@ -165,7 +165,16 @@ type StubBacking struct {
 
 var _ subnets.Backing = (*StubBacking)(nil)
 
-func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces bool) {
+type SetUpFlag bool
+
+const (
+	WithZones     SetUpFlag = true
+	WithoutZones  SetUpFlag = false
+	WithSpaces    SetUpFlag = true
+	WithoutSpaces SetUpFlag = true
+)
+
+func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces SetUpFlag) {
 	// This method should be called at the beginning of each test, so
 	// reset the recorded calls and errors.
 	ResetStub(sb.Stub)

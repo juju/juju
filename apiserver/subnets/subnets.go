@@ -23,10 +23,10 @@ func init() {
 }
 
 // BackingSpace defines the methods supported by a Space entity stored
-// persistenty.
+// persistently.
 //
 // TODO(dimitern): Once *state.Space is implemented, ensure it has
-// those methods, move the interface in state/ and rename it as
+// those methods, move the interface somewhere common and rename it as
 // needed, and change Backing.AllSpaces() to return that.
 type BackingSpace interface {
 	// Name returns the space name.
