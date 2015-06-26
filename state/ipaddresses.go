@@ -302,6 +302,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 		return err
 	}
 	i.doc.MachineId = machineId
+	i.doc.MACAddress = macAddress
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
 	i.doc.InstanceId = string(instId)
