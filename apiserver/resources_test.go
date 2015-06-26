@@ -166,6 +166,10 @@ func sha384sum(c *gc.C, path string) (int64, string) {
 }
 
 func (s *resourcesSuite) TestUpload(c *gc.C) {
+	// These block wil not stop uploads.
+	s.BlockDestroyEnvironment(c, "TestUpload")
+	s.BlockRemoveObject(c, "TestUpload")
+
 	// Make a fake resource.
 	expectedMetadata, resPath := s.setupResourceForUpload(c)
 	expectedMetadata.ResourcePath = "/zip/u/fred/c/test/s/trusty/test-resource/1.2.3"

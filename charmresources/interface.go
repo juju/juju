@@ -70,8 +70,8 @@ type ResourceManager interface {
 	// dependent resources from the specified path.
 	ResourceGet(resourcePath string) ([]ResourceReader, error)
 
-	// ResourcePut stores the resource with the specified metadata.
-	// Returned is the metadata with additional attributes filled in.
+	// ResourcePut stores the resource with the specified metadata,
+	// and returns the metadata with additional attributes filled in.
 	ResourcePut(metadata Resource, rdr io.Reader) (Resource, error)
 
 	// ResourceList returns resource metadata matching the specified filter.
