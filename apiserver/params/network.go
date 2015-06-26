@@ -462,7 +462,7 @@ type ZoneResults struct {
 	Results []ZoneResult `json:"Results"`
 }
 
-// SpaceResult holds a single space tag an error.
+// SpaceResult holds a single space tag or an error.
 type SpaceResult struct {
 	Error *Error `json:"Error"`
 	Tag   string `json:"Tag"`

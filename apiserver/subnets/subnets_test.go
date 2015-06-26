@@ -64,7 +64,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []subnets.BackingSpace) {
 	results := make([]params.SpaceResult, len(expected))
 	for i, space := range expected {
-		results[i].Tag = names.NewSpaceTag(space.Name()).Id()
+		results[i].Tag = names.NewSpaceTag(space.Name()).String()
 	}
 	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
 }

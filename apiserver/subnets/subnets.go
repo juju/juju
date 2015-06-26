@@ -128,7 +128,7 @@ func (a *internalAPI) AllSpaces() (params.SpaceResults, error) {
 		// TODO(dimitern): Add a Tag() a method and use it here. Too
 		// early to do it now as it will just complicate the tests.
 		tag := names.NewSpaceTag(space.Name())
-		results.Results[i].Tag = tag.Id()
+		results.Results[i].Tag = tag.String()
 	}
 	return results, nil
 }
