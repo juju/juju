@@ -275,12 +275,19 @@ class TestAddBasicTestingArguments(TestCase):
 
 class TestRunCommand(TestCase):
 
-    def test_run_command(self):
+    def test_run_command_args(self):
         with patch('subprocess.check_output') as co_mock:
             run_command(['foo', 'bar'])
         args, kwargs = co_mock.call_args
         self.assertEqual((['foo', 'bar'], ), args)
-        run_command(['foo', 'bar'], dry_run=True, verbose=True)
+
+    def test_run_command_dry_run(self):
         with patch('subprocess.check_output') as co_mock:
-            run_command(['foo', 'bar'], dry_run=True, verbose=True)
-            self.assertEqual(0, co_mock.call_count)
+                run_command(['foo', 'bar'], dry_run=True, verbose=False)
+                self.assertEqual(0, co_mock.call_count)
+
+    def test_run_command_verbose(self):
+        with patch('subprocess.check_output'):
+            with patch('utility.print_now') as p_mock:
+                run_command(['foo', 'bar'], verbose=True)
+                self.assertEqual(2, p_mock.call_count)
