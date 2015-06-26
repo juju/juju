@@ -48,6 +48,14 @@ func ToolsDir(dataDir, agentName string) string {
 // within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
 func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
+	if tools.UseZipToolsWindows(tools.Version) {
+		return unpackZipTools(dataDir, tools, r)
+	} else {
+		return unpackTarTools(dataDir, tools, r)
+	}
+}
+
+func unpackTarTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
 	// Unpack the gzip file and compute the checksum.
 	sha256hash := sha256.New()
 	zr, err := gzip.NewReader(io.TeeReader(r, sha256hash))

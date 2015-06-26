@@ -43,9 +43,9 @@ func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 	}
 }
 
-// GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
+// GetMockBuildTools returns a sync.BuildToolsArchiveFunc implementation which generates
 // a fake tools tarball.
-func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
+func GetMockBuildTools(c *gc.C) sync.BuildToolsArchiveFunc {
 	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		vers := version.Current
 		if forceVersion != nil {

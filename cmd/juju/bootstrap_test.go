@@ -774,7 +774,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	}
 
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
-	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
+	s.PatchValue(&sync.BuildToolsArchive, buildToolsTarballAlwaysFails)
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
 

@@ -314,8 +314,8 @@ type MetadataFile struct {
 
 // UseZipToolsWindows returns whether we should use zip tools on windows based on version.Binary.
 // From version 1.26 we're switching to providing tools archived in zip on Windows.
-func UseZipToolsWindows(version version.Binary) bool {
-	if version.OS == version.Windows && version.Major >= 1 && version.Minor >= 26 {
+func UseZipToolsWindows(vers version.Binary) bool {
+	if vers.OS == version.Windows && vers.Major >= 1 && vers.Minor >= 26 {
 		return true
 	}
 	return false

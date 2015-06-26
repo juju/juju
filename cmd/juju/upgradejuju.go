@@ -315,7 +315,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 	}
 	context.chosen = uploadVersion(context.chosen, context.tools)
 
-	builtTools, err := sync.BuildToolsTarball(&context.chosen, "upgrade")
+	builtTools, err := sync.BuildToolsArchive(&context.chosen, "upgrade")
 	if err != nil {
 		return err
 	}
