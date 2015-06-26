@@ -125,6 +125,8 @@ func (s *baseResourcesSuite) constructResourceManager(c *gc.C) *mockResourceMana
 				if filter.Series != "" && !strings.Contains(v.Path, "s/"+filter.Series) {
 					continue
 				}
+				// Resources always have the type in their path.
+				v.Path = "/blob/" + v.Path
 				result = append(result, v)
 			}
 			return result, nil
@@ -133,7 +135,7 @@ func (s *baseResourcesSuite) constructResourceManager(c *gc.C) *mockResourceMana
 }
 
 func (s *baseResourcesSuite) addResource(res resources.Resource) {
-	s.resources[res.Path] = res
+	s.resources["/blob/"+res.Path] = res
 }
 
 type mockResourceManager struct {
