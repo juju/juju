@@ -4,7 +4,9 @@
 package apiserver_test
 
 import (
+	"bytes"
 	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,31 +14,31 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"path/filepath"
+	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
-
-	"bytes"
-	"encoding/hex"
-	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/charmresources"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"path/filepath"
-	"time"
+	"github.com/juju/juju/testing/factory"
 )
 
 type resourcesSuite struct {
 	userAuthHttpSuite
 	commontesting.BlockHelper
 	baseResourcesSuite
+	unitTag      names.UnitTag
+	unitPassword string
 }
 
 var _ = gc.Suite(&resourcesSuite{})
@@ -52,6 +54,9 @@ func (s *resourcesSuite) SetUpTest(c *gc.C) {
 	s.baseResourcesSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{})
+	s.unitTag = unit.UnitTag()
+	s.unitPassword = password
 }
 
 func (s *resourcesSuite) TearDownSuite(c *gc.C) {
@@ -72,7 +77,10 @@ func (s *resourcesSuite) TestResourcesUploadedSecurely(c *gc.C) {
 }
 
 func (s *resourcesSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.resourcesURI(c, "", "path=foo"), "", nil)
+	resp, err := s.sendRequest(c, "", "", "GET", s.resourcesURI(c, "path", ""), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	resp, err = s.sendRequest(c, "", "", "POST", s.resourcesURI(c, "", "path=foo?revision=1"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
@@ -146,9 +154,6 @@ func (s *resourcesSuite) setupResourceForUpload(c *gc.C) (*params.ResourceMetada
 }
 
 func sha384sum(c *gc.C, path string) (int64, string) {
-	if strings.HasPrefix(path, "file://") {
-		path = path[len("file://"):]
-	}
 	f, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -165,7 +170,7 @@ func (s *resourcesSuite) TestUpload(c *gc.C) {
 	expectedMetadata, resPath := s.setupResourceForUpload(c)
 	expectedMetadata.ResourcePath = "/zip/u/fred/c/test/s/trusty/test-resource/1.2.3"
 	// Now try uploading them.
-	resourceParams := "revision=1.2.3&user=fred&stream=test&series=trusty&type=zip"
+	resourceParams := "revision=1.2.3&series=trusty&stream=test&type=zip&user=fred"
 	resp, err := s.uploadRequest(
 		c, s.resourcesURI(c, "", "path=test-resource&"+resourceParams), false, resPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +202,6 @@ func (s *resourcesSuite) TestUpload(c *gc.C) {
 	s.testDownload(c, expectedMetadata.URL, metadata)
 }
 
-//
 func (s *resourcesSuite) TestBlockUpload(c *gc.C) {
 	// Make a fake resource.
 	_, resPath := s.setupResourceForUpload(c)
@@ -266,7 +270,17 @@ func (s *resourcesSuite) TestDownload(c *gc.C) {
 }
 
 func (s *resourcesSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	})
+	s.AddCleanup(func(*gc.C) { envState.Close() })
+	unitFactory := factory.NewFactory(envState)
+	unit, password := unitFactory.MakeUnitReturningPassword(c, &factory.UnitParams{})
+	s.unitTag = unit.UnitTag()
+	s.unitPassword = password
 	metadata := charmresources.Resource{
 		Path: "/blob/test-resource/1.2.3",
 		Size: 3,
@@ -321,7 +335,7 @@ func (s *resourcesSuite) resourcesURI(c *gc.C, basePath, query string) string {
 }
 
 func (s *resourcesSuite) downloadRequest(c *gc.C, url string) (*http.Response, error) {
-	return s.sendRequest(c, "", "", "GET", url, "", nil)
+	return s.sendRequest(c, s.unitTag.String(), s.unitPassword, "GET", url, "", nil)
 }
 
 func (s *resourcesSuite) assertUploadResponse(c *gc.C, resp *http.Response, resource *params.ResourceMetadata) {

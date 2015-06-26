@@ -43,6 +43,11 @@ func (h *resourcesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	defer stateWrapper.cleanup()
 
+	if _, err := stateWrapper.authenticateAgent(r); err != nil {
+		h.authError(w, h)
+		return
+	}
+
 	switch r.Method {
 	case "GET":
 		readers, err := h.processGet(r, getResourceState(stateWrapper.state))
@@ -138,24 +143,25 @@ func resourceAttributes(url *url.URL) charmresources.ResourceAttributes {
 }
 
 func resourceURL(serverRoot string, attrs charmresources.ResourceAttributes) string {
-	url := fmt.Sprintf("%s/resources/%s", serverRoot, attrs.PathName)
-	url += fmt.Sprintf("?revision=%s", attrs.Revision)
+	resurl := fmt.Sprintf("%s/resources/%s", serverRoot, attrs.PathName)
+	values := url.Values{}
+	values.Add("revision", attrs.Revision)
 	if attrs.Org != "" {
-		url += fmt.Sprintf("&org=%s", attrs.Org)
+		values.Add("org", attrs.Org)
 	}
 	if attrs.User != "" {
-		url += fmt.Sprintf("&user=%s", attrs.User)
+		values.Add("user", attrs.User)
 	}
 	if attrs.Stream != "" {
-		url += fmt.Sprintf("&stream=%s", attrs.Stream)
+		values.Add("stream", attrs.Stream)
 	}
 	if attrs.Series != "" {
-		url += fmt.Sprintf("&series=%s", attrs.Series)
+		values.Add("series", attrs.Series)
 	}
 	if attrs.Type != "" {
-		url += fmt.Sprintf("&type=%s", attrs.Type)
+		values.Add("type", attrs.Type)
 	}
-	return url
+	return fmt.Sprintf("%s?%s", resurl, values.Encode())
 }
 
 // processGet handles a resource GET request.
@@ -241,7 +247,7 @@ func (h *resourcesUploadHandler) getServerRoot(r *http.Request, query url.Values
 	return fmt.Sprintf("https://%s/environment/%s", r.Host, uuid), nil
 }
 
-// handleUpload uploads the RESOURCES data from the reader to resource storage at the specified path.
+// handleUpload uploads the resources data from the reader to resource storage at the specified path.
 func (h *resourcesUploadHandler) handleUpload(
 	rdr io.Reader, attrs charmresources.ResourceAttributes, resourceMetadata charmresources.Resource,
 	serverRoot string, st ResourceState,

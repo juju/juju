@@ -4,7 +4,7 @@
 package charmresources
 
 import (
-	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 )
@@ -18,24 +18,24 @@ func ResourcePath(params ResourceAttributes) (string, error) {
 	if params.Type == "" {
 		params.Type = string(ResourceTypeBlob)
 	}
-	path := params.PathName
+	resPath := params.PathName
 	if params.Series != "" {
-		path = fmt.Sprintf("s/%s/%s", params.Series, path)
+		resPath = path.Join("s", params.Series, resPath)
 	}
 	if params.Stream != "" {
-		path = fmt.Sprintf("c/%s/%s", params.Stream, path)
+		resPath = path.Join("c", params.Stream, resPath)
 	}
 	if params.User != "" {
-		path = fmt.Sprintf("u/%s/%s", params.User, path)
+		resPath = path.Join("u", params.User, resPath)
 	}
 	if params.Org != "" {
-		path = fmt.Sprintf("org/%s/%s", params.Org, path)
+		resPath = path.Join("org", params.Org, resPath)
 	}
 	if params.Revision != "" {
-		path = fmt.Sprintf("%s/%s", path, params.Revision)
+		resPath = path.Join(resPath, params.Revision)
 	}
-	path = fmt.Sprintf("/%s/%s", params.Type, path)
-	return path, nil
+	resPath = path.Join("/"+params.Type, resPath)
+	return resPath, nil
 }
 
 func validatePathParameters(params ResourceAttributes) error {
