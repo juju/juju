@@ -10,7 +10,6 @@ import (
 
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v1"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -43,11 +42,10 @@ func (s *registrationSuite) TestHttpMetricsRegistrar(c *gc.C) {
 
 	data, err := registerMetrics("environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
 	c.Assert(err, gc.IsNil)
-	var ms macaroon.Slice
-	err = json.Unmarshal(data, &ms)
+	var b []byte
+	err = json.Unmarshal(data, &b)
 	c.Assert(err, gc.IsNil)
-	c.Assert(ms, gc.HasLen, 1)
-	c.Assert(ms[0].Id(), gc.Equals, "hello registration")
+	c.Assert(string(b), gc.Equals, "hello registration")
 	c.Assert(s.handler.registrationCalls, gc.HasLen, 1)
 	c.Assert(s.handler.registrationCalls[0], gc.DeepEquals, metricRegistrationPost{EnvironmentUUID: "environment uuid", CharmURL: "charm url", ServiceName: "service name"})
 }
@@ -71,11 +69,7 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 		return
 	}
 
-	m, err := macaroon.New(nil, "hello registration", "test")
-	if err != nil {
-		panic(err)
-	}
-	err = json.NewEncoder(w).Encode(m)
+	err = json.NewEncoder(w).Encode([]byte("hello registration"))
 	if err != nil {
 		panic(err)
 	}

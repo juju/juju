@@ -24,7 +24,6 @@ import (
 	"gopkg.in/juju/charmstore.v4/csclient"
 	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -558,11 +557,10 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 		assert: func(serviceName string, data []byte) {
 			called = true
 			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var ms macaroon.Slice
-			err := json.Unmarshal(data, &ms)
+			var b []byte
+			err := json.Unmarshal(data, &b)
 			c.Assert(err, gc.IsNil)
-			c.Assert(ms, gc.HasLen, 1)
-			c.Assert(ms[0].Id(), gc.Equals, "hello registration")
+			c.Assert(string(b), gc.Equals, "hello registration")
 		},
 	}
 
@@ -617,11 +615,10 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 		assert: func(serviceName string, data []byte) {
 			called = true
 			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var ms macaroon.Slice
-			err := json.Unmarshal(data, &ms)
+			var b []byte
+			err := json.Unmarshal(data, &b)
 			c.Assert(err, gc.IsNil)
-			c.Assert(ms, gc.HasLen, 1)
-			c.Assert(ms[0].Id(), gc.Equals, "hello registration")
+			c.Assert(string(b), gc.Equals, "hello registration")
 		},
 	}
 

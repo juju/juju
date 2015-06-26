@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -13,13 +12,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/macaroon-bakery.v0/httpbakery"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 )
 
-var registerMetricsURL = ""
+var (
+	registerMetricsURL = ""
+	openWebBrowser     = func(_ *url.URL) error { return nil }
+)
 
 type metricRegistrationPost struct {
 	EnvironmentUUID string `json:"env-uuid"`
@@ -37,7 +38,7 @@ func registerMeteredCharm(state *api.State, jar *cookiejar.Jar, charmURL string,
 	if metered {
 		httpClient := httpbakery.NewHTTPClient()
 		httpClient.Jar = jar
-		credentials, err := registerMetrics(environmentUUID, charmURL, serviceName, httpClient, httpbakery.OpenWebBrowser)
+		credentials, err := registerMetrics(environmentUUID, charmURL, serviceName, httpClient, openWebBrowser)
 		if err != nil {
 			logger.Infof("failed to register metrics: %v", err)
 			return err
@@ -91,28 +92,15 @@ func registerMetrics(environmentUUID, charmURL, serviceName string, client *http
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer discardClose(response)
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("failed to register metrics: http response is %d", response.StatusCode)
 	}
 
-	var m *macaroon.Macaroon
-	decoder := json.NewDecoder(response.Body)
-	err = decoder.Decode(&m)
+	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to unmarshal the response")
+		return nil, errors.Annotatef(err, "failed to read the response")
 	}
-
-	ms := macaroon.Slice{m}
-	return json.Marshal(ms)
-}
-
-// discardClose reads any remaining data from the response body and closes it.
-func discardClose(response *http.Response) {
-	if response == nil || response.Body == nil {
-		return
-	}
-	io.Copy(ioutil.Discard, response.Body)
-	response.Body.Close()
+	return b, nil
 }
