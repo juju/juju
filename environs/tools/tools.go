@@ -42,7 +42,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
-		logger.Debugf("no architecture specified when finding tools, looking for any")
+		logger.Tracef("no architecture specified when finding tools, looking for any")
 		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
@@ -53,8 +53,8 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Series != "" {
 		seriesToSearch = []string{filter.Series}
 	} else {
-		logger.Debugf("no series specified when finding tools, looking for any")
 		seriesToSearch = version.SupportedSeries()
+		logger.Tracef("no series specified when finding tools, looking for %v", seriesToSearch)
 	}
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil
@@ -135,8 +135,12 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	}
 	list = make(coretools.List, len(toolsMetadata))
 	for i, metadata := range toolsMetadata {
+		binary, err := metadata.binary()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		list[i] = &coretools.Tools{
-			Version: metadata.binary(),
+			Version: binary,
 			URL:     metadata.FullPath,
 			Size:    metadata.Size,
 			SHA256:  metadata.SHA256,

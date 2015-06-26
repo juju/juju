@@ -172,7 +172,7 @@ Updating dependencies
 ---------------------
 
 If you update a repo that juju depends on, you will need to recreate
-`depdencies.tsv`:
+`dependencies.tsv`:
 
 ```shell
 $ godeps -t $(go list github.com/juju/juju/...) > dependencies.tsv

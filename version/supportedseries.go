@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/juju/errors"
 )
 
 type OSType int
@@ -36,7 +38,31 @@ func (t OSType) String() string {
 	return "Unknown"
 }
 
-// seriesVersions provides a mapping between Ubuntu series names and version numbers.
+type unknownOSForSeriesError string
+
+func (e unknownOSForSeriesError) Error() string {
+	return `unknown OS for series: "` + string(e) + `"`
+}
+
+// IsUnknownOSForSeriesError returns true if err is of type unknownOSForSeriesError.
+func IsUnknownOSForSeriesError(err error) bool {
+	_, ok := errors.Cause(err).(unknownOSForSeriesError)
+	return ok
+}
+
+type unknownSeriesVersionError string
+
+func (e unknownSeriesVersionError) Error() string {
+	return `unknown version for series: "` + string(e) + `"`
+}
+
+// IsUnknownSeriesVersionError returns true if err is of type unknownSeriesVersionError.
+func IsUnknownSeriesVersionError(err error) bool {
+	_, ok := errors.Cause(err).(unknownSeriesVersionError)
+	return ok
+}
+
+// seriesVersions provides a mapping between series names and versions.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
 // On non-Ubuntu systems, these values provide a nice fallback option.
@@ -56,11 +82,11 @@ var seriesVersions = map[string]string{
 	"win7":        "win7",
 	"win8":        "win8",
 	"win81":       "win81",
-	"centos7":     "7",
+	"centos7":     "centos7",
 }
 
 var centosSeries = map[string]string{
-	"centos7": "7",
+	"centos7": "centos7",
 }
 
 var ubuntuSeries = map[string]string{
@@ -73,14 +99,25 @@ var ubuntuSeries = map[string]string{
 	"vivid":   "15.04",
 }
 
+// Windows versions come in various flavors:
+// Standard, Datacenter, etc. We use string prefix match them to one
+// of the following. Specify the longest name in a particular series first
+// For example, if we have "Win 2012" and "Win 2012 R2", we specify "Win 2012 R2" first.
+// We need to make sure we manually update this list with each new windows release.
+var windowsVersionMatchOrder = []string{
+	"Hyper-V Server 2012 R2",
+	"Hyper-V Server 2012",
+	"Windows Server 2012 R2",
+	"Windows Server 2012",
+	"Windows Storage Server 2012 R2",
+	"Windows Storage Server 2012",
+	"Windows 7",
+	"Windows 8.1",
+	"Windows 8",
+}
+
 // windowsVersions is a mapping consisting of the output from
 // the following WMI query: (gwmi Win32_OperatingSystem).Name
-// Windows versions come in various flavors:
-// Standard, Datacenter, etc. We use regex to match them to one
-// of the following. Specify the longest name in a particular serie first
-// For example, if we have "Win 2012" and "Win 2012 R2". we specify "Win 2012 R2" first
-// TODO: Replace this with actuall full names once we compile a complete
-// list with al flavors
 var windowsVersions = map[string]string{
 	"Hyper-V Server 2012 R2":         "win2012hvr2",
 	"Hyper-V Server 2012":            "win2012hv",
@@ -89,8 +126,8 @@ var windowsVersions = map[string]string{
 	"Windows Storage Server 2012 R2": "win2012r2",
 	"Windows Storage Server 2012":    "win2012",
 	"Windows 7":                      "win7",
-	"Windows 8":                      "win8",
 	"Windows 8.1":                    "win81",
+	"Windows 8":                      "win8",
 }
 
 var distroInfo = "/usr/share/distro-info/ubuntu.csv"
@@ -98,6 +135,9 @@ var distroInfo = "/usr/share/distro-info/ubuntu.csv"
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
 func GetOSFromSeries(series string) (OSType, error) {
+	if series == "" {
+		return Unknown, errors.NotValidf("series %q", series)
+	}
 	if _, ok := ubuntuSeries[series]; ok {
 		return Ubuntu, nil
 	}
@@ -114,8 +154,7 @@ func GetOSFromSeries(series string) (OSType, error) {
 			return OSX, nil
 		}
 	}
-
-	return Unknown, fmt.Errorf("invalid series %q", series)
+	return Unknown, errors.Trace(unknownOSForSeriesError(series))
 }
 
 var (
@@ -123,7 +162,7 @@ var (
 	updatedseriesVersions bool
 )
 
-// SeriesVersion returns the version number for the specified Ubuntu series.
+// SeriesVersion returns the version for the specified series.
 func SeriesVersion(series string) (string, error) {
 	if series == "" {
 		panic("cannot pass empty series to SeriesVersion()")
@@ -137,7 +176,8 @@ func SeriesVersion(series string) (string, error) {
 	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	return "", fmt.Errorf("invalid series %q", series)
+
+	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
 // SupportedSeries returns the series on which we can run Juju workloads.

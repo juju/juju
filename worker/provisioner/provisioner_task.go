@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,10 +17,10 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -230,7 +231,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Find machines without an instance id or that are dead
-	pending, dead, err := task.pendingOrDead(ids)
+	pending, dead, maintain, err := task.pendingOrDeadOrMaintain(ids)
 	if err != nil {
 		return err
 	}
@@ -285,6 +286,9 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		delete(task.machines, machine.Id())
 	}
 
+	// Any machines that require maintenance get pinged
+	task.maintainMachines(maintain)
+
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
 }
@@ -331,51 +335,92 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
+func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []*apiprovisioner.Machine, err error) {
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
 			logger.Infof("machine %q not found", id)
 			continue
 		}
-		switch machine.Life() {
-		case params.Dying:
-			if _, err := machine.InstanceId(); err == nil {
-				continue
-			} else if !params.IsCodeNotProvisioned(err) {
-				return nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
-			}
-			logger.Infof("killing dying, unprovisioned machine %q", machine)
-			if err := machine.EnsureDead(); err != nil {
-				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
-			}
-			fallthrough
-		case params.Dead:
-			dead = append(dead, machine)
-			continue
+		var classification MachineClassification
+		classification, err = classifyMachine(machine)
+		if err != nil {
+			return // return the error
 		}
-		if instId, err := machine.InstanceId(); err != nil {
-			if !params.IsCodeNotProvisioned(err) {
-				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
-				continue
-			}
-			status, _, err := machine.Status()
-			if err != nil {
-				logger.Infof("cannot get machine %q status: %v", machine, err)
-				continue
-			}
-			if status == params.StatusPending {
-				pending = append(pending, machine)
-				logger.Infof("found machine %q pending provisioning", machine)
-				continue
-			}
-		} else {
-			logger.Infof("machine %v already started as instance %q", machine, instId)
+		switch classification {
+		case Pending:
+			pending = append(pending, machine)
+		case Dead:
+			dead = append(dead, machine)
+		case Maintain:
+			maintain = append(maintain, machine)
 		}
 	}
 	logger.Tracef("pending machines: %v", pending)
 	logger.Tracef("dead machines: %v", dead)
 	return
+}
+
+type ClassifiableMachine interface {
+	Life() params.Life
+	InstanceId() (instance.Id, error)
+	EnsureDead() error
+	Status() (params.Status, string, error)
+	Id() string
+}
+
+type MachineClassification string
+
+const (
+	None     MachineClassification = "none"
+	Pending  MachineClassification = "Pending"
+	Dead     MachineClassification = "Dead"
+	Maintain MachineClassification = "Maintain"
+)
+
+func classifyMachine(machine ClassifiableMachine) (
+	MachineClassification, error) {
+	switch machine.Life() {
+	case params.Dying:
+		if _, err := machine.InstanceId(); err == nil {
+			return None, nil
+		} else if !params.IsCodeNotProvisioned(err) {
+			return None, errors.Annotatef(err, "failed to load dying machine id:%s, details:%v", machine.Id(), machine)
+		}
+		logger.Infof("killing dying, unprovisioned machine %q", machine)
+		if err := machine.EnsureDead(); err != nil {
+			return None, errors.Annotatef(err, "failed to ensure machine dead id:%s, details:%v", machine.Id(), machine)
+		}
+		fallthrough
+	case params.Dead:
+		return Dead, nil
+	}
+	if instId, err := machine.InstanceId(); err != nil {
+		if !params.IsCodeNotProvisioned(err) {
+			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
+		}
+		status, _, err := machine.Status()
+		if err != nil {
+			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
+			return None, nil
+		}
+		if status == params.StatusPending {
+			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
+			return Pending, nil
+		}
+	} else {
+		logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
+		if err != nil {
+			logger.Infof("Error fetching provisioning info")
+		} else {
+			isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
+			isKvm := regexp.MustCompile(`\d+/kvm/\d+`)
+			if isLxc.MatchString(machine.Id()) || isKvm.MatchString(machine.Id()) {
+				return Maintain, nil
+			}
+		}
+	}
+	return None, nil
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
@@ -443,11 +488,11 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	return nil
 }
 
-func (task *provisionerTask) constructMachineConfig(
+func (task *provisionerTask) constructInstanceConfig(
 	machine *apiprovisioner.Machine,
 	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
-) (*cloudinit.MachineConfig, error) {
+) (*instancecfg.InstanceConfig, error) {
 
 	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
@@ -463,7 +508,7 @@ func (task *provisionerTask) constructMachineConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
-	return environs.NewMachineConfig(
+	return instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
@@ -477,7 +522,7 @@ func (task *provisionerTask) constructMachineConfig(
 
 func constructStartInstanceParams(
 	machine *apiprovisioner.Machine,
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
@@ -488,21 +533,29 @@ func constructStartInstanceParams(
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}
-		machineTag, err := names.ParseMachineTag(v.MachineTag)
+		if v.Attachment == nil {
+			return environs.StartInstanceParams{}, errors.Errorf("volume params missing attachment")
+		}
+		machineTag, err := names.ParseMachineTag(v.Attachment.MachineTag)
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}
 		if machineTag != machine.Tag() {
-			return environs.StartInstanceParams{}, errors.Errorf("volume params has invalid machine tag")
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params has invalid machine tag")
+		}
+		if v.Attachment.InstanceId != "" {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}
 		volumes[i] = storage.VolumeParams{
 			volumeTag,
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
+			v.Tags,
 			&storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					Machine: machineTag,
+					Machine:  machineTag,
+					ReadOnly: v.Attachment.ReadOnly,
 				},
 				Volume: volumeTag,
 			},
@@ -512,11 +565,24 @@ func constructStartInstanceParams(
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
-		MachineConfig:     machineConfig,
+		InstanceConfig:    instanceConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 	}, nil
+}
+
+func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine) error {
+	for _, m := range machines {
+		logger.Infof("maintainMachines: %v", m)
+		startInstanceParams := environs.StartInstanceParams{}
+		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
+		startInstanceParams.InstanceConfig.MachineId = m.Id()
+		if err := task.broker.MaintainInstance(startInstanceParams); err != nil {
+			return errors.Annotatef(err, "cannot maintain machine %v", m)
+		}
+	}
+	return nil
 }
 
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
@@ -527,12 +593,12 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			return err
 		}
 
-		machineCfg, err := task.constructMachineConfig(m, task.auth, pInfo)
+		instanceCfg, err := task.constructInstanceConfig(m, task.auth, pInfo)
 		if err != nil {
 			return err
 		}
 
-		assocProvInfoAndMachCfg(pInfo, machineCfg)
+		assocProvInfoAndMachCfg(pInfo, instanceCfg)
 
 		possibleTools, err := task.toolsFinder.FindTools(
 			version.Current.Number,
@@ -545,7 +611,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 		startInstanceParams, err := constructStartInstanceParams(
 			m,
-			machineCfg,
+			instanceCfg,
 			pInfo,
 			possibleTools,
 		)
@@ -625,7 +691,7 @@ func (task *provisionerTask) startMachine(
 
 	inst := result.Instance
 	hardware := result.Hardware
-	nonce := startInstanceParams.MachineConfig.MachineNonce
+	nonce := startInstanceParams.InstanceConfig.MachineNonce
 	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
 	if err != nil {
 		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
@@ -658,28 +724,29 @@ func (task *provisionerTask) startMachine(
 }
 
 type provisioningInfo struct {
-	Constraints   constraints.Value
-	Series        string
-	Placement     string
-	MachineConfig *cloudinit.MachineConfig
+	Constraints    constraints.Value
+	Series         string
+	Placement      string
+	InstanceConfig *instancecfg.InstanceConfig
 }
 
 func assocProvInfoAndMachCfg(
 	provInfo *params.ProvisioningInfo,
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 ) *provisioningInfo {
 
-	machineConfig.Networks = provInfo.Networks
+	instanceConfig.Networks = provInfo.Networks
+	instanceConfig.Tags = provInfo.Tags
 
 	if len(provInfo.Jobs) > 0 {
-		machineConfig.Jobs = provInfo.Jobs
+		instanceConfig.Jobs = provInfo.Jobs
 	}
 
 	return &provisioningInfo{
-		Constraints:   provInfo.Constraints,
-		Series:        provInfo.Series,
-		Placement:     provInfo.Placement,
-		MachineConfig: machineConfig,
+		Constraints:    provInfo.Constraints,
+		Series:         provInfo.Series,
+		Placement:      provInfo.Placement,
+		InstanceConfig: instanceConfig,
 	}
 }
 
@@ -688,20 +755,21 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 	for i, v := range volumes {
 		result[i] = params.Volume{
 			v.Tag.String(),
-			v.VolumeId,
-			v.Serial,
-			v.Size,
+			params.VolumeInfo{
+				v.VolumeId,
+				v.HardwareId,
+				v.Size,
+				v.Persistent,
+			},
 		}
 	}
 	return result
 }
 
-func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) []params.VolumeAttachment {
-	result := make([]params.VolumeAttachment, len(attachments))
-	for i, a := range attachments {
-		result[i] = params.VolumeAttachment{
-			a.Volume.String(),
-			a.Machine.String(),
+func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
+	result := make(map[string]params.VolumeAttachmentInfo)
+	for _, a := range attachments {
+		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			a.DeviceName,
 			a.ReadOnly,
 		}

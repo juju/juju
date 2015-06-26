@@ -23,9 +23,10 @@ import (
 var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
 
 const (
-	// partitionType is the value of the TYPE column
-	// in lsblk output for partitions.
-	partitionType = "part"
+	// values for the TYPE column that we care about
+
+	typeDisk = "disk"
+	typeLoop = "loop"
 )
 
 func init() {
@@ -34,15 +35,16 @@ func init() {
 
 func listBlockDevices() ([]storage.BlockDevice, error) {
 	columns := []string{
-		"KNAME",  // kernel name
-		"SIZE",   // size
-		"LABEL",  // filesystem label
-		"UUID",   // filesystem UUID
-		"FSTYPE", // filesystem type
-		"TYPE",   // device type
+		"KNAME",      // kernel name
+		"SIZE",       // size
+		"LABEL",      // filesystem label
+		"UUID",       // filesystem UUID
+		"FSTYPE",     // filesystem type
+		"TYPE",       // device type
+		"MOUNTPOINT", // moint point
 	}
 
-	logger.Debugf("executing lsblk")
+	logger.Tracef("executing lsblk")
 	output, err := exec.Command(
 		"lsblk",
 		"-b", // output size in bytes
@@ -82,15 +84,20 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				dev.FilesystemType = pair[2]
 			case "TYPE":
 				deviceType = pair[2]
+			case "MOUNTPOINT":
+				dev.MountPoint = pair[2]
 			default:
 				logger.Debugf("unexpected field from lsblk: %q", pair[1])
 			}
 		}
 
-		// Partitions may not be used, as there is no guarantee that the
-		// partition will remain available (and we don't model hierarchy).
-		if deviceType == partitionType {
-			logger.Debugf("ignoring partition: %+v", dev)
+		// We may later want to expand this, e.g. to handle lvm,
+		// dmraid, crypt, etc., but this is enough to cover bases
+		// for now.
+		switch deviceType {
+		case typeDisk, typeLoop:
+		default:
+			logger.Tracef("ignoring %q type device: %+v", deviceType, dev)
 			continue
 		}
 

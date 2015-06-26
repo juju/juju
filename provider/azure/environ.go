@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -701,24 +702,29 @@ func deploymentNameV2(serviceName string) string {
 	return serviceName + "-v2"
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*azureEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err := environs.FinishMachineConfig(args.MachineConfig, env.Config())
+	err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 	if err != nil {
 		return nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	args.MachineConfig.Tools = args.Tools[0]
-	logger.Infof("picked tools %q", args.MachineConfig.Tools)
+	args.InstanceConfig.Tools = args.Tools[0]
+	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(args.MachineConfig)
+	userData, err := makeCustomData(args.InstanceConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot compose user data")
 	}
@@ -755,7 +761,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	stateServer := multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...)
+	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
@@ -1295,4 +1301,12 @@ func (env *azureEnviron) SupportsUnitPlacement() error {
 		return fmt.Errorf("unit placement is not supported with availability-sets-enabled")
 	}
 	return nil
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	_, ok := env.(*azureEnviron)
+	if !ok {
+		return nil, errors.NotSupportedf("non-azure environment")
+	}
+	return common.GetCustomImageSource(env)
 }

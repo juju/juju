@@ -6,13 +6,14 @@ package operation_test
 import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type MockGetArchiveInfo struct {
@@ -40,8 +41,8 @@ type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
-	MockClearResolvedFlag          *MockNoArgs
-	MockInitializeMetricsCollector *MockNoArgs
+	MockClearResolvedFlag       *MockNoArgs
+	MockInitializeMetricsTimers *MockNoArgs
 }
 
 func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
@@ -56,8 +57,8 @@ func (cb *DeployCallbacks) ClearResolvedFlag() error {
 	return cb.MockClearResolvedFlag.Call()
 }
 
-func (cb *DeployCallbacks) InitializeMetricsCollector() error {
-	return cb.MockInitializeMetricsCollector.Call()
+func (cb *DeployCallbacks) InitializeMetricsTimers() error {
+	return cb.MockInitializeMetricsTimers.Call()
 }
 
 type MockBundleInfo struct {
@@ -122,41 +123,29 @@ func (mock *MockFailAction) Call(actionId, message string) error {
 	return mock.err
 }
 
-type MockAcquireExecutionLock struct {
-	gotMessage *string
-	didUnlock  bool
-	err        error
-}
-
-func (mock *MockAcquireExecutionLock) Call(message string) (func(), error) {
-	mock.gotMessage = &message
-	if mock.err != nil {
-		return nil, mock.err
-	}
-	return func() { mock.didUnlock = true }, nil
-}
-
 type RunActionCallbacks struct {
 	operation.Callbacks
 	*MockFailAction
-	*MockAcquireExecutionLock
+	executingMessage string
 }
 
 func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
 	return cb.MockFailAction.Call(actionId, message)
 }
 
-func (cb *RunActionCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
+func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
 }
 
 type RunCommandsCallbacks struct {
 	operation.Callbacks
-	*MockAcquireExecutionLock
+	executingMessage string
 }
 
-func (cb *RunCommandsCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
+func (cb *RunCommandsCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
 }
 
 type MockPrepareHook struct {
@@ -174,6 +163,7 @@ type PrepareHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
 	MockClearResolvedFlag *MockNoArgs
+	executingMessage      string
 }
 
 func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
@@ -182,6 +172,11 @@ func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) 
 
 func (cb *PrepareHookCallbacks) ClearResolvedFlag() error {
 	return cb.MockClearResolvedFlag.Call()
+}
+
+func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
 }
 
 type MockNotify struct {
@@ -196,13 +191,8 @@ func (mock *MockNotify) Call(hookName string, ctx runner.Context) {
 
 type ExecuteHookCallbacks struct {
 	*PrepareHookCallbacks
-	*MockAcquireExecutionLock
 	MockNotifyHookCompleted *MockNotify
 	MockNotifyHookFailed    *MockNotify
-}
-
-func (cb *ExecuteHookCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
 }
 
 func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runner.Context) {
@@ -304,7 +294,9 @@ func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (ru
 
 type MockContext struct {
 	runner.Context
-	actionData *runner.ActionData
+	actionData      *runner.ActionData
+	setStatusCalled bool
+	status          jujuc.StatusInfo
 }
 
 func (mock *MockContext) ActionData() (*runner.ActionData, error) {
@@ -312,6 +304,24 @@ func (mock *MockContext) ActionData() (*runner.ActionData, error) {
 		return nil, errors.New("not an action context")
 	}
 	return mock.actionData, nil
+}
+
+func (mock *MockContext) HasExecutionSetUnitStatus() bool {
+	return mock.setStatusCalled
+}
+
+func (mock *MockContext) ResetExecutionSetUnitStatus() {
+	mock.setStatusCalled = false
+}
+
+func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	mock.setStatusCalled = true
+	mock.status = status
+	return nil
+}
+
+func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	return &mock.status, nil
 }
 
 type MockRunAction struct {
@@ -336,8 +346,9 @@ func (mock *MockRunCommands) Call(commands string) (*utilexec.ExecResponse, erro
 }
 
 type MockRunHook struct {
-	gotName *string
-	err     error
+	gotName         *string
+	err             error
+	setStatusCalled bool
 }
 
 func (mock *MockRunHook) Call(hookName string) error {
@@ -365,6 +376,7 @@ func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error
 }
 
 func (r *MockRunner) RunHook(hookName string) error {
+	r.Context().(*MockContext).setStatusCalled = r.MockRunHook.setStatusCalled
 	return r.MockRunHook.Call(hookName)
 }
 
@@ -378,7 +390,7 @@ func NewDeployCallbacks() *DeployCallbacks {
 
 func NewDeployCommitCallbacks(err error) *DeployCallbacks {
 	return &DeployCallbacks{
-		MockInitializeMetricsCollector: &MockNoArgs{err: err},
+		MockInitializeMetricsTimers: &MockNoArgs{err: err},
 	}
 }
 func NewMockDeployer() *MockDeployer {
@@ -449,6 +461,7 @@ var overwriteState = operation.State{
 	Step:               operation.Pending,
 	Started:            true,
 	CollectMetricsTime: 1234567,
+	UpdateStatusTime:   1234567,
 	CharmURL:           curl("cs:quantal/wordpress-2"),
 	ActionId:           &randomActionId,
 	Hook:               &hook.Info{Kind: hooks.Install},

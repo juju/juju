@@ -22,9 +22,12 @@ func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
 	// Test the variable substitutions.
 	result := debug.ClientScript(ctx, nil)
 	// No variables left behind.
-	c.Assert(result, gc.Matches, "[^{}]*")
+	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{unit_name}(.|\n)*")
+	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{tmux_conf}(.|\n)*")
+	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{entry_flock}(.|\n)*")
+	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{exit_flock}(.|\n)*")
 	// tmux new-session -d -s {unit_name}
-	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*tmux new-session -s %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
+	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*tmux attach-session -t %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
 	//) 9>{exit_flock}
 	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*\\) 9>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientExitFileLock())))
 	//) 8>{entry_flock}

@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package apiserver
 
 import (
@@ -40,5 +43,5 @@ func (r *adminApiV1) Admin(id string) (*adminV1, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req)
+	return a.doLogin(req, 1)
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/metrics"
 )
 
 // worstCase is used for timeouts when timing out
@@ -62,7 +63,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.Address{
+	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 		Value: "private.address.example.com",
@@ -75,24 +76,26 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 }
 
 type context struct {
-	uuid          string
-	path          string
-	dataDir       string
-	s             *UniterSuite
-	st            *state.State
-	api           *apiuniter.State
-	leader        leadership.LeadershipManager
-	charms        map[string][]byte
-	hooks         []string
-	sch           *state.Charm
-	svc           *state.Service
-	unit          *state.Unit
-	uniter        *uniter.Uniter
-	relatedSvc    *state.Service
-	relation      *state.Relation
-	relationUnits map[string]*state.RelationUnit
-	subordinate   *state.Unit
-	ticker        *uniter.ManualTicker
+	uuid                   string
+	path                   string
+	dataDir                string
+	s                      *UniterSuite
+	st                     *state.State
+	api                    *apiuniter.State
+	leader                 leadership.LeadershipManager
+	charms                 map[string][]byte
+	hooks                  []string
+	sch                    *state.Charm
+	svc                    *state.Service
+	unit                   *state.Unit
+	uniter                 *uniter.Uniter
+	relatedSvc             *state.Service
+	relation               *state.Relation
+	relationUnits          map[string]*state.RelationUnit
+	subordinate            *state.Unit
+	collectMetricsTicker   *uniter.ManualTicker
+	sendMetricsTicker      *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -101,12 +104,14 @@ type context struct {
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
 
+// HookCompleted implements the UniterExecutionObserver interface.
 func (ctx *context) HookCompleted(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, hookName)
 	ctx.mu.Unlock()
 }
 
+// HookFailed implements the UniterExecutionObserver interface.
 func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
@@ -115,10 +120,11 @@ func (ctx *context) HookFailed(hookName string) {
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
-	workerLoop := lease.WorkerLoop(ctx.st)
-	leaseWorker := worker.NewSimpleWorker(workerLoop)
+	lease, err := lease.NewLeaseManager(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
-		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+		lease.Kill()
+		c.Assert(lease.Wait(), jc.ErrorIsNil)
 	}()
 
 	defer func() {
@@ -142,9 +148,9 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
-	ctx.leader = st.LeadershipManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
+	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -287,15 +293,36 @@ type createCharm struct {
 	customize func(*gc.C, *context, string)
 }
 
-var charmHooks = []string{
-	"install", "start", "config-changed", "upgrade-charm", "stop",
-	"db-relation-joined", "db-relation-changed", "db-relation-departed",
-	"db-relation-broken", "meter-status-changed", "collect-metrics",
+var (
+	baseCharmHooks = []string{
+		"install", "start", "config-changed", "upgrade-charm", "stop",
+		"db-relation-joined", "db-relation-changed", "db-relation-departed",
+		"db-relation-broken", "meter-status-changed", "collect-metrics", "update-status",
+	}
+	leaderCharmHooks = []string{
+		"leader-elected", "leader-deposed", "leader-settings-changed",
+	}
+	storageCharmHooks = []string{
+		"wp-content-storage-attached", "wp-content-storage-detaching",
+	}
+)
+
+func startupHooks(minion bool) []string {
+	leaderHook := "leader-elected"
+	if minion {
+		leaderHook = "leader-settings-changed"
+	}
+	return []string{"install", leaderHook, "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
-	for _, name := range charmHooks {
+
+	allCharmHooks := baseCharmHooks
+	allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
+	allCharmHooks = append(allCharmHooks, storageCharmHooks...)
+
+	for _, name := range allCharmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
 		for _, bad := range s.badHooks {
@@ -313,6 +340,10 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+func (s createCharm) charmURL() string {
+	return curl(s.revision).String()
 }
 
 type addCharm struct {
@@ -367,11 +398,16 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	ctx.apiLogin(c)
 }
 
-type createUniter struct{}
+type createUniter struct {
+	minion bool
+}
 
-func (createUniter) step(c *gc.C, ctx *context) {
+func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createServiceAndUnit{})
+	if s.minion {
+		step(c, ctx, forceMinion{})
+	}
 	step(c, ctx, startUniter{})
 	step(c, ctx, waitAddresses{})
 }
@@ -425,7 +461,19 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	uniterParams := uniter.UniterParams{
+		St:                ctx.api,
+		UnitTag:           tag,
+		LeadershipManager: ctx.leader,
+		DataDir:           ctx.dataDir,
+		HookLock:          lock,
+		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
+			ctx.collectMetricsTicker.ReturnTimer,
+			ctx.sendMetricsTicker.ReturnTimer,
+		),
+		UpdateStatusSignal: ctx.updateStatusHookTicker.ReturnTimer,
+	}
+	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -439,6 +487,7 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.ErrorMatches, s.err)
 		return
 	}
+
 	// In the default case, we're waiting for worker.ErrTerminateAgent, but
 	// the path to that error can be tricky. If the unit becomes Dead at an
 	// inconvenient time, unrelated calls can fail -- as they should -- but
@@ -487,6 +536,10 @@ type stopUniter struct {
 
 func (s stopUniter) step(c *gc.C, ctx *context) {
 	u := ctx.uniter
+	if u == nil {
+		c.Logf("uniter not started, skipping stopUniter{}")
+		return
+	}
 	ctx.uniter = nil
 	err := u.Stop()
 	if s.err == "" {
@@ -504,12 +557,19 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct{}
+type verifyRunning struct {
+	minion bool
+}
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	step(c, ctx, waitHooks{"config-changed"})
+	var hooks []string
+	if s.minion {
+		hooks = append(hooks, "leader-settings-changed")
+	}
+	hooks = append(hooks, "config-changed")
+	step(c, ctx, waitHooks(hooks))
 }
 
 type startupErrorWithCustomCharm struct {
@@ -524,11 +584,12 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{
-		status: params.StatusError,
-		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
+	step(c, ctx, waitUnitAgent{
+		statusGetter: unitStatusGetter,
+		status:       params.StatusError,
+		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "config-changed", "start"} {
+	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -546,11 +607,12 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{
-		status: params.StatusError,
-		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
+	step(c, ctx, waitUnitAgent{
+		statusGetter: unitStatusGetter,
+		status:       params.StatusError,
+		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "config-changed", "start"} {
+	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -560,14 +622,16 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyCharm{})
 }
 
-type quickStart struct{}
+type quickStart struct {
+	minion bool
+}
 
 func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusActive})
-	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, createUniter{minion: s.minion})
+	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitHooks(startupHooks(s.minion)))
 	step(c, ctx, verifyCharm{})
 }
 
@@ -589,8 +653,8 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusActive})
-	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitHooks(startupHooks(false)))
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
 	step(c, ctx, addRelationUnit{})
@@ -605,15 +669,35 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type waitUnit struct {
-	status   params.Status
-	info     string
-	data     map[string]interface{}
-	charm    int
-	resolved state.ResolvedMode
+type statusfunc func() (state.StatusInfo, error)
+
+type statusfuncGetter func(ctx *context) statusfunc
+
+var unitStatusGetter = func(ctx *context) statusfunc {
+	return func() (state.StatusInfo, error) {
+		return ctx.unit.Status()
+	}
 }
 
-func (s waitUnit) step(c *gc.C, ctx *context) {
+var agentStatusGetter = func(ctx *context) statusfunc {
+	return func() (state.StatusInfo, error) {
+		return ctx.unit.AgentStatus()
+	}
+}
+
+type waitUnitAgent struct {
+	statusGetter func(ctx *context) statusfunc
+	status       params.Status
+	info         string
+	data         map[string]interface{}
+	charm        int
+	resolved     state.ResolvedMode
+}
+
+func (s waitUnitAgent) step(c *gc.C, ctx *context) {
+	if s.statusGetter == nil {
+		s.statusGetter = agentStatusGetter
+	}
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
@@ -637,25 +721,25 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := ctx.unit.AgentStatus()
+			statusInfo, err := s.statusGetter(ctx)()
 			c.Assert(err, jc.ErrorIsNil)
-			if string(status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+			if string(statusInfo.Status) != string(s.status) {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
 				continue
 			}
-			if info != s.info {
-				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
+			if statusInfo.Message != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
 				continue
 			}
 			if s.data != nil {
-				if len(data) != len(s.data) {
-					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+				if len(statusInfo.Data) != len(s.data) {
+					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(statusInfo.Data))
 					continue
 				}
 				for key, value := range s.data {
-					if data[key] != value {
-						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
-							value, key, data[key])
+					if statusInfo.Data[key] != value {
+						c.Logf("want status data value %q for key %q, got %q; still waiting",
+							value, key, statusInfo.Data[key])
 						continue
 					}
 				}
@@ -797,11 +881,80 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type metricsTick struct{}
+type collectMetricsTick struct{}
 
-func (s metricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.ticker.Tick()
+func (s collectMetricsTick) step(c *gc.C, ctx *context) {
+	err := ctx.collectMetricsTicker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type updateStatusHookTick struct{}
+
+func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
+	err := ctx.updateStatusHookTicker.Tick()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type sendMetricsTick struct{}
+
+func (s sendMetricsTick) step(c *gc.C, ctx *context) {
+	err := ctx.sendMetricsTicker.Tick()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addMetrics struct {
+	values []string
+}
+
+func (s addMetrics) step(c *gc.C, ctx *context) {
+	var declaredMetrics map[string]corecharm.Metric
+	if ctx.sch.Metrics() != nil {
+		declaredMetrics = ctx.sch.Metrics().Metrics
+	}
+	spoolDir := filepath.Join(ctx.path, "state", "spool", "metrics")
+
+	recorder, err := metrics.NewJSONMetricRecorder(spoolDir, declaredMetrics, ctx.sch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, value := range s.values {
+		recorder.AddMetric("pings", value, time.Now())
+	}
+
+	err = recorder.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type checkStateMetrics struct {
+	number int
+	values []string
+}
+
+func (s checkStateMetrics) step(c *gc.C, ctx *context) {
+	timeout := time.After(worstCase)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("specified number of metric batches not received by the state server")
+		case <-time.After(coretesting.ShortWait):
+			batches, err := ctx.st.MetricBatches()
+			c.Assert(err, jc.ErrorIsNil)
+			if len(batches) != s.number {
+				continue
+			}
+			for _, value := range s.values {
+				found := false
+				for _, batch := range batches {
+					for _, metric := range batch.Metrics() {
+						if metric.Key == "pings" && metric.Value == value {
+							found = true
+						}
+					}
+				}
+				c.Assert(found, gc.Equals, true)
+			}
+			return
+		}
+	}
 }
 
 type changeConfig map[string]interface{}
@@ -818,7 +971,6 @@ type addAction struct {
 
 func (s addAction) step(c *gc.C, ctx *context) {
 	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
-	// _, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -870,19 +1022,20 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		createUniter{},
-		waitUnit{
-			status: params.StatusActive,
+		waitUnitAgent{
+			status: params.StatusIdle,
 		},
-		waitHooks{"install", "config-changed", "start"},
+		waitHooks(startupHooks(false)),
 		verifyCharm{},
 
 		createCharm{revision: 1},
 		serveCharm{},
 		upgradeCharm{revision: 1},
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
+		waitUnitAgent{
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        1,
 		},
 		verifyWaiting{},
 		verifyCharm{attemptedRevision: 1},
@@ -898,10 +1051,11 @@ type verifyWaitingUpgradeError struct {
 
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  s.revision,
+		waitUnitAgent{
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        s.revision,
 		},
 		verifyCharm{attemptedRevision: s.revision},
 	}
@@ -1216,7 +1370,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err = os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
-	meta, err = corecharm.ReadMeta(f)
+	_, err = corecharm.ReadMeta(f)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1340,10 +1494,65 @@ func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
 	ctx.wg.Wait()
 }
 
+const otherLeader = "some-other-unit/123"
+
+type forceMinion struct{}
+
+func (forceMinion) step(c *gc.C, ctx *context) {
+	// TODO(fwereade): this is designed to work when the uniter is still running,
+	// which is... unexpected, because the uniter's running a tracker that will
+	// do its best to maintain leadership. But... it's possible for us to make it
+	// resign by going via the lease manager directly, and we can be confident
+	// that the uniter's tracker *will* see the problem when it fails to renew.
+	// This lets us test the uniter's behaviour under bizarre/adverse conditions
+	// (in addition to working just fine when the uniter's not running).
+	for i := 0; i < 3; i++ {
+		c.Logf("deposing local unit (attempt %d)", i)
+		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("promoting other unit (attempt %d)", i)
+		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		if err == nil {
+			return
+		} else if errors.Cause(err) != leadership.ErrClaimDenied {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+	c.Fatalf("failed to promote a different leader")
+}
+
+type forceLeader struct{}
+
+func (forceLeader) step(c *gc.C, ctx *context) {
+	c.Logf("deposing other unit")
+	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("promoting local unit")
+	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setLeaderSettings map[string]string
+
+func (s setLeaderSettings) step(c *gc.C, ctx *context) {
+	// We do this directly on State, not the API, so we don't have to worry
+	// about getting an API conn for whatever unit's meant to be leader.
+	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	for key := range settings.Map() {
+		settings.Delete(key)
+	}
+	for key, value := range s {
+		settings.Set(key, value)
+	}
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read("u")
+	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
@@ -1478,10 +1687,10 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		createUniter{},
-		waitUnit{
-			status: params.StatusActive,
+		waitUnitAgent{
+			status: params.StatusIdle,
 		},
-		waitHooks{"install", "config-changed", "start"},
+		waitHooks(startupHooks(false)),
 		verifyGitCharm{dirty: true},
 
 		createCharm{
@@ -1493,10 +1702,11 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		upgradeCharm{revision: 1},
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
+		waitUnitAgent{
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        1,
 		},
 		verifyWaiting{},
 		verifyGitCharm{dirty: true},
@@ -1504,4 +1714,56 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 	for _, s_ := range steps {
 		step(c, ctx, s_)
 	}
+}
+
+type provisionStorage struct{}
+
+func (s provisionStorage) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+
+	filesystem, err := ctx.st.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystemInfo := state.FilesystemInfo{
+		Size:         1024,
+		FilesystemId: "fs-id",
+	}
+	err = ctx.st.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := ctx.unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{
+		MountPoint: "/srv/wordpress/content",
+	}
+	err = ctx.st.SetFilesystemAttachmentInfo(
+		names.NewMachineTag(machineId),
+		filesystem.FilesystemTag(),
+		filesystemAttachmentInfo,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type destroyStorageAttachment struct{}
+
+func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	err = ctx.st.DestroyStorageAttachment(
+		storageAttachments[0].StorageInstance(),
+		ctx.unit.UnitTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type verifyStorageDetached struct{}
+
+func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
+	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 0)
 }

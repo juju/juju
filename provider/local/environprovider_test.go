@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
@@ -62,7 +62,7 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("FTP_PROXY", "")
 	s.PatchEnvironment("no_proxy", "")
 	s.PatchEnvironment("NO_PROXY", "")
-	s.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	s.HookCommandOutput(&manager.CommandOutput, nil, nil)
 	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
 		return nil
 	})
@@ -230,7 +230,7 @@ Acquire::magic::Proxy "";
 			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testing.HookCommandOutput(&apt.CommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&manager.CommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {
@@ -258,7 +258,7 @@ Acquire::magic::Proxy "";
 }
 
 func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
 		return proxy.Settings{}, nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -305,7 +305,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 }
 
 func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
 		return proxy.Settings{}, nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -320,7 +320,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
 }
 
-func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
+func (s *prepareSuite) TestProxyLocalhostFix(c *gc.C) {
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
 		"name": "test",
@@ -396,8 +396,10 @@ var urlReplacementTests = []testURL{{
 	port:         ":8877",
 	expectChange: true,
 }, {
-	message:      "replace ::1 with bridge ip in proxy url",
-	url:          "::1",
+	// Note that http//::1 (without the square brackets)
+	// is not a legal URL. See https://www.ietf.org/rfc/rfc2732.txt.
+	message:      "replace [::1] with bridge ip in proxy url",
+	url:          "[::1]",
 	port:         "",
 	expectChange: true,
 }, {
@@ -409,6 +411,11 @@ var urlReplacementTests = []testURL{{
 	message:      "do not replace provided:port with bridge ip:port in proxy url",
 	url:          "www.google.com",
 	port:         ":8877",
+	expectChange: false,
+}, {
+	message:      "lp 1437296 - apt-http-proxy being reset to bridge address when shouldn't",
+	url:          "192.168.1.201",
+	port:         ":8000",
 	expectChange: false,
 },
 }

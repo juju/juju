@@ -5,54 +5,40 @@ package client_test
 
 import (
 	"fmt"
-	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
-	"gopkg.in/mgo.v2"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/apiserver/testing"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
-
-type clientSuite struct {
-	baseSuite
-}
 
 type Killer interface {
 	Kill() error
@@ -131,9 +117,87 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
 	c.Assert(results.Results, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines() //there
+	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
+}
+
+func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
+	testAdmin := s.AdminUserTag(c)
+	owner, err := s.State.EnvironmentUser(testAdmin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	localUser1 := s.makeLocalEnvUser(c, "ralphdoe", "Ralph Doe")
+	localUser2 := s.makeLocalEnvUser(c, "samsmith", "Sam Smith")
+	remoteUser1 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	remoteUser2 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+
+	results, err := s.client.EnvUserInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := params.EnvUserInfoResults{
+		Results: []params.EnvUserInfoResult{
+			{
+				Result: &params.EnvUserInfo{
+					UserName:       owner.UserName(),
+					DisplayName:    owner.DisplayName(),
+					CreatedBy:      owner.UserName(),
+					DateCreated:    owner.DateCreated(),
+					LastConnection: owner.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "ralphdoe@local",
+					DisplayName:    "Ralph Doe",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser1.DateCreated(),
+					LastConnection: localUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "samsmith@local",
+					DisplayName:    "Sam Smith",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser2.DateCreated(),
+					LastConnection: localUser2.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "bobjohns@ubuntuone",
+					DisplayName:    "Bob Johns",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser1.DateCreated(),
+					LastConnection: remoteUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "nicshaw@idprovider",
+					DisplayName:    "Nic Shaw",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser2.DateCreated(),
+					LastConnection: remoteUser2.LastConnection(),
+				},
+			}},
+	}
+
+	sort.Sort(ByUserName(expected.Results))
+	sort.Sort(ByUserName(results.Results))
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+// ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
+// the UserName field.
+type ByUserName []params.EnvUserInfoResult
+
+func (a ByUserName) Len() int           { return len(a) }
+func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
+
+func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.EnvironmentUser {
+	// factory.MakeUser will create an EnvUser for a local user by defalut
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	return envUser
 }
 
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
@@ -169,6 +233,25 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
+	user := names.NewUserTag("bob")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare environment: env user "bob@local" does not exist: transaction aborted`)
+
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+
+	_, err = s.State.EnvironmentUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -212,6 +295,29 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 }
 
 func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
@@ -440,42 +546,41 @@ func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
 	s.assertAbortCurrentUpgradeBlocked(c, "TestBlockChangesAbortCurrentUpgrade")
 }
 
+type clientSuite struct {
+	baseSuite
+}
+
 var _ = gc.Suite(&clientSuite{})
+
+// clearSinceTimes zeros out the updated timestamps inside status
+// so we can easily check the results.
+func clearSinceTimes(status *api.Status) {
+	for serviceId, service := range status.Services {
+		for unitId, unit := range service.Units {
+			unit.Workload.Since = nil
+			unit.UnitAgent.Since = nil
+			for id, subord := range unit.Subordinates {
+				subord.Workload.Since = nil
+				subord.UnitAgent.Since = nil
+				unit.Subordinates[id] = subord
+			}
+			service.Units[unitId] = unit
+		}
+		service.Status.Since = nil
+		status.Services[serviceId] = service
+	}
+	for id, machine := range status.Machines {
+		machine.Agent.Since = nil
+		status.Machines[id] = machine
+	}
+}
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
-}
-
-func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
-	// Test the exported settings parsing in a compatible way.
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	service, err := s.State.Service("dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := service.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
-
-	// Empty string will be returned as nil.
-	options := map[string]string{
-		"title":    "foobar",
-		"username": "",
-	}
-	settings, err := client.ParseSettingsCompatible(ch, options)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title":    "foobar",
-		"username": nil,
-	})
-
-	// Illegal settings lead to an error.
-	options = map[string]string{
-		"yummy": "didgeridoo",
-	}
-	settings, err = client.ParseSettingsCompatible(ch, options)
-	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
 var (
@@ -764,6 +869,75 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	assignedMachine, err := forcedUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignedMachine, gc.Equals, "0")
+}
+
+func (s *clientSuite) TestClientAddServiceUnitsToNewContainer(c *gc.C) {
+	svc := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.APIState.Client().AddServiceUnits("dummy", 1, "lxc:"+machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
+}
+
+var clientAddServiceUnitsWithPlacementTests = []struct {
+	about      string
+	service    string // if not set, defaults to 'dummy'
+	expected   []string
+	machineIds []string
+	placement  []*instance.Placement
+	err        string
+}{
+	{
+		about:      "valid placement directives",
+		expected:   []string{"dummy/0"},
+		placement:  []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"}},
+		machineIds: []string{"1"},
+	}, {
+		about:      "direct machine assignment placement directive",
+		expected:   []string{"dummy/1", "dummy/2"},
+		placement:  []*instance.Placement{{"#", "1"}, {"lxc", "1"}},
+		machineIds: []string{"1", "1/lxc/0"},
+	}, {
+		about:     "invalid placement directive",
+		err:       ".* invalid placement is invalid",
+		expected:  []string{"dummy/3"},
+		placement: []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"}},
+	},
+}
+
+func (s *clientSuite) TestClientAddServiceUnitsWithPlacement(c *gc.C) {
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	// Add a machine for the units to be placed on.
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	for i, t := range clientAddServiceUnitsWithPlacementTests {
+		c.Logf("test %d. %s", i, t.about)
+		serviceName := t.service
+		if serviceName == "" {
+			serviceName = "dummy"
+		}
+		units, err := s.APIState.Client().AddServiceUnitsWithPlacement(serviceName, len(t.expected), t.placement)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(units, gc.DeepEquals, t.expected)
+		for i, unitName := range units {
+			u, err := s.BackingState.Unit(unitName)
+			c.Assert(err, jc.ErrorIsNil)
+			assignedMachine, err := u.AssignedMachineId()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(assignedMachine, gc.Equals, t.machineIds[i])
+		}
+	}
 }
 
 func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
@@ -1305,7 +1479,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -1341,7 +1515,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -1367,7 +1541,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
@@ -1407,13 +1581,40 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 	s.assertResolvedBlocked(c, u, "TestBlockChangeUnitResolved")
 }
 
-func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+type clientRepoSuite struct {
+	baseSuite
+	apiservertesting.CharmStoreSuite
+}
+
+var _ = gc.Suite(&clientRepoSuite{})
+
+func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
+	s.CharmStoreSuite.SetUpSuite(c)
+	s.baseSuite.SetUpSuite(c)
+}
+
+func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
+	s.CharmStoreSuite.TearDownSuite(c)
+	s.baseSuite.TearDownSuite(c)
+}
+
+func (s *clientRepoSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.CharmStoreSuite.Session = s.baseSuite.Session
+	s.CharmStoreSuite.SetUpTest(c)
+}
+
+func (s *clientRepoSuite) TearDownTest(c *gc.C) {
+	s.CharmStoreSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
+}
+
+func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `.* charm "cs:precise/wordpress-999999".* not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
@@ -1425,26 +1626,25 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G networks=^net3")
 
 	// Check for invalid network tags handling.
-	err := s.APIState.Client().ServiceDeployWithNetworks(
+	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"net1", "net2"},
-		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
-		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
 
 	networks, err := service.Networks()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1454,131 +1654,21 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
-	s.setupStoragePool(c)
-	s.testClientServiceDeployWithStorage(c, true)
-}
-
-func (s *clientSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
-	s.testClientServiceDeployWithStorage(c, false)
-}
-
-func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "storage-block")
-	storageConstraints := map[string]storage.Constraints{
-		"data": {
-			Count: 1,
-			Size:  1024,
-			Pool:  "loop-pool",
-		},
-	}
-
-	var cons constraints.Value
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 1, "", cons, "", nil,
-		storageConstraints,
-	)
+func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
-	storageConstraintsOut, err := service.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if expectConstraints {
-		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-			"data": {
-				Count: 1,
-				Size:  1024,
-				Pool:  "loop-pool",
-			},
-		})
-	} else {
-		c.Assert(storageConstraintsOut, gc.HasLen, 0)
-	}
-}
-
-func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
-	s.setupStoragePool(c)
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "storage-block")
-	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
-			Pool:  "foo",
-			Count: 1,
-			Size:  1024,
-		},
-	}
-
-	var cons constraints.Value
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 1, "", cons, "", nil,
-		storageConstraints,
-	)
-	c.Assert(err, gc.ErrorMatches, `.* pool "foo" not found`)
-}
-
-func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "storage-block")
-	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
-			Pool:  "host-loop-pool",
-			Count: 1,
-			Size:  1024,
-		},
-	}
-
-	var cons constraints.Value
-	err = s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 1, "", cons, "", nil,
-		storageConstraints,
-	)
-	c.Assert(
-		err, gc.ErrorMatches,
-		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
-}
-
-func (s *clientSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) {
-	s.setupStoragePool(c)
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "storage-filesystem")
-	var cons constraints.Value
-	err := s.APIState.Client().ServiceDeployWithNetworks(curl.String(), "service", 1, "", cons, "", nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
-	storageConstraintsOut, err := service.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-		"data": {
-			Count: 1,
-			Size:  1024,
-			Pool:  "rootfs",
-		},
-	})
-}
-
-func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
 	cons := constraints.MustParse(args)
-	return curl, bundle, cons
+	return curl, ch, cons
 }
 
-func (s *clientSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+func (s *clientRepoSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, ch charm.Charm, cons constraints.Value) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
-		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
 	networks, err := service.Networks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
@@ -1587,120 +1677,84 @@ func (s *clientSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, 
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+func (s *clientRepoSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, cons constraints.Value) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
-		nil,
 	)
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+func (s *clientRepoSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
+	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, bundle, cons)
+	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+func (s *clientRepoSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
+	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, bundle, cons)
+	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
 }
 
-func (s *clientSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+func (s *clientRepoSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
+	curl, _, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, bundle, cons)
+	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, cons)
 }
 
-func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
-	service, err := s.State.Service(serviceName)
-	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := service.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(force, gc.Equals, forced)
-	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	// When charms are read from state, storage properties are
-	// always deserialised as empty slices if empty or nil, so
-	// update bundle to match (bundle comes from parsing charm
-	// metadata yaml where nil means nil).
-	for name, bundleMeta := range bundle.Meta().Storage {
-		if bundleMeta.Properties == nil {
-			bundleMeta.Properties = []string{}
-			bundle.Meta().Storage[name] = bundleMeta
-		}
-	}
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
-
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		machine, err := s.State.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
-		machineCons, err := machine.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(machineCons, gc.DeepEquals, cons)
-	}
-	return service
-}
-
-func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+	curl, ch := s.UploadCharm(c, "trusty/dummy-1", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	mem4g := constraints.MustParse("mem=4G")
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", mem4g, "",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
+}
+
+func (s *clientRepoSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
 }
 
-func (s *clientSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
-	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", mem4g, "",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
-}
-
-func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
+func (s *clientRepoSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployPrincipal")
 	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployPrincipal")
 	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *clientSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
+func (s *clientRepoSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
+	curl, _, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockAllChanges(c, "TestBlockChangesServiceDeployPrincipal")
-	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, bundle, cons)
+	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, cons)
 }
 
-func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "logging")
-	err := s.APIState.Client().ServiceDeploy(
+func (s *clientRepoSuite) TestClientServiceDeploySubordinate(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 0, "", constraints.Value{}, "",
 	)
 	service, err := s.State.Service("service-name")
@@ -1709,20 +1763,21 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
 }
 
-func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployConfig(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1733,12 +1788,13 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
 }
 
-func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
@@ -1746,9 +1802,10 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1763,8 +1820,8 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1784,14 +1841,15 @@ func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
 }
 
-func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
-	err := s.APIState.Client().ServiceDeploy(
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1801,18 +1859,19 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag().String())
 }
 
-func (s *clientSuite) deployServiceForTests(c *gc.C) {
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(curl.String(),
+func (s *clientRepoSuite) deployServiceForTests(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 
 	// Update the charm for the service.
 	args := params.ServiceUpdate{
@@ -1832,27 +1891,26 @@ func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bo
 	c.Assert(force, gc.Equals, forceCharmUrl)
 }
 
-func (s *clientSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
+func (s *clientRepoSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUpdate")
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
+func (s *clientRepoSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceUpdate")
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) setupServiceUpdate(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) setupServiceUpdate(c *gc.C) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 }
 
-func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
+func (s *clientRepoSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 	s.setupServiceUpdate(c)
 	s.BlockAllChanges(c, "TestBlockChangeServiceUpdate")
 	// Update the charm for the service.
@@ -1865,11 +1923,11 @@ func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
 }
 
-func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, true)
 }
 
-func (s *clientSuite) TestBlockServiceUpdateForced(c *gc.C) {
+func (s *clientRepoSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	s.setupServiceUpdate(c)
 
 	// block all changes. Force should ignore block :)
@@ -1895,14 +1953,13 @@ func (s *clientSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", charmUrl)
 		args := params.ServiceUpdate{
@@ -2004,10 +2061,9 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 
 	// Update all the service attributes.
 	minUnits := 3
@@ -2071,14 +2127,15 @@ func (s *clientSuite) TestClientServiceUpdateInvalidService(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "no-such-service" not found`)
 }
 
-func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(
+func (s *clientRepoSuite) TestClientServiceSetCharm(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", false,
 	)
@@ -2093,17 +2150,18 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *clientSuite) setupServiceSetCharm(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(
+func (s *clientRepoSuite) setupServiceSetCharm(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 }
 
-func (s *clientSuite) assertServiceSetCharm(c *gc.C, force bool) {
+func (s *clientRepoSuite) assertServiceSetCharm(c *gc.C, force bool) {
 	err := s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", force,
 	)
@@ -2116,39 +2174,40 @@ func (s *clientSuite) assertServiceSetCharm(c *gc.C, force bool) {
 	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 }
 
-func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
+func (s *clientRepoSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
 	err := s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", force,
 	)
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetCharm")
 	s.assertServiceSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetCharm")
 	s.assertServiceSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
 	s.assertServiceSetCharmBlocked(c, false, "TestBlockChangesServiceSetCharm")
 }
 
-func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
-	err := s.APIState.Client().ServiceDeploy(
+func (s *clientRepoSuite) TestClientServiceSetCharmForce(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", true,
 	)
@@ -2163,7 +2222,7 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *clientSuite) TestBlockServiceSetCharmForce(c *gc.C) {
+func (s *clientRepoSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 	s.setupServiceSetCharm(c)
 
 	// block all changes
@@ -2175,22 +2234,20 @@ func (s *clientSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
-	s.makeMockCharmStore()
 	err := s.APIState.Client().ServiceSetCharm(
 		"badservice", "cs:precise/wordpress-3", true,
 	)
 	c.Assert(err, gc.ErrorMatches, `service "badservice" not found`)
 }
 
-func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceSetCharm(
@@ -2198,27 +2255,6 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 	}
-}
-
-func (s *clientSuite) makeMockCharmStore() (store *charmtesting.MockCharmStore) {
-	mockStore := charmtesting.NewMockCharmStore()
-	origStore := client.CharmStore
-	client.CharmStore = mockStore
-	s.AddCleanup(func(_ *gc.C) { client.CharmStore = origStore })
-	return mockStore
-}
-
-func addCharm(c *gc.C, name string) (*charm.URL, charm.Charm) {
-	return addSeriesCharm(c, "precise", name)
-}
-
-func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
-	bundle := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
-	curl := charm.MustParseURL(scurl)
-	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl, bundle
 }
 
 func (s *clientSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
@@ -2255,6 +2291,7 @@ func (s *clientSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	mySvc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err = mySvc.Relations()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(rels), gc.Equals, 1)
 }
 
@@ -2597,14 +2634,14 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewAddress("public", network.ScopePublic)
-	err = m1.SetAddresses(cloudLocalAddress)
+	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	err = m1.SetProviderAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
-	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
+	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
@@ -2614,8 +2651,8 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	publicAddress := network.NewAddress("public", network.ScopePublic)
-	err = m1.SetAddresses(publicAddress)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2639,14 +2676,14 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewAddress("public", network.ScopePublic)
-	err = m1.SetAddresses(publicAddress)
+	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
-	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
+	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
@@ -2656,8 +2693,8 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
-	err = m1.SetAddresses(privateAddress)
+	privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
+	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2962,98 +2999,6 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
-func (s *clientSuite) setupStoragePool(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
-	s.setupStoragePool(c)
-	apiParams := make([]params.AddMachineParams, 5)
-	for i := range apiParams {
-		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		}
-	}
-	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
-	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
-	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
-	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
-	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 5)
-	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, `cannot add a new machine: validating volume params: pool "three" not found`)
-	c.Assert(machines[2].Machine, gc.Equals, "2")
-	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
-	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
-
-	expectParams := []state.VolumeParams{{
-		Pool: "loop-pool",
-		Size: 1,
-	}, {
-		Pool: "loop-pool",
-		Size: 1,
-	}, {
-		Pool: "loop-pool",
-		Size: 2,
-	}}
-	s.assertVolumeParams(c, machines[0].Machine, expectParams)
-
-	expectParams = []state.VolumeParams{
-		{Size: 1, Pool: "loop-pool"}, {Size: 1, Pool: "loop-pool"},
-	}
-	s.assertVolumeParams(c, machines[2].Machine, expectParams)
-}
-
-func (s *clientSuite) assertVolumeParams(c *gc.C, machineId string, expectParams []state.VolumeParams) {
-	m, err := s.BackingState.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, len(expectParams))
-
-	foundParams := make([]state.VolumeParams, len(volumeAttachments))
-	for i, attachment := range volumeAttachments {
-		volume, err := s.BackingState.Volume(attachment.Volume())
-		c.Assert(err, jc.ErrorIsNil)
-		params, ok := volume.Params()
-		c.Assert(ok, jc.IsTrue)
-		foundParams[i] = params
-	}
-	c.Assert(foundParams, jc.SameContents, expectParams)
-}
-
-func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
-	// If the storage feature flag is not set, then Disks should be ignored.
-	apiParams := make([]params.AddMachineParams, 2)
-	for i := range apiParams {
-		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		}
-	}
-	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
-	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 0, Pool: "three"}}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 2)
-	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Machine, gc.Equals, "1")
-	m, err := s.BackingState.Machine(machines[0].Machine)
-	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, 0)
-}
-
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
@@ -3120,7 +3065,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
+	addrs := network.NewAddresses("1.2.3.4")
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -3203,22 +3148,22 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	sshinitScript, err := manual.ProvisioningScript(mcfg)
+	provisioningScript, err := manual.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
 	// about the scripts should be the same other than
 	// the line containing "oldpassword" from agent.conf.
 	scriptLines := strings.Split(script, "\n")
-	sshinitScriptLines := strings.Split(sshinitScript, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	provisioningScriptLines := strings.Split(provisioningScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
 	}
 }
 
@@ -3286,110 +3231,114 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 }
 
-func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
-	store := s.makeMockCharmStore()
+type testModeCharmRepo struct {
+	*charmrepo.CharmStore
+	testMode bool
+}
 
-	attrs := map[string]interface{}{"charm-store-auth": "token=value",
-		"test-mode": true}
+// WithTestMode returns a repository Interface where test mode is enabled.
+func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
+	return s.CharmStore.WithTestMode()
+}
+
+func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+	repo := &testModeCharmRepo{}
+	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = s.Srv.URL()
+		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
+		return repo
+	})
+	attrs := map[string]interface{}{"test-mode": true}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, _ := addCharm(c, "dummy")
+	// Check that the store's test mode is enabled when calling ServiceDeploy.
+	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo.testMode, jc.IsTrue)
 
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-	c.Assert(store.TestMode(), jc.IsTrue)
-
-	store.SetAuthAttrs("")
-
-	curl, _ = addCharm(c, "wordpress")
+	// Check that the store's test mode is enabled when calling ServiceSetCharm.
+	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", curl.String(), false,
 	)
+	c.Assert(repo.testMode, jc.IsTrue)
 
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-
-	curl, _ = addCharm(c, "riak")
+	// Check that the store's test mode is enabled when calling AddCharm.
+	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
 	err = s.APIState.Client().AddCharm(curl)
-
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo.testMode, jc.IsTrue)
 }
 
-func (s *clientSuite) TestAddCharm(c *gc.C) {
-	s.makeMockCharmStore()
+var resolveCharmTests = []struct {
+	about      string
+	url        string
+	resolved   string
+	parseErr   string
+	resolveErr string
+}{{
+	about:    "wordpress resolved",
+	url:      "cs:wordpress",
+	resolved: "cs:trusty/wordpress",
+}, {
+	about:    "mysql resolved",
+	url:      "cs:mysql",
+	resolved: "cs:precise/mysql",
+}, {
+	about:    "riak resolved",
+	url:      "cs:riak",
+	resolved: "cs:trusty/riak",
+}, {
+	about:    "fully qualified char reference",
+	url:      "cs:utopic/riak-5",
+	resolved: "cs:utopic/riak-5",
+}, {
+	about:    "charm with series and no revision",
+	url:      "cs:precise/wordpress",
+	resolved: "cs:precise/wordpress",
+}, {
+	about:      "fully qualified reference not found",
+	url:        "cs:utopic/riak-42",
+	resolveErr: `cannot resolve charm URL "cs:utopic/riak-42": charm not found`,
+}, {
+	about:      "reference not found",
+	url:        "cs:no-such",
+	resolveErr: `cannot resolve charm URL "cs:no-such": charm not found`,
+}, {
+	about:    "invalid charm name",
+	url:      "cs:",
+	parseErr: `charm URL has invalid charm name: "cs:"`,
+}, {
+	about:      "local charm",
+	url:        "local:wordpress",
+	resolveErr: `only charm store charm references are supported, with cs: schema`,
+}}
 
-	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
-		return &recordingStorage{Storage: storage, blobs: &blobs}
-	})
+func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
+	// Add some charms to be resolved later.
+	for _, url := range []string{
+		"precise/wordpress-1",
+		"trusty/wordpress-2",
+		"precise/mysql-3",
+		"trusty/riak-4",
+		"utopic/riak-5",
+	} {
+		s.UploadCharm(c, url, "wordpress")
+	}
 
-	client := s.APIState.Client()
-	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"})
-	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":nonsense-0"`)
-	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
-	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
-	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
-	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
-
-	// Add a charm, without uploading it to storage, to
-	// check that AddCharm does not try to do it.
-	charmDir := testcharms.Repo.CharmDir("dummy")
-	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
-	curl := charm.MustParseURL("cs:quantal/" + ident)
-	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// AddCharm should see the charm in state and not upload it.
-	err = client.AddCharm(sch.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(blobs.m, gc.HasLen, 0)
-
-	// Now try adding another charm completely.
-	curl, _ = addCharm(c, "wordpress")
-	err = client.AddCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Verify it's in state and it got uploaded.
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
-	sch, err = s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
-}
-
-var resolveCharmCases = []struct {
-	schema, defaultSeries, charmName string
-	parseErr                         string
-	resolveErr                       string
-}{
-	{"cs", "precise", "wordpress", "", ""},
-	{"cs", "trusty", "wordpress", "", ""},
-	{"cs", "", "wordpress", "", `charm url series is not resolved`},
-	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
-	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
-	{"cs", "precise", "hl3", "", ""},
-	{"cs", "trusty", "hl3", "", ""},
-	{"cs", "", "hl3", "", `charm url series is not resolved`},
-}
-
-func (s *clientSuite) TestResolveCharm(c *gc.C) {
-	store := s.makeMockCharmStore()
-
-	for i, test := range resolveCharmCases {
-		c.Logf("test %d: %#v", i, test)
-		// Mock charm store will use this to resolve a charm reference.
-		store.SetDefaultSeries(test.defaultSeries)
+	// Run the tests.
+	for i, test := range resolveCharmTests {
+		c.Logf("test %d: %s", i, test.about)
 
 		client := s.APIState.Client()
-		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		ref, err := charm.ParseReference(test.url)
 		if test.parseErr == "" {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -3399,163 +3348,16 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.parseErr)
 			continue
 		}
-		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
 
 		curl, err := client.ResolveCharm(ref)
-		if err == nil {
-			c.Assert(curl, gc.NotNil)
-			// Only cs: schema should make it through here
-			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName))
-			c.Check(test.resolveErr, gc.Equals, "")
-		} else {
-			c.Check(curl, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, test.resolveErr)
+		if test.resolveErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(curl.String(), gc.Equals, test.resolved)
+			continue
 		}
+		c.Check(err, gc.ErrorMatches, test.resolveErr)
+		c.Check(curl, gc.IsNil)
 	}
-}
-
-type blobs struct {
-	sync.Mutex
-	m map[string]bool // maps path to added (true), or deleted (false)
-}
-
-// Add adds a path to the list of known paths.
-func (b *blobs) Add(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = true
-}
-
-// Remove marks a path as deleted, even if it was not previously Added.
-func (b *blobs) Remove(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = false
-}
-
-func (b *blobs) check() {
-	if b.m == nil {
-		b.m = make(map[string]bool)
-	}
-}
-
-type recordingStorage struct {
-	statestorage.Storage
-	putBarrier *sync.WaitGroup
-	blobs      *blobs
-}
-
-func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
-	if s.putBarrier != nil {
-		// This goroutine has gotten to Put() so mark it Done() and
-		// wait for the other goroutines to get to this point.
-		s.putBarrier.Done()
-		s.putBarrier.Wait()
-	}
-	if err := s.Storage.Put(path, r, size); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Add(path)
-	return nil
-}
-
-func (s *recordingStorage) Remove(path string) error {
-	if err := s.Storage.Remove(path); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Remove(path)
-	return nil
-}
-
-func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
-	s.makeMockCharmStore()
-
-	var putBarrier sync.WaitGroup
-	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
-		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
-	})
-
-	client := s.APIState.Client()
-	curl, _ := addCharm(c, "wordpress")
-
-	// Try adding the same charm concurrently from multiple goroutines
-	// to test no "duplicate key errors" are reported (see lp bug
-	// #1067979) and also at the end only one charm document is
-	// created.
-
-	var wg sync.WaitGroup
-	// We don't add them 1-by-1 because that would allow each goroutine to
-	// finish separately without actually synchronizing between them
-	putBarrier.Add(10)
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(index int) {
-			defer wg.Done()
-
-			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
-			sch, err := s.State.Charm(curl)
-			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
-			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
-		}(i)
-	}
-	wg.Wait()
-
-	blobs.Lock()
-
-	c.Assert(blobs.m, gc.HasLen, 10)
-
-	// Verify there is only a single uploaded charm remains and it
-	// contains the correct data.
-	sch, err := s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	storagePath := sch.StoragePath()
-	c.Assert(blobs.m[storagePath], jc.IsTrue)
-	for path, exists := range blobs.m {
-		if path != storagePath {
-			c.Assert(exists, jc.IsFalse)
-		}
-	}
-
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
-	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
-}
-
-func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	s.makeMockCharmStore()
-
-	client := s.APIState.Client()
-	curl, _ := addCharm(c, "wordpress")
-
-	// Add a placeholder with the same charm URL.
-	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Now try to add the charm, which will convert the placeholder to
-	// a pending charm.
-	err = client.AddCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make sure the document's flags were reset as expected.
-	sch, err := s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), jc.DeepEquals, curl)
-	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
-}
-
-func (s *clientSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
-	reader, _, err := storage.Get(storagePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-	downloadedSHA256, _, err := utils.ReadSHA256(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
@@ -3566,11 +3368,11 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
@@ -3584,11 +3386,11 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
@@ -3649,37 +3451,6 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)
-}
-
-func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
-	var tests = []struct {
-		name multiwatcher.MachineJob
-		want state.MachineJob
-		err  string
-	}{{
-		name: multiwatcher.JobHostUnits,
-		want: state.JobHostUnits,
-	}, {
-		name: multiwatcher.JobManageEnviron,
-		want: state.JobManageEnviron,
-	}, {
-		name: multiwatcher.JobManageNetworking,
-		want: state.JobManageNetworking,
-	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
-	}, {
-		name: "invalid",
-		want: -1,
-		err:  `invalid machine job "invalid"`,
-	}}
-	for _, test := range tests {
-		got, err := client.MachineJobFromParams(test.name)
-		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
-		}
-		c.Check(got, gc.Equals, test.want)
-	}
 }
 
 func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
@@ -3811,7 +3582,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -3960,13 +3731,4 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
-}
-
-type mockStorageProvider struct {
-	storage.Provider
-	kind storage.StorageKind
-}
-
-func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
-	return k == m.kind
 }

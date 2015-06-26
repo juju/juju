@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
@@ -66,13 +65,20 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*gc.C
-	State   *state.State
+	State   SyncStarter
 	Watcher NotifyWatcher
+}
+
+// SyncStarter is an interface that watcher checkers will use to ensure
+// that changes to the watched object have been synchronized. This is
+// primarily implemented by state.State.
+type SyncStarter interface {
+	StartSync()
 }
 
 // NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
 // event coalescence.
-func NewNotifyWatcherC(c *gc.C, st *state.State, w NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *gc.C, st SyncStarter, w NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		State:   st,
@@ -113,13 +119,13 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*gc.C
-	State   *state.State
+	State   SyncStarter
 	Watcher StringsWatcher
 }
 
 // NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
 // event coalescence.
-func NewStringsWatcherC(c *gc.C, st *state.State, w StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *gc.C, st SyncStarter, w StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
 		State:   st,
@@ -225,7 +231,7 @@ func (c StringsWatcherC) AssertClosed() {
 // params.RelationUnitsChange.
 type RelationUnitsWatcherC struct {
 	*gc.C
-	State   *state.State
+	State   SyncStarter
 	Watcher RelationUnitsWatcher
 	// settingsVersions keeps track of the settings version of each
 	// changed unit since the last received changes to ensure version
@@ -235,7 +241,7 @@ type RelationUnitsWatcherC struct {
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
-func NewRelationUnitsWatcherC(c *gc.C, st *state.State, w RelationUnitsWatcher) RelationUnitsWatcherC {
+func NewRelationUnitsWatcherC(c *gc.C, st SyncStarter, w RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
 		C:                c,
 		State:            st,

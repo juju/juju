@@ -34,7 +34,7 @@ type BlockDeviceInfo struct {
 	DeviceName     string `bson:"devicename"`
 	Label          string `bson:"label,omitempty"`
 	UUID           string `bson:"uuid,omitempty"`
-	Serial         string `bson:"serial,omitempty"`
+	HardwareId     string `bson:"hardwareid,omitempty"`
 	Size           uint64 `bson:"size"`
 	FilesystemType string `bson:"fstype,omitempty"`
 	InUse          bool   `bson:"inuse"`
@@ -78,9 +78,6 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		if !blockDevicesChanged(oldInfo, newInfo) {
 			return nil, jujutxn.ErrNoOperations
 		}
-		// TODO(axw) before the storage feature can come off,
-		// we need to add an upgrade step to add a block
-		// devices doc to existing machines.
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     machineId,
@@ -88,7 +85,7 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		}, {
 			C:      blockDevicesC,
 			Id:     machineId,
-			Assert: bson.D{{"blockdevices", oldInfo}},
+			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"blockdevices", newInfo}}}},
 		}}
 		return ops, nil
@@ -101,6 +98,7 @@ func createMachineBlockDevicesOp(machineId string) txn.Op {
 		C:      blockDevicesC,
 		Id:     machineId,
 		Insert: &blockDevicesDoc{Machine: machineId},
+		Assert: txn.DocMissing,
 	}
 }
 

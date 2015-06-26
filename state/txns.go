@@ -75,6 +75,14 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
+// MaybePruneTransactions removes data for completed transactions.
+func (st *State) MaybePruneTransactions() error {
+	session := st.db.Session.Copy()
+	defer session.Close()
+	// Prune txns only when txn count has doubled since last prune.
+	return st.txnRunner(session).MaybePruneTransactions(2.0)
+}
+
 func newMultiEnvRunner(envUUID string, db *mgo.Database, assertEnvAlive bool) jujutxn.Runner {
 	return &multiEnvRunner{
 		rawRunner:      jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
@@ -97,7 +105,7 @@ func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
 	return r.rawRunner.RunTransaction(ops)
 }
 
-// Run is part of the jujutxn.Run interface. Operations returned by
+// Run is part of the jujutxn.Runner interface. Operations returned by
 // the given "transactions" function that affect multi-environment
 // collections will be modified in-place to ensure correct interaction
 // with these collections.
@@ -114,9 +122,14 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 	})
 }
 
-// Run is part of the jujutxn.Run interface.
+// ResumeTransactions is part of the jujutxn.Runner interface.
 func (r *multiEnvRunner) ResumeTransactions() error {
 	return r.rawRunner.ResumeTransactions()
+}
+
+// MaybePruneTransactions is part of the jujutxn.Runner interface.
+func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
+	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
@@ -137,10 +150,15 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 					ops[i].Insert = r.updateBsonD(doc, docID, op.C)
 				case bson.M:
 					r.updateBsonM(doc, docID, op.C)
+				case map[string]interface{}:
+					r.updateBsonM(bson.M(doc), docID, op.C)
 				default:
-					r.updateStruct(doc, docID, op.C)
-				}
+					if !r.updateStruct(doc, docID, op.C) {
+						panic(fmt.Sprintf("unsupported document type for multi-environment collection "+
+							"(must be bson.D, bson.M or struct). Got %T for insert into %s.", doc, op.C))
+					}
 
+				}
 				if r.assertEnvAlive && !opsNeedEnvAlive && envAliveColls.Contains(op.C) {
 					opsNeedEnvAlive = true
 				}
@@ -221,7 +239,7 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName str
 	}
 }
 
-func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) {
+func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) bool {
 	v := reflect.ValueOf(doc)
 	t := v.Type()
 
@@ -230,23 +248,26 @@ func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) {
 		t = v.Type()
 	}
 
-	if t.Kind() == reflect.Struct {
-		envUUIDSeen := false
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			switch f.Tag.Get("bson") {
-			case "_id":
-				r.updateStructField(v, f.Name, docID, collName, overrideField)
-			case "env-uuid":
-				r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
-				envUUIDSeen = true
-			}
-		}
-		if !envUUIDSeen {
-			panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
-		}
+	if t.Kind() != reflect.Struct {
+		return false
 	}
 
+	envUUIDSeen := false
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		switch f.Tag.Get("bson") {
+		case "_id":
+			r.updateStructField(v, f.Name, docID, collName, overrideField)
+		case "env-uuid":
+			r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
+			envUUIDSeen = true
+		}
+	}
+	if !envUUIDSeen {
+		panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
+	}
+
+	return true
 }
 
 const overrideField = "override"

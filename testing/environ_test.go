@@ -58,3 +58,7 @@ func (s *fakeHomeSuite) TestEnvironmentTagValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, testing.EnvironmentTag)
 }
+
+func (s *fakeHomeSuite) TestEnvironUUIDValid(c *gc.C) {
+	c.Assert(utils.IsValidUUIDString(testing.EnvironmentTag.Id()), jc.IsTrue)
+}

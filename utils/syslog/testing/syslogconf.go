@@ -27,6 +27,7 @@ $ActionQueueType LinkedList
 $ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
+$ActionQueueMaxDiskSpace 512M
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile /var/log/juju{{.Namespace}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon
@@ -115,6 +116,7 @@ $ActionQueueType LinkedList
 $ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
+$ActionQueueMaxDiskSpace 512M
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon

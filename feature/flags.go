@@ -4,6 +4,10 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
+import (
+	"github.com/juju/utils/featureflag"
+)
+
 // TODO (anastasiamac 2015-03-02)
 // Features that have commands that can be blocked,
 // command list for "juju block" and "juju unblock"
@@ -13,14 +17,6 @@ package feature
 // JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
 const JES = "jes"
-
-// Storage is the name of the feature to enable storage commands
-// and server-side functionality.
-const Storage = "storage"
-
-// LeaderElection is the name of the feature to enable leadership hooks
-// and hook tools.
-const LeaderElection = "leader-election"
 
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
 // function in the utils package write out the error stack as defined by the
@@ -41,3 +37,28 @@ const EnvironmentsCacheFile = "env-cache"
 // discovery code (service.VersionInitSystem) should return upstart
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
+
+// AddressAllocation is used to indicate that LXC and KVM containers
+// on providers that support that (currently only MAAS and EC2) will
+// use statically allocated IP addresses.
+const AddressAllocation = "address-allocation"
+
+// dbLog indicates that Juju's logs go to MongoDB. It is not exported
+// because it should be checked for using IsDbLogEnabled.
+const dbLog = "db-log"
+
+// IsDbLogEnabled returns true if logging to MongoDB should be enabled
+// based on the dbLog or JES feature flags.
+func IsDbLogEnabled() bool {
+	return featureflag.Enabled(dbLog) || featureflag.Enabled(JES)
+}
+
+// DisableRsyslog will stop the writing of the rsyslog accumulation and
+// forwarding configuration files by stopping the rsyslog workers.
+const DisableRsyslog = "disable-rsyslog"
+
+// CloudSigma enables the CloudSigma provider.
+const CloudSigma = "cloudsigma"
+
+// VSphereProvider enables the generic vmware provider.
+const VSphereProvider = "vsphere-provider"

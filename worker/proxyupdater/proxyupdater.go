@@ -10,8 +10,9 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/packaging/commands"
+	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/api/environment"
@@ -158,18 +159,30 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	}
 }
 
-func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
+// getPackageCommander is a helper function which returns the
+// package commands implementation for the current system.
+func getPackageCommander() (commands.PackageCommander, error) {
+	return commands.NewPackageCommander(version.Current.Series)
+}
+
+func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
+		paccmder, err := getPackageCommander()
+		if err != nil {
+			return err
+		}
 		w.aptProxy = aptSettings
+
 		// Always finish with a new line.
-		content := apt.ProxyContent(w.aptProxy) + "\n"
-		err := ioutil.WriteFile(apt.ConfFile, []byte(content), 0644)
+		content := paccmder.ProxyConfigContents(w.aptProxy) + "\n"
+		err = ioutil.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error writing apt proxy config file: %v", err)
 		}
 	}
+	return nil
 }
 
 func (w *proxyWorker) onChange() error {
@@ -178,7 +191,10 @@ func (w *proxyWorker) onChange() error {
 		return err
 	}
 	w.handleProxyValues(env.ProxySettings())
-	w.handleAptProxyValues(env.AptProxySettings())
+	err = w.handleAptProxyValues(env.AptProxySettings())
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -196,7 +212,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) Handle() error {
+func (w *proxyWorker) Handle(_ <-chan struct{}) error {
 	return w.onChange()
 }
 

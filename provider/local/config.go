@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container/kvm"
@@ -31,15 +32,49 @@ const (
 	StoragePortKey   = "storage-port"
 )
 
+// configSchema defines the schema for the configuration attributes
+// defined by the local provider.
+var configSchema = environschema.Fields{
+	RootDirKey: {
+		Description: `The directory that is used for the storage files and database. The default location is $JUJU_HOME/<env-name>. $JUJU_HOME defaults to ~/.juju. Override if needed.`,
+		Type:        environschema.Tstring,
+		Example:     "~/.juju/local",
+	},
+	BootstrapIpKey: {
+		Description: `The IP address of the bootstrap machine`,
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+	},
+	NetworkBridgeKey: {
+		Description: `The name of the LXC network bridge to use. Override if the default LXC network bridge is different.`,
+		Type:        environschema.Tstring,
+	},
+	ContainerKey: {
+		Description: `The kind of container to use for machines`,
+		Type:        environschema.Tstring,
+		Values: []interface{}{
+			string(instance.LXC),
+			string(instance.KVM),
+		},
+	},
+	StoragePortKey: {
+		Description: `The port where the local provider starts the HTTP file server. Override the value if you have multiple local providers, or if the default port is used by another program.`,
+		Type:        environschema.Tint,
+	},
+	NamespaceKey: {
+		Description: `The name space to use for local provider resources. Override if you have multiple local providers`,
+		Type:        environschema.Tstring,
+	},
+}
+
 var (
-	configFields = schema.Fields{
-		RootDirKey:       schema.String(),
-		BootstrapIpKey:   schema.String(),
-		NetworkBridgeKey: schema.String(),
-		ContainerKey:     schema.String(),
-		StoragePortKey:   schema.ForceInt(),
-		NamespaceKey:     schema.String(),
-	}
+	configFields = func() schema.Fields {
+		fs, _, err := configSchema.ValidationSchema()
+		if err != nil {
+			panic(err)
+		}
+		return fs
+	}()
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
 	// these, but did want the familiarity of using something in the 8000

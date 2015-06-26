@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -20,44 +21,184 @@ type statusSetterSuite struct{}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
-var _ state.StatusSetter = new(fakeStatusSetter)
+var _ state.StatusSetter = new(fakeStatus)
 
-type fakeStatusSetter struct {
+type fakeStatus struct {
 	state.Entity
-	status state.Status
-	info   string
-	data   map[string]interface{}
-	err    error
+	status  state.Status
+	info    string
+	data    map[string]interface{}
+	updated time.Time
+	err     error
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+func (s *fakeStatus) SetStatus(status state.Status, info string, data map[string]interface{}) error {
 	s.status = status
 	s.info = info
 	s.data = data
+	s.updated = time.Now()
 	return s.err
 }
 
-func (s *fakeStatusSetter) Status() (status state.Status, info string, data map[string]interface{}, err error) {
-	return s.status, s.info, s.data, nil
+func (s *fakeStatus) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{
+		s.status, s.info, s.data, &s.updated,
+	}, s.err
 }
 
-func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
+func (s *fakeStatus) UpdateStatus(data map[string]interface{}) error {
 	for k, v := range data {
 		s.data[k] = v
 	}
 	return s.err
 }
 
+func (*statusSetterSuite) TestSetServiceStatus(c *gc.C) {
+	st := &fakeState{
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeService{
+				tag: serviceTag("x/0"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusAllocating,
+					Message: "blah",
+				},
+				err: fmt.Errorf("x0 fails"),
+			},
+			u("x/1"): &fakeService{
+				tag: serviceTag("x/1"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusInstalling,
+					Message: "blah",
+				},
+			},
+			u("x/2"): &fakeService{
+				tag: serviceTag("x/2"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusActive,
+					Message: "foo",
+				},
+			},
+			u("x/3"): &fakeService{
+				tag: serviceTag("x/3"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusError,
+					Message: "some info",
+				},
+			},
+			u("x/4"): &fakeService{
+				tag:           serviceTag("x/4"),
+				serviceStatus: state.StatusInfo{},
+				fetchError:    "x3 error",
+			},
+			u("x/5"): &fakeService{
+				tag: serviceTag("x/5"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusStopping,
+					Message: "blah",
+				},
+			},
+		},
+	}
+	getCanModify := func() (common.AuthFunc, error) {
+		x0 := serviceTag("x/0")
+		x1 := serviceTag("x/1")
+		x2 := serviceTag("x/2")
+		x3 := serviceTag("x/3")
+		x4 := serviceTag("x/4")
+		x5 := serviceTag("x/5")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
+		}, nil
+	}
+	s := common.NewServiceStatusSetter(st, getCanModify)
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{"unit-x-0", params.StatusInstalling, "bar", nil},
+			{"unit-x-1", params.StatusActive, "bar", nil},
+			{"unit-x-2", params.StatusStopping, "", nil},
+			{"unit-x-3", params.StatusAllocating, "not really", nil},
+			{"unit-x-4", params.StatusStopping, "", nil},
+			{"unit-x-5", params.StatusStopping, "blah", nil},
+		},
+	}
+	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
+		if tag == "unit-x-5" {
+			return false, nil
+		}
+		return true, nil
+	}
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, leaderCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{Message: "x0 fails"}},
+			{nil},
+			{nil},
+			{nil},
+			{&params.Error{Message: "x3 error"}},
+			{&params.Error{"this unit is not the leader", ""}},
+		},
+	})
+	get := func(tag names.Tag) *fakeService {
+		return st.entities[tag].(*fakeService)
+	}
+	c.Assert(get(u("x/1")).serviceStatus.Status, gc.Equals, state.StatusActive)
+	c.Assert(get(u("x/1")).serviceStatus.Message, gc.Equals, "bar")
+	c.Assert(get(u("x/2")).serviceStatus.Status, gc.Equals, state.StatusStopping)
+	c.Assert(get(u("x/2")).serviceStatus.Message, gc.Equals, "")
+	c.Assert(get(u("x/3")).serviceStatus.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(get(u("x/3")).serviceStatus.Message, gc.Equals, "not really")
+	c.Assert(get(u("x/5")).serviceStatus.Status, gc.Equals, state.StatusStopping)
+	c.Assert(get(u("x/5")).serviceStatus.Message, gc.Equals, "blah")
+
+}
+
+func (*statusSetterSuite) TestSetServiceStatusNotLeader(c *gc.C) {
+	st := &fakeState{
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeService{
+				tag: serviceTag("x/0"),
+				serviceStatus: state.StatusInfo{
+					Status:  state.StatusAllocating,
+					Message: "blah",
+				},
+				err: fmt.Errorf("x0 fails"),
+			},
+		},
+	}
+
+	getCanModify := func() (common.AuthFunc, error) {
+		return func(_ names.Tag) bool { return true }, nil
+	}
+	s := common.NewServiceStatusSetter(st, getCanModify)
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{"unit-x-0", params.StatusInstalling, "bar", nil},
+		},
+	}
+	leaderCheck := func(_ state.EntityFinder, tag string) (bool, error) {
+		return false, nil
+	}
+	result, err := common.ServiceSetStatus(s, args, fakeServiceFromUnitTag, leaderCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{"this unit is not the leader", ""}},
+		},
+	})
+
+}
+
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
-			u("x/1"): &fakeStatusSetter{status: state.StatusInstalling, info: "blah"},
-			u("x/2"): &fakeStatusSetter{status: state.StatusActive, info: "foo"},
-			u("x/3"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
-			u("x/4"): &fakeStatusSetter{fetchError: "x3 error"},
-			u("x/5"): &fakeStatusSetter{status: state.StatusStopping, info: "blah"},
+			u("x/0"): &fakeStatus{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeStatus{status: state.StatusInstalling, info: "blah"},
+			u("x/2"): &fakeStatus{status: state.StatusActive, info: "foo"},
+			u("x/3"): &fakeStatus{status: state.StatusError, info: "some info"},
+			u("x/4"): &fakeStatus{fetchError: "x3 error"},
+			u("x/5"): &fakeStatus{status: state.StatusStopping, info: "blah"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -98,8 +239,8 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	get := func(tag names.Tag) *fakeStatusSetter {
-		return st.entities[tag].(*fakeStatusSetter)
+	get := func(tag names.Tag) *fakeStatus {
+		return st.entities[tag].(*fakeStatus)
 	}
 	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusActive)
 	c.Assert(get(u("x/1")).info, gc.Equals, "bar")
@@ -136,12 +277,12 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			m("0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
-			m("1"): &fakeStatusSetter{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
-			m("2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
-			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
-			m("4"): &fakeStatusSetter{status: state.StatusActive},
-			m("5"): &fakeStatusSetter{status: state.StatusStopping, info: ""},
+			m("0"): &fakeStatus{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			m("1"): &fakeStatus{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
+			m("2"): &fakeStatus{status: state.StatusError, info: "some info"},
+			m("3"): &fakeStatus{fetchError: "x3 error"},
+			m("4"): &fakeStatus{status: state.StatusActive},
+			m("5"): &fakeStatus{status: state.StatusStopping, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -179,8 +320,8 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	get := func(tag names.Tag) *fakeStatusSetter {
-		return st.entities[tag].(*fakeStatusSetter)
+	get := func(tag names.Tag) *fakeStatus {
+		return st.entities[tag].(*fakeStatus)
 	}
 	c.Assert(get(m("1")).status, gc.Equals, state.StatusError)
 	c.Assert(get(m("1")).info, gc.Equals, "foo")

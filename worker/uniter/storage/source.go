@@ -6,7 +6,7 @@ package storage
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -92,7 +92,7 @@ func (s *storageSource) loop() error {
 		case _, ok := <-inChanges:
 			logger.Debugf("got storage attachment change")
 			if !ok {
-				return tomb.ErrDying
+				return watcher.EnsureErr(s.watcher)
 			}
 			inChanges = nil
 			outChanges = s.changes
@@ -119,7 +119,6 @@ func (s *storageSource) Changes() <-chan hook.SourceChange {
 // Stop is part of the hook.Source interface.
 func (s *storageSource) Stop() error {
 	s.tomb.Kill(nil)
-	watcher.Stop(s.watcher, &s.tomb)
 	return s.tomb.Wait()
 }
 
@@ -211,8 +210,7 @@ func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 	if attachment.Life == params.Alive {
 		s.hookInfo.Kind = hooks.StorageAttached
 	} else {
-		// TODO(axw) this should be Detaching, not Detached.
-		s.hookInfo.Kind = hooks.StorageDetached
+		s.hookInfo.Kind = hooks.StorageDetaching
 	}
 	logger.Debugf("queued hook: %v", s.hookInfo)
 	return nil
@@ -221,7 +219,7 @@ func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 // Context returns the ContextStorage for the storage that this hook queue
 // corresponds to, and whether there is any context available yet. There
 // will be context beginning from when the first hook is queued.
-func (s *storageHookQueue) Context() (jujuc.ContextStorage, bool) {
+func (s *storageHookQueue) Context() (jujuc.ContextStorageAttachment, bool) {
 	if s.context != nil {
 		return s.context, true
 	}

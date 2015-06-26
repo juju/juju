@@ -1,15 +1,16 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package service_test
 
 import (
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -17,15 +18,16 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+var (
+	cmdSuffix string
+	shquote   = utils.ShQuote
+)
+
 func init() {
-	quote = "'"
 	if runtime.GOOS == "windows" {
 		cmdSuffix = ".exe"
-		quote = `"`
 	}
 }
-
-var quote, cmdSuffix string
 
 type agentSuite struct {
 	service.BaseSuite
@@ -33,21 +35,31 @@ type agentSuite struct {
 
 var _ = gc.Suite(&agentSuite{})
 
-func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	// We use two distinct directories to ensure the paths don't get
 	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, filepath.Join(dataDir, "tools", "machine-0"))
+	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
-		quote + filepath.Join(toolsDir, "jujud"+cmdSuffix) + quote,
+		shquote(jujud),
 		"machine",
-		"--data-dir", quote + dataDir + quote,
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -56,23 +68,35 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
-func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "ubuntu")
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, dataDir+"/tools/machine-0")
+	jujud := dataDir + "/tools/machine-0/jujud"
 	cmd := strings.Join([]string{
-		"'" + toolsDir + "/jujud'",
+		shquote(dataDir + "/tools/machine-0/jujud"),
 		"machine",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -81,23 +105,35 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
-func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
-	dataDir := `c:\Juju\lib\juju`
-	logDir := `c:\Juju\logs\juju`
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "windows")
+func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
+	dataDir := `C:\Juju\lib\juju`
+	logDir := `C:\Juju\logs\juju`
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("windows")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, dataDir+`\tools\machine-0`)
+	jujud := dataDir + `\tools\machine-0\jujud.exe`
 	cmd := strings.Join([]string{
-		`"` + toolsDir + `\jujud.exe"`,
+		shquote(jujud),
 		"machine",
-		"--data-dir", `"` + dataDir + `"`,
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"machine",
+		"--data-dir", dataDir,
+		"--machine-id", "0",
+		"--debug",
+	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
@@ -106,31 +142,79 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
-		Timeout: 300,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
-func (*agentSuite) TestUnitAgentConf(c *gc.C) {
+func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.UnitAgentConf("wordpress/0", dataDir, logDir, "", "cont")
+	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, path.Join(dataDir, "tools", "unit-wordpress-0"))
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
-		filepath.Join(toolsDir, "jujud"+cmdSuffix),
+		shquote(jujud),
 		"unit",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", shquote(dataDir),
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"unit",
+		"--data-dir", dataDir,
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}
+	c.Check(conf, jc.DeepEquals, common.Conf{
+		Desc:          "juju unit agent for wordpress/0",
+		ExecStart:     cmd,
+		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
+		Env:           osenv.FeatureFlags(),
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
+	})
+}
+
+func (*agentSuite) TestContainerAgentConf(c *gc.C) {
+	dataDir := c.MkDir()
+	logDir := c.MkDir()
+	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.ContainerAgentConf(info, renderer, "cont")
+
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
+	cmd := strings.Join([]string{
+		shquote(jujud),
+		"unit",
+		"--data-dir", shquote(dataDir),
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}, " ")
+	serviceBinary := jujud
+	serviceArgs := []string{
+		"unit",
+		"--data-dir", dataDir,
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}
 	env := osenv.FeatureFlags()
 	env[osenv.JujuContainerTypeEnvKey] = "cont"
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju unit agent for wordpress/0",
-		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
-		Env:       env,
-		Timeout:   300,
+		Desc:          "juju unit agent for wordpress/0",
+		ExecStart:     cmd,
+		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
+		Env:           env,
+		Timeout:       300,
+		ServiceBinary: serviceBinary,
+		ServiceArgs:   serviceArgs,
 	})
 }
 
@@ -144,7 +228,8 @@ func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
 		AfterStopped: "spam",
 		ExecStart:    "/sbin/shutdown -h now",
 	})
-	c.Check(conf.Validate(), jc.ErrorIsNil)
+	renderer := &shell.BashRenderer{}
+	c.Check(conf.Validate(renderer), jc.ErrorIsNil)
 }
 
 func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {

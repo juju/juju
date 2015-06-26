@@ -35,7 +35,6 @@ func (s *steps121Suite) TestStateStepsFor121(c *gc.C) {
 		"prepend the environment UUID to the ID of all reboot docs",
 		"prepend the environment UUID to the ID of all relations docs",
 		"prepend the environment UUID to the ID of all relationscopes docs",
-		"prepend the environment UUID to the ID of all charm docs",
 		"prepend the environment UUID to the ID of all minUnit docs",
 		"prepend the environment UUID to the ID of all cleanup docs",
 		"prepend the environment UUID to the ID of all sequence docs",

@@ -1,7 +1,6 @@
 package paths
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
@@ -16,21 +15,24 @@ const (
 	tmpDir osVarType = iota
 	logDir
 	dataDir
+	storageDir
 	jujuRun
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:  "/tmp",
-	logDir:  "/var/log",
-	dataDir: "/var/lib/juju",
-	jujuRun: "/usr/local/bin/juju-run",
+	tmpDir:     "/tmp",
+	logDir:     "/var/log",
+	dataDir:    "/var/lib/juju",
+	storageDir: "/var/lib/juju/storage",
+	jujuRun:    "/usr/bin/juju-run",
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:  "C:/Juju/tmp",
-	logDir:  "C:/Juju/log",
-	dataDir: "C:/Juju/lib/juju",
-	jujuRun: "C:/Juju/bin/juju-run.exe",
+	tmpDir:     "C:/Juju/tmp",
+	logDir:     "C:/Juju/log",
+	dataDir:    "C:/Juju/lib/juju",
+	storageDir: "C:/Juju/lib/juju/storage",
+	jujuRun:    "C:/Juju/bin/juju-run.exe",
 }
 
 // osVal will lookup the value of the key valname
@@ -47,7 +49,6 @@ func osVal(series string, valname osVarType) (string, error) {
 	default:
 		return nixVals[valname], nil
 	}
-	return "", fmt.Errorf("Unknown OS: %q", os)
 }
 
 // TempDir returns the path on disk to the corect tmp directory
@@ -69,8 +70,14 @@ func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
 }
 
+// StorageDir returns a filesystem path to the folder used by juju to
+// mount machine-level storage.
+func StorageDir(series string) (string, error) {
+	return osVal(series, storageDir)
+}
+
 // JujuRun returns the absolute path to the juju-run binary for
-// a particula series
+// a particular series
 func JujuRun(series string) (string, error) {
 	return osVal(series, jujuRun)
 }

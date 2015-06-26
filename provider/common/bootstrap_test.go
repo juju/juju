@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -63,6 +63,7 @@ func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
 		"name":            "whatever",
 		"type":            "anything, really",
+		"uuid":            coretesting.EnvironmentTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -91,19 +92,23 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		cons constraints.Value,
 		_ []string,
 		possibleTools tools.List,
-		mcfg *cloudinit.MachineConfig,
+		icfg *instancecfg.InstanceConfig,
 	) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := environs.NewBootstrapMachineConfig(cons, mcfg.Series)
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+		expectedMcfg.Tags = map[string]string{
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state": "true",
+		}
 
-		c.Assert(mcfg, gc.DeepEquals, expectedMcfg)
+		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
@@ -124,7 +129,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {
@@ -242,7 +247,7 @@ func (i *interruptOnDial) Addresses() ([]network.Address, error) {
 	} else {
 		i.interrupted <- os.Interrupt
 	}
-	return []network.Address{network.NewAddress(i.name, network.ScopeUnknown)}, nil
+	return network.NewAddresses(i.name), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -270,11 +275,7 @@ func (ac *addressesChange) Refresh() error {
 }
 
 func (ac *addressesChange) Addresses() ([]network.Address, error) {
-	var addrs []network.Address
-	for _, addr := range ac.addrs[0] {
-		addrs = append(addrs, network.NewAddress(addr, network.ScopeUnknown))
-	}
-	return addrs, nil
+	return network.NewAddresses(ac.addrs[0]...), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {

@@ -70,7 +70,7 @@ func (s *leadershipSuite) TestReadBadVersion(c *gc.C) {
 		FuncName: "CheckApiVersion",
 		Args:     []interface{}{"Read"},
 	}}, func() {
-		s.stub.Errors = []error{errors.New("splat")}
+		s.stub.SetErrors(errors.New("splat"))
 		settings, err := s.lsa.Read("foobar")
 		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
 		c.Check(settings, gc.IsNil)
@@ -131,7 +131,7 @@ func (s *leadershipSuite) TestReadFailure(c *gc.C) {
 func (s *leadershipSuite) TestReadError(c *gc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
-		s.stub.Errors = []error{nil, errors.New("blart")}
+		s.stub.SetErrors(nil, errors.New("blart"))
 		settings, err := s.lsa.Read("foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: blart")
 		c.Check(settings, gc.IsNil)
@@ -152,7 +152,7 @@ func (s *leadershipSuite) TestMergeBadVersion(c *gc.C) {
 		FuncName: "CheckApiVersion",
 		Args:     []interface{}{"Merge"},
 	}}, func() {
-		s.stub.Errors = []error{errors.New("splat")}
+		s.stub.SetErrors(errors.New("splat"))
 		err := s.lsa.Merge("foobar", map[string]string{"foo": "bar"})
 		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
 	})
@@ -216,7 +216,7 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 func (s *leadershipSuite) TestMergeError(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
-		s.stub.Errors = []error{nil, errors.New("dink")}
+		s.stub.SetErrors(nil, errors.New("dink"))
 		err := s.lsa.Merge("foobar", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
@@ -241,7 +241,7 @@ func (s *leadershipSuite) TestWatchBadVersion(c *gc.C) {
 		FuncName: "CheckApiVersion",
 		Args:     []interface{}{"WatchLeadershipSettings"},
 	}}, func() {
-		s.stub.Errors = []error{errors.New("splat")}
+		s.stub.SetErrors(errors.New("splat"))
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
 		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
 		c.Check(watcher, gc.IsNil)
@@ -304,7 +304,7 @@ func (s *leadershipSuite) TestWatchFailure(c *gc.C) {
 func (s *leadershipSuite) TestWatchError(c *gc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
-		s.stub.Errors = []error{nil, errors.New("snerk")}
+		s.stub.SetErrors(nil, errors.New("snerk"))
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: snerk")
 		c.Check(watcher, gc.IsNil)

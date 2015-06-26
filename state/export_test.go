@@ -6,18 +6,22 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
+	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
@@ -32,6 +36,7 @@ const (
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
+	StatusesHistoryC   = statusesHistoryC
 )
 
 var (
@@ -47,6 +52,8 @@ var (
 	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
+	CombineMeterStatus     = combineMeterStatus
+	NewStatusNotFound      = newStatusNotFound
 )
 
 type (
@@ -292,7 +299,7 @@ func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
 
-func GetCollection(st *State, name string) (stateCollection, func()) {
+func GetCollection(st *State, name string) (mongo.Collection, func()) {
 	return st.getCollection(name)
 }
 
@@ -323,6 +330,26 @@ func RemoveEnvironment(st *State, uuid string) error {
 		Remove: true,
 	}}
 	return st.runTransaction(ops)
+}
+
+func SetEnvLifeDying(st *State, envUUID string) error {
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     envUUID,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Assert: isEnvAliveDoc,
+	}}
+	return st.runTransaction(ops)
+}
+
+func EnvironCount(c *gc.C, st *State) int {
+	var doc envCountDoc
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
+	err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.Count
 }
 
 type MockGlobalEntity struct {
@@ -371,4 +398,68 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
 	newNetHostsPorts := networkHostsPorts(hostsPorts)
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
+}
+
+type StatusDoc statusDoc
+
+func NewStatusDoc(s StatusDoc) statusDoc {
+	return statusDoc(s)
+}
+
+func NewHistoricalStatusDoc(s StatusDoc, key string) *historicalStatusDoc {
+	sdoc := statusDoc(s)
+	return newHistoricalStatusDoc(sdoc, key)
+}
+
+var StatusHistory = statusHistory
+var UpdateStatusHistory = updateStatusHistory
+
+func EraseUnitHistory(u *Unit) error {
+	return u.eraseHistory()
+}
+
+func UnitGlobalKey(u *Unit) string {
+	return u.globalKey()
+}
+
+func UnitAgentGlobalKey(u *UnitAgent) string {
+	return u.globalKey()
+}
+
+// WriteLogWithOplog writes out a log record to the a (probably fake)
+// oplog collection and the logs collection.
+func WriteLogWithOplog(
+	oplog *mgo.Collection,
+	envUUID string,
+	entity names.Tag,
+	t time.Time,
+	module string,
+	location string,
+	level loggo.Level,
+	msg string,
+) error {
+	doc := &logDoc{
+		Id:       bson.NewObjectId(),
+		Time:     t,
+		EnvUUID:  envUUID,
+		Entity:   entity.String(),
+		Module:   module,
+		Location: location,
+		Level:    level,
+		Message:  msg,
+	}
+	err := oplog.Insert(bson.D{
+		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                  // again, a suitable fake
+		{"op", "i"},                                          // this will always be an insert
+		{"ns", "logs.logs"},
+		{"o", doc},
+	})
+	if err != nil {
+		return err
+	}
+
+	session := oplog.Database.Session
+	logs := session.DB("logs").C("logs")
+	return logs.Insert(doc)
 }

@@ -13,15 +13,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"golang.org/x/net/websocket"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -29,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -53,6 +54,8 @@ type AgentStatus struct {
 	Status  params.Status
 	Info    string
 	Data    map[string]interface{}
+	Since   *time.Time
+	Kind    params.HistoryKind
 	Version string
 	Life    string
 	Err     error
@@ -95,13 +98,24 @@ type ServiceStatus struct {
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
+	Status        AgentStatus
+}
+
+// UnitStatusHistory holds a slice of statuses.
+type UnitStatusHistory struct {
+	Statuses []AgentStatus
 }
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	Agent AgentStatus
+	// UnitAgent holds the status for a unit's agent.
+	UnitAgent AgentStatus
 
-	// See the comment in MachineStatus regarding these fields.
+	// Workload holds the status for a unit's workload
+	Workload AgentStatus
+
+	// Until Juju 2.0, we need to continue to return legacy agent state values
+	// as top level struct attributes when the "FullStatus" API is called.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string
@@ -161,6 +175,25 @@ func (c *Client) Status(patterns []string) (*Status, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
+// for <unitName> unit
+func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*UnitStatusHistory, error) {
+	var results UnitStatusHistory
+	args := params.StatusHistory{
+		Kind: kind,
+		Size: size,
+		Name: unitName,
+	}
+	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
+		}
+		return &UnitStatusHistory{}, errors.Trace(err)
+	}
+	return &results, nil
 }
 
 // LegacyMachineStatus holds just the instance-id of a machine.
@@ -356,7 +389,6 @@ func (c *Client) ServiceDeployWithNetworks(
 	cons constraints.Value,
 	toMachineSpec string,
 	networks []string,
-	storage map[string]storage.Constraints,
 ) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
@@ -366,7 +398,6 @@ func (c *Client) ServiceDeployWithNetworks(
 		Constraints:   cons,
 		ToMachineSpec: toMachineSpec,
 		Networks:      networks,
-		Storage:       storage,
 	}
 	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
 }
@@ -423,6 +454,19 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 	}
 	results := new(params.AddServiceUnitsResults)
 	err := c.facade.FacadeCall("AddServiceUnits", args, results)
+	return results.Units, err
+}
+
+// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
+// placement directives to assign units to machines.
+func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+		Placement:   placement,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
 	return results.Units, err
 }
 
@@ -517,7 +561,7 @@ func (c *Client) EnvironmentUUID() string {
 }
 
 // ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users []names.UserTag) error {
+func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -533,11 +577,36 @@ func (c *Client) ShareEnvironment(users []names.UserTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("environment is already shared with %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
+	}
 	return result.Combine()
 }
 
+// EnvironmentUserInfo returns information on all users in the environment.
+func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
+	var results params.EnvUserInfoResults
+	err := c.facade.FacadeCall("EnvUserInfo", nil, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := []params.EnvUserInfo{}
+	for i, result := range results.Results {
+		if result.Result == nil {
+			return nil, errors.Errorf("unexpected nil result at position %d", i)
+		}
+		info = append(info, *result.Result)
+	}
+	return info, nil
+}
+
 // UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users []names.UserTag) error {
+func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -552,6 +621,13 @@ func (c *Client) UnshareEnvironment(users []names.UserTag) error {
 	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeNotFound {
+			logger.Warningf("environment was not previously shared with user %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
 	}
 	return result.Combine()
 }
@@ -705,9 +781,17 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	// Prepare the upload request.
-	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
-	req, err := http.NewRequest("POST", url, archive)
+	endPoint, err := c.apiEndpoint("charms", "series="+curl.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// wrap archive in a noopCloser to prevent the underlying transport closing
+	// the request body. This is neccessary to prevent a data race on the underlying
+	// *os.File as the http transport _may_ issue Close once the body is sent, or it
+	// may not if there is an error.
+	noop := &noopCloser{archive}
+	req, err := http.NewRequest("POST", endPoint, noop)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -749,13 +833,82 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
 
+// noopCloser implements io.ReadCloser, but does not close the underlying io.ReadCloser.
+// This is necessary to ensure the ownership of io.ReadCloser implementations that are
+// passed to the net/http Transport which may (under some circumstances), call Close on
+// the body passed to a request.
+type noopCloser struct {
+	io.ReadCloser
+}
+
+func (n *noopCloser) Close() error {
+
+	// do not propogate the Close method to the underlying ReadCloser.
+	return nil
+}
+
+func (c *Client) apiEndpoint(destination, query string) (string, error) {
+	root, err := c.apiRoot()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	upURL := url.URL{
+		Scheme:   c.st.serverScheme,
+		Host:     c.st.Addr(),
+		Path:     path.Join(root, destination),
+		RawQuery: query,
+	}
+	return upURL.String(), nil
+}
+
+func (c *Client) apiRoot() (string, error) {
+	var apiRoot string
+	if _, err := c.st.ServerTag(); err == nil {
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return "", errors.Annotate(err, "cannot get API endpoint address")
+		}
+
+		apiRoot = fmt.Sprintf("/environment/%s/", envTag.Id())
+	} else {
+		// If the server tag is not set, then the agent version is < 1.23. We
+		// use the old API endpoint for backwards compatibility.
+		apiRoot = "/"
+	}
+	return apiRoot, nil
+}
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
+//
+// If the AddCharm API call fails because of an authorization error
+// when retrieving the charm from the charm store, an error
+// satisfying params.IsCodeUnauthorized will be returned.
 func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{URL: curl.String()}
+	args := params.CharmURL{
+		URL: curl.String(),
+	}
 	return c.facade.FacadeCall("AddCharm", args, nil)
+}
+
+// AddCharmWithAuthorization is like AddCharm except it also provides
+// the given charmstore macaroon for the juju server to use when
+// obtaining the charm from the charm store. The macaroon is
+// conventionally obtained from the /delegatable-macaroon endpoint in
+// the charm store.
+//
+// If the AddCharmWithAuthorization API call fails because of an
+// authorization error when retrieving the charm from the charm store,
+// an error satisfying params.IsCodeUnauthorized will be returned.
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+	args := params.AddCharmWithAuthorization{
+		URL:                curl.String(),
+		CharmStoreMacaroon: csMac,
+	}
+	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -779,13 +932,17 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
-	url := fmt.Sprintf(
-		"%s/tools?binaryVersion=%s&series=%s",
-		c.st.serverRoot,
+	query := fmt.Sprintf("binaryVersion=%s&series=%s",
 		vers,
 		strings.Join(additionalSeries, ","),
 	)
-	req, err := http.NewRequest("POST", url, r)
+
+	endPoint, err := c.apiEndpoint("tools", query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	req, err := http.NewRequest("POST", endPoint, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -804,7 +961,7 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 	// the tag and password) passed in api.Open()'s info argument.
 	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload charm")
+		return nil, errors.Annotate(err, "cannot upload tools")
 	}
 	defer resp.Body.Close()
 
@@ -955,10 +1112,22 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	attrs["excludeEntity"] = args.ExcludeEntity
 	attrs["excludeModule"] = args.ExcludeModule
 
+	path := "/log"
+	if _, ok := c.st.ServerVersion(); ok {
+		// If the server version is set, then we know the server is capable of
+		// serving debug log at the environment path. We also fully expect
+		// that the server has returned a valid environment tag.
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "very unexpected")
+		}
+		path = fmt.Sprintf("/environment/%s/log", envTag.Id())
+	}
+
 	target := url.URL{
 		Scheme:   "wss",
 		Host:     c.st.addr,
-		Path:     "/log",
+		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")

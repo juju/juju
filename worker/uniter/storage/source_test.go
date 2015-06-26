@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -67,7 +67,7 @@ func (s *storageHookQueueSuite) TestStorageHookQueueAttachedDetach(c *gc.C) {
 	updateHookQueue(c, q, params.Dying)
 	c.Assert(q.Empty(), jc.IsFalse)
 	c.Assert(q.Next(), gc.Equals, hook.Info{
-		Kind:      hooks.StorageDetached,
+		Kind:      hooks.StorageDetaching,
 		StorageId: "data/0",
 	})
 }
@@ -99,7 +99,7 @@ func (s *storageHookQueueSuite) TestStorageHookQueueAttachDetach(c *gc.C) {
 	updateHookQueue(c, q, params.Dying)
 	c.Assert(q.Empty(), jc.IsFalse)
 	c.Assert(q.Next(), gc.Equals, hook.Info{
-		Kind:      hooks.StorageDetached,
+		Kind:      hooks.StorageDetaching,
 		StorageId: "data/0",
 	})
 }

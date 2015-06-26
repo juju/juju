@@ -4,6 +4,7 @@
 package version
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -77,11 +78,13 @@ func readSeries() (string, error) {
 	if err != nil {
 		return "unknown", err
 	}
+	updateSeriesVersions()
 	switch values["ID"] {
 	case strings.ToLower(Ubuntu.String()):
 		return getValue(ubuntuSeries, values["VERSION_ID"])
 	case strings.ToLower(CentOS.String()):
-		return getValue(centosSeries, values["VERSION_ID"])
+		codename := fmt.Sprintf("%s%s", values["ID"], values["VERSION_ID"])
+		return getValue(centosSeries, codename)
 	default:
 		return "unknown", nil
 	}

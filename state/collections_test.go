@@ -37,7 +37,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 	s.factory.MakeUser(c, &factory.UserParams{Name: "foo", DisplayName: "Ms Foo"})
 	s.factory.MakeUser(c, &factory.UserParams{Name: "bar"})
 
-	collSnapshot := newCollectionSnapshot(c, coll.Underlying())
+	collSnapshot := newCollectionSnapshot(c, coll.Writeable().Underlying())
 
 	for i, t := range []collectionsTestCase{
 		{
@@ -71,7 +71,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 		{
 			label: "Insert",
 			test: func() (int, error) {
-				err := coll.Insert(bson.D{{"_id", "more"}})
+				err := coll.Writeable().Insert(bson.D{{"_id", "more"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return coll.Count()
 			},
@@ -80,7 +80,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 		{
 			label: "RemoveId",
 			test: func() (int, error) {
-				err := coll.RemoveId("bar")
+				err := coll.Writeable().RemoveId("bar")
 				c.Assert(err, jc.ErrorIsNil)
 				return coll.Count()
 			},
@@ -89,7 +89,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 		{
 			label: "Remove",
 			test: func() (int, error) {
-				err := coll.Remove(bson.D{{"displayname", "Ms Foo"}})
+				err := coll.Writeable().Remove(bson.D{{"displayname", "Ms Foo"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return coll.Count()
 			},
@@ -98,11 +98,33 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll",
 			test: func() (int, error) {
-				_, err := coll.RemoveAll(bson.D{{"createdby", s.Owner.Name()}})
+				_, err := coll.Writeable().RemoveAll(bson.D{{"createdby", s.Owner.Name()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return coll.Count()
 			},
 			expectedCount: 0,
+		},
+		{
+			label: "Update",
+			test: func() (int, error) {
+				err := coll.Writeable().Update(bson.D{{"_id", "bar"}},
+					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+
+				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "UpdateId",
+			test: func() (int, error) {
+				err := coll.Writeable().UpdateId("bar",
+					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+
+				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
+			},
+			expectedCount: 1,
 		},
 	} {
 		c.Logf("test %d: %s", i, t.label)
@@ -170,8 +192,8 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	networkInterfaces, closer := state.GetCollection(s.State, state.NetworkInterfacesC)
 	defer closer()
 
-	machinesSnapshot := newCollectionSnapshot(c, machines0.Underlying())
-	networkInterfacesSnapshot := newCollectionSnapshot(c, networkInterfaces.Underlying())
+	machinesSnapshot := newCollectionSnapshot(c, machines0.Writeable().Underlying())
+	networkInterfacesSnapshot := newCollectionSnapshot(c, networkInterfaces.Writeable().Underlying())
 
 	c.Assert(machines0.Name(), gc.Equals, state.MachinesC)
 	c.Assert(networkInterfaces.Name(), gc.Equals, state.NetworkInterfacesC)
@@ -286,7 +308,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "Insert works",
 			test: func() (int, error) {
-				err := machines0.Insert(bson.D{
+				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
 					{"machineid", 99},
 					{"env-uuid", s.State.EnvironUUID()},
@@ -299,7 +321,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "Remove adds env UUID prefix to _id",
 			test: func() (int, error) {
-				err := machines0.Remove(bson.D{{"_id", "0"}})
+				err := machines0.Writeable().Remove(bson.D{{"_id", "0"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -311,7 +333,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 				// Attempt to remove the trusty machine in the second
 				// env with the collection that's filtering for the
 				// first env - nothing should get removed.
-				err := machines0.Remove(bson.D{{"series", "trusty"}})
+				err := machines0.Writeable().Remove(bson.D{{"series", "trusty"}})
 				c.Assert(err, gc.ErrorMatches, "not found")
 				return s.machines.Count()
 			},
@@ -320,7 +342,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "Remove filters by env 2",
 			test: func() (int, error) {
-				err := machines0.Remove(bson.D{{"machineid", "0"}})
+				err := machines0.Writeable().Remove(bson.D{{"machineid", "0"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -329,7 +351,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveId adds env UUID prefix",
 			test: func() (int, error) {
-				err := machines0.RemoveId(m0.Id())
+				err := machines0.Writeable().RemoveId(m0.Id())
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -338,7 +360,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveId tolerates env UUID prefix already being there",
 			test: func() (int, error) {
-				err := machines0.RemoveId(state.DocID(s.State, m0.Id()))
+				err := machines0.Writeable().RemoveId(state.DocID(s.State, m0.Id()))
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -347,7 +369,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveId filters by env-uuid field",
 			test: func() (int, error) {
-				err := networkInterfaces.RemoveId(otherIfaceId)
+				err := networkInterfaces.Writeable().RemoveId(otherIfaceId)
 				c.Assert(err, gc.ErrorMatches, "not found")
 				return networkInterfaces.Count()
 			},
@@ -356,7 +378,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll filters by env",
 			test: func() (int, error) {
-				_, err := machines0.RemoveAll(bson.D{{"series", m0.Series()}})
+				_, err := machines0.Writeable().RemoveAll(bson.D{{"series", m0.Series()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -365,7 +387,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll adds env UUID when _id is provided",
 			test: func() (int, error) {
-				_, err := machines0.RemoveAll(bson.D{{"_id", m0.Id()}})
+				_, err := machines0.Writeable().RemoveAll(bson.D{{"_id", m0.Id()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -374,7 +396,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll tolerates env UUID prefix already being present",
 			test: func() (int, error) {
-				_, err := machines0.RemoveAll(bson.D{
+				_, err := machines0.Writeable().RemoveAll(bson.D{
 					{"_id", state.DocID(s.State, m0.Id())},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -385,7 +407,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll with no selector still filters by env",
 			test: func() (int, error) {
-				_, err := machines0.RemoveAll(nil)
+				_, err := machines0.Writeable().RemoveAll(nil)
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
@@ -394,7 +416,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll panics if env-uuid is included",
 			test: func() (int, error) {
-				machines0.RemoveAll(bson.D{{"env-uuid", "whatever"}})
+				machines0.Writeable().RemoveAll(bson.D{{"env-uuid", "whatever"}})
 				return 0, nil
 			},
 			expectedPanic: "env-uuid is added automatically and should not be provided",
@@ -402,10 +424,30 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll panics if query type is unsupported",
 			test: func() (int, error) {
-				machines0.RemoveAll(bson.M{"foo": "bar"})
+				machines0.Writeable().RemoveAll(bson.M{"foo": "bar"})
 				return 0, nil
 			},
 			expectedPanic: "query must either be bson.D or nil",
+		},
+		{
+			label: "Update",
+			test: func() (int, error) {
+				err := machines0.Writeable().Update(bson.D{{"_id", m0.Id()}},
+					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "UpdateId",
+			test: func() (int, error) {
+				err := machines0.Writeable().UpdateId(m0.Id(),
+					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
+			},
+			expectedCount: 1,
 		},
 	} {
 		c.Logf("test %d: %s", i, t.label)

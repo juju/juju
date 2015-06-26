@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -30,9 +31,13 @@ var logger = loggo.GetLogger("juju.testing")
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
-	oldJujuHome    string
-	oldHomeEnv     string
-	oldEnvironment map[string]string
+	oldJujuHome         string
+	oldHomeEnv          string
+	oldEnvironment      map[string]string
+	initialFeatureFlags string
+	regKeyExisted       bool
+	regEntryExisted     bool
+	oldRegEntryValue    string
 }
 
 func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
@@ -53,17 +58,18 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
-	utils.SetHome("")
-	// Update the feature flag set to be empty (given we have just set the
-	// environment value to the empty string)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.oldJujuHome = osenv.SetJujuHome("")
+	utils.SetHome("")
+
+	// Update the feature flag set to be the requested initial set.
+	s.setUpFeatureFlags(c)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
+	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
@@ -82,6 +88,19 @@ func SkipIfI386(c *gc.C, bugID string) {
 	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
 		c.Skip(fmt.Sprintf("Test disabled on I386 until fixed - see bug %s", bugID))
 	}
+}
+
+// SkipIfWindowsBug skips the test if the OS is Windows.
+func SkipIfWindowsBug(c *gc.C, bugID string) {
+	if runtime.GOOS == "windows" {
+		c.Skip(fmt.Sprintf("Test disabled on Windows until fixed - see bug %s", bugID))
+	}
+}
+
+// SetInitialFeatureFlags sets the feature flags to be in effect for
+// the next call to SetUpTest.
+func (s *JujuOSEnvSuite) SetInitialFeatureFlags(flags ...string) {
+	s.initialFeatureFlags = strings.Join(flags, ",")
 }
 
 func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
@@ -175,4 +194,26 @@ func diffStrings(c *gc.C, value, expected string) {
 			break
 		}
 	}
+}
+
+// TestCleanup is used to allow DumpTestLogsAfter to take any test suite
+// that supports the standard cleanup function.
+type TestCleanup interface {
+	AddCleanup(testing.CleanupFunc)
+}
+
+// DumpTestLogsAfter will write the test logs to stdout if the timeout
+// is reached.
+func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
+	done := make(chan interface{})
+	go func() {
+		select {
+		case <-time.After(timeout):
+			fmt.Printf(c.GetTestLog())
+		case <-done:
+		}
+	}()
+	cleaner.AddCleanup(func(_ *gc.C) {
+		close(done)
+	})
 }

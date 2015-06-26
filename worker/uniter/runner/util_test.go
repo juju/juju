@@ -15,14 +15,16 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -48,11 +50,16 @@ func (MockEnvPaths) GetJujucSocket() string {
 	return "path-to-jujuc.socket"
 }
 
+func (MockEnvPaths) GetMetricsSpoolDir() string {
+	return "path-to-metrics-spool-dir"
+}
+
 // RealPaths implements Paths for tests that do touch the filesystem.
 type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
+	tools        string
+	charm        string
+	socket       string
+	metricsspool string
 }
 
 func osDependentSockPath(c *gc.C) string {
@@ -65,10 +72,15 @@ func osDependentSockPath(c *gc.C) string {
 
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: osDependentSockPath(c),
+		tools:        c.MkDir(),
+		charm:        c.MkDir(),
+		socket:       osDependentSockPath(c),
+		metricsspool: c.MkDir(),
 	}
+}
+
+func (p RealPaths) GetMetricsSpoolDir() string {
+	return p.metricsspool
 }
 
 func (p RealPaths) GetToolsDir() string {
@@ -98,12 +110,17 @@ type HookContextSuite struct {
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
 	meteredApiUnit *uniter.Unit
+	meteredCharm   *state.Charm
 	apiRelunits    map[int]*uniter.RelationUnit
+	BlockHelper
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.JujuConnSuite.SetUpTest(c)
+	s.BlockHelper = NewBlockHelper(s.APIState)
+	c.Assert(s.BlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	// reset
 	s.machine = nil
@@ -112,10 +129,10 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
-	meteredCharm := s.AddTestingCharm(c, "metered")
-	meteredService := s.AddTestingService(c, "m", meteredCharm)
+	s.meteredCharm = s.AddTestingCharm(c, "metered")
+	meteredService := s.AddTestingService(c, "m", s.meteredCharm)
 	meteredUnit := s.addUnit(c, meteredService)
-	err = meteredUnit.SetCharmURL(meteredCharm.URL())
+	err = meteredUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -158,6 +175,16 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *HookContextSuite) GetContext(
+	c *gc.C, relId int, remoteName string,
+) jujuc.Context {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.getHookContext(
+		c, uuid.String(), relId, remoteName, noProxies,
+	)
+}
+
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -185,8 +212,8 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
-	err := s.machine.SetAddresses(privateAddr)
+	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	err := s.machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -224,9 +251,12 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = runner.NewContextRelation(relUnit, cache)
 	}
 
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
+		env.Name(), relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -248,7 +278,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -324,7 +354,7 @@ type storageContextAccessor struct {
 	storage map[names.StorageTag]*contextStorage
 }
 
-func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	storage, ok := s.storage[tag]
 	return storage, ok
 }
@@ -345,4 +375,44 @@ func (c *contextStorage) Kind() storage.StorageKind {
 
 func (c *contextStorage) Location() string {
 	return c.location
+}
+
+type BlockHelper struct {
+	blockClient *block.Client
+}
+
+// NewBlockHelper creates a block switch used in testing
+// to manage desired juju blocks.
+func NewBlockHelper(st *api.State) BlockHelper {
+	return BlockHelper{
+		blockClient: block.NewClient(st),
+	}
+}
+
+// on switches on desired block and
+// asserts that no errors were encountered.
+func (s *BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
+	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), gc.IsNil)
+}
+
+// BlockAllChanges switches changes block on.
+// This prevents all changes to juju environment.
+func (s *BlockHelper) BlockAllChanges(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockChange, msg)
+}
+
+// BlockRemoveObject switches remove block on.
+// This prevents any object/entity removal on juju environment
+func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockRemove, msg)
+}
+
+// BlockDestroyEnvironment switches destroy block on.
+// This prevents juju environment destruction.
+func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+	s.on(c, multiwatcher.BlockDestroy, msg)
+}
+
+func (s *BlockHelper) Close() {
+	s.blockClient.Close()
 }

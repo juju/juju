@@ -31,6 +31,7 @@ const (
 )
 
 func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
 	s.multiEnvRunner = NewMultiEnvRunnerForTesting(envUUID, s.testRunner)
 }
@@ -167,6 +168,22 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "uuid:5",
 				Insert: bson.M{
+					"_id":      "uuid:5",
+					"env-uuid": "uuid",
+				},
+			},
+			true,
+		}, {
+			"document passed as map[string]interface{}",
+			txn.Op{
+				C:      machinesC,
+				Id:     "5",
+				Insert: map[string]interface{}{},
+			},
+			txn.Op{
+				C:  machinesC,
+				Id: "uuid:5",
+				Insert: map[string]interface{}{
 					"_id":      "uuid:5",
 					"env-uuid": "uuid",
 				},
@@ -327,6 +344,19 @@ func (s *MultiEnvRunnerSuite) TestPanicWhenBsonMEnvUUIDMismatch(c *gc.C) {
 		"environment UUID for document to insert into machines does not match state")
 }
 
+func (s *MultiEnvRunnerSuite) TestPanicForUnsupportedDocType(c *gc.C) {
+	attempt := func() {
+		s.multiEnvRunner.RunTransaction([]txn.Op{{
+			C:      machinesC,
+			Id:     "uuid:0",
+			Insert: make(map[int]int),
+		}})
+	}
+	c.Assert(attempt, gc.PanicMatches, `unsupported document type for multi-environment `+
+		`collection \(must be bson.D, bson.M or struct\). Got map\[int\]int for insert `+
+		`into machines.`)
+}
+
 func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
 	for i, t := range getTestCases() {
 		c.Logf("TestRun %d: %s", i, t.label)
@@ -368,6 +398,18 @@ func (s *MultiEnvRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
+}
+
+func (s *MultiEnvRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
+	s.testRunner.pruneTransactionsErr = errors.New("boom")
+	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 // recordingRunner is fake transaction running that implements the
 // jujutxn.Runner interface. Instead of doing anything with a database
 // it simply records the transaction operations passed to it for later
@@ -380,6 +422,8 @@ type recordingRunner struct {
 	seenOps                  []txn.Op
 	resumeTransactionsCalled bool
 	resumeTransactionsErr    error
+	pruneTransactionsCalled  bool
+	pruneTransactionsErr     error
 }
 
 func (r *recordingRunner) RunTransaction(ops []txn.Op) error {
@@ -395,4 +439,9 @@ func (r *recordingRunner) Run(transactions jujutxn.TransactionSource) (err error
 func (r *recordingRunner) ResumeTransactions() error {
 	r.resumeTransactionsCalled = true
 	return r.resumeTransactionsErr
+}
+
+func (r *recordingRunner) MaybePruneTransactions(float32) error {
+	r.pruneTransactionsCalled = true
+	return r.pruneTransactionsErr
 }

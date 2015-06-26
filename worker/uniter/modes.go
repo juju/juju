@@ -8,15 +8,49 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
+
+// setAgentStatus sets the unit's status if it has changed since last time this method was called.
+func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
+	u.setStatusMutex.Lock()
+	defer u.setStatusMutex.Unlock()
+	if u.lastReportedStatus == status && u.lastReportedMessage == info {
+		return nil
+	}
+	u.lastReportedStatus = status
+	u.lastReportedMessage = info
+	logger.Debugf("[AGENT-STATUS] %s: %s", status, info)
+	return u.unit.SetAgentStatus(status, info, data)
+}
+
+// updateAgentStatus updates the agent status to reflect what the uniter is doing,
+// or to report on an error.
+func updateAgentStatus(u *Uniter, userMessage string, err error) {
+	// If there was an error performing the operation, set the state
+	// of the agent to Failed.
+	if err != nil {
+		msg := fmt.Sprintf("%s: %v", userMessage, err)
+		err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
+		if err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+		return
+	}
+	// Anything else, the uniter is doing something, running a hook or action etc.
+	err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
+	if err2 != nil {
+		logger.Errorf("updating agent status: %v", err2)
+	}
+}
 
 // Mode defines the signature of the functions that implement the possible
 // states of a running Uniter.
@@ -37,20 +71,54 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	// If we got this far, we should have an installed charm,
-	// so initialize the metrics collector according to what's
+	// so initialize the metrics timers according to what's
 	// currently deployed.
-	if err := u.initializeMetricsCollector(); err != nil {
+	if err := u.initializeMetricsTimers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// Check for any leadership change, and enact it if possible.
+	logger.Infof("checking leadership status")
+	// If we've already accepted leadership, we don't need to do it again.
+	canAcceptLeader := !opState.Leader
+	select {
+	// If the unit's shutting down, we shouldn't accept it.
+	case <-u.f.UnitDying():
+		canAcceptLeader = false
+	default:
+		// If we're in an unexpected mode (eg pending hook) we shouldn't try either.
+		if opState.Kind != operation.Continue {
+			canAcceptLeader = false
+		}
+	}
+
+	// NOTE: the Wait() looks scary, but a ClaimLeadership ticket should always
+	// complete quickly; worst-case is API latency time, but it's designed that
+	// it should be vanishingly rare to hit that code path.
+	isLeader := u.leadershipTracker.ClaimLeader().Wait()
 	var creator creator
+	switch {
+	case isLeader && canAcceptLeader:
+		creator = newAcceptLeadershipOp()
+	case opState.Leader && !isLeader:
+		creator = newResignLeadershipOp()
+	}
+	if creator != nil {
+		return continueAfter(u, creator)
+	}
+	logger.Infof("leadership status is up-to-date")
+
 	switch opState.Kind {
 	case operation.RunAction:
 		// TODO(fwereade): we *should* handle interrupted actions, and make sure
 		// they're marked as failed, but that's not for now.
-		logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
-		logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
-		creator = newSkipHookOp(*opState.Hook)
+		if opState.Hook != nil {
+			logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
+			logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
+			creator = newSkipHookOp(*opState.Hook)
+		} else {
+			logger.Infof("%q hook is nil", operation.RunAction)
+		}
 	case operation.RunHook:
 		switch opState.Step {
 		case operation.Pending:
@@ -58,16 +126,33 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return ModeHookError, nil
 		case operation.Queued:
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
+			// Ensure storage-attached hooks are run before install
+			// or upgrade hooks.
+			switch opState.Hook.Kind {
+			case hooks.UpgradeCharm:
+				// Force a refresh of all storage attachments,
+				// so we find out about new ones introduced
+				// by the charm upgrade.
+				if err := u.storage.Refresh(); err != nil {
+					return nil, errors.Trace(err)
+				}
+				fallthrough
+			case hooks.Install:
+				if err := waitStorage(u); err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
 			creator = newRunHookOp(*opState.Hook)
 		case operation.Done:
 			logger.Infof("committing %q hook", opState.Hook.Kind)
 			creator = newSkipHookOp(*opState.Hook)
 		}
 	case operation.Continue:
-		logger.Infof("continuing after %q hook", opState.Hook.Kind)
-		if opState.Hook.Kind == hooks.Stop {
+		if opState.Stopped {
+			logger.Infof("opState.Stopped == true; transition to ModeTerminating")
 			return ModeTerminating, nil
 		}
+		logger.Infof("no operations in progress; waiting for changes")
 		return ModeAbide, nil
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
@@ -82,13 +167,6 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		// TODO(fwereade) 2015-01-19
-		// This SetStatus call should probably be inside the operation somehow;
-		// which in turn implies that the SetStatus call in PrepareHook is
-		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetAgentStatus(params.StatusInstalling, "", nil); err != nil {
-			return nil, errors.Trace(err)
-		}
 		return continueAfter(u, newInstallOp(curl))
 	}, nil
 }
@@ -109,14 +187,19 @@ func ModeUpgrading(curl *charm.URL) Mode {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetAgentStatus(params.StatusStopping, "", nil); err != nil {
-		return nil, errors.Trace(err)
-	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer watcher.Stop(w, &u.tomb)
+
+	// Upon unit termination we attempt to send any leftover metrics one last time. If we fail, there is nothing
+	// else we can do but log the error.
+	sendErr := u.runOperation(newSendMetricsOp())
+	if sendErr != nil {
+		logger.Warningf("failed to send metrics: %v", sendErr)
+	}
+
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -153,6 +236,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * charm upgrade requests
 // * relation changes
 // * unit death
+// * acquisition or loss of service leadership
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
 	opState := u.operationState()
@@ -162,14 +246,19 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.deployer.Fix(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if !opState.Leader && !u.ranLeaderSettingsChanged {
+		creator := newSimpleRunHookOp(hook.LeaderSettingsChanged)
+		if err := u.runOperation(creator); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	if !u.ranConfigChanged {
 		return continueAfter(u, newSimpleRunHookOp(hooks.ConfigChanged))
 	}
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
-	}
-	if err = u.unit.SetAgentStatus(params.StatusActive, "", nil); err != nil {
-		return nil, errors.Trace(err)
 	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
@@ -191,16 +280,52 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	return modeAbideAliveLoop(u)
 }
 
+// idleWaitTime is the time after which, if there are no uniter events,
+// the agent state becomes idle.
+var idleWaitTime = 2 * time.Second
+
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
+	var leaderElected, leaderDeposed <-chan struct{}
 	for {
+		// We expect one or none of these vars to be non-nil; and if none
+		// are, we set the one that should trigger when our leadership state
+		// differs from what we have recorded locally.
+		if leaderElected == nil && leaderDeposed == nil {
+			if u.operationState().Leader {
+				logger.Infof("waiting to lose leadership")
+				leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
+			} else {
+				logger.Infof("waiting to gain leadership")
+				leaderElected = u.leadershipTracker.WaitLeader().Ready()
+			}
+		}
+
+		// collect-metrics hook
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
+
+		lastSentMetrics := time.Unix(u.operationState().SendMetricsTime, 0)
+		sendMetricsSignal := u.sendMetricsAt(
+			time.Now(), lastSentMetrics, metricsSendInterval,
+		)
+
+		// update-status hook
+		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
+		updateStatusSignal := u.updateStatusAt(
+			time.Now(), lastUpdateStatus, statusPollInterval,
+		)
+
 		var creator creator
 		select {
+		case <-time.After(idleWaitTime):
+			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+				return nil, errors.Trace(err)
+			}
+			continue
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
@@ -219,10 +344,23 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
+		case <-sendMetricsSignal:
+			creator = newSendMetricsOp()
+		case <-updateStatusSignal:
+			creator = newSimpleRunHookOp(hooks.UpdateStatus)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
 		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
+		case <-leaderElected:
+			// This operation queues a hook, better to let ModeContinue pick up
+			// after it than to duplicate queued-hook handling here.
+			return continueAfter(u, newAcceptLeadershipOp())
+		case <-leaderDeposed:
+			leaderDeposed = nil
+			creator = newResignLeadershipOp()
+		case <-u.f.LeaderSettingsEvents():
+			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		}
 		if err := u.runOperation(creator); err != nil {
 			return nil, errors.Trace(err)
@@ -242,8 +380,21 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.relations.SetDying(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if u.operationState().Leader {
+		if err := u.runOperation(newResignLeadershipOp()); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// TODO(fwereade): we ought to inform the tracker that we're shutting down
+		// (and no longer wish to continue renewing our lease) so that the tracker
+		// can then report minionhood at all times, and thus prevent the is-leader
+		// and leader-set hook tools from acting in a correct but misleading way
+		// (ie continuing to act as though leader after leader-deposed has run).
+	}
+	if err := u.storage.SetDying(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	for {
-		if len(u.relations.GetInfo()) == 0 {
+		if len(u.relations.GetInfo()) == 0 && u.storage.Empty() {
 			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))
 		}
 		var creator creator
@@ -254,7 +405,11 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			creator = newActionOp(actionId)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
+		case <-u.f.LeaderSettingsEvents():
+			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		case hookInfo := <-u.relations.Hooks():
+			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {
@@ -263,15 +418,47 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	}
 }
 
+// waitStorage waits until all storage attachments are provisioned
+// and their hooks processed.
+func waitStorage(u *Uniter) error {
+	if u.storage.Pending() == 0 {
+		return nil
+	}
+	logger.Infof("waiting for storage attachments")
+	for u.storage.Pending() > 0 {
+		var creator creator
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case <-u.f.UnitDying():
+			// Unit is shutting down; no need to handle any
+			// more storage-attached hooks. We will process
+			// required storage-detaching hooks in ModeAbideDying.
+			return nil
+		case tags := <-u.f.StorageEvents():
+			creator = newUpdateStorageOp(tags)
+		case hookInfo := <-u.storage.Hooks():
+			creator = newRunHookOp(hookInfo)
+		}
+		if err := u.runOperation(creator); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	logger.Infof("storage attachments ready")
+	return nil
+}
+
 // ModeHookError is responsible for watching and responding to:
 // * user resolution of hook errors
 // * forced charm upgrade requests
+// * loss of service leadership
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	opState := u.operationState()
 	if opState.Kind != operation.RunHook || opState.Step != operation.Pending {
 		return nil, errors.Errorf("insane uniter state: %#v", u.operationState())
 	}
+
 	// Create error information for status.
 	hookInfo := *opState.Hook
 	hookName := string(hookInfo.Kind)
@@ -289,10 +476,20 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+
+	// Run the select loop.
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
+	var leaderDeposed <-chan struct{}
+	if opState.Leader {
+		leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
+	}
 	for {
-		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		// ie a charm hook error results in agent error status, but is presented as a workload error.
+		if err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -317,6 +514,17 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			return ModeContinue, nil
+		case actionId := <-u.f.ActionEvents():
+			if err := u.runOperation(newActionOp(actionId)); err != nil {
+				return nil, errors.Trace(err)
+			}
+		case <-leaderDeposed:
+			// This should trigger at most once -- we can't reaccept leadership while
+			// in an error state.
+			leaderDeposed = nil
+			if err := u.runOperation(newResignLeadershipOp()); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 }
@@ -328,7 +536,11 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetAgentStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		// ie a charm upgrade error results in agent error status, but is presented as a workload error.
+		if err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()
@@ -351,7 +563,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 func modeContext(name string, err *error) func() {
 	logger.Infof("%s starting", name)
 	return func() {
-		logger.Debugf("%s exiting", name)
+		logger.Infof("%s exiting", name)
 		*err = errors.Annotatef(*err, name)
 	}
 }

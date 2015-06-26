@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -32,13 +31,13 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -185,6 +184,7 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
+	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
@@ -245,6 +245,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
+			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 		},
@@ -692,10 +694,23 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
+}
+
+func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
+	found := false
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		if s.Description() == expected {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -732,11 +747,11 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 	addr := network.Address{Value: "8.0.0.4"}
 
 	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", addr)
+	err = env.AllocateAddress(instId+"foo", "", addr, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
 
 	// No network interface
-	err = env.AllocateAddress(instId, "", addr)
+	err = env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
 }
 
@@ -765,7 +780,7 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualAddr, gc.Equals, addr)
 }
@@ -779,10 +794,10 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 
-	err = env.AllocateAddress(instId, "", network.Address{})
+	err = env.AllocateAddress(instId, "", network.Address{}, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
@@ -795,7 +810,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
@@ -803,17 +818,27 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	addr := network.Address{Value: "8.0.0.4"}
 	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.ReleaseAddress(instId, "", addr)
+	err = env.ReleaseAddress(instId, "", addr, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
-	err = env.ReleaseAddress(instId, "", addr)
+	err = env.ReleaseAddress(instId, "", addr, "")
 	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	// We should be able to release an address with an unknown instance id
+	// without it being allocated.
+	addr := network.Address{Value: "8.0.0.4"}
+	err := env.ReleaseAddress(instance.UnknownId, "", addr, "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
@@ -831,7 +856,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
@@ -877,6 +902,31 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	c.Assert(result, jc.IsTrue)
 }
 
+func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0], "foo", "bar")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.ReleaseAddress("i-foo", "net1", network.NewAddress("1.2.3.4"), "")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": {"none"},
@@ -906,52 +956,21 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	attachmentParams := &storage.VolumeAttachmentParams{
-		AttachmentParams: storage.AttachmentParams{
-			Machine: names.NewMachineTag("0"),
-		},
-	}
-	params := environs.StartInstanceParams{
-		Volumes: []storage.VolumeParams{{
-			Tag:        names.NewVolumeTag("0"),
-			Size:       512, // round up to 1GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("1"),
-			Size:       1024, // 1GiB exactly
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("2"),
-			Size:       1025, // round up to 2GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}},
-	}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Volumes, gc.HasLen, 3)
-	// vol-1 is assigned to /dev/sda1, which does not feature
-	// in the volumes set in state.
-	c.Assert(result.Volumes, gc.DeepEquals, []storage.Volume{{
-		Tag:      names.NewVolumeTag("0"),
-		VolumeId: "vol-2",
-		Size:     1024,
-	}, {
-		Tag:      names.NewVolumeTag("1"),
-		VolumeId: "vol-3",
-		Size:     1024,
-	}, {
-		Tag:      names.NewVolumeTag("2"),
-		VolumeId: "vol-4",
-		Size:     2048,
-	}})
+	c.Assert(instances, gc.HasLen, 1)
+
+	ec2Inst := ec2.InstanceEC2(instances[0])
+	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "juju-sample-machine-0"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-is-state", "true"},
+	})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

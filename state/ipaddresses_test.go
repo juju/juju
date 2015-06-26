@@ -4,10 +4,14 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -35,15 +39,27 @@ func (s *IPAddressSuite) assertAddress(
 	c.Assert(ipAddr.State(), gc.Equals, ipState)
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
 	c.Assert(ipAddr.String(), gc.Equals, addr.String())
+	c.Assert(ipAddr.Id(), gc.Equals, s.State.EnvironUUID()+":"+addr.Value)
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
+	c.Assert(ipAddr.MACAddress(), gc.Equals, "")
+}
+
+func (s *IPAddressSuite) createMachine(c *gc.C) *state.Machine {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine
 }
 
 func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 	for i, test := range []string{"0.1.2.3", "2001:db8::1"} {
 		c.Logf("test %d: %q", i, test)
-		addr := network.NewAddress(test, network.ScopePublic)
+		addr := network.NewScopedAddress(test, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertAddress(c, ipAddr, addr, state.AddressStateUnknown, "", "", "foobar")
+		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 
 		// verify the address was stored in the state
 		ipAddr, err = s.State.IPAddress(test)
@@ -60,7 +76,7 @@ func (s *IPAddressSuite) TestAddIPAddressInvalid(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddIPAddress(addr, "foobar")
@@ -76,21 +92,111 @@ func (s *IPAddressSuite) TestIPAddressNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
 }
 
-func (s *IPAddressSuite) TestRemove(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+func (s *IPAddressSuite) TestIPAddressByTag(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	added, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := added.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewIPAddressTag(uuid.String())
+	found, err := s.State.IPAddressByTag(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Id(), gc.Equals, added.Id())
+}
+
+func (s *IPAddressSuite) TestIPAddressFindEntity(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	added, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := added.UUID()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewIPAddressTag(uuid.String())
+	found, err := s.State.FindEntity(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Tag(), gc.Equals, tag)
+}
+
+func (s *IPAddressSuite) TestIPAddressByTagNotFound(c *gc.C) {
+	tag := names.NewIPAddressTag("42424242-1111-2222-3333-0123456789ab")
+	_, err := s.State.IPAddressByTag(tag)
+	c.Assert(err, gc.ErrorMatches, `IP address "ipaddress-42424242-1111-2222-3333-0123456789ab" not found`)
+}
+
+func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Should not be able to remove an Alive IP address.
+	c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+	err = ipAddr.Remove()
+	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr.String())
+	c.Assert(err, gc.ErrorMatches, msg)
+
+	err = ipAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// EnsureDead twice should not be an error
+	err = ipAddr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = ipAddr.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Doing it twice is also fine.
+	// Remove twice is also fine.
 	err = ipAddr.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
+}
+
+func (s *IPAddressSuite) TestSetStateDead(c *gc.C) {
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	msg := fmt.Sprintf(`cannot set IP address %q to state "allocated": address is dead`, ipAddr.String())
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
+	machine := s.createMachine(c)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := fmt.Sprintf(`cannot allocate IP address %q to machine %q, interface "frogger": address is dead`, ipAddr.String(), machine.Id())
+	err = ipAddr.AllocateTo(machine.Id(), "frogger", "01:23:45:67:89:ab")
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *IPAddressSuite) TestAllocateToProvisionedMachine(c *gc.C) {
+	machine := s.createMachine(c)
+
+	addr := network.NewAddress("0.1.2.3")
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.AllocateTo(machine.Id(), "fake", "01:23:45:67:89:ab")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
+	c.Assert(ipAddr.MACAddress(), gc.Equals, "01:23:45:67:89:ab")
 }
 
 func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
@@ -113,7 +219,7 @@ func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestSetState(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 
 	for i, test := range []struct {
 		initial, changeTo state.AddressState
@@ -169,65 +275,77 @@ func (s *IPAddressSuite) TestSetState(c *gc.C) {
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(ipAddr.EnsureDead(), jc.ErrorIsNil)
 			c.Check(ipAddr.Remove(), jc.ErrorIsNil)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(ipAddr.State(), gc.Equals, test.changeTo)
+		c.Check(ipAddr.EnsureDead(), jc.ErrorIsNil)
 		c.Check(ipAddr.Remove(), jc.ErrorIsNil)
 	}
 }
 
 func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	machine := s.createMachine(c)
+
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
 	c.Assert(ipAddr.MachineId(), gc.Equals, "")
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
-	err = ipAddr.AllocateTo("wibble", "wobble")
+	err = ipAddr.AllocateTo(machine.Id(), "wobble", "01:23:45:67:89:ab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateAllocated)
-	c.Assert(ipAddr.MachineId(), gc.Equals, "wibble")
+	c.Assert(ipAddr.MachineId(), gc.Equals, machine.Id())
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "wobble")
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
+	c.Assert(ipAddr.MACAddress(), gc.Equals, "01:23:45:67:89:ab")
 
 	freshCopy, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.State(), gc.Equals, state.AddressStateAllocated)
-	c.Assert(freshCopy.MachineId(), gc.Equals, "wibble")
+	c.Assert(freshCopy.MachineId(), gc.Equals, machine.Id())
 	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
+	c.Assert(freshCopy.InstanceId(), gc.Equals, instance.Id("foo"))
+	c.Assert(freshCopy.MACAddress(), gc.Equals, "01:23:45:67:89:ab")
 
 	// allocating twice should fail.
-	err = ipAddr.AllocateTo("m", "i")
-	c.Assert(err, gc.ErrorMatches,
-		`cannot allocate IP address "public:0.1.2.3" to machine "m", interface "i": `+
-			`already allocated or unavailable`,
-	)
+	machine2 := s.createMachine(c)
+	err = ipAddr.AllocateTo(machine2.Id(), "i", "01:23:45:67:89:ac")
+
+	msg := fmt.Sprintf(
+		`cannot allocate IP address "public:0.1.2.3" to machine %q, interface "i": `+
+			`already allocated or unavailable`, machine2.Id())
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *IPAddressSuite) TestAddress(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
-
 }
 
 func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
+	machine := s.createMachine(c)
+	machine2 := s.createMachine(c)
 	addresses := [][]string{
-		{"0.1.2.3", "wibble"},
-		{"0.1.2.4", "wibble"},
-		{"0.1.2.5", "wobble"},
+		{"0.1.2.3", machine.Id()},
+		{"0.1.2.4", machine.Id()},
+		{"0.1.2.5", machine2.Id()},
 	}
 	for _, details := range addresses {
-		addr := network.NewAddress(details[0], network.ScopePublic)
+		addr := network.NewScopedAddress(details[0], network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(details[1], "wobble")
+		err = ipAddr.AllocateTo(details[1], "wobble", "01:23:45:67:89:ab")
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	result, err := s.State.AllocatedIPAddresses("wibble")
+	result, err := s.State.AllocatedIPAddresses(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	addr1, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,5 +353,53 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []*state.IPAddress{addr1, addr2}
 	c.Assert(result, jc.SameContents, expected)
+}
 
+func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {
+	machine := s.createMachine(c)
+
+	addresses := []string{
+		"0.1.2.3",
+		"0.1.2.4",
+		"0.1.2.5",
+		"0.1.2.6",
+	}
+	for i, details := range addresses {
+		addr := network.NewAddress(details)
+		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+		c.Assert(err, jc.ErrorIsNil)
+		err = ipAddr.AllocateTo(machine.Id(), "wobble", "01:23:45:67:89:ab")
+		c.Assert(err, jc.ErrorIsNil)
+		if i%2 == 0 {
+			err := ipAddr.EnsureDead()
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+		}
+	}
+
+	ipAddresses, err := s.State.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr1, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	addr3, err := s.State.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddresses, jc.SameContents, []*state.IPAddress{addr1, addr3})
+}
+
+func (s *IPAddressSuite) TestRefresh(c *gc.C) {
+	rawAddr := network.NewAddress("0.1.2.3")
+	addr, err := s.State.AddIPAddress(rawAddr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrCopy, err := s.State.IPAddress(rawAddr.Value)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrCopy.Life(), gc.Equals, state.Alive)
+	err = addrCopy.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrCopy.Life(), gc.Equals, state.Dead)
 }

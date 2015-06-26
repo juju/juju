@@ -70,12 +70,31 @@ func (s *metricsManagerSuite) TestIncrementConsecutiveErrors(c *gc.C) {
 	c.Assert(m.ConsecutiveErrors(), gc.Equals, 1)
 }
 
+func (s *metricsManagerSuite) TestSetGracePeriod(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, time.Hour*24*7)
+	err = mm.SetGracePeriod(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.GracePeriod(), gc.Equals, time.Hour)
+}
+
+func (s *metricsManagerSuite) TestNegativeGracePeriod(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, time.Hour*24*7)
+	err = mm.SetGracePeriod(-time.Hour)
+	c.Assert(err, gc.ErrorMatches, "grace period can't be negative")
+}
+
 func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
-	code, info := mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterGreen)
-	c.Assert(info, gc.Equals, "ok")
+	status := mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 	now := time.Now()
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,22 +102,19 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterAmber)
-	c.Assert(info, gc.Equals, "failed to send metrics")
+	status = mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterAmber)
 	err = mm.SetLastSuccessfulSend(now.Add(-(24 * 7 * time.Hour)))
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterRed)
-	c.Assert(info, gc.Equals, "failed to send metrics, exceeded grace period")
+	status = mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterRed)
 
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
-	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterGreen)
-	c.Assert(info, gc.Equals, "ok")
+	status = mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }

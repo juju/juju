@@ -86,7 +86,7 @@ type NetworkInterface struct {
 }
 
 // NetworkConfig describes the necessary information to configure
-// all network interfaces on a machine. This mostly duplicates
+// a single network interface on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
 // the API.
@@ -357,6 +357,25 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 type MachineAddresses struct {
 	Tag       string    `json:"Tag"`
 	Addresses []Address `json:"Addresses"`
+}
+
+// SetMachinesAddresses holds the parameters for making an
+// API call to update machine addresses.
+type SetMachinesAddresses struct {
+	MachineAddresses []MachineAddresses `json:"MachineAddresses"`
+}
+
+// MachineAddressesResult holds a list of machine addresses or an
+// error.
+type MachineAddressesResult struct {
+	Error     *Error    `json:"Error"`
+	Addresses []Address `json:"Addresses"`
+}
+
+// MachineAddressesResults holds the results of calling an API method
+// returning a list of addresses per machine.
+type MachineAddressesResults struct {
+	Results []MachineAddressesResult `json:"Results"`
 }
 
 // MachinePortRange holds a single port range open on a machine for

@@ -11,13 +11,14 @@ import (
 	"os/user"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -57,6 +58,15 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
 // correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
 func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *environConfig) (*config.Config, error) {
 	attrs := cfg.AllAttrs()
@@ -82,15 +92,18 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 	return cfg.Apply(updatedAttrs)
 }
 
-var detectAptProxies = apt.DetectProxies
-
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{ContainerKey, NetworkBridgeKey, RootDirKey}
+	return []string{ContainerKey, NetworkBridgeKey, RootDirKey, "proxy-ssh"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return cfg, nil
+}
+
+// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := map[string]interface{}{
 		// We must not proxy SSH through the API server in a
 		// local provider environment. Besides not being useful,
@@ -136,7 +149,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 		if cfg.AptHttpProxy() == "" &&
 			cfg.AptHttpsProxy() == "" &&
 			cfg.AptFtpProxy() == "" {
-			proxySettings, err := detectAptProxies()
+			proxySettings, err := detectPackageProxies()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -156,16 +169,6 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 		return nil, errors.Trace(err)
 	}
 
-	return cfg, nil
-}
-
-// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// The user must not set bootstrap-ip; this is determined by the provider,
 	// and its presence used to determine whether the environment has yet been
 	// bootstrapped.
@@ -174,11 +177,11 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	}
 	err = checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	err = checkLocalPort(cfg.APIPort(), "API port")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return p.Open(cfg)
@@ -191,12 +194,10 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
-	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
-	localHostRegexp := regexp.MustCompile(`localhost|127\.[\d.]+|[0:]+1|\[?::1]?`)
-	hostAndPort := parsedUrl.Host
-	if !localHostRegexp.MatchString(hostAndPort) {
-		// If not localhost, return current attribute value
+
+	isLoopback, _, port := isLoopback(parsedUrl.Host)
+	if !isLoopback {
+		// If not loopback host address, return current attribute value
 		return originalURL, nil
 	}
 	//If localhost is specified, use its network bridge ip
@@ -204,10 +205,51 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if nwerr != nil {
 		return "", errors.Trace(nwerr)
 	}
-	// Host and post specification is host:port
-	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
-	parsedUrl.Host = hostAndPortRegexp.ReplaceAllString(hostAndPort, fmt.Sprintf("%s$port", bridgeAddress))
+	parsedUrl.Host = bridgeAddress + port
 	return parsedUrl.String(), nil
+}
+
+// isLoopback returns whether given url is a loopback url.
+// The argument to the method is expected to be in the form of
+// host:port where host and port are also returned as distinct values.
+func isLoopback(hostAndPort string) (isLoopback bool, host, port string) {
+	host, port = getHostAndPort(hostAndPort)
+	isLoopback = strings.ToLower(host) == "localhost"
+	if !isLoopback {
+		ip := net.ParseIP(host)
+		isLoopback = ip != nil && ip.IsLoopback()
+	}
+	return
+}
+
+// getHostAndPort expects argument in the form host:port and
+// returns host and port as distinctive strings.
+func getHostAndPort(original string) (host, port string) {
+	// Host and post specification is host:port
+	hostAndPortRegexp := regexp.MustCompile(`(?P<host>\[?[::]*[^:]+)(?P<port>$|:[^:]+$)`)
+
+	matched := hostAndPortRegexp.FindStringSubmatch(original)
+	if len(matched) == 0 {
+		// Passed in parameter is not in the form host:port.
+		// Let's not mess with it.
+		return original, ""
+	}
+
+	// For the string in the form host:port, FindStringSubmatch above
+	// will return {host:port, host, :port}
+	host = matched[1]
+	port = matched[2]
+
+	// For hosts like [::1], remove brackets
+	if strings.Contains(host, "[") {
+		host = host[1 : len(host)-1]
+	}
+
+	// For hosts like ::1, substring :1 is not a port!
+	if strings.Contains(host, port) {
+		port = ""
+	}
+	return
 }
 
 // checkLocalPort checks that the passed port is not used so far.
@@ -218,13 +260,12 @@ var checkLocalPort = func(port int, description string) error {
 	// TODO(mue) Add a timeout?
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
-		if nerr, ok := err.(*net.OpError); ok {
-			if nerr.Err == syscall.ECONNREFUSED {
-				// No connection, so everything is fine.
-				return nil
-			}
+		if isConnectionRefused(err) {
+			// we're expecting to get conn refused
+			return nil
 		}
-		return err
+		// some other error happened
+		return errors.Trace(err)
 	}
 	// Connected, so port is in use.
 	err = conn.Close()
@@ -232,6 +273,21 @@ var checkLocalPort = func(port int, description string) error {
 		return err
 	}
 	return errors.Errorf("cannot use %d as %s, already in use", port, description)
+}
+
+// isConnectionRefused indicates if the err was caused by a refused connection.
+func isConnectionRefused(err error) bool {
+	if err, ok := err.(*net.OpError); ok {
+		// go 1.4 and earlier
+		if err.Err == syscall.ECONNREFUSED {
+			return true
+		}
+		// go 1.5 and later
+		if err, ok := err.Err.(*os.SyscallError); ok {
+			return err.Err == syscall.ECONNREFUSED
+		}
+	}
+	return false
 }
 
 // Validate implements environs.EnvironProvider.Validate.

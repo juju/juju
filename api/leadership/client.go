@@ -21,18 +21,13 @@ import (
 
 var logger = loggo.GetLogger("juju.api.leadership")
 
-type facadeCaller interface {
-	FacadeCall(request string, params, response interface{}) error
-}
-
 type client struct {
-	base.ClientFacade
-	facadeCaller
+	base.FacadeCaller
 }
 
-// NewClient returns a new LeadershipClient instance.
-func NewClient(facade base.ClientFacade, caller facadeCaller) LeadershipClient {
-	return &client{facade, caller}
+// NewClient returns a new LeadershipManager backed by the supplied api caller.
+func NewClient(caller base.APICaller) leadership.LeadershipManager {
+	return &client{base.NewFacadeCaller(caller, "LeadershipService")}
 }
 
 // ClaimLeadership implements LeadershipManager.

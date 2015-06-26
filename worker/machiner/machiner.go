@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -21,16 +20,15 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	st      *machiner.State
+	st      MachineAccessor
 	tag     names.MachineTag
-	machine *machiner.Machine
+	machine Machine
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
-	// TODO(dfc) clearly agentConfig.Tag() can _only_ return a machine tag
+func NewMachiner(st MachineAccessor, agentConfig agent.Config) worker.Worker {
 	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(mr)
 }
@@ -46,7 +44,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	mr.machine = m
 
 	// Set the addresses in state to the host's addresses.
-	if err := setMachineAddresses(m); err != nil {
+	if err := setMachineAddresses(mr.tag, m); err != nil {
 		return nil, err
 	}
 
@@ -63,7 +61,7 @@ var interfaceAddrs = net.InterfaceAddrs
 
 // setMachineAddresses sets the addresses for this machine to all of the
 // host's non-loopback interface IP addresses.
-func setMachineAddresses(m *machiner.Machine) error {
+func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	addrs, err := interfaceAddrs()
 	if err != nil {
 		return err
@@ -79,7 +77,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 		default:
 			continue
 		}
-		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		address := network.NewAddress(ip.String())
 		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == network.ScopeLinkLocal {
 			continue
@@ -91,27 +89,38 @@ func setMachineAddresses(m *machiner.Machine) error {
 	}
 	// Filter out any LXC bridge addresses.
 	hostAddresses = network.FilterLXCAddresses(hostAddresses)
-	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
+	logger.Infof("setting addresses for %v to %q", tag, hostAddresses)
 	return m.SetMachineAddresses(hostAddresses)
 }
 
-func (mr *Machiner) Handle() error {
+func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err
 	}
-	if mr.machine.Life() == params.Alive {
+	life := mr.machine.Life()
+	if life == params.Alive {
 		return nil
 	}
-	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
+	logger.Debugf("%q is now %s", mr.tag, life)
 	if err := mr.machine.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 
-	// If the machine is Dying, it has no units,
-	// and can be safely set to Dead.
+	// Attempt to mark the machine Dead. If the machine still has units
+	// assigned, or storage attached, this will fail with
+	// CodeHasAssignedUnits or CodeMachineHasAttachedStorage respectively.
+	// Once units or storage are removed, the watcher will trigger again
+	// and we'll reattempt.
 	if err := mr.machine.EnsureDead(); err != nil {
+		if params.IsCodeHasAssignedUnits(err) {
+			return nil
+		}
+		if params.IsCodeMachineHasAttachedStorage(err) {
+			logger.Tracef("machine still has storage attached")
+			return nil
+		}
 		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)
 	}
 	return worker.ErrTerminateAgent

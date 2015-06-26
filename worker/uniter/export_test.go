@@ -13,7 +13,10 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	ActiveMetricsTimer = &activeMetricsTimer
+	ActiveCollectMetricsTimer = &activeCollectMetricsTimer
+	ActiveSendMetricsTimer    = &activeSendMetricsTimer
+	IdleWaitTime              = &idleWaitTime
+	LeadershipGuarantee       = &leadershipGuarantee
 )
 
 // manualTicker will be used to generate collect-metrics events
@@ -41,4 +44,20 @@ func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
 		c: make(chan time.Time, 1),
 	}
+}
+
+func NewTestingMetricsTimerChooser(collector TimedSignal, sender TimedSignal) *timerChooser {
+	return &timerChooser{
+		collector: collector,
+		sender:    sender,
+		inactive:  inactiveMetricsTimer,
+	}
+}
+
+func UpdateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	return updateStatusSignal(now, lastSignal, interval)
+}
+
+func ActiveCollectMetricsSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	return activeCollectMetricsTimer(now, lastSignal, interval)
 }

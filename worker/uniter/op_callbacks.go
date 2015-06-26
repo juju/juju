@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
-	"launchpad.net/tomb"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -24,31 +23,9 @@ type operationCallbacks struct {
 	u *Uniter
 }
 
-// AcquireExecutionLock is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	// We want to make sure we don't block forever when locking, but take the
-	// Uniter's tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-opc.u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
-	message = fmt.Sprintf("%s: %s", opc.u.unit.Name(), message)
-	if err := opc.u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return nil, err
-	}
-	return func() { opc.u.hookLock.Unlock() }, nil
-}
-
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	name := string(hi.Kind)
-	status := params.StatusActive
-
 	switch {
 	case hi.Kind.IsRelation():
 		var err error
@@ -67,19 +44,10 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		name = fmt.Sprintf("%s-%s", storageName, hi.Kind)
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
-	case hi.Kind == hooks.Stop:
-		status = params.StatusStopping
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
-		fallthrough
-	default:
-		if !opc.u.operationState().Started {
-			status = params.StatusInstalling
-		}
-	}
-	err := opc.u.unit.SetAgentStatus(status, "", nil)
-	if err != nil {
-		return "", err
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }
@@ -93,6 +61,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }
@@ -159,7 +129,12 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.f.ClearResolved()
 }
 
-// InitializeMetricsCollector is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsCollector() error {
-	return opc.u.initializeMetricsCollector()
+// InitializeMetricsTimers is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) InitializeMetricsTimers() error {
+	return opc.u.initializeMetricsTimers()
+}
+
+// SetExecutingStatus is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SetExecutingStatus(message string) error {
+	return setAgentStatus(opc.u, params.StatusExecuting, message, nil)
 }

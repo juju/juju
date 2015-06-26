@@ -116,6 +116,9 @@ var resolvedMachineTests = []struct {
 		args: []string{"1", "42"},
 		stdErr: `machine 1 is not in an error state` +
 			`machine 42 not found`,
+	}, {
+		args: []string{"0/lxc/0"},
+		err:  `invalid machine "0/lxc/0" retry-provisioning does not support containers`,
 	},
 }
 

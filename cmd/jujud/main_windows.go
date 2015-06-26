@@ -1,60 +1,46 @@
-// Copyright 2014 Canonical Ltd.
-// Copyright 2014 Cloudbase Solutions
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
-	"bitbucket.org/kardianos/service"
+	"github.com/gabriel-samfira/sys/windows/svc"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/cmd/service"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 )
 
-func runService() {
-	var name = "juju"
-	var displayName = "juju service"
-	var desc = "juju service"
-
-	var s, err = service.NewService(name, displayName, desc)
-	if err != nil {
-		logger.Errorf("%s", err)
-		os.Exit(1)
-	}
-
-	run := func() error {
-		go Main(os.Args)
-		return nil
-	}
-	stop := func() error {
-		os.Exit(0)
-		return nil
-	}
-	err = s.Run(run, stop)
-
-	if err != nil {
-		s.Error(err.Error())
-	}
-}
-
-func runConsole() {
-	Main(os.Args)
+func init() {
+	featureflag.SetFlagsFromRegistry(osenv.JujuRegistryKey, osenv.JujuFeatureFlagEnvKey)
 }
 
 func main() {
-	var mode uint32
-	err := syscall.GetConsoleMode(syscall.Stdin, &mode)
-
-	isConsole := err == nil
+	isInteractive, err := svc.IsAnInteractiveSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 
 	commandName := filepath.Base(os.Args[0])
-
-	if isConsole == true || commandName != names.Jujud {
-		runConsole()
+	if isInteractive || commandName != names.Jujud {
+		Main(os.Args)
 	} else {
-		runService()
+		s := service.SystemService{
+			Name: "jujud",
+			Cmd:  Main,
+			Args: os.Args,
+		}
+		if err := s.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 }

@@ -42,6 +42,17 @@ var (
 		"1d:cf:ab:66:8a:f6:77:fb:4c:b2:59:6f:12:cf:cb:2f",
 	}
 
+	ValidKeyFour = SSHKey{
+		`ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCSEDMH5RyjGtEMIqM2RiPYYQgUK` +
+			`9wdHCo1/AXkuQ7m1iVjHhACp8Oawf2Grn7hO4e0JUn5FaEZOnDj/9HB2VPw` +
+			`EDGBwSN1caVC3yrTVkqQcsxBY9nTV+spQQMsePOdUZALcoEilvAcLRETbyn` +
+			`rybaS2bfzpqbA9MEEaKQKLKGdgqiMdNXAj5I/ik/BPp0ziOMlMl1A1zilnS` +
+			`UXubs1U49WWV0A70vAASvZVTXr3zrPAmstH+9Ik6FdpeE99um08FXxKYWqZ` +
+			`6rZF1M6L1/SqC7ediYdVgRCoti85kKhi7fZBzwrGcCnxer+D0GFz++KDSNS` +
+			`iAnVZxyXhmBrwnR6Q/v7`,
+		"37:99:ab:96:c4:e8:f8:0b:0d:04:3e:1e:ee:66:e8:9e",
+	}
+
 	ValidKeyMulti = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDW+8zWO6qqXrHlcMK7obliuYp7D` +
 		`vZBsK6rHlnbeV5Hh38Qn0GUX4Ahm6XeQ/NSx53wqkBQDGOJFY3s4w1a/hbd` +
 		`PyLM2/yFXCYsj5FRf01JmUjAzWhuJMH9ViqzD//l4v8cR/pHC2B8PD6abKd` +
@@ -65,6 +76,9 @@ var (
 		`Jct+vf8wVJ/UEFXCnamvHLanJTcJIi/I5qRlKns65Bwb8M0HszPYmvTfFRD` +
 		`ZLi3sPUmw6PJCJ0SgATd` + "\n" +
 		`ssh-rsa bad key`
+
+	MultiInvalid = `ssh-rsa bad key` + "\n" +
+		`ssh-rsa also bad`
 
 	EmptyKeyMulti = ""
 )

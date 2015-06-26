@@ -9,11 +9,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -28,7 +29,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
-// Note the correspondence with ServiceInfo in apiserver/params.
+// Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
 	DocID             string     `bson:"_id"`
 	Name              string     `bson:"name"`
@@ -36,9 +37,8 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:forcecharm"`
+	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
-	UnitSeq           int        `bson:"unitseq"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
 	Exposed           bool       `bson:"exposed"`
@@ -372,6 +372,88 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 	return asserts, nil
 }
 
+func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot upgrade service %q to charm %q", s, newMeta.Name)
+	ch, _, err := s.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	oldMeta := ch.Meta()
+	for name := range oldMeta.Storage {
+		if _, ok := newMeta.Storage[name]; !ok {
+			return errors.Errorf("storage %q removed", name)
+		}
+	}
+	less := func(a, b int) bool {
+		return a != -1 && (b == -1 || a < b)
+	}
+	for name, newStorageMeta := range newMeta.Storage {
+		oldStorageMeta, ok := oldMeta.Storage[name]
+		if !ok {
+			if newStorageMeta.CountMin > 0 {
+				return errors.Errorf("required storage %q added", name)
+			}
+			// New storage is fine as long as it is not required.
+			//
+			// TODO(axw) introduce a way of adding storage at
+			// upgrade time. We should also look at supplying
+			// a way of adding/changing other things during
+			// upgrade, e.g. changing service config.
+			continue
+		}
+		if newStorageMeta.Type != oldStorageMeta.Type {
+			return errors.Errorf(
+				"existing storage %q type changed from %q to %q",
+				name, oldStorageMeta.Type, newStorageMeta.Type,
+			)
+		}
+		if newStorageMeta.Shared != oldStorageMeta.Shared {
+			return errors.Errorf(
+				"existing storage %q shared changed from %v to %v",
+				name, oldStorageMeta.Shared, newStorageMeta.Shared,
+			)
+		}
+		if newStorageMeta.ReadOnly != oldStorageMeta.ReadOnly {
+			return errors.Errorf(
+				"existing storage %q read-only changed from %v to %v",
+				name, oldStorageMeta.ReadOnly, newStorageMeta.ReadOnly,
+			)
+		}
+		if newStorageMeta.Location != oldStorageMeta.Location {
+			return errors.Errorf(
+				"existing storage %q location changed from %q to %q",
+				name, oldStorageMeta.Location, newStorageMeta.Location,
+			)
+		}
+		if newStorageMeta.CountMin > oldStorageMeta.CountMin {
+			return errors.Errorf(
+				"existing storage %q range contracted: min increased from %d to %d",
+				name, oldStorageMeta.CountMin, newStorageMeta.CountMin,
+			)
+		}
+		if less(newStorageMeta.CountMax, oldStorageMeta.CountMax) {
+			var oldCountMax interface{} = oldStorageMeta.CountMax
+			if oldStorageMeta.CountMax == -1 {
+				oldCountMax = "<unbounded>"
+			}
+			return errors.Errorf(
+				"existing storage %q range contracted: max decreased from %v to %d",
+				name, oldCountMax, newStorageMeta.CountMax,
+			)
+		}
+		if oldStorageMeta.Location != "" && oldStorageMeta.CountMax == 1 && newStorageMeta.CountMax != 1 {
+			// If a location is specified, the store may not go
+			// from being a singleton to multiple, since then the
+			// location has a different meaning.
+			return errors.Errorf(
+				"existing storage %q with location changed from singleton to multiple",
+				name,
+			)
+		}
+	}
+	return nil
+}
+
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
@@ -468,6 +550,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	}
 	ops = append(ops, relOps...)
 
+	// Check storage to ensure no storage is removed, and no required
+	// storage is added for which there are no constraints.
+	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
 }
@@ -557,16 +645,20 @@ func (s *Service) newUnitName() (string, error) {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
-	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
-	result := serviceDoc{}
-	if _, err := services.Find(bson.D{{"_id", s.doc.DocID}}).Apply(change, &result); err == mgo.ErrNotFound {
+	result := &serviceDoc{}
+	if err := services.FindId(s.doc.DocID).One(&result); err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("service %q", s)
-	} else if err != nil {
-		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
-	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
+
+	unitSeq, err := s.st.sequence(s.Tag().String())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	name := s.doc.Name + "/" + strconv.Itoa(unitSeq)
 	return name, nil
 }
+
+const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
 
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
@@ -593,6 +685,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
+	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
@@ -603,24 +696,28 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal:              principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
+	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
+		Updated: &now,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
-		Status:  StatusBusy,
-		EnvUUID: s.st.EnvironUUID(),
+		Status:     StatusUnknown,
+		StatusInfo: MessageWaitForAgentInit,
+		Updated:    &now,
+		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
+		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      unitsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -667,9 +764,14 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 		return nil, -1, err
 	}
 	meta := charm.Meta()
+	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
+	ops, numStorageAttachments, err = createStorageOps(
+		s.st, tag, meta, url, cons,
+		s.doc.Series,
+		false, // unit is not assigned yet; don't create machine storage
+	)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
@@ -728,16 +830,17 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
-	ops = append(ops, txn.Op{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: append(observedFieldsMatch, asserts...),
-		Remove: true,
-	},
-		removeConstraintsOp(s.st, u.globalAgentKey()),
+	ops = append(ops,
+		txn.Op{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: append(observedFieldsMatch, asserts...),
+			Remove: true,
+		},
+		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
 		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
-		removeMeterStatusOp(s.st, u.globalKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
@@ -1028,4 +1131,133 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 type settingsRefsDoc struct {
 	RefCount int
 	EnvUUID  string `bson:"env-uuid"`
+}
+
+// Status returns the status of the service.
+// Only unit leaders are allowed to set the status of the service.
+// If no status is recorded, then there are no unit leaders and the
+// status is derived from the unit status values.
+func (s *Service) Status() (StatusInfo, error) {
+	doc, err := getStatus(s.st, s.globalKey())
+	if errors.IsNotFound(err) {
+		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
+		return s.deriveStatus()
+	}
+	if err != nil {
+		return StatusInfo{}, errors.Annotatef(err, "reading status for %q", s.Name())
+	}
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
+}
+
+// SetStatus sets the status for the service.
+func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
+	var err error
+
+	var oldDoc statusDoc
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := s.Refresh(); errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
+
+		oldDoc, err = getStatus(s.st, s.globalKey())
+		insert := false
+		if IsStatusNotFound(err) {
+			insert = true
+			logger.Debugf("there is no state for %q yet", s.globalKey())
+		} else if err != nil {
+			logger.Debugf("cannot get state for %q yet", s.globalKey())
+		}
+
+		doc, err := newServiceStatusDoc(status, info, data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if insert {
+			// TODO(perrito666) we need a leader assertion added to this
+			// Op starting in 1.25.
+			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
+			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+		}
+		return []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+	}
+	if err = s.st.run(buildTxn); err != nil {
+		return errors.Errorf("cannot set status of service %q to %q: %v", s, status, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
+	return nil
+}
+
+// ServiceAndUnitsStatus returns the status for this service and all its units.
+func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+	serviceStatus, err := s.Status()
+	if err != nil {
+		return StatusInfo{}, nil, errors.Trace(err)
+	}
+	units, err := s.AllUnits()
+	if err != nil {
+		return StatusInfo{}, nil, err
+	}
+	results := make(map[string]StatusInfo, len(units))
+	for _, unit := range units {
+		unitStatus, err := unit.Status()
+		if err != nil {
+			return StatusInfo{}, nil, err
+		}
+		results[unit.Name()] = unitStatus
+	}
+	return serviceStatus, results, nil
+
+}
+
+func (s *Service) deriveStatus() (StatusInfo, error) {
+	units, err := s.AllUnits()
+	if err != nil {
+		return StatusInfo{}, err
+	}
+	logger.Tracef("service %q has %d units", s.Name(), len(units))
+	var result StatusInfo
+	for _, unit := range units {
+		currentSeverity := statusServerities[result.Status]
+		unitStatus, err := unit.Status()
+		if err != nil {
+			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
+		}
+		unitSeverity := statusServerities[unitStatus.Status]
+		if unitSeverity > currentSeverity {
+			result.Status = unitStatus.Status
+			result.Message = unitStatus.Message
+			result.Data = unitStatus.Data
+			result.Since = unitStatus.Since
+		}
+	}
+	return result, nil
+}
+
+// statusSeverities holds status values with a severity measure.
+// Status values with higher severity are used in preference to others.
+var statusServerities = map[Status]int{
+	StatusError:       100,
+	StatusBlocked:     90,
+	StatusWaiting:     80,
+	StatusMaintenance: 70,
+	StatusTerminated:  60,
+	StatusActive:      50,
+	StatusUnknown:     40,
 }

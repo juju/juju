@@ -16,16 +16,16 @@ import (
 	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/client"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/testservices/hook"
-	"launchpad.net/goose/testservices/openstackservice"
+	"gopkg.in/goose.v1/client"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/testservices/hook"
+	"gopkg.in/goose.v1/testservices/openstackservice"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -251,7 +251,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
@@ -279,7 +279,7 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
@@ -646,32 +646,6 @@ func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 	s.assertInstancesGathering(c, true)
 }
 
-func (s *localServerSuite) TestCollectInstances(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	env := s.Prepare(c)
-	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = "BUILD(networking)"
-			return nil
-		},
-	)
-	defer cleanup()
-	stateInst, _ := testing.AssertStartInstance(c, env, "100")
-	defer func() {
-		err := env.StopInstances(stateInst.Id())
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-	found := make(map[string]instance.Instance)
-	missing := []instance.Id{stateInst.Id()}
-
-	resultMissing := openstack.CollectInstances(env, missing, found)
-
-	c.Assert(resultMissing, gc.DeepEquals, missing)
-}
-
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -734,6 +708,40 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
 }
 
+func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"server",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("strange error not instance")
+		},
+	)
+	defer cleanup()
+
+	instances, err := env.Instances([]instance.Id{"1"})
+	c.Check(instances, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
+}
+
+func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"matchServers",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("strange error no instances")
+		},
+	)
+	defer cleanup()
+
+	instances, err := env.Instances([]instance.Id{"1", "2"})
+	c.Check(instances, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
+}
+
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
@@ -780,7 +788,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -790,8 +798,8 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -807,9 +815,12 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	env := s.Open(c)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 2)
+	c.Assert(sources, gc.HasLen, 3)
+
+	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
-	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
+	c.Check(sources[1].Description(), gc.Equals, "cloud local storage")
+	c.Check(sources[2].Description(), gc.Equals, "default cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -959,10 +970,23 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
+}
+
+func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
+	found := false
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		if s.Description() == expected {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
@@ -1174,7 +1198,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -1186,8 +1210,15 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Produce map of data sources keyed on description
+	mappedSources := make(map[string]simplestreams.DataSource, len(sources))
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		mappedSources[s.Description()] = s
+	}
+
 	// Read from the Config entry's image-metadata-url
-	contentReader, url, err := sources[0].Fetch(custom)
+	contentReader, url, err := mappedSources["image-metadata-url"].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
@@ -1196,7 +1227,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Check(url[:8], gc.Equals, "https://")
 
 	// Check the entry we got from keystone
-	contentReader, url, err = sources[1].Fetch(metadata)
+	contentReader, url, err = mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -1590,4 +1621,23 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	// Instance will be created without an availability zone specified.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
+}
+
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	c.Assert(
+		openstack.InstanceServerDetail(instances[0]).Metadata,
+		jc.DeepEquals,
+		map[string]string{
+			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state": "true",
+		},
+	)
 }
