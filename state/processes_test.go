@@ -194,10 +194,45 @@ func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitProcessesSuite) TestSetStatus(c *gc.C) {
-	//err := ps.SetStatus()
-	//c.Assert(err, jc.ErrorIsNil)
+func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
+	proc := s.newProcesses("docker", "procA")[0]
+	s.persist.setProcesses(&proc)
+	status := process.RawStatus{
+		Value: "okay",
+	}
 
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.SetStatus(proc.ID(), status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "SetStatus")
+	c.Check(s.persist.procs[proc.ID()].Details.Status, jc.DeepEquals, status)
+}
+
+func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+	proc := s.newProcesses("docker", "procA")[0]
+	s.persist.setProcesses(&proc)
+	status := process.RawStatus{
+		Value: "okay",
+	}
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.SetStatus(proc.ID(), status)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
+	status := process.RawStatus{
+		Value: "okay",
+	}
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.SetStatus("some-proc", status)
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *unitProcessesSuite) TestList(c *gc.C) {
