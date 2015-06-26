@@ -976,12 +976,11 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 		}
 
 		var macAddress string
-		var addresses []*state.IPAddress
+		var address *state.IPAddress
 		if provisionContainer {
 			// Allocate and set address.
 			macAddress = generateMACAddress()
-			addr, err := p.allocateAddress(environ, subnet, host, container, instId, macAddress)
-			addresses = append(addresses, addr)
+			address, err = p.allocateAddress(environ, subnet, host, container, instId, macAddress)
 			if err != nil {
 				err = errors.Annotatef(err, "failed to allocate an address for %q", container)
 				result.Results[i].Error = common.ServerError(err)
@@ -989,7 +988,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 			}
 		} else {
 			id := container.Id()
-			addresses, err = p.st.AllocatedIPAddresses(id)
+			addresses, err := p.st.AllocatedIPAddresses(id)
 			if err != nil {
 				logger.Warningf("failed to get Id for container %q: %v", tag, err)
 				result.Results[i].Error = common.ServerError(err)
@@ -1004,8 +1003,8 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			// TODO(mfoord): when the IP address model includes MAC
-			// address we should set macAddress from the IP address.
+			address = addresses[0]
+			macAddress = address.MACAddress()
 		}
 		// Store it on the machine, construct and set an interface result.
 		dnsServers := make([]string, len(interfaceInfo.DNSServers))
@@ -1033,7 +1032,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 				NoAutoStart:      interfaceInfo.NoAutoStart,
 				DNSServers:       dnsServers,
 				ConfigType:       string(network.ConfigStatic),
-				Address:          addresses[0].Value(),
+				Address:          address.Value(),
 				// container's gateway is the host's primary NIC's IP.
 				GatewayAddress: interfaceInfo.Address.Value,
 				ExtraConfig:    interfaceInfo.ExtraConfig,
