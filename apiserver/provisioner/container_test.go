@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -140,6 +141,8 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		// Check for any "regex:" prefixes first. Then replace
 		// addresses in expected with the actual ones, so we can use
 		// jc.DeepEquals on the whole result below.
+		// Also check MAC addresses are valid, but as they're randomly
+		// generated we can't test specific values.
 		for i, expect := range expectResults.Results {
 			cfg := results.Results[i].Config
 			c.Assert(cfg, gc.HasLen, len(expect.Config))
@@ -149,8 +152,15 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 					c.Assert(cfg[j].Address, gc.Matches, rex)
 					expectResults.Results[i].Config[j].Address = cfg[j].Address
 				}
+				macAddress := cfg[j].MACAddress
+				c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
+				remainder := strings.Replace(macAddress[8:], ":", "", 3)
+				c.Assert(remainder, gc.HasLen, 6)
+				_, err = hex.DecodeString(remainder)
+				expectResults.Results[i].Config[j].MACAddress = macAddress
 			}
 		}
+
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
@@ -407,7 +417,7 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	// Record each time allocateAddrTo, setAddrsTo, and setAddrState
 	// are called along with the addresses to verify the logs later.
 	var allocAttemptedAddrs, allocAddrsOK, setAddrs, releasedAddrs []string
-	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine) error {
+	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine, mac string) error {
 		c.Logf("allocateAddrTo called for address %q, machine %q", ip.String(), m)
 		c.Assert(m.Id(), gc.Equals, container.Id())
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
@@ -512,7 +522,6 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -594,7 +603,6 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -631,7 +639,6 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		VLANTag:          1,
-		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",

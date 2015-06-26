@@ -5,13 +5,11 @@ package provisioner_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"text/template"
 	"time"
 
@@ -352,18 +350,13 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
-	macAddress := iface.MACAddress
-	c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
-	remainder := strings.Replace(macAddress[8:], ":", "", 3)
-	c.Assert(remainder, gc.HasLen, 6)
-	_, err = hex.DecodeString(remainder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     macAddress,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
@@ -906,19 +899,13 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	macAddress := result[0].MACAddress
-	c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
-	remainder := strings.Replace(macAddress[8:], ":", "", 3)
-	c.Assert(remainder, gc.HasLen, 6)
-	_, err = hex.DecodeString(remainder)
-
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     macAddress,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
@@ -933,14 +920,13 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	s.api.ResetCalls()
 	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
 	c.Assert(result, gc.HasLen, 1)
-	macAddress = result[0].MACAddress
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     macAddress,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),

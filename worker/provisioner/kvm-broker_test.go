@@ -264,7 +264,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
 	macAddress := iface.MACAddress
-	c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
+	c.Assert(macAddress[:8], gc.Equals, MACAddressTemplate[:8])
 	remainder := strings.Replace(macAddress[8:], ":", "", 3)
 	c.Assert(remainder, gc.HasLen, 6)
 	_, err = hex.DecodeString(remainder)
