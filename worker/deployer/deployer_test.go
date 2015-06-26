@@ -86,7 +86,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	err = u1.SetAgentStatus(state.StatusActive, "", nil)
+	err = u1.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,7 +129,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// note: this is not a sane state; for the unit to have a status it must
 	// have been deployed. But it's instructive to check that the right thing
 	// would happen if it were possible to have a dying unit in this situation.
-	err = u1.SetAgentStatus(state.StatusActive, "", nil)
+	err = u1.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

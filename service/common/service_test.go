@@ -1,5 +1,5 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package common_test
 
@@ -57,7 +57,7 @@ func (*serviceSuite) TestValidateOkay(c *gc.C) {
 			ExecStart: "/path/to/some-command x y z",
 		},
 	}
-	err := service.Validate()
+	err := service.Validate(renderer)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -69,7 +69,7 @@ func (*serviceSuite) TestValidateMissingName(c *gc.C) {
 			ExecStart: "/path/to/some-command x y z",
 		},
 	}
-	err := service.Validate()
+	err := service.Validate(renderer)
 
 	c.Check(err, gc.ErrorMatches, ".*missing Name.*")
 }
@@ -81,7 +81,7 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 			ExecStart: "/path/to/some-command x y z",
 		},
 	}
-	err := service.Validate()
+	err := service.Validate(renderer)
 
 	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
 }
@@ -93,7 +93,7 @@ func (*serviceSuite) TestValidateMissingExecStart(c *gc.C) {
 			Desc: "some service",
 		},
 	}
-	err := service.Validate()
+	err := service.Validate(renderer)
 
 	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
 }

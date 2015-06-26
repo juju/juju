@@ -17,6 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -69,6 +71,11 @@ type configTest struct {
 	err         string
 }
 
+var testResourceTags = []string{"a=b", "c=", "d=e"}
+var testResourceTagsMap = map[string]string{
+	"a": "b", "c": "", "d": "e",
+}
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -84,7 +91,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"agent-stream":       "agent-stream-value",
+			"agent-stream":       "released",
 		},
 	}, {
 		about:       "Deprecated tools-stream used",
@@ -100,7 +107,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"agent-stream": "agent-stream-value",
+			"agent-stream": "released",
 			"tools-stream": "ignore-me",
 		},
 	}, {
@@ -196,6 +203,60 @@ var configTests = []configTest{
 			"lxc-use-clone": false,
 			"lxc-clone":     true,
 		},
+	}, {
+		about:       "Allow LXC loop mounts true",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "true",
+		},
+	}, {
+		about:       "Allow LXC loop mounts default",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "false",
+		},
+		expected: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": false,
+		},
+	}, {
+		about:       "LXC default MTU not set",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "LXC default MTU set explicitly",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": 9000,
+		},
+	}, {
+		about:       "LXC default MTU invalid (not a number)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": "foo",
+		},
+		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
+	}, {
+		about:       "LXC default MTU invalid (negative)",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"lxc-default-mtu": -42,
+		},
+		err: `lxc-default-mtu: expected positive integer, got -42`,
 	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
@@ -537,7 +598,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		err: "invalid firewall mode in environment configuration: .*",
+		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
@@ -604,18 +665,14 @@ var configTests = []configTest{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			"incorrect",
-		),
+		about:       "provisioner-harvest-mode: incorrect",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
 			"provisioner-harvest-mode": "yes please",
 		},
-		err: `unknown harvesting method: yes please`,
+		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -831,7 +888,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
 		},
-		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+		err: `uuid: expected uuid, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
 	}, {
 		about:       "invalid uuid 2",
 		useDefaults: config.UseDefaults,
@@ -840,7 +897,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "uuid",
 		},
-		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+		err: `uuid: expected uuid, got string\("uuid"\)`,
 	}, {
 		about:       "blank uuid",
 		useDefaults: config.UseDefaults,
@@ -849,22 +906,8 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: "uuid: expected uuid, got string\\(\"\"\\)",
+		err: `empty uuid in environment configuration`,
 	},
-	authTokenConfigTest("token=value, tokensecret=value", true),
-	authTokenConfigTest("token=value, ", true),
-	authTokenConfigTest("token=value, \ttokensecret=value", true),
-	authTokenConfigTest("", true),
-	authTokenConfigTest("token=value, tokensecret=value, \t", true),
-	authTokenConfigTest("=", false),
-	authTokenConfigTest("tokenvalue", false),
-	authTokenConfigTest("token=value, sometoken=", false),
-	authTokenConfigTest("token==value", false),
-	authTokenConfigTest(" token=value", false),
-	authTokenConfigTest("=value", false),
-	authTokenConfigTest("token=value, =z", false),
-	authTokenConfigTest("token=value =z", false),
-	authTokenConfigTest("\t", false),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
@@ -891,28 +934,34 @@ var configTests = []configTest{
 			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
-}
-
-// authTokenConfigTest returns a config test that checks
-// that a configuration with the given auth token
-// will pass or fail, depending on the value of ok.
-func authTokenConfigTest(token string, ok bool) configTest {
-	var testName string
-	var err string
-
-	if ok {
-		testName = fmt.Sprintf("Valid auth token test: %q", token)
-	} else {
-		testName = fmt.Sprintf("Invalid auth token test: %q", token)
-		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
-	}
-
-	return configTest{
-		about:       testName,
+	{
+		about:       "Resource tags as space-separated string",
 		useDefaults: config.UseDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"charm-store-auth": token}),
-		err:         regexp.QuoteMeta(err),
-	}
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": strings.Join(testResourceTags, " "),
+		},
+	},
+	{
+		about:       "Resource tags as list of strings",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": testResourceTags,
+		},
+	},
+	{
+		about:       "Resource tags contains non-keyvalues",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"resource-tags": []string{"a"},
+		},
+		err: `resource-tags: expected "key=value", got "a"`,
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1295,6 +1344,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(useLxcCloneAufs, jc.IsFalse)
 	}
+
+	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
+	if _, ok := test.attrs["resource-tags"]; ok {
+		c.Assert(cfgHasResourceTags, jc.IsTrue)
+		c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+	} else {
+		c.Assert(cfgHasResourceTags, jc.IsFalse)
+	}
 }
 
 func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
@@ -1327,7 +1384,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
 		"default-series":            testing.FakeDefaultSeries,
-		"charm-store-auth":          "token=auth",
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -1345,6 +1401,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
+	attrs["allow-lxc-loop-mounts"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1451,6 +1508,11 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-clone-aufs": false},
 	new:   testing.Attrs{"lxc-clone-aufs": true},
 	err:   `cannot change lxc-clone-aufs from false to true`,
+}, {
+	about: "Cannot change lxc-default-mtu",
+	old:   testing.Attrs{"lxc-default-mtu": 9000},
+	new:   testing.Attrs{"lxc-default-mtu": 42},
+	err:   `cannot change lxc-default-mtu from 9000 to 42`,
 }, {
 	about: "Cannot change prefer-ipv6",
 	old:   testing.Attrs{"prefer-ipv6": false},
@@ -1717,6 +1779,43 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
+func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
+	schema, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+	// Check that we actually returned a copy, not the original.
+	schema["foo"] = environschema.Attr{}
+	_, ok := orig["foo"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
+	extraField := environschema.Attr{
+		Description: "fooish",
+		Type:        environschema.Tstring,
+	}
+	schema, err := config.Schema(environschema.Fields{
+		"foo": extraField,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(schema["foo"], gc.DeepEquals, extraField)
+	delete(schema, "foo")
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
+	schema, err := config.Schema(environschema.Fields{
+		"type": environschema.Attr{
+			Description: "duplicate",
+			Type:        environschema.Tstring,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)
+	c.Assert(schema, gc.IsNil)
+}
+
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// Add a cert.
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
@@ -1782,6 +1881,50 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(keyPEM, gc.Equals, "")
 		}
 	}
+}
+
+var specializeCharmRepoTests = []struct {
+	about    string
+	testMode bool
+	repo     charmrepo.Interface
+}{{
+	about: "test mode disabled, charm store",
+	repo:  &specializedCharmRepo{},
+}, {
+	about: "test mode disabled, local repo",
+	repo:  &charmrepo.LocalRepository{},
+}, {
+	about:    "test mode enabled, charm store",
+	testMode: true,
+	repo:     &specializedCharmRepo{},
+}, {
+	about:    "test mode enabled, local repo",
+	testMode: true,
+	repo:     &charmrepo.LocalRepository{},
+}}
+
+func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
+	for i, test := range specializeCharmRepoTests {
+		c.Logf("test %d: %s", i, test.about)
+		cfg := newTestConfig(c, testing.Attrs{"test-mode": test.testMode})
+		repo := config.SpecializeCharmRepo(test.repo, cfg)
+		if store, ok := repo.(*specializedCharmRepo); ok {
+			c.Assert(store.testMode, gc.Equals, test.testMode)
+			continue
+		}
+		// Just check that the original local repo has not been modified.
+		c.Assert(repo.(*charmrepo.LocalRepository), gc.Equals, test.repo)
+	}
+}
+
+type specializedCharmRepo struct {
+	*charmrepo.CharmStore
+	testMode bool
+}
+
+func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
+	return s
 }
 
 func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {

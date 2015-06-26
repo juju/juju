@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -235,7 +236,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	cmds, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
-		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+		"cat > " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 	})
 	cmds, err = s.service.StartCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,11 +355,83 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	err := symlink.New(pathTo("status-started"), pathTo("status"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	conf := s.dummyConf(c)
-	s.service.UpdateConfig(conf)
-	err = s.service.Install()
+	svc := upstart.NewService("some-service", s.dummyConf(c))
+	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	installed, err := s.service.Running()
+	installed, err := svc.Running()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(installed, jc.IsTrue)
+}
+
+type IsRunningSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&IsRunningSuite{})
+
+const modeExecutable = 0500
+const modeNotExecutable = 0400
+
+// createInitctl creates a dummy initctl which returns the given
+// exitcode and patches the upstart package to use it.
+func (s *IsRunningSuite) createInitctl(c *gc.C, stderr string, exitcode int, mode os.FileMode) {
+	path := filepath.Join(c.MkDir(), "initctl")
+	var body string
+	if stderr != "" {
+		// Write to stderr.
+		body = ">&2 echo " + utils.ShQuote(stderr)
+	}
+	script := fmt.Sprintf(`
+#!/usr/bin/env bash
+%s
+exit %d
+`[1:], body, exitcode)
+	c.Logf(script)
+	err := ioutil.WriteFile(path, []byte(script), mode)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(upstart.InitctlPath, path)
+}
+
+func (s *IsRunningSuite) TestUpstartInstalled(c *gc.C) {
+	s.createInitctl(c, "", 0, modeExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *IsRunningSuite) TestUpstartNotInstalled(c *gc.C) {
+	s.PatchValue(upstart.InitctlPath, "/foo/bar/not-exist")
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *IsRunningSuite) TestUpstartInstalledButBroken(c *gc.C) {
+	const stderr = "<something broke>"
+	const errorCode = 99
+	s.createInitctl(c, stderr, errorCode, modeExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*exit status %d", errorCode))
+}
+
+func (s *IsRunningSuite) TestUpstartInstalledButNotRunning(c *gc.C) {
+	const stderr = `Name "com.ubuntu.Upstart" does not exist`
+	const errorCode = 1
+	s.createInitctl(c, stderr, errorCode, modeExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*exit status %d", errorCode))
+}
+
+func (s *IsRunningSuite) TestInitctlCantBeRun(c *gc.C) {
+	s.createInitctl(c, "", 0, modeNotExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, ".+: permission denied")
 }

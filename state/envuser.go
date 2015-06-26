@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,23 +15,28 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// EnvironmentUser represents a user access to an environment
-// whereas the user could represent a remote user or a user
-// across multiple environments the environment user always represents
-// a single user for a single environment.
-// There should be no more than one EnvironmentUser per user
+// EnvironmentUser represents a user access to an environment whereas the user
+// could represent a remote user or a user across multiple environments the
+// environment user always represents a single user for a single environment.
+// There should be no more than one EnvironmentUser per environment.
 type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
 }
 
 type envUserDoc struct {
-	ID             string     `bson:"_id"`
-	EnvUUID        string     `bson:"env-uuid"`
-	UserName       string     `bson:"user"`
-	DisplayName    string     `bson:"displayname"`
-	CreatedBy      string     `bson:"createdby"`
-	DateCreated    time.Time  `bson:"datecreated"`
+	ID          string    `bson:"_id"`
+	EnvUUID     string    `bson:"env-uuid"`
+	UserName    string    `bson:"user"`
+	DisplayName string    `bson:"displayname"`
+	CreatedBy   string    `bson:"createdby"`
+	DateCreated time.Time `bson:"datecreated"`
+	// LastConnection is updated by the apiserver whenever the user
+	// connects over the API. This update is not done using mgo.txn
+	// so this value could well change underneath a normal transaction
+	// and as such, it should NEVER appear in any transaction asserts.
+	// It is really informational only as far as everyone except the
+	// api server is concerned.
 	LastConnection *time.Time `bson:"lastconnection"`
 }
 
@@ -64,26 +70,41 @@ func (e *EnvironmentUser) CreatedBy() string {
 	return e.doc.CreatedBy
 }
 
-// DateCreated returns the date the environment user.
+// DateCreated returns the date the environment user was created in UTC.
 func (e *EnvironmentUser) DateCreated() time.Time {
-	return e.doc.DateCreated
+	return e.doc.DateCreated.UTC()
 }
 
-// LastConnection returns the last connection time of the environment user.
+// LastLogin returns when this EnvironmentUser last connected through the API
+// in UTC. The resulting time will be nil if the user has never logged in.
 func (e *EnvironmentUser) LastConnection() *time.Time {
-	return e.doc.LastConnection
+	when := e.doc.LastConnection
+	if when == nil {
+		return nil
+	}
+	result := when.UTC()
+	return &result
 }
 
 // UpdateLastConnection updates the last connection time of the environment user.
 func (e *EnvironmentUser) UpdateLastConnection() error {
+	envUsers, closer := e.st.getCollection(envUsersC)
+	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	envUsersW := envUsers.Writeable()
+
+	// Update the safe mode of the underlying session to be not require
+	// write majority, nor sync to disk.
+	session := envUsersW.Underlying().Database.Session
+	session.SetSafe(&mgo.Safe{})
+
 	timestamp := nowToTheSecond()
-	ops := []txn.Op{{
-		C:      envUsersC,
-		Id:     e.ID(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
-	}}
-	if err := e.st.runTransaction(ops); err != nil {
+	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
+
+	id := strings.ToLower(e.UserName())
+	if err := envUsersW.UpdateId(id, update); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
 
@@ -97,23 +118,28 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 
-	err := envUsers.FindId(user.Username()).One(&envUser.doc)
+	username := strings.ToLower(user.Username())
+	err := envUsers.FindId(username).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("environment user %q", user.Username())
 	}
+	// DateCreated is inserted as UTC, but read out as local time. So we
+	// convert it back to UTC here.
+	envUser.doc.DateCreated = envUser.doc.DateCreated.UTC()
 	return envUser, nil
 }
 
 // AddEnvironmentUser adds a new user to the database.
-func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*EnvironmentUser, error) {
-	var displayName string
+func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*EnvironmentUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
 	if user.IsLocal() {
 		localUser, err := st.User(user)
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
 		}
-		displayName = localUser.DisplayName()
+		if displayName == "" {
+			displayName = localUser.DisplayName()
+		}
 	}
 
 	// Ensure local createdBy user exists.
@@ -127,7 +153,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.New("env user already exists")
+		err = errors.AlreadyExistsf("environment user %q", user.Username())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -135,31 +161,36 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	return &EnvironmentUser{st: st, doc: *doc}, nil
 }
 
-func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
+// envUserID returns the document id of the environment user
+func envUserID(user names.UserTag) string {
 	username := user.Username()
+	return strings.ToLower(username)
+}
+
+func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
 	creatorname := createdBy.Username()
 	doc := &envUserDoc{
-		ID:          username,
+		ID:          envUserID(user),
 		EnvUUID:     envuuid,
-		UserName:    username,
+		UserName:    user.Username(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
 	}
 	op := txn.Op{
 		C:      envUsersC,
-		Id:     username,
+		Id:     envUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
 	return op, doc
 }
 
-// RemoveEnvironmentUser adds a new user to the database.
+// RemoveEnvironmentUser removes a user from the database.
 func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      envUsersC,
-		Id:     user.Username(),
+		Id:     envUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}

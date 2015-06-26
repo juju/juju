@@ -13,15 +13,28 @@ import (
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
 )
 
 var (
 	logger = loggo.GetLogger("juju.service.systemd")
+
+	renderer = shell.BashRenderer{}
+	cmds     = commands{renderer, executable}
 )
+
+// IsRunning returns whether or not systemd is the local init system.
+func IsRunning() (bool, error) {
+	if _, err := os.Stat("/run/systemd/system"); err == nil {
+		return true, nil
+	} else if os.IsNotExist(err) {
+		return false, nil
+	} else {
+		return false, errors.Trace(err)
+	}
+}
 
 // ListServices returns the list of installed service names.
 func ListServices() ([]string, error) {
@@ -63,7 +76,7 @@ func listServices() ([]string, error) {
 
 // ListCommand returns a command that will list the services on a host.
 func ListCommand() string {
-	return commands{}.listAll()
+	return cmds.listAll()
 }
 
 // Service provides visibility into and control over a systemd service.
@@ -77,13 +90,13 @@ type Service struct {
 }
 
 // NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf) (*Service, error) {
+func NewService(name string, conf common.Conf, dataDir string) (*Service, error) {
 	confName := name + ".service"
-	dataDir, err := findDataDir()
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
+	var volName string
+	if conf.ExecStart != "" {
+		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirname := path.Join(dataDir, "init", name)
+	dirname := volName + renderer.Join(dataDir, "init", name)
 
 	service := &Service{
 		Service: common.Service{
@@ -100,10 +113,6 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	}
 
 	return service, nil
-}
-
-var findDataDir = func() (string, error) {
-	return paths.DataDir(version.Current.Series)
 }
 
 // dbusAPI exposes all the systemd API methods needed by juju.
@@ -152,13 +161,8 @@ func (s Service) Conf() common.Conf {
 	return s.Service.Conf
 }
 
-// UpdateConfig implements Service.
-func (s *Service) UpdateConfig(conf common.Conf) {
-	s.setConf(conf) // We ignore any error (i.e. when validation fails).
-}
-
 func (s *Service) serialize() ([]byte, error) {
-	data, err := serialize(s.UnitName, s.Service.Conf)
+	data, err := serialize(s.UnitName, s.Service.Conf, renderer)
 	if err != nil {
 		return nil, s.errorf(err, "failed to serialize conf")
 	}
@@ -166,7 +170,7 @@ func (s *Service) serialize() ([]byte, error) {
 }
 
 func (s *Service) deserialize(data []byte) (common.Conf, error) {
-	conf, err := deserialize(data)
+	conf, err := deserialize(data, renderer)
 	if err != nil {
 		return conf, s.errorf(err, "failed to deserialize conf")
 	}
@@ -174,15 +178,15 @@ func (s *Service) deserialize(data []byte) (common.Conf, error) {
 }
 
 func (s *Service) validate(conf common.Conf) error {
-	if err := validate(s.Service.Name, conf); err != nil {
+	if err := validate(s.Service.Name, conf, &renderer); err != nil {
 		return s.errorf(err, "invalid conf")
 	}
 	return nil
 }
 
 func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
-	scriptPath := path.Join(s.Dirname, "exec-start.sh")
-	return normalize(s.Service.Name, conf, scriptPath)
+	scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+	return normalize(s.Service.Name, conf, scriptPath, &renderer)
 }
 
 func (s *Service) setConf(conf common.Conf) error {
@@ -240,7 +244,7 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	data, err := Cmdline{}.conf(s.Service.Name)
+	data, err := Cmdline{}.conf(s.Service.Name, s.Dirname)
 	if err != nil {
 		return conf, s.errorf(err, "failed to read conf from systemd")
 	}
@@ -514,10 +518,13 @@ func (s *Service) writeConf() (string, error) {
 	filename := path.Join(s.Dirname, s.ConfName)
 
 	if s.Script != nil {
-		scriptPath := s.Service.Conf.ExecStart
-		// TODO(ericsnow) bash might be located somewhere else!
-		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
-		if err := createFile(scriptPath, script, 0755); err != nil {
+		scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+		if scriptPath != s.Service.Conf.ExecStart {
+			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
+			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
+		}
+		// TODO(ericsnow) Use the renderer here for the perms.
+		if err := createFile(scriptPath, s.Script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
@@ -551,15 +558,14 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cmds := commands{}
 	cmdList := []string{
 		cmds.mkdirs(dirname),
 	}
 	if s.Script != nil {
-		scriptName := path.Base(s.Service.Conf.ExecStart)
-		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
+		scriptName := renderer.Base(renderer.ScriptFilename("exec-start", ""))
 		cmdList = append(cmdList, []string{
-			cmds.writeFile(scriptName, dirname, script),
+			// TODO(ericsnow) Use the renderer here.
+			cmds.writeFile(scriptName, dirname, s.Script),
 			cmds.chmod(scriptName, dirname, 0755),
 		}...)
 	}
@@ -575,7 +581,6 @@ func (s *Service) InstallCommands() ([]string, error) {
 // StartCommands implements Service.
 func (s *Service) StartCommands() ([]string, error) {
 	name := s.Name()
-	cmds := commands{}
 	cmdList := []string{
 		cmds.start(name),
 	}

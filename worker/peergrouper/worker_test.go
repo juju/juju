@@ -82,7 +82,9 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 		ids = append(ids, id)
 		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
 
-		m.setAPIHostPorts(addressesWithPort(apiPort, fmt.Sprintf(ipVersion.formatHost, i)))
+		m.setAPIHostPorts(network.NewHostPorts(
+			apiPort, fmt.Sprintf(ipVersion.formatHost, i),
+		))
 	}
 	st.machine("10").SetHasVote(true)
 	st.setStateServers(ids...)
@@ -96,16 +98,12 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
 	servers := make([][]network.HostPort, n)
 	for i := range servers {
-		servers[i] = []network.HostPort{{
-			Address: network.NewAddress(fmt.Sprintf(ipVersion.formatHost, i+10), network.ScopeUnknown),
-			Port:    apiPort,
-		}}
+		servers[i] = network.NewHostPorts(
+			apiPort,
+			fmt.Sprintf(ipVersion.formatHost, i+10),
+		)
 	}
 	return servers
-}
-
-func addressesWithPort(port int, addrs ...string) []network.HostPort {
-	return network.AddressesWithPort(network.NewAddresses(addrs...), port)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
@@ -412,7 +410,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 		// Change one of the servers' API addresses and check that it's published.
 		var newMachine10APIHostPorts []network.HostPort
-		newMachine10APIHostPorts = addressesWithPort(apiPort, ipVersion.extraHostPort)
+		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHostPort)
 		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
 		select {
 		case servers := <-publishCh:

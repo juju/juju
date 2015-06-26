@@ -288,18 +288,6 @@ func (s *uniterV0Suite) TestWatchUnitAddresses(c *gc.C) {
 	s.testWatchUnitAddresses(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestAddMetrics(c *gc.C) {
-	s.testAddMetrics(c, s.meteredUniter)
-}
-
-func (s *uniterV0Suite) TestAddMetricsIncorrectTag(c *gc.C) {
-	s.testAddMetricsIncorrectTag(c, s.uniter)
-}
-
-func (s *uniterV0Suite) TestAddMetricsUnauthenticated(c *gc.C) {
-	s.testAddMetricsUnauthenticated(c, s.uniter)
-}
-
 func (s *uniterV0Suite) TestGetMeterStatus(c *gc.C) {
 	s.testGetMeterStatus(c, s.uniter)
 }

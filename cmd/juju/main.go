@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
@@ -121,7 +120,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&BootstrapCommand{}))
 	r.Register(wrapEnvCommand(&DeployCommand{}))
 	r.Register(wrapEnvCommand(&AddRelationCommand{}))
-	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
 	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
@@ -134,6 +132,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
+	r.Register(wrapEnvCommand(&StatusHistoryCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -145,7 +144,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
-	r.Register(wrapEnvCommand(&GetCommand{}))
 	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
 	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
@@ -199,6 +197,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
+	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
 	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
 	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
 
@@ -207,9 +207,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 
 	// Manage storage
-	if featureflag.Enabled(feature.Storage) {
-		r.Register(storage.NewSuperCommand())
-	}
+	r.Register(storage.NewSuperCommand())
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())

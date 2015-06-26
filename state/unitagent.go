@@ -31,21 +31,41 @@ func (u *UnitAgent) String() string {
 	return u.name
 }
 
-// Status returns the status of the unit.
-func (u *UnitAgent) Status() (status Status, info string, data map[string]interface{}, err error) {
+// Status returns the status of the unit agent.
+func (u *UnitAgent) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, errors.Trace(err)
+		return StatusInfo{}, errors.Trace(err)
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	// The current health spec says when a hook error occurs, the workload should
+	// be in error state, but the state model more correctly records the agent
+	// itself as being in error. So we'll do that model translation here.
+	if doc.Status == StatusError {
+		return StatusInfo{
+			Status:  StatusIdle,
+			Message: "",
+			Data:    map[string]interface{}{},
+			Since:   doc.Updated,
+		}, nil
+	}
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
-func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) error {
+func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
+	oldDoc, err := getStatus(u.st, u.globalKey())
+	if IsStatusNotFound(err) {
+		logger.Debugf("there is no state for %q yet", u.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", u.globalKey())
+	}
+
 	doc, err := newUnitAgentStatusDoc(status, info, data)
 	if err != nil {
 		return errors.Trace(err)
@@ -57,7 +77,20 @@ func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interf
 	if err != nil {
 		return errors.Errorf("cannot set status of unit agent %q: %v", u, onAbort(err, ErrDead))
 	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
 	return nil
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this agent.
+func (u *UnitAgent) StatusHistory(size int) ([]StatusInfo, error) {
+	return statusHistory(size, u.globalKey(), u.st)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.

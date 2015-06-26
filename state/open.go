@@ -89,8 +89,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment, owner: %q", owner.Username())
-	logger.Infof("info: %#v", info)
 	logger.Infof("starting presence watcher")
 	st.startPresenceWatcher()
 
@@ -174,6 +172,7 @@ var indexes = []struct {
 	{networkInterfacesC, []string{"env-uuid", "machineid"}, false, false},
 	{blockDevicesC, []string{"env-uuid", "machineid"}, false, false},
 	{subnetsC, []string{"providerid"}, true, true},
+	{ipaddressesC, []string{"uuid"}, false, false},
 	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
 	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
 	{storageInstancesC, []string{"env-uuid", "owner"}, false, false},
@@ -181,6 +180,7 @@ var indexes = []struct {
 	{storageAttachmentsC, []string{"env-uuid", "unitid"}, false, false},
 	{volumesC, []string{"env-uuid", "storageid"}, false, false},
 	{filesystemsC, []string{"env-uuid", "storageid"}, false, false},
+	{statusesHistoryC, []string{"env-uuid", "entityid"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -260,7 +260,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
 
 	// Create DB indexes.
 	for _, item := range indexes {
@@ -268,6 +268,10 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, errors.Annotate(err, "cannot create database index")
 		}
+	}
+
+	if err := InitDbLogs(session); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return st, nil

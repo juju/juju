@@ -50,7 +50,7 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// ProvisioningInfo returns the information required to provisiong a machine.
+// ProvisioningInfo returns the information required to provision a machine.
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
@@ -183,7 +183,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
-	volumeAttachments []params.VolumeAttachment,
+	volumeAttachments map[string]params.VolumeAttachmentInfo,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{

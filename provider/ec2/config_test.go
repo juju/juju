@@ -360,3 +360,14 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
 }
+
+func (*ConfigSuite) TestSchema(c *gc.C) {
+	fields := providerInstance.Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
+}

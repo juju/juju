@@ -304,7 +304,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 
 	// convert it back to a dotted-quad
 	newIP := network.DecimalToIPv4(newDecimal)
-	newAddr := network.NewAddress(newIP.String(), network.ScopeUnknown)
+	newAddr := network.NewAddress(newIP.String())
 
 	// and create a new IPAddress from it and return it
 	return s.st.AddIPAddress(newAddr, s.ID())

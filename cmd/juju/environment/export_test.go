@@ -31,9 +31,30 @@ func NewRetryProvisioningCommand(api RetryProvisioningAPI) *RetryProvisioningCom
 	}
 }
 
+// NewShareCommand returns a ShareCommand with the api provided as specified.
+func NewShareCommand(api ShareEnvironmentAPI) *ShareCommand {
+	return &ShareCommand{
+		api: api,
+	}
+}
+
+// NewUnshareCommand returns an unshareCommand with the api provided as specified.
+func NewUnshareCommand(api UnshareEnvironmentAPI) *UnshareCommand {
+	return &UnshareCommand{
+		api: api,
+	}
+}
+
 // NewCreateCommand returns a CreateCommand with the api provided as specified.
 func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
 	return &CreateCommand{
+		api: api,
+	}
+}
+
+// NewUsersCommand returns a UsersCommand with the api provided as specified.
+func NewUsersCommand(api UsersAPI) *UsersCommand {
+	return &UsersCommand{
 		api: api,
 	}
 }

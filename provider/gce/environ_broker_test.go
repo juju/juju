@@ -7,13 +7,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type environBrokerSuite struct {
@@ -88,11 +91,47 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
 }
 
-func (s *environBrokerSuite) TestFinishMachineConfig(c *gc.C) {
-	err := gce.FinishMachineConfig(s.Env, s.StartInstArgs, s.spec)
+func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
+	s.FakeEnviron.Spec = s.spec
+	s.FakeEnviron.Inst = s.BaseInstance
+	s.FakeEnviron.Hwc = s.hardware
+
+	// Get the API port from the fake environment config used to
+	// "bootstrap".
+	envConfig := testing.FakeConfig()
+	apiPort, ok := envConfig["api-port"].(int)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(apiPort, gc.Not(gc.Equals), 0)
+
+	// When StateServingInfo is not nil, verify OpenPorts was called
+	// for the API port.
+	s.StartInstArgs.InstanceConfig.StateServingInfo = &params.StateServingInfo{
+		APIPort: apiPort,
+	}
+
+	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.MachineConfig.Tools, gc.NotNil)
+	c.Check(result.Instance, gc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
+
+	called, calls := s.FakeConn.WasCalled("OpenPorts")
+	c.Check(called, gc.Equals, true)
+	c.Check(calls, gc.HasLen, 1)
+	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+	expectPorts := []network.PortRange{{
+		FromPort: apiPort,
+		ToPort:   apiPort,
+		Protocol: "tcp",
+	}}
+	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+}
+
+func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
+	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.StartInstArgs.InstanceConfig.Tools, gc.NotNil)
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
@@ -154,7 +193,7 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	c.Check(*hwc.CpuCores, gc.Equals, uint64(1))
 	c.Check(*hwc.CpuPower, gc.Equals, uint64(275))
 	c.Check(*hwc.Mem, gc.Equals, uint64(3750))
-	c.Check(*hwc.RootDisk, gc.Equals, uint64(5120))
+	c.Check(*hwc.RootDisk, gc.Equals, uint64(15360))
 }
 
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {

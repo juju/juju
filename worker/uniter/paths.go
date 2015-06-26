@@ -48,6 +48,11 @@ func (paths Paths) GetJujucSocket() string {
 	return paths.Runtime.JujucServerSocket
 }
 
+// GetMetricsSpoolDir exists to satisfy the runner.Paths interface.
+func (paths Paths) GetMetricsSpoolDir() string {
+	return paths.State.MetricsSpoolDir
+}
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 
@@ -85,6 +90,10 @@ type StatePaths struct {
 	// StorageDir holds storage-specific information about what the
 	// uniter is doing and/or has done.
 	StorageDir string
+
+	// MetricsSpoolDir acts as temporary storage for metrics being sent from
+	// the uniter to state.
+	MetricsSpoolDir string
 }
 
 // NewPaths returns the set of filesystem paths that the supplied unit should
@@ -114,12 +123,13 @@ func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
 			JujucServerSocket: socket("agent", true),
 		},
 		State: StatePaths{
-			CharmDir:       join(baseDir, "charm"),
-			OperationsFile: join(stateDir, "uniter"),
-			RelationsDir:   join(stateDir, "relations"),
-			BundlesDir:     join(stateDir, "bundles"),
-			DeployerDir:    join(stateDir, "deployer"),
-			StorageDir:     join(stateDir, "storage"),
+			CharmDir:        join(baseDir, "charm"),
+			OperationsFile:  join(stateDir, "uniter"),
+			RelationsDir:    join(stateDir, "relations"),
+			BundlesDir:      join(stateDir, "bundles"),
+			DeployerDir:     join(stateDir, "deployer"),
+			StorageDir:      join(stateDir, "storage"),
+			MetricsSpoolDir: join(stateDir, "spool", "metrics"),
 		},
 	}
 }

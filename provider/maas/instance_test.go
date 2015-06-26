@@ -72,10 +72,10 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	expected := []network.Address{
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
-		network.NewAddress("1.2.3.4", network.ScopeUnknown),
-		network.NewAddress("fe80::d806:dbff:fe23:1199", network.ScopeUnknown),
+		network.NewScopedAddress("testing.invalid", network.ScopePublic),
+		network.NewScopedAddress("testing.invalid", network.ScopeCloudLocal),
+		network.NewAddress("1.2.3.4"),
+		network.NewAddress("fe80::d806:dbff:fe23:1199"),
 	}
 
 	addr, err := inst.Addresses()

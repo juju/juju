@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -133,7 +134,7 @@ func hasString(changes []string, name string) bool {
 var _ Watcher = (*lifecycleWatcher)(nil)
 
 // lifecycleWatcher notifies about lifecycle changes for a set of entities of
-// the same kind. The first event emitted will contain the ids of all non-Dead
+// the same kind. The first event emitted will contain the ids of all
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
 // Dead, no further event will include it.
@@ -141,9 +142,9 @@ type lifecycleWatcher struct {
 	commonWatcher
 	out chan []string
 
-	// coll is a function returning the stateCollection holding all
+	// coll is a function returning the mongo.Collection holding all
 	// interesting entities
-	coll     func() (stateCollection, func())
+	coll     func() (mongo.Collection, func())
 	collName string
 
 	// members is used to select the initial set of interesting entities.
@@ -157,8 +158,8 @@ type lifecycleWatcher struct {
 	life map[string]Life
 }
 
-func collFactory(st *State, collName string) func() (stateCollection, func()) {
-	return func() (stateCollection, func()) {
+func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
+	return func() (mongo.Collection, func()) {
 		return st.getCollection(collName)
 	}
 }
@@ -169,9 +170,25 @@ func (st *State) WatchEnvironments() StringsWatcher {
 	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
+// WatchIPAddresses returns a StringsWatcher that notifies of changes to the
+// lifecycles of IP addresses.
+func (st *State) WatchIPAddresses() StringsWatcher {
+	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+}
+
 // WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all environment-scoped volumes.
 func (st *State) WatchEnvironVolumes() StringsWatcher {
+	return st.watchEnvironMachineStorage(volumesC)
+}
+
+// WatchEnvironFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all environment-scoped filesystems.
+func (st *State) WatchEnvironFilesystems() StringsWatcher {
+	return st.watchEnvironMachineStorage(filesystemsC)
+}
+
+func (st *State) watchEnvironMachineStorage(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -181,12 +198,22 @@ func (st *State) WatchEnvironVolumes() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
 func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, volumesC)
+}
+
+// WatchMachineFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all filesystems scoped to the specified machine.
+func (st *State) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, filesystemsC)
+}
+
+func (st *State) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + "/"
@@ -197,7 +224,66 @@ func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
+}
+
+// WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to environ-
+// scoped volumes.
+func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
+	return st.watchEnvironMachineStorageAttachments(volumeAttachmentsC)
+}
+
+// WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
+// of changes to the lifecycles of all filesystem attachments related to
+// environ-scoped filesystems.
+func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
+	return st.watchEnvironMachineStorageAttachments(filesystemAttachmentsC)
+}
+
+func (st *State) watchEnvironMachineStorageAttachments(collection string) StringsWatcher {
+	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		colon := strings.IndexRune(k, ':')
+		if colon == -1 {
+			return false
+		}
+		return !strings.Contains(k[colon+1:], "/")
+	}
+	return newLifecycleWatcher(st, collection, members, filter, nil)
+}
+
+// WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to the specified
+// machine.
+func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, volumeAttachmentsC)
+}
+
+// WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all filesystem attachments related to the specified
+// machine.
+func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+}
+
+func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
+	pattern := fmt.Sprintf("^%s:.*", st.docID(m.Id()))
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := m.Id() + ":"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
@@ -1270,14 +1356,6 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	}
 }
 
-// entityWatcher generates an event when a document in the db changes
-type entityWatcher struct {
-	commonWatcher
-	out chan struct{}
-}
-
-var _ Watcher = (*entityWatcher)(nil)
-
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
@@ -1333,6 +1411,13 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
+// WatchStorageAttachment returns a watcher for observing changes
+// to a storage attachment.
+func (st *State) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+	id := storageAttachmentId(u.Id(), s.Id())
+	return newEntityWatcher(st, storageAttachmentsC, st.docID(id))
+}
+
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
 func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
@@ -1361,27 +1446,54 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
-// WatchMeterStatus returns a watcher observing the changes to the unit's
-// meter status.
+// WatchMeterStatus returns a watcher observing changes that affect the meter status
+// of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalKey()))
+	return newDocWatcher(u.st, []docKey{
+		{
+			meterStatusC,
+			u.st.docID(u.globalMeterStatusKey()),
+		}, {
+			metricsManagerC,
+			u.st.docID(metricsManagerKey),
+		},
+	})
 }
 
 func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
-	w := &entityWatcher{
+	return newDocWatcher(st, []docKey{{collName, key}})
+}
+
+// docWatcher is a watcher that watchers for changes in 1 or more mongo documents
+// across collections.
+type docWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
+var _ Watcher = (*docWatcher)(nil)
+
+type docKey struct {
+	coll string
+	key  interface{}
+}
+
+// newDocWatcher returns a new docWatcher
+func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
+	w := &docWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop(collName, key))
+		w.tomb.Kill(w.loop(docKeys))
 	}()
 	return w
 }
 
-// Changes returns the event channel for the entityWatcher.
-func (w *entityWatcher) Changes() <-chan struct{} {
+// Changes returns the event channel for the docWatcher.
+func (w *docWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
@@ -1389,7 +1501,7 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll stateCollection, key interface{}) (int64, error) {
+func getTxnRevno(coll mongo.Collection, key interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
@@ -1402,16 +1514,18 @@ func getTxnRevno(coll stateCollection, key interface{}) (int64, error) {
 	return doc.TxnRevno, nil
 }
 
-func (w *entityWatcher) loop(collName string, key interface{}) error {
-	coll, closer := w.st.getCollection(collName)
-	txnRevno, err := getTxnRevno(coll, key)
-	closer()
-	if err != nil {
-		return err
-	}
+func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
-	w.st.watcher.Watch(coll.Name(), key, txnRevno, in)
-	defer w.st.watcher.Unwatch(coll.Name(), key, in)
+	for _, k := range docKeys {
+		coll, closer := w.st.getCollection(k.coll)
+		txnRevno, err := getTxnRevno(coll, k.key)
+		closer()
+		if err != nil {
+			return err
+		}
+		w.st.watcher.Watch(coll.Name(), k.key, txnRevno, in)
+		defer w.st.watcher.Unwatch(coll.Name(), k.key, in)
+	}
 	out := w.out
 	for {
 		select {

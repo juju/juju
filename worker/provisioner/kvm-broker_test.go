@@ -11,15 +11,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -40,6 +43,7 @@ type kvmBrokerSuite struct {
 	kvmSuite
 	broker      environs.InstanceBroker
 	agentConfig agent.Config
+	api         *fakeAPI
 }
 
 var _ = gc.Suite(&kvmBrokerSuite{})
@@ -84,8 +88,9 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = NewFakeAPI()
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -93,7 +98,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -101,12 +106,81 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
+}
+
+func (s *kvmBrokerSuite) maintainInstance(c *gc.C, machineId string) {
+	machineNonce := "fake-nonce"
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.Value{}
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	err = s.broker.MaintainInstance(environs.StartInstanceParams{
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
+	machineId := "1/kvm/0"
+	s.SetFeatureFlags(feature.AddressAllocation)
+	kvm := s.startInstance(c, machineId)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	s.assertInstances(c, kvm)
+}
+
+func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/kvm/0"
+	kvm := s.startInstance(c, machineId)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	s.assertInstances(c, kvm)
+}
+
+func (s *kvmBrokerSuite) TestMaintainInstance(c *gc.C) {
+	machineId := "1/kvm/0"
+	s.SetFeatureFlags(feature.AddressAllocation)
+	kvm := s.startInstance(c, machineId)
+	s.api.ResetCalls()
+
+	s.maintainInstance(c, machineId)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+	}})
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	s.assertInstances(c, kvm)
+}
+
+func (s *kvmBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/kvm/0"
+	kvm := s.startInstance(c, machineId)
+	s.api.ResetCalls()
+
+	s.maintainInstance(c, machineId)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	s.assertInstances(c, kvm)
 }
 
 func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
@@ -233,7 +307,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
+	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
@@ -288,4 +362,10 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
+}
+
+func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
+	p := s.newKvmProvisioner(c)
+	defer stop(c, p)
+	s.assertProvisionerObservesConfigChanges(c, p)
 }

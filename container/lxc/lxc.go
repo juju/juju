@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,8 +26,10 @@ import (
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
@@ -37,12 +38,12 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate       = "ubuntu-cloud"
-	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
-	LxcRestartDir         = "/etc/lxc/auto"
-	LxcObjectFactory      = golxc.Factory()
-	initProcessCgroupFile = "/proc/1/cgroup"
-	runtimeGOOS           = runtime.GOOS
+	defaultTemplate  = "ubuntu-cloud"
+	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
+	LxcRestartDir    = "/etc/lxc/auto"
+	LxcObjectFactory = golxc.Factory()
+	runtimeGOOS      = runtime.GOOS
+	runningInsideLXC = lxcutils.RunningInsideLXC
 )
 
 const (
@@ -59,7 +60,7 @@ const (
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
 func DefaultNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig(DefaultLxcBridge, nil)
+	return container.BridgeNetworkConfig(DefaultLxcBridge, 0, nil)
 }
 
 // FsCommandOutput calls cmd.Output, this is used as an overloading point so
@@ -82,37 +83,17 @@ func containerDirFilesystem() (string, error) {
 }
 
 // IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers
+// we can run LXC containers.
 func IsLXCSupported() (bool, error) {
 	if runtimeGOOS != "linux" {
 		return false, nil
 	}
-
-	file, err := os.Open(initProcessCgroupFile)
+	// We do not support running nested LXC containers.
+	insideLXC, err := runningInsideLXC()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Split(line, ":")
-		if len(fields) != 3 {
-			return false, errors.Errorf("Malformed cgroup file")
-		}
-		if fields[2] != "/" {
-			// When running in a container the anchor point will be something
-			// other then "/". Return false here as we do not support nested LXC
-			// containers
-			return false, nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return false, errors.Errorf("Failed to read cgroup file")
-	}
-	return true, nil
+	return !insideLXC, nil
 }
 
 type containerManager struct {
@@ -192,9 +173,10 @@ func preferFastLXC(release string) bool {
 
 // CreateContainer creates or clones an LXC container.
 func (manager *containerManager) CreateContainer(
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -203,6 +185,8 @@ func (manager *containerManager) CreateContainer(
 		panic("series not set")
 	} else if networkConfig == nil {
 		panic("networkConfig is nil")
+	} else if storageConfig == nil {
+		panic("storageConfig is nil")
 	}
 
 	// Log how long the start took
@@ -212,7 +196,7 @@ func (manager *containerManager) CreateContainer(
 		}
 	}(time.Now())
 
-	name := names.NewMachineTag(machineConfig.MachineId).String()
+	name := names.NewMachineTag(instanceConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
@@ -223,7 +207,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
+	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
@@ -234,11 +218,11 @@ func (manager *containerManager) CreateContainer(
 			manager.backingFilesystem,
 			series,
 			networkConfig,
-			machineConfig.AuthorizedKeys,
-			machineConfig.AptProxySettings,
-			machineConfig.AptMirror,
-			machineConfig.EnableOSRefreshUpdate,
-			machineConfig.EnableOSUpgrade,
+			instanceConfig.AuthorizedKeys,
+			instanceConfig.AptProxySettings,
+			instanceConfig.AptMirror,
+			instanceConfig.EnableOSRefreshUpdate,
+			instanceConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
 			manager.useAUFS,
 		)
@@ -318,6 +302,12 @@ func (manager *containerManager) CreateContainer(
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
+	if storageConfig.AllowMount {
+		// Add config to allow loop devices to be mounted inside the container.
+		if err := allowLoopbackBlockDevices(name); err != nil {
+			return nil, nil, errors.Annotate(err, "failed to configure the container for loopback devices")
+		}
+	}
 	// Update the network settings inside the run-time config of the
 	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
 	netConfig := generateNetworkConfig(networkConfig)
@@ -346,7 +336,7 @@ func (manager *containerManager) CreateContainer(
 		if manager.useAUFS {
 			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
 		} else {
-			data, err := container.GenerateNetworkConfig(networkConfig)
+			data, err := containerinit.GenerateNetworkConfig(networkConfig)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
 			}
@@ -754,6 +744,15 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
+func allowLoopbackBlockDevices(name string) error {
+	const allowLoopDevicesCfg = `
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
+`
+	return appendToContainerConfig(name, allowLoopDevicesCfg)
+}
+
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	start := time.Now()
 	name := string(id)
@@ -870,14 +869,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 	}
 	data := configData{
 		Link: config.Device,
+		MTU:  config.MTU,
 	}
-
-	primaryNIC, err := discoverHostNIC()
-	if err != nil {
-		logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
-	} else if primaryNIC.MTU > 0 {
-		logger.Infof("setting MTU to %d for all container network interfaces", primaryNIC.MTU)
-		data.MTU = primaryNIC.MTU
+	if config.MTU > 0 {
+		logger.Infof("setting MTU to %v for all LXC network interfaces", config.MTU)
 	}
 
 	switch config.NetworkType {
@@ -945,39 +940,6 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		return ""
 	}
 	return buf.String()
-}
-
-// discoverHostNIC detects and returns the primary network interface
-// on the machine. Out of all interfaces, the first non-loopback
-// device which is up and has address is considered the primary.
-var discoverHostNIC = func() (net.Interface, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return net.Interface{}, errors.Annotatef(err, "cannot get network interfaces")
-	}
-	logger.Tracef("trying to discover primary network interface")
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagLoopback != 0 {
-			// Skip the loopback.
-			logger.Tracef("not using loopback interface %q", iface.Name)
-			continue
-		}
-		if iface.Flags&net.FlagUp != 0 {
-			// Possibly the primary, but ensure it has an address as
-			// well.
-			logger.Tracef("verifying interface %q has addresses", iface.Name)
-			addrs, err := iface.Addrs()
-			if err != nil {
-				return net.Interface{}, errors.Annotatef(err, "cannot get %q addresses", iface.Name)
-			}
-			if len(addrs) > 0 {
-				// We found it.
-				logger.Tracef("primary network interface is %q", iface.Name)
-				return iface, nil
-			}
-		}
-	}
-	return net.Interface{}, errors.Errorf("cannot detect the primary network interface")
 }
 
 func generateNetworkConfig(config *container.NetworkConfig) string {

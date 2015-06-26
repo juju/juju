@@ -17,13 +17,17 @@ type upgradingRootSuite struct {
 
 var _ = gc.Suite(&upgradingRootSuite{})
 
-func (r *upgradingRootSuite) TestFindAllowedMethod(c *gc.C) {
+func (r *upgradingRootSuite) TestClientMethods(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
-	caller, err := root.FindMethod("Client", 0, "FullStatus")
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caller, gc.NotNil)
+	for _, method := range []string{
+		"FullStatus", "EnvironmentGet", "PrivateAddress",
+		"PublicAddress",
+	} {
+		caller, err := root.FindMethod("Client", 0, method)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(caller, gc.NotNil)
+	}
 }
 
 func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {

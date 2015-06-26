@@ -12,9 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -459,7 +460,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := jujutesting.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
+	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddService("dummy", owner.String(), sch, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -726,14 +727,14 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
 	result, err := t.Env.StartInstance(environs.StartInstanceParams{
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
 	})
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())

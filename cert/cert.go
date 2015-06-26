@@ -117,6 +117,13 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 	return string(certPEMData), string(keyPEMData), nil
 }
 
+// NewServer generates a certificate/key pair suitable for use by a server, with an
+// expiry time of 10 years.
+func NewDefaultServer(caCertPEM, caKeyPEM string, hostnames []string) (certPEM, keyPEM string, err error) {
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
+	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+}
+
 // NewServer generates a certificate/key pair suitable for use by a server.
 func NewServer(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string) (certPEM, keyPEM string, err error) {
 	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})

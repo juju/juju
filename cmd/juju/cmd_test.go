@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -151,10 +152,10 @@ var deployTests = []struct {
 		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"--num-units", "33", "charm-name"},
-		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 33}},
+		&DeployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 33}},
 	}, {
 		[]string{"-n", "104", "charm-name"},
-		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 104}},
+		&DeployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 104}},
 	},
 }
 
@@ -206,19 +207,6 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	// missing args
 	_, err = initDeployCommand()
 	c.Assert(err, gc.ErrorMatches, "no charm specified")
-
-	// environment tested elsewhere
-}
-
-func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
-	com := &AddUnitCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestAddUnitCommandInit(c *gc.C) {
-	// missing args
-	_, err := initAddUnitCommand()
-	c.Assert(err, gc.ErrorMatches, "no service specified")
 
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
@@ -279,17 +267,6 @@ func (*CmdSuite) TestSCPCommandInit(c *gc.C) {
 	// not enough args
 	_, err = initSCPCommand("mysql/0:foo")
 	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
-}
-
-func initGetCommand(args ...string) (*GetCommand, error) {
-	com := &GetCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestGetCommandInit(c *gc.C) {
-	// missing args
-	_, err := initGetCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
 }
 
 func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {

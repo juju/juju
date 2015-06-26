@@ -39,10 +39,15 @@ type loginSuite struct {
 var _ = gc.Suite(&loginSuite{
 	baseLoginSuite{
 		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 0, 1)
+			apiserver.SetAdminApiVersions(srv, 0, 1, 2)
 		},
 	},
 })
+
+func (s *baseLoginSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+}
 
 type loginV0Suite struct {
 	loginSuite
@@ -99,14 +104,8 @@ func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.Environ
 }
 
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	info.Tag = machine.Tag()
 	info.Password = password
@@ -156,7 +155,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			defer st.Close()
 
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
-			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
+			c.Assert(err, gc.ErrorMatches, `.*unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
 			err = st.Login(t.tag, t.password, "")
@@ -164,7 +163,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
-			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
+			c.Assert(err, gc.ErrorMatches, `.*unknown object type "Machiner"`)
 		}()
 	}
 }
@@ -182,78 +181,42 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
 	_, err = st.Client().Status([]string{})
-	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
+	c.Assert(err, gc.ErrorMatches, `.*unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(u.Tag().String(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
-	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
+	c.Assert(err, gc.ErrorMatches, `.*unknown object type "Client"`)
 }
 
 func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
-	s.runLoginSetsLogIdentifier(c, []string{
-		// RequestId starts at 2 here, because we've already attempted a v1 Login.
-		// This is the fallback to v0 Login.
-		`<- \[[0-9A-F]+\] <unknown> {"RequestId":2,"Type":"Admin","Request":"Login",` +
-			`"Params":"'params redacted'"` +
-			`}`,
-		// Now that we are logged in, we see the entity's tag
-		// [0-9.µumns] is to handle timestamps that are ns, µs, ms, or s
-		// long, though we expect it to be in the 'ms' range.
-		// Note: Go1.4 produces µs; Go1.3 produces us.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":.*} Admin\[""\].Login`,
-		`<- \[[0-9A-F]+\] machine-0 {"RequestId":3,"Type":"Machiner","Request":"Life","Params":"'params redacted'"}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":3,"Response":"'body redacted'"} Machiner\[""\]\.Life`,
-	})
+	s.runLoginSetsLogIdentifier(c)
 }
 
 func (s *loginV1Suite) TestLoginSetsLogIdentifier(c *gc.C) {
-	s.runLoginSetsLogIdentifier(c, []string{
-		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Version":1,"Request":"Login",` +
-			`"Params":"'params redacted'"` +
-			`}`,
-		// Now that we are logged in, we see the entity's tag
-		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
-		// long, though we expect it to be in the 'ms' range.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[µumn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
-		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":"'params redacted'"}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":"'body redacted'"} Machiner\[""\]\.Life`,
-	})
+	s.runLoginSetsLogIdentifier(c)
 }
 
-func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C, expected []string) {
+func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
-	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineInState.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("login-tester", &tw, loggo.DEBUG), gc.IsNil)
-	defer loggo.RemoveWriter("login-tester")
-
-	// TODO(dfc) this should be a Tag
-	info.Tag = machineInState.Tag()
+	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiConn.Close()
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
 
-	c.Assert(tw.Log(), jc.LogMatches, expected)
+	apiMachine, err := apiConn.Machiner().Machine(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiMachine.Tag(), gc.Equals, machine.Tag())
 }
 
 func (s *loginSuite) TestLoginAddrs(c *gc.C) {
@@ -271,10 +234,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
 	c.Assert(err, jc.ErrorIsNil)
 	connectedAddrHostPorts := [][]network.HostPort{
-		{{
-			network.NewAddress(connectedAddrHost, network.ScopeUnknown),
-			connectedAddrPort,
-		}},
+		network.NewHostPorts(connectedAddrPort, connectedAddrHost),
 	}
 	c.Assert(hostPorts, gc.DeepEquals, connectedAddrHostPorts)
 
@@ -302,7 +262,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	}
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	connectedAddr, hostPorts = s.loginHostPorts(c, info)
+	_, hostPorts = s.loginHostPorts(c, info)
 	// Now that we connected, we add the other stateAPIHostPorts. However,
 	// the one we connected to comes first.
 	stateAPIHostPorts = append(connectedAddrHostPorts, stateAPIHostPorts...)
@@ -675,7 +635,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 	// Ensure not already logged in.
 	_, err := st.Machiner().Machine(names.NewMachineTag("0"))
-	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
+	c.Assert(err, gc.ErrorMatches, `*.unknown object type "Machiner"`)
 
 	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
@@ -691,7 +651,7 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 }
 
 func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag names.EnvironTag, validator apiserver.LoginValidator) (*api.Info, func()) {
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
 		s.State,
@@ -713,7 +673,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 		Tag:        nil,
 		Password:   "",
 		EnvironTag: envTag,
-		Addrs:      []string{srv.Addr()},
+		Addrs:      []string{srv.Addr().String()},
 		CACert:     coretesting.CACert,
 	}
 	return info, func() {
@@ -962,4 +922,37 @@ func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected na
 	info, err := client.EnvironmentInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.UUID, gc.Equals, expected.Id())
+}
+
+func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	// Since the login and connection times truncate time to the second,
+	// we need to make sure our start time is just before now.
+	startTime := time.Now().Add(-time.Second)
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+
+	info := s.APIInfo(c)
+	info.Tag = user.Tag()
+	info.Password = password
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+
+	// The user now has last login updated.
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.LastLogin(), gc.NotNil)
+	c.Assert(user.LastLogin().After(startTime), jc.IsTrue)
+
+	// The env user is also updated.
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.LastConnection(), gc.NotNil)
+	c.Assert(envUser.LastConnection().After(startTime), jc.IsTrue)
 }

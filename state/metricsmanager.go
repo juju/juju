@@ -147,6 +147,22 @@ func (m *MetricsManager) SetLastSuccessfulSend(t time.Time) error {
 	return nil
 }
 
+func (m *MetricsManager) SetGracePeriod(t time.Duration) error {
+	if t < 0 {
+		return errors.New("grace period can't be negative")
+	}
+	err := m.updateMetricsManager(
+		bson.M{"$set": bson.M{
+			"graceperiod": t,
+		}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.GracePeriod = t
+	return nil
+}
+
 // IncrementConsecutiveErrors adds 1 to the consecutive errors count.
 func (m *MetricsManager) IncrementConsecutiveErrors() error {
 	err := m.updateMetricsManager(
@@ -166,12 +182,12 @@ func (m *MetricsManager) gracePeriodExceeded() bool {
 }
 
 // MeterStatus returns the overall state of the MetricsManager as a meter status summary.
-func (m *MetricsManager) MeterStatus() (MeterStatusCode, string) {
+func (m *MetricsManager) MeterStatus() MeterStatus {
 	if m.ConsecutiveErrors() < metricsManagerConsecutiveErrorThreshold {
-		return MeterGreen, "ok"
+		return MeterStatus{MeterGreen, "ok"}
 	}
 	if m.gracePeriodExceeded() {
-		return MeterRed, "failed to send metrics, exceeded grace period"
+		return MeterStatus{MeterRed, "failed to send metrics, exceeded grace period"}
 	}
-	return MeterAmber, "failed to send metrics"
+	return MeterStatus{MeterAmber, "failed to send metrics"}
 }

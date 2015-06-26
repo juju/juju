@@ -8,7 +8,6 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -29,6 +28,19 @@ func TestAll(t *testing.T) {
 type certSuite struct{}
 
 var _ = gc.Suite(certSuite{})
+
+func checkNotBefore(c *gc.C, cert *x509.Certificate, now time.Time) {
+	// Check that the certificate is valid from one week before today.
+	c.Check(cert.NotBefore.Before(now), jc.IsTrue)
+	c.Check(cert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
+	c.Check(cert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
+}
+
+func checkNotAfter(c *gc.C, cert *x509.Certificate, expiry time.Time) {
+	// Check the surrounding day.
+	c.Assert(cert.NotAfter.Before(expiry.AddDate(0, 0, 1)), jc.IsTrue)
+	c.Assert(cert.NotAfter.After(expiry.AddDate(0, 0, -1)), jc.IsTrue)
+}
 
 func (certSuite) TestParseCertificate(c *gc.C) {
 	xcert, err := cert.ParseCert(caCertPEM)
@@ -64,11 +76,8 @@ func (certSuite) TestNewCA(c *gc.C) {
 
 	c.Check(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
 	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
-	// Check that the certificate is valid from one week before today.
-	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
-	c.Check(caCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
-	c.Check(caCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Check(caCert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotBefore(c, caCert, now)
+	checkNotAfter(c, caCert, expiry)
 	c.Check(caCert.BasicConstraintsValid, jc.IsTrue)
 	c.Check(caCert.IsCA, jc.IsTrue)
 	//c.Assert(caCert.MaxPathLen, Equals, 0)	TODO it ends up as -1 - check that this is ok.
@@ -83,18 +92,32 @@ func (certSuite) TestNewServer(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var noHostnames []string
-	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, noHostnames)
+	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	checkCertificate(c, caCert, srvCertPEM, srvKeyPEM, now, expiry)
+}
+
+func (certSuite) TestNewDefaultServer(c *gc.C) {
+	now := time.Now()
+	expiry := roundTime(now.AddDate(1, 0, 0))
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
+	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
+	c.Assert(err, jc.ErrorIsNil)
+
+	srvCertPEM, srvKeyPEM, err := cert.NewDefaultServer(caCertPEM, caKeyPEM, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	srvCertExpiry := roundTime(time.Now().AddDate(10, 0, 0))
+	checkCertificate(c, caCert, srvCertPEM, srvKeyPEM, now, srvCertExpiry)
+}
+
+func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM string, now, expiry time.Time) {
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
-	// Check that the certificate is valid from one week before today.
-	c.Check(srvCert.NotBefore.Before(now), jc.IsTrue)
-	c.Check(srvCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
-	c.Check(srvCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Assert(srvCert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotBefore(c, srvCert, now)
+	checkNotAfter(c, srvCert, expiry)
 	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
 	c.Assert(srvCert.IsCA, jc.IsFalse)
 	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
@@ -143,13 +166,13 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
 	xcert, err := cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, xcert, expiry)
 
 	var noHostnames []string
 	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, xcert, expiry)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
@@ -202,55 +225,48 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 	clientCertPool := x509.NewCertPool()
 	clientCertPool.AddCert(caCert)
 
-	var inBytes, outBytes bytes.Buffer
+	var outBytes bytes.Buffer
 
 	const msg = "hello to the server"
 	p0, p1 := net.Pipe()
-	p0 = bufferedConn(p0, 3)
-	p0 = recordingConn(p0, &inBytes, &outBytes)
+	p0 = &recordingConn{
+		Conn:   p0,
+		Writer: io.MultiWriter(p0, &outBytes),
+	}
 
 	var clientState tls.ConnectionState
 	done := make(chan error)
 	go func() {
-		clientConn := tls.Client(p0, &tls.Config{
-			ServerName: "anyServer",
-			RootCAs:    clientCertPool,
-		})
-		defer clientConn.Close()
-
-		_, err := clientConn.Write([]byte(msg))
-		if err != nil {
-			done <- fmt.Errorf("client: %v", err)
-		}
-		clientState = clientConn.ConnectionState()
-		done <- nil
-	}()
-	go func() {
-		serverConn := tls.Server(p1, &tls.Config{
-			Certificates: []tls.Certificate{
-				newTLSCert(c, srvCert, srvKey),
-			},
-		})
-		defer serverConn.Close()
-		data, err := ioutil.ReadAll(serverConn)
-		if err != nil {
-			done <- fmt.Errorf("server: %v", err)
-			return
-		}
-		if string(data) != msg {
-			done <- fmt.Errorf("server: got %q; expected %q", data, msg)
-			return
+		config := tls.Config{
+			Certificates: []tls.Certificate{{
+				Certificate: [][]byte{srvCert.Raw},
+				PrivateKey:  srvKey,
+			}},
 		}
 
-		done <- nil
+		conn := tls.Server(p1, &config)
+		defer conn.Close()
+		data, err := ioutil.ReadAll(conn)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(data), gc.Equals, msg)
+		close(done)
 	}()
 
-	for i := 0; i < 2; i++ {
-		err := <-done
-		c.Check(err, jc.ErrorIsNil)
-	}
+	clientConn := tls.Client(p0, &tls.Config{
+		ServerName: "anyServer",
+		RootCAs:    clientCertPool,
+	})
+	defer clientConn.Close()
 
-	outData := string(outBytes.Bytes())
+	_, err := clientConn.Write([]byte(msg))
+	c.Assert(err, jc.ErrorIsNil)
+	clientState = clientConn.ConnectionState()
+	clientConn.Close()
+
+	// wait for server to exit
+	<-done
+
+	outData := outBytes.String()
 	c.Assert(outData, gc.Not(gc.HasLen), 0)
 	if strings.Index(outData, msg) != -1 {
 		c.Fatalf("TLS connection not encrypted")
@@ -260,43 +276,13 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 	return clientState.VerifiedChains[0][1].Subject.CommonName
 }
 
-func newTLSCert(c *gc.C, cert *x509.Certificate, key *rsa.PrivateKey) tls.Certificate {
-	return tls.Certificate{
-		Certificate: [][]byte{cert.Raw},
-		PrivateKey:  key,
-	}
+type recordingConn struct {
+	net.Conn
+	io.Writer
 }
 
-// bufferedConn adds buffering for at least
-// n writes to the given connection.
-func bufferedConn(c net.Conn, n int) net.Conn {
-	for i := 0; i < n; i++ {
-		p0, p1 := net.Pipe()
-		go copyClose(p1, c)
-		go copyClose(c, p1)
-		c = p0
-	}
-	return c
-}
-
-// recordingConn returns a connection which
-// records traffic in or out of the given connection.
-func recordingConn(c net.Conn, in, out io.Writer) net.Conn {
-	p0, p1 := net.Pipe()
-	go func() {
-		io.Copy(io.MultiWriter(c, out), p1)
-		c.Close()
-	}()
-	go func() {
-		io.Copy(io.MultiWriter(p1, in), c)
-		p1.Close()
-	}()
-	return p0
-}
-
-func copyClose(w io.WriteCloser, r io.Reader) {
-	io.Copy(w, r)
-	w.Close()
+func (c recordingConn) Write(buf []byte) (int, error) {
+	return c.Writer.Write(buf)
 }
 
 // roundTime returns t rounded to the previous whole second.

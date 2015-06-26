@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -36,6 +39,10 @@ const (
 	none                        = "none"
 	invalidParameterValue       = "InvalidParameterValue"
 	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+
+	// tagName is the AWS-specific tag key that populates resources'
+	// name columns in the console.
+	tagName = "Name"
 )
 
 // Use shortAttempt to poll for short-term events or for retrying API calls.
@@ -91,27 +98,28 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
 	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
+	region := aws.Regions[ecfg.region()]
+	signer := aws.SignV4Factory(region.Name, "ec2")
+	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
+}
+
+func (e *environ) SetConfig(cfg *config.Config) error {
+	ec2Client, s3Client, ecfg, err := awsClients(cfg)
 	if err != nil {
 		return err
 	}
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
-
-	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
-	region := aws.Regions[ecfg.region()]
-
-	// TODO(katco-): Eventually we want to migrate to v4, but this
-	// change is designed to be least impactful. We are currently only
-	// trying to support the China region.
-	signer := aws.SignV2
-	if region == aws.CNNorth {
-		signer = aws.SignV4Factory(region.Name, "ec2")
-	}
-	e.ec2Unlocked = ec2.New(auth, region, signer)
-	e.s3Unlocked = s3.New(auth, region)
+	e.ec2Unlocked = ec2Client
+	e.s3Unlocked = s3Client
 
 	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
 	if err != nil {
@@ -142,8 +150,7 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 		hasDefault = false
 		defaultVpcId = ""
 	} else {
-
-		defaultVpcId := resp.Attributes[0].Values[0]
+		defaultVpcId = resp.Attributes[0].Values[0]
 		if defaultVpcId == none {
 			hasDefault = false
 			defaultVpcId = ""
@@ -151,7 +158,8 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 	}
 	defaultVpc := &defaultVpc{
 		id:            network.Id(defaultVpcId),
-		hasDefaultVpc: hasDefault}
+		hasDefaultVpc: hasDefault,
+	}
 	e.cachedDefaultVpc = defaultVpc
 	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
@@ -218,6 +226,9 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
+	}
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -411,8 +422,29 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
+// resourceName returns the string to use for a resource's Name tag,
+// to help users identify Juju-managed resources in the AWS console.
+func resourceName(tag names.Tag, envName string) string {
+	return fmt.Sprintf("juju-%s-%s", envName, tag)
+}
+
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+	var inst *ec2Instance
+	defer func() {
+		if resultErr == nil || inst == nil {
+			return
+		}
+		if err := e.StopInstances(inst.Id()); err != nil {
+			logger.Errorf("error stopping failed instance: %v", err)
+		}
+	}()
+
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -449,7 +481,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
@@ -474,26 +506,24 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
+	args.InstanceConfig.Tools = tools[0]
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
-		*spec.InstanceType.VirtType, &args,
-	)
+	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create block device mappings")
 	}
@@ -523,25 +553,23 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
-	inst := &ec2Instance{
+	inst = &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	// TODO(axw) tag all resources (instances and volumes), for accounting
-	// and identification.
-
-	if err := assignVolumeIds(inst, volumes, volumeAttachments); err != nil {
-		if err := e.StopInstances(inst.Id()); err != nil {
-			logger.Errorf("failed to stop instance: %v", err)
-		}
-		return nil, err
+	// Tag instance, for accounting and identification.
+	args.InstanceConfig.Tags[tagName] = resourceName(
+		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
+	)
+	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
+		return nil, errors.Annotate(err, "tagging instance")
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
+			return nil, errors.Annotate(err, "recording instance in provider-state")
 		}
 	}
 
@@ -555,11 +583,23 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance:          inst,
-		Hardware:          &hc,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
+		Instance: inst,
+		Hardware: &hc,
 	}, nil
+}
+
+// tagResources calls ec2.CreateTags, tagging each of the specified resources
+// with the given tags.
+func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	ec2Tags := make([]ec2.Tag, 0, len(tags))
+	for k, v := range tags {
+		ec2Tags = append(ec2Tags, ec2.Tag{k, v})
+	}
+	_, err := e.CreateTags(resourceIds, ec2Tags)
+	return err
 }
 
 var runInstances = _runInstances
@@ -741,6 +781,10 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 
 	var nicId string
@@ -775,7 +819,18 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)
+
+	// If the instance ID is unknown the address has already been released
+	// and we can ignore this request.
+	if instId == instance.UnknownId {
+		logger.Debugf("release address %q with an unknown instance ID is a no-op (ignoring)", addr.Value)
+		return nil
+	}
 
 	var nicId string
 	ec2Inst := e.ec2()
@@ -847,7 +902,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
-			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
 	return result, nil

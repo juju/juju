@@ -28,26 +28,32 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
 	versionNumber.Minor = 21
 	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.HasLen, 4)
-	c.Assert(args[0], gc.Equals, "--drop")
-	c.Assert(args[1], gc.Equals, "--dbpath")
-	c.Assert(args[2], jc.SamePath, dir)
-	c.Assert(args[3], gc.Equals, "/some/fake/path")
+	c.Assert(args, gc.HasLen, 5)
+	c.Assert(args[0:5], jc.DeepEquals, []string{
+		"--drop",
+		"--journal",
+		"--dbpath",
+		dir,
+		"/some/fake/path",
+	})
 
 	versionNumber.Major = 1
 	versionNumber.Minor = 22
 	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.HasLen, 5)
-	c.Assert(args[0], gc.Equals, "--drop")
-	c.Assert(args[1], gc.Equals, "--oplogReplay")
-	c.Assert(args[2], gc.Equals, "--dbpath")
-	c.Assert(args[3], jc.SamePath, dir)
-	c.Assert(args[4], gc.Equals, "/some/fake/path")
+	c.Assert(args, gc.HasLen, 6)
+	c.Assert(args[0:6], jc.DeepEquals, []string{
+		"--drop",
+		"--journal",
+		"--oplogReplay",
+		"--dbpath",
+		dir,
+		"/some/fake/path",
+	})
 
 	versionNumber.Major = 0
 	versionNumber.Minor = 0
-	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	_, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
 }
 
@@ -86,6 +92,7 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	s.PatchValue(backups.RestoreArgsForVersion, restoreArgsForVersion)
 
 	err := backups.PlaceNewMongo("fakemongopath", ver)
+	c.Assert(restorePathCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(argsVersion, gc.DeepEquals, ver)
 	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")

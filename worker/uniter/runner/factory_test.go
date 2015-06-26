@@ -13,14 +13,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -47,8 +44,6 @@ func (fakeTracker) ServiceName() string {
 }
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -294,7 +289,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()
@@ -335,8 +330,6 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	rnr, err := factory.NewHookRunner(hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: "data/0",
@@ -644,13 +637,12 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 }
 
 func (s *FactorySuite) testLeadershipContextWiring(c *gc.C, createRunner func() runner.Runner) {
-	stub := &testing.Stub{
-		Errors: []error{errors.New("bam")},
-	}
+	var stub testing.Stub
+	stub.SetErrors(errors.New("bam"))
 	restore := runner.PatchNewLeadershipContext(
 		func(accessor runner.LeadershipSettingsAccessor, tracker leadership.Tracker) runner.LeadershipContext {
 			stub.AddCall("NewLeadershipContext", accessor, tracker)
-			return &StubLeadershipContext{Stub: stub}
+			return &StubLeadershipContext{Stub: &stub}
 		},
 	)
 	defer restore()

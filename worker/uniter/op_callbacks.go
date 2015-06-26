@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -47,8 +47,6 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	name := string(hi.Kind)
-	status := params.StatusActive
-
 	switch {
 	case hi.Kind.IsRelation():
 		var err error
@@ -67,19 +65,10 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		name = fmt.Sprintf("%s-%s", storageName, hi.Kind)
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
-	case hi.Kind == hooks.Stop:
-		status = params.StatusStopping
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
-		fallthrough
-	default:
-		if !opc.u.operationState().Started {
-			status = params.StatusInstalling
-		}
-	}
-	err := opc.u.unit.SetAgentStatus(status, "", nil)
-	if err != nil {
-		return "", err
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }
@@ -93,6 +82,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }
@@ -162,4 +153,9 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 // InitializeMetricsCollector is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) InitializeMetricsCollector() error {
 	return opc.u.initializeMetricsCollector()
+}
+
+// SetExecutingStatus is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SetExecutingStatus(message string) error {
+	return setAgentStatus(opc.u, params.StatusExecuting, message, nil)
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -32,13 +31,13 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -185,6 +184,7 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
+	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
@@ -245,6 +245,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
+			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 		},
@@ -816,6 +818,16 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	// We should be able to release an address with an unknown instance id
+	// without it being allocated.
+	addr := network.Address{Value: "8.0.0.4"}
+	err := env.ReleaseAddress(instance.UnknownId, "", addr)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)
@@ -831,7 +843,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
@@ -877,6 +889,31 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	c.Assert(result, jc.IsTrue)
 }
 
+func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.ReleaseAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": {"none"},
@@ -906,52 +943,21 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
+func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	attachmentParams := &storage.VolumeAttachmentParams{
-		AttachmentParams: storage.AttachmentParams{
-			Machine: names.NewMachineTag("0"),
-		},
-	}
-	params := environs.StartInstanceParams{
-		Volumes: []storage.VolumeParams{{
-			Tag:        names.NewVolumeTag("0"),
-			Size:       512, // round up to 1GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("1"),
-			Size:       1024, // 1GiB exactly
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("2"),
-			Size:       1025, // round up to 2GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}},
-	}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Volumes, gc.HasLen, 3)
-	// vol-1 is assigned to /dev/sda1, which does not feature
-	// in the volumes set in state.
-	c.Assert(result.Volumes, gc.DeepEquals, []storage.Volume{{
-		Tag:      names.NewVolumeTag("0"),
-		VolumeId: "vol-2",
-		Size:     1024,
-	}, {
-		Tag:      names.NewVolumeTag("1"),
-		VolumeId: "vol-3",
-		Size:     1024,
-	}, {
-		Tag:      names.NewVolumeTag("2"),
-		VolumeId: "vol-4",
-		Size:     2048,
-	}})
+	c.Assert(instances, gc.HasLen, 1)
+
+	ec2Inst := ec2.InstanceEC2(instances[0])
+	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "juju-sample-machine-0"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-is-state", "true"},
+	})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

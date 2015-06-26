@@ -4,14 +4,16 @@
 package instancepoller
 
 import (
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state"
+	apiinstancepoller "github.com/juju/juju/api/instancepoller"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
 type updaterWorker struct {
-	st   *state.State
+	st   *apiinstancepoller.API
 	tomb tomb.Tomb
 	*aggregator
 
@@ -21,7 +23,7 @@ type updaterWorker struct {
 // NewWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
 // addresses and status periodically to keep them up to date.
-func NewWorker(st *state.State) worker.Worker {
+func NewWorker(st *apiinstancepoller.API) worker.Worker {
 	u := &updaterWorker{
 		st: st,
 	}
@@ -54,15 +56,20 @@ func (u *updaterWorker) loop() (err error) {
 			err = obsErr
 		}
 	}()
-	return watchMachinesLoop(u, u.st.WatchEnvironMachines())
+	var w apiwatcher.StringsWatcher
+	w, err = u.st.WatchEnvironMachines()
+	if err != nil {
+		return err
+	}
+	return watchMachinesLoop(u, w)
 }
 
 func (u *updaterWorker) newMachineContext() machineContext {
 	return u
 }
 
-func (u *updaterWorker) getMachine(id string) (machine, error) {
-	return u.st.Machine(id)
+func (u *updaterWorker) getMachine(tag names.MachineTag) (machine, error) {
+	return u.st.Machine(tag)
 }
 
 func (u *updaterWorker) dying() <-chan struct{} {

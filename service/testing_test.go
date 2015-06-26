@@ -4,18 +4,16 @@
 package service
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -23,11 +21,8 @@ import (
 type Stub struct {
 	*testing.Stub
 
-	Version      version.Binary
-	GOOS         string
-	PID1Filename string
-	Executable   string
-	Service      Service
+	Version version.Binary
+	Service Service
 }
 
 // GetVersion stubs out .
@@ -39,37 +34,29 @@ func (s *Stub) GetVersion() version.Binary {
 	return s.Version
 }
 
-// GetOS stubs out runtime.GOOS.
-func (s *Stub) GetOS() string {
-	s.AddCall("GetOS")
-
-	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
-	return s.GOOS
-}
-
-// GetPID1Filename stubs out /proc/1/cmdline.
-func (s *Stub) GetPID1Filename() string {
-	s.AddCall("GetPID1Filename")
-
-	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
-	return s.PID1Filename
-}
-
-// GetInitSystemExecutable stubs out the contents of /proc/1/cmdline.
-func (s *Stub) GetInitSystemExecutable() (string, error) {
-	s.AddCall("GetInitSystemExecutable")
-
-	return s.Executable, s.NextErr()
-}
-
 // DiscoverService stubs out service.DiscoverService.
 func (s *Stub) DiscoverService(name string) (Service, error) {
 	s.AddCall("DiscoverService", name)
 
 	return s.Service, s.NextErr()
 }
+
+// TODO(ericsnow) StubFileInfo belongs in utils/fs.
+
+// StubFileInfo implements os.FileInfo.
+type StubFileInfo struct{}
+
+func (StubFileInfo) Name() string       { return "" }
+func (StubFileInfo) Size() int64        { return 0 }
+func (StubFileInfo) Mode() os.FileMode  { return 0 }
+func (StubFileInfo) ModTime() time.Time { return time.Time{} }
+func (StubFileInfo) IsDir() bool        { return false }
+func (StubFileInfo) Sys() interface{}   { return nil }
+
+// StubFileInfo implements os.FileInfo for symlinks.
+type StubSymlinkInfo struct{ StubFileInfo }
+
+func (StubSymlinkInfo) Mode() os.FileMode { return os.ModeSymlink }
 
 // BaseSuite is the base test suite for the service package.
 type BaseSuite struct {
@@ -81,7 +68,7 @@ type BaseSuite struct {
 	Failure error
 
 	Stub    *testing.Stub
-	Service *FakeService
+	Service *svctesting.FakeService
 	Patched *Stub
 }
 
@@ -96,9 +83,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Failure = errors.New("<failed>")
 
-	s.Stub = &testing.Stub{}
-	s.Service = NewFakeService(s.Name, s.Conf)
-	s.Service.Stub = s.Stub
+	s.Service = svctesting.NewFakeService(s.Name, s.Conf)
+	s.Stub = &s.Service.Stub
 	s.Patched = &Stub{Stub: s.Stub}
 	s.PatchValue(&discoverService, s.Patched.DiscoverService)
 }
@@ -114,50 +100,35 @@ func (s *BaseSuite) PatchVersion(vers version.Binary) {
 	s.PatchValue(&getVersion, s.Patched.GetVersion)
 }
 
-func (s *BaseSuite) PatchGOOS(os string) {
-	s.Patched.GOOS = os
-	s.PatchValue(&runtimeOS, s.Patched.GetOS)
-}
-
-func (s *BaseSuite) PatchInitSystemExecutable(executable string) {
-	s.Patched.Executable = executable
-	s.PatchValue(&initExecutable, s.Patched.GetInitSystemExecutable)
-}
-
-func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
-	exeName := s.resolveExecutable(executable)
-	if verText != "" {
-		s.writeExecutable(c, exeName, verText)
+func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {
+	return discoveryCheck{
+		name: name,
+		isRunning: func() (bool, error) {
+			return running, failure
+		},
 	}
-
-	// Now write the actual fake /proc/1/cmdline file.
-	filename := filepath.Join(s.Dirname, "pid1cmdline")
-	err := ioutil.WriteFile(filename, []byte(exeName), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Patched.PID1Filename = filename
-	s.PatchValue(&pid1Filename, s.Patched.GetPID1Filename)
-	return exeName
 }
 
-func (s *BaseSuite) resolveExecutable(executable string) string {
-	exeSuffix := ".sh"
-	if runtime.GOOS == "windows" {
-		executable = filepath.FromSlash(executable)
-		exeSuffix = ".bat"
+func (s *BaseSuite) PatchLocalDiscovery(checks ...discoveryCheck) {
+	s.PatchValue(&discoveryFuncs, checks)
+}
+
+func (s *BaseSuite) PatchLocalDiscoveryDisable() {
+	s.PatchLocalDiscovery()
+}
+
+func (s *BaseSuite) PatchLocalDiscoveryNoMatch(expected string) {
+	// TODO(ericsnow) Pull from a list of supported init systems.
+	names := []string{
+		InitSystemUpstart,
+		InitSystemSystemd,
+		InitSystemWindows,
 	}
-	return filepath.Join(s.Dirname, executable) + exeSuffix
-}
-
-func (s *BaseSuite) writeExecutable(c *gc.C, exeName, verText string) {
-	err := os.MkdirAll(filepath.Dir(exeName), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	script := []byte(`
-#!/usr/bin/env bash
-echo ` + verText)
-	err = ioutil.WriteFile(exeName, script[1:], 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	var checks []discoveryCheck
+	for _, name := range names {
+		checks = append(checks, NewDiscoveryCheck(name, name == expected, nil))
+	}
+	s.PatchLocalDiscovery(checks...)
 }
 
 func (s *BaseSuite) CheckFailure(c *gc.C, err error) {

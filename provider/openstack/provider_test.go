@@ -6,7 +6,7 @@ package openstack_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/nova"
+	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"

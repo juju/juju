@@ -15,13 +15,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	coreCloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -109,7 +109,7 @@ type localJujuTestSuite struct {
 	jujutest.Tests
 	testPath string
 	fakesudo string
-	svcData  *service.FakeServiceData
+	svcData  *svctesting.FakeServiceData
 }
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
@@ -132,11 +132,11 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *instancecfg.InstanceConfig, cloudinit.CloudConfig) error {
 		return nil
 	})
 
-	s.svcData = service.NewFakeServiceData()
+	s.svcData = svctesting.NewFakeServiceData()
 	local.PatchServices(s.PatchValue, s.svcData)
 }
 
@@ -182,10 +182,10 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 		AvailableTools: availableTools,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "quantal")
+	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg.Tools = availableTools[0]
-	err = finalizer(ctx, mcfg)
+	icfg.Tools = availableTools[0]
+	err = finalizer(ctx, icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return environ
 }
@@ -194,28 +194,25 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 	minCfg := minimalConfig(c)
 
-	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+	mockFinish := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 
 		envCfgAttrs := minCfg.AllAttrs()
 		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {
-			c.Check(cloudcfg.AptUpdate(), jc.IsFalse)
+			c.Check(cloudcfg.SystemUpdate(), jc.IsFalse)
 		} else {
-			c.Check(cloudcfg.AptUpdate(), gc.Equals, val)
+			c.Check(cloudcfg.SystemUpdate(), gc.Equals, val)
 		}
 
 		if val, ok := envCfgAttrs["enable-os-upgrade"]; !ok {
-			c.Check(cloudcfg.AptUpgrade(), jc.IsFalse)
+			c.Check(cloudcfg.SystemUpgrade(), jc.IsFalse)
 		} else {
-			c.Check(cloudcfg.AptUpgrade(), gc.Equals, val)
+			c.Check(cloudcfg.SystemUpgrade(), gc.Equals, val)
 		}
 
-		if !mcfg.EnableOSRefreshUpdate {
-			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
-		}
-		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
-		c.Assert(mcfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
+		c.Assert(icfg.AgentEnvironment, gc.Not(gc.IsNil))
+		c.Assert(icfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
-		c.Assert(mcfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
+		c.Assert(icfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)

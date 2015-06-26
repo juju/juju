@@ -1,10 +1,9 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package service_test
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -12,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -24,18 +24,27 @@ type serviceSuite struct {
 var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) TestNewServiceKnown(c *gc.C) {
-	initSystems := []string{
-		service.InitSystemSystemd,
-		service.InitSystemUpstart,
-		service.InitSystemWindows,
-	}
-	for _, initSystem := range initSystems {
-		svc, err := service.NewService(s.Name, s.Conf, initSystem)
+	for _, test := range []struct {
+		series     string
+		initSystem string
+	}{
+		{
+			series:     "vivid",
+			initSystem: service.InitSystemSystemd,
+		}, {
+			series:     "trusty",
+			initSystem: service.InitSystemUpstart,
+		}, {
+			series:     "win2012",
+			initSystem: service.InitSystemWindows,
+		},
+	} {
+		svc, err := service.NewService(s.Name, s.Conf, test.series)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 
-		switch initSystem {
+		switch test.initSystem {
 		case service.InitSystemSystemd:
 			c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
 		case service.InitSystemUpstart:
@@ -66,47 +75,27 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-// checkShellSwitch examines the contents a fragment of shell script that implements a switch
-// using an if, elif, else chain. It tests that each command in expectedCommands is used once
-// and that the whole script fragment ends with "else exit 1". The order of commands in
-// script doesn't matter.
-func checkShellSwitch(c *gc.C, script string, expectedCommands []string) {
-	cmds := strings.Split(script, "\n")
+func (*serviceSuite) TestListServicesScript(c *gc.C) {
+	script := service.ListServicesScript()
 
-	// Ensure that we terminate the if, elif, else chain correctly
-	last := len(cmds) - 1
-	c.Check(cmds[last-1], gc.Equals, "else exit 1")
-	c.Check(cmds[last], gc.Equals, "fi")
-
-	// First line must start with if
-	c.Check(cmds[0][0:3], gc.Equals, "if ")
-
-	// Further lines must start with elif. Convert them to if <statement>
-	for i := 1; i < last-1; i++ {
-		c.Check(cmds[i][0:5], gc.Equals, "elif ")
-		cmds[i] = cmds[i][2:]
-	}
-
-	c.Check(cmds[0:last-1], jc.SameContents, expectedCommands)
-}
-
-func (*serviceSuite) TestListServicesCommand(c *gc.C) {
-	cmd := service.ListServicesCommand()
-
-	line := `if [[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]; then %s`
-	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
-	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
-		` | grep -o -P '^\w[\S]*(?=\.service)'`
-
-	lines := []string{
-		fmt.Sprintf(line, "/sbin/init", upstart),
-		fmt.Sprintf(line, "/sbin/upstart", upstart),
-		fmt.Sprintf(line, "/sbin/systemd", systemd),
-		fmt.Sprintf(line, "/bin/systemd", systemd),
-		fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
-	}
-
-	checkShellSwitch(c, cmd, lines)
+	expected := strings.Split(service.DiscoverInitSystemScript(), "\n")
+	expected[0] = "init_system=$(" + expected[0]
+	expected[len(expected)-1] += ")"
+	expected = append(expected,
+		`case "$init_system" in`,
+		`systemd)`,
+		`    /bin/systemctl list-unit-files --no-legend --no-page -t service`+
+			` | grep -o -P '^\w[\S]*(?=\.service)'`,
+		`    ;;`,
+		`upstart)`,
+		`    sudo initctl list | awk '{print $1}' | sort | uniq`,
+		`    ;;`,
+		`*)`,
+		`    exit 1`,
+		`    ;;`,
+		`esac`,
+	)
+	c.Check(strings.Split(script, "\n"), jc.DeepEquals, expected)
 }
 
 func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
@@ -158,7 +147,7 @@ func (s *restartSuite) TestRestartStopAndStart(c *gc.C) {
 }
 
 type restartable struct {
-	*service.FakeService
+	*svctesting.FakeService
 }
 
 func (s *restartable) Restart() error {

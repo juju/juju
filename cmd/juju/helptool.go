@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
@@ -74,6 +74,14 @@ func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, bo
 
 func (dummyHookContext) OwnerTag() string {
 	return ""
+}
+
+func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	return &jujuc.StatusInfo{}, nil
+}
+
+func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
+	return nil
 }
 
 type HelpToolCommand struct {

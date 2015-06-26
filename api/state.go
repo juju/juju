@@ -13,25 +13,26 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/diskformatter"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apileadership "github.com/juju/juju/api/leadership"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/version"
 )
 
 // Login authenticates as the entity with the given name and password.
@@ -39,12 +40,52 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
-	err := st.loginV1(tag, password, nonce)
+	err := st.loginV2(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
-		// TODO (cmars): remove fallback once we can drop v0 compatibility
-		return st.loginV0(tag, password, nonce)
+		err = st.loginV1(tag, password, nonce)
+		if params.IsCodeNotImplemented(err) {
+			// TODO (cmars): remove fallback once we can drop v0 compatibility
+			return st.loginV0(tag, password, nonce)
+		}
 	}
 	return err
+}
+
+func (st *State) loginV2(tag, password, nonce string) error {
+	var result params.LoginResultV1
+	request := &params.LoginRequest{
+		AuthTag:     tag,
+		Credentials: password,
+		Nonce:       nonce,
+	}
+	err := st.APICall("Admin", 2, "", "Login", request, &result)
+	if err != nil {
+		// If the server complains about an empty tag it may be that we are
+		// talking to an older server version that does not understand facades and
+		// expects a params.Creds request instead of a params.LoginRequest. We
+		// return a CodNotImplemented error to force login down to V1, which
+		// supports older server logins. This may mask an actual empty tag in
+		// params.LoginRequest, but that would be picked up in loginV1. V1 will
+		// also produce a warning that we are ignoring an invalid API, so we do not
+		// need to add one here.
+		if err.Error() == `"" is not a valid tag` {
+			return &params.Error{
+				Message: err.Error(),
+				Code:    params.CodeNotImplemented,
+			}
+		}
+		return errors.Trace(err)
+	}
+	servers := params.NetworkHostsPorts(result.Servers)
+	err = st.setLoginResult(tag, result.EnvironTag, result.ServerTag, servers, result.Facades)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st.serverVersion, err = version.Parse(result.ServerVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (st *State) loginV1(tag, password, nonce string) error {
@@ -180,12 +221,8 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	if err != nil {
 		return nil, err
 	}
-	hostPort := network.HostPort{
-		Address: network.NewAddress(host, network.ScopeUnknown),
-		Port:    port,
-	}
 	result := make([][]network.HostPort, 0, len(servers)+1)
-	result = append(result, []network.HostPort{hostPort})
+	result = append(result, network.NewHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
 }
@@ -201,6 +238,12 @@ func (st *State) Client() *Client {
 // required by the machiner worker.
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// Resumer returns a version of the state that provides functionality
+// required by the resumer worker.
+func (st *State) Resumer() *resumer.API {
+	return resumer.NewAPI(st)
 }
 
 // Networker returns a version of the state that provides functionality
@@ -225,13 +268,6 @@ func (st *State) Uniter() (*uniter.State, error) {
 	return uniter.NewState(st, unitTag), nil
 }
 
-func (st *State) LeadershipManager() leadership.LeadershipManager {
-	// TODO(fwereade): hm, not sure this really needs the client stuff, but I
-	// don't think it really hurts.
-	facade, caller := base.NewClientFacade(st, "LeadershipService")
-	return apileadership.NewClient(facade, caller)
-}
-
 // DiskManager returns a version of the state that provides functionality
 // required by the diskmanager worker.
 func (st *State) DiskManager() (*diskmanager.State, error) {
@@ -240,16 +276,6 @@ func (st *State) DiskManager() (*diskmanager.State, error) {
 		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
 	return diskmanager.NewState(st, machineTag), nil
-}
-
-// DiskFormatter returns a version of the state that provides functionality
-// required by the diskformatter worker.
-func (st *State) DiskFormatter() (*diskformatter.State, error) {
-	machineTag, ok := st.authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
-	}
-	return diskformatter.NewState(st, machineTag), nil
 }
 
 // StorageProvisioner returns a version of the state that provides
@@ -309,12 +335,30 @@ func (st *State) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
 }
 
+// InstancePoller returns access to the InstancePoller API
+func (st *State) InstancePoller() *instancepoller.API {
+	return instancepoller.NewAPI(st)
+}
+
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
 func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
 }
 
+// Cleaner returns a version of the state that provides access to the cleaner API
+func (st *State) Cleaner() *cleaner.API {
+	return cleaner.NewAPI(st)
+}
+
 // Rsyslog returns access to the Rsyslog API
 func (st *State) Rsyslog() *rsyslog.State {
 	return rsyslog.NewState(st)
+}
+
+// ServerVersion holds the version of the API server that we are connected to.
+// It is possible that this version is Zero if the server does not report this
+// during login. The second result argument indicates if the version number is
+// set.
+func (st *State) ServerVersion() (version.Number, bool) {
+	return st.serverVersion, st.serverVersion != version.Zero
 }

@@ -90,7 +90,7 @@ func (g *mockConfigGetter) EnvironConfig() (*config.Config, error) {
 }
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		return nil
 	}
 	changes := make(chan struct{})
@@ -105,7 +105,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
 		c.Assert(err, jc.ErrorIsNil)
@@ -134,9 +134,12 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		c.Fatalf("timed out waiting for certificate to be updated")
 	}
 
-	// The server certificates must report "juju-apiserver" as a DNS name
-	// for backwards-compatibility with API clients.
-	c.Assert(srvCert.DNSNames, gc.DeepEquals, []string{"localhost", "juju-apiserver"})
+	// The server certificates must report "juju-apiserver" as a DNS
+	// name for backwards-compatibility with API clients. They must
+	// also report "juju-mongodb" because these certicates are also
+	// used for serving MongoDB connections.
+	c.Assert(srvCert.DNSNames, gc.DeepEquals,
+		[]string{"localhost", "juju-apiserver", "juju-mongodb", "anything"})
 }
 
 type mockStateServingGetterNoCAKey struct{}
@@ -153,7 +156,7 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		close(updated)
 		return nil
 	}

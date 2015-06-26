@@ -2,17 +2,17 @@ package service
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
 )
 
@@ -21,201 +21,153 @@ var getVersion = func() version.Binary {
 	return version.Current
 }
 
-// DiscoverService returns an interface to a service apropriate
+// DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverLocalInitSystem()
-	if errors.IsNotFound(err) {
-		// Fall back to checking the juju version.
-		jujuVersion := getVersion()
-		versionInitName, ok := VersionInitSystem(jujuVersion)
-		if !ok {
-			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
-			return nil, errors.Trace(err)
-		}
-		initName = versionInitName
-	} else if err != nil {
+	initName, err := discoverInitSystem()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	service, err := NewService(name, conf, initName)
+	jujuVersion := getVersion()
+	service, err := newService(name, conf, initName, jujuVersion.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return service, nil
 }
 
-// VersionInitSystem returns an init system name based on the provided
-// version info. If one cannot be identified then false if returned
-// for the second return value.
-func VersionInitSystem(vers version.Binary) (string, bool) {
-	switch vers.OS {
-	case version.Windows:
-		return InitSystemWindows, true
-	case version.Ubuntu:
-		switch vers.Series {
-		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
-			return InitSystemUpstart, true
-		case "":
-			return "", false
-		default:
-			// Check for pre-precise releases.
-			os, _ := version.GetOSFromSeries(vers.Series)
-			if os == version.Unknown {
-				return "", false
-			}
-			// vivid and later
-			if featureflag.Enabled(feature.LegacyUpstart) {
-				return InitSystemUpstart, true
-			}
-			return InitSystemSystemd, true
+func discoverInitSystem() (string, error) {
+	initName, err := discoverLocalInitSystem()
+	if errors.IsNotFound(err) {
+		// Fall back to checking the juju version.
+		jujuVersion := getVersion()
+		versionInitName, err2 := VersionInitSystem(jujuVersion.Series)
+		if err2 != nil {
+			// The key error is the one from discoverLocalInitSystem so
+			// that is what we return.
+			return "", errors.Wrap(err2, err)
 		}
-		// TODO(ericsnow) Support other OSes, like version.CentOS.
-	default:
-		return "", false
-	}
-}
-
-// pid1 is the path to the "file" that contains the path to the init
-// system executable on linux.
-const pid1 = "/proc/1/cmdline"
-
-// These exist to allow patching during tests.
-var (
-	runtimeOS    = func() string { return runtime.GOOS }
-	pid1Filename = func() string { return pid1 }
-
-	initExecutable = func() (string, error) {
-		pid1File := pid1Filename()
-		data, err := ioutil.ReadFile(pid1File)
-		if os.IsNotExist(err) {
-			return "", errors.NotFoundf("init system (via %q)", pid1File)
-		}
-		if err != nil {
-			return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
-		}
-		executable := strings.Split(string(data), "\x00")[0]
-		return executable, nil
-	}
-)
-
-func discoverLocalInitSystem() (string, error) {
-	if runtimeOS() == "windows" {
-		return InitSystemWindows, nil
-	}
-
-	executable, err := initExecutable()
-	if err != nil {
+		initName = versionInitName
+	} else if err != nil {
 		return "", errors.Trace(err)
 	}
-
-	initName, ok := identifyInitSystem(executable)
-	if !ok {
-		return "", errors.NotFoundf("init system (based on %q)", executable)
-	}
-	logger.Debugf("discovered init system %q from executable %q", initName, executable)
 	return initName, nil
 }
 
-func identifyInitSystem(executable string) (string, bool) {
-	initSystem, ok := identifyExecutable(executable)
-	if ok {
-		return initSystem, true
-	}
-
-	if _, err := os.Stat(executable); os.IsNotExist(err) {
-		return "", false
-	} else if err != nil {
-		logger.Errorf("failed to find %q: %v", executable, err)
-		// The stat check is just an optimization so we go on anyway.
-	}
-
-	// TODO(ericsnow) First fall back to following symlinks?
-
-	// Fall back to checking the "version" text.
-	cmd := exec.Command(executable, "--version")
-	out, err := cmd.CombinedOutput()
+// VersionInitSystem returns an init system name based on the provided
+// series. If one cannot be identified a NotFound error is returned.
+func VersionInitSystem(series string) (string, error) {
+	initName, err := versionInitSystem(series)
 	if err != nil {
-		logger.Errorf(`"%s --version" failed (%v): %s`, executable, err, out)
-		return "", false
+		return "", errors.Trace(err)
+	}
+	logger.Debugf("discovered init system %q from series %q", initName, series)
+	return initName, nil
+}
+
+func versionInitSystem(series string) (string, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		notFound := errors.NotFoundf("init system for series %q", series)
+		return "", errors.Wrap(err, notFound)
 	}
 
-	verText := string(out)
-	switch {
-	case strings.Contains(verText, "upstart"):
-		return InitSystemUpstart, true
-	case strings.Contains(verText, "systemd"):
-		return InitSystemSystemd, true
+	switch os {
+	case version.Windows:
+		return InitSystemWindows, nil
+	case version.Ubuntu:
+		switch series {
+		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
+			return InitSystemUpstart, nil
+		default:
+			// vivid and later
+			if featureflag.Enabled(feature.LegacyUpstart) {
+				return InitSystemUpstart, nil
+			}
+			return InitSystemSystemd, nil
+		}
+	case version.CentOS:
+		return InitSystemSystemd, nil
 	}
-
-	// uh-oh
-	return "", false
+	return "", errors.NotFoundf("unknown os %q (from series %q), init system", os, series)
 }
 
-func identifyExecutable(executable string) (string, bool) {
-	switch {
-	case strings.Contains(executable, "upstart"):
-		return InitSystemUpstart, true
-	case strings.Contains(executable, "systemd"):
-		return InitSystemSystemd, true
-	default:
-		return "", false
+type discoveryCheck struct {
+	name      string
+	isRunning func() (bool, error)
+}
+
+var discoveryFuncs = []discoveryCheck{
+	{InitSystemUpstart, upstart.IsRunning},
+	{InitSystemSystemd, systemd.IsRunning},
+	{InitSystemWindows, windows.IsRunning},
+}
+
+func discoverLocalInitSystem() (string, error) {
+	for _, check := range discoveryFuncs {
+		local, err := check.isRunning()
+		if err != nil {
+			logger.Debugf("failed to find init system %q: %v", check.name, err)
+		}
+		// We expect that in error cases "local" will be false.
+		if local {
+			logger.Debugf("discovered init system %q from local host", check.name)
+			return check.name, nil
+		}
 	}
+	return "", errors.NotFoundf("init system (based on local host)")
 }
 
-// TODO(ericsnow) Synchronize newShellSelectCommand with discoverLocalInitSystem.
+const discoverInitSystemScript = `
+# Use guaranteed discovery mechanisms for known init systems.
+if [ -d /run/systemd/system ]; then
+    echo -n systemd
+    exit 0
+elif [ -f /sbin/initctl ] && /sbin/initctl --system list 2>&1 > /dev/null; then
+    echo -n upstart
+    exit 0
+fi
 
-type initSystem struct {
-	executable string
-	name       string
+# uh-oh
+exit 1
+`
+
+// DiscoverInitSystemScript returns the shell script to use when
+// discovering the local init system. The script is quite specific to
+// bash, so it includes an explicit bash shbang.
+func DiscoverInitSystemScript() string {
+	renderer := shell.BashRenderer{}
+	data := renderer.RenderScript([]string{discoverInitSystemScript})
+	return string(data)
 }
 
-var linuxExecutables = []initSystem{
-	// Note that some systems link /sbin/init to whatever init system
-	// is supported, so in the future we may need some other way to
-	// identify upstart uniquely.
-	{"/sbin/init", InitSystemUpstart},
-	{"/sbin/upstart", InitSystemUpstart},
-	{"/sbin/systemd", InitSystemSystemd},
-	{"/bin/systemd", InitSystemSystemd},
-	{"/lib/systemd/systemd", InitSystemSystemd},
-}
+// shellCase is the template for a bash case statement, for use in
+// newShellSelectCommand.
+const shellCase = `
+case "$%s" in
+%s
+*)
+    %s
+    ;;
+esac`
 
-// TODO(ericsnow) Is it too much to cat once for each executable?
-const initSystemTest = `[[ "$(cat ` + pid1 + ` | awk '{print $1}')" == "%s" ]]`
-
-// newShellSelectCommand creates a bash if statement with an if
-// (or elif) clause for each of the executables in linuxExecutables.
-// The body of each clause comes from calling the provided handler with
-// the init system name. If the handler does not support the args then
-// it returns a false "ok" value.
-func newShellSelectCommand(handler func(string) (string, bool)) string {
-	// TODO(ericsnow) Allow passing in "initSystems ...string".
-	executables := linuxExecutables
-
-	// TODO(ericsnow) build the command in a better way?
-
-	cmdAll := ""
-	for _, initSystem := range executables {
-		cmd, ok := handler(initSystem.name)
+// newShellSelectCommand creates a bash case statement with clause for
+// each of the linux init systems. The body of each clause comes from
+// calling the provided handler with the init system name. If the
+// handler does not support the args then it returns a false "ok" value.
+func newShellSelectCommand(envVarName, dflt string, handler func(string) (string, bool)) string {
+	var cases []string
+	for _, initSystem := range linuxInitSystems {
+		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
+		cases = append(cases, initSystem+")", "    "+cmd, "    ;;")
+	}
+	if len(cases) == 0 {
+		return ""
+	}
 
-		test := fmt.Sprintf(initSystemTest, initSystem.executable)
-		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
-		if cmdAll != "" {
-			cmd = "el" + cmd
-		}
-		cmdAll += cmd
-	}
-	if cmdAll != "" {
-		cmdAll += "" +
-			"else exit 1\n" +
-			"fi"
-	}
-	return cmdAll
+	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"), dflt)
 }

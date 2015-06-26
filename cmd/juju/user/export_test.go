@@ -18,8 +18,6 @@ var (
 	GetConnectionCredentials = &getConnectionCredentials
 	// disable and enable
 	GetDisableUserAPI = &getDisableUserAPI
-
-	UserFriendlyDuration = userFriendlyDuration
 )
 
 // DisenableCommand is used for testing both Disable and Enable user commands.

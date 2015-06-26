@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -93,13 +93,14 @@ type BootstrapParams struct {
 	AvailableTools tools.List
 
 	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers.
+	// network bridge device to use for LXC and KVM containers. See
+	// also instancecfg.DefaultBridgeName.
 	ContainerBridgeName string
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
-// The caller must pass a MachineConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *cloudinit.MachineConfig) error
+// The caller must pass a InstanceConfig with the Tools field set.
+type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig) error
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.

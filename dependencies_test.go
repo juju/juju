@@ -39,5 +39,9 @@ func (*dependenciesTest) TestDependenciesTsvFormat(c *gc.C) {
 		}
 		segments := strings.Split(line, "\t")
 		c.Assert(segments, gc.HasLen, 4)
+		for _, seg := range segments {
+			c.Assert(strings.HasPrefix(seg, " "), jc.IsFalse)
+			c.Assert(strings.HasSuffix(seg, " "), jc.IsFalse)
+		}
 	}
 }

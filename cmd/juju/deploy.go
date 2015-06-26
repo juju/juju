@@ -11,24 +11,22 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
 
 type DeployCommand struct {
 	envcmd.EnvCommandBase
-	UnitCommandBase
+	service.UnitCommandBase
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
@@ -137,12 +135,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	if featureflag.Enabled(feature.Storage) {
-		// NOTE: if/when the feature flag is removed, bump the client
-		// facade and check that the ServiceDeployWithNetworks facade
-		// version supports storage, and error if it doesn't.
-		f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
-	}
+	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -166,6 +159,14 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
+func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
@@ -173,28 +174,26 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	conf, err := getClientConfig(client)
+	conf, err := service.GetClientConfig(client)
 	if err != nil {
 		return err
 	}
 
-	if err := c.checkProvider(conf); err != nil {
+	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
 
-	curl, err := resolveCharmURL(c.CharmName, client, conf)
+	csClient, err := newCharmStoreClient()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
-	repo, err := charm.InferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
+	defer csClient.jar.Save()
+	curl, repo, err := resolveCharmURL(c.CharmName, csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	config.SpecializeCharmRepo(repo, conf)
-
-	curl, err = addCharmViaAPI(client, ctx, curl, repo)
+	curl, err = addCharmViaAPI(client, ctx, curl, repo, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -246,8 +245,31 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	// TODO(axw) rename ServiceDeployWithNetworks to ServiceDeploy,
-	// and ServiceDeploy to ServiceDeployLegacy or some such.
+
+	// If storage is specified, we attempt to use a new API on the service facade.
+	if len(c.Storage) > 0 {
+		notSupported := errors.New("cannot deploy charms with storage: not supported by the API server")
+		serviceClient, err := c.newServiceAPIClient()
+		if err != nil {
+			return notSupported
+		}
+		defer serviceClient.Close()
+		err = serviceClient.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec,
+			requestedNetworks,
+			c.Storage,
+		)
+		if params.IsCodeNotImplemented(err) {
+			return notSupported
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
@@ -256,7 +278,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		c.Constraints,
 		c.ToMachineSpec,
 		requestedNetworks,
-		c.Storage,
 	)
 	if params.IsCodeNotImplemented(err) {
 		if haveNetworks {
@@ -271,40 +292,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.ToMachineSpec)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
-}
-
-// addCharmViaAPI calls the appropriate client API calls to add the
-// given charm URL to state. Also displays the charm URL of the added
-// charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
-	if curl.Revision < 0 {
-		latest, err := charm.Latest(repo, curl)
-		if err != nil {
-			return nil, err
-		}
-		curl = curl.WithRevision(latest)
-	}
-	switch curl.Schema {
-	case "local":
-		ch, err := repo.Get(curl)
-		if err != nil {
-			return nil, err
-		}
-		stateCurl, err := client.AddLocalCharm(curl, ch)
-		if err != nil {
-			return nil, err
-		}
-		curl = stateCurl
-	case "cs":
-		err := client.AddCharm(curl)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
-	}
-	ctx.Infof("Added charm %q to the environment.", curl)
-	return curl, nil
 }
 
 // parseNetworks returns a list of network names by parsing the

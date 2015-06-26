@@ -33,7 +33,7 @@ type clientSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
-	pinger     *presence.Pinger
+	pingers    []*presence.Pinger
 
 	commontesting.BlockHelper
 }
@@ -71,13 +71,15 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
-	s.pinger = s.setAgentPresence(c, "0")
+	s.pingers = []*presence.Pinger{s.setAgentPresence(c, "0")}
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *clientSuite) TearDownTest(c *gc.C) {
-	assertKill(c, s.pinger)
+	for _, pinger := range s.pingers {
+		assertKill(c, pinger)
+	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -132,6 +134,7 @@ func (s *clientSuite) TestEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,6 +154,7 @@ func (s *clientSuite) TestEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-3", "machine-4"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	c.Assert(err, jc.ErrorIsNil)
 	machines, err = s.State.AllMachines()
@@ -169,6 +173,7 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,6 +200,7 @@ func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,6 +214,7 @@ func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,6 +233,36 @@ func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestEnsureAvailabilityPlacementTo(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.pingers = append(s.pingers, s.setAgentPresence(c, "1"))
+
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.pingers = append(s.pingers, s.setAgentPresence(c, "2"))
+
+	placement := []string{"1", "2"}
+	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, emptyCons, defaultSeries, placement)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.DeepEquals, []string{"machine-1", "machine-2"})
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	expectedCons := []constraints.Value{{}, {}, {}}
+	expectedPlacement := []string{"", "", ""}
+	for i, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cons, gc.DeepEquals, expectedCons[i])
+		c.Check(m.Placement(), gc.Equals, expectedPlacement[i])
+	}
+}
+
 func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
@@ -234,6 +271,7 @@ func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 3)
@@ -248,8 +286,10 @@ func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-3"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 4)
 }
 
@@ -260,6 +300,7 @@ func (s *clientSuite) TestEnsureAvailability0Preserves5(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2", "machine-3", "machine-4"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 5)
@@ -278,6 +319,7 @@ func (s *clientSuite) TestEnsureAvailability0Preserves5(c *gc.C) {
 		"machine-2", "machine-3"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-5"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 6)
@@ -293,6 +335,7 @@ func (s *clientSuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	_, err = s.ensureAvailability(c, 1, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
@@ -311,6 +354,7 @@ func (s *clientSuite) TestEnsureAvailabilityHostedEnvErrors(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Converted, gc.HasLen, 0)
 
 	machines, err := st2.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)

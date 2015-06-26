@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/manager"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/version"
 )
 
 var requiredPackages = []string{
@@ -34,8 +35,25 @@ func (ci *containerInitialiser) Initialise() error {
 	return ensureDependencies()
 }
 
+// getPackageManager is a helper function which returns the
+// package manager implementation for the current system.
+func getPackageManager() (manager.PackageManager, error) {
+	return manager.NewPackageManager(version.Current.Series)
+}
+
 func ensureDependencies() error {
-	return apt.GetInstall(requiredPackages...)
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
+	for _, pack := range requiredPackages {
+		if err := pacman.Install(pack); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 const kvmNeedsUbuntu = `Sorry, KVM support with the local provider is only supported
@@ -57,6 +75,11 @@ const missingKVMDeps = `Some required packages are missing for KVM to work:
 // VerifyKVMEnabled makes sure that the host OS is Ubuntu, and that the required
 // packages are installed, and that the host CPU is able to support KVM.
 func VerifyKVMEnabled() error {
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
 	if !utils.IsUbuntu() {
 		return fmt.Errorf(kvmNeedsUbuntu)
 	}
@@ -71,7 +94,7 @@ func VerifyKVMEnabled() error {
 	// Check for other packages needed.
 	toInstall := []string{}
 	for _, pkg := range requiredPackages {
-		if !apt.IsPackageInstalled(pkg) {
+		if !pacman.IsInstalled(pkg) {
 			toInstall = append(toInstall, pkg)
 		}
 	}

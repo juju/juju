@@ -317,6 +317,7 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	defer closer()
 
 	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
 		localID := st.localID(doc.Id)

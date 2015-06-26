@@ -16,15 +16,17 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -42,7 +44,7 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 
-	data *service.FakeServiceData
+	data *svctesting.FakeServiceData
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -99,7 +101,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.data = service.NewFakeServiceData()
+	s.data = svctesting.NewFakeServiceData()
 	mongo.PatchService(s.PatchValue, s.data)
 }
 
@@ -180,7 +182,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
@@ -195,7 +197,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
@@ -212,7 +214,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
@@ -235,8 +237,9 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	testJournalDirs(dbDir, c)
 
 	assertInstalled := func() {
-		c.Assert(s.data.Installed, gc.HasLen, 1)
-		service := s.data.Installed[0]
+		installed := s.data.Installed()
+		c.Assert(installed, gc.HasLen, 1)
+		service := installed[0]
 		c.Assert(service.Name(), gc.Equals, "juju-db-namespace")
 		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
 		if setNumaPolicy {
@@ -293,6 +296,43 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	}
 }
 
+func (s *MongoSuite) TestMongoAptGetFails(c *gc.C) {
+	s.PatchValue(&version.Current.Series, "trusty")
+
+	// Any exit code from apt-get that isn't 0 or 100 will be treated
+	// as unexpected, skipping the normal retry loop. failCmd causes
+	// the command to exit with 1.
+	binDir := c.MkDir()
+	s.PatchEnvPathPrepend(binDir)
+	failCmd(filepath.Join(binDir, "apt-get"))
+
+	// Set the mongodb service as installed but not running.
+	namespace := "namespace"
+	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
+
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	defer loggo.RemoveWriter("test-writer")
+
+	dataDir := c.MkDir()
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+
+	// Even though apt-get failed, EnsureServer should continue and
+	// not return the error - even though apt-get failed, the Juju
+	// mongodb package is most likely already installed.
+	// The error should be logged however.
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, `packaging command failed: .+`},
+		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
+	})
+
+	// Verify that EnsureServer continued and started the mongodb service.
+	c.Check(s.data.Installed(), gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+}
+
 func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := c.MkDir()
@@ -304,7 +344,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 
 	// We still attempt to install mongodb, despite the service existing.
@@ -361,25 +401,41 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService(namespace)
 	c.Assert(err, jc.ErrorIsNil)
 
-	if !c.Check(s.data.Removed, gc.HasLen, 1) {
-		c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
-		c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
+	removed := s.data.Removed()
+	if !c.Check(removed, gc.HasLen, 1) {
+		c.Check(removed[0].Name(), gc.Equals, "juju-db-namespace")
+		c.Check(removed[0].Conf(), jc.DeepEquals, common.Conf{})
 	}
 	s.data.CheckCallNames(c, "Stop", "Remove")
 }
 
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
+	// patch manager.RunCommandWithRetry for repository addition:
+	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
+	})
 	s.PatchEnvPathPrepend(dir)
 	failCmd(filepath.Join(dir, "add-apt-repository"))
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	// test that we call add-apt-repository only for quantal (and that if it
-	// fails, we return the error)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
+	defer loggo.RemoveWriter("test-writer")
+
+	// test that we call add-apt-repository only for quantal
+	// (and that if it fails, we log the error)
 	s.PatchValue(&version.Current.Series, "quantal")
 	err := mongo.EnsureServer(makeEnsureServerParams(dir, ""))
-	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
+	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
+	})
+
+	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+		return "", 0, nil
+	})
 	s.PatchValue(&version.Current.Series, "trusty")
 	failCmd(filepath.Join(dir, "mongod"))
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
@@ -461,8 +517,8 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
-		"-y",
-		"ppa:juju/stable",
+		"--yes",
+		"\"ppa:juju/stable\"",
 	}})
 }
 

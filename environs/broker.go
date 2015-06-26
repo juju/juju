@@ -4,8 +4,8 @@
 package environs
 
 import (
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -23,8 +23,8 @@ type StartInstanceParams struct {
 	// to start a Juju agent on the machine.
 	Tools tools.List
 
-	// MachineConfig describes the machine's configuration.
-	MachineConfig *cloudinit.MachineConfig
+	// InstanceConfig describes the machine's configuration.
+	InstanceConfig *instancecfg.InstanceConfig
 
 	// Placement, if non-empty, contains an environment-specific
 	// placement directive that may be used to decide how the
@@ -94,4 +94,9 @@ type InstanceBroker interface {
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances() ([]instance.Instance, error)
+
+	// MaintainInstance is used to run actions on jujud startup for existing
+	// instances. It is currently only used to ensure that LXC hosts have the
+	// correct network configuration.
+	MaintainInstance(args StartInstanceParams) error
 }

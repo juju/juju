@@ -73,6 +73,20 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if err != nil {
 		return nil, err
 	}
+
+	// Add MAAS specific defaults.
+	providerDefaults := make(map[string]interface{})
+
+	// Storage.
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		providerDefaults[config.StorageDefaultBlockSourceKey] = maasStorageProviderType
+	}
+	if len(providerDefaults) > 0 {
+		if cfg, err = cfg.Apply(providerDefaults); err != nil {
+			return nil, err
+		}
+	}
+
 	if oldCfg != nil {
 		oldAttrs := oldCfg.UnknownAttrs()
 		validMaasAgentName := false

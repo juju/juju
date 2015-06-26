@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 
 	"github.com/juju/names"
@@ -17,8 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -26,6 +26,16 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
+
+var quote, cmdSuffix string
+
+func init() {
+	quote = "'"
+	if runtime.GOOS == "windows" {
+		cmdSuffix = ".exe"
+		quote = `"`
+	}
+}
 
 type SimpleContextSuite struct {
 	SimpleToolsFixture
@@ -138,7 +148,7 @@ type SimpleToolsFixture struct {
 	origPath string
 	binDir   string
 
-	data *service.FakeServiceData
+	data *svctesting.FakeServiceData
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -167,7 +177,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
-	fix.data = service.NewFakeServiceData()
+	fix.data = svctesting.NewFakeServiceData()
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
@@ -181,7 +191,7 @@ func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 }
 
 func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
-	c.Assert(fix.data.InstalledNames, gc.HasLen, count)
+	c.Assert(fix.data.InstalledNames(), gc.HasLen, count)
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
@@ -204,15 +214,9 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	tag := names.NewUnitTag(name)
 
 	svcName := "jujud-" + tag.String()
-	c.Assert(svcName, jc.Satisfies, fix.data.InstalledNames.Contains)
+	assertContains(c, fix.data.InstalledNames(), svcName)
 
-	var svcConf common.Conf
-	for _, svc := range fix.data.Installed {
-		if svc.Name() == svcName {
-			svcConf = svc.Conf()
-			break
-		}
-	}
+	svcConf := fix.data.GetInstalled(svcName).Conf()
 	// TODO(ericsnow) For now we just use upstart serialization.
 	uconfData, err := upstart.Serialize(svcName, svcConf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,12 +232,12 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	}
 
 	_, toolsDir := fix.paths(tag)
-	jujudPath := filepath.Join(toolsDir, "jujud")
+	jujudPath := filepath.Join(toolsDir, "jujud"+cmdSuffix)
 
 	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 
 	for _, pat := range []string{
-		"^exec " + jujudPath + " unit ",
+		"^exec " + quote + jujudPath + quote + " unit ",
 		" --unit-name " + name + " ",
 		" >> " + logPath + " 2>&1$",
 	} {
@@ -255,10 +259,9 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
+	assertNotContains(c, fix.data.InstalledNames(), name)
+
 	tag := names.NewUnitTag(name)
-
-	c.Assert(name, gc.Not(jc.Satisfies), fix.data.InstalledNames.Contains)
-
 	agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
@@ -326,4 +329,23 @@ func (mock *mockConfig) Value(_ string) string {
 
 func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
+}
+
+// assertContains asserts a needle is contained within haystack
+func assertContains(c *gc.C, haystack []string, needle string) {
+	c.Assert(contains(haystack, needle), jc.IsTrue)
+}
+
+// assertNotContains asserts a needle is not contained within haystack
+func assertNotContains(c *gc.C, haystack []string, needle string) {
+	c.Assert(contains(haystack, needle), gc.Not(jc.IsTrue))
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, e := range haystack {
+		if e == needle {
+			return true
+		}
+	}
+	return false
 }

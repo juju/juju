@@ -27,6 +27,11 @@ type EnvironmentCommandSuite struct {
 	coretesting.FakeJujuHomeSuite
 }
 
+func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.PatchEnvironment("JUJU_CLI_VERSION", "")
+}
+
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 func Test(t *testing.T) { gc.TestingT(t) }
@@ -143,6 +148,26 @@ func (s *EnvironmentCommandSuite) TestBootstrapContext(c *gc.C) {
 func (s *EnvironmentCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 	ctx := envcmd.BootstrapContextNoVerify(&cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
+}
+
+func (s *EnvironmentCommandSuite) TestCompatVersion(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
+}
+
+func (s *EnvironmentCommandSuite) TestCompatVersionDefault(c *gc.C) {
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+}
+
+func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuCLIVersion, "invalid")
+	cmd, err := initTestCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
 }
 
 type testCommand struct {

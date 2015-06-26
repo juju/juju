@@ -1,12 +1,17 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -20,10 +25,17 @@ var (
 
 // These are the names of the init systems regognized by juju.
 const (
-	InitSystemWindows = "windows"
-	InitSystemUpstart = "upstart"
 	InitSystemSystemd = "systemd"
+	InitSystemUpstart = "upstart"
+	InitSystemWindows = "windows"
 )
+
+// linuxInitSystems lists the names of the init systems that juju might
+// find on a linux host.
+var linuxInitSystems = []string{
+	InitSystemSystemd,
+	InitSystemUpstart,
+}
 
 // ServiceActions represents the actions that may be requested for
 // an init system service.
@@ -50,9 +62,6 @@ type Service interface {
 
 	// Conf returns the service's conf data.
 	Conf() common.Conf
-
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
 
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
@@ -89,18 +98,35 @@ type RestartableService interface {
 // and several helper functions.
 
 // NewService returns a new Service based on the provided info.
-func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
+func NewService(name string, conf common.Conf, series string) (Service, error) {
 	if name == "" {
 		return nil, errors.New("missing name")
 	}
 
+	initSystem, err := versionInitSystem(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newService(name, conf, initSystem, series)
+}
+
+func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
 	switch initSystem {
 	case InitSystemWindows:
-		return windows.NewService(name, conf), nil
+		svc, err := windows.NewService(name, conf)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
+		}
+		return svc, nil
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		svc, err := systemd.NewService(name, conf)
+		dataDir, err := paths.DataDir(series)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
+		}
+
+		svc, err := systemd.NewService(name, conf, dataDir)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
@@ -112,9 +138,9 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 
 // ListServices lists all installed services on the running system
 func ListServices() ([]string, error) {
-	initName, ok := VersionInitSystem(version.Current)
-	if !ok {
-		return nil, errors.NotFoundf("init system on local host")
+	initName, err := VersionInitSystem(version.Current.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	switch initName {
@@ -141,10 +167,17 @@ func ListServices() ([]string, error) {
 	}
 }
 
-// ListServicesCommand returns the command that should be run to get
+// ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
-func ListServicesCommand() string {
-	return newShellSelectCommand(listServicesCommand)
+func ListServicesScript() string {
+	commands := []string{
+		"init_system=$(" + DiscoverInitSystemScript() + ")",
+		// If the init system is not identified then the script will
+		// "exit 1". This is correct since the script should fail if no
+		// init system can be identified.
+		newShellSelectCommand("init_system", "exit 1", listServicesCommand),
+	}
+	return strings.Join(commands, "\n")
 }
 
 func listServicesCommand(initSystem string) (string, bool) {

@@ -3,11 +3,14 @@
 
 package common
 
+import "github.com/juju/juju/state"
+
 var (
-	ValidateNewFacade = validateNewFacade
-	WrapNewFacade     = wrapNewFacade
-	NilFacadeRecord   = facadeRecord{}
-	EnvtoolsFindTools = &envtoolsFindTools
+	MachineJobFromParams = machineJobFromParams
+	ValidateNewFacade    = validateNewFacade
+	WrapNewFacade        = wrapNewFacade
+	NilFacadeRecord      = facadeRecord{}
+	EnvtoolsFindTools    = &envtoolsFindTools
 )
 
 type Patcher interface {
@@ -27,3 +30,13 @@ type Versions versions
 func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
 	return descriptionFromVersions(name, versions(vers))
 }
+
+func NewMultiNotifyWatcher(w ...state.NotifyWatcher) state.NotifyWatcher {
+	mw := newMultiNotifyWatcher(w...)
+	return mw
+}
+
+var (
+	ServiceStatus    = serviceStatus
+	ServiceSetStatus = serviceSetStatus
+)

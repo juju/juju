@@ -10,34 +10,18 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type storageGetSuite struct {
-	ContextSuite
+	storageSuite
 }
 
 var _ = gc.Suite(&storageGetSuite{})
-
-func (s *storageGetSuite) SetUpTest(c *gc.C) {
-	s.ContextSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
-
-var (
-	storageAttributes = map[string]interface{}{
-		"location": "/dev/sda",
-		"kind":     "block",
-	}
-)
 
 var storageGetTests = []struct {
 	args   []string
@@ -53,7 +37,7 @@ var storageGetTests = []struct {
 func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range storageGetTests {
 		c.Logf("test %d: %#v", i, t.args)
-		hctx := s.GetStorageHookContext(c, "data/0")
+		hctx, _ := s.newHookContext()
 		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -78,7 +62,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 }
 
 func (s *storageGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetStorageHookContext(c, "data/0")
+	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -101,7 +85,7 @@ When no <key> is supplied, all keys values are printed.
 }
 
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
-	hctx := s.GetStorageHookContext(c, "data/0")
+	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)

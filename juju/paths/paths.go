@@ -1,7 +1,6 @@
 package paths
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
@@ -23,7 +22,7 @@ var nixVals = map[osVarType]string{
 	tmpDir:  "/tmp",
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
-	jujuRun: "/usr/local/bin/juju-run",
+	jujuRun: "/usr/bin/juju-run",
 }
 
 var winVals = map[osVarType]string{
@@ -47,7 +46,6 @@ func osVal(series string, valname osVarType) (string, error) {
 	default:
 		return nixVals[valname], nil
 	}
-	return "", fmt.Errorf("Unknown OS: %q", os)
 }
 
 // TempDir returns the path on disk to the corect tmp directory
