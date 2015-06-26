@@ -153,7 +153,7 @@ subnets:
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
 		s.api.CheckCallNames(c, "ListSubnets", "Close")
-		s.api.Calls = s.api.Calls[0:0]
+		s.api.ResetCalls()
 	}
 	makeArgs := func(format string, extraArgs ...string) []string {
 		args := s.Strings(extraArgs...)
@@ -271,7 +271,7 @@ subnets:
 	s.api.CheckCallNames(c, "AllSpaces", "ListSubnets", "Close")
 	tag := names.NewSpaceTag("public")
 	s.api.CheckCall(c, 1, "ListSubnets", &tag, "")
-	s.api.Calls = s.api.Calls[0:0] // reset recorded calls.
+	s.api.ResetCalls()
 
 	// Now filter by zone.
 	s.AssertRunSucceeds(c,
@@ -282,7 +282,7 @@ subnets:
 
 	s.api.CheckCallNames(c, "AllZones", "ListSubnets", "Close")
 	s.api.CheckCall(c, 1, "ListSubnets", nil, "zone1")
-	s.api.Calls = s.api.Calls[0:0] // reset recorded calls.
+	s.api.ResetCalls()
 
 	// Finally, filter by both space and zone.
 	s.AssertRunSucceeds(c,
