@@ -288,7 +288,36 @@ func (s *unitProcessesSuite) TestListMissing(c *gc.C) {
 	c.Check(procs, jc.DeepEquals, []process.Info{proc})
 }
 
-func (s *unitProcessesSuite) TestUnregister(c *gc.C) {
+func (s *unitProcessesSuite) TestUnregisterOkay(c *gc.C) {
+	proc := s.newProcesses("docker", "procA")[0]
+	s.persist.setProcesses(&proc)
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Unregister(proc.ID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Remove")
+	c.Check(s.persist.procs, gc.HasLen, 0)
+}
+
+func (s *unitProcessesSuite) TestUnregisterMissing(c *gc.C) {
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Unregister("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Remove")
+	c.Check(s.persist.procs, gc.HasLen, 0)
+}
+
+func (s *unitProcessesSuite) TestUnregisterFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	err := ps.Unregister("procA/xyz")
+
+	s.stub.CheckCallNames(c, "Remove")
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 type fakeProcsPersistence struct {
