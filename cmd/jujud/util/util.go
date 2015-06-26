@@ -237,7 +237,8 @@ var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 	if err != nil {
 		return nil, err
 	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultConfDir)
+	confDir := agent.DefaultConfDir
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, confDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

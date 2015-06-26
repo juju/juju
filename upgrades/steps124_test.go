@@ -34,7 +34,7 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 
 func (s *steps124Suite) TestStepsFor124(c *gc.C) {
 	expected := []string{
-		"move syslog config from LogDir to DataDir",
+		"move syslog config from LogDir to ConfDir",
 	}
 	assertSteps(c, version.MustParse("1.24.0"), expected)
 }
@@ -123,7 +123,11 @@ func (s *steps124SyslogSuite) oldFile(filename string) testFile {
 }
 
 func (s *steps124SyslogSuite) newFile(filename string) testFile {
-	return newTestFile(s.confDir, filename, s.data)
+	dirname := filepath.Join(s.confDir, "rsyslog")
+	if err := os.MkdirAll(dirname, 0755); err != nil {
+		panic(err)
+	}
+	return newTestFile(dirname, filename, s.data)
 }
 
 func (s *steps124SyslogSuite) writeOldFiles(c *gc.C, files []string) {
@@ -193,6 +197,24 @@ func (s *steps124SyslogSuite) TestMoveSyslogConfigCantDeleteOld(c *gc.C) {
 	// should still exist in both places (i.e. check we didn't screw up the test)
 	file.checkExists(c)
 	s.newFile("logrotate.conf").checkExists(c)
+}
+
+func (s *steps124SyslogSuite) TestMoveSyslogConfigTargetDirMissing(c *gc.C) {
+	err := os.Remove(s.confDir)
+	c.Assert(err, jc.ErrorIsNil)
+	files := []string{
+		"ca-cert.pem",
+		"rsyslog-cert.pem",
+		"rsyslog-key.pem",
+		"logrotate.conf",
+		"logrotate.run",
+	}
+	s.writeOldFiles(c, files)
+
+	err = upgrades.MoveSyslogConfig(s.ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkFiles(c, files)
 }
 
 type testFile struct {

@@ -39,7 +39,7 @@ func stateStepsFor124() []Step {
 func stepsFor124() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "move syslog config from LogDir to DataDir",
+			description: "move syslog config from LogDir to ConfDir",
 			targets:     []Target{AllMachines},
 			run:         moveSyslogConfig,
 		},
@@ -50,9 +50,14 @@ func moveSyslogConfig(context Context) error {
 	config := context.AgentConfig()
 	namespace := config.Value(agent.Namespace)
 	logdir := config.LogDir()
+
 	confdir := agent.DefaultConfDir
 	if namespace != "" {
 		confdir += "-" + namespace
+	}
+	confdir = filepath.Join(confdir, "rsyslog")
+	if err := os.MkdirAll(confdir, 0755); err != nil {
+		return errors.Trace(err)
 	}
 
 	// these values were copied from
@@ -103,20 +108,23 @@ func copyFile(to, from string) error {
 		return errors.NotFoundf(from)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer orig.Close()
 	info, err := orig.Stat()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	target, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_EXCL, info.Mode())
 	if os.IsExist(err) {
 		return nil
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer target.Close()
 	if _, err := io.Copy(target, orig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

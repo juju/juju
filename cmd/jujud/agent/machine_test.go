@@ -211,6 +211,9 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
+	confDir := filepath.Join(s.RootDir, "/etc/juju")
+	s.PatchValue(&agent.DefaultConfDir, confDir)
+
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf)
