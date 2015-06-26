@@ -21,17 +21,21 @@ import (
 // in the business logic) with ops factories available from the
 // persistence layer.
 
-type procsCollection interface {
-	One(id string, doc interface{}) error
-	All(ids []string, docs interface{}) error
+type procsPersistenceBase interface {
+	One(collName, id string, doc interface{}) error
+	All(collName string, ids []string, docs interface{}) error
+	Run(transactions jujutxn.TransactionSource) error
 }
 
-type procsStateCollection struct {
-	coll stateCollection
+type statePersistence struct {
+	st *State
 }
 
-func (c procsStateCollection) One(id string, doc interface{}) error {
-	err := c.coll.FindId(id).One(doc)
+func (sp statePersistence) One(collName, id string, doc interface{}) error {
+	coll, closeColl := sp.st.getCollection(collName)
+	defer closeColl()
+
+	err := coll.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf(id)
 	}
@@ -41,26 +45,16 @@ func (c procsStateCollection) One(id string, doc interface{}) error {
 	return nil
 }
 
-func (c procsStateCollection) All(ids []string, docs interface{}) error {
+func (sp statePersistence) All(collName string, ids []string, docs interface{}) error {
+	coll, closeColl := sp.st.getCollection(collName)
+	defer closeColl()
+
+	//q := bson.M{"_id": bson.M{"$in": ids}}
 	q := bson.M{"$in": ids}
-	if err := c.coll.FindId(q).All(docs); err != nil {
+	if err := coll.FindId(q).All(docs); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-type procsPersistenceBase interface {
-	Collection(collName string) (procsCollection, func())
-	Run(transactions jujutxn.TransactionSource) error
-}
-
-type statePersistence struct {
-	st *State
-}
-
-func (sp statePersistence) Collection(collName string) (procsCollection, func()) {
-	coll, closeColl := sp.st.getCollection(collName)
-	return &procsStateCollection{coll}, closeColl
 }
 
 func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
@@ -89,8 +83,24 @@ func newProcsPersistence(st *State, charm *names.CharmTag, unit *names.UnitTag) 
 	return pp
 }
 
-func (pp procsPersistence) coll() (procsCollection, func()) {
-	return pp.st.Collection(workloadProcessesC)
+func (pp procsPersistence) one(id string, doc interface{}) error {
+	return errors.Trace(pp.st.One(workloadProcessesC, id, doc))
+}
+
+func (pp procsPersistence) all(ids []string, docs interface{}) error {
+	return errors.Trace(pp.st.All(workloadProcessesC, ids, docs))
+}
+
+func (pp procsPersistence) indexDefinitionDocs(ids []string) (map[interface{}]processDefinitionDoc, error) {
+	var docs []processDefinitionDoc
+	if err := pp.all(ids, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	indexed := make(map[interface{}]processDefinitionDoc)
+	for _, doc := range docs {
+		indexed[doc.DocID] = doc
+	}
+	return indexed, nil
 }
 
 // EnsureDefinitions checks persistence to see if records for the
@@ -101,10 +111,10 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 	var found []string
 	var mismatched []string
 
-	//var ids []string
+	var ids []string
 	var ops []txn.Op
 	for _, definition := range definitions {
-		//ids = append(ids, pp.definitionID(definition.Name))
+		ids = append(ids, pp.definitionID(definition.Name))
 		ops = append(ops, pp.newInsertDefinitionOp(definition))
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -113,17 +123,15 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 
 			// The last attempt aborted so clear out any ops that failed
 			// the DocMissing assertion and try again.
-			coll, closeColl := pp.coll()
-			defer closeColl()
+			indexed, err := pp.indexDefinitionDocs(ids)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			var okOps []txn.Op
 			for _, op := range ops {
-				var doc processDefinitionDoc
-				err := coll.One(op.Id.(string), &doc)
-				if errors.IsNotFound(err) {
+				if _, ok := indexed[op.Id]; !ok {
 					okOps = append(okOps, op)
-				} else if err != nil {
-					return nil, errors.Trace(err)
 				} else {
 					// TODO(ericsnow) compare ops to corresponding
 					// definitions; fail if not the same.
@@ -444,15 +452,12 @@ func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *pr
 }
 
 func (pp procsPersistence) definitions(ids []string) ([]processDefinitionDoc, error) {
-	coll, closeColl := pp.coll()
-	defer closeColl()
-
 	for i, id := range ids {
 		ids[i] = pp.definitionID(id)
 	}
 
 	var docs []processDefinitionDoc
-	if err := coll.All(ids, &docs); err != nil {
+	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
@@ -486,15 +491,12 @@ func (pp procsPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
 }
 
 func (pp procsPersistence) launches(ids []string) ([]processLaunchDoc, error) {
-	coll, closeColl := pp.coll()
-	defer closeColl()
-
 	for i, id := range ids {
 		ids[i] = pp.launchID(id)
 	}
 
 	var docs []processLaunchDoc
-	if err := coll.All(ids, &docs); err != nil {
+	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
@@ -561,28 +563,22 @@ func (pp procsPersistence) newProcessDoc(info process.Info) *processDoc {
 }
 
 func (pp procsPersistence) proc(id string) (*processDoc, error) {
-	coll, closeColl := pp.coll()
-	defer closeColl()
-
 	id = pp.processID(id)
 
 	var doc processDoc
-	if err := coll.One(id, &doc); err != nil {
+	if err := pp.one(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
 }
 
 func (pp procsPersistence) procs(ids []string) ([]processDoc, error) {
-	coll, closeColl := pp.coll()
-	defer closeColl()
-
 	for i, id := range ids {
 		ids[i] = pp.processID(id)
 	}
 
 	var docs []processDoc
-	if err := coll.All(ids, &docs); err != nil {
+	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
