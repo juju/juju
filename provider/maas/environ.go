@@ -531,6 +531,7 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 const (
 	capNetworksManagement = "networks-management"
 	capStaticIPAddresses  = "static-ipaddresses"
+	capDevices            = "devices-management"
 )
 
 func (env *maasEnviron) supportsDevices() (bool, error) {
@@ -538,7 +539,7 @@ func (env *maasEnviron) supportsDevices() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return caps.Contains("devices-management"), nil
+	return caps.Contains(capDevices), nil
 }
 
 // getCapabilities asks the MAAS server for its capabilities, if
