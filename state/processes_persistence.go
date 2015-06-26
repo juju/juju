@@ -21,9 +21,53 @@ import (
 // in the business logic) with ops factories available from the
 // persistence layer.
 
+type procsCollection interface {
+	One(id string, doc interface{}) error
+	All(ids []string, docs interface{}) error
+}
+
+type procsStateCollection struct {
+	coll stateCollection
+}
+
+func (c procsStateCollection) One(id string, doc interface{}) error {
+	err := c.coll.FindId(id).One(doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf(id)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c procsStateCollection) All(ids []string, docs interface{}) error {
+	q := bson.M{"$in": ids}
+	if err := c.coll.FindId(q).All(docs); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 type procsPersistenceBase interface {
-	getCollection(name string) (stateCollection, func())
-	run(transactions jujutxn.TransactionSource) error
+	Collection(collName string) (procsCollection, func())
+	Run(transactions jujutxn.TransactionSource) error
+}
+
+type statePersistence struct {
+	st *State
+}
+
+func (sp statePersistence) Collection(collName string) (procsCollection, func()) {
+	coll, closeColl := sp.st.getCollection(collName)
+	return &procsStateCollection{coll}, closeColl
+}
+
+func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
+	if err := sp.st.run(transactions); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 type procsPersistence struct {
@@ -32,8 +76,21 @@ type procsPersistence struct {
 	unit  names.UnitTag
 }
 
-func (pp procsPersistence) coll() (stateCollection, func()) {
-	return pp.st.getCollection(workloadProcessesC)
+func newProcsPersistence(st *State, charm *names.CharmTag, unit *names.UnitTag) *procsPersistence {
+	pp := &procsPersistence{
+		st: &statePersistence{st: st},
+	}
+	if charm != nil {
+		pp.charm = *charm
+	}
+	if unit != nil {
+		pp.unit = *unit
+	}
+	return pp
+}
+
+func (pp procsPersistence) coll() (procsCollection, func()) {
+	return pp.st.Collection(workloadProcessesC)
 }
 
 // EnsureDefinitions checks persistence to see if records for the
@@ -44,8 +101,10 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 	var found []string
 	var mismatched []string
 
+	//var ids []string
 	var ops []txn.Op
 	for _, definition := range definitions {
+		//ids = append(ids, pp.definitionID(definition.Name))
 		ops = append(ops, pp.newInsertDefinitionOp(definition))
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -60,8 +119,8 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 			var okOps []txn.Op
 			for _, op := range ops {
 				var doc processDefinitionDoc
-				err := coll.FindId(op.Id).One(&doc)
-				if err == mgo.ErrNotFound {
+				err := coll.One(op.Id.(string), &doc)
+				if errors.IsNotFound(err) {
 					okOps = append(okOps, op)
 				} else if err != nil {
 					return nil, errors.Trace(err)
@@ -78,7 +137,7 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 		}
 		return ops, nil
 	}
-	if err := pp.st.run(buildTxn); err != nil {
+	if err := pp.st.Run(buildTxn); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -97,7 +156,7 @@ func (pp procsPersistence) Insert(info process.Info) (bool, error) {
 		// TODO(ericsnow) Return false if found.
 		return ops, nil
 	}
-	if err := pp.st.run(buildTxn); err != nil {
+	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
 	}
 	return true, nil
@@ -127,7 +186,7 @@ func (pp procsPersistence) SetStatus(id string, status process.Status) (bool, er
 		found = true
 		return ops, nil
 	}
-	if err := pp.st.run(buildTxn); err != nil {
+	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
 	}
 	return found, nil
@@ -191,7 +250,7 @@ func (pp procsPersistence) Remove(id string) (bool, error) {
 		found = true
 		return ops, nil
 	}
-	if err := pp.st.run(buildTxn); err != nil {
+	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
 	}
 	return found, nil
@@ -391,10 +450,9 @@ func (pp procsPersistence) definitions(ids []string) ([]processDefinitionDoc, er
 	for i, id := range ids {
 		ids[i] = pp.definitionID(id)
 	}
-	q := bson.M{"_id": bson.M{"$in": ids}}
 
 	var docs []processDefinitionDoc
-	if err := coll.FindId(q).All(&docs); err != nil {
+	if err := coll.All(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
@@ -434,10 +492,9 @@ func (pp procsPersistence) launches(ids []string) ([]processLaunchDoc, error) {
 	for i, id := range ids {
 		ids[i] = pp.launchID(id)
 	}
-	q := bson.M{"_id": bson.M{"$in": ids}}
 
 	var docs []processLaunchDoc
-	if err := coll.FindId(q).All(&docs); err != nil {
+	if err := coll.All(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
@@ -510,7 +567,7 @@ func (pp procsPersistence) proc(id string) (*processDoc, error) {
 	id = pp.processID(id)
 
 	var doc processDoc
-	if err := coll.FindId(id).One(&doc); err != nil {
+	if err := coll.One(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
@@ -523,10 +580,9 @@ func (pp procsPersistence) procs(ids []string) ([]processDoc, error) {
 	for i, id := range ids {
 		ids[i] = pp.processID(id)
 	}
-	q := bson.M{"_id": bson.M{"$in": ids}}
 
 	var docs []processDoc
-	if err := coll.FindId(q).All(&docs); err != nil {
+	if err := coll.All(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
