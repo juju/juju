@@ -6,6 +6,7 @@ package apiserver
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -25,6 +26,7 @@ var (
 	NewBackups            = &newBackups
 	ParseLogLine          = parseLogLine
 	AgentMatchesFilter    = agentMatchesFilter
+	NewLogTailer          = &newLogTailer
 )
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -43,9 +45,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest) (state.Entity, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c)
+		return checkCreds(st, c, lookForEnvUser)
 	}
 	doCheckCreds = delayedCheckCreds
 	return
@@ -76,7 +78,7 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state: srvSt,
 		tag:   names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil)
+	h, err := newApiHandler(srv, st, nil, nil, st.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
@@ -86,6 +88,13 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
 	return newUpgradingRoot(r)
+}
+
+// TestingRestrictedApiHandler returns a restricted srvRoot as if accessed
+// from the root of the API path with a recent (verison > 1) login.
+func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
+	r := TestingApiRoot(st)
+	return newRestrictedRoot(r)
 }
 
 type preFacadeAdminApi struct{}
@@ -139,6 +148,8 @@ func SetAdminApiVersions(srv *Server, versions ...int) {
 			factories[n] = newAdminApiV0
 		case 1:
 			factories[n] = newAdminApiV1
+		case 2:
+			factories[n] = newAdminApiV2
 		default:
 			panic(fmt.Errorf("unknown admin API version %d", n))
 		}
@@ -160,12 +171,12 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	return newAboutToRestoreRoot(r)
 }
 
-// LogLineAgentTag gives tests access to an internal logLine attribute
-func (logLine *logLine) LogLineAgentTag() string {
-	return logLine.agentTag
+// LogLineAgentTag gives tests access to an internal logFileLine attribute
+func (logFileLine *logFileLine) LogLineAgentTag() string {
+	return logFileLine.agentTag
 }
 
-// LogLineAgentName gives tests access to an internal logLine attribute
-func (logLine *logLine) LogLineAgentName() string {
-	return logLine.agentName
+// LogLineAgentName gives tests access to an internal logFileLine attribute
+func (logFileLine *logFileLine) LogLineAgentName() string {
+	return logFileLine.agentName
 }

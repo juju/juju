@@ -47,11 +47,11 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	}
 
 	numIsLeaderCalls := 0
-	isLeader := func(serviceId, unitId string) bool {
+	isLeader := func(serviceId, unitId string) (bool, error) {
 		numIsLeaderCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		c.Check(unitId, gc.Equals, StubUnitNm)
-		return true
+		return true, nil
 	}
 
 	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, writeSettings, isLeader)
@@ -73,11 +73,11 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 
 func (s *settingsSuite) TestWriteSettingFailsForNonLeader(c *gc.C) {
 	numIsLeaderCalls := 0
-	isLeader := func(serviceId, unitId string) bool {
+	isLeader := func(serviceId, unitId string) (bool, error) {
 		numIsLeaderCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		c.Check(unitId, gc.Equals, StubUnitNm)
-		return false
+		return false, nil
 	}
 
 	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, nil, isLeader)

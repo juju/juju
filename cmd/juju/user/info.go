@@ -151,13 +151,13 @@ func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 		if c.exactTime {
 			outInfo.DateCreated = info.DateCreated.String()
 		} else {
-			outInfo.DateCreated = userFriendlyDuration(info.DateCreated, now)
+			outInfo.DateCreated = UserFriendlyDuration(info.DateCreated, now)
 		}
 		if info.LastConnection != nil {
 			if c.exactTime {
 				outInfo.LastConnection = info.LastConnection.String()
 			} else {
-				outInfo.LastConnection = userFriendlyDuration(*info.LastConnection, now)
+				outInfo.LastConnection = UserFriendlyDuration(*info.LastConnection, now)
 			}
 		} else {
 			outInfo.LastConnection = "never connected"
@@ -169,7 +169,9 @@ func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 	return output
 }
 
-func userFriendlyDuration(when, now time.Time) string {
+// UserFriendlyDuration translates a time in the past into a user
+// friendly string representation relative to the "now" time argument.
+func UserFriendlyDuration(when, now time.Time) string {
 	since := now.Sub(when)
 	// if over 24 hours ago, just say the date.
 	if since.Hours() >= 24 {

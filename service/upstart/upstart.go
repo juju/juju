@@ -11,20 +11,59 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
 	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
 )
 
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
+var (
+	InitDir = "/etc/init" // the default init directory name.
 
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	logger      = loggo.GetLogger("juju.service.upstart")
+	initctlPath = "/sbin/initctl"
+	servicesRe  = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	renderer    = &shell.BashRenderer{}
+)
 
-var logger = loggo.GetLogger("juju.service.upstart")
+// IsRunning returns whether or not upstart is the local init system.
+func IsRunning() (bool, error) {
+	// On windows casting the error to exec.Error does not yield a os.PathError type
+	// It's easyer to just return false before even trying to execute an external command
+	// on windows at least
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
+
+	// TODO(ericsnow) This function should be fixed to precisely match
+	// the equivalent shell script line in service/discovery.go.
+
+	cmd := exec.Command(initctlPath, "--system", "list")
+	_, err := cmd.CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+
+	msg := fmt.Sprintf("exec %q failed", initctlPath)
+	if os.IsNotExist(err) {
+		// Executable could not be found, go 1.3 and later
+		return false, nil
+	}
+	if execErr, ok := err.(*exec.Error); ok {
+		// Executable could not be found, go 1.2
+		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
+			return false, nil
+		}
+	}
+	// Note: initctl will fail if upstart is installed but not running.
+	// The error message will be:
+	//   Name "com.ubuntu.Upstart" does not exist
+	return false, errors.Annotatef(err, msg)
+}
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -82,7 +121,7 @@ func (s *Service) confPath() string {
 
 // Validate returns an error if the service is not adequately defined.
 func (s *Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -270,12 +309,13 @@ func (s *Service) InstallCommands() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
+	cmd := fmt.Sprintf("cat > %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
 	return []string{cmd}, nil
 }
 
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
+	// TODO(ericsnow) Add clarification about why transient services are not started.
 	if s.Service.Conf.Transient {
 		return nil, nil
 	}
@@ -338,3 +378,20 @@ post-stop script
 end script
 {{end}}
 `[1:]))
+
+// CleanShutdownJob is added to machines to ensure DHCP-assigned IP
+// addresses are released on shutdown, reboot, or halt. See bug
+// http://pad.lv/1348663 for more info.
+const CleanShutdownJob = `
+author "Juju Team <juju@lists.ubuntu.com>"
+description "Stop all network interfaces on shutdown"
+start on runlevel [016]
+task
+console output
+
+exec /sbin/ifdown -a -v --force
+`
+
+// CleanShutdownJobPath is the full file path where CleanShutdownJob
+// is created.
+const CleanShutdownJobPath = "/etc/init/juju-clean-shutdown.conf"

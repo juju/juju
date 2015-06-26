@@ -181,8 +181,12 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.DEBUG), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.TRACE), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
+	logger := loggo.GetLogger("juju.environs")
+	defer logger.SetLogLevel(logger.LogLevel())
+	logger.SetLogLevel(loggo.TRACE)
+
 	_, err := envtools.FindTools(
 		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -192,15 +196,15 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	messages := []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
-		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
+		{loggo.TRACE, "no architecture specified when finding tools, looking for "},
+		{loggo.TRACE, "no series specified when finding tools, looking for \\[.*\\]"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 2*len(sources); i++ {
 		messages = append(messages,
-			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
-			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
+			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
+			jc.SimpleMessage{loggo.TRACE, `cannot load index .*`})
 	}
 	c.Check(tw.Log(), jc.LogMatches, messages)
 }

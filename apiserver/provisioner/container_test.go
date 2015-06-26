@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -140,6 +141,8 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		// Check for any "regex:" prefixes first. Then replace
 		// addresses in expected with the actual ones, so we can use
 		// jc.DeepEquals on the whole result below.
+		// Also check MAC addresses are valid, but as they're randomly
+		// generated we can't test specific values.
 		for i, expect := range expectResults.Results {
 			cfg := results.Results[i].Config
 			c.Assert(cfg, gc.HasLen, len(expect.Config))
@@ -149,8 +152,16 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 					c.Assert(cfg[j].Address, gc.Matches, rex)
 					expectResults.Results[i].Config[j].Address = cfg[j].Address
 				}
+				macAddress := cfg[j].MACAddress
+				c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
+				remainder := strings.Replace(macAddress[8:], ":", "", 3)
+				c.Assert(remainder, gc.HasLen, 6)
+				_, err = hex.DecodeString(remainder)
+				c.Assert(err, jc.ErrorIsNil)
+				expectResults.Results[i].Config[j].MACAddress = macAddress
 			}
 		}
+
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
@@ -164,6 +175,15 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		}
 	}
 	return err, tw.Log()
+}
+
+func (s *prepareSuite) TestErrorWitnNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	container := s.newAPI(c, true, true)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{},
+		`address allocation not supported`,
+	)
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -240,13 +260,19 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	}}
 
 	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ServerError(
+			`"unit-wordpress-0" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"service-wordpress" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"network-foo" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"anything-invalid" is not a valid tag`),
+		apiservertesting.ServerError(
+			`"42" is not a valid tag`),
 		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
+		apiservertesting.ServerError(
+			`"" is not a valid tag`),
 	), "")
 }
 
@@ -265,7 +291,7 @@ func (s *prepareSuite) fillSubnet(c *gc.C, numAllocated int) {
 	sub, err := s.BackingState.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i <= numAllocated; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
 		err = ipaddr.SetState(state.AddressStateAllocated)
@@ -392,7 +418,7 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	// Record each time allocateAddrTo, setAddrsTo, and setAddrState
 	// are called along with the addresses to verify the logs later.
 	var allocAttemptedAddrs, allocAddrsOK, setAddrs, releasedAddrs []string
-	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine) error {
+	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine, mac string) error {
 		c.Logf("allocateAddrTo called for address %q, machine %q", ip.String(), m)
 		c.Assert(m.Id(), gc.Equals, container.Id())
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
@@ -497,7 +523,6 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -531,6 +556,15 @@ func (s *prepareSuite) TestErrorWhenNoSubnetsAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
 }
 
+func (s *prepareSuite) TestErrorWithDisabledNIC(c *gc.C) {
+	// The magic "i-disabled-nic-" instance id prefix for the host
+	// causes the dummy provider to return a disabled NIC from
+	// NetworkInterfaces(), which should not be used for the container.
+	container := s.newCustomAPI(c, "i-no-subnets-here", true, false)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
+}
+
 func (s *prepareSuite) TestErrorWhenNoAllocatableSubnetsAvailable(c *gc.C) {
 	// The magic "i-no-alloc-all" instance id for the host causes the
 	// dummy provider's Subnets() method to return all subnets without
@@ -550,6 +584,15 @@ func (s *prepareSuite) TestErrorWhenNoNICSAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no interfaces available")
 }
 
+func (s *prepareSuite) TestErrorWithNICNoSubnetAvailable(c *gc.C) {
+	// The magic "i-nic-no-subnet-" instance id prefix for the host
+	// causes the dummy provider to return a nic that has no associated
+	// subnet from NetworkInterfaces().
+	container := s.newCustomAPI(c, "i-nic-no-subnet-here", true, false)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
+}
+
 func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
@@ -561,7 +604,6 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -598,8 +640,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		VLANTag:          1,
-		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Disabled:         true,
+		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
 		Address:          "regex:0.20.0.[0-9]{1,3}", // we don't care about the actual value.
@@ -668,12 +709,21 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 	return err
 }
 
+func (s *releaseSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	s.newAPI(c, true, false)
+	args := s.makeArgs(s.machines[0])
+	s.assertCall(c, args, &params.ErrorResults{},
+		"address allocation not supported",
+	)
+}
+
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
 	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`cannot release address for "machine-0": not a container`,
+			`cannot mark addresses for removal for "machine-0": not a container`,
 		),
 	), "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -750,30 +800,15 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	sub, err := s.BackingState.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < numAllocated; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(containerId, "")
+		err = ipaddr.AllocateTo(containerId, "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
-	container := s.newAPI(c, true, true)
-	args := s.makeArgs(container)
-
-	s.allocateAddresses(c, container.Id(), 2)
-	s.breakEnvironMethods(c, "ReleaseAddress")
-	err := s.assertCall(c, args, s.makeErrors(
-		apiservertesting.ServerError(
-			`failed to release all addresses for "machine-0-lxc-0": `+
-				`[dummy.ReleaseAddress is broken dummy.ReleaseAddress is broken]`,
-		),
-	), "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
+func (s *releaseSuite) TestSuccess(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
 
@@ -782,5 +817,8 @@ func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addresses, err := s.BackingState.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 2)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

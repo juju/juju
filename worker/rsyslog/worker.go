@@ -78,6 +78,18 @@ type certPair struct {
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 
+func syslogUser() string {
+	var user string
+	switch version.Current.OS {
+	case version.CentOS:
+		user = "root"
+	default:
+		user = "syslog"
+	}
+
+	return user
+}
+
 // NewRsyslogConfigWorker returns a worker.Worker that uses
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
@@ -215,7 +227,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 	return nil
 }
 
-func (h *RsyslogConfigHandler) Handle() error {
+func (h *RsyslogConfigHandler) Handle(_ <-chan struct{}) error {
 	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
@@ -382,7 +394,7 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 // a suitable order in the case of failue.
 func writeCertificates(pairs []certPair) error {
 	// Files must be chowned to syslog:adm.
-	syslogUid, syslogGid, err := lookupUser("syslog")
+	syslogUid, syslogGid, err := lookupUser(syslogUser())
 	if err != nil {
 		return err
 	}
@@ -431,7 +443,7 @@ func (h *RsyslogConfigHandler) rsyslogServerCerts(caCert, caKey string) (string,
 // exist in the log directory and creates them if they do not.
 func (h *RsyslogConfigHandler) ensureLogrotate() error {
 	// Files must be chowned to syslog
-	syslogUid, syslogGid, err := lookupUser("syslog")
+	syslogUid, syslogGid, err := lookupUser(syslogUser())
 	if err != nil {
 		return err
 	}

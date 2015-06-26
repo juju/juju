@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -53,4 +54,25 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 	}
 	c.Check(conf, jc.DeepEquals, expected)
 	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
+}
+
+func (s *serviceSuite) TestIsServiceInstalledWhenInstalled(c *gc.C) {
+	namespace := "some-namespace"
+	svcName := mongo.ServiceName(namespace)
+	svcData := svctesting.NewFakeServiceData(svcName)
+	mongo.PatchService(s.PatchValue, svcData)
+
+	isInstalled, err := mongo.IsServiceInstalled(namespace)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isInstalled, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestIsServiceInstalledWhenNotInstalled(c *gc.C) {
+	mongo.PatchService(s.PatchValue, svctesting.NewFakeServiceData())
+
+	isInstalled, err := mongo.IsServiceInstalled("some-namespace")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isInstalled, jc.IsFalse)
 }

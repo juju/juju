@@ -4,18 +4,19 @@
 package runner_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
 
 type FlushContextSuite struct {
 	HookContextSuite
+	testing.Stub
 }
 
 var _ = gc.Suite(&FlushContextSuite{})
@@ -85,81 +86,6 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 		"relation-name": "db1",
 		"qux":           "4",
 	})
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingSuccess(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
-
-	now := time.Now()
-	err = ctx.AddMetric("pings", "50", now)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	metrics := metricBatches[0].Metrics()
-	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Key, gc.Equals, "pings")
-	c.Assert(metrics[0].Value, gc.Equals, "50")
-}
-
-func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
-
-	now := time.Now()
-	ctx.AddMetric("key", "50", now)
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", errors.New("boom squelch"))
-	c.Assert(err, gc.ErrorMatches, "boom squelch")
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, false, s.metricsDefinition("key"))
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingUndeclared(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, nil)
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
 }
 
 func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
@@ -240,4 +166,49 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	unitRanges, err = s.unit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
+}
+
+func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with an error.
+	msg := "test fail run hook"
+	err = ctx.FlushContext("test fail run hook", errors.New(msg))
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
+	// Get the context.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+
+	size := uint64(1)
+	ctx.AddUnitStorage(
+		map[string]params.StorageConstraints{
+			"allecto": params.StorageConstraints{Size: &size},
+		})
+
+	// Flush the context with a success.
+	err = ctx.FlushContext("success", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
 }

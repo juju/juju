@@ -6,8 +6,8 @@ package runner_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
@@ -26,10 +26,6 @@ type MergeEnvSuite struct {
 var _ = gc.Suite(&MergeEnvSuite{})
 
 func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: There are some problems regarding os.Environ() on windows")
-	}
 	// environment does not get fully cleared on Windows
 	// when using testing.IsolationSuite
 	origEnv := os.Environ()
@@ -38,12 +34,35 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 		"DUMMYVAR2=bar",
 		"NEWVAR=ImNew",
 	}
-	expectEnv := append(origEnv, extraExpected...)
+	expectEnv := make([]string, 0, len(origEnv)+len(extraExpected))
+
+	// os.Environ prepends some garbage on Windows that we need to strip out.
+	// All the garbage starts and ends with = (for example "=C:=").
+	for _, v := range origEnv {
+		if !(strings.HasPrefix(v, "=") && strings.HasSuffix(v, "=")) {
+			expectEnv = append(expectEnv, v)
+		}
+	}
+	expectEnv = append(expectEnv, extraExpected...)
 	os.Setenv("DUMMYVAR2", "ChangeMe")
 	os.Setenv("DUMMYVAR", "foo")
 
-	newEnv := runner.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	newEnv := make([]string, 0, len(expectEnv))
+	for _, v := range runner.MergeWindowsEnvironment([]string{"dummyvar2=bar", "NEWVAR=ImNew"}, os.Environ()) {
+		if !(strings.HasPrefix(v, "=") && strings.HasSuffix(v, "=")) {
+			newEnv = append(newEnv, v)
+		}
+	}
 	c.Assert(expectEnv, jc.SameContents, newEnv)
+}
+
+func (s *MergeEnvSuite) TestMergeEnvWin(c *gc.C) {
+	initial := []string{"a=foo", "b=bar", "foo=val"}
+	newValues := []string{"a=baz", "c=omg", "FOO=val2", "d=another"}
+
+	created := runner.MergeWindowsEnvironment(newValues, initial)
+	expected := []string{"a=baz", "b=bar", "c=omg", "foo=val2", "d=another"}
+	c.Check(created, jc.SameContents, expected)
 }
 
 type EnvSuite struct {

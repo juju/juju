@@ -4,6 +4,9 @@
 package environs
 
 import (
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -13,11 +16,11 @@ import (
 type Networking interface {
 	// AllocateAddress requests a specific address to be allocated for the
 	// given instance on the given subnet.
-	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
+	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
 
 	// ReleaseAddress releases a specific address previously allocated with
 	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
+	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error
 
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
@@ -51,4 +54,10 @@ type NetworkingEnviron interface {
 func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
+}
+
+// AddressAllocationEnabled is a shortcut for checking if the
+// AddressAllocation feature flag is enabled.
+func AddressAllocationEnabled() bool {
+	return featureflag.Enabled(feature.AddressAllocation)
 }

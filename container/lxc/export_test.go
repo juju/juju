@@ -14,14 +14,12 @@ var (
 	ParseConfigLine         = parseConfigLine
 	UpdateContainerConfig   = updateContainerConfig
 	ReorderNetworkConfig    = reorderNetworkConfig
-	DiscoverHostNIC         = &discoverHostNIC
 	NetworkConfigTemplate   = networkConfigTemplate
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion
 	PreferFastLXC           = preferFastLXC
-	InitProcessCgroupFile   = &initProcessCgroupFile
 	RuntimeGOOS             = &runtimeGOOS
-	ShutdownInitScript      = shutdownInitScript
+	RunningInsideLXC        = &runningInsideLXC
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {

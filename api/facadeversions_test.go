@@ -23,7 +23,7 @@ var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// Enable feature flags so we can see them all.
-	devFeatures := []string{feature.JES, feature.Storage}
+	devFeatures := []string{feature.JES}
 	s.SetFeatureFlags(strings.Join(devFeatures, ","))
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do

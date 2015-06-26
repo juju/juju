@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -103,6 +104,10 @@ type EnvCommandBase struct {
 	// to specify an environment in multiple ways, and not always referencing
 	// a file on disk based on the EnvName or the environemnts.yaml file.
 	envName string
+
+	// compatVersion defines the minimum CLI version
+	// that this command should be compatible with.
+	compatVerson *int
 }
 
 func (c *EnvCommandBase) SetEnvName(envName string) {
@@ -234,6 +239,26 @@ func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
 	return ConnectionInfoForName(c.envName)
+}
+
+// CompatVersion returns the minimum CLI version
+// that this command should be compatible with.
+func (c *EnvCommandBase) CompatVersion() int {
+	if c.compatVerson != nil {
+		return *c.compatVerson
+	}
+	compatVerson := 1
+	val := os.Getenv(osenv.JujuCLIVersion)
+	if val != "" {
+		vers, err := strconv.Atoi(val)
+		if err != nil {
+			logger.Warningf("invalid %s value: %v", osenv.JujuCLIVersion, val)
+		} else {
+			compatVerson = vers
+		}
+	}
+	c.compatVerson = &compatVerson
+	return *c.compatVerson
 }
 
 // ConnectionName returns the name of the connection if there is one.

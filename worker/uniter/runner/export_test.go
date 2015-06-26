@@ -7,21 +7,23 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
-	MergeEnvironment  = mergeEnvironment
-	SearchHook        = searchHook
-	HookCommand       = hookCommand
-	LookPath          = lookPath
-	ValidatePortRange = validatePortRange
-	TryOpenPorts      = tryOpenPorts
-	TryClosePorts     = tryClosePorts
+	MergeWindowsEnvironment = mergeWindowsEnvironment
+	SearchHook              = searchHook
+	HookCommand             = hookCommand
+	LookPath                = lookPath
+	ValidatePortRange       = validatePortRange
+	TryOpenPorts            = tryOpenPorts
+	TryClosePorts           = tryClosePorts
 )
 
 func RunnerPaths(rnr Runner) Paths {
@@ -83,6 +85,19 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 	}
 }
 
+func PatchCachedStatus(ctx Context, status, info string, data map[string]interface{}) func() {
+	hctx := ctx.(*HookContext)
+	oldStatus := hctx.status
+	hctx.status = &jujuc.StatusInfo{
+		Status: status,
+		Info:   info,
+		Data:   data,
+	}
+	return func() {
+		hctx.status = oldStatus
+	}
+}
+
 func NewHookContext(
 	unit *uniter.Unit,
 	state *uniter.State,
@@ -96,9 +111,10 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
-	metrics *charm.Metrics,
+	charmMetrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
+	paths Paths,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               unit,
@@ -113,11 +129,24 @@ func NewHookContext(
 		apiAddrs:           apiAddrs,
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
-		canAddMetrics:      canAddMetrics,
-		definedMetrics:     metrics,
+		metricsRecorder:    nil,
+		definedMetrics:     charmMetrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
+	}
+	if canAddMetrics {
+		charmURL, err := unit.CharmURL()
+		if err != nil {
+			return nil, err
+		}
+		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
+			paths.GetMetricsSpoolDir(),
+			charmMetrics.Metrics,
+			charmURL.String())
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Get and cache the addresses.
 	var err error
@@ -146,7 +175,6 @@ func NewHookContext(
 		code: statusCode,
 		info: statusInfo,
 	}
-
 	return ctx, nil
 }
 
@@ -188,4 +216,8 @@ func SetEnvironmentHookContextRelation(
 			relationId:   relationId,
 		},
 	}
+}
+
+func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
+	return ctx.storageAddConstraints
 }

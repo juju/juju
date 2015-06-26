@@ -360,3 +360,29 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
 }
+
+func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(source, gc.Equals, "ebs")
+}
+
+func (*ConfigSuite) TestSchema(c *gc.C) {
+	fields := providerInstance.Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
+}

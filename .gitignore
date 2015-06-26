@@ -4,7 +4,9 @@ cmd/builddb/builddb
 cmd/charmd/charmd
 cmd/charmload/charmload
 tags
+!tags/
 TAGS
+!TAGS/
 .emacs.desktop
 .emacs.desktop.lock
 *.test

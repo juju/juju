@@ -336,6 +336,17 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(sources, gc.HasLen, 0)
 }
 
+func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
+	env := s.Prepare(c)
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Check(spec.Image.Arch, gc.Equals, "amd64")
+	c.Check(spec.Image.VirtType, gc.Equals, "kvm")
+	c.Check(*spec.InstanceType.VirtType, gc.Equals, "kvm")
+	c.Check(spec.InstanceType.CpuCores, gc.Equals, uint64(4))
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
@@ -349,10 +360,23 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"11223344-0a0a-dd77-33cd-abcd1234e5f6"})
+}
+
+func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
+	found := false
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		if s.Description() == expected {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {

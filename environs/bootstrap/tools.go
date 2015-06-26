@@ -54,7 +54,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
 // including tools that may be locally built and then
 // uploaded. Tools that need to be built will have an
 // empty URL.
-func findAvailableTools(env environs.Environ, arch *string, upload bool) (coretools.List, error) {
+func findAvailableTools(env environs.Environ, vers *version.Number, arch *string, upload bool) (coretools.List, error) {
 	if upload {
 		// We're forcing an upload: ensure we can do so.
 		if err := validateUploadAllowed(env, arch); err != nil {
@@ -66,9 +66,13 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 	// We're not forcing an upload, so look for tools
 	// in the environment's simplestreams search paths
 	// for existing tools.
-	var vers *version.Number
-	if agentVersion, ok := env.Config().AgentVersion(); ok {
-		vers = &agentVersion
+
+	// If the user hasn't asked for a specified tools version, see if
+	// one is configured in the environment.
+	if vers == nil {
+		if agentVersion, ok := env.Config().AgentVersion(); ok {
+			vers = &agentVersion
+		}
 	}
 	logger.Debugf("looking for bootstrap tools: version=%v", vers)
 	toolsList, findToolsErr := findBootstrapTools(env, vers, arch)

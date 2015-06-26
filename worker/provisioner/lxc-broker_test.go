@@ -22,19 +22,22 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -51,6 +54,7 @@ type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
 	agentConfig agent.ConfigSetterWriter
+	api         *fakeAPI
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -100,57 +104,175 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig, nil)
+	s.api = NewFakeAPI()
+	s.broker, err = provisioner.NewLxcBroker(s.api, s.agentConfig, managerConfig, nil, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.MachineConfig {
+func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the <rootfs>/etc/network path exists.
 	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
-	return machineConfig
+	return instanceConfig
 }
 
-func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
-	machineConfig := s.machineConfig(c, machineId)
+func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) instance.Instance {
+	instanceConfig := s.instanceConfig(c, machineId)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		Volumes:        volumes,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
 }
 
+func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) {
+	instanceConfig := s.instanceConfig(c, machineId)
+	cons := constraints.Value{}
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	err := s.broker.MaintainInstance(environs.StartInstanceParams{
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		Volumes:        volumes,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *lxcBrokerSuite) assertDefaultStorageConfig(c *gc.C, lxc instance.Instance) {
+	config := filepath.Join(s.LxcDir, string(lxc.Id()), "config")
+	AssertFileContents(c, gc.Not(jc.Contains), config, "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) assertDefaultNetworkConfig(c *gc.C, lxc instance.Instance) {
+	lxc_conf := filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf")
+	expect := []string{
+		"lxc.network.type = veth",
+		"lxc.network.link = lxcbr0",
+	}
+	AssertFileContains(c, lxc_conf, expect...)
+}
+
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
-	lxc := s.startInstance(c, machineId)
+	s.SetFeatureFlags(feature.AddressAllocation)
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
-	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
+	machineId := "1/lxc/0"
+	s.SetFeatureFlags(feature.AddressAllocation)
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.ResetCalls()
+
+	s.maintainInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.ResetCalls()
+
+	s.maintainInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultNetworkConfig(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
+	s.api.fakeContainerConfig.AllowLXCLoopMounts = true
+	s.SetFeatureFlags(feature.AddressAllocation)
+
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	// Check storage config.
+	config := filepath.Join(s.LxcDir, string(lxc.Id()), "config")
+	AssertFileContents(c, jc.Contains, config, "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
+	s.api.fakeContainerConfig.AllowLXCLoopMounts = false
+	s.SetFeatureFlags(feature.AddressAllocation)
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
+		FuncName: "ContainerConfig",
+	}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	s.assertDefaultStorageConfig(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
-	machineConfig := s.machineConfig(c, "1/lxc/0")
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
+	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -160,28 +282,28 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-ppc64el.tgz",
 	}}
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   constraints.Value{},
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
+	c.Assert(instanceConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
-	machineConfig := s.machineConfig(c, "1/lxc/0")
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
+	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   constraints.Value{},
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, gc.ErrorMatches, "need tools for arch ppc64el, only found \\[amd64\\]")
 }
@@ -189,22 +311,66 @@ func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	s.agentConfig.SetValue(agent.LxcBridge, "br0")
 	machineId := "1/lxc/0"
-	lxc := s.startInstance(c, machineId)
+	lxc := s.startInstance(c, machineId, nil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Uses default network config
-	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	lxc_conf := filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf")
+	expect := []string{
+		"lxc.network.type = veth",
+		"lxc.network.link = br0",
+	}
+	AssertFileContains(c, lxc_conf, expect...)
+}
+
+func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
+	})
+	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
+	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
-	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
+	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
+
+	instanceConfig := s.instanceConfig(c, "42")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	})
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
-	lxc0 := s.startInstance(c, "1/lxc/0")
-	lxc1 := s.startInstance(c, "1/lxc/1")
-	lxc2 := s.startInstance(c, "1/lxc/2")
+	lxc0 := s.startInstance(c, "1/lxc/0", nil)
+	lxc1 := s.startInstance(c, "1/lxc/1", nil)
+	lxc2 := s.startInstance(c, "1/lxc/2", nil)
 
+	s.assertInstances(c, lxc0, lxc1, lxc2)
 	err := s.broker.StopInstances(lxc0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c, lxc1, lxc2)
@@ -217,13 +383,13 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
-	lxc0 := s.startInstance(c, "1/lxc/0")
-	lxc1 := s.startInstance(c, "1/lxc/1")
+	lxc0 := s.startInstance(c, "1/lxc/0", nil)
+	lxc1 := s.startInstance(c, "1/lxc/1", nil)
 	s.assertInstances(c, lxc0, lxc1)
 
 	err := s.broker.StopInstances(lxc1.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	lxc2 := s.startInstance(c, "1/lxc/2")
+	lxc2 := s.startInstance(c, "1/lxc/2", nil)
 	s.assertInstances(c, lxc0, lxc2)
 }
 
@@ -246,16 +412,17 @@ func (s *lxcBrokerSuite) TestLocalDNSServers(c *gc.C) {
 	s.PatchValue(provisioner.ResolvConf, fakeConf)
 
 	// If config is missing, that's OK.
-	dnses, err := provisioner.LocalDNSServers()
+	dnses, dnsSearch, err := provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, gc.HasLen, 0)
+	c.Assert(dnsSearch, gc.Equals, "")
 
 	// Enter some data in fakeConf.
 	data := `
  anything else is ignored
   # comments are ignored
   nameserver  0.1.2.3  # that's parsed
-search foo # ignored
+search  foo.baz # comment ignored
 # nameserver 42.42.42.42 - ignored as well
 nameserver 8.8.8.8
 nameserver example.com # comment after is ok
@@ -263,11 +430,12 @@ nameserver example.com # comment after is ok
 	err = ioutil.WriteFile(fakeConf, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dnses, err = provisioner.LocalDNSServers()
+	dnses, dnsSearch, err = provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, jc.DeepEquals, network.NewAddresses(
 		"0.1.2.3", "8.8.8.8", "example.com",
 	))
+	c.Assert(dnsSearch, gc.Equals, "foo.baz")
 }
 
 func (s *lxcBrokerSuite) TestMustParseTemplate(c *gc.C) {
@@ -364,7 +532,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	}, {
 		about:       "all but primaryAddr empty",
 		primaryNIC:  "",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
@@ -385,21 +553,21 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	}, {
 		about:       "all but primaryNIC and primaryAddr empty",
 		primaryNIC:  "nic",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
 		about:       "all but primaryAddr and bridgeName empty",
 		primaryNIC:  "",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
 		about:       "all set except ifaceInfo",
 		primaryNIC:  "nic",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
@@ -420,7 +588,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	}, {
 		about:       "all but primaryAddr empty (ifaceInfo set but empty)",
 		primaryNIC:  "",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
@@ -441,28 +609,28 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	}, {
 		about:       "just bridgeName is empty and ifaceInfo set but empty",
 		primaryNIC:  "nic",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
 		about:       "just primaryNIC is empty and ifaceInfo set but empty",
 		primaryNIC:  "",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
 		about:       "all set except ifaceInfo, which is set but empty",
 		primaryNIC:  "nic",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
 		about:       "all set, but ifaceInfo has empty Address",
 		primaryNIC:  "nic",
-		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		primaryAddr: network.NewAddress("0.1.2.1"),
 		bridgeName:  "bridge",
 		// No Address set.
 		ifaceInfo: []network.InterfaceInfo{{DeviceIndex: 0}},
@@ -474,6 +642,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 			test.primaryAddr,
 			test.bridgeName,
 			test.ifaceInfo,
+			false, // TODO(dimitern): Untested.
 		)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 	}
@@ -485,11 +654,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesCheckError(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3"),
 	}}
 
-	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1")
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, "iptables failed with unexpected exit code 42")
 }
 
@@ -511,11 +680,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 	s.PatchValue(provisioner.IptablesRules, fakeptablesRules)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3"),
 	}}
 
-	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1")
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -I .*" failed with exit code 42`)
 }
 
@@ -526,11 +695,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3"),
 	}}
 
-	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1")
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, gc.ErrorMatches,
 		`command "ip route add 0.1.2.3 dev bridge" failed with exit code 123`,
 	)
@@ -555,11 +724,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesAddsRuleIfMissing(c *gc.C) {
 	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "ip")
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3"),
 	}}
 
-	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
-	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1")
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now verify the expected commands - since check returns 1, add
@@ -675,10 +844,10 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICSuccess(c *gc.C) {
 	nic, addr, err := provisioner.DiscoverPrimaryNIC()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nic, gc.Equals, "if2")
-	c.Assert(addr, jc.DeepEquals, network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("0.1.2.3"))
 }
 
-func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
+func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	// All the pieces used by this func are separately tested, we just
 	// test the integration between them.
 	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
@@ -699,23 +868,75 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// When ifaceInfo is not empty it shouldn't do anything and both
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
-	result, err := provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo)
+	// First call as if we are configuring the container for the first time
+	result, err := provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+
+	// Next call as if the container has already been configured.
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.IsNil)
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+
+	// Call as if the container already has a network configuration, but doesn't.
+	s.api.ResetCalls()
+	s.api.SetErrors(errors.NotProvisionedf("machine-42 has no network provisioning info"))
+	ifaceInfo = []network.InterfaceInfo{}
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+	c.Assert(err, gc.ErrorMatches, "machine-42 has no network provisioning info not provisioned")
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("42")},
+	}})
 
 	// When it's not empty, result should be populated as expected.
-	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo)
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     provisioner.MACAddressTemplate,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("42")},
+	}})
+
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	}})
+
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("42")},
 	}})
 }
 
@@ -822,7 +1043,7 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)
@@ -880,30 +1101,65 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.waitRemoved(c, container)
 }
 
+func (s *lxcProvisionerSuite) TestLXCProvisionerObservesConfigChanges(c *gc.C) {
+	p := s.newLxcProvisioner(c)
+	defer stop(c, p)
+	s.assertProvisionerObservesConfigChanges(c, p)
+}
+
 type fakeAPI struct {
-	c *gc.C
+	*gitjujutesting.Stub
+
+	fakeContainerConfig params.ContainerConfig
+	fakeInterfaceInfo   network.InterfaceInfo
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
 
-func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{
-		UpdateBehavior:          &params.UpdateBehavior{true, true},
-		ProviderType:            "fake",
-		AuthorizedKeys:          coretesting.FakeAuthKeys,
-		SSLHostnameVerification: true}, nil
+var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
+	DeviceIndex:    0,
+	MACAddress:     "aa:bb:cc:dd:ee:ff",
+	CIDR:           "0.1.2.0/24",
+	InterfaceName:  "dummy0",
+	Address:        network.NewAddress("0.1.2.3"),
+	GatewayAddress: network.NewAddress("0.1.2.1"),
+}
+
+var fakeContainerConfig = params.ContainerConfig{
+	UpdateBehavior:          &params.UpdateBehavior{true, true},
+	ProviderType:            "fake",
+	AuthorizedKeys:          coretesting.FakeAuthKeys,
+	SSLHostnameVerification: true,
+}
+
+func NewFakeAPI() *fakeAPI {
+	return &fakeAPI{
+		Stub:                &gitjujutesting.Stub{},
+		fakeContainerConfig: fakeContainerConfig,
+		fakeInterfaceInfo:   fakeInterfaceInfo,
+	}
+}
+
+func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+	f.MethodCall(f, "ContainerConfig")
+	if err := f.NextErr(); err != nil {
+		return params.ContainerConfig{}, err
+	}
+	return f.fakeContainerConfig, nil
 }
 
 func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
-	if f.c != nil {
-		f.c.Assert(tag.String(), gc.Equals, "machine-42")
+	f.MethodCall(f, "PrepareContainerInterfaceInfo", tag)
+	if err := f.NextErr(); err != nil {
+		return nil, err
 	}
-	return []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "dummy0",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
-	}}, nil
+	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
+}
+
+func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+	f.MethodCall(f, "GetContainerInterfaceInfo", tag)
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
 }

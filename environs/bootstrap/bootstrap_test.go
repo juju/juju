@@ -6,16 +6,17 @@ package bootstrap_test
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -257,9 +258,9 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
-	c.Assert(env.machineConfig, gc.NotNil)
-	c.Assert(env.machineConfig.CustomImageMetadata, gc.HasLen, 1)
-	c.Assert(env.machineConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig, gc.NotNil)
+	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
+	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -284,6 +285,79 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
 }
 
+func (s *bootstrapSuite) setupBootstrapSpecificVersion(
+	c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number,
+) (error, int, version.Number) {
+	currentVersion := version.Current
+	currentVersion.Major = clientMajor
+	currentVersion.Minor = clientMinor
+	currentVersion.Series = "trusty"
+	currentVersion.Arch = "amd64"
+	s.PatchValue(&version.Current, currentVersion)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
+		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools"), nil
+	})
+	defer envtools.UnregisterToolsDataSourceFunc("local storage")
+
+	toolsBinaries := []version.Binary{
+		version.MustParseBinary("10.11.12-trusty-amd64"),
+		version.MustParseBinary("10.11.13-trusty-amd64"),
+	}
+	_, err := envtesting.UploadFakeToolsVersions(env.storage, "released", "released", toolsBinaries...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AgentVersion: toolsVersion,
+	})
+	vers, _ := env.cfg.AgentVersion()
+	return err, env.bootstrapCount, vers
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *gc.C) {
+	toolsVersion := version.MustParse("10.11.12")
+	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapCount, gc.Equals, 1)
+	c.Assert(vers, gc.DeepEquals, version.Number{
+		Major: 10,
+		Minor: 11,
+		Patch: 12,
+	})
+}
+
+func (s *bootstrapSuite) TestBootstrapNoSpecificVersion(c *gc.C) {
+	// bootstrap with no specific version will use latest major.minor tools version.
+	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapCount, gc.Equals, 1)
+	c.Assert(vers, gc.DeepEquals, version.Number{
+		Major: 10,
+		Minor: 11,
+		Patch: 13,
+	})
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMinorMismatch(c *gc.C) {
+	// bootstrap using a specified version only works if the patch number is different.
+	// The bootstrap client major and minor versions need to match the tools asked for.
+	toolsVersion := version.MustParse("10.11.12")
+	err, bootstrapCount, _ := s.setupBootstrapSpecificVersion(c, 10, 1, &toolsVersion)
+	c.Assert(strings.Replace(err.Error(), "\n", "", -1), gc.Matches, ".* no tools are available .*")
+	c.Assert(bootstrapCount, gc.Equals, 0)
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C) {
+	// bootstrap using a specified version only works if the patch number is different.
+	// The bootstrap client major and minor versions need to match the tools asked for.
+	toolsVersion := version.MustParse("10.11.12")
+	err, bootstrapCount, _ := s.setupBootstrapSpecificVersion(c, 1, 11, &toolsVersion)
+	c.Assert(strings.Replace(err.Error(), "\n", "", -1), gc.Matches, ".* no tools are available .*")
+	c.Assert(bootstrapCount, gc.Equals, 0)
+}
+
 type bootstrapEnviron struct {
 	cfg              *config.Config
 	environs.Environ // stub out all methods we don't care about.
@@ -293,7 +367,7 @@ type bootstrapEnviron struct {
 	finalizerCount              int
 	supportedArchitecturesCount int
 	args                        environs.BootstrapParams
-	machineConfig               *cloudinit.MachineConfig
+	instanceConfig              *instancecfg.InstanceConfig
 	storage                     storage.Storage
 }
 
@@ -328,9 +402,9 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	e.bootstrapCount++
 	e.args = args
-	finalizer := func(_ environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		e.finalizerCount++
-		e.machineConfig = mcfg
+		e.instanceConfig = icfg
 		return nil
 	}
 	return version.Current.Arch, version.Current.Series, finalizer, nil

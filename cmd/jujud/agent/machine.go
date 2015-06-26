@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,11 +18,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -32,10 +35,13 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -49,7 +55,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -58,19 +63,22 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/conv2state"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
@@ -82,8 +90,10 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -106,27 +116,30 @@ var (
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	reportOpenedState        = func(interface{}) {}
-	reportOpenedAPI          = func(interface{}) {}
+	newResumer               = resumer.NewResumer
+	newInstancePoller        = instancepoller.NewWorker
+	newCleaner               = cleaner.NewCleaner
+	reportOpenedState        = func(io.Closer) {}
+	reportOpenedAPI          = func(io.Closer) {}
+	reportClosedMachineAPI   = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
 // Variable to override in tests, default is true
-var EnableJournaling = true
+var ProductionMongoWriteConcern = true
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{
-			// Wait for group commit if journaling is enabled,
-			// which is always true in production.
-			J: EnableJournaling,
-		}
-		_, err := replicaset.CurrentConfig(session)
-		if err == nil {
-			// set mongo to write-majority (writes only returned after
-			// replicated to a majority of replica-set members).
-			safe.WMode = "majority"
+		safe := mgo.Safe{}
+		if ProductionMongoWriteConcern {
+			safe.J = true
+			_, err := replicaset.CurrentConfig(session)
+			if err == nil {
+				// set mongo to write-majority (writes only returned after
+				// replicated to a majority of replica-set members).
+				safe.WMode = "majority"
+			}
 		}
 		session.SetSafe(&safe)
 		return nil
@@ -145,9 +158,9 @@ type AgentInitializer interface {
 type AgentConfigWriter interface {
 	// ReadConfig reads the config for the given tag from disk.
 	ReadConfig(tag string) error
-	// ChangeConfig executes the given AgentConfigMutator in a
+	// ChangeConfig executes the given agent.ConfigMutator in a
 	// thread-safe context.
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 	// CurrentConfig returns a copy of the in-memory agent config.
 	CurrentConfig() agent.Config
 }
@@ -156,11 +169,13 @@ type AgentConfigWriter interface {
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCmd(
+	ctx *cmd.Context,
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
+		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
@@ -174,6 +189,7 @@ type machineAgentCmd struct {
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
+	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
 	logToStdErr bool
@@ -208,15 +224,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 	agentConfig := a.currentConfig.CurrentConfig()
-	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
-		Filename:   filename,
+	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+	a.ctx.Stderr = &lumberjack.Logger{
+		Filename:   agent.LogFilename(agentConfig),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
 
-	return cmdutil.SwitchProcessToRollingLogs(log)
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
@@ -244,12 +260,14 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			apiAddressSetter,
+			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 		)
@@ -261,18 +279,26 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 ) *MachineAgent {
-
 	return &MachineAgent{
 		machineId:            machineId,
 		AgentConfigWriter:    agentConfWriter,
 		apiAddressSetter:     apiAddressSetter,
-		workersStarted:       make(chan struct{}),
+		bufferedLogs:         bufferedLogs,
 		upgradeWorkerContext: upgradeWorkerContext,
+		workersStarted:       make(chan struct{}),
 		runner:               runner,
+		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
+}
+
+// APIStateUpgrader defines the methods on the Upgrader that
+// agents call.
+type APIStateUpgrader interface {
+	SetVersion(string, version.Binary) error
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -285,14 +311,30 @@ type MachineAgent struct {
 	previousAgentVersion version.Number
 	apiAddressSetter     apiaddressupdater.APIAddressSetter
 	runner               worker.Runner
+	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
 
+	// Used to signal that the upgrade worker will not
+	// reboot the agent on startup because there are no
+	// longer any immediately pending agent upgrades.
+	// Channel used as a selectable bool (closed means true).
+	initialAgentUpgradeCheckComplete chan struct{}
+
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+
+	apiStateUpgrader APIStateUpgrader
+}
+
+func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
+	if a.apiStateUpgrader != nil {
+		return a.apiStateUpgrader
+	}
+	return st.Upgrader()
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -305,6 +347,15 @@ func (a *MachineAgent) IsRestorePreparing() bool {
 // and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
+}
+
+func (a *MachineAgent) isAgentUpgradePending() bool {
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // Wait waits for the machine agent to finish.
@@ -324,6 +375,48 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 	return a.tomb.Dying()
 }
 
+// upgradeCertificateDNSNames ensure that the state server certificate
+// recorded in the agent config and also mongo server.pem contains the
+// DNSNames entires required by Juju/
+func (a *MachineAgent) upgradeCertificateDNSNames() error {
+	agentConfig := a.CurrentConfig()
+	si, ok := agentConfig.StateServingInfo()
+	if !ok || si.CAPrivateKey == "" {
+		// No certificate information exists yet, nothing to do.
+		return nil
+	}
+	// Parse the current certificate to get the current dns names.
+	serverCert, err := cert.ParseCert(si.Cert)
+	if err != nil {
+		return err
+	}
+	update := false
+	dnsNames := set.NewStrings(serverCert.DNSNames...)
+	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
+	for _, dnsName := range requiredDNSNames {
+		if dnsNames.Contains(dnsName) {
+			continue
+		}
+		dnsNames.Add(dnsName)
+		update = true
+	}
+	if !update {
+		return nil
+	}
+	// Write a new certificate to the mongp pem and agent config files.
+	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
+	if err != nil {
+		return err
+	}
+	if err := mongo.UpdateSSLKey(agentConfig.DataDir(), si.Cert, si.PrivateKey); err != nil {
+		return err
+	}
+	return a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetStateServingInfo(si)
+		return nil
+	})
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
 
@@ -331,12 +424,31 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
-	agentConfig := a.CurrentConfig()
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+
+	// Before doing anything else, we need to make sure the certificate generated for
+	// use by mongo to validate state server connections is correct. This needs to be done
+	// before any possible restart of the mongo service.
+	// See bug http://pad.lv/1434680
+	if err := a.upgradeCertificateDNSNames(); err != nil {
+		return errors.Annotate(err, "error upgrading server certificate")
+	}
+
+	// For windows clients we need to make sure we set a random password in a
+	// registry file and use that password for the jujud user and its services
+	// before starting anything else.
+	// Services on windows need to know the user's password to start up. The only
+	// way to store that password securely is if the user running the services
+	// sets the password. This cannot be done during cloud-init so it is done here.
+	if err := password.EnsureJujudPassword(); err != nil {
+		return errors.Annotate(err, "Could not ensure jujud password")
+	}
+
+	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
@@ -344,7 +456,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
+	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
@@ -399,7 +511,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
@@ -445,9 +557,9 @@ func (a *MachineAgent) EndRestore() {
 	a.restoring = false
 }
 
-// newrestorestatewatcherworker will return a worker or err if there is a failure,
-// the worker takes care of watching the state of restoreInfo doc and put the
-// agent in the different restore modes.
+// newRestoreStateWatcherWorker will return a worker or err if there
+// is a failure, the worker takes care of watching the state of
+// restoreInfo doc and put the agent in the different restore modes.
 func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
@@ -537,13 +649,20 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
-func (a *MachineAgent) APIWorker() (worker.Worker, error) {
+func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	agentConfig := a.CurrentConfig()
 	st, entity, err := OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
+	defer func() {
+		if err != nil {
+			st.Close()
+			reportClosedMachineAPI(st)
+		}
+	}()
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -568,29 +687,22 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Before starting any workers, ensure we record the Juju version this machine
 	// agent is running.
 	currentTools := &coretools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+	apiStateUpgrader := a.getUpgrader(st)
+	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
 	runner := newConnRunner(st)
 
-	// Run the upgrader and the upgrade-steps worker without waiting for
+	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(
-			st.Upgrader(),
-			agentConfig,
-			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
-		), nil
-	})
+	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
-
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -608,12 +720,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 	}
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	if isEnvironManager {
-		rsyslogMode = rsyslog.RsyslogModeAccumulate
-	}
-
 	runner := newConnRunner(st)
+
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
@@ -623,8 +731,24 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
 
+	if isEnvironManager {
+		runner.StartWorker("resumer", func() (worker.Worker, error) {
+			// The action of resumer is so subtle that it is not tested,
+			// because we can't figure out how to do so without
+			// brutalising the transaction log.
+			return newResumer(st.Resumer()), nil
+		})
+	}
+
+	if feature.IsDbLogEnabled() {
+		runner.StartWorker("logsender", func() (worker.Worker, error) {
+			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+		})
+	}
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+		accessor := machiner.APIMachineAccessor{st.Machiner()}
+		return machiner.NewMachiner(accessor, agentConfig), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -644,41 +768,36 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
-	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
-	// Will be enabled in a followup branch.
-	enableStorageWorkers := false
-	if featureflag.Enabled(feature.Storage) {
-		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-			api, err := st.DiskManager()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-		})
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
-		})
-		if enableStorageWorkers {
-			runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Tag())
-				storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-				return newStorageWorker(storageDir, api, api), nil
-			})
-			if isEnvironManager {
-				runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-					api := st.StorageProvisioner(agentConfig.Environment())
-					return newStorageWorker("", api, api), nil
-				})
-			}
+	if !featureflag.Enabled(feature.DisableRsyslog) {
+		rsyslogMode := rsyslog.RsyslogModeForwarding
+		if isEnvironManager {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
 		}
+
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		})
 	}
+
+	if !isEnvironManager {
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
+		})
+	}
+
+	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
+	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+		scope := agentConfig.Tag()
+		api := st.StorageProvisioner(scope)
+		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
+	})
 
 	// Check if the network management is disabled.
 	envConfig, err := st.Environment().EnvironConfig()
@@ -747,12 +866,33 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
+// Restart restarts the agent's service.
+func (a *MachineAgent) Restart() error {
+	name := a.CurrentConfig().Value(agent.AgentServiceName)
+	return service.Restart(name)
+}
+
 func (a *MachineAgent) upgradeStepsWorkerStarter(
 	st *api.State,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
+}
+
+func (a *MachineAgent) agentUpgraderWorkerStarter(
+	st *apiupgrader.State,
+	agentConfig agent.Config,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return upgrader.NewAgentUpgrader(
+			st,
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+			a.initialAgentUpgradeCheckComplete,
+		), nil
 	}
 }
 
@@ -906,28 +1046,39 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
-				workerLoop := lease.WorkerLoop(st)
-				return worker.NewSimpleWorker(workerLoop), nil
+				return lease.NewLeaseManager(st)
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Infof("update apiserver worker with new certificate")
-					certChangedChan <- info
-					return nil
+					select {
+					case certChangedChan <- info:
+						return nil
+					case <-done:
+						return nil
+					}
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
 			})
-			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
-				// The action of resumer is so subtle that it is not tested,
-				// because we can't figure out how to do so without brutalising
-				// the transaction log.
-				return resumer.NewResumer(st), nil
+
+			if feature.IsDbLogEnabled() {
+				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				})
+			}
+			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
+				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
 			})
+
+			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
+				return txnpruner.New(st, time.Hour*2), nil
+			})
+
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -942,7 +1093,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 func (a *MachineAgent) startEnvWorkers(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
-) (runner worker.Runner, err error) {
+) (_ worker.Worker, err error) {
 	envUUID := st.EnvironUUID()
 	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
 	logger.Infof("starting workers for env %s", envUUID)
@@ -959,7 +1110,7 @@ func (a *MachineAgent) startEnvWorkers(
 	// Create a runner for workers specific to this
 	// environment. Either the State or API connection failing will be
 	// considered fatal, killing the runner and all its workers.
-	runner = newConnRunner(st, apiSt)
+	runner := newConnRunner(st, apiSt)
 	defer func() {
 		if err != nil && runner != nil {
 			runner.Kill()
@@ -992,25 +1143,35 @@ func (a *MachineAgent) startEnvWorkers(
 	}()
 
 	// Start workers that depend on a *state.State.
-	runner.StartWorker("instancepoller", func() (worker.Worker, error) {
-		return instancepoller.NewWorker(st), nil
-	})
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return cleaner.NewCleaner(st), nil
-	})
+	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
+	// Seriously, these should all be using the API.
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
+	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return addresser.NewWorker(st)
 	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
+	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+		scope := st.EnvironTag()
+		api := apiSt.StorageProvisioner(scope)
+		return newStorageWorker(scope, "", api, api, api, api, api), nil
+	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+	})
+	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
+		return newInstancePoller(apiSt.InstancePoller()), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
@@ -1090,7 +1251,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 }
 
 // limitLogins is called by the API server for each login attempt.
-// it returns an error if upgrads or restore are running.
+// it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
@@ -1132,7 +1293,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() {
+	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1147,11 +1308,13 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
 	} else {
 		return nil // allow all logins
 	}
 }
+
+var stateWorkerServingConfigErr = errors.New("state worker started with no state serving info")
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
@@ -1168,55 +1331,56 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	servingInfo, ok := agentConfig.StateServingInfo()
-	if !ok {
-		return fmt.Errorf("state worker was started with no state serving info")
+	// Many of the steps here, such as adding the state server to the
+	// admin DB and initiating the replicaset, are once-only actions,
+	// required when upgrading from a pre-HA-capable
+	// environment. These calls won't do anything if the thing they
+	// need to set up has already been done.
+	var needReplicasetInit = false
+	var machineAddrs []network.Address
+
+	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
+	if err != nil {
+		return errors.Annotate(err, "error while checking if mongodb service is installed")
 	}
 
-	// When upgrading from a pre-HA-capable environment,
-	// we must add machine-0 to the admin database and
-	// initiate its replicaset.
-	//
-	// TODO(axw) remove this when we no longer need
-	// to upgrade from pre-HA-capable environments.
-	var shouldInitiateMongoServer bool
-	var addrs []network.Address
-	if isPreHAVersion(a.previousAgentVersion) {
-		_, err := a.ensureMongoAdminUser(agentConfig)
-		if err != nil {
-			return err
+	if mongoInstalled {
+		logger.Debugf("mongodb service is installed")
+
+		if _, err := a.ensureMongoAdminUser(agentConfig); err != nil {
+			return errors.Trace(err)
 		}
-		if servingInfo.SharedSecret == "" {
-			servingInfo.SharedSecret, err = mongo.GenerateSharedSecret()
+
+		if err := a.ensureMongoSharedSecret(agentConfig); err != nil {
+			return errors.Trace(err)
+		}
+		agentConfig = a.CurrentConfig() // ensureMongoSharedSecret may have updated the config
+
+		mongoInfo, ok := agentConfig.MongoInfo()
+		if !ok {
+			return errors.New("unable to retrieve mongo info to check replicaset")
+		}
+
+		needReplicasetInit, err = isReplicasetInitNeeded(mongoInfo)
+		if err != nil {
+			return errors.Annotate(err, "error while checking replicaset")
+		}
+
+		// If the replicaset is to be initialised the machine addresses
+		// need to be retrieved *before* MongoDB is restarted with the
+		// --replset option (in EnsureMongoServer). Once MongoDB is
+		// started with --replset it won't respond to queries until the
+		// replicaset is initiated.
+		if needReplicasetInit {
+			logger.Infof("replicaset not yet configured")
+			machineAddrs, err = getMachineAddresses(agentConfig)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
-			if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-				config.SetStateServingInfo(servingInfo)
-				return nil
-			}); err != nil {
-				return err
-			}
-			agentConfig = a.CurrentConfig()
 		}
-		// Note: we set Direct=true in the mongo options because it's
-		// possible that we've previously upgraded the mongo server's
-		// configuration to form a replicaset, but failed to initiate it.
-		st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
-		if err != nil {
-			return err
-		}
-		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(servingInfo)
-		if err := st.SetStateServingInfo(ssi); err != nil {
-			st.Close()
-			return fmt.Errorf("cannot set state serving info: %v", err)
-		}
-		st.Close()
-		addrs = m.Addresses()
-		shouldInitiateMongoServer = true
 	}
 
-	// ensureMongoServer installs/upgrades the init config as necessary.
+	// EnsureMongoServer installs/upgrades the init config as necessary.
 	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
 		return err
@@ -1224,45 +1388,34 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
-	if !shouldInitiateMongoServer {
-		return nil
+
+	// Initiate the replicaset if required.
+	if needReplicasetInit {
+		servingInfo, ok := agentConfig.StateServingInfo()
+		if !ok {
+			return stateWorkerServingConfigErr
+		}
+		mongoInfo, ok := agentConfig.MongoInfo()
+		if !ok {
+			return errors.New("unable to retrieve mongo info to initiate replicaset")
+		}
+		if err := initiateReplicaSet(mongoInfo, servingInfo.StatePort, machineAddrs); err != nil {
+			return err
+		}
 	}
 
-	// Initiate the replicaset for upgraded environments.
-	//
-	// TODO(axw) remove this when we no longer need
-	// to upgrade from pre-HA-capable environments.
-	stateInfo, ok := agentConfig.MongoInfo()
-	if !ok {
-		return fmt.Errorf("state worker was started with no state serving info")
-	}
-	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
-	if err != nil {
-		return err
-	}
-	peerAddr := mongo.SelectPeerAddress(addrs)
-	if peerAddr == "" {
-		return fmt.Errorf("no appropriate peer address found in %q", addrs)
-	}
-	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo:       dialInfo,
-		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
-		// TODO(dfc) InitiateMongoParams should take a Tag
-		User:     stateInfo.Tag.String(),
-		Password: stateInfo.Password,
-	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
-		return err
-	}
 	return nil
 }
 
+// ensureMongoAdminUser ensures that the machine's mongo user is in
+// the admin DB.
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	stateInfo, ok1 := agentConfig.MongoInfo()
+	mongoInfo, ok1 := agentConfig.MongoInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
-		return false, fmt.Errorf("no state serving info configuration")
+		return false, stateWorkerServingConfigErr
 	}
-	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return false, err
 	}
@@ -1275,13 +1428,122 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
 		Port:      servingInfo.StatePort,
-		User:      stateInfo.Tag.String(),
-		Password:  stateInfo.Password,
+		User:      mongoInfo.Tag.String(),
+		Password:  mongoInfo.Password,
 	})
 }
 
-func isPreHAVersion(v version.Number) bool {
-	return v.Compare(version.MustParse("1.19.0")) < 0
+// ensureMongoSharedSecret generates a MongoDB shared secret if
+// required, updating the agent's config and state.
+func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return stateWorkerServingConfigErr
+	}
+
+	if servingInfo.SharedSecret != "" {
+		return nil // Already done
+	}
+
+	logger.Infof("state serving info has no shared secret - generating")
+
+	var err error
+	servingInfo.SharedSecret, err = mongo.GenerateSharedSecret()
+	if err != nil {
+		return err
+	}
+	logger.Debugf("updating state serving info in agent config")
+	if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetStateServingInfo(servingInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
+	agentConfig = a.CurrentConfig()
+
+	logger.Debugf("updating state serving info in state")
+
+	// Note: we set Direct=true in the mongo options because it's
+	// possible that we've previously upgraded the mongo server's
+	// configuration to form a replicaset, but failed to initiate it.
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, _, err := openState(agentConfig, dialOpts)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(servingInfo)
+	if err := st.SetStateServingInfo(ssi); err != nil {
+		return errors.Errorf("cannot set state serving info: %v", err)
+	}
+
+	logger.Infof("shared secret updated in state serving info")
+	return nil
+}
+
+// isReplicasetInitNeeded returns true if the replicaset needs to be
+// initiated.
+func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
+	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
+	if err != nil {
+		return false, errors.Annotate(err, "cannot generate dial info to check replicaset")
+	}
+	dialInfo.Username = mongoInfo.Tag.String()
+	dialInfo.Password = mongoInfo.Password
+
+	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
+		return false, errors.Annotate(err, "cannot dial mongo to check replicaset")
+	}
+	defer session.Close()
+
+	cfg, err := replicaset.CurrentConfig(session)
+	if err != nil {
+		logger.Debugf("couldn't retrieve replicaset config (not fatal): %v", err)
+		return true, nil
+	}
+	numMembers := len(cfg.Members)
+	logger.Debugf("replicaset member count: %d", numMembers)
+	return numMembers < 1, nil
+}
+
+// getMachineAddresses connects to state to determine the machine's
+// network addresses.
+func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
+	logger.Debugf("opening state to get machine addresses")
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, m, err := openState(agentConfig, dialOpts)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
+	}
+	defer st.Close()
+	return m.Addresses(), nil
+}
+
+// initiateReplicaSet connects to MongoDB and sets up the replicaset.
+func initiateReplicaSet(mongoInfo *mongo.MongoInfo, statePort int, machineAddrs []network.Address) error {
+	peerAddr := mongo.SelectPeerAddress(machineAddrs)
+	if peerAddr == "" {
+		return errors.Errorf("no appropriate peer address found in %q", machineAddrs)
+	}
+
+	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
+	if err != nil {
+		return errors.Annotate(err, "cannot generate dial info to initiate replicaset")
+	}
+
+	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(statePort)),
+		User:           mongoInfo.Tag.String(), // TODO(dfc) InitiateMongoParams should take a Tag
+		Password:       mongoInfo.Password,
+	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
+		return err
+	}
+	return nil
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
@@ -1323,19 +1585,25 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 // but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(start), nil
+		return a.upgradeWaiterWorker(name, start), nil
 	})
 }
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// Wait for the upgrade to complete (or for us to be stopped).
-		select {
-		case <-stop:
-			return nil
-		case <-a.upgradeWorkerContext.UpgradeComplete:
+		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
+		for _, ch := range []chan struct{}{
+			a.upgradeWorkerContext.UpgradeComplete,
+			a.initialAgentUpgradeCheckComplete,
+		} {
+			select {
+			case <-stop:
+				return nil
+			case <-ch:
+			}
 		}
+		logger.Debugf("upgrades done, starting worker %q", name)
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1348,8 +1616,10 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		}()
 		select {
 		case err := <-waitCh:
+			logger.Debugf("worker %q exited with %v", name, err)
 			return err
 		case <-stop:
+			logger.Debugf("stopping so killing worker %q", name)
 			worker.Kill()
 		}
 		return <-waitCh // Ensure worker has stopped before returning.

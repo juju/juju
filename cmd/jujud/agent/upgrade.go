@@ -27,7 +27,7 @@ type upgradingMachineAgent interface {
 	ensureMongoServer(agent.Config) error
 	setMachineStatus(*api.State, params.Status, string) error
 	CurrentConfig() agent.Config
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 	Dying() <-chan struct{}
 }
 
@@ -277,6 +277,7 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 
 func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
+	defer watcher.Stop()
 
 	maxWait := getUpgradeStartTimeout(c.isMaster)
 	timeout := time.After(maxWait)
@@ -318,7 +319,7 @@ func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 // agent, retrying on failure. The agent's UpgradedToVersion is set
 // once the upgrade is complete.
 //
-// This function conforms to the AgentConfigMutator type and is
+// This function conforms to the agent.ConfigMutator type and is
 // designed to be called via a machine agent's ChangeConfig method.
 func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error

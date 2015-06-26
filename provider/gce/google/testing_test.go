@@ -4,9 +4,7 @@
 package google
 
 import (
-	"code.google.com/p/goauth2/oauth"
-	"code.google.com/p/google-api-go-client/compute/v1"
-	jc "github.com/juju/testing/checkers"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -16,9 +14,10 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	Auth     Auth
-	Conn     *Connection
-	FakeConn *fakeConn
+	Credentials *Credentials
+	ConnCfg     ConnectionConfig
+	Conn        *Connection
+	FakeConn    *fakeConn
 
 	DiskSpec         DiskSpec
 	AttachedDisk     compute.AttachedDisk
@@ -38,21 +37,33 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.Auth = Auth{
+	s.Credentials = &Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
+		PrivateKey:  []byte("<some-key>"),
+		JSONKey: []byte(`
+{
+    "private_key_id": "mnopq",
+    "private_key": "<some-key>",
+    "client_email": "user@mail.com",
+    "client_id": "spam",
+    "type": "service_account"
+}`[1:]),
+	}
+	s.ConnCfg = ConnectionConfig{
+		Region:    "a",
+		ProjectID: "spam",
 	}
 	fake := &fakeConn{}
 	s.Conn = &Connection{
-		Region:    "a",
-		ProjectID: "spam",
 		raw:       fake,
+		region:    "a",
+		projectID: "spam",
 	}
 	s.FakeConn = fake
 
 	s.DiskSpec = DiskSpec{
-		SizeHintGB: 5,
+		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
 		Scratch:    false,
@@ -65,7 +76,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Mode:       "READ_WRITE",
 		AutoDelete: true,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
-			DiskSizeGb:  1,
+			DiskSizeGb:  10,
 			SourceImage: "some/image/path",
 		},
 	}
@@ -127,20 +138,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
-}
-
-func (s *BaseSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
-	if expectedScopes == "" {
-		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
-	}
-	if token == nil {
-		token = &oauth.Token{}
-	}
-	s.PatchValue(&newToken, func(auth Auth, scopes string) (*oauth.Token, error) {
-		c.Check(auth, jc.DeepEquals, expectedAuth)
-		c.Check(scopes, gc.Equals, expectedScopes)
-		return token, nil
-	})
 }
 
 type fakeCall struct {

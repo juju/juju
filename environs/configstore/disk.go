@@ -212,6 +212,12 @@ func (info *environInfo) APICredentials() APICredentials {
 	}
 }
 
+// work around golang.org/issue/10628
+
+func (info *memInfo) APIEndpoint() APIEndpoint {
+	return info.environInfo.APIEndpoint()
+}
+
 // APIEndpoint implements EnvironInfo.APIEndpoint.
 func (info *environInfo) APIEndpoint() APIEndpoint {
 	info.mu.Lock()
@@ -446,8 +452,11 @@ func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = lock.LockWithTimeout(lockTimeout, operation)
+	message := fmt.Sprintf("pid: %d, operation: %s", os.Getpid(), operation)
+	err = lock.LockWithTimeout(lockTimeout, message)
 	if err != nil {
+		logger.Warningf("configstore lock held, lock dir: %s", filepath.Join(dir, lockName))
+		logger.Warningf("  lock holder message: %s", lock.Message())
 		return nil, errors.Trace(err)
 	}
 	return lock, nil

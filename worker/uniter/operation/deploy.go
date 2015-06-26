@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -16,6 +16,8 @@ import (
 
 // deploy implements charm install and charm upgrade operations.
 type deploy struct {
+	DoesNotRequireMachineLock
+
 	kind     Kind
 	charmURL *corecharm.URL
 	revert   bool
@@ -94,7 +96,7 @@ func (d *deploy) Execute(state State) (*State, error) {
 // Commit restores state for any interrupted hook, or queues an install or
 // upgrade-charm hook if no hook was interrupted.
 func (d *deploy) Commit(state State) (*State, error) {
-	if err := d.callbacks.InitializeMetricsCollector(); err != nil {
+	if err := d.callbacks.InitializeMetricsTimers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	change := &stateChange{

@@ -87,6 +87,16 @@ func (*configSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
+func (*configSuite) TestBlockStorageProviderDefault(c *gc.C) {
+	ecfg, err := newConfig(map[string]interface{}{
+		"maas-server": "http://maas.testing.invalid/maas/",
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	src, _ := ecfg.StorageDefaultBlockSource()
+	c.Assert(src, gc.Equals, "maas")
+}
+
 func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the

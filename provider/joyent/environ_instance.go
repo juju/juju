@@ -15,7 +15,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -32,6 +34,7 @@ var (
 	vTypeSmartmachine   = "smartmachine"
 	vTypeVirtualmachine = "kvm"
 	signedImageDataOnly = false
+	defaultCpuCores     = uint64(1)
 )
 
 type joyentCompute struct {
@@ -82,9 +85,14 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 	return validator, nil
 }
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
@@ -104,9 +112,9 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
+	args.InstanceConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +123,10 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	// different 10.x.x.x/21 networks and adding this route allows
 	// them to talk despite this. See:
 	// https://bugs.launchpad.net/juju-core/+bug/1401130
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create cloudinit template")
+	}
 	ifupScript := `
 #!/bin/bash
 
@@ -128,7 +139,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 `[1:]
 	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
 
-	userData, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -177,7 +188,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -305,11 +316,11 @@ func (env *joyentEnviron) stopInstance(id string) error {
 }
 
 func (env *joyentEnviron) pollMachineState(machineId, state string) bool {
-	machineConfig, err := env.compute.cloudapi.GetMachine(machineId)
+	instanceConfig, err := env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(machineConfig.State, state)
+	return strings.EqualFold(instanceConfig.State, state)
 }
 
 func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) {
@@ -319,6 +330,14 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 	}
 	allInstanceTypes := []instances.InstanceType{}
 	for _, pkg := range packages {
+		// ListPackages does not include the virt type of the package.
+		// However, Joyent says the smart packages have zero VCPUs.
+		var virtType *string
+		if pkg.VCPUs > 0 {
+			virtType = &vTypeVirtualmachine
+		} else {
+			virtType = &vTypeSmartmachine
+		}
 		instanceType := instances.InstanceType{
 			Id:       pkg.Id,
 			Name:     pkg.Name,
@@ -326,7 +345,7 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
-			VirtType: &vTypeVirtualmachine,
+			VirtType: virtType,
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
@@ -335,6 +354,10 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	// Require at least one VCPU so we get KVM rather than smart package.
+	if ic.Constraints.CpuCores == nil {
+		ic.Constraints.CpuCores = &defaultCpuCores
+	}
 	allInstanceTypes, err := env.listInstanceTypes()
 	if err != nil {
 		return nil, err

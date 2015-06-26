@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
@@ -39,12 +40,15 @@ func (c *RetryProvisioningCommand) Info() *cmd.Info {
 
 func (c *RetryProvisioningCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no machine specified")
+		return errors.Errorf("no machine specified")
 	}
 	c.Machines = make([]names.MachineTag, len(args))
 	for i, arg := range args {
 		if !names.IsValidMachine(arg) {
-			return fmt.Errorf("invalid machine %q", arg)
+			return errors.Errorf("invalid machine %q", arg)
+		}
+		if names.IsContainerMachine(arg) {
+			return errors.Errorf("invalid machine %q retry-provisioning does not support containers", arg)
 		}
 		c.Machines[i] = names.NewMachineTag(arg)
 	}

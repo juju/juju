@@ -3,6 +3,11 @@
 
 package storage
 
+import (
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+)
+
 const (
 	// ConfigStorageDir is the path to the directory which a
 	// machine-scoped storage source may use to contain storage
@@ -14,19 +19,44 @@ const (
 	// should not be relied upon until a storage source is
 	// constructed.
 	ConfigStorageDir = "storage-dir"
+
+	// Persistent is true if storage survives the lifecycle of the
+	// machine to which it is attached.
+	Persistent = "persistent"
 )
 
 // Config defines the configuration for a storage source.
 type Config struct {
-	name     string
-	provider ProviderType
-	attrs    map[string]interface{}
+	name       string
+	provider   ProviderType
+	attrs      map[string]interface{}
+	persistent bool
 }
+
+var fields = schema.Fields{
+	Persistent: schema.Bool(),
+}
+
+var configChecker = schema.FieldMap(
+	fields,
+	schema.Defaults{
+		Persistent: false,
+	},
+)
 
 // NewConfig creates a new Config for instantiating a storage source.
 func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
-	// TODO(axw) validate attributes.
-	return &Config{name, provider, attrs}, nil
+	out, err := configChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating common storage config")
+	}
+	coerced := out.(map[string]interface{})
+	return &Config{
+		name:       name,
+		provider:   provider,
+		attrs:      attrs,
+		persistent: coerced[Persistent].(bool),
+	}, nil
 }
 
 // Name returns the name of a storage source. This is not necessarily unique,
@@ -42,6 +72,9 @@ func (c *Config) Provider() ProviderType {
 
 // Attrs returns the configuration attributes for a storage source.
 func (c *Config) Attrs() map[string]interface{} {
+	if c.attrs == nil {
+		return nil
+	}
 	attrs := make(map[string]interface{})
 	for k, v := range c.attrs {
 		attrs[k] = v
@@ -53,4 +86,9 @@ func (c *Config) Attrs() map[string]interface{} {
 func (c *Config) ValueString(name string) (string, bool) {
 	v, ok := c.attrs[name].(string)
 	return v, ok
+}
+
+// IsPersistent returns true if config has persistent set to true.
+func (c *Config) IsPersistent() bool {
+	return c.persistent
 }

@@ -10,9 +10,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
@@ -58,10 +57,10 @@ machine be running Ubuntu, that it be accessible via SSH, and be running on
 the same network as the API server.
 
 It is possible to override or augment constraints by passing provider-specific
-"placement directives" with "--to"; these give the provider additional
+"placement directives" as an argument; these give the provider additional
 information about how to allocate the machine. For example, one can direct the
-MAAS provider to acquire a particular node by specifying its hostname with
-"--to". For more information on placement directives, see "juju help placement".
+MAAS provider to acquire a particular node by specifying its hostname.
+For more information on placement directives, see "juju help placement".
 
 Examples:
    juju machine add                      (starts a new machine)
@@ -71,7 +70,8 @@ Examples:
    juju machine add lxc:4                (starts a new lxc container on machine 4)
    juju machine add --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju machine add ssh:user@10.10.0.3   (manually provisions a machine with ssh)
-   juju machine add zone=us-east-1a
+   juju machine add zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
+   juju machine add maas2.name           (acquire machine maas2.name on MAAS)
 
 See Also:
    juju help constraints
@@ -94,7 +94,8 @@ func init() {
 // AddCommand starts a new machine and registers it in the environment.
 type AddCommand struct {
 	envcmd.EnvCommandBase
-	api AddMachineAPI
+	api               AddMachineAPI
+	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
@@ -120,12 +121,7 @@ func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
-	if featureflag.Enabled(feature.Storage) {
-		// NOTE: if/when the feature flag is removed, bump the client
-		// facade and check that the AddMachines facade version supports
-		// disks, and error if it doesn't.
-		f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
-	}
+	f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
 }
 
 func (c *AddCommand) Init(args []string) error {
@@ -160,21 +156,54 @@ type AddMachineAPI interface {
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
+type MachineManagerAPI interface {
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	BestAPIVersion() int
+	Close() error
+}
+
 var manualProvisioner = manual.ProvisionMachine
 
-func (c *AddCommand) getAddMachineAPI() (AddMachineAPI, error) {
+func (c *AddCommand) getClientAPI() (AddMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
+func (c *AddCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machinemanager.NewClient(root), nil
+}
+
+func (c *AddCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
+	if c.machineManagerAPI != nil {
+		return c.machineManagerAPI, nil
+	}
+	return c.NewMachineManagerClient()
+}
+
 func (c *AddCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAddMachineAPI()
+	client, err := c.getClientAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
+
+	var machineManager MachineManagerAPI
+	if len(c.Disks) > 0 {
+		machineManager, err = c.getMachineManagerAPI()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer machineManager.Close()
+		if machineManager.BestAPIVersion() < 1 {
+			return errors.New("cannot add machines with disks: not supported by the API server")
+		}
+	}
 
 	logger.Infof("load config")
 	var config *config.Config
@@ -246,24 +275,30 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		machines[i] = machineParams
 	}
 
-	results, err := client.AddMachines(machines)
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
+	var results []params.AddMachinesResult
+	// If storage is specified, we attempt to use a new API on the service facade.
+	if len(c.Disks) > 0 {
+		results, err = machineManager.AddMachines(machines)
+	} else {
+		results, err = client.AddMachines(machines)
+		if params.IsCodeNotImplemented(err) {
+			if c.Placement != nil {
+				containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
+				if parseErr != nil {
+					// The user specified a non-container placement directive:
+					// return original API not implemented error.
+					return err
+				}
+				machineParams.ContainerType = containerType
+				machineParams.ParentId = c.Placement.Directive
+				machineParams.Placement = nil
 			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
+			logger.Infof(
+				"AddMachinesWithPlacement not supported by the API server, " +
+					"falling back to 1.18 compatibility mode",
+			)
+			results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
 		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)

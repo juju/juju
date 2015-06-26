@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -50,6 +51,10 @@ type BootstrapParams struct {
 	// MetadataDir is an optional path to a local directory containing
 	// tools and/or image metadata.
 	MetadataDir string
+
+	// AgentVersion, if set, determines the exact tools version that
+	// will be used to start the Juju agents.
+	AgentVersion *version.Number
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -97,20 +102,27 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
-	availableTools, err := findAvailableTools(environ, args.Constraints.Arch, args.UploadTools)
+	availableTools, err := findAvailableTools(environ, args.AgentVersion, args.Constraints.Arch, args.UploadTools)
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
 	} else if err != nil {
 		return err
 	}
+	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
+		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
+	}
 
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
-	// agent-version set anyway, to appease FinishMachineConfig.
+	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
+	agentVersion := version.Current.Number.String()
+	if args.AgentVersion != nil {
+		agentVersion = args.AgentVersion.String()
+	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": agentVersion,
 	}); err != nil {
 		return err
 	}
@@ -156,16 +168,16 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
 	if err != nil {
 		return err
 	}
-	machineConfig.Tools = selectedTools
-	machineConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, machineConfig); err != nil {
+	instanceConfig.Tools = selectedTools
+	instanceConfig.CustomImageMetadata = imageMetadata
+	if err := finalizer(ctx, instanceConfig); err != nil {
 		return err
 	}
-	ctx.Infof("Bootstrap complete")
+	ctx.Infof("Bootstrap agent installed")
 	return nil
 }
 

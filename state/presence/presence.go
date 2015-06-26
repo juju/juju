@@ -710,10 +710,10 @@ func (p *Pinger) ping() (err error) {
 // the local clock and the database clock.
 func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	var server struct {
-		time.Time "retval"
+		time.Time `bson:"retval"`
 	}
 	var isMaster struct {
-		LocalTime time.Time "localTime"
+		LocalTime time.Time `bson:"localTime"`
 	}
 	var after time.Time
 	var before time.Time

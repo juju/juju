@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -39,7 +40,7 @@ type SimpleContext struct {
 	agentConfig agent.Config
 
 	// discoverService is a surrogate for service.DiscoverService.
-	discoverService func(string, common.Conf) deployerService
+	discoverService func(string, common.Conf) (deployerService, error)
 
 	// listServices is a surrogate for service.ListServices.
 	listServices func() ([]string, error)
@@ -72,10 +73,8 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		discoverService: func(name string, conf common.Conf) deployerService {
-			// TODO(ericsnow) We shouldn't just throw away the error here.
-			svc, _ := service.DiscoverService(name, conf)
-			return svc
+		discoverService: func(name string, conf common.Conf) (deployerService, error) {
+			return service.DiscoverService(name, conf)
 		},
 		listServices: func() ([]string, error) {
 			return service.ListServices()
@@ -89,7 +88,14 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
-	svc := ctx.service(unitName)
+	renderer, err := shell.NewRenderer("")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	svc, err := ctx.service(unitName, renderer)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	installed, err := svc.Installed()
 	if err != nil {
 		return errors.Trace(err)
@@ -143,14 +149,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an init service that runs the unit agent.
-	sconf, _ := service.UnitAgentConf(
-		unitName,
-		dataDir,
-		logDir,
-		"",
-		containerType,
-	)
-	svc.UpdateConfig(sconf)
 	if err := service.InstallAndStart(svc); err != nil {
 		return errors.Trace(err)
 	}
@@ -158,7 +156,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 }
 
 type deployerService interface {
-	UpdateConfig(common.Conf)
 	Installed() (bool, error)
 	Install() error
 	Remove() error
@@ -170,27 +167,28 @@ type deployerService interface {
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
+func (ctx *SimpleContext) findInitSystemJob(unitName string) (deployerService, error) {
 	unitsAndJobs, err := ctx.deployedUnitsInitSystemJobs()
 	if err != nil {
-		// TODO(ericsnow) Is there a good reason to discard the error
-		// like this?
-		return nil
+		return nil, errors.Trace(err)
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
 		return ctx.discoverService(job, common.Conf{})
 	}
-	return nil
+	return nil, errors.Errorf("unit %q is not deployed", unitName)
 }
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.findInitSystemJob(unitName)
-	if svc == nil {
-		return fmt.Errorf("unit %q is not deployed", unitName)
+	svc, err := ctx.findInitSystemJob(unitName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	installed, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if !installed {
-		return fmt.Errorf("unit %q is not deployed", unitName)
+		return errors.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Stop(); err != nil {
 		return err
@@ -252,15 +250,30 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string) deployerService {
+func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (deployerService, error) {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	return ctx.discoverService(svcName, common.Conf{})
+
+	info := service.NewAgentInfo(
+		service.AgentKindUnit,
+		unitName,
+		ctx.agentConfig.DataDir(),
+		ctx.agentConfig.LogDir(),
+	)
+
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
+	containerType := ctx.agentConfig.Value(agent.ContainerType)
+
+	conf := service.ContainerAgentConf(info, renderer, containerType)
+	return ctx.discoverService(svcName, conf)
 }
 
 func removeOnErr(err *error, path string) {
 	if *err != nil {
-		if err := os.Remove(path); err != nil {
+		if err := os.RemoveAll(path); err != nil {
 			logger.Warningf("installer: cannot remove %q: %v", path, err)
 		}
 	}

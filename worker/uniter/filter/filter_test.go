@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
@@ -116,7 +116,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	dyingC.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	dyingC := s.notifyAsserterC(c, f.UnitDying())
 	dyingC.AssertNoReceive()
 
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,6 +286,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
+	c.Assert(err, jc.ErrorIsNil)
 	upgradeC.AssertOneValue(newCharm.URL())
 }
 
@@ -294,7 +295,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test no changes before the charm URL is set.
@@ -304,6 +305,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
+	s.EvilSync()
 	configC.AssertOneReceive()
 
 	// Change the config; new event received.
@@ -329,7 +331,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the addresses of the unit's assigned machine; new event received.
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	configC.AssertOneReceive()
@@ -354,7 +356,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not get any config-change events until
@@ -367,6 +369,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should get one config-change event only.
+	s.EvilSync()
 	configC.AssertOneReceive()
 }
 
@@ -381,8 +384,8 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 
 	// Changing the machine addresses should also result in
 	// a config-change event.
-	err = s.machine.SetAddresses(
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
+	err = s.machine.SetProviderAddresses(
+		network.NewAddress("0.1.2.3"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,9 +408,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the machine addresses.
-	err = s.machine.SetAddresses(
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
-	)
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the charm URL to trigger config events.
@@ -604,7 +605,7 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-block2")
 	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
 		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
-		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 2048, Count: 2},
 	})
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -629,4 +630,98 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
 		names.NewStorageTag("multi2up/1"),
 	})
+}
+
+func (s *FilterSuite) setLeaderSetting(c *gc.C, key, value string) {
+	// s.wordpress is the service object
+	currentSettings, err := s.State.ReadLeadershipSettings(s.wordpress.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	currentSettings.Update(map[string]interface{}{key: value})
+	_, err = currentSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	// This is how we would set LeadershipSettings if we are the Leader,
+	// but as we are not guaranteed to be leader and the API is properly
+	// running. But we just want to test them getting changed, we poke
+	// directly into state
+	/// err := s.uniter.LeadershipSettings.Merge(
+	///     s.wordpress.Tag().Id(),
+	///     map[string]string{key: value},
+	/// )
+	/// c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilterSuite) TestLeaderSettingsEventsSendsChanges(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+	// Assert that we get the initial event
+	leaderSettingsC.AssertOneReceive()
+
+	// And any time we make changes to the leader settings, we get an event
+	s.setLeaderSetting(c, "foo", "bar-1")
+	leaderSettingsC.AssertOneReceive()
+
+	// And multiple changes to settings still get collapsed into a single event
+	s.setLeaderSetting(c, "foo", "bar-2")
+	s.setLeaderSetting(c, "foo", "bar-3")
+	s.setLeaderSetting(c, "foo", "bar-4")
+	s.EvilSync()
+	leaderSettingsC.AssertOneReceive()
+}
+
+func (s *FilterSuite) TestWantLeaderSettingsEvents(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+
+	// Supress the initial event
+	f.WantLeaderSettingsEvents(false)
+	leaderSettingsC.AssertNoReceive()
+
+	// Also suppresses actual changes
+	s.setLeaderSetting(c, "foo", "baz-1")
+	s.EvilSync()
+	leaderSettingsC.AssertNoReceive()
+
+	// Reenabling the settings gives us an immediate change
+	f.WantLeaderSettingsEvents(true)
+	leaderSettingsC.AssertOneReceive()
+
+	// And also gives changes when actual changes are made
+	s.setLeaderSetting(c, "foo", "baz-2")
+	s.EvilSync()
+	leaderSettingsC.AssertOneReceive()
+
+	// Setting a value to the same thing doesn't trigger a change
+	s.setLeaderSetting(c, "foo", "baz-2")
+	s.EvilSync()
+	leaderSettingsC.AssertNoReceive()
+
+}
+
+func (s *FilterSuite) TestDiscardLeaderSettingsEvent(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+	// Discard the initial event
+	f.DiscardLeaderSettingsEvent()
+	leaderSettingsC.AssertNoReceive()
+
+	// However, it has not permanently disabled change events, another
+	// change still shows up
+	s.setLeaderSetting(c, "foo", "bing-1")
+	s.EvilSync()
+	leaderSettingsC.AssertOneReceive()
+
+	// But at any point we can discard them
+	s.setLeaderSetting(c, "foo", "bing-2")
+	s.EvilSync()
+	f.DiscardLeaderSettingsEvent()
+	leaderSettingsC.AssertNoReceive()
 }

@@ -4,18 +4,19 @@
 package testing
 
 import (
-	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -30,18 +31,54 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
-type FakeEnsure struct {
-	EnsureCount    int
-	InitiateCount  int
-	DataDir        string
-	Namespace      string
-	OplogSize      int
-	Info           state.StateServingInfo
-	InitiateParams peergrouper.InitiateMongoParams
-	Err            error
+type patchingSuite interface {
+	PatchValue(interface{}, interface{})
 }
 
-func (f *FakeEnsure) FakeEnsureMongo(args mongo.EnsureServerParams) error {
+// InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
+// out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
+func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
+	f := &FakeEnsureMongo{
+		ServiceInstalled:    true,
+		ReplicasetInitiated: true,
+	}
+	suite.PatchValue(&mongo.IsServiceInstalled, f.IsServiceInstalled)
+	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
+	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
+	return f
+}
+
+// FakeEnsureMongo provides test fakes for the functions used to
+// initialise MongoDB.
+type FakeEnsureMongo struct {
+	EnsureCount         int
+	InitiateCount       int
+	DataDir             string
+	Namespace           string
+	OplogSize           int
+	Info                state.StateServingInfo
+	InitiateParams      peergrouper.InitiateMongoParams
+	Err                 error
+	ServiceInstalled    bool
+	ReplicasetInitiated bool
+}
+
+func (f *FakeEnsureMongo) IsServiceInstalled(string) (bool, error) {
+	return f.ServiceInstalled, nil
+}
+
+func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error) {
+	if f.ReplicasetInitiated {
+		// Return a dummy replicaset config that's good enough to
+		// indicate that the replicaset is initiated.
+		return &replicaset.Config{
+			Members: []replicaset.Member{{}},
+		}, nil
+	}
+	return nil, errors.NotFoundf("replicaset")
+}
+
+func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	f.EnsureCount++
 	f.DataDir, f.Namespace, f.OplogSize = args.DataDir, args.Namespace, args.OplogSize
 	f.Info = state.StateServingInfo{
@@ -56,7 +93,7 @@ func (f *FakeEnsure) FakeEnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
-func (f *FakeEnsure) FakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
+func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
 	f.InitiateCount++
 	f.InitiateParams = p
 	return nil
@@ -106,27 +143,13 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := ParseHostPort(apiInfo.Addrs[0])
+	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("api host ports primed %#v", hostPort)
-}
-
-func ParseHostPort(s string) (network.HostPort, error) {
-	addr, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return network.HostPort{}, err
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
-	}
-	addrs := network.NewAddresses(addr)
-	hostPorts := network.AddressesWithPort(addrs, portNum)
-	return hostPorts[0], nil
+	c.Logf("api host ports primed %#v", hostPorts)
 }
 
 // InitAgent initialises the given agent command with additional
@@ -142,7 +165,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

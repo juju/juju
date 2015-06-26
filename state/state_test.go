@@ -14,12 +14,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
@@ -51,7 +51,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusActive, "", nil)
+	err := u.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -87,6 +87,10 @@ func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
 	c.Assert(docID, gc.Equals, s.State.EnvironUUID()+":"+id)
+
+	// Ensure that the prefix isn't added if it's already there.
+	docID2 := state.DocID(s.State, docID)
+	c.Assert(docID2, gc.Equals, docID)
 }
 
 func (s *StateSuite) TestLocalID(c *gc.C) {
@@ -590,7 +594,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(network.Address{
+		err := m.SetProviderAddresses(network.Address{
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 			Value: fmt.Sprintf("10.0.0.%d", i),
@@ -1225,7 +1229,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
-	if volumeAttachments[0].Volume() == names.NewVolumeTag("1") {
+	if volumeAttachments[0].Volume() == names.NewVolumeTag(m.Id()+"/1") {
 		va := volumeAttachments
 		va[0], va[1] = va[1], va[0]
 	}
@@ -1654,8 +1658,8 @@ var addNetworkErrorsTests = []struct {
 	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "": name must be not empty`,
 }, {
-	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "-invalid-": invalid name`,
+	state.NetworkInfo{"$-invalid-", "provider-id", "0.3.1.0/24", 0},
+	`cannot add network "\$-invalid-": invalid name`,
 }, {
 	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
 	`cannot add network "net2": provider id must be not empty`,
@@ -2136,6 +2140,23 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
+	w := s.State.WatchIPAddresses()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent()
+
+	// add an IP address
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+
+	// Make it Dead: reported.
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+}
+
 func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	// Alive environment...
 	alive, err := s.State.Environment()
@@ -2157,16 +2178,14 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	w := s.State.WatchEnvironments()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Remove alive and dying and see changes reported.
 	err = state.RemoveEnvironment(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
 
 func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
@@ -2670,6 +2689,9 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
+	err = state.SetEnvLifeDying(st, st.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2686,6 +2708,14 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	err := st.RemoveAllEnvironDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
 }
 
 type attrs map[string]interface{}
@@ -3462,18 +3492,18 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 }
 
-func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) {
+func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config.Config, string) {
 	// Get the agent-version set in the environment.
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	currentVersion := agentVersion.String()
 
 	// Add a machine and a unit with the current version.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service, err := s.State.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
+	service, err := st.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3492,8 +3522,8 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 	c.Assert(s.State.UpdateEnvironConfig(attrs, nil, nil), gc.IsNil)
 }
 
-func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
-	envConfig, err := s.State.EnvironConfig()
+func assertAgentVersion(c *gc.C, st *state.State, vers string) {
+	envConfig, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3501,7 +3531,7 @@ func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers 
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
-	envConfig, _ := s.prepareAgentVersionTests(c)
+	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change something
 	// other than the version, and make sure it retries
@@ -3513,11 +3543,11 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// Change the agent-version and ensure it has changed.
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAgentVersion(c, envConfig, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6")
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) {
-	envConfig, _ := s.prepareAgentVersionTests(c)
+	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change the version
 	// to the new one, and make sure it retries
@@ -3529,11 +3559,39 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	// Change the agent-version and verify.
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAgentVersion(c, envConfig, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6")
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+
+	higher := version.Current
+	higher.Patch++
+	lower := version.Current
+	lower.Patch--
+
+	// Set other environ version to < server envrion version
+	err := otherSt.SetEnvironAgentVersion(lower.Number)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, otherSt, lower.Number.String())
+
+	// Set other environ version == server envrion version
+	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, otherSt, version.Current.Number.String())
+
+	// Set other environ version to > server envrion version
+	err = otherSt.SetEnvironAgentVersion(higher.Number)
+	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+		higher.Number.String(),
+		version.Current.Number.String(),
+	)
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
-	envConfig, currentVersion := s.prepareAgentVersionTests(c)
+	envConfig, currentVersion := s.prepareAgentVersionTests(c, s.State)
 
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
@@ -3546,7 +3604,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
-	s.assertAgentVersion(c, envConfig, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion)
 }
 
 func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
@@ -3717,6 +3775,47 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 		gotCons, err := m.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(gotCons, gc.DeepEquals, cons)
+		c.Assert(m.WantsVote(), jc.IsTrue)
+		ids[i] = m.Id()
+	}
+	s.assertStateServerInfo(c, ids, ids, nil)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityTo(c *gc.C) {
+	// Don't use agent presence to decide on machine availability.
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	ids := make([]string, 3)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	ids[0] = m0.Id()
+
+	// Add two non-state-server machines.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertStateServerInfo(c, []string{"0"}, []string{"0"}, nil)
+
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", []string{"1", "2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 0)
+	c.Assert(changes.Converted, gc.HasLen, 2)
+
+	for i := 1; i < 3; i++ {
+		m, err := s.State.Machine(fmt.Sprint(i))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageEnviron,
+		})
+		gotCons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotCons, gc.DeepEquals, constraints.Value{})
 		c.Assert(m.WantsVote(), jc.IsTrue)
 		ids[i] = m.Id()
 	}
@@ -4203,10 +4302,9 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    99,
-	}}})
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.NewHostPorts(99, "0.1.2.3"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -4232,27 +4330,27 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

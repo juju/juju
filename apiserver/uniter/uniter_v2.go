@@ -7,9 +7,15 @@
 package uniter
 
 import (
+	"github.com/juju/loggo"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 func init() {
 	common.RegisterStandardFacade("Uniter", 2, NewUniterAPIV2)
@@ -19,6 +25,40 @@ func init() {
 type UniterAPIV2 struct {
 	UniterAPIV1
 	StorageAPI
+}
+
+// AddMetricBatches adds the metrics for the specified unit.
+func (u *UniterAPIV2) AddMetricBatches(args params.MetricBatchParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Batches)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		logger.Warningf("failed to check unit access: %v", err)
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, batch := range args.Batches {
+		tag, err := names.ParseUnitTag(batch.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		metrics := make([]state.Metric, len(batch.Batch.Metrics))
+		for j, metric := range batch.Batch.Metrics {
+			metrics[j] = state.Metric{
+				Key:   metric.Key,
+				Value: metric.Value,
+				Time:  metric.Time,
+			}
+		}
+		_, err = u.unit.AddMetrics(batch.Batch.UUID, batch.Batch.Created, batch.Batch.CharmURL, metrics)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }
 
 // NewUniterAPIV2 creates a new instance of the Uniter API, version 2.

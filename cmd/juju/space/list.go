@@ -5,6 +5,7 @@ package space
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strings"
 
@@ -23,10 +24,12 @@ type ListCommand struct {
 }
 
 const listCommandDoc = `
-Displays all defined spaces. If --short is not given both spaces and their subnets  are displayed, otherwise just a list
-of spaces. The --format argument has the same semantics as in other CLI commands - "yaml" is the default. The --output
-argument always exists when --format is supported, and allows to redirect the command output to a file.
-`
+Displays all defined spaces. If --short is not given both spaces and
+their subnets are displayed, otherwise just a list of spaces. The
+--format argument has the same semantics as in other CLI commands -
+"yaml" is the default. The --output argument always exists when
+--format is supported, and allows to redirect the command output to a
+file. `
 
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
@@ -110,24 +113,28 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 			for _, CIDR := range space.CIDRs {
 				sub := subnetMap[CIDR]
 				subResult := formattedSubnet{
+					Type:       typeUnknown,
 					ProviderId: sub.ProviderId,
 					Zones:      sub.Zones,
 				}
-				// Use the CIDR to determine the subnet type.
-				if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
-					return errors.Errorf("subnet %q has invalid CIDR", sub.CIDR)
-				} else if ip.To4() != nil {
-					subResult.Type = typeIPv4
-				} else if ip.To16() != nil {
-					subResult.Type = typeIPv6
-				}
-
 				// Display correct status according to the life cycle value.
 				switch sub.Life {
 				case params.Alive:
 					subResult.Status = statusInUse
 				case params.Dying, params.Dead:
 					subResult.Status = statusTerminating
+				}
+
+				// Use the CIDR to determine the subnet type.
+				if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
+					// This should never happen as subnets will be
+					// validated before saving in state.
+					msg := fmt.Sprintf("error: invalid subnet CIDR: %s", sub.CIDR)
+					subResult.Status = msg
+				} else if ip.To4() != nil {
+					subResult.Type = typeIPv4
+				} else if ip.To16() != nil {
+					subResult.Type = typeIPv6
 				}
 				result.Spaces[space.Name][CIDR] = subResult
 			}
@@ -137,8 +144,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 }
 
 const (
-	typeIPv4 = "ipv4"
-	typeIPv6 = "ipv6"
+	typeUnknown = "unknown"
+	typeIPv4    = "ipv4"
+	typeIPv6    = "ipv6"
 
 	statusInUse       = "in-use"
 	statusTerminating = "terminating"

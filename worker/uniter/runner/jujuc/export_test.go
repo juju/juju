@@ -4,4 +4,12 @@
 
 package jujuc
 
+import (
+	"github.com/juju/cmd"
+)
+
 var CmdSuffix = cmdSuffix
+
+func HandleSettingsFile(c *RelationSetCommand, ctx *cmd.Context) error {
+	return c.handleSettingsFile(ctx)
+}

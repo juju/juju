@@ -6,7 +6,7 @@ package uniter
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"

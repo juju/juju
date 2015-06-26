@@ -52,6 +52,11 @@ type Provider interface {
 	// Scope returns the scope of storage managed by this provider.
 	Scope() Scope
 
+	// Dynamic reports whether or not the storage provider is capable
+	// of dynamic storage provisioning. Non-dynamic storage must be
+	// created at the time a machine is provisioned.
+	Dynamic() bool
+
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error
@@ -68,7 +73,7 @@ type VolumeSource interface {
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	DescribeVolumes(volIds []string) ([]Volume, error)
+	DescribeVolumes(volIds []string) ([]VolumeInfo, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
@@ -76,14 +81,13 @@ type VolumeSource interface {
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
-	//
-	// If the provider is incapable of provisioning volumes separately
-	// from machine instances (e.g. MAAS), then ValidateVolumeParams
-	// must return an error if params.Instance is non-empty.
 	ValidateVolumeParams(params VolumeParams) error
 
-	// AttachVolumes attaches the volumes with the specified provider
-	// volume IDs to the instances with the corresponding index.
+	// AttachVolumes attaches volumes to machines.
+	//
+	// AttachVolumes must be idempotent; it may be called even if the
+	// attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
 	//
 	// TODO(axw) we need to validate attachment requests prior to
 	// recording in state. For example, the ec2 provider must reject
@@ -109,11 +113,28 @@ type FilesystemSource interface {
 	ValidateFilesystemParams(params FilesystemParams) error
 
 	// CreateFilesystems creates filesystems with the specified size, in MiB.
-	// If the filesystems are initially attached, then CreateFilesystems returns
-	// information about those attachments too.
-	CreateFilesystems(params []FilesystemParams) ([]Filesystem, []FilesystemAttachment, error)
+	CreateFilesystems(params []FilesystemParams) ([]Filesystem, error)
 
-	// TODO(wallyworld) add support for attaching/detaching filesystems
+	// DestroyFilesystems destroys the filesystems with the specified
+	// providerd filesystem IDs.
+	DestroyFilesystems(fsIds []string) []error
+
+	// AttachFilesystems attaches filesystems to machines.
+	//
+	// AttachFilesystems must be idempotent; it may be called even if
+	// the attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
+	//
+	// TODO(axw) we need to validate attachment requests prior to
+	// recording in state. For example, the ec2 provider must reject
+	// an attempt to attach a volume to an instance if they are in
+	// different availability zones.
+	AttachFilesystems(params []FilesystemAttachmentParams) ([]FilesystemAttachment, error)
+
+	// DetachFilesystems detaches the filesystems with the specified
+	// provider filesystem IDs from the instances with the corresponding
+	// index.
+	DetachFilesystems(params []FilesystemAttachmentParams) error
 }
 
 // VolumeParams is a fully specified set of parameters for volume creation,
@@ -131,8 +152,13 @@ type VolumeParams struct {
 	Provider ProviderType
 
 	// Attributes is the set of provider-specific attributes to pass to
-	// the storage provider when creating the volume.
+	// the storage provider when creating the volume. Attributes is derived
+	// from the storage pool configuration.
 	Attributes map[string]interface{}
+
+	// ResourceTags is a set of tags to set on the created volume, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
 
 	// Attachment identifies the machine that the volume should be attached
 	// to initially, or nil if the volume should not be attached to any
@@ -145,6 +171,12 @@ type VolumeParams struct {
 	// once the instance is created there are still unprovisioned volumes,
 	// the dynamic storage provisioner will take care of creating them.
 	Attachment *VolumeAttachmentParams
+}
+
+// IsPersistent returns true if the params has persistent set to true.
+func (p *VolumeParams) IsPersistent() bool {
+	v, _ := p.Attributes[Persistent].(bool)
+	return v
 }
 
 // VolumeAttachmentParams is a set of parameters for volume attachment or
@@ -164,6 +196,10 @@ type VolumeAttachmentParams struct {
 // AttachmentParams describes the parameters for attaching a volume or
 // filesystem to a machine.
 type AttachmentParams struct {
+	// Provider is the name of the storage provider that is to be used to
+	// create the attachment.
+	Provider ProviderType
+
 	// Machine is the tag of the Juju machine that the storage should be
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the
@@ -175,6 +211,9 @@ type AttachmentParams struct {
 	// that interact with the instances, such as EBS/EC2. The InstanceId
 	// field will be empty if the instance is not yet provisioned.
 	InstanceId instance.Id
+
+	// ReadOnly indicates that the storage should be attached as read-only.
+	ReadOnly bool
 }
 
 // FilesystemParams is a fully specified set of parameters for filesystem creation,
@@ -184,29 +223,36 @@ type FilesystemParams struct {
 	// Tag is a unique tag assigned by Juju for the requested filesystem.
 	Tag names.FilesystemTag
 
+	// Volume is the tag of the volume that backs the filesystem, if any.
+	Volume names.VolumeTag
+
 	// Size is the minimum size of the filesystem in MiB.
 	Size uint64
+
+	// The provider type for this filesystem.
+	Provider ProviderType
 
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
 	Attributes map[string]interface{}
 
-	// The provider type for this filesystem.
-	Provider ProviderType
-
-	// Attachment identifies the machine that the filesystem should be
-	// mounted on.
-	Attachment *FilesystemAttachmentParams
+	// ResourceTags is a set of tags to set on the created filesystem, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
 }
 
-// FilesystemAttachmentParams is a set of parameters for filesystem attachment or
-// detachment.
+// FilesystemAttachmentParams is a set of parameters for filesystem attachment
+// or detachment.
 type FilesystemAttachmentParams struct {
 	AttachmentParams
 
 	// Filesystem is a unique tag assigned by Juju for the filesystem that
 	// should be attached/detached.
 	Filesystem names.FilesystemTag
+
+	// FilesystemId is the unique provider-supplied ID for the filesystem that
+	// should be attached/detached.
+	FilesystemId string
 
 	// Path is the path at which the filesystem is to be mounted on the machine that
 	// this attachment corresponds to.

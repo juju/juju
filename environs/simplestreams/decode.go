@@ -9,8 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/clearsign"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 )
 
 // DecodeCheckSignature parses the inline signed PGP text, checks the signature,

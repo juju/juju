@@ -25,14 +25,17 @@ const (
 
 // loopProviders create volume sources which use loop devices.
 type loopProvider struct {
-	// run is a function type used for running commands on the local machine.
+	// run is a function used for running commands on the local machine.
 	run runCommandFunc
+	// runningInsideLXC is a function that determines whether or not
+	// the code is running within an LXC container.
+	runningInsideLXC func() (bool, error)
 }
 
 var _ storage.Provider = (*loopProvider)(nil)
 
 // ValidateConfig is defined on the Provider interface.
-func (lp *loopProvider) ValidateConfig(cfg *storage.Config) error {
+func (*loopProvider) ValidateConfig(*storage.Config) error {
 	// Loop provider has no configuration.
 	return nil
 }
@@ -59,12 +62,18 @@ func (lp *loopProvider) VolumeSource(
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	insideLXC, err := lp.runningInsideLXC()
+	if err != nil {
+		return nil, err
+	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
-	if err := os.MkdirAll(storageDir, 0755); err != nil {
-		return nil, errors.Annotate(err, "creating storage directory")
-	}
-	return &loopVolumeSource{lp.run, storageDir}, nil
+	return &loopVolumeSource{
+		&osDirFuncs{lp.run},
+		lp.run,
+		storageDir,
+		insideLXC,
+	}, nil
 }
 
 // FilesystemSource is defined on the Provider interface.
@@ -85,11 +94,18 @@ func (*loopProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
+// Dynamic is defined on the Provider interface.
+func (*loopProvider) Dynamic() bool {
+	return true
+}
+
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
-	run        runCommandFunc
-	storageDir string
+	dirFuncs         dirFuncs
+	run              runCommandFunc
+	storageDir       string
+	runningInsideLXC bool
 }
 
 var _ storage.VolumeSource = (*loopVolumeSource)(nil)
@@ -97,57 +113,44 @@ var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 // CreateVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	volumes := make([]storage.Volume, len(args))
-	volumeAttachments := make([]storage.VolumeAttachment, len(args))
 	for i, arg := range args {
-		volume, volumeAttachment, err := lvs.createVolume(arg)
+		volume, err := lvs.createVolume(arg)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "creating volume")
 		}
 		volumes[i] = volume
-		volumeAttachments[i] = volumeAttachment
 	}
-	return volumes, volumeAttachments, nil
+	return volumes, nil, nil
 }
 
-func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, storage.VolumeAttachment, error) {
-	var volume storage.Volume
-	var volumeAttachment storage.VolumeAttachment
-	if err := lvs.ValidateVolumeParams(params); err != nil {
-		return volume, volumeAttachment, errors.Trace(err)
-	}
-
+func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
 	volumeId := params.Tag.String()
-	loopFilePath := lvs.volumeFilePath(volumeId)
-
+	loopFilePath := lvs.volumeFilePath(params.Tag)
+	if err := ensureDir(lvs.dirFuncs, filepath.Dir(loopFilePath)); err != nil {
+		return storage.Volume{}, errors.Trace(err)
+	}
 	if err := createBlockFile(lvs.run, loopFilePath, params.Size); err != nil {
-		return volume, volumeAttachment, errors.Annotate(err, "could not create block file")
+		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
-
-	deviceName, err := attachLoopDevice(lvs.run, loopFilePath)
-	if err != nil {
-		os.Remove(loopFilePath)
-		return volume, volumeAttachment, errors.Annotate(err, "attaching loop device")
-	}
-
-	volume = storage.Volume{
-		Tag:      params.Tag,
-		VolumeId: volumeId,
-		Size:     params.Size,
-	}
-	volumeAttachment = storage.VolumeAttachment{
-		Volume:     params.Tag,
-		Machine:    params.Attachment.Machine,
-		DeviceName: deviceName,
-	}
-	return volume, volumeAttachment, nil
+	return storage.Volume{
+		params.Tag,
+		storage.VolumeInfo{
+			VolumeId: volumeId,
+			Size:     params.Size,
+			// Loop devices may outlive LXC containers. If we're
+			// running inside an LXC container, mark the volume as
+			// persistent.
+			Persistent: lvs.runningInsideLXC,
+		},
+	}, nil
 }
 
-func (lvs *loopVolumeSource) volumeFilePath(volumeId string) string {
-	return filepath.Join(lvs.storageDir, volumeId)
+func (lvs *loopVolumeSource) volumeFilePath(tag names.VolumeTag) string {
+	return filepath.Join(lvs.storageDir, tag.String())
 }
 
 // DescribeVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volume, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }
@@ -164,10 +167,68 @@ func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) []error {
 }
 
 func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
-	if _, err := names.ParseVolumeTag(volumeId); err != nil {
+	tag, err := names.ParseVolumeTag(volumeId)
+	if err != nil {
 		return errors.Errorf("invalid loop volume ID %q", volumeId)
 	}
-	loopFilePath := lvs.volumeFilePath(volumeId)
+	loopFilePath := lvs.volumeFilePath(tag)
+	err = os.Remove(loopFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return errors.Annotate(err, "removing loop backing file")
+	}
+	return nil
+}
+
+// ValidateVolumeParams is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	// ValdiateVolumeParams may be called on a machine other than the
+	// machine where the loop device will be created, so we cannot check
+	// available size until we get to CreateVolumes.
+	return nil
+}
+
+// AttachVolumes is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+	attachments := make([]storage.VolumeAttachment, len(args))
+	for i, arg := range args {
+		attachment, err := lvs.attachVolume(arg)
+		if err != nil {
+			return nil, errors.Annotatef(err, "attaching volume %v", arg.Volume.Id())
+		}
+		attachments[i] = attachment
+	}
+	return attachments, nil
+}
+
+func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
+	loopFilePath := lvs.volumeFilePath(arg.Volume)
+	deviceName, err := attachLoopDevice(lvs.run, loopFilePath, arg.ReadOnly)
+	if err != nil {
+		os.Remove(loopFilePath)
+		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
+	}
+	return storage.VolumeAttachment{
+		arg.Volume,
+		arg.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: deviceName,
+			ReadOnly:   arg.ReadOnly,
+		},
+	}, nil
+}
+
+// DetachVolumes is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
+	for _, arg := range args {
+		if err := lvs.detachVolume(arg.Volume); err != nil {
+			return errors.Annotatef(err, "detaching volume %s", arg.Volume.Id())
+		}
+	}
+	return nil
+}
+
+func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
+	loopFilePath := lvs.volumeFilePath(tag)
 	deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
 	if err != nil {
 		return errors.Annotate(err, "locating loop device")
@@ -180,33 +241,7 @@ func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
 			return errors.Trace(err)
 		}
 	}
-	if err := os.Remove(loopFilePath); err != nil {
-		return errors.Annotate(err, "removing loop backing file")
-	}
 	return nil
-}
-
-// ValidateVolumeParams is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	// ValdiateVolumeParams may be called on a machine other than the
-	// machine where the loop device will be created, so we cannot check
-	// available size until we get to CreateVolumes.
-	if params.Attachment == nil {
-		return errors.NotSupportedf(
-			"creating loop device without machine attachment",
-		)
-	}
-	return nil
-}
-
-// AttachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
-	return nil, errors.NotSupportedf("attaching loop devices")
-}
-
-// DetachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DetachVolumes([]storage.VolumeAttachmentParams) error {
-	return errors.NotSupportedf("detaching loop devices")
 }
 
 // createBlockFile creates a file at the specified path, with the
@@ -223,10 +258,25 @@ func createBlockFile(run runCommandFunc, filePath string, sizeInMiB uint64) erro
 // attachLoopDevice attaches a loop device to the file with the
 // specified path, and returns the loop device's name (e.g. "loop0").
 // losetup will create additional loop devices as necessary.
-func attachLoopDevice(run runCommandFunc, filePath string) (loopDeviceName string, _ error) {
+func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
+	devices, err := associatedLoopDevices(run, filePath)
+	if err != nil {
+		return "", err
+	}
+	if len(devices) > 0 {
+		// Already attached.
+		logger.Debugf("%s already attached to %s", filePath, devices)
+		return devices[0], nil
+	}
 	// -f automatically finds the first available loop-device.
+	// -r sets up a read-only loop-device.
 	// --show returns the loop device chosen on stdout.
-	stdout, err := run("losetup", "-f", "--show", filePath)
+	args := []string{"-f", "--show"}
+	if readOnly {
+		args = append(args, "-r")
+	}
+	args = append(args, filePath)
+	stdout, err := run("losetup", args...)
 	if err != nil {
 		return "", errors.Annotatef(err, "attaching loop device to %q", filePath)
 	}
@@ -251,6 +301,7 @@ func associatedLoopDevices(run runCommandFunc, filePath string) ([]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	stdout = strings.TrimSpace(stdout)
 	if stdout == "" {
 		return nil, nil
 	}

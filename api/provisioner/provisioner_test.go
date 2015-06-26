@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -57,6 +58,10 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
@@ -69,7 +74,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -78,6 +83,21 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
+}
+
+func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(ifaceInfo, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches,
+		`cannot release static addresses for "42": address allocation not supported`,
+	)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -109,9 +129,9 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
@@ -125,9 +145,9 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
@@ -300,14 +320,16 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}}
 	volumes := []params.Volume{{
 		VolumeTag: "volume-1-0",
-		VolumeId:  "vol-123",
-		Size:      124,
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+			Size:     124,
+		},
 	}}
-	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "volume-1-0",
-		MachineTag: "machine-1",
-		DeviceName: "xvdf1",
-	}}
+	volumeAttachments := map[string]params.VolumeAttachmentInfo{
+		"volume-1-0": {
+			DeviceName: "xvdf1",
+		},
+	}
 
 	err = apiMachine.SetInstanceInfo(
 		"i-will", "fake_nonce", &hwChars, networks, ifaces, volumes, volumeAttachments,
@@ -369,6 +391,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{
 		VolumeId: "vol-123",
+		Pool:     "loop-pool",
 		Size:     124,
 	})
 	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))
@@ -579,7 +602,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -621,7 +644,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.MongoInfo(c), mongo.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -681,6 +704,30 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 		// allocation by default, so IP forwarding should be enabled.
 		container.ConfigIPForwarding: "true",
 	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	var resultConfig = map[string]string{
+		"lxc-default-mtu": "9000",
+	}
+	var called bool
+	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ContainerManagerConfig")
+		expected := params.ContainerManagerConfigParams{
+			Type: instance.LXC,
+		}
+		c.Assert(args, gc.Equals, expected)
+		result := response.(*params.ContainerManagerConfig)
+		result.ManagerConfig = resultConfig
+		return nil
+	})
+
+	args := params.ContainerManagerConfigParams{Type: instance.LXC}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ManagerConfig, jc.DeepEquals, resultConfig)
 }
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
@@ -786,9 +833,12 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ifaceInfo, gc.HasLen, 1)
+
 	expectInfo := []network.InterfaceInfo{{
 		DeviceIndex:      0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		CIDR:             "0.10.0.0/24",
 		NetworkName:      "juju-private",
 		ProviderId:       "dummy-eth0",
@@ -802,14 +852,13 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		// it's chosen randomly.
 		Address:        network.Address{},
 		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.10.0.2"),
 		ExtraConfig:    nil,
 	}}
-	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaceInfo, gc.HasLen, 1)
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
+	c.Assert(ifaceInfo[0].MACAddress, gc.Not(gc.DeepEquals), "")
 	expectInfo[0].Address = ifaceInfo[0].Address
+	expectInfo[0].MACAddress = ifaceInfo[0].MACAddress
 	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
 }
 
@@ -833,10 +882,10 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 	sub, err := s.State.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "")
+		err = ipaddr.AllocateTo(container.Id(), "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)
@@ -852,5 +901,8 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 	addresses, err := s.State.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 3)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

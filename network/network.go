@@ -23,6 +23,9 @@ const (
 
 	// Id of the default private juju network
 	DefaultPrivate = "juju-private"
+
+	// Provider Id for the default network
+	DefaultProviderId = "juju-unknown"
 )
 
 // Id defines a provider-specific network id.
@@ -140,6 +143,10 @@ type InterfaceInfo struct {
 	// hostnames to configure as DNS servers for this network
 	// interface.
 	DNSServers []Address
+
+	// DNSSearch contains the default DNS domain to use for
+	// non-FQDN lookups.
+	DNSSearch string
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this

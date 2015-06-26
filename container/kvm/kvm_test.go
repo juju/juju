@@ -21,6 +21,7 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -63,7 +64,7 @@ func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 
 func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	kvmContainer := s.ContainerFactory.New(name)
-	network := container.BridgeNetworkConfig("testbr0", nil)
+	network := container.BridgeNetworkConfig("testbr0", 0, nil)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
 		Series:       "quantal",
 		Arch:         version.Current.Arch,
@@ -101,6 +102,60 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
+func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
+	params := kvm.CreateMachineParams{
+		Hostname:      "foo-bar",
+		NetworkBridge: "br0",
+		Interfaces: []network.InterfaceInfo{
+			{MACAddress: "00:16:3e:20:b0:11"},
+		},
+	}
+	tempDir := c.MkDir()
+
+	templatePath := filepath.Join(tempDir, "kvm.xml")
+	err := kvm.WriteTemplate(templatePath, params)
+	c.Assert(err, jc.ErrorIsNil)
+	templateBytes, err := ioutil.ReadFile(templatePath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	template := string(templateBytes)
+
+	c.Assert(template, jc.Contains, "<name>foo-bar</name>")
+	c.Assert(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
+	c.Assert(template, jc.Contains, "<source bridge='br0'/>")
+	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
+}
+
+func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
+	const uvtKvmBinName = "uvt-kvm"
+	testing.PatchExecutableAsEchoArgs(c, s, uvtKvmBinName)
+
+	tempDir := c.MkDir()
+	params := kvm.CreateMachineParams{
+		Hostname:      "foo-bar",
+		NetworkBridge: "br0",
+		Interfaces: []network.InterfaceInfo{
+			{MACAddress: "00:16:3e:20:b0:11"},
+		},
+		UserDataFile: filepath.Join(tempDir, "something"),
+	}
+
+	err := kvm.CreateMachine(params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedArgs := []string{
+		"create",
+		"--log-console-output",
+		"--user-data",
+		filepath.Join(tempDir, "something"),
+		"--template",
+		filepath.Join(tempDir, "kvm-template.xml"),
+		"foo-bar",
+	}
+
+	testing.AssertEchoArgs(c, uvtKvmBinName, expectedArgs...)
+}
+
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
@@ -126,13 +181,13 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Mock machineConfig with a mocked simple stream URL.
-	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.Config = envCfg
+	instanceConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
 }
@@ -141,13 +196,13 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
-	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.ImageStream = "daily"
+	instanceConfig.ImageStream = "daily"
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
 }

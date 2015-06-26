@@ -4,3 +4,7 @@ description: See above
 storage:
     data:
         type: block
+    allecto:
+        type: block
+        multiple:
+                range: 0+

@@ -11,9 +11,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
@@ -22,11 +24,13 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
+	"github.com/juju/juju/utils"
 )
 
 // imagesDownloadHandler handles image download through HTTPS in the API server.
 type imagesDownloadHandler struct {
 	httpHandler
+	dataDir string
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -79,15 +83,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	envuuid := r.URL.Query().Get(":envuuid")
 
 	// Get the image details from storage.
-	storage := st.ImageStorage()
-	metadata, imageReader, err := storage.Image(kind, series, arch)
-	// Not in storage, so go fetch it.
-	if errors.IsNotFound(err) {
-		metadata, imageReader, err = h.fetchAndCacheLxcImage(storage, envuuid, series, arch)
-		if err != nil {
-			return errors.Annotate(err, "error fetching and caching image")
-		}
-	}
+	metadata, imageReader, err := h.loadImage(st, envuuid, kind, series, arch)
 	if err != nil {
 		return errors.Annotate(err, "error getting image from storage")
 	}
@@ -105,14 +101,46 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	return nil
 }
 
-// fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
-// and caches it in the state blobstore.
-func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) (
+// loadImage loads an os image from the blobstore,
+// downloading and caching it if necessary.
+func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series, arch string) (
 	*imagestorage.Metadata, io.ReadCloser, error,
 ) {
+	// We want to ensure that if an image needs to be downloaded and cached,
+	// this only happens once.
+	imageIdent := fmt.Sprintf("image-%s-%s-%s-%s", envuuid, kind, series, arch)
+	lockDir := filepath.Join(h.dataDir, "locks")
+	lock, err := fslock.NewLock(lockDir, imageIdent)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	lock.Lock("fetch and cache image " + imageIdent)
+	defer lock.Unlock()
+	storage := st.ImageStorage()
+	metadata, imageReader, err := storage.Image(kind, series, arch)
+	// Not in storage, so go fetch it.
+	if errors.IsNotFound(err) {
+		err = h.fetchAndCacheLxcImage(storage, envuuid, series, arch)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "error fetching and caching image")
+		}
+		err = utils.NetworkOperationWitDefaultRetries(func() error {
+			metadata, imageReader, err = storage.Image(string(instance.LXC), series, arch)
+			return err
+		}, "streaming os image from blobstore")()
+	}
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return metadata, imageReader, nil
+}
+
+// fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
+// and caches it in the state blobstore.
+func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) error {
 	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
+		return errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}
 
 	// Fetch the image checksum.
@@ -120,12 +148,12 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	shafile := strings.Replace(imageURL, imageFilename, "SHA256SUMS", -1)
 	shaResp, err := http.Get(shafile)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot get sha256 data from %v", shafile)
+		return errors.Annotatef(err, "cannot get sha256 data from %v", shafile)
 	}
 	defer shaResp.Body.Close()
 	shaInfo, err := ioutil.ReadAll(shaResp.Body)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot read sha256 data from %v", shafile)
+		return errors.Annotatef(err, "cannot read sha256 data from %v", shafile)
 	}
 
 	// The sha file has lines like:
@@ -142,14 +170,14 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 		}
 	}
 	if checksum == "" {
-		return nil, nil, errors.Errorf("cannot find sha256 checksum for %v", imageFilename)
+		return errors.Errorf("cannot find sha256 checksum for %v", imageFilename)
 	}
 
 	// Fetch the image.
 	logger.Debugf("fetching LXC image from: %v", imageURL)
 	resp, err := http.Get(imageURL)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot get image from %v", imageURL)
+		return errors.Annotatef(err, "cannot get image from %v", imageURL)
 	}
 	logger.Debugf("lxc image has size: %v bytes", resp.ContentLength)
 	defer resp.Body.Close()
@@ -169,18 +197,22 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	}
 
 	// Stream the image to storage.
-	err = storage.AddImage(rdr, metadata)
+	err = utils.NetworkOperationWitDefaultRetries(func() error {
+		return storage.AddImage(rdr, metadata)
+	}, "add os image to blobstore")()
 	if err != nil {
-		return nil, nil, err
+		return errors.Trace(err)
 	}
 	// Better check the downloaded image checksum.
 	downloadChecksum := fmt.Sprintf("%x", hash.Sum(nil))
 	if downloadChecksum != checksum {
-		if err := storage.DeleteImage(metadata); err != nil {
+		err = utils.NetworkOperationWitDefaultRetries(func() error {
+			return storage.DeleteImage(metadata)
+		}, "delete os image from blobstore")()
+		if err != nil {
 			logger.Errorf("checksum mismatch, failed to delete image from storage: %v", err)
 		}
-		return nil, nil, errors.Errorf("download checksum mismatch %s != %s", downloadChecksum, checksum)
+		return errors.Errorf("download checksum mismatch %s != %s", downloadChecksum, checksum)
 	}
-
-	return storage.Image(string(instance.LXC), series, arch)
+	return nil
 }

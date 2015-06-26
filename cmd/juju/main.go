@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -240,36 +239,5 @@ func (w envCmdWrapper) Init(args []string) error {
 }
 
 func main() {
-	Main(os.Args)
-}
-
-type versionDeprecation struct {
-	replacement string
-	deprecate   version.Number
-	obsolete    version.Number
-}
-
-// Deprecated implements cmd.DeprecationCheck.
-// If the current version is after the deprecate version number,
-// the command is deprecated and the replacement should be used.
-func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Number.Compare(v.deprecate) > 0 {
-		return true, v.replacement
-	}
-	return false, ""
-}
-
-// Obsolete implements cmd.DeprecationCheck.
-// If the current version is after the obsolete version number,
-// the command is obsolete and shouldn't be registered.
-func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Number.Compare(v.obsolete) > 0
-}
-
-func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
-	return &versionDeprecation{
-		replacement: replacement,
-		deprecate:   version.MustParse("2.0-00"),
-		obsolete:    version.MustParse("3.0-00"),
-	}
+	commands.Main(os.Args)
 }

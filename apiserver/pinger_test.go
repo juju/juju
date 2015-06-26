@@ -95,20 +95,22 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	// We have to be careful, because Login can take 25ms, so we ping
-	// immediately after connecting.
-	s.PatchValue(apiserver.MaxClientPingInterval, 50*time.Millisecond)
+	const shortTimeout = 20 * time.Millisecond
+	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(shortTimeout))
+
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+
 	// As long as we don't wait too long, the connection stays open
 	for i := 0; i < 10; i++ {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(shortTimeout / 2)
 		err = st.Ping()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
 	// However, once we stop pinging for too long, the connection dies
-	time.Sleep(75 * time.Millisecond)
+	time.Sleep(2 * shortTimeout) // Exceed the timeout.
 	err = st.Ping()
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }

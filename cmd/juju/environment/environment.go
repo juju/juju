@@ -36,7 +36,10 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&EnvGetConstraintsCommand{}))
 
 	if featureflag.Enabled(feature.JES) {
+		environmentCmd.Register(envcmd.Wrap(&ShareCommand{}))
+		environmentCmd.Register(envcmd.Wrap(&UnshareCommand{}))
 		environmentCmd.Register(envcmd.Wrap(&CreateCommand{}))
+		environmentCmd.Register(envcmd.Wrap(&UsersCommand{}))
 	}
 	return environmentCmd
 }

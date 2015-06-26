@@ -188,18 +188,22 @@ func (runner *runner) run() error {
 			info.start = req.start
 			info.restartDelay = 0
 		case id := <-runner.stopc:
+			logger.Debugf("stop %q", id)
 			if info := workers[id]; info != nil {
 				killWorker(id, info)
 			}
 		case info := <-runner.startedc:
+			logger.Debugf("%q started", info.id)
 			workerInfo := workers[info.id]
 			workerInfo.worker = info.worker
-			if isDying {
+			if isDying || workerInfo.stopping {
 				killWorker(info.id, workerInfo)
 			}
 		case info := <-runner.donec:
+			logger.Debugf("%q done: %v", info.id, info.err)
 			workerInfo := workers[info.id]
 			if !workerInfo.stopping && info.err == nil {
+				logger.Debugf("removing %q from known workers", info.id)
 				delete(workers, info.id)
 				break
 			}
@@ -220,6 +224,8 @@ func (runner *runner) run() error {
 				}
 			}
 			if workerInfo.start == nil {
+				logger.Debugf("no restart, removing %q from known workers", info.id)
+
 				// The worker has been deliberately stopped;
 				// we can now remove it from the list of workers.
 				delete(workers, info.id)
@@ -242,6 +248,8 @@ func killWorker(id string, info *workerInfo) {
 		logger.Debugf("killing %q", id)
 		info.worker.Kill()
 		info.worker = nil
+	} else {
+		logger.Debugf("couldn't kill %q, not yet started", id)
 	}
 	info.stopping = true
 	info.start = nil
@@ -264,5 +272,6 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 		runner.startedc <- startInfo{id, worker}
 		err = worker.Wait()
 	}
+	logger.Infof("stopped %q, err: %v", id, err)
 	runner.donec <- doneInfo{id, err}
 }

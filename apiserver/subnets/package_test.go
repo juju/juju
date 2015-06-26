@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -95,15 +94,18 @@ func ZonedEnvironCall(name string, args ...interface{}) StubMethodCall {
 // CheckMethodCalls works like testing.Stub.CheckCalls, but also
 // checks the receivers.
 func CheckMethodCalls(c *gc.C, stub *testing.Stub, calls ...StubMethodCall) {
-	if !c.Check(stub.Receivers, gc.HasLen, len(calls)) {
+	receivers := make([]interface{}, len(calls))
+	for i, call := range calls {
+		receivers[i] = call.Receiver
+	}
+	if !stub.CheckReceivers(c, receivers...) {
 		return
 	}
-	if !c.Check(stub.Calls, gc.HasLen, len(calls)) {
+	if !c.Check(stub.Calls(), gc.HasLen, len(calls)) {
 		return
 	}
 	for i, call := range calls {
 		stub.CheckCall(c, i, call.FuncName, call.Args...)
-		c.Check(stub.Receivers[i], jc.DeepEquals, call.Receiver)
 	}
 }
 
@@ -146,10 +148,7 @@ func (f *FakeSpace) GoString() string {
 
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
-	stub.Calls = stub.Calls[0:0]
-	stub.Receivers = stub.Receivers[0:0]
-	stub.DefaultError = nil
-	stub.SetErrors()
+	*stub = testing.Stub{}
 }
 
 // StubBacking implements subnets.Backing and records calls to its

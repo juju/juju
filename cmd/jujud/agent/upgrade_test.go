@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	pacman "github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -62,7 +62,7 @@ var (
 const fails = true
 const succeeds = false
 
-func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) {
 	s.aptMutex.Lock()
 	defer s.aptMutex.Unlock()
 	if cmd == nil {
@@ -70,7 +70,6 @@ func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
 	} else {
 		s.aptCmds = append(s.aptCmds, cmd)
 	}
-	return s.aptCmds
 }
 
 func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
@@ -82,9 +81,11 @@ func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
+	// clear s.aptCmds
+	s.setAptCmds(nil)
+
 	// Capture all apt commands.
-	s.aptCmds = nil
-	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.setAptCmds(cmd)
@@ -118,6 +119,10 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 		return s.machineIsMaster, nil
 	}
 	s.PatchValue(&isMachineMaster, fakeIsMachineMaster)
+	// Most of these tests normally finish sub-second on a fast machine.
+	// If any given test hits a minute, we have almost certainly become
+	// wedged, so dump the logs.
+	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
@@ -433,12 +438,9 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-
-	//TODO(bogdanteleaga): Fix this to behave properly
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: this fails half of the time on windows because files are not closed properly")
-	}
+	coretesting.SkipIfI386(c, "lp:1444576")
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
@@ -453,6 +455,8 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
@@ -523,6 +527,22 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 	waitForUpgradeToFinish(c, machine0Conf)
 
+	// Only user and local logins are allowed even after upgrade steps because
+	// agent upgrade not finished yet.
+	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
+
+	machineAPI := s.OpenAPIAsMachine(c, machine.Tag(), initialMachinePassword, agent.BootstrapNonce)
+	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(machineAPI.Upgrader(), machine0Conf))
+	// Wait for agent upgrade worker to determine that no
+	// agent upgrades are required.
+	select {
+	case <-a.initialAgentUpgradeCheckComplete:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for upgrade check")
+	}
+
 	// All logins are allowed after upgrade
 	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
@@ -567,9 +587,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: doesn't work on windows because of symlink issue")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//
@@ -814,10 +832,8 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
 	// used to create the directory which partially works on windows 8 but
 	// doesn't work on windows server.
-	if runtime.GOOS != "windows" {
-		lockdir := filepath.Join(s.DataDir(), "locks")
-		c.Assert(lockdir, jc.IsDirectory)
-	}
+	lockdir := filepath.Join(s.DataDir(), "locks")
+	c.Assert(lockdir, jc.IsDirectory)
 	// SSH key file should not be generated for hosts.
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -862,6 +878,30 @@ func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 }
 
 func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+	var err error
+	// Multiple attempts may be necessary because there is a small gap
+	// between the post-upgrade version being written to the agent's
+	// config (as observed by waitForUpgradeToFinish) and the end of
+	// "upgrade mode" (i.e. when the agent's UpgradeComplete channel
+	// is closed). Without this tests that call checkLoginToAPIAsUser
+	// can occasionally fail.
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		err = s.attemptRestrictedAPIAsUser(c, conf)
+		switch expectFullApi {
+		case FullAPIExposed:
+			if err == nil {
+				return
+			}
+		case RestrictedAPIExposed:
+			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+				return
+			}
+		}
+	}
+	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
+}
+
+func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
 	info := conf.APIInfo()
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
@@ -877,12 +917,7 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
-	err = apiState.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
-	if expectFullApi {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, "upgrade in progress .+")
-	}
+	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
 }
 
 func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
@@ -980,7 +1015,7 @@ func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
 }
 

@@ -1,17 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(dimitern) Disabled on gccgo (PPC64 in particular) due
-// to build failures. See bug http://pad.lv/1425788.
-//
-// NOTE: This file is built only with the default gc compiler. We
-// can't use runtime.Compiler to exclude only the problematic
-// gc.Suite(&cmdJujuSuite{}) statement below because runtime.Compiler
-// is a const, whereas the +build directives are honored by -compiler
-// gccgo as well. See also the comment in package_gccgo_test.go.
-
-// +build !gccgo
-
 package featuretests
 
 import (
@@ -36,6 +25,13 @@ func init() {
 	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&leadershipSuite{})
 	gc.Suite(&uniterLeadershipSuite{})
+	gc.Suite(&annotationsSuite{})
+	gc.Suite(&apiEnvironmentSuite{})
+	gc.Suite(&blockSuite{})
+	gc.Suite(&apiCharmsSuite{})
+	gc.Suite(&cmdEnvironmentSuite{})
+	gc.Suite(&cmdStorageSuite{})
+	gc.Suite(&dblogSuite{})
 }
 
 func Test(t *testing.T) {

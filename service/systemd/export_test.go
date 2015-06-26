@@ -15,12 +15,6 @@ type patcher interface {
 	PatchValue(interface{}, interface{})
 }
 
-func PatchFindDataDir(patcher patcher, dataDir string) {
-	patcher.PatchValue(&findDataDir, func() (string, error) {
-		return dataDir, nil
-	})
-}
-
 func PatchNewChan(patcher patcher) chan string {
 	ch := make(chan string, 1)
 	patcher.PatchValue(&newChan, func() chan string { return ch })

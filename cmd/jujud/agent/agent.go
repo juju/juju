@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	apiOpen = api.Open
+	apiOpen = openAPIForAgent
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
@@ -36,39 +36,81 @@ var (
 	}
 )
 
-// AgentConf handles command-line flags shared by all agents.
-type AgentConf struct {
-	DataDir string
+// openAPIForAgent exists to handle the edge case that exists
+// when an environment is jumping several versions and doesn't
+// yet have the environment UUID cached in the agent config.
+// This happens only the first time an agent tries to connect
+// after an upgrade.  If there is no environment UUID set, then
+// use login version 1.
+func openAPIForAgent(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	if info.EnvironTag.Id() == "" {
+		return api.OpenWithVersion(info, opts, 1)
+	}
+	return api.Open(info, opts)
+}
+
+type AgentConf interface {
+	// AddFlags injects common agent flags into f.
+	AddFlags(f *gnuflag.FlagSet)
+	// CheckArgs reports whether the given args are valid for this agent.
+	CheckArgs(args []string) error
+	// ReadConfig reads the agent's config from its config file.
+	ReadConfig(tag string) error
+	// ChangeConfig modifies this configuration using the given mutator.
+	ChangeConfig(change agent.ConfigMutator) error
+	// CurrentConfig returns the agent config for this agent.
+	CurrentConfig() agent.Config
+	// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
+	SetAPIHostPorts(servers [][]network.HostPort) error
+	// SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
+	SetStateServingInfo(info params.StateServingInfo) error
+	// DataDir returns the directory where this agent should store its data.
+	DataDir() string
+}
+
+// NewAgentConf returns a new value that satisfies AgentConf
+func NewAgentConf(dataDir string) AgentConf {
+	return &agentConf{dataDir: dataDir}
+}
+
+// agentConf handles command-line flags shared by all agents.
+type agentConf struct {
+	dataDir string
 	mu      sync.Mutex
 	_config agent.ConfigSetterWriter
 }
 
-type AgentConfigMutator func(agent.ConfigSetter) error
-
 // AddFlags injects common agent flags into f.
-func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
+func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 	// TODO(dimitern) 2014-02-19 bug 1282025
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.DataDir, "data-dir", util.DataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
 }
 
-func (c *AgentConf) CheckArgs(args []string) error {
-	if c.DataDir == "" {
+// CheckArgs reports whether the given args are valid for this agent.
+func (c *agentConf) CheckArgs(args []string) error {
+	if c.dataDir == "" {
 		return util.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) ReadConfig(tag string) error {
+// DataDir returns the directory where this agent should store its data.
+func (c *agentConf) DataDir() string {
+	return c.dataDir
+}
+
+// ReadConfig reads the agent's config from its config file.
+func (c *agentConf) ReadConfig(tag string) error {
 	t, err := names.ParseTag(tag)
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conf, err := agent.ReadConfig(agent.ConfigPath(c.DataDir, t))
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
 		return err
 	}
@@ -76,7 +118,8 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	return nil
 }
 
-func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
+// ChangeConfig modifies this configuration using the given mutator.
+func (ch *agentConf) ChangeConfig(change agent.ConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	if err := change(ch._config); err != nil {
@@ -88,14 +131,15 @@ func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
 	return nil
 }
 
-func (ch *AgentConf) CurrentConfig() agent.Config {
+// CurrentConfig returns the agent config for this agent.
+func (ch *agentConf) CurrentConfig() agent.Config {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	return ch._config.Clone()
 }
 
 // SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
-func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
+func (a *agentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetAPIHostPorts(servers)
 		return nil
@@ -103,7 +147,7 @@ func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 }
 
 // SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
-func (a *AgentConf) SetStateServingInfo(info params.StateServingInfo) error {
+func (a *agentConf) SetStateServingInfo(info params.StateServingInfo) error {
 	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetStateServingInfo(info)
 		return nil
@@ -112,7 +156,7 @@ func (a *AgentConf) SetStateServingInfo(info params.StateServingInfo) error {
 
 type Agent interface {
 	Tag() names.Tag
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 }
 
 // The AgentState interface is implemented by state types
@@ -135,10 +179,6 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	case <-time.After(d):
 	}
 	return true
-}
-
-type apiOpener interface {
-	OpenAPI(api.DialOpts) (*api.State, string, error)
 }
 
 type configChanger func(c *agent.Config)
@@ -171,7 +211,13 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 
-	if usedOldPassword {
+	if !usedOldPassword {
+		// Call set password with the current password.  If we've recently
+		// become a state server, this will fix up our credentials in mongo.
+		if err := entity.SetPassword(info.Password); err != nil {
+			return nil, nil, errors.Annotate(err, "can't reset agent password")
+		}
+	} else {
 		// We succeeded in connecting with the fallback
 		// password, so we need to create a new password
 		// for the future.
@@ -179,19 +225,8 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		if err != nil {
 			return nil, nil, err
 		}
-		// Change the configuration *before* setting the entity
-		// password, so that we avoid the possibility that
-		// we might successfully change the entity's
-		// password but fail to write the configuration,
-		// thus locking us out completely.
-		if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
-			c.SetPassword(newPassword)
-			c.SetOldPassword(info.Password)
-			return nil
-		}); err != nil {
-			return nil, nil, err
-		}
-		if err := entity.SetPassword(newPassword); err != nil {
+		err = setAgentPassword(newPassword, info.Password, a, entity)
+		if err != nil {
 			return nil, nil, err
 		}
 
@@ -205,6 +240,22 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}
 
 	return st, entity, err
+}
+
+func setAgentPassword(newPw, oldPw string, a Agent, entity *apiagent.Entity) error {
+	// Change the configuration *before* setting the entity
+	// password, so that we avoid the possibility that
+	// we might successfully change the entity's
+	// password but fail to write the configuration,
+	// thus locking us out completely.
+	if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
+		c.SetPassword(newPw)
+		c.SetOldPassword(oldPw)
+		return nil
+	}); err != nil {
+		return err
+	}
+	return entity.SetPassword(newPw)
 }
 
 // OpenAPIStateUsingInfo opens the API using the given API

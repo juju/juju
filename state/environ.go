@@ -232,6 +232,31 @@ func (e *Environment) refresh(query *mgo.Query) error {
 	return err
 }
 
+// Users returns a slice of all users for this environment.
+func (e *Environment) Users() ([]*EnvironmentUser, error) {
+	if e.st.EnvironUUID() != e.UUID() {
+		return nil, errors.New("cannot lookup environment users outside the current environment")
+	}
+	coll, closer := e.st.getCollection(envUsersC)
+	defer closer()
+
+	var userDocs []envUserDoc
+	err := coll.Find(nil).All(&userDocs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var envUsers []*EnvironmentUser
+	for _, doc := range userDocs {
+		envUsers = append(envUsers, &EnvironmentUser{
+			st:  e.st,
+			doc: doc,
+		})
+	}
+
+	return envUsers, nil
+}
+
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() (err error) {
@@ -296,11 +321,14 @@ func (e *Environment) finishDestroy() error {
 	// We don't bother adding a cleanup for a non state server environment, as
 	// RemoveAllEnvironDocs() at the end of apiserver/client.Destroy() removes
 	// these documents for us.
+	var ops []txn.Op
 	if e.UUID() == e.doc.ServerUUID {
-		ops := []txn.Op{e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
-		return e.st.runTransaction(ops)
+		ops = []txn.Op{e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
+	} else {
+		ops = []txn.Op{decEnvironCountOp()}
+
 	}
-	return nil
+	return e.st.runTransaction(ops)
 }
 
 func (e *Environment) abortDestroy() error {
@@ -362,6 +390,15 @@ func (e *Environment) ensureDestroyable() error {
 		return errors.Trace(err)
 	}
 
+	// If there are any persistent volumes, the environment can't be destroyed.
+	volumes, err := e.st.PersistentVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(volumes) > 0 {
+		return ErrPersistentVolumesExist
+	}
+
 	// If this is not the state server environment, it can be destroyed
 	if e.doc.UUID != e.doc.ServerUUID {
 		return nil
@@ -394,6 +431,33 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+const hostedEnvCountKey = "hostedEnvironCount"
+
+type envCountDoc struct {
+
+	// Count is the number of environments in the Juju system. We do not count
+	// the system environment.
+	Count int `bson:"count"`
+}
+
+func incEnvironCountOp() txn.Op {
+	return environCountOp(1)
+}
+
+func decEnvironCountOp() txn.Op {
+	return environCountOp(-1)
+}
+
+func environCountOp(amount int) txn.Op {
+	return txn.Op{
+		C:  stateServersC,
+		Id: hostedEnvCountKey,
+		Update: bson.M{
+			"$inc": bson.M{"count": amount},
+		},
 	}
 }
 

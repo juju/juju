@@ -107,10 +107,37 @@ func (a Address) GoString() string {
 	return a.String()
 }
 
-// NewAddresses is a convenience function to create addresses from a string slice
+// NewAddress creates a new Address, deriving its type from the value
+// and using ScopeUnknown as scope. It's a shortcut to calling
+// NewScopedAddress(value, ScopeUnknown).
+func NewAddress(value string) Address {
+	return NewScopedAddress(value, ScopeUnknown)
+}
+
+// NewScopedAddress creates a new Address, deriving its type from the
+// value.
+//
+// If the specified scope is ScopeUnknown, then NewScopedAddress will
+// attempt derive the scope based on reserved IP address ranges.
+// Because passing ScopeUnknown is fairly common, NewAddress() above
+// does exactly that.
+func NewScopedAddress(value string, scope Scope) Address {
+	addr := Address{
+		Value: value,
+		Type:  DeriveAddressType(value),
+		Scope: scope,
+	}
+	if scope == ScopeUnknown {
+		addr.Scope = deriveScope(addr)
+	}
+	return addr
+}
+
+// NewAddresses is a convenience function to create addresses from a
+// string slice.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address, ScopeUnknown))
+		outAddresses = append(outAddresses, NewAddress(address))
 	}
 	return outAddresses
 }
@@ -174,22 +201,6 @@ func deriveScope(addr Address) Scope {
 		return ScopePublic
 	}
 	return addr.Scope
-}
-
-// NewAddress creates a new Address, deriving its type from the value.
-//
-// If the specified scope is ScopeUnknown, then NewAddress will
-// attempt derive the scope based on reserved IP address ranges.
-func NewAddress(value string, scope Scope) Address {
-	addr := Address{
-		Value: value,
-		Type:  DeriveAddressType(value),
-		Scope: scope,
-	}
-	if scope == ScopeUnknown {
-		addr.Scope = deriveScope(addr)
-	}
-	return addr
 }
 
 // SelectPublicAddress picks one address from a slice that would be
