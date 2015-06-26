@@ -6,6 +6,7 @@ package subnets
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -19,6 +20,17 @@ var logger = loggo.GetLogger("juju.apiserver.subnets")
 func init() {
 	// TODO(dimitern): Uncomment once *state.State implements Backing.
 	//common.RegisterStandardFacade("Subnets", 1, NewAPI)
+}
+
+// BackingSpace defines the methods supported by a Space entity stored
+// persistently.
+//
+// TODO(dimitern): Once *state.Space is implemented, ensure it has
+// those methods, move the interface somewhere common and rename it as
+// needed, and change Backing.AllSpaces() to return that.
+type BackingSpace interface {
+	// Name returns the space name.
+	Name() string
 }
 
 // Backing defines the methods needed by the API facade to store and
@@ -35,6 +47,9 @@ type Backing interface {
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
 	SetAvailabilityZones(zones []providercommon.AvailabilityZone) error
+
+	// AllSpaces returns all known Juju network spaces.
+	AllSpaces() ([]BackingSpace, error)
 }
 
 // API defines the methods the Subnets API facade implements.
@@ -43,6 +58,9 @@ type API interface {
 	// zone is unusable, unavailable, or deprecated the Available
 	// field will be false.
 	AllZones() (params.ZoneResults, error)
+
+	// AllSpaces returns the tags of all network spaces known to Juju.
+	AllSpaces() (params.SpaceResults, error)
 }
 
 // internalAPI implements the API interface.
@@ -92,6 +110,25 @@ func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 	for i, zone := range zones {
 		results.Results[i].Name = zone.Name()
 		results.Results[i].Available = zone.Available()
+	}
+	return results, nil
+}
+
+// AllSpaces is defined on the API interface.
+func (a *internalAPI) AllSpaces() (params.SpaceResults, error) {
+	var results params.SpaceResults
+
+	spaces, err := a.backing.AllSpaces()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	results.Results = make([]params.SpaceResult, len(spaces))
+	for i, space := range spaces {
+		// TODO(dimitern): Add a Tag() a method and use it here. Too
+		// early to do it now as it will just complicate the tests.
+		tag := names.NewSpaceTag(space.Name())
+		results.Results[i].Tag = tag.String()
 	}
 	return results, nil
 }
