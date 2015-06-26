@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -12,7 +13,7 @@ func addLeadershipSettingsOp(serviceId string) txn.Op {
 	return txn.Op{
 		C:      settingsC,
 		Id:     LeadershipSettingsDocId(serviceId),
-		Insert: make(map[string]interface{}),
+		Insert: bson.D{},
 		Assert: txn.DocMissing,
 	}
 }
