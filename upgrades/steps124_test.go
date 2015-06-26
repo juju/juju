@@ -123,7 +123,11 @@ func (s *steps124SyslogSuite) oldFile(filename string) testFile {
 }
 
 func (s *steps124SyslogSuite) newFile(filename string) testFile {
-	return newTestFile(s.confDir, filename, s.data)
+	dirname := filepath.Join(s.confDir, "rsyslog")
+	if err := os.MkdirAll(dirname, 0755); err != nil {
+		panic(err)
+	}
+	return newTestFile(dirname, filename, s.data)
 }
 
 func (s *steps124SyslogSuite) writeOldFiles(c *gc.C, files []string) {

@@ -55,6 +55,7 @@ func moveSyslogConfig(context Context) error {
 	if namespace != "" {
 		confdir += "-" + namespace
 	}
+	confdir = filepath.Join(confdir, "rsyslog")
 	if err := os.MkdirAll(confdir, 0755); err != nil {
 		return errors.Trace(err)
 	}
