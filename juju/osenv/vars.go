@@ -17,7 +17,7 @@ const (
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
 
-	JujuRegistryKey = `HKLM:\SOFTWARE\Wow6432Node\juju-core`
+	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
