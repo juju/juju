@@ -182,33 +182,39 @@ func NewStubAPI() *StubAPI {
 		Stub: &testing.Stub{},
 		Spaces: []network.SpaceInfo{{
 			Name:  "space1",
-			CIDRs: []string{"10.1.2.0/24"},
+			CIDRs: []string{"2001:db8::/32", "invalid" /* for completeness sake */},
 		}, {
 			Name:  "space2",
 			CIDRs: []string{"10.1.2.0/24", "4.3.2.0/28"},
 		}},
 		Subnets: []params.Subnet{{
+			// IPv6 subnet.
+			CIDR:       "2001:db8::/32",
+			ProviderId: "subnet-public",
+			Life:       params.Dying,
+			SpaceTag:   "space-space1",
+			Zones:      []string{"zone2"},
+		}, {
+			// Invalid subnet (just for 100% coverage, otherwise it can't happen).
+			CIDR:       "invalid",
+			ProviderId: "no-such",
+			SpaceTag:   "space-space2",
+			Zones:      []string{"zone1"},
+		}, {
 			// IPv4 subnet.
 			CIDR:              "10.1.2.0/24",
 			ProviderId:        "subnet-private",
 			Life:              params.Alive,
-			SpaceTag:          "space-public",
+			SpaceTag:          "space-space2",
 			Zones:             []string{"zone1", "zone2"},
 			StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
 			StaticRangeHighIP: net.ParseIP("10.1.2.200"),
-		}, {
-			// IPv6 subnet.
-			CIDR:       "10.1.2.0/24",
-			ProviderId: "subnet-public",
-			Life:       params.Dying,
-			SpaceTag:   "space-dmz",
-			Zones:      []string{"zone2"},
 		}, {
 			// IPv4 VLAN subnet.
 			CIDR:              "4.3.2.0/28",
 			Life:              params.Dead,
 			ProviderId:        "vlan-42",
-			SpaceTag:          "space-vlan-42",
+			SpaceTag:          "space-space2",
 			Zones:             []string{"zone1"},
 			VLANTag:           42,
 			StaticRangeLowIP:  net.ParseIP("4.3.2.2"),

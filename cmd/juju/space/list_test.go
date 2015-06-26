@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"regexp"
 
@@ -90,12 +91,18 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	expectedYAML := `
 spaces:
   space1:
-    10.1.2.0/24:
-      type: ipv4
+    2001:db8::/32:
+      type: ipv6
       provider-id: subnet-public
       status: terminating
       zones:
       - zone2
+    invalid:
+      type: unknown
+      provider-id: no-such
+      status: 'error: invalid subnet CIDR: invalid'
+      zones:
+      - zone1
   space2:
     4.3.2.0/28:
       type: ipv4
@@ -105,9 +112,10 @@ spaces:
       - zone1
     10.1.2.0/24:
       type: ipv4
-      provider-id: subnet-public
-      status: terminating
+      provider-id: subnet-private
+      status: in-use
       zones:
+      - zone1
       - zone2
 `[1:]
 	unwrap := regexp.MustCompile(`[\s+\n]`)
@@ -115,19 +123,25 @@ spaces:
 {
   "spaces": {
     "space1": {
-      "10.1.2.0/24": {
-        "type": "ipv4",
+      "2001:db8::/32": {
+        "type": "ipv6",
         "provider-id": "subnet-public",
         "status": "terminating",
         "zones": ["zone2"]
+      },
+      "invalid": {
+        "type": "unknown",
+        "provider-id": "no-such",
+        "status": "error: invalid subnet CIDR: invalid",
+        "zones": ["zone1"]
       }
     },
     "space2": {
       "10.1.2.0/24": {
         "type": "ipv4",
-        "provider-id": "subnet-public",
-        "status": "terminating",
-        "zones": ["zone2"]
+        "provider-id": "subnet-private",
+        "status": "in-use",
+        "zones": ["zone1","zone2"]
       },
       "4.3.2.0/28": {
         "type": "ipv4",
@@ -139,7 +153,13 @@ spaces:
   }
 }
 `, "") + "\n"
-
+	// Work around the big unwrap hammer above.
+	expectedJSON = strings.Replace(
+		expectedJSON,
+		"error:invalidsubnetCIDR:invalid",
+		"error: invalid subnet CIDR: invalid",
+		1,
+	)
 	expectedShortYAML := `
 spaces:
 - space1
@@ -158,7 +178,7 @@ spaces:
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
 		s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
-		s.api.Calls = s.api.Calls[0:0]
+		s.api.ResetCalls()
 	}
 	makeArgs := func(format string, short bool, extraArgs ...string) []string {
 		args := s.Strings(extraArgs...)

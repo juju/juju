@@ -111,10 +111,6 @@ func ParseNameAndCIDRs(args []string) (name string, CIDRs set.Strings, err error
 		return
 	}
 
-	if len(args) == 1 {
-		err = errors.New("CIDRs required but not provided")
-		return
-	}
 	CIDRs, err = CheckCIDRs(args[1:])
 	return name, CIDRs, err
 }
@@ -151,7 +147,7 @@ func CheckCIDRs(args []string) (set.Strings, error) {
 	}
 
 	if CIDRs.IsEmpty() {
-		return CIDRs, errors.Errorf("CIDRs required but not provided")
+		return CIDRs, errors.New("CIDRs required but not provided")
 	}
 
 	return CIDRs, nil

@@ -72,10 +72,11 @@ func (s *UpdateSuite) TestInit(c *gc.C) {
 		expectCIDRs: s.Strings("10.10.0.0/24"),
 		expectErr:   `duplicate subnet "10.10.0.0/24" specified`,
 	}, {
-		about:      "valid space name with no other arguments",
-		args:       s.Strings("space-name"),
-		expectName: "space-name",
-		expectErr:  "CIDRs required but not provided",
+		about:       "valid space name with no other arguments",
+		args:        s.Strings("space-name"),
+		expectName:  "space-name",
+		expectErr:   "CIDRs required but not provided",
+		expectCIDRs: s.Strings(),
 	}, {
 		about:       "all ok - CIDRs updated",
 		args:        s.Strings("space-name", "10.10.0.0/24", "2001:db8::1/32"),
