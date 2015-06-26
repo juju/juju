@@ -4,7 +4,7 @@
 package charmresources
 
 import (
-	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 )
@@ -12,13 +12,38 @@ import (
 // ResourcePath constructs a path to use in a resource store from
 // the specified resource attributes.
 func ResourcePath(params ResourceAttributes) (string, error) {
-	// TODO(wallyworld) - this is not complete, just enough to allow ResourceManager tests to work.
-	path := params.PathName
-	if path == "" {
-		return "", errors.New("path cannot be empty")
+	if err := validatePathParameters(params); err != nil {
+		return "", err
 	}
+	if params.Type == "" {
+		params.Type = string(ResourceTypeBlob)
+	}
+	resPath := params.PathName
 	if params.Series != "" {
-		path = fmt.Sprintf("/s/%s/%s", params.Series, path)
+		resPath = path.Join("s", params.Series, resPath)
 	}
-	return path, nil
+	if params.Stream != "" {
+		resPath = path.Join("c", params.Stream, resPath)
+	}
+	if params.User != "" {
+		resPath = path.Join("u", params.User, resPath)
+	}
+	if params.Org != "" {
+		resPath = path.Join("org", params.Org, resPath)
+	}
+	if params.Revision != "" {
+		resPath = path.Join(resPath, params.Revision)
+	}
+	resPath = path.Join("/"+params.Type, resPath)
+	return resPath, nil
+}
+
+func validatePathParameters(params ResourceAttributes) error {
+	if params.PathName == "" {
+		return errors.New("resource path name cannot be empty")
+	}
+	if params.User != "" && params.Org != "" {
+		return errors.New("both user and org cannot be specified together")
+	}
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/charmresources"
 	"github.com/juju/juju/apiserver/params"
 	resources "github.com/juju/juju/charmresources"
@@ -52,7 +53,7 @@ func (s *resourcesSuite) TestResourcesListAll(c *gc.C) {
 
 	c.Assert(found.Resources, gc.HasLen, 1)
 	c.Assert(found.Resources[0], jc.DeepEquals, params.ResourceMetadata{
-		ResourcePath: "respath",
+		ResourcePath: "/blob/respath",
 		Size:         100,
 		Created:      now,
 	})
@@ -81,11 +82,11 @@ func (s *resourcesSuite) TestResourcesList(c *gc.C) {
 	c.Assert(found.Resources, gc.HasLen, 2)
 	c.Assert(found.Resources, jc.SameContents, []params.ResourceMetadata{
 		{
-			ResourcePath: "respath",
+			ResourcePath: "/blob/respath",
 			Size:         100,
 			Created:      now,
 		}, {
-			ResourcePath: "s/trusty/another",
+			ResourcePath: "/blob/s/trusty/another",
 			Size:         200,
 			Created:      now,
 		},
@@ -235,15 +236,18 @@ func (s *resourcesSuite) TestResourcesDelete(c *gc.C) {
 		expectedErrors[i] = result.Results[i].Error.Message
 	}
 	c.Assert(expectedErrors, gc.DeepEquals, []string{
-		"path cannot be empty", "", "resource notfound not found",
+		"resource path name cannot be empty", "", "resource /blob/notfound not found",
 	})
+
+	fmt.Println(s.resources)
+
 	c.Assert(s.resources, gc.HasLen, 2)
 	var expectedPaths []string
 	for p, _ := range s.resources {
 		expectedPaths = append(expectedPaths, p)
 	}
 	c.Assert(expectedPaths, jc.SameContents, []string{
-		"s/trusty/another",
-		"s/precise/another",
+		"/blob/s/trusty/another",
+		"/blob/s/precise/another",
 	})
 }
