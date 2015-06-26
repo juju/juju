@@ -283,8 +283,8 @@ class TestRunCommand(TestCase):
 
     def test_run_command_dry_run(self):
         with patch('subprocess.check_output') as co_mock:
-                run_command(['foo', 'bar'], dry_run=True, verbose=False)
-                self.assertEqual(0, co_mock.call_count)
+            run_command(['foo', 'bar'], dry_run=True)
+            self.assertEqual(0, co_mock.call_count)
 
     def test_run_command_verbose(self):
         with patch('subprocess.check_output'):
