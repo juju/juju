@@ -92,7 +92,8 @@ type ProcessDefinitions struct {
 }
 
 func newProcessDefinitions(st *State, charm names.CharmTag) *ProcessDefinitions {
-	persist := newProcsPersistence(st, &charm, nil)
+	statePersist := &statePersistence{st: st}
+	persist := newProcsPersistence(statePersist, &charm, nil)
 	return &ProcessDefinitions{
 		Persist: persist,
 	}
@@ -128,7 +129,8 @@ type UnitProcesses struct {
 }
 
 func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *UnitProcesses {
-	persist := newProcsPersistence(st, charm, &unit)
+	statePersist := &statePersistence{st: st}
+	persist := newProcsPersistence(statePersist, charm, &unit)
 	return &UnitProcesses{
 		Persist: persist,
 		Unit:    unit,

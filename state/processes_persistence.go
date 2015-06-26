@@ -70,9 +70,9 @@ type procsPersistence struct {
 	unit  names.UnitTag
 }
 
-func newProcsPersistence(st *State, charm *names.CharmTag, unit *names.UnitTag) *procsPersistence {
+func newProcsPersistence(st procsPersistenceBase, charm *names.CharmTag, unit *names.UnitTag) *procsPersistence {
 	pp := &procsPersistence{
-		st: &statePersistence{st: st},
+		st: st,
 	}
 	if charm != nil {
 		pp.charm = *charm
