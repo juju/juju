@@ -82,7 +82,20 @@ func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
 	if !ok {
 		return errors.NotFoundf(id)
 	}
-	state.ProcsUpdateDoc(doc, found)
+
+	switch doc := doc.(type) {
+	case *state.ProcessDefinitionDoc:
+		expected := found.(*state.ProcessDefinitionDoc)
+		*doc = *expected
+	case *state.ProcessLaunchDoc:
+		expected := found.(*state.ProcessLaunchDoc)
+		*doc = *expected
+	case *state.ProcessDoc:
+		expected := found.(*state.ProcessDoc)
+		*doc = *expected
+	default:
+		panic(doc)
+	}
 
 	return nil
 }

@@ -402,19 +402,3 @@ func UnitGlobalKey(u *Unit) string {
 func UnitAgentGlobalKey(u *UnitAgent) string {
 	return u.globalKey()
 }
-
-func ProcsUpdateDoc(target, source interface{}) {
-	switch target := target.(type) {
-	case *processDefinitionDoc:
-		expected := source.(*processDefinitionDoc)
-		*target = *expected
-	case *processLaunchDoc:
-		expected := source.(*processLaunchDoc)
-		*target = *expected
-	case *processDoc:
-		expected := source.(*processDoc)
-		*target = *expected
-	default:
-		panic(target)
-	}
-}

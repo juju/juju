@@ -91,12 +91,12 @@ func (pp procsPersistence) all(ids []string, docs interface{}) error {
 	return errors.Trace(pp.st.All(workloadProcessesC, ids, docs))
 }
 
-func (pp procsPersistence) indexDefinitionDocs(ids []string) (map[interface{}]processDefinitionDoc, error) {
-	var docs []processDefinitionDoc
+func (pp procsPersistence) indexDefinitionDocs(ids []string) (map[interface{}]ProcessDefinitionDoc, error) {
+	var docs []ProcessDefinitionDoc
 	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	indexed := make(map[interface{}]processDefinitionDoc)
+	indexed := make(map[interface{}]ProcessDefinitionDoc)
 	for _, doc := range docs {
 		indexed[doc.DocID] = doc
 	}
@@ -360,9 +360,9 @@ func (pp procsPersistence) newRemoveProcOp(id string) txn.Op {
 }
 
 type processInfoDoc struct {
-	definition processDefinitionDoc
-	launch     processLaunchDoc
-	proc       processDoc
+	definition ProcessDefinitionDoc
+	launch     ProcessLaunchDoc
+	proc       ProcessDoc
 }
 
 func (d processInfoDoc) info() process.Info {
@@ -377,7 +377,7 @@ func (d processInfoDoc) info() process.Info {
 	return info
 }
 
-type processDefinitionDoc struct {
+type ProcessDefinitionDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
@@ -394,7 +394,7 @@ type processDefinitionDoc struct {
 	EnvVars     map[string]string `bson:"envvars"`
 }
 
-func (d processDefinitionDoc) definition() charm.Process {
+func (d ProcessDefinitionDoc) definition() charm.Process {
 	ports := make([]charm.ProcessPort, len(d.Ports))
 	for i, raw := range d.Ports {
 		p := ports[i]
@@ -420,7 +420,7 @@ func (d processDefinitionDoc) definition() charm.Process {
 	}
 }
 
-func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *processDefinitionDoc {
+func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *ProcessDefinitionDoc {
 	id := pp.definitionID(definition.Name)
 
 	var ports []string
@@ -435,7 +435,7 @@ func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *pr
 		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
 	}
 
-	return &processDefinitionDoc{
+	return &ProcessDefinitionDoc{
 		DocID:  id,
 		UnitID: pp.unit.Id(),
 
@@ -451,19 +451,19 @@ func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *pr
 	}
 }
 
-func (pp procsPersistence) definitions(ids []string) ([]processDefinitionDoc, error) {
+func (pp procsPersistence) definitions(ids []string) ([]ProcessDefinitionDoc, error) {
 	for i, id := range ids {
 		ids[i] = pp.definitionID(id)
 	}
 
-	var docs []processDefinitionDoc
+	var docs []ProcessDefinitionDoc
 	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
 }
 
-type processLaunchDoc struct {
+type ProcessLaunchDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
@@ -471,7 +471,7 @@ type processLaunchDoc struct {
 	RawStatus string `bson:"rawstatus"`
 }
 
-func (d processLaunchDoc) details() process.Details {
+func (d ProcessLaunchDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
 		Status: process.RawStatus{
@@ -480,9 +480,9 @@ func (d processLaunchDoc) details() process.Details {
 	}
 }
 
-func (pp procsPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
+func (pp procsPersistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 	id := pp.launchID(info.ID())
-	return &processLaunchDoc{
+	return &ProcessLaunchDoc{
 		DocID: id,
 
 		PluginID:  info.Details.ID,
@@ -490,19 +490,19 @@ func (pp procsPersistence) newLaunchDoc(info process.Info) *processLaunchDoc {
 	}
 }
 
-func (pp procsPersistence) launches(ids []string) ([]processLaunchDoc, error) {
+func (pp procsPersistence) launches(ids []string) ([]ProcessLaunchDoc, error) {
 	for i, id := range ids {
 		ids[i] = pp.launchID(id)
 	}
 
-	var docs []processLaunchDoc
+	var docs []ProcessLaunchDoc
 	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
 }
 
-type processDoc struct {
+type ProcessDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
@@ -511,7 +511,7 @@ type processDoc struct {
 	PluginStatus string `bson:"pluginstatus"`
 }
 
-func (d processDoc) info() process.Info {
+func (d ProcessDoc) info() process.Info {
 	var status process.Status
 	switch d.Status {
 	case "pending":
@@ -535,7 +535,7 @@ func (d processDoc) info() process.Info {
 	}
 }
 
-func (pp procsPersistence) newProcessDoc(info process.Info) *processDoc {
+func (pp procsPersistence) newProcessDoc(info process.Info) *ProcessDoc {
 	id := pp.processID(info.ID())
 
 	var status string
@@ -553,7 +553,7 @@ func (pp procsPersistence) newProcessDoc(info process.Info) *processDoc {
 		status = "unknown"
 	}
 
-	return &processDoc{
+	return &ProcessDoc{
 		DocID: id,
 
 		Life:         Alive,
@@ -562,22 +562,22 @@ func (pp procsPersistence) newProcessDoc(info process.Info) *processDoc {
 	}
 }
 
-func (pp procsPersistence) proc(id string) (*processDoc, error) {
+func (pp procsPersistence) proc(id string) (*ProcessDoc, error) {
 	id = pp.processID(id)
 
-	var doc processDoc
+	var doc ProcessDoc
 	if err := pp.one(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
 }
 
-func (pp procsPersistence) procs(ids []string) ([]processDoc, error) {
+func (pp procsPersistence) procs(ids []string) ([]ProcessDoc, error) {
 	for i, id := range ids {
 		ids[i] = pp.processID(id)
 	}
 
-	var docs []processDoc
+	var docs []ProcessDoc
 	if err := pp.all(ids, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
