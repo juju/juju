@@ -14,7 +14,6 @@ from candidate import (
     parse_args,
     prepare_dir,
     publish_candidates,
-    run_command,
 )
 from jujuci import Credentials
 from utility import temp_dir
@@ -260,16 +259,6 @@ class CandidateTestCase(TestCase):
         assemble_script, publish_script = get_scripts('../foo/')
         self.assertEqual('../foo/assemble-streams.bash', assemble_script)
         self.assertEqual('../foo/publish-public-tools.bash', publish_script)
-
-    def test_run_command(self):
-        with patch('subprocess.check_output') as co_mock:
-            run_command(['foo', 'bar'])
-        args, kwargs = co_mock.call_args
-        self.assertEqual((['foo', 'bar'], ), args)
-        run_command(['foo', 'bar'], dry_run=True, verbose=True)
-        with patch('subprocess.check_output') as co_mock:
-            run_command(['foo', 'bar'], dry_run=True, verbose=True)
-            self.assertEqual(0, co_mock.call_count)
 
     def test_publish_candidates_copies_buildvars(self):
         with temp_dir() as base_dir:

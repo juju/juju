@@ -24,6 +24,7 @@ from jujuci import (
 from utility import (
     extract_deb,
     get_deb_arch,
+    run_command,
     s3_cmd,
     temp_dir,
 )
@@ -158,16 +159,6 @@ def get_scripts(juju_release_tools=None):
         publish_script = os.path.join(
             juju_release_tools, publish_script)
     return assemble_script, publish_script
-
-
-def run_command(command, dry_run=False, verbose=False):
-    """Optionally xecute a command and maybe print the output."""
-    if verbose:
-        print('Executing: %s' % command)
-    if not dry_run:
-        output = subprocess.check_output(command)
-        if verbose:
-            print(output)
 
 
 def publish_candidates(path, streams_path,

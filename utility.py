@@ -269,3 +269,13 @@ def get_deb_arch():
 def extract_deb(package_path, directory):
     """Extract a debian package to a specified directory."""
     subprocess.check_call(['dpkg', '-x', package_path, directory])
+
+
+def run_command(command, dry_run=False, verbose=False):
+    """Optionally execute a command and maybe print the output."""
+    if verbose:
+        print_now('Executing: {}'.format(command))
+    if not dry_run:
+        output = subprocess.check_output(command)
+        if verbose:
+            print_now(output)
