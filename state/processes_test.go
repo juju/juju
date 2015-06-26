@@ -235,16 +235,60 @@ func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitProcessesSuite) TestList(c *gc.C) {
-	//procs, err := ps.List()
-	//c.Assert(err, jc.ErrorIsNil)
+func (s *unitProcessesSuite) TestListOkay(c *gc.C) {
+	proc1 := s.newProcesses("docker", "procA")[0]
+	proc2 := s.newProcesses("docker", "procB")[0]
+	s.persist.setProcesses(&proc1, &proc2)
 
+	ps := state.UnitProcesses{Persist: s.persist}
+	procs, err := ps.List(proc1.ID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "List")
+	c.Check(procs, jc.DeepEquals, []process.Info{proc1})
+}
+
+func (s *unitProcessesSuite) TestListAll(c *gc.C) {
+	expected := s.newProcesses("docker", "procA", "procB")
+	s.persist.setProcesses(&expected[0], &expected[1])
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	procs, err := ps.List()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(procs, gc.HasLen, 2)
+	if procs[0].Name == "procA" {
+		c.Check(procs[0], jc.DeepEquals, expected[0])
+		c.Check(procs[1], jc.DeepEquals, expected[1])
+	} else {
+		c.Check(procs[0], jc.DeepEquals, expected[1])
+		c.Check(procs[1], jc.DeepEquals, expected[0])
+	}
+}
+
+func (s *unitProcessesSuite) TestListFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	_, err := ps.List()
+
+	s.stub.CheckCallNames(c, "List")
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *unitProcessesSuite) TestListMissing(c *gc.C) {
+	proc := s.newProcesses("docker", "procA")[0]
+	s.persist.setProcesses(&proc)
+
+	ps := state.UnitProcesses{Persist: s.persist}
+	procs, err := ps.List(proc.ID(), "procB/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(procs, jc.DeepEquals, []process.Info{proc})
 }
 
 func (s *unitProcessesSuite) TestUnregister(c *gc.C) {
-	//err := ps.Unregister()
-	//c.Assert(err, jc.ErrorIsNil)
-
 }
 
 type fakeProcsPersistence struct {
@@ -369,16 +413,22 @@ func (s *fakeProcsPersistence) List(ids ...string) ([]process.Info, []string, er
 
 	var procs []process.Info
 	var missing []string
-	for _, id := range ids {
-		if proc, ok := s.procs[id]; !ok {
-			missing = append(missing, id)
-		} else {
-			for _, inconsistent := range s.inconsistent {
-				if id == inconsistent {
-					return nil, nil, errors.NotValidf(id)
-				}
-			}
+	if len(ids) == 0 {
+		for _, proc := range s.procs {
 			procs = append(procs, *proc)
+		}
+	} else {
+		for _, id := range ids {
+			if proc, ok := s.procs[id]; !ok {
+				missing = append(missing, id)
+			} else {
+				for _, inconsistent := range s.inconsistent {
+					if id == inconsistent {
+						return nil, nil, errors.NotValidf(id)
+					}
+				}
+				procs = append(procs, *proc)
+			}
 		}
 	}
 	return procs, missing, nil
