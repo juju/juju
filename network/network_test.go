@@ -27,9 +27,9 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
-		{Address: network.NewAddress("0.1.2.3", network.ScopeUnknown)},
+		{Address: network.NewAddress("0.1.2.3")},
 		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
-		{GatewayAddress: network.NewAddress("4.3.2.1", network.ScopeUnknown)},
+		{GatewayAddress: network.NewAddress("4.3.2.1")},
 		{ExtraConfig: map[string]string{
 			"foo": "bar",
 			"baz": "nonsense",
@@ -58,9 +58,9 @@ func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
 func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Address, jc.DeepEquals, network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Check(s.info[4].Address, jc.DeepEquals, network.NewAddress("0.1.2.3"))
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewAddresses("1.1.1.1", "2.2.2.2"))
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1", network.ScopeUnknown))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1"))
 	c.Check(s.info[7].ExtraConfig, jc.DeepEquals, map[string]string{
 		"foo": "bar",
 		"baz": "nonsense",

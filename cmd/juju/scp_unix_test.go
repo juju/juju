@@ -14,7 +14,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
@@ -124,8 +124,8 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
 	s.addUnit(srv, m[3], c)
 	// Simulate machine 3 has a public IPv6 address.
-	ipv6Addr := network.NewAddress("2001:db8::1", network.ScopePublic)
-	err = m[3].SetAddresses(ipv6Addr)
+	ipv6Addr := network.NewScopedAddress("2001:db8::1", network.ScopePublic)
+	err = m[3].SetProviderAddresses(ipv6Addr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range scpTests {

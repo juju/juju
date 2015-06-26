@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -70,6 +70,31 @@ func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]
 	return result.OneError()
 }
 
+// UnitStatus gets the status details of the unit.
+func (u *Unit) UnitStatus() (params.StatusResult, error) {
+	var results params.StatusResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
+	}
+	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
+		}
+		return params.StatusResult{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.StatusResult{}, result.Error
+	}
+	return result, nil
+}
+
 // SetAgentStatus sets the status of the unit agent.
 func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
@@ -103,6 +128,39 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 		return errors.Annotate(err, "unable to add metric")
 	}
 	return result.OneError()
+}
+
+// AddMetricsBatches makes an api call to the uniter requesting it to store metrics batches in state.
+func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
+	p := params.MetricBatchParams{
+		Batches: make([]params.MetricBatchParam, len(batches)),
+	}
+
+	batchResults := make(map[string]error, len(batches))
+
+	for i, batch := range batches {
+		p.Batches[i].Tag = u.tag.String()
+		p.Batches[i].Batch = batch
+
+		batchResults[batch.UUID] = nil
+	}
+	results := new(params.ErrorResults)
+	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
+	if params.IsCodeNotImplemented(err) {
+		for _, batch := range batches {
+			err = u.AddMetrics(batch.Metrics)
+			if err != nil {
+				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
+			}
+		}
+		return batchResults, nil
+	} else if err != nil {
+		return nil, errors.Annotate(err, "failed to send metric batches")
+	}
+	for i, result := range results.Results {
+		batchResults[batches[i].UUID] = result.Error
+	}
+	return batchResults, nil
 }
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or
@@ -675,4 +733,27 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 // unit's storage attachments.
 func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
 	return u.st.WatchUnitStorageAttachments(u.tag)
+}
+
+// AddStorage adds desired storage instances to a unit.
+func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
+	if u.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("AddStorage() (need V2+)")
+	}
+
+	all := make([]params.StorageAddParams, 0, len(constraints))
+	for storage, cons := range constraints {
+		for _, one := range cons {
+			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})
+		}
+	}
+
+	args := params.StoragesAddParams{Storages: all}
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("AddUnitStorage", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
 }

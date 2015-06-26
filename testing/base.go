@@ -30,9 +30,10 @@ var logger = loggo.GetLogger("juju.testing")
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
-	oldJujuHome    string
-	oldHomeEnv     string
-	oldEnvironment map[string]string
+	oldJujuHome         string
+	oldHomeEnv          string
+	oldEnvironment      map[string]string
+	initialFeatureFlags string
 }
 
 func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
@@ -53,11 +54,12 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
-	utils.SetHome("")
-	// Update the feature flag set to be empty (given we have just set the
-	// environment value to the empty string)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.oldJujuHome = osenv.SetJujuHome("")
+	utils.SetHome("")
+
+	// Update the feature flag set to be the requested initial set.
+	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
@@ -82,6 +84,19 @@ func SkipIfI386(c *gc.C, bugID string) {
 	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
 		c.Skip(fmt.Sprintf("Test disabled on I386 until fixed - see bug %s", bugID))
 	}
+}
+
+// SkipIfWindowsBug skips the test if the OS is Windows.
+func SkipIfWindowsBug(c *gc.C, bugID string) {
+	if runtime.GOOS == "windows" {
+		c.Skip(fmt.Sprintf("Test disabled on Windows until fixed - see bug %s", bugID))
+	}
+}
+
+// SetInitialFeatureFlags sets the feature flags to be in effect for
+// the next call to SetUpTest.
+func (s *JujuOSEnvSuite) SetInitialFeatureFlags(flags ...string) {
+	s.initialFeatureFlags = strings.Join(flags, ",")
 }
 
 func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {

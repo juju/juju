@@ -39,7 +39,7 @@ func (*fakeEnvironAccessor) WatchForEnvironConfigChanges() state.NotifyWatcher {
 	changes := make(chan struct{}, 1)
 	// Simulate initial event.
 	changes <- struct{}{}
-	return &fakeNotifyWatcher{changes}
+	return &fakeNotifyWatcher{changes: changes}
 }
 
 func (f *fakeEnvironAccessor) EnvironConfig() (*config.Config, error) {

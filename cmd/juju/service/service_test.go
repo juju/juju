@@ -20,6 +20,8 @@ type ServiceCommandSuite struct {
 var _ = gc.Suite(&ServiceCommandSuite{})
 
 var expectedCommmandNames = []string{
+	"add-unit",
+	"get",
 	"get-constraints",
 	"help",
 	"set",

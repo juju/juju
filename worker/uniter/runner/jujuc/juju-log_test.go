@@ -17,7 +17,7 @@ import (
 )
 
 type JujuLogSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&JujuLogSuite{})
@@ -69,42 +69,42 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 	_, err := loggo.ReplaceDefaultWriter(tw)
 	loggo.GetLogger("unit").SetLogLevel(loggo.TRACE)
 	c.Assert(err, jc.ErrorIsNil)
-	hctx := s.GetHookContext(c, -1, "")
+	hctx, _ := s.newHookContext(-1, "")
 	assertLogs(c, hctx, tw, "u/0", "")
-	hctx = s.GetHookContext(c, 1, "u/1")
+	hctx, _ = s.newHookContext(1, "u/1")
 	assertLogs(c, hctx, tw, "u/0", "peer1:1: ")
 }
 
-func newJujuLogCommand(c *gc.C) cmd.Command {
-	ctx := &Context{}
+func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
+	ctx, _ := s.newHookContext(-1, "")
 	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, jc.ErrorIsNil)
 	return com
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
-	com := newJujuLogCommand(c)
+	com := s.newJujuLogCommand(c)
 	testing.TestInit(c, com, nil, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingLevel(c *gc.C) {
-	com := newJujuLogCommand(c)
+	com := s.newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
 
-	com = newJujuLogCommand(c)
+	com = s.newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"--log-level"}, "flag needs an argument.*")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
-	com := newJujuLogCommand(c)
+	com := s.newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
 
-	com = newJujuLogCommand(c)
+	com = s.newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"--log-level", "FATAL"}, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
-	com := newJujuLogCommand(c)
+	com := s.newJujuLogCommand(c)
 	ctx, err := testing.RunCommand(c, com, "--format", "foo", "msg")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")

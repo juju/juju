@@ -32,32 +32,35 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	tomb             tomb.Tomb
-	st               *upgrader.State
-	dataDir          string
-	tag              names.Tag
-	origAgentVersion version.Number
-	isUpgradeRunning func() bool
+	tomb                   tomb.Tomb
+	st                     *upgrader.State
+	dataDir                string
+	tag                    names.Tag
+	origAgentVersion       version.Number
+	areUpgradeStepsRunning func() bool
+	agentUpgradeComplete   chan struct{}
 }
 
-// NewUpgrader returns a new upgrader worker. It watches changes to the
+// NewAgentUpgrader returns a new upgrader worker. It watches changes to the
 // current version of the current agent (with the given tag) and tries to
 // download the tools for any new version into the given data directory.  If
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewUpgrader(
+func NewAgentUpgrader(
 	st *upgrader.State,
 	agentConfig agent.Config,
 	origAgentVersion version.Number,
-	isUpgradeRunning func() bool,
+	areUpgradeStepsRunning func() bool,
+	agentUpgradeComplete chan struct{},
 ) *Upgrader {
 	u := &Upgrader{
-		st:               st,
-		dataDir:          agentConfig.DataDir(),
-		tag:              agentConfig.Tag(),
-		origAgentVersion: origAgentVersion,
-		isUpgradeRunning: isUpgradeRunning,
+		st:                     st,
+		dataDir:                agentConfig.DataDir(),
+		tag:                    agentConfig.Tag(),
+		origAgentVersion:       origAgentVersion,
+		areUpgradeStepsRunning: areUpgradeStepsRunning,
+		agentUpgradeComplete:   agentUpgradeComplete,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -103,6 +106,17 @@ func allowedTargetVersion(
 	return true
 }
 
+// closeChannel can be called multiple times to
+// close the channel without panicing.
+func closeChannel(ch chan struct{}) {
+	select {
+	case <-ch:
+		return
+	default:
+		close(ch)
+	}
+}
+
 func (u *Upgrader) loop() error {
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
@@ -137,9 +151,10 @@ func (u *Upgrader) loop() error {
 			return nil
 		}
 		if wantVersion == version.Current.Number {
+			closeChannel(u.agentUpgradeComplete)
 			continue
 		} else if !allowedTargetVersion(u.origAgentVersion, version.Current.Number,
-			u.isUpgradeRunning(), wantVersion) {
+			u.areUpgradeStepsRunning(), wantVersion) {
 			// See also bug #1299802 where when upgrading from
 			// 1.16 to 1.18 there is a race condition that can
 			// cause the unit agent to upgrade, and then want to
@@ -147,6 +162,7 @@ func (u *Upgrader) loop() error {
 			// finished upgrading.
 			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
 				wantVersion, version.Current)
+			closeChannel(u.agentUpgradeComplete)
 			continue
 		}
 		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)

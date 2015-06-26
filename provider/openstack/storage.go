@@ -11,8 +11,8 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/utils"
-	gooseerrors "launchpad.net/goose/errors"
-	"launchpad.net/goose/swift"
+	gooseerrors "gopkg.in/goose.v1/errors"
+	"gopkg.in/goose.v1/swift"
 
 	"github.com/juju/juju/environs/storage"
 )

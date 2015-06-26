@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -18,13 +19,13 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
 type AssignSuite struct {
 	ConnSuite
-	wordpress  *state.Service
-	storageSvc *state.Service
+	wordpress *state.Service
 }
 
 var _ = gc.Suite(&AssignSuite{})
@@ -33,11 +34,6 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-
 	wordpress := s.AddTestingServiceWithNetworks(
 		c,
 		"wordpress",
@@ -46,16 +42,6 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 	)
 	wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.wordpress = wordpress
-	s.storageSvc = s.AddTestingServiceWithStorage(
-		c, "storage-block", s.AddTestingCharm(c, "storage-block"),
-		map[string]state.StorageConstraints{
-			"data": {
-				Pool:  "loop-pool",
-				Count: 1,
-				Size:  1024,
-			},
-		},
-	)
 }
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
@@ -693,6 +679,10 @@ func (s *assignCleanSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
 func (s *assignCleanSuite) errorMessage(msg string) string {
@@ -976,7 +966,7 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.assignUnit(unit)
-	c.Assert(err, gc.ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit not found`))
+	c.Assert(err, gc.ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.* not found`))
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
@@ -1007,14 +997,64 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
 	c.Assert(assignedTo.Id(), gc.Equals, "0")
 }
 
-func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
-	cons, err := s.storageSvc.StorageConstraints()
+func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := s.AddTestingCharm(c, "storage-"+kind)
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons(pool, 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.HasLen, 1)
+	storageTag := names.NewStorageTag("data/0")
+	return service, unit, storageTag
+}
 
-	unit, err := s.storageSvc.AddUnit()
+func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemAttachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystemAttachments, gc.HasLen, 1)
+}
+
+func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
+	})
+	registry.RegisterEnvironStorageProviders("someprovider", "static")
+	defer registry.RegisterProvider("static", nil)
+
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(
+		err, gc.ErrorMatches,
+		`cannot assign unit "storage-filesystem/0" to machine 0: "static" storage provider does not support dynamic storage`,
+	)
+
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(container)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxc/0: adding storage to lxc container not supported`)
+}
+
+func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *gc.C) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
+	})
+	registry.RegisterEnvironStorageProviders("someprovider", "static")
+	defer registry.RegisterProvider("static", nil)
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
@@ -1023,8 +1063,8 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// assign the unit to a machine, requesting clean/empty. Since
-	// the unit has storage instances associated, it will be forced
-	// onto a new machine.
+	// the unit has non dynamic storage instances associated,
+	// it will be forced onto a new machine.
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1033,6 +1073,27 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that the machine isn't our clean one.
 	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
+}
+
+func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.C) {
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+
+	// Add a clean machine.
+	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assign the unit to a machine, requesting clean/empty
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the machine on the unit is set.
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the machine isn't our clean one.
+	c.Assert(machineId, gc.Equals, clean.Id())
 
 	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)

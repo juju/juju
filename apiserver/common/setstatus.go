@@ -13,6 +13,66 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ServiceStatusSetter implements a SetServiceStatus method to be
+// used by facades that can change a service status.
+type ServiceStatusSetter struct {
+	st           state.EntityFinder
+	getCanModify GetAuthFunc
+}
+
+// NewServiceStatusSetter returns a ServiceStatusSetter.
+func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *ServiceStatusSetter {
+	return &ServiceStatusSetter{
+		st:           st,
+		getCanModify: getCanModify,
+	}
+}
+
+// SetStatus sets the status on the service given by the unit in args if the unit is the leader.
+func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return serviceSetStatus(s, args, serviceFromUnitTag, isLeader)
+}
+
+func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService serviceGetter, isLeaderCheck isLeaderFunc) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.Entities {
+		leader, err := isLeaderCheck(s.st, arg.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		if !leader {
+			result.Results[i].Error = ServerError(ErrIsNotLeader)
+			continue
+		}
+		service, err := getService(s.st, arg.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+
+		if !canModify(service.Tag()) {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+
+		if err := service.SetStatus(state.Status(arg.Status), arg.Info, arg.Data); err != nil {
+			result.Results[i].Error = ServerError(err)
+		}
+
+	}
+	return result, nil
+}
+
 // StatusSetter implements a common SetStatus method for use by
 // various facades.
 type StatusSetter struct {
@@ -79,11 +139,11 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "getting status")
 	}
-	existingStatus, existingInfo, existingData, err := statusGetter.Status()
+	existingStatusInfo, err := statusGetter.Status()
 	if err != nil {
 		return err
 	}
-	newData := existingData
+	newData := existingStatusInfo.Data
 	if newData == nil {
 		newData = data
 	} else {
@@ -95,10 +155,10 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatus != state.StatusError {
+	if len(newData) > 0 && existingStatusInfo.Status != state.StatusError {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
 	}
-	return entity.SetStatus(existingStatus, existingInfo, newData)
+	return entity.SetStatus(existingStatusInfo.Status, existingStatusInfo.Message, newData)
 }
 
 // UpdateStatus updates the status data of each given entity.

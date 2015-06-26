@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/identity"
+	"gopkg.in/goose.v1/identity"
 )
 
 var live = flag.Bool("live", false, "Include live OpenStack tests")

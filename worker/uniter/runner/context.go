@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -24,11 +24,32 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
+var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
 	code string
 	info string
+}
+
+// MetricsRecorder is used to store metrics supplied by the add-metric command.
+type MetricsRecorder interface {
+	AddMetric(key, value string, created time.Time) error
+	Close() error
+}
+
+// metricsSender is used to send metrics to state. Its default implementation is
+// *uniter.Unit.
+type metricsSender interface {
+	AddMetricBatches(batches []params.MetricBatch) (map[string]error, error)
+}
+
+// MetricsReader is used to read metrics batches stored by the metrics recorder
+// and remove metrics batches that have been marked as succesfully sent.
+type MetricsReader interface {
+	Open() ([]MetricsBatch, error)
+	Remove(uuid string) error
+	Close() error
 }
 
 // HookContext is the implementation of jujuc.Context.
@@ -75,6 +96,9 @@ type HookContext struct {
 	// unitName is the human friendly name of the local unit.
 	unitName string
 
+	// status is the status of the local unit.
+	status *jujuc.StatusInfo
+
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
 	// otherwise, its value must be a valid key into the relations map.
@@ -98,11 +122,14 @@ type HookContext struct {
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
-	// metrics are the metrics recorded by calls to add-metric.
-	metrics []jujuc.Metric
+	// metricsRecorder is used to write metrics batches to a storage (usually a file).
+	metricsRecorder MetricsRecorder
 
-	// canAddMetrics specifies whether the hook allows recording metrics.
-	canAddMetrics bool
+	// metricsReader is used to read metric batches from storage.
+	metricsReader MetricsReader
+
+	// metricsSender is used to send metrics to state.
+	metricsSender metricsSender
 
 	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
 	definedMetrics *charm.Metrics
@@ -136,6 +163,19 @@ type HookContext struct {
 
 	// storageId is the tag of the storage instance associated with the running hook.
 	storageTag names.StorageTag
+
+	// hasRunSetStatus is true if a call to the status-set was made during the
+	// invocation of a hook.
+	// This attribute is persisted to local uniter state at the end of the hook
+	// execution so that the uniter can ultimately decide if it needs to update
+	// a charm's workload status, or if the charm has already taken care of it.
+	hasRunStatusSet bool
+
+	// storageAddConstraints is a collection of storage constraints
+	// keyed on storage name as specified in the charm.
+	// This collection will be added to the unit on successful
+	// hook run, so the actual add will happen in a flush.
+	storageAddConstraints map[string][]params.StorageConstraints
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -185,6 +225,108 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+// UnitStatus will return the status for the current Unit.
+func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	if ctx.status == nil {
+		var err error
+		status, err := ctx.unit.UnitStatus()
+		if err != nil {
+			return nil, err
+		}
+		ctx.status = &jujuc.StatusInfo{
+			Status: string(status.Status),
+			Info:   status.Info,
+			Data:   status.Data,
+		}
+	}
+	return ctx.status, nil
+}
+
+// ServiceStatus returns the status for the service and all the units on
+// the service to which this context unit belongs, only if this unit is
+// the leader.
+func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+	var err error
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return jujuc.ServiceStatusInfo{}, ErrIsNotLeader
+	}
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	status, err := service.Status(ctx.unit.Name())
+	if err != nil {
+		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+	}
+	us := make([]jujuc.StatusInfo, len(status.Units))
+	i := 0
+	for t, s := range status.Units {
+		us[i] = jujuc.StatusInfo{
+			Tag:    t,
+			Status: string(s.Status),
+			Info:   s.Info,
+			Data:   s.Data,
+		}
+		i++
+	}
+	return jujuc.ServiceStatusInfo{
+		Service: jujuc.StatusInfo{
+			Tag:    service.Tag().String(),
+			Status: string(status.Service.Status),
+			Info:   status.Service.Info,
+			Data:   status.Service.Data,
+		},
+		Units: us,
+	}, nil
+}
+
+// SetUnitStatus will set the given status for this unit.
+func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	ctx.hasRunStatusSet = true
+	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
+	return ctx.unit.SetUnitStatus(
+		params.Status(status.Status),
+		status.Info,
+		status.Data,
+	)
+}
+
+// SetServiceStatus will set the given status to the service to which this
+// unit's belong, only if this unit is the leader.
+func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
+	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
+
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return service.SetStatus(
+		ctx.unit.Name(),
+		params.Status(status.Status),
+		status.Info,
+		status.Data,
+	)
+}
+
+func (ctx *HookContext) HasExecutionSetUnitStatus() bool {
+	return ctx.hasRunStatusSet
+}
+
+func (ctx *HookContext) ResetExecutionSetUnitStatus() {
+	ctx.hasRunStatusSet = false
+}
+
 func (ctx *HookContext) PublicAddress() (string, bool) {
 	return ctx.publicAddress, ctx.publicAddress != ""
 }
@@ -197,12 +339,27 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	return ctx.storage.Storage(tag)
+}
+
+func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) {
+	// All storage constraints are accumulated before context is flushed.
+	if ctx.storageAddConstraints == nil {
+		ctx.storageAddConstraints = make(
+			map[string][]params.StorageConstraints,
+			len(cons))
+	}
+	for storage, newConstraints := range cons {
+		// Multiple calls for the same storage are accumulated as well.
+		ctx.storageAddConstraints[storage] = append(
+			ctx.storageAddConstraints[storage],
+			newConstraints)
+	}
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -320,14 +477,19 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
-	if !ctx.canAddMetrics || ctx.definedMetrics == nil {
+	if ctx.metricsRecorder == nil || ctx.definedMetrics == nil {
 		return errors.New("metrics disabled")
 	}
+
 	err := ctx.definedMetrics.ValidateMetric(key, value)
 	if err != nil {
 		return errors.Annotatef(err, "invalid metric %q", key)
 	}
-	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
+
+	err = ctx.metricsRecorder.AddMetric(key, value, created)
+	if err != nil {
+		return errors.Annotate(err, "failed to store metric")
+	}
 	return nil
 }
 
@@ -392,13 +554,27 @@ func (ctx *HookContext) handleReboot(err *error) {
 	case jujuc.RebootNow:
 		*err = ErrRequeueAndReboot
 	}
+	err2 := ctx.unit.SetUnitStatus(params.StatusRebooting, "", nil)
+	if err2 != nil {
+		logger.Errorf("updating agent status: %v", err2)
+	}
 	reqErr := ctx.unit.RequestReboot()
 	if reqErr != nil {
 		*err = reqErr
 	}
 }
 
+// FlushContext implements the Context interface.
 func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
+	// A non-existant metricsRecorder simply means that metrics were disabled
+	// for this hook run.
+	if ctx.metricsRecorder != nil {
+		err := ctx.metricsRecorder.Close()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
@@ -460,27 +636,73 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			}
 		}
 	}
-	if ctxErr != nil {
-		return ctxErr
+
+	// add storage to unit dynamically
+	if len(ctx.storageAddConstraints) > 0 && writeChanges {
+		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot add storage")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
 	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
-	if ctx.canAddMetrics && len(ctx.metrics) > 0 {
-		if writeChanges {
-			metrics := make([]params.Metric, len(ctx.metrics))
-			for i, metric := range ctx.metrics {
-				metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+
+	if ctx.metricsReader == nil {
+		return ctxErr
+	}
+
+	if !writeChanges {
+		return ctxErr
+	}
+
+	batches, err := ctx.metricsReader.Open()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer ctx.metricsReader.Close()
+
+	var sendBatches []params.MetricBatch
+	for _, batch := range batches {
+		if len(batch.Metrics) == 0 { // empty batches not supported yet.
+			logger.Infof("skipping and removing empty metrics batch with UUID %q", batch.UUID)
+			err := ctx.metricsReader.Remove(batch.UUID)
+			if err != nil {
+				return errors.Trace(err)
 			}
-			if e := ctx.unit.AddMetrics(metrics); e != nil {
-				logger.Errorf("%v", e)
-				if ctxErr == nil {
-					ctxErr = e
-				}
-			}
+			continue
 		}
-		ctx.metrics = nil
+		metrics := make([]params.Metric, len(batch.Metrics))
+		for i, metric := range batch.Metrics {
+			metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+		}
+		batchParam := params.MetricBatch{
+			UUID:     batch.UUID,
+			CharmURL: batch.CharmURL,
+			Created:  batch.Created,
+			Metrics:  metrics,
+		}
+		sendBatches = append(sendBatches, batchParam)
+	}
+	results, err := ctx.metricsSender.AddMetricBatches(sendBatches)
+	if err != nil {
+		// Do not return metric sending error.
+		logger.Errorf("%v", err)
+	}
+	for batchUUID, resultErr := range results {
+		if resultErr == nil || resultErr == (*params.Error)(nil) || params.IsCodeAlreadyExists(resultErr) {
+			err = ctx.metricsReader.Remove(batchUUID)
+			if err != nil {
+				logger.Errorf("could not remove batch %q from spool: %v", batchUUID, err)
+			}
+		} else {
+			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
+		}
 	}
 
 	return ctxErr

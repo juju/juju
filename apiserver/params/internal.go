@@ -320,10 +320,9 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
-	// here, containing only the information regarding the attachment.
-	// The rest can be inferred from the context.
-	VolumeAttachments []VolumeAttachment
+	// VolumeAttachments is a mapping from volume tag to
+	// volume attachment info.
+	VolumeAttachments map[string]VolumeAttachmentInfo
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -345,6 +344,33 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
+// InstanceStatus holds an entity tag and instance status.
+type InstanceStatus struct {
+	Tag    string
+	Status string
+}
+
+// SetInstancesStatus holds parameters for making a
+// SetInstanceStatus() call.
+type SetInstancesStatus struct {
+	Entities []InstanceStatus
+}
+
+type HistoryKind string
+
+const (
+	KindCombined HistoryKind = "combined"
+	KindAgent    HistoryKind = "agent"
+	KindWorkload HistoryKind = "workload"
+)
+
+// StatusHistory holds the parameters to filter a status history query.
+type StatusHistory struct {
+	Kind HistoryKind
+	Size int
+	Name string
+}
+
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
@@ -354,6 +380,7 @@ type StatusResult struct {
 	Status Status
 	Info   string
 	Data   map[string]interface{}
+	Since  *time.Time
 }
 
 // StatusResults holds multiple status results.
@@ -361,9 +388,16 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
-// SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
-type SetMachinesAddresses struct {
-	MachineAddresses []MachineAddresses
+// ServiceStatusResult holds results for a service Full Status
+type ServiceStatusResult struct {
+	Service StatusResult
+	Units   map[string]StatusResult
+	Error   *Error
+}
+
+// ServiceStatusResults holds multiple StatusResult.
+type ServiceStatusResults struct {
+	Results []ServiceStatusResult
 }
 
 // ConstraintsResult holds machine constraints or an error.
@@ -476,6 +510,20 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
+// changes and an error (if any).
+type MachineStorageIdsWatchResult struct {
+	MachineStorageIdsWatcherId string
+	Changes                    []MachineStorageId
+	Error                      *Error
+}
+
+// MachineStorageIdsWatchResults holds the results for any API call which ends
+// up returning a list of MachineStorageIdsWatchers.
+type MachineStorageIdsWatchResults struct {
+	Results []MachineStorageIdsWatchResult
+}
+
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
 	Error    string   `json:",omitempty"`
@@ -523,6 +571,7 @@ type ProvisioningInfo struct {
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
 	Volumes     []VolumeParams
+	Tags        map[string]string
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -552,6 +601,25 @@ type MetricsParam struct {
 // MetricsParams contains the metrics for multiple units.
 type MetricsParams struct {
 	Metrics []MetricsParam
+}
+
+// MetricBatch is a list of metrics with metadata.
+type MetricBatch struct {
+	UUID     string
+	CharmURL string
+	Created  time.Time
+	Metrics  []Metric
+}
+
+// MetricBatchParam contains a single metric batch.
+type MetricBatchParam struct {
+	Tag   string
+	Batch MetricBatch
+}
+
+// MetricBatchParams contains multiple metric batches.
+type MetricBatchParams struct {
+	Batches []MetricBatchParam
 }
 
 // MeterStatusResult holds unit meter status or error.

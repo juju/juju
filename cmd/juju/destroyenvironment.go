@@ -87,22 +87,18 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		return errors.Annotate(err, "cannot read environment info")
 	}
 
-	var isServer bool
+	var hasBootstrapCfg bool
 	var serverEnviron environs.Environ
 	if bootstrapCfg := cfgInfo.BootstrapConfig(); bootstrapCfg != nil {
-		isServer = true
-		cfg, err := config.New(config.NoDefaults, bootstrapCfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		serverEnviron, err = environs.New(cfg)
+		hasBootstrapCfg = true
+		serverEnviron, err = getServerEnv(bootstrapCfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	if c.force {
-		if isServer {
+		if hasBootstrapCfg {
 			// If --force is supplied on a server environment, then don't
 			// attempt to use the API. This is necessary to destroy broken
 			// environments, where the API server is inaccessible or faulty.
@@ -143,19 +139,28 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 	}
 
-	if isServer {
+	if info.UUID == info.ServerUUID {
+		if !hasBootstrapCfg {
+			// serverEnviron will be nil as we didn't have the jenv bootstrap
+			// config to build it. But we do have a connection to the API
+			// server, so get the config from there.
+			bootstrapCfg, err := apiclient.EnvironmentGet()
+			if err != nil {
+				return errors.Annotate(err, "environment destruction failed")
+			}
+			serverEnviron, err = getServerEnv(bootstrapCfg)
+			if err != nil {
+				return errors.Annotate(err, "environment destruction failed")
+			}
+		}
+
 		if err := c.destroyEnv(apiclient); err != nil {
 			return errors.Annotate(err, "environment destruction failed")
 		}
-		return environs.Destroy(serverEnviron, store)
-	}
-
-	// Before destroying the hosted environment, double check with the API
-	// server that this isn't the server environment. This covers the case
-	// where a user has a jenv file that points to the server environment, but
-	// doesn't have the bootstrap args.
-	if info.UUID == info.ServerUUID {
-		return errors.Errorf("cannot destroy server environment without bootstrap infomation")
+		if err := environs.Destroy(serverEnviron, store); err != nil {
+			return errors.Annotate(err, "environment destruction failed")
+		}
+		return environs.DestroyInfo(c.envName, store)
 	}
 
 	// If this is not the server environment, there is no bootstrap info and
@@ -165,6 +170,14 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		errors.Annotate(err, "cannot destroy environment")
 	}
 	return environs.DestroyInfo(c.envName, store)
+}
+
+func getServerEnv(bootstrapCfg map[string]interface{}) (environs.Environ, error) {
+	cfg, err := config.New(config.NoDefaults, bootstrapCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return environs.New(cfg)
 }
 
 func (c *DestroyEnvironmentCommand) destroyEnv(apiclient *api.Client) (result error) {

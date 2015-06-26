@@ -14,8 +14,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -23,8 +24,11 @@ import (
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -47,7 +51,7 @@ type ContainerSetupSuite struct {
 var _ = gc.Suite(&ContainerSetupSuite{})
 
 func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
+	// TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Skipping container tests on windows")
 	}
@@ -68,7 +72,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
@@ -251,7 +255,7 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 	brokerCalled := false
 	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
-		imageURLGetter container.ImageURLGetter) (environs.InstanceBroker, error) {
+		imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(imageURL, gc.Equals, "imageURL")
@@ -262,7 +266,6 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	s.PatchValue(&provisioner.NewLxcBroker, newlxcbroker)
 	s.createContainer(c, m, instance.LXC)
 	c.Assert(brokerCalled, jc.IsTrue)
-
 }
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
@@ -277,7 +280,7 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect("any-old-thing")
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string, addressable bool) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
@@ -303,35 +306,43 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	s.createContainer(c, m, ctype)
 
-	// After initialisation starts, but before running the
-	// initializer, lxc-net should be created if ctype is LXC, as the
-	// dummy provider supports static address allocation by default.
-	if ctype == instance.LXC {
-		AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
-		defer os.Remove(s.fakeLXCNet)
-	} else {
-		c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+	// Only feature-flagged addressable containers modify lxc-net.
+	if addressable {
+		// After initialisation starts, but before running the
+		// initializer, lxc-net should be created if ctype is LXC, as the
+		// dummy provider supports static address allocation by default.
+		if ctype == instance.LXC {
+			AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+			defer os.Remove(s.fakeLXCNet)
+		} else {
+			c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+		}
 	}
 
-	cmd := <-s.aptCmdChan
-	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
-	expected := []string{
-		"apt-get", "--option=Dpkg::Options::=--force-confold",
-		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install"}
-	expected = append(expected, packages...)
-	c.Assert(cmd.Args, gc.DeepEquals, expected)
+	for _, pack := range packages {
+		cmd := <-s.aptCmdChan
+		expected := []string{
+			"apt-get", "--option=Dpkg::Options::=--force-confold",
+			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
+			"install"}
+		expected = append(expected, pack...)
+		c.Assert(cmd.Args, gc.DeepEquals, expected)
+	}
 }
 
 func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	for _, test := range []struct {
 		ctype    instance.ContainerType
-		packages []string
+		packages [][]string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
-		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
+		{instance.LXC, [][]string{
+			[]string{"--target-release", "precise-updates/cloud-tools", "lxc"},
+			[]string{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{
+			[]string{"uvtool-libvirt"},
+			[]string{"uvtool"}}},
 	} {
-		s.assertContainerInitialised(c, test.ctype, test.packages)
+		s.assertContainerInitialised(c, test.ctype, test.packages, false)
 	}
 }
 
@@ -386,16 +397,35 @@ func (s *ContainerSetupSuite) TestMaybeOverrideDefaultLXCNet(c *gc.C) {
 	}
 }
 
-func AssertFileContains(c *gc.C, filename, expectedContent string) {
+func AssertFileContains(c *gc.C, filename string, expectedContent ...string) {
 	// TODO(dimitern): We should put this in juju/testing repo and
 	// replace all similar checks with it.
 	data, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.Contains, expectedContent)
+	for _, s := range expectedContent {
+		c.Assert(string(data), jc.Contains, s)
+	}
+}
+
+func AssertFileContents(c *gc.C, checker gc.Checker, filename string, expectedContent ...string) {
+	// TODO(dimitern): We should put this in juju/testing repo and
+	// replace all similar checks with it.
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, s := range expectedContent {
+		c.Assert(string(data), checker, s)
+	}
 }
 
 type SetIPAndARPForwardingSuite struct {
 	coretesting.BaseSuite
+}
+
+func (s *SetIPAndARPForwardingSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping for now")
+	}
+	s.BaseSuite.SetUpSuite(c)
 }
 
 var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
@@ -455,4 +485,70 @@ type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.
 
 func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
 	return t(v, series, arch)
+}
+
+// AddressableContainerSetupSuite only contains tests depending on the
+// address allocation feature flag being enabled.
+type AddressableContainerSetupSuite struct {
+	ContainerSetupSuite
+}
+
+var _ = gc.Suite(&AddressableContainerSetupSuite{})
+
+func (s *AddressableContainerSetupSuite) enableFeatureFlag() {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
+func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
+	for _, test := range []struct {
+		ctype    instance.ContainerType
+		packages [][]string
+	}{
+		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc"}, {"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{{"uvtool-libvirt"}, {"uvtool"}}},
+	} {
+		s.enableFeatureFlag()
+		s.assertContainerInitialised(c, test.ctype, test.packages, true)
+	}
+}
+
+// LXCDefaultMTUSuite only contains tests depending on the
+// lxc-default-mtu environment setting being set explicitly.
+type LXCDefaultMTUSuite struct {
+	ContainerSetupSuite
+}
+
+var _ = gc.Suite(&LXCDefaultMTUSuite{})
+
+func (s *LXCDefaultMTUSuite) SetUpTest(c *gc.C) {
+	// Explicitly set lxc-default-mtu before JujuConnSuite constructs
+	// the environment, as the setting is immutable.
+	s.DummyConfig = dummy.SampleConfig()
+	s.DummyConfig["lxc-default-mtu"] = 9000
+	s.ContainerSetupSuite.SetUpTest(c)
+}
+
+func (s *LXCDefaultMTUSuite) TestDefaultMTUPropagatedToNewLXCBroker(c *gc.C) {
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	brokerCalled := false
+	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig, imageURLGetter container.ImageURLGetter, enableNAT bool, defaultMTU int) (environs.InstanceBroker, error) {
+		brokerCalled = true
+		c.Assert(defaultMTU, gc.Equals, 9000)
+		return nil, fmt.Errorf("lxc broker error")
+	}
+	s.PatchValue(&provisioner.NewLxcBroker, newlxcbroker)
+	s.createContainer(c, m, instance.LXC)
+	c.Assert(brokerCalled, jc.IsTrue)
 }

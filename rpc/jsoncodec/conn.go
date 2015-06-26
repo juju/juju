@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net"
 
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 )
 
 // NewWebsocket returns an rpc codec that uses the given websocket

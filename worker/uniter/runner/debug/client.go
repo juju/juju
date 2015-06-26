@@ -48,8 +48,19 @@ func encodeArgs(hooks []string) []byte {
 
 const debugHooksClientScript = `#!/bin/bash
 (
+cleanup_on_exit() 
+{ 
+	echo "Cleaning up the debug session"
+	tmux kill-session -t {unit_name}; 
+}
+trap cleanup_on_exit EXIT
+
 # Lock the juju-<unit>-debug lockfile.
-flock -n 8 || (echo "Failed to acquire {entry_flock}: unit is already being debugged" 2>&1; exit 1)
+flock -n 8 || (
+	echo "Found existing debug sessions, attempting to reconnect" 2>&1
+	exec tmux attach-session -t {unit_name}
+	exit $?
+	)
 (
 # Close the inherited lock FD, or tmux will keep it open.
 exec 8>&-
@@ -80,7 +91,17 @@ fi
 (
     # Close the inherited lock FD, or tmux will keep it open.
     exec 9>&-
-    exec tmux new-session -s {unit_name}
+    if ! tmux has-session -t {unit_name}; then
+		tmux new-session -d -s {unit_name}
+	fi
+	client_count=$(tmux list-clients | wc -l)
+	if [ $client_count -ge 1 ]; then
+		session_name={unit_name}"-"$client_cnt
+		exec tmux new-session -d -t {unit_name} -s $session_name
+		exec tmux attach-session -t $session_name \; set-option destroy-unattached
+	else
+	    exec tmux attach-session -t {unit_name}
+	fi
 )
 ) 9>{exit_flock}
 ) 8>{entry_flock}

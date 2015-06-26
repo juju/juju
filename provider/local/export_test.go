@@ -7,21 +7,20 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 )
 
 var (
-	CheckIfRoot        = &checkIfRoot
-	CheckLocalPort     = &checkLocalPort
-	DetectAptProxies   = &detectAptProxies
-	ExecuteCloudConfig = &executeCloudConfig
-	Provider           = providerInstance
-	UserCurrent        = &userCurrent
+	CheckIfRoot          = &checkIfRoot
+	CheckLocalPort       = &checkLocalPort
+	DetectPackageProxies = &detectPackageProxies
+	ExecuteCloudConfig   = &executeCloudConfig
+	Provider             = providerInstance
+	UserCurrent          = &userCurrent
 )
 
 // CheckConfigNamespace checks the result of the namespace call on the
@@ -77,19 +76,7 @@ func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
 }
 
-type startInstanceFunc func(*localEnviron, environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
-
-func PatchCreateContainer(s *testing.CleanupSuite, c *gc.C, expectedURL string) startInstanceFunc {
-	mockFunc := func(_ *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-		c.Assert(args.Tools, gc.HasLen, 1)
-		c.Assert(args.Tools[0].URL, gc.Equals, expectedURL)
-		return &mockInstance{id: "mock"}, nil, nil
-	}
-	s.PatchValue(&createContainer, mockFunc)
-	return mockFunc
-}
-
-func PatchServices(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
+func PatchServices(patchValue func(interface{}, interface{}), data *svctesting.FakeServiceData) {
 	patchValue(&mongoRemoveService, func(namespace string) error {
 		data.AddCall("RemoveService", namespace)
 		data.SetStatus(mongo.ServiceName(namespace), "")
@@ -100,8 +87,8 @@ func PatchServices(patchValue func(interface{}, interface{}), data *service.Fake
 	})
 }
 
-func NewService(name string, conf common.Conf, data *service.FakeServiceData) *service.FakeService {
-	svc := service.NewFakeService(name, conf)
+func NewService(name string, conf common.Conf, data *svctesting.FakeServiceData) *svctesting.FakeService {
+	svc := svctesting.NewFakeService(name, conf)
 	svc.FakeServiceData = data
 	return svc
 }

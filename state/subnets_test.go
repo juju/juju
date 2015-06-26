@@ -175,9 +175,15 @@ func (s *SubnetSuite) TestSubnetRemoveKillsAddresses(c *gc.C) {
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddIPAddress(network.NewAddress("192.168.1.0", ""), subnet.ID())
+	_, err = s.State.AddIPAddress(
+		network.NewAddress("192.168.1.0"),
+		subnet.ID(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddIPAddress(network.NewAddress("192.168.1.1", ""), subnet.ID())
+	_, err = s.State.AddIPAddress(
+		network.NewAddress("192.168.1.1"),
+		subnet.ID(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subnet.EnsureDead()
@@ -250,7 +256,7 @@ func (s *SubnetSuite) TestPickNewAddressWhenSubnetIsDead(c *gc.C) {
 
 func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
 	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
-	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
+	addr := network.NewAddress("192.168.1.0")
 	_, err := s.State.AddIPAddress(addr, subnet.ID())
 
 	_, err = subnet.PickNewAddress()
@@ -268,7 +274,7 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 func (s *SubnetSuite) TestPickNewAddressSkipsAllocated(c *gc.C) {
 	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
 
-	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
+	addr := network.NewAddress("192.168.1.0")
 	_, err := s.State.AddIPAddress(addr, subnet.ID())
 
 	ipAddr, err := subnet.PickNewAddress()

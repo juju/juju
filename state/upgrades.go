@@ -11,8 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -95,7 +96,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 
 		_, err := st.EnvironmentUser(uTag)
 		if err != nil && errors.IsNotFound(err) {
-			_, err = st.AddEnvironmentUser(uTag, uTag)
+			_, err = st.AddEnvironmentUser(uTag, uTag, "")
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -398,7 +399,7 @@ func CreateUnitMeterStatus(st *State) error {
 			continue
 		}
 		ops := []txn.Op{
-			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet}),
+			createMeterStatusOp(st, unit.globalMeterStatusKey(), &meterStatusDoc{Code: MeterNotSet.String()}),
 		}
 		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
@@ -457,6 +458,169 @@ func AddEnvUUIDToEnvUsersDoc(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddLifeFieldOfIPAddresses creates the Life field for all IP addresses
+// that don't have this field. For addresses referencing live machines Life
+// will be set to Alive, otherwise Life will be set to Dead.
+func AddLifeFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	machines, mCloser := st.getCollection(machinesC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a Life field, then it has already been
+		// upgraded.
+		if _, ok := address["life"]; ok {
+			continue
+		}
+
+		life := Alive
+		allocatedState, ok := address["state"]
+
+		var addressAllocated bool
+		// if state was missing, we pretend the IP address is
+		// unallocated. State can't be empty anyway, so this shouldn't
+		// happen.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			addressAllocated = true
+		}
+
+		// An IP address that has an allocated state but no machine ID
+		// shouldn't be possible.
+		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
+			mDoc := &machineDoc{}
+			err := machines.Find(bson.D{{"machineid", machineId}}).One(&mDoc)
+			if err != nil || mDoc.Life != Alive {
+				life = Dead
+			}
+		}
+		logger.Debugf("setting life %q to address %q", life, address["value"])
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"life", life},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddInstanceIdFieldOfIPAddresses creates and populates the instance Id field
+// for all IP addresses referencing a live machine with a provisioned instance.
+func AddInstanceIdFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	instances, mCloser := st.getCollection(instanceDataC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a instance Id field, then it has already been
+		// upgraded.
+		logger.Tracef("AddInstanceField: processing address %s", address["value"])
+		if _, ok := address["instanceid"]; ok {
+			logger.Tracef("skipping address %s, already has instance id", address["value"])
+			continue
+		}
+
+		fetchId := func(machineId interface{}) instance.Id {
+			instanceId := instance.UnknownId
+			iDoc := &instanceData{}
+			err := instances.Find(bson.D{{"machineid", machineId}}).One(&iDoc)
+			if err != nil {
+				logger.Debugf("failed to find machine for address %s: %s", address["value"], err)
+			} else {
+				instanceId = instance.Id(iDoc.InstanceId)
+				logger.Debugf("found instance id %q for address %s", instanceId, address["value"])
+			}
+			return instanceId
+		}
+
+		instanceId := instance.UnknownId
+		allocatedState, ok := address["state"]
+		// An unallocated address can't have an associated instance id.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			if machineId, ok := address["machineid"]; ok && machineId != "" {
+				instanceId = fetchId(machineId)
+			} else {
+				logger.Debugf("machine id not found for address %s", address["value"])
+			}
+		} else {
+			logger.Debugf("address %s not allocated, setting unknown ID", address["value"])
+		}
+		logger.Debugf("setting instance id of %s to %q", address["value"], instanceId)
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"instanceid", instanceId},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddUUIDToIPAddresses creates and populates the UUID field
+// for all IP addresses.
+func AddUUIDToIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		logger.Tracef("AddUUIDToIPAddresses: processing address %s", address["value"])
+
+		// Skip addresses which already have the UUID field.
+		if _, ok := address["uuid"]; ok {
+			logger.Tracef("skipping address %s, already has uuid", address["value"])
+			continue
+		}
+
+		// Generate new UUID.
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			logger.Errorf("failed generating UUID for IP address: %v", err)
+			return errors.Trace(err)
+		}
+
+		// Add op for setting the UUID.
+		ops = append(ops, txn.Op{
+			C:      ipaddressesC,
+			Id:     address["_id"],
+			Update: bson.D{{"$set", bson.D{{"uuid", uuid.String()}}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
@@ -485,6 +649,7 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 			}, txn.Op{
 				C:      usersC,
 				Id:     user["_id"],
+				Assert: txn.DocMissing,
 				Insert: user,
 			})
 		} else {
@@ -495,6 +660,39 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 				Update: bson.D{{"$set", bson.D{
 					{"name", user["name"]},
 				}}},
+			})
+		}
+		user = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func LowerCaseEnvUsersID(st *State) error {
+	users, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var user bson.M
+	iter := users.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&user) {
+		oldId := user["_id"].(string)
+		newId := strings.ToLower(oldId)
+
+		if oldId != newId {
+			user["_id"] = newId
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     oldId,
+				Remove: true,
+			}, txn.Op{
+				C:      envUsersC,
+				Id:     user["_id"],
+				Assert: txn.DocMissing,
+				Insert: user,
 			})
 		}
 		user = nil
@@ -674,12 +872,16 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 	defer iter.Close()
 	for iter.Next(&doc) {
 		zone, ok := doc["availzone"]
-		if ok {
+		if ok || ParentId(doc["machineid"].(string)) != "" {
 			continue
 		}
 
 		zone, err := azFunc(st, instance.Id(doc["instanceid"].(string)))
 		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+
 			if !errors.IsNotSupported(err) {
 				return errors.Trace(err)
 			}
@@ -724,14 +926,24 @@ func AddEnvUUIDToMachines(st *State) error {
 // AddEnvUUIDToOpenPorts prepends the environment UUID to the ID of
 // all openPorts docs and adds new "env-uuid" field.
 func AddEnvUUIDToOpenPorts(st *State) error {
-	setNewFields := func(b bson.M) error {
-		parts, err := extractPortsIdParts(b["_id"].(string))
+	setNewFields := func(d bson.D) (bson.D, error) {
+		id, err := readBsonDField(d, "_id")
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		b["machine-id"] = parts[machineIdPart]
-		b["network-name"] = parts[networkNamePart]
-		return nil
+		parts, err := extractPortsIdParts(id.(string))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		d, err = addBsonDField(d, "machine-id", parts[machineIdPart])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		d, err = addBsonDField(d, "network-name", parts[networkNamePart])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return d, nil
 	}
 	return addEnvUUIDToEntityCollection(st, openedPortsC, setNewFields)
 }
@@ -879,19 +1091,30 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	ops := []txn.Op{}
-	var doc bson.M
+	var doc bson.D
 	for iter.Next(&doc) {
-		oldID := doc["_id"]
-		id := st.docID(fmt.Sprint(oldID))
+		oldID, err := readBsonDField(doc, "_id")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		newID := st.docID(fmt.Sprint(oldID))
 
-		// collection specific updates
+		// Collection specific updates.
 		for _, update := range updates {
-			if err := update(doc); err != nil {
+			var err error
+			doc, err = update(doc)
+			if err != nil {
 				return errors.Trace(err)
 			}
 		}
-		doc["_id"] = id
-		doc["env-uuid"] = uuid
+
+		doc, err = addBsonDField(doc, "env-uuid", uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Note: there's no need to update _id on the document. Id
+		// from the txn.Op takes precedence.
 
 		ops = append(ops,
 			[]txn.Op{{
@@ -901,11 +1124,11 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 				Remove: true,
 			}, {
 				C:      collName,
-				Id:     id,
+				Id:     newID,
 				Assert: txn.DocMissing,
 				Insert: doc,
 			}}...)
-		doc = nil // Force creation of new map for the next iteration
+		doc = nil // Force creation of new doc for the next iteration
 	}
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
@@ -913,14 +1136,42 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	return st.runRawTransaction(ops)
 }
 
-type updateFunc func(bson.M) error
+// readBsonDField returns the value of a given field in a bson.D.
+func readBsonDField(d bson.D, name string) (interface{}, error) {
+	for i := range d {
+		field := &d[i]
+		if field.Name == name {
+			return field.Value, nil
+		}
+	}
+	return nil, errors.NotFoundf("field %q", name)
+}
+
+// addBsonDField adds a new field to the end of a bson.D, returning
+// the updated bson.D.
+func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
+	for i := range d {
+		if d[i].Name == name {
+			return nil, errors.AlreadyExistsf("field %q", name)
+		}
+	}
+	return append(d, bson.DocElem{
+		Name:  name,
+		Value: value,
+	}), nil
+}
+
+type updateFunc func(bson.D) (bson.D, error)
 
 // setOldID returns an updateFunc which populates the doc's original ID
 // in the named field.
 func setOldID(name string) updateFunc {
-	return func(b bson.M) error {
-		b[name] = b["_id"]
-		return nil
+	return func(d bson.D) (bson.D, error) {
+		oldID, err := readBsonDField(d, "_id")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return addBsonDField(d, name, oldID)
 	}
 }
 
@@ -1056,6 +1307,67 @@ func FixSequenceFields(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// MoveServiceUnitSeqToSequence moves information from unitSeq value
+// in the services documents and puts it into a new document in the
+// sequence collection.
+// The move happens in 3 stages:
+// Insert: We insert the new sequence documents based on the values
+// in the service collection. Any existing documents with the id we ignore
+// Update: We update all the sequence documents with the correct UnitSeq.
+// this phase overwrites any existing sequence documents that existed and
+// were ignored during the install phase
+// Unset: The last phase is to remove the unitseq from the service collection.
+func MoveServiceUnitSeqToSequence(st *State) error {
+	unitSeqDocs := []struct {
+		Name    string `bson:"name"`
+		UnitSeq int    `bson:"unitseq"`
+	}{}
+	servicesCollection, closer := st.getCollection(servicesC)
+	defer closer()
+
+	err := servicesCollection.Find(nil).All(&unitSeqDocs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	insertOps := make([]txn.Op, len(unitSeqDocs))
+	updateOps := make([]txn.Op, len(unitSeqDocs))
+	unsetOps := make([]txn.Op, len(unitSeqDocs))
+	for i, svc := range unitSeqDocs {
+		tag := names.NewServiceTag(svc.Name)
+		insertOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Insert: sequenceDoc{
+				Name:    tag.String(),
+				EnvUUID: st.EnvironUUID(),
+				Counter: svc.UnitSeq,
+			},
+		}
+		updateOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Update: bson.M{
+				"$set": bson.M{
+					"name":     tag.String(),
+					"env-uuid": st.EnvironUUID(),
+					"counter":  svc.UnitSeq,
+				},
+			},
+		}
+		unsetOps[i] = txn.Op{
+			C:  servicesC,
+			Id: st.docID(svc.Name),
+			Update: bson.M{
+				"$unset": bson.M{
+					"unitseq": 0},
+			},
+		}
+	}
+	ops := append(insertOps, updateOps...)
+	ops = append(ops, unsetOps...)
+	return st.runRawTransaction(ops)
+}
+
 // DropOldIndexesv123 drops old mongo indexes.
 func DropOldIndexesv123(st *State) error {
 	for collName, indexes := range oldIndexesv123 {
@@ -1106,4 +1418,78 @@ var oldIndexesv123 = map[string][][]string{
 		{"state"},
 		{"subnetid"},
 	},
+}
+
+// AddLeadsershipSettingsDocs creates service leadership documents in
+// the settings collection for all services in all environments.
+func AddLeadershipSettingsDocs(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		services, err := envSt.AllServices()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve services for environment %q", envUUID)
+		}
+
+		for _, service := range services {
+			// The error from this is intentionally ignored as the
+			// transaction will fail if the service already has a
+			// leadership settings doc.
+			envSt.runTransaction([]txn.Op{
+				addLeadershipSettingsOp(service.Name()),
+			})
+		}
+	}
+	return nil
+}
+
+// AddDefaultBlockDevicesDocs creates block devices documents
+// for all existing machines in all environments.
+func AddDefaultBlockDevicesDocs(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		machines, err := envSt.AllMachines()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve machines for environment %q", envUUID)
+		}
+
+		for _, machine := range machines {
+			// If a txn fails because the doc already exists, that's ok.
+			if err := envSt.runTransaction([]txn.Op{
+				createMachineBlockDevicesOp(machine.Id()),
+			}); err != nil && err != txn.ErrAborted {
+				return err
+			}
+		}
+	}
+	return nil
 }

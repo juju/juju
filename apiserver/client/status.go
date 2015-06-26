@@ -5,11 +5,13 @@ package client
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -17,8 +19,92 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/worker/uniter/operation"
 )
+
+func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []api.AgentStatus {
+	result := []api.AgentStatus{}
+	for _, v := range s {
+		result = append(result, api.AgentStatus{
+			Status: params.Status(v.Status),
+			Info:   v.Message,
+			Data:   v.Data,
+			Since:  v.Since,
+			Kind:   kind,
+		})
+	}
+	return result
+
+}
+
+type sortableStatuses []api.AgentStatus
+
+func (s sortableStatuses) Len() int {
+	return len(s)
+}
+func (s sortableStatuses) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s sortableStatuses) Less(i, j int) bool {
+	return s[i].Since.Before(*s[j].Since)
+}
+
+// TODO(perrito666) this client method requires more testing, only its parts are unittested.
+// UnitStatusHistory returns a slice of past statuses for a given unit.
+func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHistory, error) {
+	size := args.Size - 1
+	if size < 1 {
+		return api.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
+	}
+	unit, err := c.api.state.Unit(args.Name)
+	if err != nil {
+		return api.UnitStatusHistory{}, errors.Trace(err)
+	}
+	statuses := api.UnitStatusHistory{}
+	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
+		unitStatuses, err := unit.StatusHistory(size)
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+
+		current, err := unit.Status()
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+		unitStatuses = append(unitStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
+	}
+	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
+		agentEntity := unit.Agent()
+		agent, ok := agentEntity.(*state.UnitAgent)
+		if !ok {
+			return api.UnitStatusHistory{}, errors.Errorf("cannot obtain agent for %q", args.Name)
+		}
+		agentStatuses, err := agent.StatusHistory(size)
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+
+		current, err := agent.Status()
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+		agentStatuses = append(agentStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
+	}
+
+	sort.Sort(sortableStatuses(statuses.Statuses))
+	if args.Kind == params.KindCombined {
+
+		if len(statuses.Statuses) > args.Size {
+			statuses.Statuses = statuses.Statuses[len(statuses.Statuses)-args.Size:]
+		}
+
+	}
+	return statuses, nil
+}
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
@@ -325,10 +411,16 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]api.Ma
 
 func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
-	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(machine)
-	status.AgentVersion = status.Agent.Version
-	status.Life = status.Agent.Life
-	status.Err = status.Agent.Err
+	agentStatus, compatStatus := processMachine(machine)
+	status.Agent = agentStatus
+
+	// These legacy status values will be deprecated for Juju 2.0.
+	status.AgentState = compatStatus.Status
+	status.AgentStateInfo = compatStatus.Info
+	status.AgentVersion = compatStatus.Version
+	status.Life = compatStatus.Life
+	status.Err = compatStatus.Err
+
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
@@ -498,6 +590,15 @@ func (context *statusContext) processService(service *state.Service) (status api
 	}
 	if service.IsPrincipal() {
 		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
+		serviceStatus, err := service.Status()
+		if err != nil {
+			status.Err = err
+			return
+		}
+		status.Status.Status = params.Status(serviceStatus.Status)
+		status.Status.Info = serviceStatus.Message
+		status.Status.Data = serviceStatus.Data
+		status.Status.Since = serviceStatus.Since
 	}
 	return status
 }
@@ -510,39 +611,33 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) (status api.UnitStatus) {
-	status.PublicAddress, _ = unit.PublicAddress()
+func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {
+	var result api.UnitStatus
+	result.PublicAddress, _ = unit.PublicAddress()
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
-		status.OpenedPorts = append(status.OpenedPorts, port.String())
+		result.OpenedPorts = append(result.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {
-		status.Machine, _ = unit.AssignedMachineId()
+		result.Machine, _ = unit.AssignedMachineId()
 	}
 	curl, _ := unit.CharmURL()
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
-		status.Charm = curl.String()
+		result.Charm = curl.String()
 	}
-	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(unit)
+	processUnitAndAgentStatus(unit, &result)
 
-	// Until Juju 2.0, we need to continue to display legacy status values.
-	status.Agent.Status = params.TranslateLegacyStatus(status.Agent.Status)
-	status.AgentState = params.TranslateLegacyStatus(status.AgentState)
-
-	status.AgentVersion = status.Agent.Version
-	status.Life = status.Agent.Life
-	status.Err = status.Agent.Err
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
-		status.Subordinates = make(map[string]api.UnitStatus)
+		result.Subordinates = make(map[string]api.UnitStatus)
 		for _, name := range subUnits {
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				status.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
+				result.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
 			}
 		}
 	}
-	return
+	return result
 }
 
 func (context *statusContext) unitByName(name string) *state.Unit {
@@ -582,56 +677,72 @@ type lifer interface {
 	Life() state.Life
 }
 
-type stateAgent interface {
-	lifer
-	AgentPresence() (bool, error)
-	AgentTools() (*tools.Tools, error)
-	Status() (state.Status, string, map[string]interface{}, error)
+// processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
+func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
+	status.UnitAgent, status.Workload = processUnitStatus(unit)
+
+	// Legacy fields required until Juju 2.0.
+	// We only display pending, started, error, stopped.
+	var ok bool
+	legacyState, ok := state.TranslateToLegacyAgentState(
+		state.Status(status.UnitAgent.Status),
+		state.Status(status.Workload.Status),
+		status.Workload.Info,
+	)
+	if !ok {
+		logger.Warningf(
+			"translate to legacy status encounted unexpected workload status %q and agent status %q",
+			status.Workload.Status, status.UnitAgent.Status)
+	}
+	status.AgentState = params.Status(legacyState)
+	if status.AgentState == params.StatusError {
+		status.AgentStateInfo = status.Workload.Info
+	}
+	status.AgentVersion = status.UnitAgent.Version
+	status.Life = status.UnitAgent.Life
+	status.Err = status.UnitAgent.Err
+
+	processUnitLost(unit, status)
+
+	return
 }
 
-// processAgent retrieves version and status information from the given entity.
-func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.Status, compatInfo string) {
-	out.Life = processLife(entity)
+// makeStatusForEntity creates status information for machines, units.
+func makeStatusForEntity(agent *api.AgentStatus, getter state.StatusGetter) {
+	statusInfo, err := getter.Status()
+	agent.Err = err
+	agent.Status = params.Status(statusInfo.Status)
+	agent.Info = statusInfo.Message
+	agent.Data = filterStatusData(statusInfo.Data)
+	agent.Since = statusInfo.Since
+}
 
-	if t, err := entity.AgentTools(); err == nil {
+// processMachine retrieves version and status information for the given machine.
+// It also returns deprecated legacy status information.
+func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.AgentStatus) {
+	out.Life = processLife(machine)
+
+	if t, err := machine.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
 
-	// TODO(wallyworld) - this is ok for now, but status needs to support returning 3 values
-	// for unit:
-	// - legacy agent status
-	// - new agent status
-	// - unit status
-	// so it will no longer be appropriate to use a common processAgent()
-	// method for both machines and units
-	var st state.Status
-	unit, ok := entity.(*state.Unit)
-	if ok {
-		st, out.Info, out.Data, out.Err = unit.AgentStatus()
-	} else {
-		st, out.Info, out.Data, out.Err = entity.Status()
-	}
-	out.Status = params.Status(st)
-	compatStatus = out.Status
-	compatInfo = out.Info
-	out.Data = filterStatusData(out.Data)
+	makeStatusForEntity(&out, machine)
+	compat = out
+
 	if out.Err != nil {
 		return
 	}
-
-	if out.Status == params.StatusPending || // Need to still check pending for existing deployments.
-		out.Status == params.StatusAllocating ||
-		out.Status == params.StatusInstalling {
-		// The status is allocating or installing - there's no point
+	if out.Status == params.StatusPending {
+		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
 	}
-	agentAlive, err := entity.AgentPresence()
+	agentAlive, err := machine.AgentPresence()
 	if err != nil {
 		return
 	}
 
-	if entity.Life() != state.Dead && !agentAlive {
+	if machine.Life() != state.Dead && !agentAlive {
 		// The agent *should* be alive but is not. Set status to
 		// StatusDown and munge Info to indicate the previous status and
 		// info. This is unfortunately making presentation decisions
@@ -648,14 +759,69 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 		// seen by clients using a watcher because it didn't happen in
 		// State.
 		if out.Info != "" {
-			compatInfo = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
+			compat.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
 		} else {
-			compatInfo = fmt.Sprintf("(%s)", out.Status)
+			compat.Info = fmt.Sprintf("(%s)", out.Status)
 		}
-		compatStatus = params.StatusDown
+		compat.Status = params.StatusDown
 	}
 
 	return
+}
+
+// processUnit retrieves version and status information for the given unit.
+func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentStatus) {
+	// First determine the agent status information.
+	unitAgent := unit.Agent().(*state.UnitAgent)
+	makeStatusForEntity(&agentStatus, unitAgent)
+	agentStatus.Life = processLife(unit)
+	if t, err := unit.AgentTools(); err == nil {
+		agentStatus.Version = t.Version.Number.String()
+	}
+
+	// Second, determine the workload (unit) status.
+	makeStatusForEntity(&workloadStatus, unit)
+	return
+}
+
+func canBeLost(status *api.UnitStatus) bool {
+	// Pending and Installing are deprecated.
+	// Need to still check pending for existing deployments.
+	switch status.UnitAgent.Status {
+	case params.StatusPending, params.StatusInstalling, params.StatusAllocating:
+		return false
+	case params.StatusExecuting:
+		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
+	}
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
+	return isInstalled
+}
+
+// processUnitLost determines whether the given unit should be marked as lost.
+// TODO(wallyworld) - move this to state and the canBeLost() code can be simplified.
+func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
+	if !canBeLost(status) {
+		// The status is allocating or installing - there's no point
+		// in enquiring about the agent liveness.
+		return
+	}
+	agentAlive, err := unit.AgentPresence()
+	if err != nil {
+		return
+	}
+
+	if unit.Life() != state.Dead && !agentAlive {
+		// If the unit is in error, it would be bad to throw away
+		// the error information as when the agent reconnects, that
+		// error information would then be lost.
+		if status.Workload.Status != params.StatusError {
+			status.Workload.Status = params.StatusUnknown
+			status.Workload.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
+		}
+		status.UnitAgent.Status = params.StatusLost
+		status.UnitAgent.Info = "agent is not communicating with the server"
+	}
 }
 
 // filterStatusData limits what agent StatusData data is passed over

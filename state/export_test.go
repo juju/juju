@@ -13,11 +13,12 @@ import (
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
@@ -32,6 +33,7 @@ const (
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
+	StatusesHistoryC   = statusesHistoryC
 )
 
 var (
@@ -47,6 +49,8 @@ var (
 	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
+	CombineMeterStatus     = combineMeterStatus
+	NewStatusNotFound      = newStatusNotFound
 )
 
 type (
@@ -292,7 +296,7 @@ func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
 
-func GetCollection(st *State, name string) (stateCollection, func()) {
+func GetCollection(st *State, name string) (mongo.Collection, func()) {
 	return st.getCollection(name)
 }
 
@@ -371,4 +375,30 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
 	newNetHostsPorts := networkHostsPorts(hostsPorts)
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
+}
+
+type StatusDoc statusDoc
+
+func NewStatusDoc(s StatusDoc) statusDoc {
+	return statusDoc(s)
+}
+
+func NewHistoricalStatusDoc(s StatusDoc, key string) *historicalStatusDoc {
+	sdoc := statusDoc(s)
+	return newHistoricalStatusDoc(sdoc, key)
+}
+
+var StatusHistory = statusHistory
+var UpdateStatusHistory = updateStatusHistory
+
+func EraseUnitHistory(u *Unit) error {
+	return u.eraseHistory()
+}
+
+func UnitGlobalKey(u *Unit) string {
+	return u.globalKey()
+}
+
+func UnitAgentGlobalKey(u *UnitAgent) string {
+	return u.globalKey()
 }

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/metricsender/testing"
 	"github.com/juju/juju/apiserver/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -117,7 +117,7 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
-	var sender metricsender.MockSender
+	var sender testing.MockSender
 	metricsmanager.PatchSender(&sender)
 	now := time.Now()
 	metric := state.Metric{"pings", "5", now}
@@ -161,7 +161,7 @@ func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
-	var sender metricsender.ErrorSender
+	var sender testing.ErrorSender
 	sender.Err = errors.New("an error")
 	now := time.Now()
 	metric := state.Metric{"pings", "5", now}
@@ -180,7 +180,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
-	var sender metricsender.MockSender
+	var sender testing.MockSender
 	pastTime := time.Now().Add(-time.Second)
 	metric := state.Metric{"pings", "5", pastTime}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
@@ -197,7 +197,7 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.C) {
-	var sender metricsender.MockSender
+	var sender testing.MockSender
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
 		{s.State.EnvironTag().String()},

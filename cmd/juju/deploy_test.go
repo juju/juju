@@ -4,23 +4,29 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v0/bakerytest"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
@@ -209,14 +215,9 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
 }
 
-func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
-	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --storage")
-}
-
+// TODO(wallyworld) - add another test that deploy with storage fails for older environments
+// (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,6 +234,11 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		"data": {
 			Pool:  "loop-pool",
 			Count: 1,
+			Size:  1024,
+		},
+		"allecto": {
+			Pool:  "loop",
+			Count: 0,
 			Size:  1024,
 		},
 	})
@@ -341,7 +347,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	// override provider type
-	s.PatchValue(&getClientConfig, func(client *api.Client) (*config.Config, error) {
+	s.PatchValue(&service.GetClientConfig, func(client service.ServiceAddUnitAPI) (*config.Config, error) {
 		attrs, err := client.EnvironmentGet()
 		if err != nil {
 			return nil, err
@@ -366,4 +372,164 @@ func setupConfigFile(c *gc.C, dir string) string {
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
+}
+
+type DeployCharmStoreSuite struct {
+	charmStoreSuite
+}
+
+var _ = gc.Suite(&DeployCharmStoreSuite{})
+
+var deployAuthorizationTests = []struct {
+	about        string
+	uploadURL    string
+	deployURL    string
+	readPermUser string
+	expectError  string
+	expectOutput string
+}{{
+	about:        "public charm, success",
+	uploadURL:    "cs:~bob/trusty/wordpress1-10",
+	deployURL:    "cs:~bob/trusty/wordpress1",
+	expectOutput: `Added charm "cs:~bob/trusty/wordpress1-10" to the environment.`,
+}, {
+	about:        "public charm, fully resolved, success",
+	uploadURL:    "cs:~bob/trusty/wordpress2-10",
+	deployURL:    "cs:~bob/trusty/wordpress2-10",
+	expectOutput: `Added charm "cs:~bob/trusty/wordpress2-10" to the environment.`,
+}, {
+	about:        "non-public charm, success",
+	uploadURL:    "cs:~bob/trusty/wordpress3-10",
+	deployURL:    "cs:~bob/trusty/wordpress3",
+	readPermUser: clientUserName,
+	expectOutput: `Added charm "cs:~bob/trusty/wordpress3-10" to the environment.`,
+}, {
+	about:        "non-public charm, fully resolved, success",
+	uploadURL:    "cs:~bob/trusty/wordpress4-10",
+	deployURL:    "cs:~bob/trusty/wordpress4-10",
+	readPermUser: clientUserName,
+	expectOutput: `Added charm "cs:~bob/trusty/wordpress4-10" to the environment.`,
+}, {
+	about:        "non-public charm, access denied",
+	uploadURL:    "cs:~bob/trusty/wordpress5-10",
+	deployURL:    "cs:~bob/trusty/wordpress5",
+	readPermUser: "bob",
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+}, {
+	about:        "non-public charm, fully resolved, access denied",
+	uploadURL:    "cs:~bob/trusty/wordpress6-47",
+	deployURL:    "cs:~bob/trusty/wordpress6-47",
+	readPermUser: "bob",
+	expectError:  `cannot retrieve charm "cs:~bob/trusty/wordpress6-47": cannot get archive: unauthorized: access denied for user "client-username"`,
+}}
+
+func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
+	for i, test := range deployAuthorizationTests {
+		c.Logf("test %d: %s", i, test.about)
+		url, _ := s.uploadCharm(c, test.uploadURL, "wordpress")
+		if test.readPermUser != "" {
+			s.changeReadPerm(c, url, test.readPermUser)
+		}
+		ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		if test.expectError != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectError)
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		output := strings.Trim(coretesting.Stderr(ctx), "\n")
+		c.Assert(output, gc.Equals, test.expectOutput)
+	}
+}
+
+const (
+	// clientUserCookie is the name of the cookie which is
+	// used to signal to the charmStoreSuite macaroon discharger
+	// that the client is a juju client rather than the juju environment.
+	clientUserCookie = "client"
+
+	// clientUserName is the name chosen for the juju client
+	// when it has authorized.
+	clientUserName = "client-username"
+)
+
+// charmStoreSuite is a suite fixture that puts the machinery in
+// place to allow testing code that calls addCharmViaAPI.
+type charmStoreSuite struct {
+	testing.JujuConnSuite
+	srv        *charmstoretesting.Server
+	discharger *bakerytest.Discharger
+}
+
+func (s *charmStoreSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	// Set up the third party discharger.
+	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		cookie, err := req.Cookie(clientUserCookie)
+		if err != nil {
+			return nil, errors.New("discharge denied to non-clients")
+		}
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", cookie.Value),
+		}, nil
+	})
+
+	// Set up the charm store testing server.
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+		IdentityLocation: s.discharger.Location(),
+		PublicKeyLocator: s.discharger,
+	})
+
+	// Initialize the charm cache dir.
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+
+	// Point the CLI to the charm store testing server.
+	original := newCharmStoreClient
+	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
+		csclient, err := original()
+		if err != nil {
+			return nil, err
+		}
+		csclient.params.URL = s.srv.URL()
+		// Add a cookie so that the discharger can detect whether the
+		// HTTP client is the juju environment or the juju client.
+		lurl, err := url.Parse(s.discharger.Location())
+		if err != nil {
+			panic(err)
+		}
+		csclient.params.HTTPClient.Jar.SetCookies(lurl, []*http.Cookie{{
+			Name:  clientUserCookie,
+			Value: clientUserName,
+		}})
+		return csclient, nil
+	})
+
+	// Point the Juju API server to the charm store testing server.
+	s.PatchValue(&csclient.ServerURL, s.srv.URL())
+}
+
+func (s *charmStoreSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.srv.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+// uploadCharm adds a charm with the given URL and name to the charm store.
+func (s *charmStoreSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
+	id := charm.MustParseReference(url)
+	promulgated := false
+	if id.User == "" {
+		id.User = "who"
+		promulgated = true
+	}
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	id = s.srv.UploadCharm(c, ch, id, promulgated)
+	return (*charm.URL)(id), ch
+}
+
+// changeReadPerm changes the read permission of the given charm URL.
+// The charm must be present in the testing charm store.
+func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
+	err := s.srv.NewClient().Put("/"+url.Path()+"/meta/perm/read", perms)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -16,15 +16,10 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/version"
 )
 
 type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
-
-// adminApiV0 implements the API that a client first sees when connecting to
-// the API. We start serving a different API once the user has logged in.
-type adminApiV0 struct {
-	admin *adminV0
-}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
@@ -37,64 +32,13 @@ type admin struct {
 	loggedIn bool
 }
 
-type adminV0 struct {
-	*admin
-}
-
-func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &adminApiV0{
-		admin: &adminV0{
-			&admin{
-				srv:         srv,
-				root:        root,
-				reqNotifier: reqNotifier,
-			},
-		},
-	}
-}
-
-// Admin returns an object that provides API access to methods that can be
-// called even when not authenticated.
-func (r *adminApiV0) Admin(id string) (*adminV0, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.admin, nil
-}
-
 var UpgradeInProgressError = errors.New("upgrade in progress")
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
-// Login logs in with the provided credentials.  All subsequent requests on the
-// connection will act as the authenticated user.
-func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
-	var fail params.LoginResult
-
-	resultV1, err := a.doLogin(params.LoginRequest{
-		AuthTag:     c.AuthTag,
-		Credentials: c.Password,
-		Nonce:       c.Nonce,
-	})
-	if err != nil {
-		return fail, err
-	}
-
-	resultV0 := params.LoginResult{
-		Servers:    resultV1.Servers,
-		EnvironTag: resultV1.EnvironTag,
-		Facades:    resultV1.Facades,
-	}
-	if resultV1.UserInfo != nil {
-		resultV0.LastConnection = resultV1.UserInfo.LastConnection
-	}
-	return resultV0, nil
-}
-
-func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	a.mu.Lock()
@@ -130,14 +74,17 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	if err != nil || kind != names.UserTagKind {
 		// Users are not rate limited, all other entities are
 		if !a.srv.limiter.Acquire() {
-			logger.Debugf("rate limiting, try again later")
+			logger.Debugf("rate limiting for agent %s", req.AuthTag)
 			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
 	} else {
 		isUser = true
 	}
-	entity, err := doCheckCreds(a.root.state, req)
+
+	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
+
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
 	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
@@ -188,7 +135,6 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	var maybeUserInfo *params.AuthUserInfo
 	// Send back user info if user
 	if isUser {
-		lastConnection := getAndUpdateLastLoginForEntity(entity)
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
@@ -207,15 +153,35 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		return fail, err
 	}
 
+	loginResult := params.LoginResultV1{
+		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		EnvironTag:    environ.Tag().String(),
+		ServerTag:     environ.ServerTag().String(),
+		Facades:       DescribeFacades(),
+		UserInfo:      maybeUserInfo,
+		ServerVersion: version.Current.Number.String(),
+	}
+
+	// For sufficiently modern login versions, stop serving the
+	// state server environment at the root of the API.
+	if serverOnlyLogin {
+		authedApi = newRestrictedRoot(authedApi)
+		// Remove the EnvironTag from the response as there is no
+		// environment here.
+		loginResult.EnvironTag = ""
+		// Strip out the facades that are not supported from the result.
+		var facades []params.FacadeVersions
+		for _, facade := range loginResult.Facades {
+			if restrictedRootNames.Contains(facade.Name) {
+				facades = append(facades, facade)
+			}
+		}
+		loginResult.Facades = facades
+	}
+
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
 
-	return params.LoginResultV1{
-		Servers:    params.FromNetworkHostsPorts(hostPorts),
-		EnvironTag: environ.Tag().String(),
-		ServerTag:  environ.ServerTag().String(),
-		Facades:    DescribeFacades(),
-		UserInfo:   maybeUserInfo,
-	}, nil
+	return loginResult, nil
 }
 
 // checkCredsOfStateServerMachine checks the special case of a state server
@@ -224,7 +190,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
 	// Check the credentials against the state server environment.
-	entity, err := doCheckCreds(a.srv.state, req)
+	entity, _, err := doCheckCreds(a.srv.state, req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -263,10 +229,15 @@ func (a *admin) maintenanceInProgress() bool {
 
 var doCheckCreds = checkCreds
 
-func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) {
+// checkCreds validates the entities credentials in the current environment.
+// If the entity is a user, and lookForEnvUser is true, an env user must exist
+// for the environment.  In the case of a user logging in to the server, but
+// not an environment, there is no env user needed.  While we have the env
+// user, if we do have it, update the last login time.
+func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	entity, err := st.FindEntity(tag)
 	if errors.IsNotFound(err) {
@@ -274,40 +245,47 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 		// password, so that we don't allow unauthenticated users to find
 		// information about existing entities.
 		logger.Debugf("entity %q not found", tag)
-		return nil, common.ErrBadCreds
+		return nil, nil, common.ErrBadCreds
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	authenticator, err := authentication.FindEntityAuthenticator(entity)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, err
+		return nil, nil, err
 	}
 
-	// For user logins, ensure the user is allowed to access the environment.
-	if user, ok := entity.Tag().(names.UserTag); ok {
-		_, err := st.EnvironmentUser(user)
-		if err != nil {
-			return nil, errors.Wrap(err, common.ErrBadCreds)
-		}
-	}
-
-	return entity, nil
-}
-
-func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {
+	// For user logins, update the last login time.
+	// NOTE: this code path is only for local users. When we support remote
+	// user logins with bearer tokens, we will need to make sure that we also
+	// update the last connection times for the environment users there.
+	var lastLogin *time.Time
 	if user, ok := entity.(*state.User); ok {
-		result := user.LastLogin()
+		lastLogin = user.LastLogin()
+		if lookForEnvUser {
+			envUser, err := st.EnvironmentUser(user.UserTag())
+			if err != nil {
+				return nil, nil, errors.Wrap(err, common.ErrBadCreds)
+			}
+			// The last connection for the environment takes precedence over
+			// the local user last login time.
+			lastLogin = envUser.LastConnection()
+			envUser.UpdateLastConnection()
+		}
+		// Only update the user's last login time if it is a successful
+		// login, meaning that if we are logging into an environment, make
+		// sure that there is an environment user in that environment for
+		// this user.
 		user.UpdateLastLogin()
-		return result
 	}
-	return nil
+
+	return entity, lastLogin, nil
 }
 
 func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) error {
@@ -358,11 +336,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 		}
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
-	err = root.getResources().RegisterNamed("pingTimeout", pingTimeout)
-	if err != nil {
-		return err
-	}
-	return nil
+	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 }
 
 // errRoot implements the API that a client first sees

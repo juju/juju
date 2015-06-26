@@ -24,7 +24,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.24-alpha1"
+const version = "1.25-alpha1"
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = MustParse("1.19.9")
@@ -191,12 +191,9 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
-	operatingSystem, err := GetOSFromSeries(v.Series)
-	if err != nil {
-		return Binary{}, err
-	}
-	v.OS = operatingSystem
-	return v, nil
+	var err error
+	v.OS, err = GetOSFromSeries(v.Series)
+	return v, err
 }
 
 // Parse parses the version, which is of the form 1.2.3

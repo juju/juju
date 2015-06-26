@@ -19,12 +19,22 @@ type RemoveServiceCommand struct {
 	ServiceName string
 }
 
+const removeServiceDoc = `
+Removing a service will remove all its units and relations.
+
+If this is the only service running, the machine on which
+the service is hosted will also be destroyed, if possible.
+The machine will be destroyed if:
+- it is not a state server
+- it is not hosting any Juju managed containers
+`
+
 func (c *RemoveServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-service",
 		Args:    "<service>",
 		Purpose: "remove a service from the environment",
-		Doc:     "Removing a service will remove all its units and relations.",
+		Doc:     removeServiceDoc,
 		Aliases: []string{"destroy-service"},
 	}
 }

@@ -8,8 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/clearsign"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 )
 
 // Encode signs the data returned by the reader and returns an inline signed copy.

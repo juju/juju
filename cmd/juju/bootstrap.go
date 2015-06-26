@@ -6,21 +6,39 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4"
+	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
+	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/version"
 )
+
+// provisionalProviders is the names of providers that are hidden behind
+// feature flags.
+var provisionalProviders = map[string]string{
+	"cloudsigma": feature.CloudSigma,
+	"vsphere":    feature.VSphereProvider,
+}
 
 const bootstrapDoc = `
 bootstrap starts a new environment of the current type (it will return an error
@@ -57,6 +75,12 @@ Juju tools to cloud storage if no outgoing Internet access is available. In this
 use the --metadata-source paramater to tell bootstrap a local directory from which to
 upload tools and/or image metadata.
 
+If agent-version is specifed, this is the default tools version to use when running the Juju agents.
+Only the numeric version is relevant. To enable ease of scripting, the full binary version
+is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
+An alias for bootstrapping Juju with the exact same version as the client is to use the
+--no-auto-upgrade parameter.
+
 See Also:
    juju help switch
    juju help constraints
@@ -75,6 +99,9 @@ type BootstrapCommand struct {
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
+	NoAutoUpgrade         bool
+	AgentVersionParam     string
+	AgentVersion          *version.Number
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -93,6 +120,8 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
+	f.BoolVar(&c.NoAutoUpgrade, "no-auto-upgrade", false, "do not upgrade to newer tools on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -105,6 +134,12 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
 		return fmt.Errorf("--upload-series and --series can't be used together")
 	}
+	if c.AgentVersionParam != "" && c.UploadTools {
+		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
+	}
+	if c.AgentVersionParam != "" && c.NoAutoUpgrade {
+		return fmt.Errorf("--agent-version and --no-auto-upgrade can't be used together")
+	}
 
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
@@ -114,6 +149,21 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 			// We only support unscoped placement directives for bootstrap.
 			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
+	}
+	if c.NoAutoUpgrade {
+		vers := version.Current.Number
+		c.AgentVersion = &vers
+	} else if c.AgentVersionParam != "" {
+		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
+			c.AgentVersion = &vers.Number
+		} else if vers, err := version.Parse(c.AgentVersionParam); err == nil {
+			c.AgentVersion = &vers
+		} else {
+			return err
+		}
+	}
+	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -163,6 +213,10 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
+var getEnvName = func(c *BootstrapCommand) string {
+	return c.ConnectionName()
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -176,13 +230,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
-	if c.ConnectionName() == "" {
-		return fmt.Errorf("the name of the environment must be specified")
+	envName := getEnvName(c)
+	if envName == "" {
+		return errors.Errorf("the name of the environment must be specified")
+	}
+	if err := checkProviderType(envName); errors.IsNotFound(err) {
+		// This error will get handled later.
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 
 	environ, cleanup, err := environFromName(
 		ctx,
-		c.ConnectionName(),
+		envName,
 		"Bootstrap",
 		bootstrapFuncs.EnsureNotBootstrapped,
 	)
@@ -244,15 +304,96 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		Constraints: c.Constraints,
-		Placement:   c.Placement,
-		UploadTools: c.UploadTools,
-		MetadataDir: metadataDir,
+		Constraints:  c.Constraints,
+		Placement:    c.Placement,
+		UploadTools:  c.UploadTools,
+		AgentVersion: c.AgentVersion,
+		MetadataDir:  metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
-	return c.SetBootstrapEndpointAddress(environ)
+	err = c.SetBootstrapEndpointAddress(environ)
+	if err != nil {
+		return errors.Annotate(err, "saving bootstrap endpoint address")
+	}
+	// To avoid race conditions when running scripted bootstraps, wait
+	// for the state server's machine agent to be ready to accept commands
+	// before exiting this bootstrap command.
+	return c.waitForAgentInitialisation(ctx)
+}
+
+var (
+	bootstrapReadyPollDelay = 1 * time.Second
+	bootstrapReadyPollCount = 60
+	blockAPI                = getBlockAPI
+)
+
+// getBlockAPI returns a block api for listing blocks.
+func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return apiblock.NewClient(root), nil
+}
+
+// waitForAgentInitialisation polls the bootstrapped state server with a read-only
+// command which will fail until the state server is fully initialised.
+// TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
+func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+	attempts := utils.AttemptStrategy{
+		Min:   bootstrapReadyPollCount,
+		Delay: bootstrapReadyPollDelay,
+	}
+	var client block.BlockListAPI
+	for attempt := attempts.Start(); attempt.Next(); {
+		client, err = blockAPI(&c.EnvCommandBase)
+		if err != nil {
+			return err
+		}
+		_, err = client.List()
+		client.Close()
+		if err == nil {
+			ctx.Infof("Bootstrap complete")
+			return nil
+		}
+		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
+			ctx.Infof("Waiting for API to become available")
+			continue
+		}
+		return err
+	}
+	return err
+}
+
+var environType = func(envName string) (string, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	cfg, _, err := environs.ConfigForName(envName, store)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.Type(), nil
+}
+
+// checkProviderType ensures the provider type is okay.
+func checkProviderType(envName string) error {
+	envType, err := environType(envName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	flag, ok := provisionalProviders[envType]
+	if ok && !featureflag.Enabled(flag) {
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+		return errors.Errorf(msg, envType, flag)
+	}
+
+	return nil
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.

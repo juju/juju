@@ -4,6 +4,7 @@
 package machiner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
@@ -38,7 +39,7 @@ func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
 func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	life, err := st.machineLife(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "can't get life for machine")
 	}
 	return &Machine{
 		tag:  tag,

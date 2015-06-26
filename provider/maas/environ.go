@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,7 +23,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,6 +37,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/names"
 )
 
 const (
@@ -64,7 +70,7 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
 	params := url.Values{}
 	params.Add("network", cidr)
-	params.Add("ip", addr.Value)
+	params.Add("requested_address", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
@@ -113,6 +119,23 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	if !environs.AddressAllocationEnabled() {
+		// When address allocation is not enabled, we should use the
+		// default bridge for both LXC and KVM containers. The bridge
+		// is created as part of the userdata for every node during
+		// StartInstance.
+		logger.Infof(
+			"address allocation feature disabled; using %q bridge for all containers",
+			instancecfg.DefaultBridgeName,
+		)
+		args.ContainerBridgeName = instancecfg.DefaultBridgeName
+	} else {
+		logger.Debugf(
+			"address allocation feature enabled; using static IPs for containers: %q",
+			instancecfg.DefaultBridgeName,
+		)
+	}
+
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
 		return "", "", nil, err
@@ -211,6 +234,10 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
+	}
+
 	caps, err := env.getCapabilities()
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
@@ -510,7 +537,8 @@ func (env *maasEnviron) getCapabilities() (set.Strings, error) {
 			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, fmt.Errorf("MAAS does not support version info")
 			}
-			return caps, err
+		} else {
+			break
 		}
 	}
 	if err != nil {
@@ -574,10 +602,6 @@ func convertConstraints(cons constraints.Value) url.Values {
 			params.Add("not_tags", strings.Join(notTags, ","))
 		}
 	}
-	// TODO(bug 1212689): ignore root-disk constraint for now.
-	if cons.RootDisk != nil {
-		logger.Warningf("ignoring unsupported constraint 'root-disk'")
-	}
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
@@ -619,10 +643,45 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 	}
 }
 
+// addVolumes converts volume information into
+// url.Values object suitable to pass to MAAS when acquiring a node.
+func addVolumes(params url.Values, volumes []volumeInfo) {
+	if len(volumes) == 0 {
+		return
+	}
+	// Requests for specific values are passed to the acquire URL
+	// as a storage URL parameter of the form:
+	// [volume-name:]sizeinGB[tag,...]
+	// See http://maas.ubuntu.com/docs/api.html#nodes
+
+	// eg storage=root:0(ssd),data:20(magnetic,5400rpm),45
+	makeVolumeParams := func(v volumeInfo) string {
+		var params string
+		if v.name != "" {
+			params = v.name + ":"
+		}
+		params += fmt.Sprintf("%d", v.sizeInGB)
+		if len(v.tags) > 0 {
+			params += fmt.Sprintf("(%s)", strings.Join(v.tags, ","))
+		}
+		return params
+	}
+	var volParms []string
+	for _, v := range volumes {
+		params := makeVolumeParams(v)
+		volParms = append(volParms, params)
+	}
+	params.Add("storage", strings.Join(volParms, ","))
+}
+
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
+func (environ *maasEnviron) acquireNode(
+	nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string, volumes []volumeInfo,
+) (gomaasapi.MAASObject, error) {
+
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
+	addVolumes(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	if zoneName != "" {
 		acquireParams.Add("zone", zoneName)
@@ -769,6 +828,11 @@ func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instan
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
+// MaintainInstance is specified in the InstanceBroker interface.
+func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
@@ -816,9 +880,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZones = []string{""}
 	}
 
-	requestedNetworks := args.MachineConfig.Networks
+	// Networking.
+	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
+
+	// Storage.
+	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid volume parameters")
+	}
 
 	snArgs := selectNodeArgs{
 		Constraints:       args.Constraints,
@@ -826,6 +897,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		NodeName:          nodeName,
 		IncludeNetworks:   includeNetworks,
 		ExcludeNetworks:   excludeNetworks,
+		Volumes:           volumes,
 	}
 	node, err := environ.selectNode(snArgs)
 	if err != nil {
@@ -852,7 +924,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	args.MachineConfig.Tools = selectedTools[0]
+	args.InstanceConfig.Tools = selectedTools[0]
 
 	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
@@ -864,16 +936,25 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
+	// Override the network bridge to use for both LXC and KVM
+	// containers on the new instance, if address allocation feature
+	// flag is not enabled.
+	if !environs.AddressAllocationEnabled() {
+		if args.InstanceConfig.AgentEnvironment == nil {
+			args.InstanceConfig.AgentEnvironment = make(map[string]string)
+		}
+		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
+	}
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
 	}
-	series := args.MachineConfig.Tools.Version.Series
+	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, primaryIface, series)
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
+	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
@@ -885,16 +966,34 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
 	}
 
+	requestedVolumes := make([]names.VolumeTag, len(args.Volumes))
+	for i, v := range args.Volumes {
+		requestedVolumes[i] = v.Tag
+	}
+	resultVolumes, resultAttachments, err := inst.volumes(
+		names.NewMachineTag(args.InstanceConfig.MachineId),
+		requestedVolumes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(resultVolumes) != len(requestedVolumes) {
+		err = errors.New("the version of MAAS being used does not support Juju storage")
+		return nil, err
+	}
+
 	return &environs.StartInstanceResult{
-		Instance:    inst,
-		Hardware:    hc,
-		NetworkInfo: networkInfo,
+		Instance:          inst,
+		Hardware:          hc,
+		NetworkInfo:       networkInfo,
+		Volumes:           resultVolumes,
+		VolumeAttachments: resultAttachments,
 	}, nil
 }
 
@@ -921,6 +1020,9 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		}
 		if statusValues[systemId] == "Deployed" {
 			return nil
+		}
+		if statusValues[systemId] == "Failed deployment" {
+			return errors.Errorf("instance %q failed to deploy", id)
 		}
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
@@ -964,6 +1066,7 @@ type selectNodeArgs struct {
 	Constraints       constraints.Value
 	IncludeNetworks   []string
 	ExcludeNetworks   []string
+	Volumes           []volumeInfo
 }
 
 func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
@@ -977,6 +1080,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.Constraints,
 			args.IncludeNetworks,
 			args.ExcludeNetworks,
+			args.Volumes,
 		)
 
 		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
@@ -995,28 +1099,105 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
+const bridgeConfigTemplate = `
+# In case we already created the bridge, don't do it again.
+grep -q "iface {{.Bridge}} inet dhcp" && exit 0
+
+# Discover primary interface at run-time using the default route (if set)
+PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+
+# If $PRIMARY_IFACE is empty, there's nothing to do.
+[ -z "$PRIMARY_IFACE" ] && exit 0
+
+# Change the config to make $PRIMARY_IFACE manual instead of DHCP,
+# then create the bridge and enslave $PRIMARY_IFACE into it.
+grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}} && \
+sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}} && \
+cat >> {{.Config}} << EOF
+
+# Primary interface (defining the default route)
+iface ${PRIMARY_IFACE} inet manual
+
+# Bridge to use for LXC/KVM containers
+auto {{.Bridge}}
+iface {{.Bridge}} inet dhcp
+    bridge_ports ${PRIMARY_IFACE}
+EOF
+
+# Make the primary interface not auto-starting.
+grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
+sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+
+# Stop $PRIMARY_IFACE and start the bridge instead.
+ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
+
+# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't
+# clash with the same automatically added route for juju-br0 (except
+# for the device name).
+ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
+`
+
+// setupJujuNetworking returns a string representing the script to run
+// in order to prepare the Juju-specific networking config on a node.
+func setupJujuNetworking() (string, error) {
+	parsedTemplate := template.Must(
+		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+	)
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config": "/etc/network/interfaces",
+		"Bridge": instancecfg.DefaultBridgeName,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "bridge config template error")
+	}
+	return buf.String(), nil
+}
+
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (*cloudinit.Config, error) {
-	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd(series)
-
+func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, err
 	}
 
-	cloudcfg := cloudinit.New()
+	info := machineInfo{hostname}
+	runCmd, err := info.cloudinitRunCmd(cloudcfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	operatingSystem, err := version.GetOSFromSeries(series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
 	switch operatingSystem {
 	case version.Windows:
 		cloudcfg.AddScripts(runCmd)
 	case version.Ubuntu:
-		cloudcfg.SetAptUpdate(true)
+		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
+		// Only create the default bridge if we're not using static
+		// address allocation for containers.
+		if !environs.AddressAllocationEnabled() {
+			// Address allocated feature flag might be disabled, but
+			// DisableNetworkManagement can still disable the bridge
+			// creation.
+			if on, set := environ.Config().DisableNetworkManagement(); on && set {
+				logger.Infof(
+					"network management disabled - not using %q bridge for containers",
+					instancecfg.DefaultBridgeName,
+				)
+				break
+			}
+			bridgeScript, err := setupJujuNetworking()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cloudcfg.AddPackage("bridge-utils")
+			cloudcfg.AddRunCmd(bridgeScript)
+		}
 	}
 	return cloudcfg, nil
 }
@@ -1158,6 +1339,10 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 	var subnets []network.SubnetInfo
 
@@ -1205,6 +1390,10 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
+	}
+
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released
@@ -1266,7 +1455,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
-			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
+			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
 		} else {
 			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
 		}
@@ -1601,12 +1790,11 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	primaryIface := ""
 	interfaces := make(map[string]ifaceInfo)
 	var processNodes func(nodes []Node) error
+	var baseIndex int
 	processNodes = func(nodes []Node) error {
 		for _, node := range nodes {
 			if strings.HasPrefix(node.Id, "network") {
-				// If there's a single interface, the ID won't have an
-				// index suffix.
-				index := 0
+				index := baseIndex
 				if strings.HasPrefix(node.Id, "network:") {
 					// There is an index suffix, parse it.
 					var err error
@@ -1614,7 +1802,10 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 					if err != nil {
 						return errors.Annotatef(err, "lshw output for node %q has invalid ID suffix for %q", inst.Id(), node.Id)
 					}
+				} else {
+					baseIndex++
 				}
+
 				if primaryIface == "" && !node.Disabled {
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)

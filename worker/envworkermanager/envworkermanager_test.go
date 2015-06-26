@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -51,17 +53,18 @@ func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
 	moreState := s.makeEnvironment(c)
 
 	var seenEnvs []string
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	defer m.Kill()
 	for _, r := range s.seeRunnersStart(c, 2) {
 		seenEnvs = append(seenEnvs, r.envUUID)
 	}
 	c.Assert(seenEnvs, jc.SameContents,
-		[]string{s.State.EnvironUUID(), moreState.EnvironUUID()})
+		[]string{s.State.EnvironUUID(), moreState.EnvironUUID()},
+	)
 }
 
 func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	defer m.Kill()
 	s.seeRunnersStart(c, 1) // Runner for state server env
 
@@ -72,7 +75,7 @@ func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
 }
 
 func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	defer m.Kill()
 	runner0 := s.seeRunnersStart(c, 1)[0]
 
@@ -108,10 +111,10 @@ func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
 	}
 }
 
-func (s *suite) TestKillPropogates(c *gc.C) {
+func (s *suite) TestKillPropagates(c *gc.C) {
 	s.makeEnvironment(c)
 
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	runners := s.seeRunnersStart(c, 2)
 	c.Assert(runners[0].killed, jc.IsFalse)
 	c.Assert(runners[1].killed, jc.IsFalse)
@@ -150,7 +153,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	// m.st.GetEnvironment(tag) fail with any error other than NotFound
 	st := newStateWithFailingGetEnvironment(s.State)
 	uuid := st.EnvironUUID()
-	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker)
 	defer m.Kill()
 
 	// First time: runners started
@@ -170,13 +173,50 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	c.Assert(runners[0].killed, jc.IsTrue)
 }
 
+func (s *suite) TestWorkerErrorIsPropagatedWhenKilled(c *gc.C) {
+	st := newStateWithFakeWatcher(s.State)
+	started := make(chan struct{}, 1)
+	m := envworkermanager.NewEnvWorkerManager(st, func(envworkermanager.InitialState, *state.State) (worker.Worker, error) {
+		c.Logf("starting worker")
+		started <- struct{}{}
+		return &errorWhenKilledWorker{
+			err: &cmdutil.FatalError{"an error"},
+		}, nil
+	})
+	st.sendEnvChange(st.EnvironUUID())
+	s.State.StartSync()
+	<-started
+	m.Kill()
+	err := m.Wait()
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
+type errorWhenKilledWorker struct {
+	tomb tomb.Tomb
+	err  error
+}
+
+var logger = loggo.GetLogger("juju.worker.envworkermanager")
+
+func (w *errorWhenKilledWorker) Kill() {
+	w.tomb.Kill(w.err)
+	logger.Errorf("errorWhenKilledWorker dying with error %v", w.err)
+	w.tomb.Done()
+}
+
+func (w *errorWhenKilledWorker) Wait() error {
+	err := w.tomb.Wait()
+	logger.Errorf("errorWhenKilledWorker wait -> error %v", err)
+	return err
+}
+
 func (s *suite) TestNothingHappensWhenEnvIsSeenAgain(c *gc.C) {
 	// This could happen if there's a change to an environment doc but
 	// it's otherwise still alive (unlikely but possible).
 	st := newStateWithFakeWatcher(s.State)
 	uuid := st.EnvironUUID()
 
-	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker)
 	defer m.Kill()
 
 	// First time: runners started
@@ -193,7 +233,7 @@ func (s *suite) TestNothingHappensWhenUnknownEnvReported(c *gc.C) {
 	// the EnvWorkerManager is coming up (unlikely but possible).
 	st := newStateWithFakeWatcher(s.State)
 
-	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker)
 	defer m.Kill()
 
 	st.sendEnvChange("unknown-env-uuid")
@@ -205,7 +245,7 @@ func (s *suite) TestNothingHappensWhenUnknownEnvReported(c *gc.C) {
 }
 
 func (s *suite) TestFatalErrorKillsEnvWorkerManager(c *gc.C) {
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	runner := s.seeRunnersStart(c, 1)[0]
 
 	runner.tomb.Kill(worker.ErrTerminateAgent)
@@ -218,7 +258,7 @@ func (s *suite) TestFatalErrorKillsEnvWorkerManager(c *gc.C) {
 func (s *suite) TestNonFatalErrorCausesRunnerRestart(c *gc.C) {
 	s.PatchValue(&worker.RestartDelay, time.Millisecond)
 
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	defer m.Kill()
 	runner0 := s.seeRunnersStart(c, 1)[0]
 
@@ -229,11 +269,11 @@ func (s *suite) TestNonFatalErrorCausesRunnerRestart(c *gc.C) {
 }
 
 func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
-	// If State is not closed when startEnvWorkers errors, MgoSuite's
+	// If State is not closed when startEnvWorker errors, MgoSuite's
 	// dirty socket detection will pick up the leaked socket and
 	// panic.
 	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
-	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	waitOrFatal(c, m.Wait)
 }
 
@@ -271,10 +311,10 @@ func (s *suite) checkNoRunnersStart(c *gc.C) {
 	}
 }
 
-// startEnvWorkers is passed to NewEnvWorkerManager in these tests. It
+// startEnvWorker is passed to NewEnvWorkerManager in these tests. It
 // creates fake Runner instances when envWorkerManager starts workers
 // for an environment.
-func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.State) (worker.Runner, error) {
+func (s *suite) startEnvWorker(ssSt envworkermanager.InitialState, st *state.State) (worker.Worker, error) {
 	if s.startErr != nil {
 		return nil, s.startErr
 	}
@@ -301,11 +341,10 @@ func waitOrFatal(c *gc.C, wait func() error) error {
 	return nil
 }
 
-// fakeRunner minimally implements the worker.Runner interface. It
+// fakeRunner minimally implements the worker.Worker interface. It
 // doesn't actually run anything, recording some execution details for
 // testing.
 type fakeRunner struct {
-	worker.Runner
 	tomb      tomb.Tomb
 	ssEnvUUID string
 	envUUID   string
@@ -318,8 +357,7 @@ func (r *fakeRunner) Kill() {
 }
 
 func (r *fakeRunner) Wait() error {
-	e := r.tomb.Wait()
-	return e
+	return r.tomb.Wait()
 }
 
 func newStateWithFakeWatcher(realSt *state.State) *stateWithFakeWatcher {

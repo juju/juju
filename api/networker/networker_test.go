@@ -5,6 +5,7 @@ package networker_test
 
 import (
 	"runtime"
+	"sort"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -201,6 +202,38 @@ func (s *networkerSuite) TestMachineNetworkConfigNameChange(c *gc.C) {
 	c.Assert(info, gc.IsNil)
 }
 
+type orderedIfc []network.InterfaceInfo
+
+func (o orderedIfc) Len() int {
+	return len(o)
+}
+
+func (o orderedIfc) Less(i, j int) bool {
+	if o[i].MACAddress < o[j].MACAddress {
+		return true
+	}
+	if o[i].MACAddress > o[j].MACAddress {
+		return false
+	}
+	if o[i].CIDR < o[j].CIDR {
+		return true
+	}
+	if o[i].CIDR > o[j].CIDR {
+		return false
+	}
+	if o[i].NetworkName < o[j].NetworkName {
+		return true
+	}
+	if o[i].NetworkName > o[j].NetworkName {
+		return false
+	}
+	return o[i].VLANTag < o[j].VLANTag
+}
+
+func (o orderedIfc) Swap(i, j int) {
+	o[i], o[j] = o[j], o[i]
+}
+
 func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
@@ -245,6 +278,8 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		InterfaceName: "eth2",
 		Disabled:      true,
 	}}
+	sort.Sort(orderedIfc(expectedMachineInfo))
+
 	expectedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
@@ -267,6 +302,8 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		VLANTag:       42,
 		InterfaceName: "eth1",
 	}}
+	sort.Sort(orderedIfc(expectedContainerInfo))
+
 	expectedNestedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
@@ -275,17 +312,21 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		VLANTag:       0,
 		InterfaceName: "eth0",
 	}}
+	sort.Sort(orderedIfc(expectedNestedContainerInfo))
 
 	results, err := s.networker.MachineNetworkConfig(names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
 	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
 	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }
 

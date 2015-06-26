@@ -13,8 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type EnvironSuite struct {
@@ -198,4 +202,112 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+}
+
+func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := addEnvUsers(c, s.State)
+	obtained, err := env.Users()
+	c.Assert(err, gc.IsNil)
+
+	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
+}
+
+func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
+	// create another environment
+	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	defer otherEnvState.Close()
+	otherEnv, err := otherEnvState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// get that environment from State
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that the Users method errors
+	users, err := env.Users()
+	c.Assert(users, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot lookup environment users outside the current environment")
+}
+
+func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	defer otherEnvState.Close()
+	otherEnv, err := otherEnvState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add users to both environments
+	expectedUsers := addEnvUsers(c, s.State)
+	expectedUsersOtherEnv := addEnvUsers(c, otherEnvState)
+
+	// test that only the expected users are listed for each environment
+	obtainedUsers, err := env.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
+
+	obtainedUsersOtherEnv, err := otherEnv.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
+}
+
+func addEnvUsers(c *gc.C, st *state.State) (expected []*state.EnvironmentUser) {
+	// get the environment owner
+	testAdmin := names.NewUserTag("test-admin")
+	owner, err := st.EnvironmentUser(testAdmin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(st)
+	return []*state.EnvironmentUser{
+		// we expect the owner to be an existing environment user
+		owner,
+		// add new users to the environment
+		f.MakeEnvUser(c, nil),
+		f.MakeEnvUser(c, nil),
+		f.MakeEnvUser(c, nil),
+	}
+}
+
+func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []*state.EnvironmentUser) {
+	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
+	for i, obtained := range obtainedUsers {
+		c.Assert(obtained.EnvironmentTag().Id(), gc.Equals, expectedUsers[i].EnvironmentTag().Id())
+		c.Assert(obtained.UserName(), gc.Equals, expectedUsers[i].UserName())
+		c.Assert(obtained.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
+		c.Assert(obtained.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
+	}
+}
+
+func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C) {
+	// Create a persistent volume.
+	// TODO(wallyworld) - consider moving this to factory
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "storage-block2")
+	storage := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
+	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
 }

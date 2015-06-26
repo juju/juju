@@ -13,16 +13,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
+	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -39,7 +41,7 @@ type Server struct {
 	tomb              tomb.Tomb
 	wg                sync.WaitGroup
 	state             *state.State
-	addr              string
+	addr              *net.TCPAddr
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -143,7 +145,6 @@ func (cl *changeCertListener) processCertChanges() error {
 			return tomb.ErrDying
 		}
 	}
-	return nil
 }
 
 // updateCertificate generates a new TLS certificate and assigns it
@@ -171,18 +172,18 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	l, ok := lis.(*net.TCPListener)
+	if !ok {
+		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
+	}
+	return newServer(s, l, cfg)
+}
+
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
 	logger.Infof("listening on %q", lis.Addr())
-	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
-	if err != nil {
-		return nil, err
-	}
-	_, listeningPort, err := net.SplitHostPort(lis.Addr().String())
-	if err != nil {
-		return nil, err
-	}
 	srv := &Server{
 		state:     s,
-		addr:      net.JoinHostPort("localhost", listeningPort),
+		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
 		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
@@ -191,7 +192,12 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,
+			2: newAdminApiV2,
 		},
+	}
+	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
+	if err != nil {
+		return nil, err
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -264,8 +270,11 @@ func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
+	}
 }
 
 func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
@@ -275,8 +284,11 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 	// TODO(rog) 2013-10-11 remove secrets from some responses.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
-	logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
+	}
 }
 
 func (n *requestNotifier) join(req *http.Request) {
@@ -327,6 +339,13 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
+	if featureflag.Enabled(feature.DbLog) {
+		handleAll(mux, "/environment/:envuuid/logsink",
+			&logSinkHandler{
+				httpHandler: httpHandler{ssState: srv.state},
+			},
+		)
+	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
@@ -355,7 +374,9 @@ func (srv *Server) run(lis net.Listener) {
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{ssState: srv.state}},
+		&imagesDownloadHandler{
+			httpHandler: httpHandler{ssState: srv.state},
+			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
@@ -409,7 +430,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Addr returns the address that the server is listening on.
-func (srv *Server) Addr() string {
+func (srv *Server) Addr() *net.TCPAddr {
 	return srv.addr
 }
 
@@ -429,7 +450,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	var h *apiHandler
 	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
 	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier)
+		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
 	}
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)

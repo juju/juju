@@ -92,16 +92,20 @@ func formatSimple(value interface{}) ([]byte, error) {
 			ensureAvailabilityResult.Added,
 		},
 		{
-			"removing machines %s\n",
+			"removing machines: %s\n",
 			ensureAvailabilityResult.Removed,
 		},
 		{
-			"promoting machines %s\n",
+			"promoting machines: %s\n",
 			ensureAvailabilityResult.Promoted,
 		},
 		{
-			"demoting machines %s\n",
+			"demoting machines: %s\n",
 			ensureAvailabilityResult.Demoted,
+		},
+		{
+			"converting machines: %s\n",
+			ensureAvailabilityResult.Converted,
 		},
 	} {
 		if len(machineList.list) == 0 {
@@ -145,9 +149,16 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
 		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
-			_, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			if err == nil && names.IsContainerMachine(p.Directive) {
+				return errors.New("ensure-availability cannot be used with container placement directives")
+			}
+			if err == nil && p.Scope == instance.MachineScope {
+				// Targeting machines is ok.
+				c.Placement[i] = p.String()
+				continue
+			}
 			if err != instance.ErrPlacementScopeMissing {
-				// We only support unscoped placement directives.
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
 			c.Placement[i] = spec
@@ -162,6 +173,7 @@ type availabilityInfo struct {
 	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
 	Promoted   []string `json:"promoted,omitempty" yaml:"promoted,flow,omitempty"`
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
+	Converted  []string `json:"converted,omitempty" yaml:"converted,flow,omitempty"`
 }
 
 // EnsureAvailabilityClient defines the methods
@@ -213,6 +225,7 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		Maintained: machineTagsToIds(ensureAvailabilityResult.Maintained...),
 		Promoted:   machineTagsToIds(ensureAvailabilityResult.Promoted...),
 		Demoted:    machineTagsToIds(ensureAvailabilityResult.Demoted...),
+		Converted:  machineTagsToIds(ensureAvailabilityResult.Converted...),
 	}
 	return c.out.Write(ctx, result)
 }

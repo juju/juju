@@ -290,7 +290,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 	})
 	_, _, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
-	c.Assert(err, gc.ErrorMatches, `index file missing "content-download" data not found`)
+	c.Assert(err, gc.ErrorMatches, `"content-download" data not found`)
 }
 
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
@@ -353,13 +353,25 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
+	expected := toolsList
+
+	// Add tools with an unknown series. Do not add an entry in the
+	// expected list as these tools should be ignored.
+	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
+	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	toolsList = append(toolsList, &coretools.Tools{
+		Version: vers,
+		Size:    456,
+		SHA256:  "wqe",
+	})
+
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = tools.MergeAndWriteMetadata(writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", false)
-	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
+	assertMetadataMatches(c, dir, "proposed", expected, metadata)
 }
 
 func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
@@ -827,6 +839,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 
 	// Read back what was just written.
 	out, err = tools.ReadAllMetadata(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.
@@ -882,6 +895,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 	stor, _ := s.writeMetadataMultipleStream(c)
 	// Read back the legacy index
 	rdr, err := stor.Get("tools/streams/v1/index.json")
+	defer rdr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)

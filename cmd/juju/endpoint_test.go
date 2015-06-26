@@ -132,10 +132,9 @@ func (s *EndpointSuite) TestSortingAndFilteringBeforeCachingRespectsPreferIPv6(c
 		"2001:db8::1",
 		"169.254.1.2", // link-local - will be removed.
 		"fd00::1",
-		"localhost", // will be put at the top as last successful.
-		"ff01::1",   // link-local - will be removed.
+		"ff01::1", // link-local - will be removed.
 		"fc00::1",
-		"localhost", // will be removed as a duplicate.
+		"localhost",
 		"0.1.2.3",
 		"127.0.1.1", // removed as a duplicate.
 		"::1",       // removed as a duplicate.
@@ -152,11 +151,12 @@ func (s *EndpointSuite) TestSortingAndFilteringBeforeCachingRespectsPreferIPv6(c
 
 	// Build the expected addresses list, after processing.
 	expectAddresses := s.addressesWithAPIPort(c,
-		"localhost", // This is always on top.
+		"127.0.0.1", // This is always on top.
 		"2001:db8::1",
 		"0.1.2.3",
 		"192.0.0.0",
 		"8.8.8.8",
+		"localhost",
 		"fc00::1",
 		"fd00::1",
 		"10.0.0.1",
@@ -173,11 +173,12 @@ func (s *EndpointSuite) TestSortingAndFilteringBeforeCachingRespectsPreferIPv6(c
 	// Rebuild the expected addresses and rebuild them so IPv4 comes
 	// before IPv6.
 	expectAddresses = s.addressesWithAPIPort(c,
-		"localhost", // This is always on top.
+		"127.0.0.1", // This is always on top.
 		"0.1.2.3",
 		"192.0.0.0",
 		"8.8.8.8",
 		"2001:db8::1",
+		"localhost",
 		"10.0.0.1",
 		"fc00::1",
 		"fd00::1",

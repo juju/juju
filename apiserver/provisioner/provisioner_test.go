@@ -20,14 +20,18 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
+	storagedummy "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -53,6 +57,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional state server machine.
@@ -449,11 +457,11 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
-	status, info, data, err := s.machines[index].Status()
+	statusInfo, err := s.machines[index].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, expectStatus)
-	c.Assert(info, gc.Equals, expectInfo)
-	c.Assert(data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
 }
 
 func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
@@ -560,6 +568,15 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	}}
 	result, err := s.provisioner.Status(args)
 	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
@@ -726,12 +743,12 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+
 	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
@@ -742,19 +759,11 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
-			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
-			{Volume: state.VolumeParams{Size: 3000, Pool: "loop-pool"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "static-pool"}},
+			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Provision volume 2 so that it is excluded from any ProvisioningInfo() results.
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = placementMachine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, map[names.VolumeTag]state.VolumeInfo{
-		names.NewVolumeTag(placementMachine.Id() + "/2"): state.VolumeInfo{VolumeId: "123", Size: 1024},
-	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -773,6 +782,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Series:   "quantal",
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 			}},
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
@@ -780,18 +792,35 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+					VolumeTag:  "volume-0",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
-					Provider:   "loop",
+					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-0",
+						Provider:   "static",
+					},
 				}, {
-					VolumeTag:  "volume-" + placementMachine.Id() + "-1",
+					VolumeTag:  "volume-1",
 					Size:       2000,
-					MachineTag: placementMachine.Tag().String(),
-					Provider:   "loop",
+					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-1",
+						Provider:   "static",
+					},
 				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
@@ -805,18 +834,24 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		vols := expected.Results[1].Result.Volumes
 		vols[0], vols[1] = vols[1], vols[0]
 	}
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
+	defer registry.RegisterProvider("dynamic", nil)
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "dynamic", "static")
+
 	template := state.MachineTemplate{
 		Series:            "quantal",
 		Jobs:              []state.MachineJob{state.JobHostUnits},
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
 		Volumes: []state.MachineVolumeParams{
-			// No pool called "loop" exists but there is a "loop" provider type.
-			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "dynamic"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
@@ -828,7 +863,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
@@ -836,12 +871,22 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+					VolumeTag:  "volume-1",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
-					Provider:   "loop",
+					Provider:   "static",
 					Attributes: nil,
+					Tags: map[string]string{
+						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-1",
+						Provider:   "static",
+					},
 				}},
 			}},
 		},
@@ -867,12 +912,15 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
-	c.Assert(results, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1000,11 +1048,15 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
+	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+
 	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
+		"storage-default-block-source": "static-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1098,15 +1150,17 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
 		Volumes: []params.Volume{{
-			VolumeTag: "volume-" + volumesMachine.Id() + "-0",
-			VolumeId:  "vol-0",
-			Size:      1234,
+			VolumeTag: "volume-0",
+			Info: params.VolumeInfo{
+				VolumeId: "vol-0",
+				Size:     1234,
+			},
 		}},
-		VolumeAttachments: []params.VolumeAttachment{{
-			VolumeTag:  "volume-" + volumesMachine.Id() + "-0",
-			MachineTag: volumesMachine.Tag().String(),
-			DeviceName: "sda",
-		}},
+		VolumeAttachments: map[string]params.VolumeAttachmentInfo{
+			"volume-0": {
+				DeviceName: "sda",
+			},
+		},
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
@@ -1193,7 +1247,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Size: 1234})
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Pool: "static-pool", Size: 1234})
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.
@@ -1266,7 +1320,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
 	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1284,6 +1338,16 @@ func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 	})
 }
 
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForwarding(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+		// ConfigIPForwarding should be missing.
+	})
+}
+
 func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
 	// Break dummy provider's SupportsAddressAllocation method to
 	// ensure ConfigIPForwarding is not set below.
@@ -1297,7 +1361,8 @@ func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
-		"http-proxy": "http://proxy.example.com:9000",
+		"http-proxy":            "http://proxy.example.com:9000",
+		"allow-lxc-loop-mounts": true,
 	}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1314,21 +1379,17 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
-	args := params.MachineContainersParams{
-		Params: []params.MachineContainers{
-			{
-				MachineTag:     "machine-0",
-				ContainerTypes: []instance.ContainerType{instance.LXC},
-			},
-			{
-				MachineTag:     "machine-1",
-				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
-			},
-		},
-	}
+	args := params.MachineContainersParams{Params: []params.MachineContainers{{
+		MachineTag:     "machine-0",
+		ContainerTypes: []instance.ContainerType{instance.LXC},
+	}, {
+		MachineTag:     "machine-1",
+		ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+	}}}
 	results, err := s.provisioner.SetSupportedContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
@@ -1410,11 +1471,9 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1491,4 +1550,44 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
+}
+
+type lxcDefaultMTUSuite struct {
+	provisionerSuite
+}
+
+var _ = gc.Suite(&lxcDefaultMTUSuite{})
+
+func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
+	// Because lxc-default-mtu is an immutable setting, we need to set
+	// it in the default config JujuConnSuite uses, before the
+	// environment is "created".
+	s.DummyConfig = dummy.SampleConfig()
+	s.DummyConfig["lxc-default-mtu"] = 9000
+	s.provisionerSuite.SetUpTest(c)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	value, ok := stateConfig.LXCDefaultMTU()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(value, gc.Equals, 9000)
+	c.Logf("environ config lxc-default-mtu set to %v", value)
+}
+
+func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
+	managerConfig := s.getManagerConfig(c, instance.LXC)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:          "juju",
+		container.ConfigLXCDefaultMTU: "9000",
+
+		"use-aufs":                   "false",
+		container.ConfigIPForwarding: "true",
+	})
+
+	// KVM instances are not affected.
+	managerConfig = s.getManagerConfig(c, instance.KVM)
+	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
+		container.ConfigName:         "juju",
+		container.ConfigIPForwarding: "true",
+	})
 }

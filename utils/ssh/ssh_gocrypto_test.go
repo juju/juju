@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	cryptossh "code.google.com/p/go.crypto/ssh"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
@@ -50,7 +50,7 @@ func (s *sshServer) run(c *gc.C) {
 	netconn, err := s.listener.Accept()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
-		err = netconn.Close()
+		err := netconn.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 	conn, chans, reqs, err := cryptossh.NewServerConn(netconn, s.cfg)

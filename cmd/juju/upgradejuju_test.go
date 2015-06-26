@@ -297,6 +297,12 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
+}, {
+	about:          "latest supported stable release",
+	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.20.14",
+	expectVersion:  "1.21.3",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -422,10 +428,9 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -500,6 +505,22 @@ upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
 `,
 		},
+		{
+			about:          "dry run ignores unknown series",
+			cmdArgs:        []string{"--dry-run"},
+			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "1.2.3-myawesomeseries-amd64"},
+			currentVersion: "2.0.0-quantal-amd64",
+			agentVersion:   "2.0.0",
+			expectedCmdOutput: `available tools:
+    2.1.0-quantal-amd64
+    2.1.2-quantal-i386
+    2.1.3-quantal-amd64
+best version:
+    2.1.3
+upgrade to this version by running
+    juju upgrade-juju --version="2.1.3"
+`,
+		},
 	}
 
 	for i, test := range tests {
@@ -521,7 +542,10 @@ upgrade to this version by running
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
-			versions[i] = version.MustParseBinary(v)
+			versions[i], err = version.ParseBinary(v)
+			if err != nil {
+				c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+			}
 		}
 		if len(versions) > 0 {
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
@@ -542,6 +566,23 @@ upgrade to this version by running
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)
 	}
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.addTools("2.1.0-weird-amd64")
+	fakeAPI.patch(s)
+
+	cmd := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cmd.Run(coretesting.Context(c))
+	c.Assert(err, gc.IsNil)
+
+	// ensure find tools was called
+	c.Assert(fakeAPI.findToolsCalled, jc.IsTrue)
+	c.Assert(fakeAPI.tools, gc.DeepEquals, []string{"2.1.0-weird-amd64", fakeAPI.nextVersion.String()})
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
@@ -653,18 +694,28 @@ type fakeUpgradeJujuAPI struct {
 	setVersionErr             error
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
+	tools                     []string
+	findToolsCalled           bool
 }
 
 func (a *fakeUpgradeJujuAPI) reset() {
 	a.setVersionErr = nil
 	a.abortCurrentUpgradeCalled = false
 	a.setVersionCalledWith = version.Number{}
+	a.tools = []string{}
+	a.findToolsCalled = false
 }
 
 func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
 	s.PatchValue(&getUpgradeJujuAPI, func(*UpgradeJujuCommand) (upgradeJujuAPI, error) {
 		return a, nil
 	})
+}
+
+func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
+	for _, tool := range tools {
+		a.tools = append(a.tools, tool)
+	}
 }
 
 func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
@@ -678,7 +729,9 @@ func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
 func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
 	result params.FindToolsResult, err error,
 ) {
-	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "released", []string{a.nextVersion.String()})
+	a.findToolsCalled = true
+	a.tools = append(a.tools, a.nextVersion.String())
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "released", a.tools)
 	return params.FindToolsResult{
 		List:  tools,
 		Error: nil,

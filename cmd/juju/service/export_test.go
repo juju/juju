@@ -16,3 +16,17 @@ func NewUnsetCommand(api UnsetServiceAPI) *UnsetCommand {
 		api: api,
 	}
 }
+
+// NewGetCommand returns a GetCommand with the api provided as specified.
+func NewGetCommand(api GetServiceAPI) *GetCommand {
+	return &GetCommand{
+		api: api,
+	}
+}
+
+// NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
+func NewAddUnitCommand(api ServiceAddUnitAPI) *AddUnitCommand {
+	return &AddUnitCommand{
+		api: api,
+	}
+}
