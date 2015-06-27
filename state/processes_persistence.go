@@ -167,18 +167,24 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp procsPersistence) Insert(info process.Info) (bool, error) {
+	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
 	ops = append(ops, pp.newInsertProcessOps(info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// TODO(ericsnow) Return false if found.
+		if attempt > 0 {
+			// One of the records already exists.
+			okay = false
+			return nil, jujutxn.ErrNoOperations
+		}
+		okay = true
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
 	}
-	return true, nil
+	return okay, nil
 }
 
 // SetStatus updates the raw status for the identified process in

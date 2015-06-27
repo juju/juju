@@ -330,6 +330,7 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 				PluginStatus: "running",
 			},
 		},
+		// TODO(ericsnow) This op will be there once we add definitions.
 		//{
 		//	C:      "workloadprocesses",
 		//	Id:     "c#local:series/dummy-1#procA",
@@ -385,9 +386,98 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
+	expected := &state.ProcessDefinitionDoc{
+		DocID: "c#local:series/dummy-1#procA",
+		Name:  "procA",
+		Type:  "docker",
+	}
+	s.state.setDocs(expected)
+	proc := s.newProcesses("kvm", "procA")[0]
+	proc.Details.ID = "procA-xyz"
+
+	pp := s.newPersistence()
+	okay, err := pp.Insert(proc)
+	// TODO(ericsnow) Should this fail instead?
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessLaunchDoc{
+				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+				PluginID:  "procA-xyz",
+				RawStatus: "running",
+			},
+		},
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessDoc{
+				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				Life:         0,
+				Status:       "pending",
+				PluginStatus: "running",
+			},
+		},
+	}})
 }
 
 func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
+	definitionDoc := &state.ProcessDefinitionDoc{
+		DocID: "c#local:series/dummy-1#procA",
+		Name:  "procA",
+		Type:  "docker",
+	}
+	launchDoc := &state.ProcessLaunchDoc{
+		DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+		PluginID:  "procA-xyz",
+		RawStatus: "running",
+	}
+	procDoc := &state.ProcessDoc{
+		DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+		Life:         0,
+		Status:       "pending",
+		PluginStatus: "running",
+	}
+	s.state.setDocs(definitionDoc, launchDoc, procDoc)
+	proc := s.newProcesses("docker", "procA")[0]
+	proc.Details.ID = "procA-xyz"
+	s.stub.SetErrors(txn.ErrAborted)
+
+	pp := s.newPersistence()
+	okay, err := pp.Insert(proc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsFalse)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessLaunchDoc{
+				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+				PluginID:  "procA-xyz",
+				RawStatus: "running",
+			},
+		},
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessDoc{
+				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				Life:         0,
+				Status:       "pending",
+				PluginStatus: "running",
+			},
+		},
+	}})
 }
 
 func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
