@@ -298,8 +298,107 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestInsert(c *gc.C) {
-	// TODO(ericsnow) finish!
+func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
+	proc := s.newProcesses("docker", "procA")[0]
+	proc.Details.ID = "procA-xyz"
+
+	pp := s.newPersistence()
+	okay, err := pp.Insert(proc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessLaunchDoc{
+				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+				PluginID:  "procA-xyz",
+				RawStatus: "running",
+			},
+		},
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessDoc{
+				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				Life:         0,
+				Status:       "pending",
+				PluginStatus: "running",
+			},
+		},
+		//{
+		//	C:      "workloadprocesses",
+		//	Id:     "c#local:series/dummy-1#procA",
+		//	Assert: txn.DocMissing,
+		//	Insert: &state.ProcessDefinitionDoc{
+		//		DocID: "c#local:series/dummy-1#procA",
+		//		Name:  "procA",
+		//		Type:  "docker",
+		//	},
+		//},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
+	expected := &state.ProcessDefinitionDoc{
+		DocID: "c#local:series/dummy-1#procA",
+		Name:  "procA",
+		Type:  "docker",
+	}
+	s.state.setDocs(expected)
+	proc := s.newProcesses("docker", "procA")[0]
+	proc.Details.ID = "procA-xyz"
+
+	pp := s.newPersistence()
+	okay, err := pp.Insert(proc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessLaunchDoc{
+				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
+				PluginID:  "procA-xyz",
+				RawStatus: "running",
+			},
+		},
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocMissing,
+			Insert: &state.ProcessDoc{
+				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				Life:         0,
+				Status:       "pending",
+				PluginStatus: "running",
+			},
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
+}
+
+func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
+}
+
+func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+	proc := s.newProcesses("docker", "procA")[0]
+
+	pp := s.newPersistence()
+	_, err := pp.Insert(proc)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *procsPersistenceSuite) TestSetStatus(c *gc.C) {
