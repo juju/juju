@@ -34,6 +34,13 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
+	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+
+	// Version 1 has the same set of methods as 0, with the same
+	// signatures, but its ProvisioningInfo returns additional
+	// information. Clients may require version 1 so that they
+	// receive this additional information; otherwise they are
+	// compatible.
 	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
 }
 
@@ -51,6 +58,7 @@ type ProvisionerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
+	*common.ToolsGetter
 
 	st          *state.State
 	resources   *common.Resources
@@ -92,6 +100,9 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 		}, nil
 	}
+	getAuthOwner := func() (common.AuthFunc, error) {
+		return authorizer.AuthOwner, nil
+	}
 	env, err := st.Environment()
 	if err != nil {
 		return nil, err
@@ -110,6 +121,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
