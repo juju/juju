@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -111,6 +112,10 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 	var found []string
 	var mismatched []string
 
+	if len(definitions) == 0 {
+		return found, mismatched, nil
+	}
+
 	var ids []string
 	var ops []txn.Op
 	for _, definition := range definitions {
@@ -130,13 +135,19 @@ func (pp procsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]st
 
 			var okOps []txn.Op
 			for _, op := range ops {
-				if _, ok := indexed[op.Id]; !ok {
+				if existing, ok := indexed[op.Id]; !ok {
 					okOps = append(okOps, op)
-				} else {
-					// TODO(ericsnow) compare ops to corresponding
-					// definitions; fail if not the same.
+				} else { // Otherwise the op is dropped.
+					id := fmt.Sprintf("%s", op.Id)
+					found = append(found, id)
+					definition, ok := op.Insert.(*ProcessDefinitionDoc)
+					if !ok {
+						return nil, errors.Errorf("inserting invalid type %T", op.Insert)
+					}
+					if !reflect.DeepEqual(definition, &existing) {
+						mismatched = append(mismatched, id)
+					}
 				}
-				// Otherwise the op is dropped.
 			}
 			if len(okOps) == 0 {
 				return nil, jujutxn.ErrNoOperations

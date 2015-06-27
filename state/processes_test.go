@@ -41,6 +41,22 @@ func (s *baseProcessesSuite) SetUpTest(c *gc.C) {
 	s.unit = names.NewUnitTag("a-unit/0")
 }
 
+func (s *baseProcessesSuite) setUnit(id string) {
+	if id == "" {
+		s.unit = names.UnitTag{}
+	} else {
+		s.unit = names.NewUnitTag(id)
+	}
+}
+
+func (s *baseProcessesSuite) setCharm(id string) {
+	if id == "" {
+		s.charm = names.CharmTag{}
+	} else {
+		s.charm = names.NewCharmTag(id)
+	}
+}
+
 func (s *baseProcessesSuite) newDefinitions(pType string, names ...string) []charm.Process {
 	var definitions []charm.Process
 	for _, name := range names {
