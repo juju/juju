@@ -172,6 +172,22 @@ func getTestCases() []multiEnvRunnerTestCase {
 				},
 			},
 			true,
+		}, {
+			"document passed as map[string]interface{}",
+			txn.Op{
+				C:      machinesC,
+				Id:     "5",
+				Insert: map[string]interface{}{},
+			},
+			txn.Op{
+				C:  machinesC,
+				Id: "uuid:5",
+				Insert: map[string]interface{}{
+					"_id":      "uuid:5",
+					"env-uuid": "uuid",
+				},
+			},
+			true,
 		},
 	}
 }
@@ -325,6 +341,19 @@ func (s *MultiEnvRunnerSuite) TestPanicWhenBsonMEnvUUIDMismatch(c *gc.C) {
 	}
 	c.Assert(attempt, gc.PanicMatches,
 		"environment UUID for document to insert into machines does not match state")
+}
+
+func (s *MultiEnvRunnerSuite) TestPanicForUnsupportedDocType(c *gc.C) {
+	attempt := func() {
+		s.multiEnvRunner.RunTransaction([]txn.Op{{
+			C:      machinesC,
+			Id:     "uuid:0",
+			Insert: make(map[int]int),
+		}})
+	}
+	c.Assert(attempt, gc.PanicMatches, `unsupported document type for multi-environment `+
+		`collection \(must be bson.D, bson.M or struct\). Got map\[int\]int for insert `+
+		`into machines.`)
 }
 
 func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
