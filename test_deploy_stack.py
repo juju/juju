@@ -36,7 +36,7 @@ from deploy_stack import (
     prepare_environment,
     assess_upgrade,
     safe_print_status,
-    retain_jenv,
+    retain_file,
     update_env,
 )
 from jujuconfig import (
@@ -462,19 +462,19 @@ class DumpEnvLogsTestCase(TestCase):
         self.assertEqual(
             [('0', '10.11.12.13'), ('1', '10.11.12.14')], machine_addrs)
 
-    def test_retain_jenv(self):
+    def test_retain_file(self):
         with temp_dir() as jenv_dir:
             jenv_path = os.path.join(jenv_dir, "temp.jenv")
             with open(jenv_path, 'w') as f:
                 f.write('jenv data')
                 with temp_dir() as log_dir:
-                    status = retain_jenv(jenv_path, log_dir)
+                    status = retain_file(jenv_path, log_dir)
                     self.assertIs(status, True)
                     self.assertEqual(['temp.jenv'], os.listdir(log_dir))
 
         with patch('shutil.copy', autospec=True,
                    side_effect=IOError) as rj_mock:
-            status = retain_jenv('src', 'dst')
+            status = retain_file('src', 'dst')
         self.assertIs(status, False)
         rj_mock.assert_called_with('src', 'dst')
 
@@ -691,24 +691,30 @@ class TestBootContext(TestCase):
             'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
             'bar', '--force', '-y'))
         juju_home = get_juju_home()
-        jenv_path = os.path.join(juju_home, 'environments', 'bar.jenv')
+        config_file = 'bar.jenv'
+        if os.environ['JUJU_DEV_FEATURE_FLAGS'] == 'jes':
+            config_file = 'cache.yaml'
+        config_path = os.path.join(juju_home, 'environments', config_file)
         dl_mock.assert_called_once_with(
-            client, 'foo', 'log_dir', jenv_path=jenv_path)
+            client, 'foo', 'log_dir', config_path=config_path)
 
-    def test_bootstrap_context_set_juju_home(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
+    @patch('deploy_stack.dump_env_logs')
+    @patch('subprocess.call')
+    @patch('subprocess.check_call')
+    def test_bootstrap_context_set_juju_home(self, cc_mock, c_mock, dl_mock):
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.25', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
-        c_mock = self.addContext(patch('subprocess.call'))
-        dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
         with boot_context('bar', client, None, [], None, None, None, 'log_dir',
                           keep_env=False, upload_tools=False, juju_home='/testing/.juju'):
             pass
-        jenv_path = os.path.join('/testing/.juju', 'environments', 'bar.jenv')
+        config_file = 'bar.jenv'
+        if os.environ['JUJU_DEV_FEATURE_FLAGS'] == 'jes':
+            config_file = 'cache.yaml'
+        config_path = os.path.join('/testing/.juju', 'environments', config_file)
         dl_mock.assert_called_once_with(
-            client, 'foo', 'log_dir', jenv_path=jenv_path)
+            client, 'foo', 'log_dir', config_path=config_path)
         
 
     def test_keep_env(self):

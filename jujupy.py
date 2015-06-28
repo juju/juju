@@ -212,7 +212,7 @@ class EnvJujuClient:
         self.full_path = full_path
         self.debug = debug
 
-    def _shell_environ(self, juju_home=None):
+    def _shell_environ(self, juju_home=None, dev_flags=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
@@ -224,6 +224,8 @@ class EnvJujuClient:
         if juju_home is not None:
             env['JUJU_HOME'] = juju_home
 
+        if dev_flags is not None and dev_flags != []:
+            env['JUJU_DEV_FEATURE_FLAGS'] = ','.join(dev_flags)
         return env
 
     def get_bootstrap_args(self, upload_tools):
@@ -242,10 +244,10 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         return args
 
-    def bootstrap(self, upload_tools=False, juju_home=None):
+    def bootstrap(self, upload_tools=False, juju_home=None, extra_env=None):
         args = self.get_bootstrap_args(upload_tools)
         self.juju('bootstrap', args, self.env.needs_sudo(),
-                  juju_home=juju_home)
+                  juju_home=juju_home, extra_env=extra_env)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, juju_home=None):
@@ -603,29 +605,33 @@ class EnvJujuClient:
         return self.action_fetch(id, action, timeout)
 
 
+
 class EnvJujuClient22(EnvJujuClient):
 
-    def _shell_environ(self, juju_home=None):
+    def _shell_environ(self, juju_home=None, dev_flags=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient22, self)._shell_environ(juju_home)
-        env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
+        dev_flags = dev_flags or []
+        if 'actions' not in dev_flags:
+            dev_flags.append('actions')
+        env = super(EnvJujuClient22, self)._shell_environ(juju_home, dev_flags=dev_flags)
         return env
 
 
 class EnvJujuClient25(EnvJujuClient):
 
-    def _shell_environ(self, juju_home=None):
+    def _shell_environ(self, juju_home=None, dev_flags=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient25, self)._shell_environ(juju_home)
-        if self.env.config.get('type') == 'cloudsigma':
-            env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
-        return env
+        dev_flags = dev_flags or []
+        envType = self.env.config.get('type')
+        if envType == 'cloudsigma' and 'cloudsigma' not in dev_flags:
+            dev_flags.append('cloudsigma')
+        return super(EnvJujuClient25, self)._shell_environ(juju_home, dev_flags=dev_flags)
 
 
 class EnvJujuClient24(EnvJujuClient25):

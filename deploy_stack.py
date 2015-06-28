@@ -2,7 +2,6 @@
 from __future__ import print_function
 __metaclass__ = type
 
-
 from argparse import ArgumentParser
 from contextlib import contextmanager
 import glob
@@ -16,9 +15,9 @@ import sys
 import time
 import json
 import shutil
-
 from jujuconfig import (
     get_jenv_path,
+    get_cache_path,
     get_juju_home,
     translate_to_env,
 )
@@ -85,11 +84,12 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def deploy_dummy_stack(client, charm_prefix):
+def deploy_dummy_stack(client, charm_prefix, token=None):
     """"Deploy a dummy stack in the specified environment.
     """
     client.deploy(charm_prefix + 'dummy-source')
-    token = get_random_string()
+    if token is None:
+        token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
@@ -143,7 +143,7 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
+def dump_env_logs(client, bootstrap_host, directory, config_path=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
@@ -153,19 +153,19 @@ def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
         local_state_server = client.env.local and machine_id == '0'
         dump_logs(client, addr, machine_directory,
                   local_state_server=local_state_server)
-    retain_jenv(jenv_path, directory)
+    retain_file(config_path, directory)
 
 
-def retain_jenv(jenv_path, log_directory):
-    if not jenv_path:
+def retain_file(file_path, log_directory):
+    if not file_path:
         return False
 
     try:
-        shutil.copy(jenv_path, log_directory)
+        shutil.copy(file_path, log_directory)
         return True
     except IOError:
-        print_now("Failed to copy jenv file. Source: %s Destination: %s" %
-                  (jenv_path, log_directory))
+        print_now("Failed to copy file. Source: %s Destination: %s" %
+                  (file_path, log_directory))
     return False
 
 
@@ -229,7 +229,6 @@ def copy_local_logs(directory, client):
 
     subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
     subprocess.check_call(['cp'] + log_names + [directory])
-
 
 def copy_remote_logs(host, directory):
     """Copy as many logs from the remote host as possible to the directory."""
@@ -392,7 +391,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 @contextmanager
 def boot_context(job_name, client, bootstrap_host, machines, series,
-                 agent_url, agent_stream, log_dir, keep_env, upload_tools, juju_home=None):
+                 agent_url, agent_stream, log_dir, keep_env, upload_tools, juju_home=None, extra_env=None):
     created_machines = False
     bootstrap_id = None
     running_domains = dict()
@@ -434,14 +433,17 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             if juju_home is None:
                 make_tmp_juju_home = True
                 juju_home = get_juju_home()
-            jenv_path = get_jenv_path(juju_home, client.env.environment)
-            ensure_deleted(jenv_path)
+            config_path = get_cache_path(juju_home)
+            shell_env = client._shell_environ()
+            if 'jes' not in shell_env['JUJU_DEV_FEATURE_FLAGS'].split(","):
+                config_path = get_jenv_path(juju_home, client.env.environment)
+                ensure_deleted(config_path)
             try:
                 if make_tmp_juju_home:
                     with temp_bootstrap_env(juju_home, client) as temp_juju_home:
-                        client.bootstrap(upload_tools, temp_juju_home)    
+                        client.bootstrap(upload_tools, temp_juju_home, extra_env)    
                 else: 
-                    client.bootstrap(upload_tools, juju_home) 
+                    client.bootstrap(upload_tools, juju_home, extra_env) 
             except:
                 if host is not None:
                     dump_logs(client, host, log_dir, bootstrap_id)
@@ -459,7 +461,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             finally:
                 safe_print_status(client)
                 if host is not None:
-                    dump_env_logs(client, host, log_dir, jenv_path=jenv_path)
+                    dump_env_logs(client, host, log_dir, config_path=config_path)
                 if not keep_env:
                     client.destroy_environment()
         finally:

@@ -95,14 +95,13 @@ class TestEnvJujuClient25(ClientTest):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ()
-        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
+        self.assertFalse('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_cloudsigma(self):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
             '1.25-foobar', 'path')
         env = client._shell_environ()
-        "".split()
         self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test__shell_environ_juju_home(self):
@@ -110,6 +109,20 @@ class TestEnvJujuClient25(ClientTest):
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ(juju_home='asdf')
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+    def test__shell_environ_not_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
+        env = client._shell_environ()
+        # if jes flag is set before unit tests are run, this will fail.
+        self.assertFalse('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
+
+    def test__shell_environ_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'jes'}),
+            '1.25-foobar', 'path')
+        env = client._shell_environ(dev_flags=['jes'])
+        self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
 
 class TestEnvJujuClient22(ClientTest):
@@ -266,7 +279,7 @@ class TestEnvJujuClient(ClientTest):
                 EnvJujuClient(env, None, None).bootstrap()
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                juju_home=None, extra_env=None)
 
     def test_bootstrap_maas(self):
         env = Environment('maas', '')
@@ -276,7 +289,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False,
-                juju_home=None)
+                juju_home=None, extra_env=None)
 
     def test_bootstrap_joyent(self):
         env = Environment('joyent', '')
@@ -286,7 +299,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap()
             mock.assert_called_once_with(
                 client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
-                False, juju_home=None)
+                False, juju_home=None, extra_env=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -295,8 +308,8 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), False, 
+                extra_env=None, juju_home=None)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -305,7 +318,8 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), True, 
+                extra_env=None, juju_home=None)
 
     def test_bootstrap_upload_tools(self):
         env = Environment('foo', '')
@@ -315,7 +329,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True, juju_home=None)
+                True, extra_env=None, juju_home=None)
 
     def test_bootstrap_juju_home(self):
         env = Environment('foo', '')
@@ -325,7 +339,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap(upload_tools=True, juju_home='temp-home')
             mock.assert_called_with(
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True, juju_home='temp-home')
+                True, extra_env=None, juju_home='temp-home')
 
     def test_bootstrap_async(self):
         env = Environment('foo', '')
@@ -431,7 +445,7 @@ class TestEnvJujuClient(ClientTest):
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
             '1.24-foobar', 'path')
         env = client._shell_environ()
-        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
+        self.assertFalse('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     def test_juju_output_supplies_path(self):
         env = Environment('foo', '')
@@ -1255,7 +1269,7 @@ class TestJujuClientDevel(TestCase):
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                extra_env=None, juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -1264,7 +1278,7 @@ class TestJujuClientDevel(TestCase):
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                extra_env=None, juju_home=None)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -1273,7 +1287,8 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), True, 
+                extra_env=None, juju_home=None)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
