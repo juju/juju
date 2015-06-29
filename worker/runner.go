@@ -225,6 +225,11 @@ func (runner *runner) run() error {
 				delete(workers, info.id)
 				break
 			}
+
+			// clear workerInfo.worker so that we don't accidentally send the
+			// Kill signal to a previous invocation of this worker.
+			workerInfo.worker = nil
+
 			go runner.runWorker(workerInfo.restartDelay, info.id, workerInfo.start)
 			workerInfo.restartDelay = RestartDelay
 		}
