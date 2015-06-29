@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,6 +38,7 @@ type processesPersistence interface {
 	Insert(info process.Info) (bool, error)
 	SetStatus(id string, status process.RawStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
+	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
 }
 
@@ -43,35 +46,45 @@ func (s *procsPersistenceSuite) newPersistence() processesPersistence {
 	return state.NewProcsPersistence(s.state, &s.charm, &s.unit)
 }
 
-func (s *procsPersistenceSuite) setDocs(name, pType, id, status string) (*state.ProcessDefinitionDoc, *state.ProcessLaunchDoc, *state.ProcessDoc) {
+type processInfoDoc struct {
+	definition *state.ProcessDefinitionDoc
+	launch     *state.ProcessLaunchDoc
+	proc       *state.ProcessDoc
+}
+
+func (s *procsPersistenceSuite) setDocs(procs ...process.Info) []processInfoDoc {
+	var results []processInfoDoc
 	var docs []interface{}
+	for _, proc := range procs {
+		doc := processInfoDoc{}
 
-	definitionDoc := &state.ProcessDefinitionDoc{
-		DocID: "c#local:series/dummy-1#" + name,
-		Name:  name,
-		Type:  pType,
-	}
-	docs = append(docs, definitionDoc)
+		doc.definition = &state.ProcessDefinitionDoc{
+			DocID:  "c#" + s.charm.Id() + "#" + proc.Name,
+			Name:   proc.Name,
+			Type:   proc.Type,
+			UnitID: s.unit.Id(),
+		}
+		docs = append(docs, doc.definition)
 
-	var launchDoc *state.ProcessLaunchDoc
-	var procDoc *state.ProcessDoc
-	if id != "" {
-		fullID := name + "/" + id
-		launchDoc = &state.ProcessLaunchDoc{
-			DocID:     "u#a-unit/0#charm#" + fullID + "#launch",
-			PluginID:  id,
-			RawStatus: status,
+		if proc.Details.ID != "" {
+			doc.launch = &state.ProcessLaunchDoc{
+				DocID:     "u#" + s.unit.Id() + "#charm#" + proc.ID() + "#launch",
+				PluginID:  proc.Details.ID,
+				RawStatus: proc.Details.Status.Value,
+			}
+			doc.proc = &state.ProcessDoc{
+				DocID:        "u#" + s.unit.Id() + "#charm#" + proc.ID(),
+				Life:         0,
+				Status:       proc.Status.String(),
+				PluginStatus: proc.Details.Status.Value,
+			}
+			docs = append(docs, doc.launch, doc.proc)
 		}
-		procDoc = &state.ProcessDoc{
-			DocID:        "u#a-unit/0#charm#" + fullID,
-			Life:         0,
-			Status:       "pending",
-			PluginStatus: status,
-		}
-		docs = append(docs, launchDoc, procDoc)
+
+		results = append(results, doc)
 	}
 	s.state.setDocs(docs...)
-	return definitionDoc, launchDoc, procDoc
+	return results
 }
 
 func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmAndUnit(c *gc.C) {
@@ -331,8 +344,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
-	proc := s.newProcesses("docker", "procA")[0]
-	proc.Details.ID = "procA-xyz"
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
 
 	pp := s.newPersistence()
 	okay, err := pp.Insert(proc)
@@ -383,8 +395,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 		Type:  "docker",
 	}
 	s.state.setDocs(expected)
-	proc := s.newProcesses("docker", "procA")[0]
-	proc.Details.ID = "procA-xyz"
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
 
 	pp := s.newPersistence()
 	okay, err := pp.Insert(proc)
@@ -424,8 +435,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 		Type:  "docker",
 	}
 	s.state.setDocs(expected)
-	proc := s.newProcesses("kvm", "procA")[0]
-	proc.Details.ID = "procA-xyz"
+	proc := s.newProcesses("kvm", "procA/procA-xyz")[0]
 
 	pp := s.newPersistence()
 	okay, err := pp.Insert(proc)
@@ -460,9 +470,8 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
-	s.setDocs("procA", "docker", "procA-xyz", "running")
-	proc := s.newProcesses("docker", "procA")[0]
-	proc.Details.ID = "procA-xyz"
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
+	s.setDocs(proc)
 	s.stub.SetErrors(txn.ErrAborted)
 
 	pp := s.newPersistence()
@@ -508,7 +517,8 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
-	s.setDocs("procA", "docker", "procA-xyz", "running")
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
+	s.setDocs(proc)
 	newStatus := process.RawStatus{Value: "still running"}
 
 	pp := s.newPersistence()
@@ -536,7 +546,6 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.stub.SetErrors(txn.ErrAborted)
 	newStatus := process.RawStatus{Value: "still running"}
-	c.Logf("%v", s.state.docs)
 
 	pp := s.newPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -561,8 +570,9 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
-	_, _, procDoc := s.setDocs("procA", "docker", "procA-xyz", "running")
-	procDoc.Life = state.Dying
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
+	docs := s.setDocs(proc)
+	docs[0].proc.Life = state.Dying
 	s.stub.SetErrors(txn.ErrAborted)
 	newStatus := process.RawStatus{Value: "still running"}
 
@@ -589,18 +599,144 @@ func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
-	s.setDocs("procA", "docker", "procA-xyz", "running")
+	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
+	s.setDocs(proc)
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
 	pp := s.newPersistence()
-	_, err := pp.SetStatus("some-ID", process.RawStatus{Value: "still running"})
+	_, err := pp.SetStatus("procA/procA-xyz", process.RawStatus{Value: "still running"})
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestList(c *gc.C) {
-	// TODO(ericsnow) finish!
+func (s *procsPersistenceSuite) TestListOkay(c *gc.C) {
+	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
+	s.setDocs(existing...)
+
+	pp := s.newPersistence()
+	procs, missing, err := pp.List("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	c.Check(procs, jc.DeepEquals, []process.Info{existing[0]})
+	c.Check(missing, gc.HasLen, 0)
+}
+
+func (s *procsPersistenceSuite) TestListSomeMissing(c *gc.C) {
+	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
+	s.setDocs(existing...)
+
+	pp := s.newPersistence()
+	procs, missing, err := pp.List("procB/abc", "procC/123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	c.Check(procs, jc.DeepEquals, []process.Info{existing[1]})
+	c.Check(missing, jc.DeepEquals, []string{"procC/123"})
+}
+
+func (s *procsPersistenceSuite) TestListEmpty(c *gc.C) {
+	pp := s.newPersistence()
+	procs, missing, err := pp.List("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	c.Check(procs, gc.HasLen, 0)
+	c.Check(missing, jc.DeepEquals, []string{"procA/xyz"})
+}
+
+func (s *procsPersistenceSuite) TestListInconsistent(c *gc.C) {
+	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
+	s.setDocs(existing...)
+	delete(s.state.docs, "u#a-unit/0#charm#procA/xyz#launch")
+
+	pp := s.newPersistence()
+	_, _, err := pp.List("procA/xyz")
+
+	c.Check(err, gc.ErrorMatches, "found inconsistent records .*")
+}
+
+func (s *procsPersistenceSuite) TestListFailure(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	pp := s.newPersistence()
+	_, _, err := pp.List()
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *procsPersistenceSuite) TestListAllOkay(c *gc.C) {
+	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
+	s.setDocs(existing...)
+
+	pp := s.newPersistence()
+	procs, err := pp.ListAll()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	c.Check(procs, jc.DeepEquals, existing)
+}
+
+func (s *procsPersistenceSuite) TestListAllEmpty(c *gc.C) {
+	pp := s.newPersistence()
+	procs, err := pp.ListAll()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	c.Check(procs, gc.HasLen, 0)
+}
+
+func (s *procsPersistenceSuite) TestListAllIncludeCharmDefined(c *gc.C) {
+	s.state.setDocs(&state.ProcessDefinitionDoc{
+		DocID: "c#local:series/dummy-1#procA",
+		Name:  "procA",
+		Type:  "docker",
+	})
+	existing := s.newProcesses("docker", "procB/abc", "procC/xyz")
+	s.setDocs(existing...)
+
+	pp := s.newPersistence()
+	procs, err := pp.ListAll()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All", "All", "All")
+	c.Check(s.state.ops, gc.HasLen, 0)
+	existing = append(existing, process.Info{
+		Process: charm.Process{
+			Name: "procA",
+			Type: "docker",
+		},
+		CharmID: s.charm.Id(),
+	})
+	c.Check(procs, jc.DeepEquals, existing)
+}
+
+func (s *procsPersistenceSuite) TestListAllInconsistent(c *gc.C) {
+	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
+	s.setDocs(existing...)
+	delete(s.state.docs, "u#a-unit/0#charm#procA/xyz#launch")
+
+	pp := s.newPersistence()
+	_, err := pp.ListAll()
+
+	c.Check(err, gc.ErrorMatches, "found inconsistent records .*")
+}
+
+func (s *procsPersistenceSuite) TestListAllFailure(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	pp := s.newPersistence()
+	_, err := pp.ListAll()
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *procsPersistenceSuite) TestRemove(c *gc.C) {
@@ -610,8 +746,11 @@ func (s *procsPersistenceSuite) TestRemove(c *gc.C) {
 type fakeStatePersistence struct {
 	*gitjujutesting.Stub
 
-	docs map[string]interface{}
-	ops  [][]txn.Op
+	docs           map[string]interface{}
+	definitionDocs []string
+	launchDocs     []string
+	procDocs       []string
+	ops            [][]txn.Op
 }
 
 func (sp *fakeStatePersistence) setDocs(docs ...interface{}) {
@@ -623,10 +762,13 @@ func (sp *fakeStatePersistence) setDocs(docs ...interface{}) {
 		switch doc := doc.(type) {
 		case *state.ProcessDefinitionDoc:
 			id = doc.DocID
+			sp.definitionDocs = append(sp.definitionDocs, id)
 		case *state.ProcessLaunchDoc:
 			id = doc.DocID
+			sp.launchDocs = append(sp.launchDocs, id)
 		case *state.ProcessDoc:
 			id = doc.DocID
+			sp.procDocs = append(sp.procDocs, id)
 		default:
 			panic(doc)
 		}
@@ -688,20 +830,32 @@ func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
 	return nil
 }
 
-func (sp fakeStatePersistence) All(collName string, ids []string, docs interface{}) error {
-	sp.AddCall("All", collName, ids, docs)
+func (sp fakeStatePersistence) All(collName string, query, docs interface{}) error {
+	sp.AddCall("All", collName, query, docs)
 	if err := sp.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	var found []interface{}
-	for _, id := range ids {
-		doc, ok := sp.docs[id]
-		if !ok {
-			continue
+	var ids []string
+	for _, id := range query.(bson.M)["$in"].([]string) {
+		switch {
+		case !strings.HasPrefix(id, "/"):
+			ids = append(ids, id)
+		case strings.HasPrefix(id, "/^c#"):
+			for _, id := range sp.definitionDocs {
+				ids = append(ids, id)
+			}
+		case strings.HasSuffix(id, "#launch/"):
+			for _, id := range sp.launchDocs {
+				ids = append(ids, id)
+			}
+		default:
+			for _, id := range sp.procDocs {
+				ids = append(ids, id)
+			}
 		}
-		found = append(found, doc)
 	}
+
 	switch docs := docs.(type) {
 	case *[]state.ProcessDefinitionDoc:
 		var found []state.ProcessDefinitionDoc

@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -24,7 +25,7 @@ import (
 
 type procsPersistenceBase interface {
 	One(collName, id string, doc interface{}) error
-	All(collName string, ids []string, docs interface{}) error
+	All(collName string, query, docs interface{}) error
 	Run(transactions jujutxn.TransactionSource) error
 }
 
@@ -46,13 +47,11 @@ func (sp statePersistence) One(collName, id string, doc interface{}) error {
 	return nil
 }
 
-func (sp statePersistence) All(collName string, ids []string, docs interface{}) error {
+func (sp statePersistence) All(collName string, query, docs interface{}) error {
 	coll, closeColl := sp.st.getCollection(collName)
 	defer closeColl()
 
-	//q := bson.M{"_id": bson.M{"$in": ids}}
-	q := bson.M{"$in": ids}
-	if err := coll.FindId(q).All(docs); err != nil {
+	if err := coll.FindId(query).All(docs); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -88,13 +87,15 @@ func (pp procsPersistence) one(id string, doc interface{}) error {
 	return errors.Trace(pp.st.One(workloadProcessesC, id, doc))
 }
 
-func (pp procsPersistence) all(ids []string, docs interface{}) error {
-	return errors.Trace(pp.st.All(workloadProcessesC, ids, docs))
+func (pp procsPersistence) all(query, docs interface{}) error {
+	return errors.Trace(pp.st.All(workloadProcessesC, query, docs))
 }
 
 func (pp procsPersistence) indexDefinitionDocs(ids []string) (map[interface{}]ProcessDefinitionDoc, error) {
 	var docs []ProcessDefinitionDoc
-	if err := pp.all(ids, &docs); err != nil {
+	//query := bson.M{"_id": bson.M{"$in": ids}}
+	query := bson.M{"$in": ids}
+	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	indexed := make(map[interface{}]ProcessDefinitionDoc)
@@ -224,11 +225,9 @@ func (pp procsPersistence) SetStatus(id string, status process.Status) (bool, er
 func (pp procsPersistence) List(ids ...string) ([]process.Info, []string, error) {
 	var missing []string
 
-	// TODO(ericsnow) Track missing records.
-	// TODO(ericsnow) Fail for inconsistent records.
 	// TODO(ericsnow) Ensure that the unit is Alive?
-	// TODO(ericsnow) possible race here
-	procDocs, err := pp.procs(ids)
+	// TODO(ericsnow) fix race that exists between the 3 calls
+	definitionDocs, err := pp.definitions(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -236,25 +235,103 @@ func (pp procsPersistence) List(ids ...string) ([]process.Info, []string, error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	definitionDocs, err := pp.definitions(ids)
+	procDocs, err := pp.procs(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) charm-defined proc definitions must be accommodated.
-	results := make([]process.Info, len(ids))
-	for i := range results {
-		doc := processInfoDoc{
-			definition: definitionDocs[i],
-			launch:     launchDocs[i],
-			proc:       procDocs[i],
+	var results []process.Info
+	for _, id := range ids {
+		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
+		if missingCount > 0 {
+			if missingCount < 7 {
+				return nil, nil, errors.Errorf("found inconsistent records for process %q", id)
+			}
+			missing = append(missing, id)
+			continue
 		}
-		info := doc.info()
-		info.CharmID = pp.charm.Id()
-		info.UnitID = pp.unit.Id()
-		results[i] = doc.info()
+		results = append(results, *proc)
 	}
 	return results, missing, nil
+}
+
+func (pp procsPersistence) extractProc(id string, definitionDocs map[string]ProcessDefinitionDoc, launchDocs map[string]ProcessLaunchDoc, procDocs map[string]ProcessDoc) (*process.Info, int) {
+	// TODO(ericsnow) charm-defined proc definitions must be accommodated.
+	missing := 0
+	name, _ := process.ParseID(id)
+	definitionDoc, ok := definitionDocs[name]
+	if !ok {
+		missing += 1
+	}
+	launchDoc, ok := launchDocs[id]
+	if !ok {
+		missing += 2
+	}
+	procDoc, ok := procDocs[id]
+	if !ok {
+		missing += 4
+	}
+	if missing > 0 {
+		return nil, missing
+	}
+
+	doc := processInfoDoc{
+		definition: definitionDoc,
+		launch:     launchDoc,
+		proc:       procDoc,
+	}
+	info := doc.info()
+	info.CharmID = pp.charm.Id()
+	info.UnitID = pp.unit.Id()
+	return &info, 0
+}
+
+// ListAll builds the list of all processes found in persistence.
+// Inconsistent records result in errors.NotValid.
+func (pp procsPersistence) ListAll() ([]process.Info, error) {
+	// TODO(ericsnow) Ensure that the unit is Alive?
+	// TODO(ericsnow) fix race that exists between the 3 calls
+	definitionDocs, err := pp.allDefinitions()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	launchDocs, err := pp.allLaunches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	procDocs, err := pp.allProcs()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(launchDocs) > len(procDocs) {
+		return nil, errors.Errorf("found inconsistent records (extra launch docs)")
+	}
+
+	var results []process.Info
+	for id := range procDocs {
+		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
+		if missingCount > 0 {
+			return nil, errors.Errorf("found inconsistent records for process %q", id)
+		}
+		results = append(results, *proc)
+	}
+	for name, doc := range definitionDocs {
+		matched := false
+		for _, proc := range results {
+			if name == proc.Name {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			results = append(results, process.Info{
+				Process: doc.definition(),
+				CharmID: pp.charm.Id(),
+			})
+		}
+	}
+	return results, nil
 }
 
 // TODO(ericsnow) Add procs to state/cleanup.go.
@@ -469,16 +546,45 @@ func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *Pr
 	}
 }
 
-func (pp procsPersistence) definitions(ids []string) ([]ProcessDefinitionDoc, error) {
+func (pp procsPersistence) allDefinitions() (map[string]ProcessDefinitionDoc, error) {
+	var docs []ProcessDefinitionDoc
+	prefix := pp.definitionID(".*")
+	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	if err := pp.all(query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make(map[string]ProcessDefinitionDoc)
+	for _, doc := range docs {
+		parts := strings.Split(doc.DocID, "#")
+		id := parts[len(parts)-1]
+		results[id] = doc
+	}
+	return results, nil
+}
+
+func (pp procsPersistence) definitions(ids []string) (map[string]ProcessDefinitionDoc, error) {
+	fullIDs := make([]string, len(ids))
+	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
-		ids[i] = pp.definitionID(id)
+		fullID := pp.definitionID(id)
+		fullIDs[i] = fullID
+		name, _ := process.ParseID(id)
+		idMap[fullID] = name
 	}
 
 	var docs []ProcessDefinitionDoc
-	if err := pp.all(ids, &docs); err != nil {
+	query := bson.M{"$in": fullIDs}
+	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return docs, nil
+
+	results := make(map[string]ProcessDefinitionDoc)
+	for _, doc := range docs {
+		id := idMap[doc.DocID]
+		results[id] = doc
+	}
+	return results, nil
 }
 
 type ProcessLaunchDoc struct {
@@ -508,16 +614,44 @@ func (pp procsPersistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 	}
 }
 
-func (pp procsPersistence) launches(ids []string) ([]ProcessLaunchDoc, error) {
+func (pp procsPersistence) allLaunches() (map[string]ProcessLaunchDoc, error) {
+	var docs []ProcessLaunchDoc
+	prefix := pp.launchID(".*")
+	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	if err := pp.all(query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make(map[string]ProcessLaunchDoc)
+	for _, doc := range docs {
+		parts := strings.Split(doc.DocID, "#")
+		id := parts[len(parts)-2]
+		results[id] = doc
+	}
+	return results, nil
+}
+
+func (pp procsPersistence) launches(ids []string) (map[string]ProcessLaunchDoc, error) {
+	fullIDs := make([]string, len(ids))
+	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
-		ids[i] = pp.launchID(id)
+		fullID := pp.launchID(id)
+		fullIDs[i] = fullID
+		idMap[fullID] = id
 	}
 
 	var docs []ProcessLaunchDoc
-	if err := pp.all(ids, &docs); err != nil {
+	query := bson.M{"$in": fullIDs}
+	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return docs, nil
+
+	results := make(map[string]ProcessLaunchDoc)
+	for _, doc := range docs {
+		id := idMap[doc.DocID]
+		results[id] = doc
+	}
+	return results, nil
 }
 
 type ProcessDoc struct {
@@ -550,6 +684,11 @@ func (d ProcessDoc) info() process.Info {
 
 	return process.Info{
 		Status: status,
+		Details: process.Details{
+			Status: process.RawStatus{
+				Value: d.PluginStatus,
+			},
+		},
 	}
 }
 
@@ -590,14 +729,42 @@ func (pp procsPersistence) proc(id string) (*ProcessDoc, error) {
 	return &doc, nil
 }
 
-func (pp procsPersistence) procs(ids []string) ([]ProcessDoc, error) {
+func (pp procsPersistence) allProcs() (map[string]ProcessDoc, error) {
+	var docs []ProcessDoc
+	prefix := pp.processID("[^#]*")
+	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	if err := pp.all(query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make(map[string]ProcessDoc)
+	for _, doc := range docs {
+		parts := strings.Split(doc.DocID, "#")
+		id := parts[len(parts)-1]
+		results[id] = doc
+	}
+	return results, nil
+}
+
+func (pp procsPersistence) procs(ids []string) (map[string]ProcessDoc, error) {
+	fullIDs := make([]string, len(ids))
+	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
-		ids[i] = pp.processID(id)
+		fullID := pp.processID(id)
+		fullIDs[i] = fullID
+		idMap[fullID] = id
 	}
 
 	var docs []ProcessDoc
-	if err := pp.all(ids, &docs); err != nil {
+	query := bson.M{"$in": fullIDs}
+	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return docs, nil
+
+	results := make(map[string]ProcessDoc)
+	for _, doc := range docs {
+		id := idMap[doc.DocID]
+		results[id] = doc
+	}
+	return results, nil
 }

@@ -75,15 +75,13 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 	return nil
 }
 
-// TODO(ericsnow) Always insert a dummy proc for each charm definition
-// when a unit is added?
-
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
 	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
 	SetStatus(id string, status process.RawStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
+	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
 }
 
@@ -185,7 +183,14 @@ func (ps UnitProcesses) SetStatus(id string, status process.Status) error {
 // workload processes associated with the unit. Missing processes
 // are ignored.
 func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
-	// TODO(ericsnow) Call ListAll if ids is empty.
+	if len(ids) == 0 {
+		results, err := ps.Persist.ListAll()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return results, nil
+	}
+
 	results, _, err := ps.Persist.List(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -69,14 +69,25 @@ func (s *baseProcessesSuite) newDefinitions(pType string, names ...string) []cha
 }
 
 func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []process.Info {
+	var ids []string
+	for i, name := range names {
+		name, id := process.ParseID(name)
+		names[i] = name
+		if id == "" {
+			id = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
+		}
+		ids = append(ids, id)
+	}
+
 	var processes []process.Info
-	for _, definition := range s.newDefinitions(pType, names...) {
+	for i, definition := range s.newDefinitions(pType, names...) {
+		id := ids[i]
 		processes = append(processes, process.Info{
 			Process: definition,
 			CharmID: s.charm.Id(),
 			UnitID:  s.unit.Id(),
 			Details: process.Details{
-				ID: fmt.Sprintf("%s-%s", definition.Name, utils.MustNewUUID()),
+				ID: id,
 				Status: process.RawStatus{
 					Value: "running",
 				},
@@ -458,25 +469,32 @@ func (s *fakeProcsPersistence) List(ids ...string) ([]process.Info, []string, er
 
 	var procs []process.Info
 	var missing []string
-	if len(ids) == 0 {
-		for _, proc := range s.procs {
-			procs = append(procs, *proc)
-		}
-	} else {
-		for _, id := range ids {
-			if proc, ok := s.procs[id]; !ok {
-				missing = append(missing, id)
-			} else {
-				for _, inconsistent := range s.inconsistent {
-					if id == inconsistent {
-						return nil, nil, errors.NotValidf(id)
-					}
+	for _, id := range ids {
+		if proc, ok := s.procs[id]; !ok {
+			missing = append(missing, id)
+		} else {
+			for _, inconsistent := range s.inconsistent {
+				if id == inconsistent {
+					return nil, nil, errors.NotValidf(id)
 				}
-				procs = append(procs, *proc)
 			}
+			procs = append(procs, *proc)
 		}
 	}
 	return procs, missing, nil
+}
+
+func (s *fakeProcsPersistence) ListAll() ([]process.Info, error) {
+	s.AddCall("ListAll")
+	if err := s.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var procs []process.Info
+	for _, proc := range s.procs {
+		procs = append(procs, *proc)
+	}
+	return procs, nil
 }
 
 func (s *fakeProcsPersistence) Remove(id string) (bool, error) {
