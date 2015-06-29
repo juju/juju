@@ -492,3 +492,14 @@ type SpaceResult struct {
 type SpaceResults struct {
 	Results []SpaceResult `json:"Results"`
 }
+
+// AddSubnetsParams holds the arguments of AddSubnets API call.
+type AddSubnetsParams struct {
+	Subnets []AddSubnetParam `json:"Subnets"`
+}
+
+// AddSubnetParam holds a single pair of subnet and space tags.
+type AddSubnetParam struct {
+	SubnetTag string `json:"SubnetTag"`
+	SpaceTag  string `json:"SpaceTag"`
+}
