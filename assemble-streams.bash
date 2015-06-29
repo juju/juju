@@ -662,7 +662,7 @@ REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
-INIT_VERSION="1.23."
+INIT_VERSION="1.24."
 RESIGN="false"
 while getopts "r:s:t:i:na" o; do
     case "${o}" in
