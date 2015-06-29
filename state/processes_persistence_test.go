@@ -10,6 +10,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
@@ -40,6 +41,37 @@ type processesPersistence interface {
 
 func (s *procsPersistenceSuite) newPersistence() processesPersistence {
 	return state.NewProcsPersistence(s.state, &s.charm, &s.unit)
+}
+
+func (s *procsPersistenceSuite) setDocs(name, pType, id, status string) (*state.ProcessDefinitionDoc, *state.ProcessLaunchDoc, *state.ProcessDoc) {
+	var docs []interface{}
+
+	definitionDoc := &state.ProcessDefinitionDoc{
+		DocID: "c#local:series/dummy-1#" + name,
+		Name:  name,
+		Type:  pType,
+	}
+	docs = append(docs, definitionDoc)
+
+	var launchDoc *state.ProcessLaunchDoc
+	var procDoc *state.ProcessDoc
+	if id != "" {
+		fullID := name + "/" + id
+		launchDoc = &state.ProcessLaunchDoc{
+			DocID:     "u#a-unit/0#charm#" + fullID + "#launch",
+			PluginID:  id,
+			RawStatus: status,
+		}
+		procDoc = &state.ProcessDoc{
+			DocID:        "u#a-unit/0#charm#" + fullID,
+			Life:         0,
+			Status:       "pending",
+			PluginStatus: status,
+		}
+		docs = append(docs, launchDoc, procDoc)
+	}
+	s.state.setDocs(docs...)
+	return definitionDoc, launchDoc, procDoc
 }
 
 func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmAndUnit(c *gc.C) {
@@ -428,23 +460,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
-	definitionDoc := &state.ProcessDefinitionDoc{
-		DocID: "c#local:series/dummy-1#procA",
-		Name:  "procA",
-		Type:  "docker",
-	}
-	launchDoc := &state.ProcessLaunchDoc{
-		DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
-		PluginID:  "procA-xyz",
-		RawStatus: "running",
-	}
-	procDoc := &state.ProcessDoc{
-		DocID:        "u#a-unit/0#charm#procA/procA-xyz",
-		Life:         0,
-		Status:       "pending",
-		PluginStatus: "running",
-	}
-	s.state.setDocs(definitionDoc, launchDoc, procDoc)
+	s.setDocs("procA", "docker", "procA-xyz", "running")
 	proc := s.newProcesses("docker", "procA")[0]
 	proc.Details.ID = "procA-xyz"
 	s.stub.SetErrors(txn.ErrAborted)
@@ -491,8 +507,96 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestSetStatus(c *gc.C) {
-	// TODO(ericsnow) finish!
+func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
+	s.setDocs("procA", "docker", "procA-xyz", "running")
+	newStatus := process.RawStatus{Value: "still running"}
+
+	pp := s.newPersistence()
+	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocExists,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: state.IsAliveDoc,
+			Update: bson.D{
+				{"$set", bson.D{{"pluginstatus", "still running"}}},
+			},
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
+	s.stub.SetErrors(txn.ErrAborted)
+	newStatus := process.RawStatus{Value: "still running"}
+	c.Logf("%v", s.state.docs)
+
+	pp := s.newPersistence()
+	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsFalse)
+	s.stub.CheckCallNames(c, "Run", "One")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocExists,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: state.IsAliveDoc,
+			Update: bson.D{
+				{"$set", bson.D{{"pluginstatus", "still running"}}},
+			},
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
+	_, _, procDoc := s.setDocs("procA", "docker", "procA-xyz", "running")
+	procDoc.Life = state.Dying
+	s.stub.SetErrors(txn.ErrAborted)
+	newStatus := process.RawStatus{Value: "still running"}
+
+	pp := s.newPersistence()
+	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(okay, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run", "One")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: txn.DocExists,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/procA-xyz",
+			Assert: state.IsAliveDoc,
+			Update: bson.D{
+				{"$set", bson.D{{"pluginstatus", "still running"}}},
+			},
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
+	s.setDocs("procA", "docker", "procA-xyz", "running")
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	pp := s.newPersistence()
+	_, err := pp.SetStatus("some-ID", process.RawStatus{Value: "still running"})
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *procsPersistenceSuite) TestList(c *gc.C) {

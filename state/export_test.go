@@ -51,6 +51,7 @@ var (
 	CombineMeterStatus     = combineMeterStatus
 	NewStatusNotFound      = newStatusNotFound
 	NewProcsPersistence    = newProcsPersistence
+	IsAliveDoc             = isAliveDoc
 )
 
 type (

@@ -75,6 +75,9 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 	return nil
 }
 
+// TODO(ericsnow) Always insert a dummy proc for each charm definition
+// when a unit is added?
+
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
 	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)

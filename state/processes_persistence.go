@@ -199,13 +199,14 @@ func (pp procsPersistence) SetStatus(id string, status process.Status) (bool, er
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			_, err := pp.proc(id)
-			if err == mgo.ErrNotFound {
+			if errors.IsNotFound(err) {
 				found = false
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 			// We ignore the request since the proc is dying.
+			// TODO(ericsnow) Ensure that procDoc.Status != state.Alive?
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true
