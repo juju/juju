@@ -54,14 +54,6 @@ func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, er
 	}
 	defer zr.Close()
 
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When we can ensure all tools records have valid checksums recorded,
-	// we can remove this test short circuit.
-	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
-	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
-		return nil, fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
-	}
-
 	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
 	if err != nil {
 		return nil, err
@@ -75,6 +67,15 @@ func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, er
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When we can ensure all tools records have valid checksums recorded,
+	// we can remove this test short circuit.
+	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
+		return nil, fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
+	}
+
 	// Checksum matches, now reset the file and untar it.
 	_, err = f.Seek(0, 0)
 	if err != nil {
