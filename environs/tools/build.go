@@ -21,7 +21,7 @@ import (
 
 // Archive writes the executable files found in the given directory in
 // gzipped tar format to w.
-func Archive(w io.Writer, dir string) error {
+func Archive(w io.Writer, dir string, vers version.Binary) error {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
@@ -57,9 +57,9 @@ func Archive(w io.Writer, dir string) error {
 // archiveAndSHA256 calls Archive with the provided arguments,
 // and returns a hex-encoded SHA256 hash of the resulting
 // archive.
-func archiveAndSHA256(w io.Writer, dir string) (sha256hash string, err error) {
+func archiveAndSHA256(w io.Writer, dir string, vers version.Binary) (sha256hash string, err error) {
 	h := sha256.New()
-	if err := Archive(io.MultiWriter(h, w), dir); err != nil {
+	if err := Archive(io.MultiWriter(h, w), dir, vers); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), err
@@ -245,7 +245,7 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binar
 		return version.Binary{}, "", fmt.Errorf("invalid version %q printed by jujud", tvs)
 	}
 
-	sha256hash, err := archiveAndSHA256(w, dir)
+	sha256hash, err := archiveAndSHA256(w, dir, tvers)
 	if err != nil {
 		return version.Binary{}, "", err
 	}

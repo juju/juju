@@ -27,7 +27,7 @@ const (
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
 func StorageName(vers version.Binary, stream string) string {
-	if UseZipToolsWindows(vers) {
+	if coretools.UseZipToolsWindows(vers) {
 		return storagePrefix(stream) + vers.String() + windowsToolSuffix
 	}
 	return storagePrefix(stream) + vers.String() + unixToolSuffix

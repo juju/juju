@@ -217,7 +217,7 @@ var Upload UploadFunc = upload
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
 func upload(stor storage.Storage, stream string, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
-	builtTools, err := BuildToolsTarball(forceVersion, stream)
+	builtTools, err := BuildToolsArchive(forceVersion, stream)
 	if err != nil {
 		return nil, err
 	}

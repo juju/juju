@@ -125,35 +125,35 @@ func (h *toolsHandler) sendExistingError(w http.ResponseWriter, statusCode int, 
 
 // processGet handles a tools GET request.
 func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, version.Binary, error) {
-	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
+	vers, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "error parsing version")
+		return nil, version.Binary{}, errors.Annotate(err, "error parsing version")
 	}
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "error getting tools storage")
+		return nil, version.Binary{}, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
-	_, reader, err := storage.Tools(version)
+	_, reader, err := storage.Tools(vers)
 	if errors.IsNotFound(err) {
 		// Tools could not be found in toolstorage,
 		// so look for them in simplestreams, fetch
 		// them and cache in toolstorage.
-		logger.Infof("%v tools not found locally, fetching", version)
-		reader, err = h.fetchAndCacheTools(version, storage, st)
+		logger.Infof("%v tools not found locally, fetching", vers)
+		reader, err = h.fetchAndCacheTools(vers, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching tools")
 		}
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, version.Binary{}, err
 	}
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to read tools tarball")
+		return nil, version.Binary{}, errors.Annotate(err, "failed to read tools tarball")
 	}
-	return data, version, nil
+	return data, vers, nil
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL

@@ -45,7 +45,7 @@ func ToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
 }
 
-func getTarArchiveAndCheckSHA(tools *coreTools.Tools, r io.Reader) (io.Reader, error) {
+func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, error) {
 	// Unpack the gzip file and compute the checksum.
 	sha256hash := sha256.New()
 	zr, err := gzip.NewReader(io.TeeReader(r, sha256hash))
@@ -59,7 +59,7 @@ func getTarArchiveAndCheckSHA(tools *coreTools.Tools, r io.Reader) (io.Reader, e
 	// we can remove this test short circuit.
 	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
 	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
-		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
+		return nil, fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
 	}
 
 	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
@@ -78,7 +78,7 @@ func getTarArchiveAndCheckSHA(tools *coreTools.Tools, r io.Reader) (io.Reader, e
 	// Checksum matches, now reset the file and untar it.
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return f, err
 }
@@ -101,7 +101,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	}
 	defer removeAll(dir)
 
-	if tools.UseZipToolsWindows(tools.Version) {
+	if coretools.UseZipToolsWindows(tools.Version) {
 		err = unpackZipTools(dir, tools, r)
 	} else {
 		err = unpackTarTools(dir, tools, r)
@@ -135,6 +135,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return nil
 		}
 	}
+	return nil
 }
 
 func unpackTarTools(dir string, tools *coretools.Tools, r io.Reader) (err error) {
