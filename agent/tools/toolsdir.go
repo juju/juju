@@ -5,6 +5,8 @@ package tools
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
@@ -43,35 +45,15 @@ func ToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
 }
 
-// UnpackTools reads a set of juju tools in gzipped tar-archive
-// format and unpacks them into the appropriate tools directory
-// within dataDir. If a valid tools directory already exists,
-// UnpackTools returns without error.
-func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
-	if tools.UseZipToolsWindows(tools.Version) {
-		return unpackZipTools(dataDir, tools, r)
-	} else {
-		return unpackTarTools(dataDir, tools, r)
-	}
-}
-
-func unpackTarTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
+func getTarArchiveAndCheckSHA(tools *coreTools.Tools, r io.Reader) (io.Reader, error) {
 	// Unpack the gzip file and compute the checksum.
 	sha256hash := sha256.New()
 	zr, err := gzip.NewReader(io.TeeReader(r, sha256hash))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer zr.Close()
-	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(f, zr)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
+
 	// TODO(wallyworld) - 2013-09-24 bug=1229512
 	// When we can ensure all tools records have valid checksums recorded,
 	// we can remove this test short circuit.
@@ -80,6 +62,32 @@ func unpackTarTools(dataDir string, tools *coretools.Tools, r io.Reader) (err er
 		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
 	}
 
+	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			os.Remove(f.Name())
+		}
+	}()
+	_, err = io.Copy(f, zr)
+	if err != nil {
+		return nil, err
+	}
+	// Checksum matches, now reset the file and untar it.
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	return f, err
+}
+
+// UnpackTools reads a set of juju tools in gzipped tar-archive
+// format and unpacks them into the appropriate tools directory
+// within dataDir. If a valid tools directory already exists,
+// UnpackTools returns without error.
+func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
 	toolsDir := path.Join(dataDir, "tools")
@@ -93,31 +101,15 @@ func unpackTarTools(dataDir string, tools *coretools.Tools, r io.Reader) (err er
 	}
 	defer removeAll(dir)
 
-	// Checksum matches, now reset the file and untar it.
-	_, err = f.Seek(0, 0)
+	if tools.UseZipToolsWindows(tools.Version) {
+		err = unpackZipTools(dir, tools, r)
+	} else {
+		err = unpackTarTools(dir, tools, r)
+	}
 	if err != nil {
-		return err
+		return errors.Annotate(err, "could not unarchive tools")
 	}
-	tr := tar.NewReader(f)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if strings.ContainsAny(hdr.Name, "/\\") {
-			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
-		}
-		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
-		}
-		name := path.Join(dir, hdr.Name)
-		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
-			return errors.Annotatef(err, "tar extract %q failed", name)
-		}
-	}
+
 	toolsMetadataData, err := json.Marshal(tools)
 	if err != nil {
 		return err
@@ -143,7 +135,65 @@ func unpackTarTools(dataDir string, tools *coretools.Tools, r io.Reader) (err er
 			return nil
 		}
 	}
-	return err
+}
+
+func unpackTarTools(dir string, tools *coretools.Tools, r io.Reader) (err error) {
+	f, err := getTarArchiveAndCheckSHA(tools, r)
+	if err != nil {
+		return errors.Annotate(err, "could not extract .tar out of .tar.gz")
+	}
+	defer os.Remove(f.Name())
+
+	tr := tar.NewReader(f)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if strings.ContainsAny(hdr.Name, "/\\") {
+			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
+		}
+		name := path.Join(dir, hdr.Name)
+		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
+			return errors.Annotatef(err, "tar extract %q failed", name)
+		}
+	}
+	return nil
+}
+
+func unpackZipTools(dir string, tools *coretools.Tools, r io.Reader) (err error) {
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return errors.Annotate(err, "could not read zip archive")
+	}
+	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, f := range zr.File {
+		if strings.ContainsAny(f.Name, "/\\") {
+			return fmt.Errorf("bad name %q in tools archive", f.Name)
+		}
+
+		name := path.Join(dir, f.Name)
+		src, err := f.Open()
+		if err != nil {
+			return errors.Annotatef(err, "could not open zip file %q", f.Name)
+		}
+		// This might gather a lot of defer calls, but here we know there won't be a lot of files in the
+		// archive so we don't need to wrap this in another function
+		defer src.Close()
+		if err := writeFile(name, os.FileMode(f.Mode()&0777), src); err != nil {
+			return errors.Annotatef(err, "zip extract %q failed", name)
+		}
+	}
+	return nil
 }
 
 func removeAll(dir string) {
