@@ -41,6 +41,17 @@ func (st *State) SetProcessStatus(unit names.UnitTag, id string, status process.
 // the given unit and IDs. If no IDs are provided then all registered
 // processes for the unit are returned.
 func (st *State) ListProcesses(unit names.UnitTag, ids ...string) ([]process.Info, error) {
+	if len(ids) == 0 {
+		// TODO(ericsnow) Instead call st.defineProcesses when a charm is added?
+		charm, err := st.unitCharm(unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := st.defineProcesses(charm.Tag().(names.CharmTag), *charm.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	ps := newUnitProcesses(st, unit, nil)
 	results, err := ps.List(ids...)
 	if err != nil {
@@ -117,8 +128,6 @@ func (pd ProcessDefinitions) EnsureDefined(definitions ...charm.Process) error {
 	}
 	return nil
 }
-
-// TODO(ericsnow) Auto-add definitions when a charm is added.
 
 // UnitProcesses provides the functionality related to a unit's
 // processes, as needed by state.
