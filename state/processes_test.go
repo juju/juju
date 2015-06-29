@@ -283,6 +283,7 @@ func (s *unitProcessesSuite) TestListAll(c *gc.C) {
 	procs, err := ps.List()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.stub.CheckCallNames(c, "ListAll")
 	c.Check(procs, gc.HasLen, 2)
 	if procs[0].Name == "procA" {
 		c.Check(procs[0], jc.DeepEquals, expected[0])
@@ -300,7 +301,7 @@ func (s *unitProcessesSuite) TestListFailed(c *gc.C) {
 	ps := state.UnitProcesses{Persist: s.persist}
 	_, err := ps.List()
 
-	s.stub.CheckCallNames(c, "List")
+	s.stub.CheckCallNames(c, "ListAll")
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
