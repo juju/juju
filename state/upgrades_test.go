@@ -475,6 +475,14 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
 }
 
+func (s *upgradesSuite) TestEnvUUIDMigrationWithIdAlreadyPrefixed(c *gc.C) {
+	s.checkEnvUUID(c, AddEnvUUIDToServices, servicesC,
+		[]bson.M{
+			{"_id": s.state.docID("mysql")},
+			{"_id": s.state.docID("mediawiki")},
+		}, false)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToServices(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToServices, servicesC,
 		bson.M{

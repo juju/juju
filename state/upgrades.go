@@ -1057,35 +1057,48 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 		}
 		newID := st.docID(fmt.Sprint(oldID))
 
-		// Collection specific updates.
-		for _, update := range updates {
-			var err error
-			doc, err = update(doc)
+		if oldID == newID {
+			// The _id already has the env UUID prefix. This shouldn't
+			// really happen, except in the case of bugs, but it
+			// should still be handled. Just set the env-uuid field.
+			ops = append(ops,
+				txn.Op{
+					C:      collName,
+					Id:     oldID,
+					Assert: txn.DocExists,
+					Update: bson.M{"$set": bson.M{"env-uuid": uuid}},
+				})
+		} else {
+			// Collection specific updates.
+			for _, update := range updates {
+				var err error
+				doc, err = update(doc)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+
+			doc, err = addBsonDField(doc, "env-uuid", uuid)
 			if err != nil {
 				return errors.Trace(err)
 			}
+
+			// Note: there's no need to update _id on the document. Id
+			// from the txn.Op takes precedence.
+
+			ops = append(ops,
+				[]txn.Op{{
+					C:      collName,
+					Id:     oldID,
+					Assert: txn.DocExists,
+					Remove: true,
+				}, {
+					C:      collName,
+					Id:     newID,
+					Assert: txn.DocMissing,
+					Insert: doc,
+				}}...)
 		}
-
-		doc, err = addBsonDField(doc, "env-uuid", uuid)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Note: there's no need to update _id on the document. Id
-		// from the txn.Op takes precedence.
-
-		ops = append(ops,
-			[]txn.Op{{
-				C:      collName,
-				Id:     oldID,
-				Assert: txn.DocExists,
-				Remove: true,
-			}, {
-				C:      collName,
-				Id:     newID,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}...)
 		doc = nil // Force creation of new doc for the next iteration
 	}
 	if err = iter.Err(); err != nil {
