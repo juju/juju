@@ -1027,9 +1027,10 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	switch kind {
 	case storage.StorageKindBlock:
 		loopPool := string(provider.LoopProviderType)
-		// No constraints at all
+
 		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {
+			// No constraints at all: use loop.
 			return loopPool, nil
 		}
 		// Either size or count specified, use env default.
@@ -1038,8 +1039,21 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 			defaultPool = loopPool
 		}
 		return defaultPool, nil
+
 	case storage.StorageKindFilesystem:
-		return string(provider.RootfsProviderType), nil
+		rootfsPool := string(provider.RootfsProviderType)
+		emptyConstraints := StorageConstraints{}
+		if cons == emptyConstraints {
+			return rootfsPool, nil
+		}
+
+		// TODO(axw) add env configuration for default
+		// filesystem source, prefer that.
+		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		if !ok {
+			defaultPool = rootfsPool
+		}
+		return defaultPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
 }
