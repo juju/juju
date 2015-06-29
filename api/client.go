@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -934,7 +935,11 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
 	req.SetBasicAuth(c.st.tag, c.st.password)
-	req.Header.Set("Content-Type", "application/x-tar-gz")
+	if envtools.UseZipToolsWindows(vers) {
+		req.Header.Set("Content-Type", "application/x-zip")
+	} else {
+		req.Header.Set("Content-Type", "application/x-tar-gz")
+	}
 
 	// Send the request.
 
