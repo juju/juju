@@ -200,7 +200,7 @@ var runCmd = func(name, path, subcommand string, args ...string) ([]byte, error)
 	cmd.Stdout = stdout
 	err := deputy.Deputy{
 		Errors:    deputy.FromStdout,
-		StderrLog: func(s string) { log.Infof(s) },
+		StderrLog: func(b []byte) { log.Infof(string(b)) },
 	}.Run(cmd)
 	if err != nil {
 		return nil, errors.Trace(err)
