@@ -78,7 +78,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	if err != nil {
 		return nil, fmt.Errorf("invalid EC2 provider config: %v", err)
 	}
-	return cfg.Apply(newEcfg.attrs)
+	return newEcfg.Apply(newEcfg.attrs)
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
