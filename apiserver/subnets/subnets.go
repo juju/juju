@@ -50,6 +50,9 @@ type Backing interface {
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
+
+	// AddSubnet creates a backing subnet for an existing subnet.
+	AddSubnet()
 }
 
 // API defines the methods the Subnets API facade implements.
@@ -61,6 +64,9 @@ type API interface {
 
 	// AllSpaces returns the tags of all network spaces known to Juju.
 	AllSpaces() (params.SpaceResults, error)
+
+	// AddSubnets adds existing subnets to Juju.
+	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
 }
 
 // internalAPI implements the API interface.
@@ -170,4 +176,33 @@ func (a *internalAPI) updateZones() ([]providercommon.AvailabilityZone, error) {
 		return nil, errors.Trace(err)
 	}
 	return zones, nil
+}
+
+// AddSubnets is defined on the API interface.
+func (a *internalAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	var results params.ErrorResults
+
+	// Try fetching cached zones first.
+	zones, err := a.backing.AvailabilityZones()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(zones) == 0 {
+		// This is likely the first time we're called.
+		// Fetch all zones from the provider and update.
+		zones, err = a.updateZones()
+		if err != nil {
+			return results, errors.Annotate(err, "cannot update known zones")
+		}
+		logger.Debugf("updated the list of known zones from the environment: %v", zones)
+	} else {
+		logger.Debugf("using cached list of known zones: %v", zones)
+	}
+
+	results.Results = make([]params.ZoneResult, len(zones))
+	for i, zone := range zones {
+		results.Results[i].Name = zone.Name()
+		results.Results[i].Available = zone.Available()
+	}
+	return results, nil
 }
