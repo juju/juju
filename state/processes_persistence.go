@@ -256,7 +256,6 @@ func (pp procsPersistence) List(ids ...string) ([]process.Info, []string, error)
 }
 
 func (pp procsPersistence) extractProc(id string, definitionDocs map[string]ProcessDefinitionDoc, launchDocs map[string]ProcessLaunchDoc, procDocs map[string]ProcessDoc) (*process.Info, int) {
-	// TODO(ericsnow) charm-defined proc definitions must be accommodated.
 	missing := 0
 	name, _ := process.ParseID(id)
 	definitionDoc, ok := definitionDocs[name]
@@ -348,8 +347,15 @@ func (pp procsPersistence) Remove(id string) (bool, error) {
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newRemoveProcessOps(id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// TODO(ericsnow) Fail if records not consistent.
-		// TODO(ericsnow) Set found back to false if missing.
+		if attempt > 0 {
+			okay, err := pp.checkRecords(id)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// If okay is true, it must be dying.
+			found = okay
+			return nil, jujutxn.ErrNoOperations
+		}
 		found = true
 		return ops, nil
 	}
@@ -357,6 +363,35 @@ func (pp procsPersistence) Remove(id string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return found, nil
+}
+
+func (pp procsPersistence) checkRecords(id string) (bool, error) {
+	missing := 0
+	_, err := pp.definition(id)
+	if errors.IsNotFound(err) {
+		missing += 1
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	_, err = pp.launch(id)
+	if errors.IsNotFound(err) {
+		missing += 2
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	_, err = pp.proc(id)
+	if errors.IsNotFound(err) {
+		missing += 4
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	if missing > 0 {
+		if missing < 7 {
+			return false, errors.Errorf("found inconsistent records for process %q", id)
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 // TODO(ericsnow) Factor most of the below into a processesCollection type.
@@ -430,7 +465,7 @@ func (pp procsPersistence) newSetRawStatusOps(id string, status process.RawStatu
 func (pp procsPersistence) newRemoveProcessOps(id string) []txn.Op {
 	var ops []txn.Op
 	ops = append(ops, pp.newRemoveLaunchOp(id))
-	ops = append(ops, pp.newRemoveProcOp(id))
+	ops = append(ops, pp.newRemoveProcOps(id)...)
 	return ops
 }
 
@@ -444,14 +479,18 @@ func (pp procsPersistence) newRemoveLaunchOp(id string) txn.Op {
 	}
 }
 
-func (pp procsPersistence) newRemoveProcOp(id string) txn.Op {
+func (pp procsPersistence) newRemoveProcOps(id string) []txn.Op {
 	id = pp.processID(id)
-	return txn.Op{
+	return []txn.Op{{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: isAliveDoc,
+	}, {
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
-	}
+	}}
 }
 
 type processInfoDoc struct {
@@ -546,6 +585,16 @@ func (pp procsPersistence) newProcessDefinitionDoc(definition charm.Process) *Pr
 	}
 }
 
+func (pp procsPersistence) definition(id string) (*ProcessDefinitionDoc, error) {
+	id = pp.definitionID(id)
+
+	var doc ProcessDefinitionDoc
+	if err := pp.one(id, &doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &doc, nil
+}
+
 func (pp procsPersistence) allDefinitions() (map[string]ProcessDefinitionDoc, error) {
 	var docs []ProcessDefinitionDoc
 	prefix := pp.definitionID(".*")
@@ -612,6 +661,16 @@ func (pp procsPersistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 		PluginID:  info.Details.ID,
 		RawStatus: info.Details.Status.Value,
 	}
+}
+
+func (pp procsPersistence) launch(id string) (*ProcessLaunchDoc, error) {
+	id = pp.launchID(id)
+
+	var doc ProcessLaunchDoc
+	if err := pp.one(id, &doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &doc, nil
 }
 
 func (pp procsPersistence) allLaunches() (map[string]ProcessLaunchDoc, error) {

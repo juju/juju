@@ -729,7 +729,7 @@ func (s *procsPersistenceSuite) TestListAllInconsistent(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "found inconsistent records .*")
 }
 
-func (s *procsPersistenceSuite) TestListAllFailure(c *gc.C) {
+func (s *procsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
@@ -739,8 +739,113 @@ func (s *procsPersistenceSuite) TestListAllFailure(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestRemove(c *gc.C) {
-	// TODO(ericsnow) finish!
+func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
+	proc := s.newProcesses("docker", "procA/xyz")[0]
+	s.setDocs(proc)
+
+	pp := s.newPersistence()
+	found, err := pp.Remove("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(found, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz#launch",
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: state.IsAliveDoc,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
+	s.stub.SetErrors(txn.ErrAborted)
+
+	pp := s.newPersistence()
+	found, err := pp.Remove("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(found, jc.IsFalse)
+	s.stub.CheckCallNames(c, "Run", "One", "One", "One")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz#launch",
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: state.IsAliveDoc,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestRemoveDying(c *gc.C) {
+	proc := s.newProcesses("docker", "procA/xyz")[0]
+	docs := s.setDocs(proc)
+	docs[0].proc.Life = state.Dying
+
+	pp := s.newPersistence()
+	found, err := pp.Remove("procA/xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(found, jc.IsTrue)
+	s.stub.CheckCallNames(c, "Run")
+	s.state.checkOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz#launch",
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: state.IsAliveDoc,
+		}, {
+			C:      "workloadprocesses",
+			Id:     "u#a-unit/0#charm#procA/xyz",
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}})
+}
+
+func (s *procsPersistenceSuite) TestRemoveInconsistent(c *gc.C) {
+	proc := s.newProcesses("docker", "procA/xyz")[0]
+	s.setDocs(proc)
+	delete(s.state.docs, "u#a-unit/0#charm#procA/xyz#launch")
+	s.stub.SetErrors(txn.ErrAborted)
+
+	pp := s.newPersistence()
+	_, err := pp.Remove("procA/xyz")
+
+	c.Check(err, gc.ErrorMatches, "found inconsistent records .*")
+}
+
+func (s *procsPersistenceSuite) TestRemoveFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.stub.SetErrors(failure)
+
+	pp := s.newPersistence()
+	_, err := pp.Remove("procA/xyz")
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 type fakeStatePersistence struct {
