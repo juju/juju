@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type buildSuite struct {
@@ -107,7 +108,9 @@ const emptyArchive = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x
 func (b *buildSuite) TestEmptyArchive(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
-	err := tools.Archive(&buf, dir)
+	vers, err := version.ParseBinary("1.2.3-precise-amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	err = tools.Archive(&buf, dir, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, emptyArchive)
 }
@@ -115,7 +118,9 @@ func (b *buildSuite) TestEmptyArchive(c *gc.C) {
 func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
-	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
+	vers, err := version.ParseBinary("1.2.3-precise-amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, emptyArchive)
 

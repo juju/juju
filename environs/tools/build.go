@@ -5,6 +5,7 @@ package tools
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
@@ -15,16 +16,64 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in
-// gzipped tar format to w.
+// archived format to w.
 func Archive(w io.Writer, dir string, vers version.Binary) error {
+	if tools.UseZipToolsWindows(vers) {
+		return archiveZip(w, dir)
+	} else {
+		return archiveTar(w, dir)
+	}
+}
+
+// archiveZip writes the executable files found in the given directory in
+// zip format to w.
+func archiveZip(w io.Writer, dir string) error {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+
+	zipw := zip.NewWriter(w)
+	defer closeErrorCheck(&err, zipw)
+
+	for _, ent := range entries {
+		h, err := zip.FileInfoHeader(ent)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("adding entry: %#v", h)
+		// ignore local umask
+		if isExecutable(ent) {
+			h.SetMode(0755)
+		} else {
+			h.SetMode(0644)
+		}
+
+		f, err := zipw.CreateHeader(h)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fileName := filepath.Join(dir, ent.Name())
+		if err := copyFile(f, fileName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// archiveTar writes the executable files found in the given directory in
+// gzipped tar format to w.
+func archiveTar(w io.Writer, dir string) error {
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	gzw := gzip.NewWriter(w)
