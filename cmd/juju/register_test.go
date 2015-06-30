@@ -28,14 +28,6 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 }
 
-/*
-func (s *registrationSuite) TestNilMetricsRegistrar(c *gc.C) {
-	data, err := nilMetricsRegistrar("environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
-	c.Assert(err, gc.IsNil)
-	c.Assert(data, gc.DeepEquals, []byte{})
-}
-*/
-
 func (s *registrationSuite) TestHttpMetricsRegistrar(c *gc.C) {
 	cleanup := jujutesting.PatchValue(&registerMetricsURL, s.server.URL)
 	defer cleanup()
