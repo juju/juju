@@ -346,10 +346,12 @@ type metricsCredentialsAPIImpl struct {
 	state *api.State
 }
 
+// SetMetricCredentials sets the credentials on the service.
 func (s *metricsCredentialsAPIImpl) SetMetricCredentials(serviceName string, data []byte) error {
 	return s.api.SetMetricCredentials(serviceName, data)
 }
 
+// Close closes the api connection
 func (s *metricsCredentialsAPIImpl) Close() error {
 	err := s.api.Close()
 	if err != nil {
