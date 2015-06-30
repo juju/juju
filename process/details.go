@@ -47,7 +47,7 @@ func UnmarshalDetails(b []byte) (Details, error) {
 }
 
 // Validate returns nil if this value is valid, and an error that satisfies
-// IsValid if it is not.
+// IsNotValid if it is not.
 func (p Details) Validate() error {
 	if p.ID == "" {
 		return errors.NotValidf("ID cannot be empty")
