@@ -50,8 +50,6 @@ var (
 	AddVolumeOp            = (*State).addVolumeOp
 	CombineMeterStatus     = combineMeterStatus
 	NewStatusNotFound      = newStatusNotFound
-	NewProcsPersistence    = newProcsPersistence
-	IsAliveDoc             = isAliveDoc
 )
 
 type (

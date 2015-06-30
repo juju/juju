@@ -121,7 +121,7 @@ const (
 
 	// workloadProcessesC is the name of the collection holding info
 	// about workload processes.
-	workloadProcessesC = "workloadprocesses"
+	workloadProcessesC = "workloadprocesses" // TODO(ericsnow) Alias the const?
 )
 
 // State represents the state of an environment

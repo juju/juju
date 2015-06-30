@@ -13,212 +13,118 @@ import (
 
 // TODO(ericsnow) Track juju-level status in the status collection.
 
-// RegisterProcess registers a workload process in state.
-func (st *State) RegisterProcess(unit names.UnitTag, info process.Info) error {
+// UnitProcesses exposes high-level interaction with workload processes
+// for the given unit.
+type UnitProcesses interface {
+	// Register registers a workload process in state.
+	Register(info process.Info, charm names.CharmTag) error
+	// SetStatus sets the raw status of a workload process.
+	SetStatus(id string, status process.Status) error
+	// List builds the list of workload processes registered for
+	// the given unit and IDs. If no IDs are provided then all
+	// registered processes for the unit are returned.
+	List(ids ...string) ([]process.Info, error)
+	// Unregister marks the identified process as unregistered.
+	Unregister(id string) error
+}
+
+// ProcessDefiniitions provides the state functionality related to
+// workload process definitions.
+type ProcessDefinitions interface {
+	// EnsureDefined adds the definitions to state if they aren't there
+	// already. If they are there then it verfies that the existing
+	// definitions match the provided ones.
+	EnsureDefined(definitions ...charm.Process) error
+}
+
+// TODO(ericsnow) Use a more generic component registration mechanism?
+
+type newUnitProcessesFunc func(persist Persistence, unit names.UnitTag, charm names.CharmTag) (UnitProcesses, error)
+
+type newProcessDefinitionsFunc func(persist Persistence, charm names.CharmTag) (ProcessDefinitions, error)
+
+var (
+	newUnitProcesses      newUnitProcessesFunc
+	newProcessDefinitions newProcessDefinitionsFunc
+)
+
+// SetProcessesComponent registers the functions that provide the state
+// functionality related to workload processes.
+func SetProcessesComponent(upFunc newUnitProcessesFunc, pdFunc newProcessDefinitionsFunc) {
+	newUnitProcesses = upFunc
+	newProcessDefinitions = pdFunc
+}
+
+type unitProcesses struct {
+	UnitProcesses
+	charm *Charm
+	st    *State
+}
+
+// UnitProcesses exposes interaction with workload processes in state
+// for a the given unit.
+func (st *State) UnitProcesses(unit names.UnitTag) (UnitProcesses, error) {
+	if newUnitProcesses == nil {
+		return nil, errors.Errorf("unit processes not supported")
+	}
+
+	// TODO(ericsnow) State.unitCharm is sometimes wrong...
+	// TODO(ericsnow) Do we really need the charm tag?
 	charm, err := st.unitCharm(unit)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	charmTag := charm.Tag().(names.CharmTag)
-
-	ps := newUnitProcesses(st, unit, &charmTag)
-	if err := ps.Register(info, charmTag); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// TODO(ericsnow) Add names.ProcessTag and use it here?
-
-// SetProcessStatus sets the raw status of a workload process.
-func (st *State) SetProcessStatus(unit names.UnitTag, id string, status process.Status) error {
-	ps := newUnitProcesses(st, unit, nil)
-	if err := ps.SetStatus(id, status); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// ListProcesses builds the list of workload processes registered for
-// the given unit and IDs. If no IDs are provided then all registered
-// processes for the unit are returned.
-func (st *State) ListProcesses(unit names.UnitTag, ids ...string) ([]process.Info, error) {
-	if len(ids) == 0 {
-		// TODO(ericsnow) Instead call st.defineProcesses when a charm is added?
-		charm, err := st.unitCharm(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := st.defineProcesses(charm.Tag().(names.CharmTag), *charm.Meta()); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	ps := newUnitProcesses(st, unit, nil)
-	results, err := ps.List(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return results, nil
+	charmTag := charm.Tag().(names.CharmTag)
+
+	persist := st.newPersistence()
+	unitProcs, err := newUnitProcesses(persist, unit, charmTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &unitProcesses{
+		// TODO(ericsnow) Eliminate the dependency on process/state?
+		UnitProcesses: unitProcs,
+		charm:         charm,
+		st:            st,
+	}, nil
 }
 
-// UnregisterProcess marks the identified process as unregistered.
-func (st *State) UnregisterProcess(unit names.UnitTag, id string) error {
-	ps := newUnitProcesses(st, unit, nil)
-	if err := ps.Unregister(id); err != nil {
-		return errors.Trace(err)
+// List implements UnitProcesses. It also ensures that all of the
+// process definitions in the charm's metadata are added to state.
+func (up *unitProcesses) List(ids ...string) ([]process.Info, error) {
+	if len(ids) == 0 {
+		// TODO(ericsnow) Instead call st.defineProcesses when a charm is added?
+		if err := up.st.defineProcesses(up.charm.Tag().(names.CharmTag), *up.charm.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	return nil
+
+	return up.List(ids...)
 }
 
 // TODO(ericsnow) DestroyProcess: Mark the proc as Dying.
-// TODO(ericsnow) We need a worker to clean up dying procs.
 
 // defineProcesses adds the workload process definitions from the provided
 // charm metadata to state.
 func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error {
+	if newProcessDefinitions == nil {
+		return errors.Errorf("process definitions not supported")
+	}
+
 	var definitions []charm.Process
 	for _, definition := range meta.Processes {
 		definitions = append(definitions, definition)
 	}
-	pd := newProcessDefinitions(st, charmTag)
+
+	persist := st.newPersistence()
+	pd, err := newProcessDefinitions(persist, charmTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := pd.EnsureDefined(definitions...); err != nil {
 		return errors.Trace(err)
 	}
-	return nil
-}
-
-// The persistence methods needed for workload processes in state.
-type processesPersistence interface {
-	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
-	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.Status) (bool, error)
-	List(ids ...string) ([]process.Info, []string, error)
-	ListAll() ([]process.Info, error)
-	Remove(id string) (bool, error)
-}
-
-// ProcessDefinitions provides the definition-related functionality
-// needed by state.
-type ProcessDefinitions struct {
-	// Persist is the persistence layer that will be used.
-	Persist processesPersistence
-}
-
-func newProcessDefinitions(st *State, charm names.CharmTag) *ProcessDefinitions {
-	statePersist := &statePersistence{st: st}
-	persist := newProcsPersistence(statePersist, &charm, nil)
-	return &ProcessDefinitions{
-		Persist: persist,
-	}
-}
-
-// EnsureDefined makes sure that all the provided definitions exist in
-// state. So either they are there already or they get added.
-func (pd ProcessDefinitions) EnsureDefined(definitions ...charm.Process) error {
-	for _, definition := range definitions {
-		if err := definition.Validate(); err != nil {
-			return errors.NewNotValid(err, "bad definition")
-		}
-	}
-	_, mismatched, err := pd.Persist.EnsureDefinitions(definitions...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(mismatched) > 0 {
-		return errors.NotValidf("mismatched definitions for %v", mismatched)
-	}
-	return nil
-}
-
-// UnitProcesses provides the functionality related to a unit's
-// processes, as needed by state.
-type UnitProcesses struct {
-	// Persist is the persistence layer that will be used.
-	Persist processesPersistence
-	// Unit identifies the unit associated with the processes.
-	Unit names.UnitTag
-}
-
-func newUnitProcesses(st *State, unit names.UnitTag, charm *names.CharmTag) *UnitProcesses {
-	statePersist := &statePersistence{st: st}
-	persist := newProcsPersistence(statePersist, charm, &unit)
-	return &UnitProcesses{
-		Persist: persist,
-		Unit:    unit,
-	}
-}
-
-// Register adds the provided process info to state.
-func (ps UnitProcesses) Register(info process.Info, charm names.CharmTag) error {
-	if err := info.Validate(); err != nil {
-		return errors.NewNotValid(err, "bad process info")
-	}
-
-	_, mismatched, err := ps.Persist.EnsureDefinitions(info.Process)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(mismatched) > 0 {
-		return errors.NotValidf("mismatched definition for %q", info.Name)
-	}
-
-	ok, err := ps.Persist.Insert(info)
-	if err != nil {
-		// TODO(ericsnow) Remove the definition we may have just added?
-		return errors.Trace(err)
-	}
-	if !ok {
-		// TODO(ericsnow) Remove the definition we may have just added?
-		return errors.NotValidf("process %s (already in state)", info.ID())
-	}
-
-	return nil
-}
-
-// SetStatus updates the raw status for the identified process to the
-// provided value.
-func (ps UnitProcesses) SetStatus(id string, status process.Status) error {
-	found, err := ps.Persist.SetStatus(id, status)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !found {
-		return errors.NotFoundf(id)
-	}
-	return nil
-}
-
-// List builds the list of process information for the provided process
-// IDs. If none are provided then the list contains the info for all
-// workload processes associated with the unit. Missing processes
-// are ignored.
-func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
-	if len(ids) == 0 {
-		results, err := ps.Persist.ListAll()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return results, nil
-	}
-
-	results, _, err := ps.Persist.List(ids...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// TODO(ericsnow) Ensure that the number returned matches the
-	// number expected.
-	return results, nil
-}
-
-// Unregister removes the identified process from state. It does not
-// trigger the actual destruction of the process.
-func (ps UnitProcesses) Unregister(id string) error {
-	// If the record wasn't found then we're already done.
-	_, err := ps.Persist.Remove(id)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	return nil
 }

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package persistence_test
 
 import (
 	"strings"
@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/process/persistence"
 )
 
 var _ = gc.Suite(&procsPersistenceSuite{})
@@ -43,13 +43,13 @@ type processesPersistence interface {
 }
 
 func (s *procsPersistenceSuite) newPersistence() processesPersistence {
-	return state.NewProcsPersistence(s.state, &s.charm, &s.unit)
+	return persistence.NewPersistence(s.state, &s.charm, &s.unit)
 }
 
 type processInfoDoc struct {
-	definition *state.ProcessDefinitionDoc
-	launch     *state.ProcessLaunchDoc
-	proc       *state.ProcessDoc
+	definition *persistence.ProcessDefinitionDoc
+	launch     *persistence.ProcessLaunchDoc
+	proc       *persistence.ProcessDoc
 }
 
 func (s *procsPersistenceSuite) setDocs(procs ...process.Info) []processInfoDoc {
@@ -58,7 +58,7 @@ func (s *procsPersistenceSuite) setDocs(procs ...process.Info) []processInfoDoc 
 	for _, proc := range procs {
 		doc := processInfoDoc{}
 
-		doc.definition = &state.ProcessDefinitionDoc{
+		doc.definition = &persistence.ProcessDefinitionDoc{
 			DocID:  "c#" + s.charm.Id() + "#" + proc.Name,
 			Name:   proc.Name,
 			Type:   proc.Type,
@@ -67,12 +67,12 @@ func (s *procsPersistenceSuite) setDocs(procs ...process.Info) []processInfoDoc 
 		docs = append(docs, doc.definition)
 
 		if proc.Details.ID != "" {
-			doc.launch = &state.ProcessLaunchDoc{
+			doc.launch = &persistence.ProcessLaunchDoc{
 				DocID:     "u#" + s.unit.Id() + "#charm#" + proc.ID() + "#launch",
 				PluginID:  proc.Details.ID,
 				RawStatus: proc.Details.Status.Label,
 			}
-			doc.proc = &state.ProcessDoc{
+			doc.proc = &persistence.ProcessDoc{
 				DocID:        "u#" + s.unit.Id() + "#charm#" + proc.ID(),
 				Life:         0,
 				PluginStatus: proc.Details.Status.Label,
@@ -102,7 +102,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmAndUnit(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID:  "c#local:series/dummy-1#procA",
 				UnitID: "a-unit/0",
 				Name:   "procA",
@@ -128,7 +128,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmOnly(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID: "c#local:series/dummy-1#procA",
 				Name:  "procA",
 				Type:  "docker",
@@ -153,7 +153,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMultiple(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID: "c#local:series/dummy-1#procA",
 				Name:  "procA",
 				Type:  "docker",
@@ -162,7 +162,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMultiple(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procB",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID: "c#local:series/dummy-1#procB",
 				Name:  "procB",
 				Type:  "docker",
@@ -198,7 +198,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsFound(c *gc.C) {
 	s.stub.SetErrors(txn.ErrAborted)
 	definitions := s.newDefinitions("docker", "procA")
 	s.setUnit("")
-	expected := &state.ProcessDefinitionDoc{
+	expected := &persistence.ProcessDefinitionDoc{
 		DocID: "c#local:series/dummy-1#procA",
 		Name:  "procA",
 		Type:  "docker",
@@ -228,7 +228,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatched(c *gc.C) {
 	s.stub.SetErrors(txn.ErrAborted)
 	definitions := s.newDefinitions("kvm", "procA")
 	s.setUnit("")
-	doc := &state.ProcessDefinitionDoc{
+	doc := &persistence.ProcessDefinitionDoc{
 		DocID: "c#local:series/dummy-1#procA",
 		Name:  "procA",
 		Type:  "docker",
@@ -251,7 +251,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatched(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID: "c#local:series/dummy-1#procA",
 				Name:  "procA",
 				Type:  "kvm",
@@ -265,13 +265,13 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 	definitions := s.newDefinitions("kvm", "procA")
 	definitions = append(definitions, s.newDefinitions("docker", "procB", "procC")...)
 	s.setUnit("a-unit/0")
-	doc := &state.ProcessDefinitionDoc{
+	doc := &persistence.ProcessDefinitionDoc{
 		DocID:  "c#local:series/dummy-1#procA",
 		Name:   "procA",
 		UnitID: "a-unit/0",
 		Type:   "docker",
 	}
-	expected := &state.ProcessDefinitionDoc{
+	expected := &persistence.ProcessDefinitionDoc{
 		DocID:  "c#local:series/dummy-1#procB",
 		Name:   "procB",
 		UnitID: "a-unit/0",
@@ -297,7 +297,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID:  "c#local:series/dummy-1#procA",
 				Name:   "procA",
 				UnitID: "a-unit/0",
@@ -308,7 +308,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procB",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID:  "c#local:series/dummy-1#procB",
 				Name:   "procB",
 				UnitID: "a-unit/0",
@@ -319,7 +319,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procC",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID:  "c#local:series/dummy-1#procC",
 				Name:   "procC",
 				UnitID: "a-unit/0",
@@ -332,7 +332,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procC",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDefinitionDoc{
+			Insert: &persistence.ProcessDefinitionDoc{
 				DocID:  "c#local:series/dummy-1#procC",
 				Name:   "procC",
 				UnitID: "a-unit/0",
@@ -356,7 +356,7 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessLaunchDoc{
+			Insert: &persistence.ProcessLaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 				PluginID:  "procA-xyz",
 				RawStatus: "running",
@@ -366,7 +366,7 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDoc{
+			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
 				PluginStatus: "running",
@@ -377,7 +377,7 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 		//	C:      "workloadprocesses",
 		//	Id:     "c#local:series/dummy-1#procA",
 		//	Assert: txn.DocMissing,
-		//	Insert: &state.ProcessDefinitionDoc{
+		//	Insert: &persistence.ProcessDefinitionDoc{
 		//		DocID: "c#local:series/dummy-1#procA",
 		//		Name:  "procA",
 		//		Type:  "docker",
@@ -387,7 +387,7 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
-	expected := &state.ProcessDefinitionDoc{
+	expected := &persistence.ProcessDefinitionDoc{
 		DocID: "c#local:series/dummy-1#procA",
 		Name:  "procA",
 		Type:  "docker",
@@ -406,7 +406,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessLaunchDoc{
+			Insert: &persistence.ProcessLaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 				PluginID:  "procA-xyz",
 				RawStatus: "running",
@@ -416,7 +416,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDoc{
+			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
 				PluginStatus: "running",
@@ -426,7 +426,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
-	expected := &state.ProcessDefinitionDoc{
+	expected := &persistence.ProcessDefinitionDoc{
 		DocID: "c#local:series/dummy-1#procA",
 		Name:  "procA",
 		Type:  "docker",
@@ -446,7 +446,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessLaunchDoc{
+			Insert: &persistence.ProcessLaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 				PluginID:  "procA-xyz",
 				RawStatus: "running",
@@ -456,7 +456,7 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDoc{
+			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
 				PluginStatus: "running",
@@ -481,7 +481,7 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessLaunchDoc{
+			Insert: &persistence.ProcessLaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
 				PluginID:  "procA-xyz",
 				RawStatus: "running",
@@ -491,7 +491,7 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &state.ProcessDoc{
+			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
 				PluginStatus: "running",
@@ -530,7 +530,7 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 			Update: bson.D{
 				{"$set", bson.D{{"pluginstatus", "still running"}}},
 			},
@@ -556,7 +556,7 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 			Update: bson.D{
 				{"$set", bson.D{{"pluginstatus", "still running"}}},
 			},
@@ -567,7 +567,7 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
 	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
 	docs := s.setDocs(proc)
-	docs[0].proc.Life = state.Dying
+	docs[0].proc.Life = persistence.Dying
 	s.stub.SetErrors(txn.ErrAborted)
 	newStatus := process.Status{Label: "still running"}
 
@@ -585,7 +585,7 @@ func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/procA-xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 			Update: bson.D{
 				{"$set", bson.D{{"pluginstatus", "still running"}}},
 			},
@@ -689,7 +689,7 @@ func (s *procsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestListAllIncludeCharmDefined(c *gc.C) {
-	s.state.setDocs(&state.ProcessDefinitionDoc{
+	s.state.setDocs(&persistence.ProcessDefinitionDoc{
 		DocID: "c#local:series/dummy-1#procA",
 		Name:  "procA",
 		Type:  "docker",
@@ -752,7 +752,7 @@ func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
@@ -780,7 +780,7 @@ func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
@@ -793,7 +793,7 @@ func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
 func (s *procsPersistenceSuite) TestRemoveDying(c *gc.C) {
 	proc := s.newProcesses("docker", "procA/xyz")[0]
 	docs := s.setDocs(proc)
-	docs[0].proc.Life = state.Dying
+	docs[0].proc.Life = persistence.Dying
 
 	pp := s.newPersistence()
 	found, err := pp.Remove("procA/xyz")
@@ -810,7 +810,7 @@ func (s *procsPersistenceSuite) TestRemoveDying(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
-			Assert: state.IsAliveDoc,
+			Assert: persistence.IsAliveDoc,
 		}, {
 			C:      "workloadprocesses",
 			Id:     "u#a-unit/0#charm#procA/xyz",
@@ -859,13 +859,13 @@ func (sp *fakeStatePersistence) setDocs(docs ...interface{}) {
 	for _, doc := range docs {
 		var id string
 		switch doc := doc.(type) {
-		case *state.ProcessDefinitionDoc:
+		case *persistence.ProcessDefinitionDoc:
 			id = doc.DocID
 			sp.definitionDocs = append(sp.definitionDocs, id)
-		case *state.ProcessLaunchDoc:
+		case *persistence.ProcessLaunchDoc:
 			id = doc.DocID
 			sp.launchDocs = append(sp.launchDocs, id)
-		case *state.ProcessDoc:
+		case *persistence.ProcessDoc:
 			id = doc.DocID
 			sp.procDocs = append(sp.procDocs, id)
 		default:
@@ -913,14 +913,14 @@ func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
 	}
 
 	switch doc := doc.(type) {
-	case *state.ProcessDefinitionDoc:
-		expected := found.(*state.ProcessDefinitionDoc)
+	case *persistence.ProcessDefinitionDoc:
+		expected := found.(*persistence.ProcessDefinitionDoc)
 		*doc = *expected
-	case *state.ProcessLaunchDoc:
-		expected := found.(*state.ProcessLaunchDoc)
+	case *persistence.ProcessLaunchDoc:
+		expected := found.(*persistence.ProcessLaunchDoc)
 		*doc = *expected
-	case *state.ProcessDoc:
-		expected := found.(*state.ProcessDoc)
+	case *persistence.ProcessDoc:
+		expected := found.(*persistence.ProcessDoc)
 		*doc = *expected
 	default:
 		panic(doc)
@@ -956,34 +956,34 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 	}
 
 	switch docs := docs.(type) {
-	case *[]state.ProcessDefinitionDoc:
-		var found []state.ProcessDefinitionDoc
+	case *[]persistence.ProcessDefinitionDoc:
+		var found []persistence.ProcessDefinitionDoc
 		for _, id := range ids {
 			doc, ok := sp.docs[id]
 			if !ok {
 				continue
 			}
-			found = append(found, *doc.(*state.ProcessDefinitionDoc))
+			found = append(found, *doc.(*persistence.ProcessDefinitionDoc))
 		}
 		*docs = found
-	case *[]state.ProcessLaunchDoc:
-		var found []state.ProcessLaunchDoc
+	case *[]persistence.ProcessLaunchDoc:
+		var found []persistence.ProcessLaunchDoc
 		for _, id := range ids {
 			doc, ok := sp.docs[id]
 			if !ok {
 				continue
 			}
-			found = append(found, *doc.(*state.ProcessLaunchDoc))
+			found = append(found, *doc.(*persistence.ProcessLaunchDoc))
 		}
 		*docs = found
-	case *[]state.ProcessDoc:
-		var found []state.ProcessDoc
+	case *[]persistence.ProcessDoc:
+		var found []persistence.ProcessDoc
 		for _, id := range ids {
 			doc, ok := sp.docs[id]
 			if !ok {
 				continue
 			}
-			found = append(found, *doc.(*state.ProcessDoc))
+			found = append(found, *doc.(*persistence.ProcessDoc))
 		}
 		*docs = found
 	default:
