@@ -40,7 +40,7 @@ func (s *SignalSuite) TearDownSuite(c *gc.C) {
 	// deregister s.ch and close channel to exit handleSignal worker.
 	signal.Stop(s.ch)
 
-	// even though we asked os/signal to stop sending signals to this channel
+	// even though we asked os/signal to stop sending signals to this channel/:
 	// it appear that it still holds a reference to the channel and if closed
 	// the program will dump core. Instead of closing s.ch to signal handleSignal
 	// to quit, we close s.quit instead.
@@ -55,8 +55,8 @@ func (s *SignalSuite) handleSignal(c *gc.C, sigfunc func(*gc.C, os.Signal)) {
 		case sig := <-s.ch:
 			sigfunc(c, sig)
 
-			// Sigfunc is expected to call os.Exit, it should not return.
-			c.Errorf("Sigfunc should not have returned")
+			// sigfunc is expected to call os.Exit, it should not return.
+			c.Errorf("sigfunc should not have returned")
 		case <-s.quit:
 
 			// during TearDownSuite we unregister the channel for signal notifications
