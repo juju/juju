@@ -543,7 +543,7 @@ func (d ProcessDefinitionDoc) definition() charm.Process {
 	volumes := make([]charm.ProcessVolume, len(d.Volumes))
 	for i, raw := range d.Volumes {
 		v := volumes[i]
-		fmt.Sscanf(raw, "%d:%d:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
+		fmt.Sscanf(raw, "%s:%s:%s:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
 	}
 
 	return charm.Process{
