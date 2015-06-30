@@ -70,7 +70,7 @@ func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
 // Run implements cmd.Command.
 func (c *ProcRegistrationCommand) Run(ctx *cmd.Context) error {
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
-	if err := c.register(ctx, process.StatusActive); err != nil {
+	if err := c.register(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

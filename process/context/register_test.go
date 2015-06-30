@@ -35,19 +35,18 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	err := s.registerCmd.Init([]string{
 		name,
-		`{"id":"` + id + `", "status":{"status":"` + status + `"}}`,
+		`{"id":"` + id + `", "status":{"label":"` + status + `"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.details = process.Details{
 		ID:     id,
-		Status: process.RawStatus{Value: status},
+		Status: process.Status{Label: status},
 	}
 }
 
 func (s *registerSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
 	s.commandSuite.checkRun(c, expectedOut, expectedErr)
 
-	s.checkStatus(c, process.StatusActive)
 	s.checkDetails(c, s.details)
 }
 
@@ -80,14 +79,14 @@ the charm's metadata.yaml.
 func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":{"status":"okay"}}`,
+		`{"id":"abc123", "status":{"label":"okay"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.Details{
 		ID:     "abc123",
-		Status: process.RawStatus{Value: "okay"},
+		Status: process.Status{Label: "okay"},
 	})
 }
 
@@ -130,7 +129,7 @@ func (s *registerSuite) TestInitEmptyID(c *gc.C) {
 func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"status":{"status":"okay"}}`,
+		`{"status":{"label":"okay"}}`,
 	})
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -148,7 +147,7 @@ func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
 func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":"okay"`,
+		`{"id":"abc123", "status":{"label":"okay"}`,
 	})
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "unexpected end of JSON input")
@@ -290,7 +289,6 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.checkRun(c, "", "")
 
 	s.proc.Process = *s.registerCmd.UpdatedProcess
-	s.proc.Status = process.StatusActive
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Set",
@@ -300,7 +298,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 
 func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
-	context.GetCmdInfo(s.cmd).Status = process.StatusActive
+	context.GetCmdInfo(s.cmd).Details.ID = "xyz123"
 
 	err := s.cmd.Run(s.cmdCtx)
 

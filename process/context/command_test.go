@@ -51,11 +51,6 @@ func (s *commandSuite) checkDetails(c *gc.C, expected process.Details) {
 	c.Check(info.Details, jc.DeepEquals, expected)
 }
 
-func (s *commandSuite) checkStatus(c *gc.C, expected process.Status) {
-	info := context.GetCmdInfo(s.cmd)
-	c.Check(info.Status, jc.DeepEquals, expected)
-}
-
 func (s *commandSuite) checkCommandRegistered(c *gc.C) {
 	component := &context.Context{}
 	hctx, info := s.NewHookContext()

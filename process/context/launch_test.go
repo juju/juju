@@ -7,6 +7,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
 )
@@ -47,18 +48,18 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	var mockPlugin *plugin.Plugin
 
 	numLaunchPluginCalls := 0
-	launchPlugin := func(p plugin.Plugin, process charm.Process) (plugin.ProcDetails, error) {
+	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
 		numLaunchPluginCalls++
 		c.Check(p, gc.DeepEquals, *mockPlugin)
-		return plugin.ProcDetails{"id", plugin.ProcStatus{"foo"}}, nil
+		return process.Details{ID: "id", Status: process.Status{Label: "foo"}}, nil
 	}
 
 	numFindPluginCalls := 0
 	findPlugin := func(pluginName string) (*plugin.Plugin, error) {
 		numFindPluginCalls++
 		mockPlugin = &plugin.Plugin{
-			Name: pluginName,
-			Path: "mock-path",
+			Name:       pluginName,
+			Executable: "mock-path",
 		}
 		return mockPlugin, nil
 	}
@@ -98,8 +99,8 @@ func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
 		return &plugin.Plugin{}, nil
 	}
 
-	launchPlugin := func(p plugin.Plugin, process charm.Process) (plugin.ProcDetails, error) {
-		return plugin.ProcDetails{}, fmt.Errorf("mock-error")
+	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
+		return process.Details{}, fmt.Errorf("mock-error")
 	}
 
 	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)

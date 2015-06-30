@@ -26,7 +26,7 @@ const exitstatus1 = "exit status 1: "
 
 func (s *suite) TestLaunch(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo", "status": { "status" : "bar" } }`),
+		out: []byte(`{ "id" : "foo", "status": { "label" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -37,7 +37,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pd, gc.Equals, process.Details{
 		ID:     "foo",
-		Status: process.RawStatus{Value: "bar"},
+		Status: process.Status{Label: "bar"},
 	})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
@@ -102,7 +102,7 @@ func (s *suite) TestLaunchErr(c *gc.C) {
 
 func (s *suite) TestStatus(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "status" : "status!" }`),
+		out: []byte(`{ "label" : "status!" }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -110,7 +110,7 @@ func (s *suite) TestStatus(c *gc.C) {
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, process.RawStatus{Value: "status!"})
+	c.Assert(status, gc.Equals, process.Status{Label: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "status")

@@ -285,9 +285,9 @@ func (s *contextSuite) TestSetOkay(c *gc.C) {
 func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	var info, other process.Info
 	info.Name = "A"
-	other.Status = process.StatusFailed
+	info.Details.Status.Label = "running"
 	other.Name = "A"
-	other.Status = process.StatusPending
+	other.Details.Status.Label = "stopped"
 	ctx := context.NewContext(s.apiClient, &other)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)

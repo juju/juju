@@ -31,24 +31,11 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*type: name is required")
 }
 
-func (s *infoSuite) TestValidateBadStatus(c *gc.C) {
-	info := process.NewInfoUnvalidated("a proc", "docker")
-	info.Status = process.Status(-1)
-	err := info.Validate()
-
-	c.Check(err, gc.ErrorMatches, "bad status .*")
-}
-
 func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
 	info := process.NewInfoUnvalidated("a proc", "docker")
-	info.Status = process.StatusActive
-	isRegistered := info.IsRegistered()
-	c.Check(isRegistered, jc.IsTrue)
-
-	info = process.NewInfoUnvalidated("a proc", "docker")
 	info.Details.ID = "abc123"
-	info.Details.Status.Value = "running"
-	isRegistered = info.IsRegistered()
+	info.Details.Status.Label = "running"
+	isRegistered := info.IsRegistered()
 	c.Check(isRegistered, jc.IsTrue)
 }
 
