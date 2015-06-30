@@ -279,8 +279,6 @@ func (pp procsPersistence) extractProc(id string, definitionDocs map[string]Proc
 		proc:       procDoc,
 	}
 	info := doc.info()
-	info.CharmID = pp.charm.Id()
-	info.UnitID = pp.unit.Id()
 	return &info, 0
 }
 
@@ -325,7 +323,6 @@ func (pp procsPersistence) ListAll() ([]process.Info, error) {
 		if !matched {
 			results = append(results, process.Info{
 				Process: doc.definition(),
-				CharmID: pp.charm.Id(),
 			})
 		}
 	}

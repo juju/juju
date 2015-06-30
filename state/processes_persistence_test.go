@@ -713,7 +713,6 @@ func (s *procsPersistenceSuite) TestListAllIncludeCharmDefined(c *gc.C) {
 			Name: "procA",
 			Type: "docker",
 		},
-		CharmID: s.charm.Id(),
 	})
 	c.Check(procs, jc.DeepEquals, existing)
 }

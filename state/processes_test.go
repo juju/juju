@@ -84,8 +84,6 @@ func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []proce
 		id := ids[i]
 		processes = append(processes, process.Info{
 			Process: definition,
-			CharmID: s.charm.Id(),
-			UnitID:  s.unit.Id(),
 			Details: process.Details{
 				ID: id,
 				Status: process.RawStatus{

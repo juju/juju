@@ -22,12 +22,6 @@ import (
 type Info struct {
 	charm.Process
 
-	// CharmID is the Juju ID for the process's charm.
-	CharmID string
-
-	// CharmID is the Juju ID for the process's unit.
-	UnitID string
-
 	// Details is the information about the process which the plugin provided.
 	Details Details
 }
@@ -64,23 +58,6 @@ func ParseID(id string) (string, string) {
 	return id, ""
 }
 
-// FullID composes a unique ID for the process. Note that FullID()
-// does not validate the Info. To ensure that the returned ID is
-// complete, call Info.Validate before calling FullID.
-func (info Info) FullID() string {
-	id := info.Process.Name
-	if info.UnitID != "" {
-		id = fmt.Sprintf("%s/%s", info.UnitID, id)
-	} else if info.CharmID != "" {
-		// No unit so we ignore Details (which should be empty).
-		return fmt.Sprintf("%s/%s", info.CharmID, id)
-	}
-	if info.Details.ID != "" {
-		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
-	}
-	return id
-}
-
 // Validate checks the process info to ensure it is correct.
 func (info Info) Validate() error {
 	if err := info.Process.Validate(); err != nil {
@@ -91,14 +68,6 @@ func (info Info) Validate() error {
 		if err := info.Details.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-	}
-
-	if info.CharmID == "" {
-		return errors.Errorf("missing CharmID")
-	}
-
-	if info.Details.ID != "" && info.UnitID == "" {
-		return errors.Errorf("missing UnitID")
 	}
 
 	return nil
