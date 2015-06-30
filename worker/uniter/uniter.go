@@ -73,7 +73,7 @@ type Uniter struct {
 	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
 
-	hookLock    *fslock.Lock
+	machineLock *fslock.Lock
 	runListener *RunListener
 
 	ranLeaderSettingsChanged bool
@@ -96,12 +96,12 @@ func NewUniter(
 	unitTag names.UnitTag,
 	leadershipManager coreleadership.LeadershipManager,
 	dataDir string,
-	hookLock *fslock.Lock,
+	machineLock *fslock.Lock,
 ) *Uniter {
 	u := &Uniter{
 		st:                st,
 		paths:             NewPaths(dataDir, unitTag),
-		hookLock:          hookLock,
+		machineLock:       machineLock,
 		leadershipManager: leadershipManager,
 		collectMetricsAt:  inactiveMetricsTimer,
 	}
@@ -189,13 +189,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) setupLocks() (err error) {
-	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
+	if message := u.machineLock.Message(); u.machineLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
 		// before unlocking, and have been restarted by the init system.
 		parts := strings.SplitN(message, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			if err := u.hookLock.BreakLock(); err != nil {
+			if err := u.machineLock.BreakLock(); err != nil {
 				return err
 			}
 		}
@@ -262,7 +262,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	)
 
 	operationExecutor, err := operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL,
+		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
 	)
 	if err != nil {
 		return err
@@ -406,4 +406,25 @@ func (u *Uniter) runOperation(creator creator) error {
 		}
 	}()
 	return u.operationExecutor.Run(op)
+}
+
+// acquireExecutionLock acquires the machine-level execution lock, and
+// returns a func that must be called to unlock it. It's used by operation.Executor
+// when running operations that execute external code.
+func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// Uniter's tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return nil
+		}
+	}
+	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
+	if err := u.machineLock.LockWithFunc(message, checkTomb); err != nil {
+		return nil, err
+	}
+	return func() error { return u.machineLock.Unlock() }, nil
 }

@@ -29,6 +29,10 @@ func failGetInstallCharm() (*corecharm.URL, error) {
 	return nil, errors.New("lol!")
 }
 
+func failAcquireLock(string) (func() error, error) {
+	return nil, errors.New("wat")
+}
+
 func (s *NewExecutorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.basePath = c.MkDir()
@@ -39,14 +43,14 @@ func (s *NewExecutorSuite) path(path string) string {
 }
 
 func (s *NewExecutorSuite) TestNewExecutorNoFileNoCharm(c *gc.C) {
-	executor, err := operation.NewExecutor(s.path("missing"), failGetInstallCharm)
+	executor, err := operation.NewExecutor(s.path("missing"), failGetInstallCharm, failAcquireLock)
 	c.Assert(executor, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "lol!")
 }
 
 func (s *NewExecutorSuite) TestNewExecutorInvalidFile(c *gc.C) {
 	ft.File{"existing", "", 0666}.Create(c, s.basePath)
-	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm)
+	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm, failAcquireLock)
 	c.Assert(executor, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: .*`)
 }
@@ -56,7 +60,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoFile(c *gc.C) {
 	getInstallCharm := func() (*corecharm.URL, error) {
 		return charmURL, nil
 	}
-	executor, err := operation.NewExecutor(s.path("missing"), getInstallCharm)
+	executor, err := operation.NewExecutor(s.path("missing"), getInstallCharm, failAcquireLock)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:     operation.Install,
@@ -76,7 +80,7 @@ started: true
 op: continue
 opstep: pending
 `[1:], 0666}.Create(c, s.basePath)
-	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm)
+	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm, failAcquireLock)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
@@ -101,7 +105,7 @@ func newExecutor(c *gc.C, st *operation.State) (operation.Executor, string) {
 	path := filepath.Join(c.MkDir(), "state")
 	err := operation.NewStateFile(path).Write(st)
 	c.Assert(err, jc.ErrorIsNil)
-	executor, err := operation.NewExecutor(path, failGetInstallCharm)
+	executor, err := operation.NewExecutor(path, failGetInstallCharm, failAcquireLock)
 	c.Assert(err, jc.ErrorIsNil)
 	return executor, path
 }
@@ -116,6 +120,7 @@ func justInstalledState() operation.State {
 func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+
 	op := &mockOperation{
 		prepare: newStep(nil, nil),
 		execute: newStep(nil, nil),
@@ -320,10 +325,225 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
 }
 
+func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func() error, error)) operation.Executor {
+
+	initialState := justInstalledState()
+	statePath := filepath.Join(c.MkDir(), "state")
+	err := operation.NewStateFile(statePath).Write(&initialState)
+	c.Assert(err, jc.ErrorIsNil)
+	executor, err := operation.NewExecutor(statePath, failGetInstallCharm, lockFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return executor
+}
+
+func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, nil),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, nil),
+	}
+
+	mockLock := &mockLockFunc{op: op}
+	lockFunc := mockLock.newSucceedingLockUnlockSucceeds()
+	executor := s.initLockTest(c, lockFunc)
+
+	err := executor.Run(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(mockLock.calledLock, jc.IsTrue)
+	c.Assert(mockLock.calledUnlock, jc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+
+	expectedStepsOnUnlock := []bool{true, true, true}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+func (s *ExecutorSuite) TestLockSucceedsStepsCalledUnlockFails(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, nil),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, nil),
+	}
+
+	mockLock := &mockLockFunc{op: op}
+	lockFunc := mockLock.newSucceedingLockUnlockFails()
+	executor := s.initLockTest(c, lockFunc)
+
+	err := executor.Run(op)
+	c.Assert(err, gc.ErrorMatches, "but why")
+
+	c.Assert(mockLock.calledLock, jc.IsTrue)
+	c.Assert(mockLock.calledUnlock, jc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+
+	expectedStepsOnUnlock := []bool{true, true, true}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+func (s *ExecutorSuite) TestOpFailsUnlockFailsUnlockErrPropagated(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, errors.New("kerblooie")),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, nil),
+	}
+
+	mockLock := &mockLockFunc{op: op}
+	lockFunc := mockLock.newSucceedingLockUnlockFails()
+	executor := s.initLockTest(c, lockFunc)
+
+	err := executor.Run(op)
+	c.Assert(err, gc.ErrorMatches, "but why")
+
+	c.Assert(mockLock.calledLock, jc.IsTrue)
+	c.Assert(mockLock.calledUnlock, jc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+
+	expectedStepsOnUnlock := []bool{true, false, false}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, nil),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, nil),
+	}
+
+	mockLock := &mockLockFunc{op: op}
+	lockFunc := mockLock.newFailingLock()
+	executor := s.initLockTest(c, lockFunc)
+
+	err := executor.Run(op)
+	c.Assert(err, gc.ErrorMatches, "could not acquire lock: wat")
+
+	c.Assert(mockLock.calledLock, jc.IsFalse)
+	c.Assert(mockLock.calledUnlock, jc.IsFalse)
+	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+
+	c.Assert(op.prepare.called, jc.IsFalse)
+	c.Assert(op.execute.called, jc.IsFalse)
+	c.Assert(op.commit.called, jc.IsFalse)
+}
+
+func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (error, *mockLockFunc) {
+	mockLock := &mockLockFunc{op: op}
+	lockFunc := mockLock.newSucceedingLockUnlockSucceeds()
+	executor := s.initLockTest(c, lockFunc)
+
+	err := executor.Run(op)
+
+	c.Assert(mockLock.calledLock, jc.IsTrue)
+	c.Assert(mockLock.calledUnlock, jc.IsTrue)
+	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
+
+	return err, mockLock
+}
+
+func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, errors.New("kerblooie")),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, nil),
+	}
+
+	err, mockLock := s.testLockUnlocksOnError(c, op)
+	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": kerblooie`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "kerblooie")
+
+	expectedStepsOnUnlock := []bool{true, false, false}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, nil),
+		execute:   newStep(nil, errors.New("you asked for it")),
+		commit:    newStep(nil, nil),
+	}
+
+	err, mockLock := s.testLockUnlocksOnError(c, op)
+	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation": you asked for it`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "you asked for it")
+
+	expectedStepsOnUnlock := []bool{true, true, false}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+func (s *ExecutorSuite) TestLockUnlocksOnError_Commit(c *gc.C) {
+	op := &mockOperation{
+		needsLock: true,
+		prepare:   newStep(nil, nil),
+		execute:   newStep(nil, nil),
+		commit:    newStep(nil, errors.New("zoinks")),
+	}
+
+	err, mockLock := s.testLockUnlocksOnError(c, op)
+	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation": zoinks`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "zoinks")
+
+	expectedStepsOnUnlock := []bool{true, true, true}
+	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
+}
+
+type mockLockFunc struct {
+	noStepsCalledOnLock bool
+	stepsCalledOnUnlock []bool
+	calledLock          bool
+	calledUnlock        bool
+	op                  *mockOperation
+}
+
+func (mock *mockLockFunc) newFailingLock() func(string) (func() error, error) {
+	return func(string) (func() error, error) {
+		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
+			mock.op.commit.called == false &&
+			mock.op.prepare.called == false
+		return nil, errors.New("wat")
+	}
+
+}
+
+func (mock *mockLockFunc) newSucceedingLock(unlockFails bool) func(string) (func() error, error) {
+	return func(string) (func() error, error) {
+		mock.calledLock = true
+		// Ensure that when we lock no operation has been called
+		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
+			mock.op.commit.called == false &&
+			mock.op.prepare.called == false
+		return func() error {
+			// Record steps called when unlocking
+			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,
+				mock.op.execute.called,
+				mock.op.commit.called}
+			mock.calledUnlock = true
+			if unlockFails {
+				return errors.New("but why")
+			}
+			return nil
+		}, nil
+	}
+}
+
+func (mock *mockLockFunc) newSucceedingLockUnlockFails() func(string) (func() error, error) {
+	return mock.newSucceedingLock(true)
+}
+
+func (mock *mockLockFunc) newSucceedingLockUnlockSucceeds() func(string) (func() error, error) {
+	return mock.newSucceedingLock(false)
+}
+
 type mockStep struct {
 	gotState operation.State
 	newState *operation.State
 	err      error
+	called   bool
 }
 
 func newStep(newState *operation.State, err error) *mockStep {
@@ -331,18 +551,24 @@ func newStep(newState *operation.State, err error) *mockStep {
 }
 
 func (step *mockStep) run(state operation.State) (*operation.State, error) {
+	step.called = true
 	step.gotState = state
 	return step.newState, step.err
 }
 
 type mockOperation struct {
-	prepare *mockStep
-	execute *mockStep
-	commit  *mockStep
+	needsLock bool
+	prepare   *mockStep
+	execute   *mockStep
+	commit    *mockStep
 }
 
 func (op *mockOperation) String() string {
 	return "mock operation"
+}
+
+func (op *mockOperation) NeedsGlobalMachineLock() bool {
+	return op.needsLock
 }
 
 func (op *mockOperation) Prepare(state operation.State) (*operation.State, error) {
