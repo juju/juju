@@ -17,6 +17,7 @@ const (
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
 
+	// Registry key containing juju related information
 	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
 
 	// TODO(thumper): 2013-09-02 bug 1219630
