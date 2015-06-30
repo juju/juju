@@ -3,19 +3,46 @@
 
 package api
 
+// RegisterProcessArgs are the arguments for the RegisterProcess endpoint.
 type RegisterProcessArgs struct {
-	Tag string
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
+	// ProcessInfo contains information about the process being registered.
 	ProcessInfo
 }
 
+// ListProcessesArgs are the arguments for the ListProcesses endpoint.
 type ListProcessesArgs struct {
-	tag string
-	ids []string
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
+	// IDs is the list of IDs of the processes you want information on.
+	IDs []string
 }
 
+// SetProcessStatusArgs are the arguments for the SetProcessStatus endpoint.
+type SetProcessStatusArgs struct {
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
+	// ID is the ID of the process.
+	ID     string
+	Status ProcStatus
+}
+
+// UnregisterProcessArgs are the arguments for the UnregisterProcess endpoint.
+type UnregisterProcessArgs struct {
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
+	// ID is the ID of the process.
+	ID string
+}
+
+// ProcessInfo contains information about a workload process.
 type ProcessInfo struct {
+	// Process is information about the process itself.
 	Process Process
-	Status  int
+	// Status is the status of the process.
+	Status int
+	// Details are the information returned from starting the process.
 	Details ProcDetails
 }
 
