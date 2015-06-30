@@ -92,7 +92,7 @@ func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error
 type processesPersistence interface {
 	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.RawStatus) (bool, error)
+	SetStatus(id string, status process.Status) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
 	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)

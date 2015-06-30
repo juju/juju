@@ -86,8 +86,8 @@ func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []proce
 			Process: definition,
 			Details: process.Details{
 				ID: id,
-				Status: process.RawStatus{
-					Value: "running",
+				Status: process.Status{
+					Label: "running",
 				},
 			},
 		})
@@ -222,8 +222,8 @@ func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.RawStatus{
-		Value: "okay",
+	status := process.Status{
+		Label: "okay",
 	}
 
 	ps := state.UnitProcesses{Persist: s.persist}
@@ -239,8 +239,8 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.RawStatus{
-		Value: "okay",
+	status := process.Status{
+		Label: "okay",
 	}
 
 	ps := state.UnitProcesses{Persist: s.persist}
@@ -250,8 +250,8 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := process.RawStatus{
-		Value: "okay",
+	status := process.Status{
+		Label: "okay",
 	}
 
 	ps := state.UnitProcesses{Persist: s.persist}
@@ -446,7 +446,7 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) SetStatus(id string, status process.RawStatus) (bool, error) {
+func (s *fakeProcsPersistence) SetStatus(id string, status process.Status) (bool, error) {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)

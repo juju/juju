@@ -36,7 +36,7 @@ func (s *procsPersistenceSuite) SetUpTest(c *gc.C) {
 type processesPersistence interface {
 	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.RawStatus) (bool, error)
+	SetStatus(id string, status process.Status) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
 	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
@@ -70,13 +70,12 @@ func (s *procsPersistenceSuite) setDocs(procs ...process.Info) []processInfoDoc 
 			doc.launch = &state.ProcessLaunchDoc{
 				DocID:     "u#" + s.unit.Id() + "#charm#" + proc.ID() + "#launch",
 				PluginID:  proc.Details.ID,
-				RawStatus: proc.Details.Status.Value,
+				RawStatus: proc.Details.Status.Label,
 			}
 			doc.proc = &state.ProcessDoc{
 				DocID:        "u#" + s.unit.Id() + "#charm#" + proc.ID(),
 				Life:         0,
-				Status:       proc.Status.String(),
-				PluginStatus: proc.Details.Status.Value,
+				PluginStatus: proc.Details.Status.Label,
 			}
 			docs = append(docs, doc.launch, doc.proc)
 		}
@@ -370,7 +369,6 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 			Insert: &state.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
-				Status:       "pending",
 				PluginStatus: "running",
 			},
 		},
@@ -421,7 +419,6 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 			Insert: &state.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
-				Status:       "pending",
 				PluginStatus: "running",
 			},
 		},
@@ -462,7 +459,6 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 			Insert: &state.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
-				Status:       "pending",
 				PluginStatus: "running",
 			},
 		},
@@ -498,7 +494,6 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 			Insert: &state.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
 				Life:         0,
-				Status:       "pending",
 				PluginStatus: "running",
 			},
 		},
@@ -519,7 +514,7 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA/procA-xyz")[0]
 	s.setDocs(proc)
-	newStatus := process.RawStatus{Value: "still running"}
+	newStatus := process.Status{Label: "still running"}
 
 	pp := s.newPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -545,7 +540,7 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.stub.SetErrors(txn.ErrAborted)
-	newStatus := process.RawStatus{Value: "still running"}
+	newStatus := process.Status{Label: "still running"}
 
 	pp := s.newPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -574,7 +569,7 @@ func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
 	docs := s.setDocs(proc)
 	docs[0].proc.Life = state.Dying
 	s.stub.SetErrors(txn.ErrAborted)
-	newStatus := process.RawStatus{Value: "still running"}
+	newStatus := process.Status{Label: "still running"}
 
 	pp := s.newPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -605,7 +600,7 @@ func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 
 	pp := s.newPersistence()
-	_, err := pp.SetStatus("procA/procA-xyz", process.RawStatus{Value: "still running"})
+	_, err := pp.SetStatus("procA/procA-xyz", process.Status{Label: "still running"})
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

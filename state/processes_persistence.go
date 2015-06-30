@@ -452,7 +452,7 @@ func (pp procsPersistence) newInsertProcOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp procsPersistence) newSetRawStatusOps(id string, status process.RawStatus) []txn.Op {
+func (pp procsPersistence) newSetRawStatusOps(id string, status process.Status) []txn.Op {
 	id = pp.processID(id)
 	return []txn.Op{{
 		C:      workloadProcessesC,
@@ -462,7 +462,7 @@ func (pp procsPersistence) newSetRawStatusOps(id string, status process.RawStatu
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: isAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Value}}}},
+		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Label}}}},
 	}}
 }
 
@@ -653,8 +653,8 @@ type ProcessLaunchDoc struct {
 func (d ProcessLaunchDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
-		Status: process.RawStatus{
-			Value: d.RawStatus,
+		Status: process.Status{
+			Label: d.RawStatus,
 		},
 	}
 }
@@ -665,7 +665,7 @@ func (pp procsPersistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 		DocID: id,
 
 		PluginID:  info.Details.ID,
-		RawStatus: info.Details.Status.Value,
+		RawStatus: info.Details.Status.Label,
 	}
 }
 
@@ -725,34 +725,14 @@ type ProcessDoc struct {
 	EnvUUID string `bson:"env-uuid"`
 
 	Life         Life   `bson:"life"`
-	Status       string `bson:"status"`
 	PluginStatus string `bson:"pluginstatus"`
 }
 
 func (d ProcessDoc) info() process.Info {
-	var status process.Status
-	switch d.Status {
-	case "pending":
-		status = process.StatusPending
-	case "active":
-		status = process.StatusActive
-	case "failed":
-		status = process.StatusFailed
-	case "stopped":
-		status = process.StatusStopped
-	}
-	if d.Life != Alive {
-		if status != process.StatusFailed && status != process.StatusStopped {
-			// TODO(ericsnow) Is this the right place to do this?
-			status = process.StatusStopped
-		}
-	}
-
 	return process.Info{
-		Status: status,
 		Details: process.Details{
-			Status: process.RawStatus{
-				Value: d.PluginStatus,
+			Status: process.Status{
+				Label: d.PluginStatus,
 			},
 		},
 	}
@@ -761,27 +741,11 @@ func (d ProcessDoc) info() process.Info {
 func (pp procsPersistence) newProcessDoc(info process.Info) *ProcessDoc {
 	id := pp.processID(info.ID())
 
-	var status string
-	switch info.Status {
-	case process.StatusPending:
-		status = "pending"
-	case process.StatusActive:
-		status = "active"
-	case process.StatusFailed:
-		status = "failed"
-	case process.StatusStopped:
-		status = "stopped"
-	default:
-		// TODO(ericsnow) disallow? don't worry (shouldn't happen)?
-		status = "unknown"
-	}
-
 	return &ProcessDoc{
 		DocID: id,
 
 		Life:         Alive,
-		Status:       status,
-		PluginStatus: info.Details.Status.Value,
+		PluginStatus: info.Details.Status.Label,
 	}
 }
 
