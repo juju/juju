@@ -6,6 +6,7 @@ package all
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/process/api/server"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
+	procstate "github.com/juju/juju/process/state"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -22,6 +24,7 @@ type workloadProcesses struct{}
 
 func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
+	c.registerState()
 	return nil
 }
 
@@ -110,4 +113,14 @@ func (workloadProcesses) registerHookContextCommands() {
 		}
 		return cmd
 	})
+}
+
+func (c workloadProcesses) registerState() {
+	newUnitProcesses := func(persist state.Persistence, unit names.UnitTag, charm names.CharmTag) (state.UnitProcesses, error) {
+		return procstate.NewUnitProcesses(persist, unit, &charm), nil
+	}
+	newProcessDefinitions := func(persist state.Persistence, charm names.CharmTag) (state.ProcessDefinitions, error) {
+		return procstate.NewDefinitions(persist, charm), nil
+	}
+	state.SetProcessesComponent(newUnitProcesses, newProcessDefinitions)
 }
