@@ -1065,9 +1065,18 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
 	assertNotProvisioned()
 
-	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{names.NewVolumeTag("1065"): state.VolumeInfo{}}
+	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
+		names.NewVolumeTag("1065"): state.VolumeInfo{VolumeId: "vol-ume"},
+	}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
+	assertNotProvisioned()
+
+	invalidVolumes = map[names.VolumeTag]state.VolumeInfo{
+		names.NewVolumeTag("1065"): state.VolumeInfo{},
+	}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume ID not set`)
 	assertNotProvisioned()
 
 	// TODO(axw) test invalid volume attachment
