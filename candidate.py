@@ -194,8 +194,15 @@ def publish_candidates(path, streams_path,
             streams_path]
         run_command(command, dry_run=dry_run, verbose=verbose)
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
-    command = [publish_script, 'weekly', juju_dist_path, 'cpc']
-    run_command(command, dry_run=dry_run, verbose=verbose)
+    for attempt in range(3):
+        try:
+            command = [publish_script, 'weekly', juju_dist_path, 'cpc']
+            run_command(command, dry_run=dry_run, verbose=verbose)
+            break
+        except subprocess.CalledProcessError:
+            # Raise an error when the third attempt fails; the cloud is ill.
+            if attempt == 2:
+                raise
     # Sync buildvars.json files out to s3.
     url = 's3://juju-qa-data/juju-releases/weekly/'
     s3_path = '{}/weekly/{}'.format(path, timestamp)
@@ -204,6 +211,20 @@ def publish_candidates(path, streams_path,
     if not dry_run:
         s3_cmd(['sync', s3_path, url])
     extract_candidates(path, dry_run=dry_run, verbose=verbose)
+
+
+def _publish_streams(streams_path, publish_script,
+                     dry_run=False, verbose=False):
+    juju_dist_path = os.path.join(streams_path, 'juju-dist')
+    for attempt in range(3):
+        try:
+            command = [publish_script, 'weekly', juju_dist_path, 'cpc']
+            run_command(command, dry_run=dry_run, verbose=verbose)
+            break
+        except subprocess.CalledProcessError:
+            # Raise an error when the third attempt fails; the cloud is ill.
+            if attempt == 2:
+                raise
 
 
 def parse_args(args=None):

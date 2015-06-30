@@ -135,7 +135,7 @@ class ClientTestCase(TestCase):
                           side_effect=fake_list_machines(machine)):
             with patch.object(client, '_list_machine_tags', autospec=True,
                               return_value={'permanent': 'true'}) as lmt_mock:
-                with patch.object(client,  '_delete_running_machine',
+                with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
                     with patch.object(client, 'request_deletion',
                                       autospec=True) as rd_mock:
