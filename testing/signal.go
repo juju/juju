@@ -19,13 +19,11 @@ type SignalSuite struct {
 
 	// quit holds the channel used to tell handleSignal to exit.
 	quit chan bool
-
-	// sigfunc is called when a signal is received.
-	// As the signal is caught at this point, sigfunc is responsible for
-	// deciding to exit the process.
-	sigfunc func(c *gc.C, sig os.Signal)
 }
 
+// SetUpSuite registers sigfunc to be called when a signal is received.
+// As a terminating signal is caught at this point, sigfunc should cause the
+// process to exit. sigfunc should not return.
 func (s *SignalSuite) SetUpSuite(c *gc.C, sigfunc func(*gc.C, os.Signal)) {
 	if sigfunc == nil {
 		c.Fatal("sigfunc cannot be nil")
