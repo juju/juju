@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -190,4 +191,26 @@ func diffStrings(c *gc.C, value, expected string) {
 			break
 		}
 	}
+}
+
+// TestCleanup is used to allow DumpTestLogsAfter to take any test suite
+// that supports the standard cleanup function.
+type TestCleanup interface {
+	AddCleanup(testing.CleanupFunc)
+}
+
+// DumpTestLogsAfter will write the test logs to stdout if the timeout
+// is reached.
+func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
+	done := make(chan interface{})
+	go func() {
+		select {
+		case <-time.After(timeout):
+			fmt.Printf(c.GetTestLog())
+		case <-done:
+		}
+	}()
+	cleaner.AddCleanup(func(_ *gc.C) {
+		close(done)
+	})
 }
