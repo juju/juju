@@ -28,7 +28,22 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
-func (s *FilesystemStateSuite) TestAddServiceNoPool(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefault(c *gc.C) {
+	// no pool specified, no default configured: use rootfs.
+	s.testAddServiceDefaultPool(c, "rootfs")
+}
+
+func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
+	// no pool specified, default block configured: use default
+	// block with managed fs on top.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "machinescoped",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.testAddServiceDefaultPool(c, "machinescoped")
+}
+
+func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
@@ -39,7 +54,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
-			Pool:  "rootfs",
+			Pool:  expectedPool,
 			Size:  1024,
 			Count: 1,
 		},
