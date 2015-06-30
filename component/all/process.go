@@ -7,10 +7,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/process/api/server"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -48,6 +51,22 @@ func (c workloadProcesses) registerHookContext() {
 	)
 
 	c.registerHookContextCommands()
+
+	factory := func(state *state.State, _ *common.Resources, authorizer common.Authorizer) (server.HookContextAPI, error) {
+		if !authorizer.AuthUnitAgent() {
+			return server.HookContextAPI{}, common.ErrPerm
+		}
+
+		// TODO(natefinch): uncomment when the appropriate state functions exist.
+		// return  server.HookContextAPI{state}, nil
+		return server.HookContextAPI{}, common.ErrPerm
+	}
+
+	common.RegisterStandardFacade(
+		process.ComponentName,
+		0,
+		factory,
+	)
 }
 
 type workloadProcessesHookContext struct {
