@@ -72,6 +72,8 @@ func ImageDownloadURL(kind instance.ContainerType, series, arch string) (string,
 	// Use the ubuntu-cloudimg-query command to get the url from which to fetch the image.
 	// This will be somewhere on http://cloud-images.ubuntu.com.
 	cmd := exec.Command("ubuntu-cloudimg-query", series, "released", arch, "--format", "%{url}")
+	// TODO should pass the image-metadata-url parameter
+	cmd.Env = []string{"UBUNTU_CLOUDIMG_QUERY_BASEURL=http://cloud-images.ubuntu.com/query"}
 	urlBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		stderr := string(urlBytes)
