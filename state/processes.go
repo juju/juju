@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/process"
 )
 
+// TODO(ericsnow) Track juju-level status in the status collection.
+
 // RegisterProcess registers a workload process in state.
 func (st *State) RegisterProcess(unit names.UnitTag, info process.Info) error {
 	charm, err := st.unitCharm(unit)
