@@ -3,15 +3,40 @@
 
 package api
 
-// RegisterProcessArgs are the arguments for the RegisterProcess endpoint.
-type RegisterProcessArgs struct {
+import (
+	"github.com/juju/juju/apiserver/params"
+)
+
+// RegisterProcessArgs are the arguments for the RegisterProcesses endpoint.
+type RegisterProcessesArgs struct {
+	// Processes is the list of Processes to register
+	Processes []RegisterProcessArg
+}
+
+// RegisterProcessArg contains the arguments for a single RegisterProcess call.
+type RegisterProcessArg struct {
 	// UnitTag is the tag of the unit on which the process resides.
 	UnitTag string
 	// ProcessInfo contains information about the process being registered.
 	ProcessInfo
 }
 
-// ListProcessesArgs are the arguments for the ListProcesses endpoint.
+// ProcessResults is the result for a call that makes one or more requests
+// about processes.
+type ProcessResults struct {
+	// Results is the list of results.
+	Results []ProcessResult
+}
+
+// ProcessResult contains the result for a single call.
+type ProcessResult struct {
+	// ID is the id of the process referenced in the call..
+	ID string
+	// Error is the error (if any) for the call referring to ID.
+	Error *params.Error
+}
+
+// ListProcessesesArgs are the arguments for the ListProcesses endpoint.
 type ListProcessesArgs struct {
 	// UnitTag is the tag of the unit on which the process resides.
 	UnitTag string
@@ -19,21 +44,45 @@ type ListProcessesArgs struct {
 	IDs []string
 }
 
-// SetProcessStatusArgs are the arguments for the SetProcessStatus endpoint.
-type SetProcessStatusArgs struct {
-	// UnitTag is the tag of the unit on which the process resides.
-	UnitTag string
-	// ID is the ID of the process.
-	ID     string
-	Status ProcStatus
+// ListProcessesResults contains the results for a call to ListProcesses.
+type ListProcessesResults struct {
+	// Results is the list of process results.
+	Results []ListProcessResult
 }
 
-// UnregisterProcessArgs are the arguments for the UnregisterProcess endpoint.
-type UnregisterProcessArgs struct {
+// ListProcessResult contains the results for a single call to ListProcess.
+type ListProcessResult struct {
+	// ID is the id of the process this result applies to.
+	ID string
+	// Info holds the details of the process.
+	Info ProcessInfo
+	// Error holds the error retrieving this information (if any).
+	Error *params.Error
+}
+
+// SetProcessesStatusArgs are the arguments for the SetProcessesStatus endpoint.
+type SetProcessesStatusArgs struct {
+	// Args is the list of arguments to pass to this function.
+	Args []SetProcessStatusArg
+}
+
+// SetProcessStatusArg are the arguments for a single call to the
+// SetProcessStatus endpoint.
+type SetProcessStatusArg struct {
 	// UnitTag is the tag of the unit on which the process resides.
 	UnitTag string
 	// ID is the ID of the process.
 	ID string
+	// status is the status of the process.
+	Status ProcStatus
+}
+
+// UnregisterProcessesArgs are the arguments for the UnregisterProcesses endpoint.
+type UnregisterProcessesArgs struct {
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
+	// IDs is a list of IDs of processes.
+	IDs []string
 }
 
 // ProcessInfo contains information about a workload process.
