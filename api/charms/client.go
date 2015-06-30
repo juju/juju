@@ -53,3 +53,13 @@ func (c *Client) List(names []string) ([]string, error) {
 	}
 	return charms.CharmURLs, nil
 }
+
+// IsMetered returns whether or not the charm is metered.
+func (c *Client) IsMetered(charmURL string) (bool, error) {
+	args := params.CharmInfo{CharmURL: charmURL}
+	metered := &params.IsMeteredResult{}
+	if err := c.facade.FacadeCall("IsMetered", args, metered); err != nil {
+		return false, err
+	}
+	return metered.Metered, nil
+}
