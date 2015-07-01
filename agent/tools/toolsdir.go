@@ -50,13 +50,13 @@ func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, er
 	sha256hash := sha256.New()
 	zr, err := gzip.NewReader(io.TeeReader(r, sha256hash))
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer zr.Close()
 
 	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -65,7 +65,7 @@ func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, er
 	}()
 	_, err = io.Copy(f, zr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// TODO(wallyworld) - 2013-09-24 bug=1229512
@@ -79,9 +79,9 @@ func getTarArchiveAndCheckSHA(tools *coretools.Tools, r io.Reader) (*os.File, er
 	// Checksum matches, now reset the file and untar it.
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return f, err
+	return f, errors.Trace(err)
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive
@@ -94,7 +94,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	toolsDir := path.Join(dataDir, "tools")
 	err = os.MkdirAll(toolsDir, dirPerm)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
 	if err != nil {
@@ -113,18 +113,18 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 
 	toolsMetadataData, err := json.Marshal(tools)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	err = ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), 0644)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// The tempdir is created with 0700, so we need to make it more
 	// accessable for juju-run.
 	err = os.Chmod(dir, dirPerm)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Version))
@@ -153,7 +153,7 @@ func unpackTarTools(dir string, tools *coretools.Tools, r io.Reader) (err error)
 			break
 		}
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		if strings.ContainsAny(hdr.Name, "/\\") {
 			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
@@ -170,9 +170,15 @@ func unpackTarTools(dir string, tools *coretools.Tools, r io.Reader) (err error)
 }
 
 func unpackZipTools(dir string, tools *coretools.Tools, r io.Reader) (err error) {
-	b, err := ioutil.ReadAll(r)
+	// Read contents of file and compute checksum
+	sha256hash := sha256.New()
+	b, err := ioutil.ReadAll(io.TeeReader(r, sha256hash))
 	if err != nil {
 		return errors.Annotate(err, "could not read zip archive")
+	}
+	zipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	if tools.SHA256 != "" && tools.SHA256 != zipSHA256 {
+		return fmt.Errorf("zip sha256 mismatch, expected %s, got %s", tools.SHA256, zipSHA256)
 	}
 	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {

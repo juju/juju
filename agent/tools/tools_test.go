@@ -72,11 +72,11 @@ func initBadDataTest(name string, mode os.FileMode, contents string, err string)
 }
 
 var unpackToolsBadDataTests = []badDataTest{
-	initBadDataTest("bar", os.ModeDir, "", "bad file type.*"),
-	initBadDataTest("../../etc/passwd", agenttools.DirPerm, "", "bad name.*"),
-	initBadDataTest(`\ini.sys`, agenttools.DirPerm, "", "bad name.*"),
-	{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
-	{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
+	initBadDataTest("bar", os.ModeDir, "", "could not unarchive tools: bad file type.*"),
+	initBadDataTest("../../etc/passwd", agenttools.DirPerm, "", "could not unarchive tools: bad name.*"),
+	initBadDataTest(`\ini.sys`, agenttools.DirPerm, "", "could not unarchive tools: bad name.*"),
+	{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "could not unarchive tools: could not extract .tar out of .tar.gz: unexpected EOF"},
+	{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "could not unarchive tools: archive/tar: invalid tar header"},
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
@@ -103,9 +103,7 @@ func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
 		SHA256:  "1234",
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, "tarball sha256 mismatch, expected 1234, got .*")
-	_, err = os.Stat(t.toolsDir())
-	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
+	c.Assert(err, gc.ErrorMatches, "could not unarchive tools: could not extract .tar out of .tar.gz: tarball sha256 mismatch, expected 1234, got .*")
 }
 
 func (t *ToolsSuite) toolsDir() string {
