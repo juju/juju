@@ -319,12 +319,6 @@ func (srv *Server) run(lis net.Listener) {
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
 	srv.wg.Add(1)
 	go func() {
-		<-srv.tomb.Dying()
-		lis.Close()
-		srv.wg.Done()
-	}()
-	srv.wg.Add(1)
-	go func() {
 		err := srv.mongoPinger()
 		srv.tomb.Kill(err)
 		srv.wg.Done()
@@ -400,8 +394,14 @@ func (srv *Server) run(lis net.Listener) {
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
-	// The error from http.Serve is not interesting.
-	http.Serve(lis, mux)
+
+	go func() {
+		// The error from http.Serve is not interesting.
+		http.Serve(lis, mux)
+	}()
+
+	<-srv.tomb.Dying()
+	lis.Close()
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
