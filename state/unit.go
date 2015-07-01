@@ -1186,9 +1186,17 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
-		m.doc.Id, volumesAttached, filesystemsAttached,
-	))
+	// addMachineStorageAttachmentsOps will add a txn.Op that ensures
+	// that no filesystems were concurrently added to the machine if
+	// any of the filesystems being attached specify a location. If
+	// a filesystem is added concurrently, then inUseErr will result.
+	attachmentOps, err := addMachineStorageAttachmentsOps(
+		m, volumesAttached, filesystemsAttached,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageOps = append(storageOps, attachmentOps...)
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1257,7 +1265,10 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStorageParams(m.st, params)
+	if err := validateDynamicStorageParams(m.st, params); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // validateDynamicStorageParams validates that all storage providers required for
@@ -1670,6 +1681,7 @@ func machineStorageParamsForStorageInstance(
 			)
 		}
 		filesystemAttachmentParams := FilesystemAttachmentParams{
+			charmStorage.Location == "", // auto-generated location
 			location,
 			charmStorage.ReadOnly,
 		}
@@ -1840,7 +1852,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// If any required storage s not all dynamic, then assigning
+	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
 	if err != nil {

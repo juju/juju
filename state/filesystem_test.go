@@ -850,12 +850,38 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		`must not fall within "/var/lib/juju/storage"`)
 }
 
+func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C) {
+	// this creates a filesystem mounted at "/srv".
+	_, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: 1,
+		CountMax: 1,
+		Location: "/srv/within",
+	})
+	svc := s.AddTestingService(c, "storage-filesystem", ch)
+
+	u, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot assign unit "storage-filesystem/0" to machine 0: `+
+			`validating filesystem mount points: `+
+			`mount point "/srv" for filesystem 0/0 contains `+
+			`mount point "/srv/within" for "data" storage`)
+}
+
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: pool, Size: 1024},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "/srv",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
