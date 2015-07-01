@@ -193,16 +193,7 @@ def publish_candidates(path, streams_path,
             assemble_script, '-t', debs_path, 'weekly', 'IGNORE',
             streams_path]
         run_command(command, dry_run=dry_run, verbose=verbose)
-    juju_dist_path = os.path.join(streams_path, 'juju-dist')
-    for attempt in range(3):
-        try:
-            command = [publish_script, 'weekly', juju_dist_path, 'cpc']
-            run_command(command, dry_run=dry_run, verbose=verbose)
-            break
-        except subprocess.CalledProcessError:
-            # Raise an error when the third attempt fails; the cloud is ill.
-            if attempt == 2:
-                raise
+    publish(streams_path, publish_script, dry_run=dry_run, verbose=verbose)
     # Sync buildvars.json files out to s3.
     url = 's3://juju-qa-data/juju-releases/weekly/'
     s3_path = '{}/weekly/{}'.format(path, timestamp)
