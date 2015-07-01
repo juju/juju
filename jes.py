@@ -62,19 +62,15 @@ def deploy_dummy_stack_in_environ(client, charm_prefix, env_name):
     env = client._shell_environ(dev_flags=['jes'])
     # first create the environment
     client.juju(
-        "system",
-        ("create-environment", env_name),
-        include_e=False,
+        "system create-environment", (env_name,),
         extra_env=env,
     )
 
     # switch to environment
     client.env.environment = env_name
-    # -e flag needs to be appended to environment commands.
     client.juju(
-        "environment",
-        ("set", "default-series=trusty", "-e", env_name),
-        include_e=False,
+        "environment set",
+        ("default-series=trusty", "-e", env_name),
         extra_env=env,
     )
 

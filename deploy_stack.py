@@ -17,7 +17,6 @@ import json
 import shutil
 from jujuconfig import (
     get_jenv_path,
-    get_cache_path,
     get_juju_home,
     translate_to_env,
 )
@@ -26,6 +25,7 @@ from jujupy import (
     get_local_root,
     SimpleEnvironment,
     temp_bootstrap_env,
+    get_cache_path,
 )
 from remote import Remote
 from substrate import (

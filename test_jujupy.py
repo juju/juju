@@ -45,6 +45,7 @@ from jujupy import (
     uniquify_local,
     make_client,
     parse_new_state_server_from_error,
+    get_cache_path,
 )
 from utility import (
     scoped_environ,
@@ -2414,3 +2415,9 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
     def test_parse_new_state_server_from_error_no_output(self):
         address = parse_new_state_server_from_error(Exception())
         self.assertIs(None, address)
+
+
+class TestConfig(TestCase):
+
+    def test_get_cache_path(self):
+        self.assertEqual('home/environments/cache.yaml', get_cache_path('home'))

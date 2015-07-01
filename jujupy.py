@@ -642,6 +642,8 @@ class EnvJujuClient24(EnvJujuClient25):
 def get_local_root(juju_home, env):
     return os.path.join(juju_home, env.environment)
 
+def get_cache_path(juju_home):
+    return os.path.join(juju_home, 'environments', 'cache.yaml')
 
 def ensure_dir(path):
     try:

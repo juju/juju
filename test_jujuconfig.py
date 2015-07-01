@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from jujuconfig import (
     describe_substrate,
-    get_cache_path,
     get_jenv_path,
 )
 
@@ -50,9 +49,6 @@ class TestDescribeSubstrate(TestCase):
 
 
 class TestConfig(TestCase):
-
-    def test_get_cache_path(self):
-        self.assertEqual('home/environments/cache.yaml', get_cache_path('home'))
 
     def test_get_jenv_path(self):
         self.assertEqual('home/environments/envname.jenv', get_jenv_path('home', 'envname'))
