@@ -86,7 +86,7 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, s.processInfo.Details.ID)
+	c.Check(ids[0], gc.Equals, papi.ProcessResult{ID: s.processInfo.Details.ID, Error: nil})
 }
 
 func (s *clientSuite) TestListAllProcesses(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 
 	c.Check(len(processes), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(processes[0], gc.DeepEquals, s.processInfo)
+	c.Check(processes[0], gc.DeepEquals, papi.ListProcessResult{ID: "idfoo", Info: s.processInfo, Error: nil})
 }
 
 func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
