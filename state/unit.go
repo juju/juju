@@ -1179,10 +1179,15 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return errors.Trace(err)
 	}
-	storageOps, err := u.st.machineStorageOps(&m.doc, storageParams)
+	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
+		&m.doc, storageParams,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1636,6 +1641,7 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -1663,6 +1669,7 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}

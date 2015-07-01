@@ -10,11 +10,15 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/lease"
 )
 
 // Clock exposes time via Now, and can be controlled via Reset and Advance. It
-// can be configured to Advance automatically whenever Now is called.
+// can be configured to Advance automatically whenever Now is called. Attempts
+// to call Alarm will panic: they're not useful to a lease.Client itself, but
+// are extremely helpful when driving one.
 type Clock struct {
+	lease.Clock
 	now  time.Time
 	step time.Duration
 }
@@ -22,7 +26,7 @@ type Clock struct {
 // NewClock returns a *Clock, set to now, that advances by step whenever Now()
 // is called.
 func NewClock(now time.Time, step time.Duration) *Clock {
-	return &Clock{now, step}
+	return &Clock{now: now, step: step}
 }
 
 // Now is part of the lease.Clock interface.

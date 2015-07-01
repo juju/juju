@@ -19,7 +19,7 @@ github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/jujusvg	git	28683402583926ce903491c14a07cdc5cb371adb	2015-04-10T08:55:05Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
-github.com/juju/names	git	a597dd52044cc5a702844642b5cb6e09870422db	2015-04-28T12:56:57Z
+github.com/juju/names	git	4c70644adb1d8beef5d94bda6a60acd845bcbb8f	2015-06-19T11:06:44Z
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
@@ -35,7 +35,7 @@ golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:0
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	fa965cc75d3936912a8e608318d3427120c1ef21	2015-06-04T08:58:42Z
-gopkg.in/check.v1	git	64131543e7896d5bcc6bd5a76287eb75ea96c673	2014-10-24T13:38:53Z
+gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2014-10-24T13:38:53Z
 gopkg.in/errgo.v1	git	81357a83344ddd9f7772884874e5622c2a3da21c	2014-10-13T17:33:38Z
 gopkg.in/goose.v1	git	f8f381831ce7938d81b141ad37559a9edc963412	2015-05-25T23:38:03Z
 gopkg.in/juju/charm.v5	git	39463053128b672308c459958d00f260b58ce79e	2015-05-14T10:50:35Z

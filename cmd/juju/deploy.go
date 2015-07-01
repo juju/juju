@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -291,6 +292,20 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.ToMachineSpec)
 	}
+
+	if err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
+	state, err := c.NewAPIRoot()
+	if err != nil {
+		return err
+	}
+	err = registerMeteredCharm(state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
+	if err != nil {
+		return err
+	}
+
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -319,4 +334,36 @@ func networkNamesToTags(networks []string) ([]string, error) {
 		tags = append(tags, names.NewNetworkTag(network).String())
 	}
 	return tags, nil
+}
+
+type metricCredentialsAPI interface {
+	SetMetricCredentials(string, []byte) error
+	Close() error
+}
+
+type metricsCredentialsAPIImpl struct {
+	api   *apiservice.Client
+	state *api.State
+}
+
+// SetMetricCredentials sets the credentials on the service.
+func (s *metricsCredentialsAPIImpl) SetMetricCredentials(serviceName string, data []byte) error {
+	return s.api.SetMetricCredentials(serviceName, data)
+}
+
+// Close closes the api connection
+func (s *metricsCredentialsAPIImpl) Close() error {
+	err := s.api.Close()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.state.Close()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+var getMetricCredentialsAPI = func(state *api.State) (metricCredentialsAPI, error) {
+	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
 }

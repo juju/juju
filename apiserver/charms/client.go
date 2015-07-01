@@ -26,6 +26,7 @@ var getState = func(st *state.State) charmsAccess {
 type Charms interface {
 	List(args params.CharmsList) (params.CharmsListResult, error)
 	CharmInfo(args params.CharmInfo) (api.CharmInfo, error)
+	IsMetered(args params.CharmInfo) (bool, error)
 }
 
 // API implements the charms interface and is the concrete
@@ -93,4 +94,20 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 		charmURLs = append(charmURLs, charmURL.String())
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
+}
+
+// IsMetered returns whether or not the charm is metered.
+func (a *API) IsMetered(args params.CharmInfo) (params.IsMeteredResult, error) {
+	curl, err := charm.ParseURL(args.CharmURL)
+	if err != nil {
+		return params.IsMeteredResult{false}, err
+	}
+	aCharm, err := a.access.Charm(curl)
+	if err != nil {
+		return params.IsMeteredResult{false}, err
+	}
+	if aCharm.Metrics() != nil && len(aCharm.Metrics().Metrics) > 0 {
+		return params.IsMeteredResult{true}, nil
+	}
+	return params.IsMeteredResult{false}, nil
 }

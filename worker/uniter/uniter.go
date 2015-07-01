@@ -277,7 +277,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	)
 
 	operationExecutor, err := operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL,
+		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
 	)
 	if err != nil {
 		return err
@@ -421,4 +421,25 @@ func (u *Uniter) runOperation(creator creator) error {
 		}
 	}()
 	return u.operationExecutor.Run(op)
+}
+
+// acquireExecutionLock acquires the machine-level execution lock, and
+// returns a func that must be called to unlock it. It's used by operation.Executor
+// when running operations that execute external code.
+func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// Uniter's tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return nil
+		}
+	}
+	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
+	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+		return nil, err
+	}
+	return func() error { return u.hookLock.Unlock() }, nil
 }

@@ -16,6 +16,11 @@ func (op *skipOperation) String() string {
 	return fmt.Sprintf("skip %s", op.Operation)
 }
 
+// NeedsGlobalMachineLock is part of the Operation interface.
+func (op *skipOperation) NeedsGlobalMachineLock() bool {
+	return false
+}
+
 // Prepare is part of the Operation interface.
 func (op *skipOperation) Prepare(state State) (*State, error) {
 	return nil, ErrSkipExecute

@@ -144,6 +144,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotProvisioned
 	case state.IsUpgradeInProgressError(err):
 		code = params.CodeUpgradeInProgress
+	case state.IsHasAttachmentsError(err):
+		code = params.CodeMachineHasAttachedStorage
 	case IsUnknownEnviromentError(err):
 		code = params.CodeNotFound
 	default:
