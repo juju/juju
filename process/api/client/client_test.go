@@ -15,8 +15,9 @@ func Test(t *testing.T) {
 }
 
 type clientSuite struct {
-	stub *stubFacade
-	tag  string
+	stub        *stubFacade
+	tag         string
+	processInfo papi.ProcessInfo
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -24,33 +25,7 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.tag = "machine-tag"
 	s.stub = &stubFacade{}
-}
-
-func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
-	numStubCalls := 0
-	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
-		numStubCalls++
-		c.Check(name, gc.Equals, "RegisterProcesses")
-
-		typedResponse, ok := response.(*papi.ProcessResults)
-		c.Assert(ok, gc.Equals, true)
-
-		typedParams, ok := params.(*papi.RegisterProcessesArgs)
-		c.Assert(ok, gc.Equals, true)
-
-		for _, rpa := range typedParams.Processes {
-			typedResponse.Results = append(typedResponse.Results, papi.ProcessResult{
-				ID:    rpa.ProcessInfo.Details.ID,
-				Error: nil,
-			})
-		}
-
-		return nil
-	}
-
-	client := pclient.NewProcessClient(s.stub, s.stub)
-
-	processInfo := papi.ProcessInfo{
+	s.processInfo = papi.ProcessInfo{
 		Process: papi.Process{
 			Name:        "foobar",
 			Description: "desc",
@@ -78,14 +53,40 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 		},
 	}
 
-	unregisteredProcesses := []papi.ProcessInfo{processInfo}
+}
+
+func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
+	numStubCalls := 0
+	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
+		numStubCalls++
+		c.Check(name, gc.Equals, "RegisterProcesses")
+
+		typedResponse, ok := response.(*papi.ProcessResults)
+		c.Assert(ok, gc.Equals, true)
+
+		typedParams, ok := params.(*papi.RegisterProcessesArgs)
+		c.Assert(ok, gc.Equals, true)
+
+		for _, rpa := range typedParams.Processes {
+			typedResponse.Results = append(typedResponse.Results, papi.ProcessResult{
+				ID:    rpa.ProcessInfo.Details.ID,
+				Error: nil,
+			})
+		}
+
+		return nil
+	}
+
+	client := pclient.NewProcessClient(s.stub, s.stub)
+
+	unregisteredProcesses := []papi.ProcessInfo{s.processInfo}
 
 	ids, err := client.RegisterProcesses(s.tag, unregisteredProcesses)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, processInfo.Details.ID)
+	c.Check(ids[0], gc.Equals, s.processInfo.Details.ID)
 }
 
 func (s *clientSuite) TestListAllProcesses(c *gc.C) {
@@ -94,6 +95,13 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
 		c.Check(name, gc.Equals, "ListProcesses")
+
+		typedResponse, ok := response.(*papi.ListProcessesResults)
+		c.Assert(ok, gc.Equals, true)
+
+		result := papi.ListProcessResult{ID: s.processInfo.Details.ID, Info: s.processInfo, Error: nil}
+		typedResponse.Results = append(typedResponse.Results, result)
+
 		return nil
 	}
 	client := pclient.NewProcessClient(s.stub, s.stub)
@@ -101,8 +109,9 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 	processes, err := client.ListProcesses(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(len(processes), gc.Equals, 0)
+	c.Check(len(processes), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(processes[0], gc.DeepEquals, s.processInfo)
 }
 
 func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
