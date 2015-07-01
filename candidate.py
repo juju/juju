@@ -213,8 +213,7 @@ def publish_candidates(path, streams_path,
     extract_candidates(path, dry_run=dry_run, verbose=verbose)
 
 
-def _publish_streams(streams_path, publish_script,
-                     dry_run=False, verbose=False):
+def publish(streams_path, publish_script, dry_run=False, verbose=False):
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
     for attempt in range(3):
         try:
