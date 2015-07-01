@@ -19,6 +19,8 @@ import (
 
 const workloadProcessesC = "workloadprocesses"
 
+// TODO(ericsnow) These two functions are copied from state.
+
 func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
@@ -27,17 +29,12 @@ func charmGlobalKey(charmURL *charm.URL) string {
 	return "c#" + charmURL.String()
 }
 
-//type Persistence struct {
-//	st    PersistenceBase
-//	charm names.CharmTag
-//	unit  names.UnitTag
-//}
+// TOOD(ericsnow) Move the methods under their own type.
 
 func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]ProcessDefinitionDoc, error) {
 	var docs []ProcessDefinitionDoc
-	//query := bson.M{"_id": bson.M{"$in": ids}}
-	query := bson.M{"$in": ids}
-	if err := pp.all(query, &docs); err != nil {
+	query := bson.D{{"$in", ids}}
+	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	indexed := make(map[interface{}]ProcessDefinitionDoc)
@@ -110,8 +107,15 @@ func (pp Persistence) one(id string, doc interface{}) error {
 	return errors.Trace(pp.st.One(workloadProcessesC, id, doc))
 }
 
-func (pp Persistence) all(query, docs interface{}) error {
+func (pp Persistence) all(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.st.All(workloadProcessesC, query, docs))
+}
+
+func (pp Persistence) allID(query bson.D, docs interface{}) error {
+	if query != nil {
+		query = bson.D{{"_id", query}}
+	}
+	return errors.Trace(pp.all(query, docs))
 }
 
 func (pp Persistence) definitionID(id string) string {
@@ -233,6 +237,7 @@ func (d processInfoDoc) info() process.Info {
 type ProcessDefinitionDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
+	DocKind string `bson:"dockind"`
 
 	UnitID string `bson:"unitid"`
 
@@ -289,8 +294,9 @@ func (pp Persistence) newProcessDefinitionDoc(definition charm.Process) *Process
 	}
 
 	return &ProcessDefinitionDoc{
-		DocID:  id,
-		UnitID: pp.unit.Id(),
+		DocID:   id,
+		UnitID:  pp.unit.Id(),
+		DocKind: "definition",
 
 		Name:        definition.Name,
 		Description: definition.Description,
@@ -316,8 +322,7 @@ func (pp Persistence) definition(id string) (*ProcessDefinitionDoc, error) {
 
 func (pp Persistence) allDefinitions() (map[string]ProcessDefinitionDoc, error) {
 	var docs []ProcessDefinitionDoc
-	prefix := pp.definitionID(".*")
-	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	query := bson.D{{"dockind", "definition"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -342,8 +347,8 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 	}
 
 	var docs []ProcessDefinitionDoc
-	query := bson.M{"$in": fullIDs}
-	if err := pp.all(query, &docs); err != nil {
+	query := bson.D{{"$in", fullIDs}}
+	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -359,6 +364,7 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 type ProcessLaunchDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
+	DocKind string `bson:"dockind"`
 
 	PluginID  string `bson:"pluginid"`
 	RawStatus string `bson:"rawstatus"`
@@ -376,7 +382,8 @@ func (d ProcessLaunchDoc) details() process.Details {
 func (pp Persistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 	id := pp.launchID(info.ID())
 	return &ProcessLaunchDoc{
-		DocID: id,
+		DocID:   id,
+		DocKind: "launch",
 
 		PluginID:  info.Details.ID,
 		RawStatus: info.Details.Status.Label,
@@ -395,8 +402,7 @@ func (pp Persistence) launch(id string) (*ProcessLaunchDoc, error) {
 
 func (pp Persistence) allLaunches() (map[string]ProcessLaunchDoc, error) {
 	var docs []ProcessLaunchDoc
-	prefix := pp.launchID(".*")
-	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	query := bson.D{{"dockind", "launch"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -420,8 +426,8 @@ func (pp Persistence) launches(ids []string) (map[string]ProcessLaunchDoc, error
 	}
 
 	var docs []ProcessLaunchDoc
-	query := bson.M{"$in": fullIDs}
-	if err := pp.all(query, &docs); err != nil {
+	query := bson.D{{"$in", fullIDs}}
+	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -449,6 +455,7 @@ var IsAliveDoc = bson.D{{"life", Alive}}
 type ProcessDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
+	DocKind string `bson:"dockind"`
 
 	Life         Life   `bson:"life"`
 	PluginStatus string `bson:"pluginstatus"`
@@ -468,7 +475,8 @@ func (pp Persistence) newProcessDoc(info process.Info) *ProcessDoc {
 	id := pp.processID(info.ID())
 
 	return &ProcessDoc{
-		DocID: id,
+		DocID:   id,
+		DocKind: "process",
 
 		Life:         Alive,
 		PluginStatus: info.Details.Status.Label,
@@ -487,8 +495,7 @@ func (pp Persistence) proc(id string) (*ProcessDoc, error) {
 
 func (pp Persistence) allProcs() (map[string]ProcessDoc, error) {
 	var docs []ProcessDoc
-	prefix := pp.processID("[^#]*")
-	query := bson.M{"$in": []string{"/^" + prefix + "/"}}
+	query := bson.D{{"dockind", "process"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -512,8 +519,8 @@ func (pp Persistence) procs(ids []string) (map[string]ProcessDoc, error) {
 	}
 
 	var docs []ProcessDoc
-	query := bson.M{"$in": fullIDs}
-	if err := pp.all(query, &docs); err != nil {
+	query := bson.D{{"$in", fullIDs}}
+	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
