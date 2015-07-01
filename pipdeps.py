@@ -52,7 +52,8 @@ def command_install(bucket, verbose=False):
         for key in bucket.list(prefix=PREFIX):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
-        run_pip_install(["--user", "--no-index", "--find-links", archives_dir],
+        archives_url = "file://" + archives_dir
+        run_pip_install(["--user", "--no-index", "--find-links", archives_url],
                         verbose=verbose)
 
 
