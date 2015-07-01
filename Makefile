@@ -13,4 +13,5 @@ install-deps: juju-ci-tools.common_0.1.0-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.0-0_all.deb || true
 	sudo apt-get install -y -f
 	sudo apt-get install -y juju-local juju juju-quickstart juju-deployer
+	./pipdeps.py install
 .PHONY: lint test apt-update install-deps
