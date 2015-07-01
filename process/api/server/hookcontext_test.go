@@ -22,34 +22,32 @@ func (suite) TestRegisterProcess(c *gc.C) {
 	a := HookContextAPI{st}
 
 	args := api.RegisterProcessesArgs{
-		Processes: []api.RegisterProcessArg{{
-			UnitTag: "foo/0",
-			Process: api.Process{
-				Definition: api.ProcessDefinition{
-					Name:        "foobar",
-					Description: "desc",
-					Type:        "type",
-					TypeOptions: map[string]string{"foo": "bar"},
-					Command:     "cmd",
-					Image:       "img",
-					Ports: []api.ProcessPort{{
-						External: 8080,
-						Internal: 80,
-						Endpoint: "endpoint",
-					}},
-					Volumes: []api.ProcessVolume{{
-						ExternalMount: "/foo/bar",
-						InternalMount: "/baz/bat",
-						Mode:          "ro",
-						Name:          "volname",
-					}},
-					EnvVars: map[string]string{"envfoo": "bar"},
-				},
-				Details: api.ProcessDetails{
-					ID: "idfoo",
-					Status: api.ProcessStatus{
-						Label: "running",
-					},
+		UnitTag: "foo/0",
+		Processes: []api.Process{{
+			Definition: api.ProcessDefinition{
+				Name:        "foobar",
+				Description: "desc",
+				Type:        "type",
+				TypeOptions: map[string]string{"foo": "bar"},
+				Command:     "cmd",
+				Image:       "img",
+				Ports: []api.ProcessPort{{
+					External: 8080,
+					Internal: 80,
+					Endpoint: "endpoint",
+				}},
+				Volumes: []api.ProcessVolume{{
+					ExternalMount: "/foo/bar",
+					InternalMount: "/baz/bat",
+					Mode:          "ro",
+					Name:          "volname",
+				}},
+				EnvVars: map[string]string{"envfoo": "bar"},
+			},
+			Details: api.ProcessDetails{
+				ID: "idfoo",
+				Status: api.ProcessStatus{
+					Label: "running",
 				},
 			},
 		}},
@@ -61,7 +59,7 @@ func (suite) TestRegisterProcess(c *gc.C) {
 
 	expectedResults := api.ProcessResults{
 		Results: []api.ProcessResult{{
-			ID:    "idfoo",
+			ID:    "foobar/idfoo",
 			Error: nil,
 		}},
 	}
@@ -104,7 +102,7 @@ func (suite) TestRegisterProcess(c *gc.C) {
 	c.Assert(st.info, gc.DeepEquals, expected)
 }
 
-func (suite) TestListProcesses(c *gc.C) {
+func (suite) TestListProcessesOne(c *gc.C) {
 	proc := process.Info{
 		Process: charm.Process{
 			Name:        "foobar",
@@ -137,11 +135,11 @@ func (suite) TestListProcesses(c *gc.C) {
 			},
 		},
 	}
-	st := &FakeState{info: proc}
+	st := &FakeState{procs: []process.Info{proc}}
 	a := HookContextAPI{st}
 	args := api.ListProcessesArgs{
 		UnitTag: "foo/0",
-		IDs:     []string{"idfoo"},
+		IDs:     []string{"foobar/idfoo"},
 	}
 	results, err := a.ListProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,7 +179,92 @@ func (suite) TestListProcesses(c *gc.C) {
 
 	expectedResults := api.ListProcessesResults{
 		Results: []api.ListProcessResult{{
-			ID:    "idfoo",
+			ID:    "foobar/idfoo",
+			Info:  expected,
+			Error: nil,
+		}},
+	}
+
+	c.Assert(results, gc.DeepEquals, expectedResults)
+}
+
+func (suite) TestListProcessesAll(c *gc.C) {
+	proc := process.Info{
+		Process: charm.Process{
+			Name:        "foobar",
+			Description: "desc",
+			Type:        "type",
+			TypeOptions: map[string]string{"foo": "bar"},
+			Command:     "cmd",
+			Image:       "img",
+			Ports: []charm.ProcessPort{
+				{
+					External: 8080,
+					Internal: 80,
+					Endpoint: "endpoint",
+				},
+			},
+			Volumes: []charm.ProcessVolume{
+				{
+					ExternalMount: "/foo/bar",
+					InternalMount: "/baz/bat",
+					Mode:          "ro",
+					Name:          "volname",
+				},
+			},
+			EnvVars: map[string]string{"envfoo": "bar"},
+		},
+		Details: process.Details{
+			ID: "idfoo",
+			Status: process.Status{
+				Label: "running",
+			},
+		},
+	}
+	st := &FakeState{procs: []process.Info{proc}}
+	a := HookContextAPI{st}
+	args := api.ListProcessesArgs{
+		UnitTag: "foo/0",
+	}
+	results, err := a.ListProcesses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := api.Process{
+		Definition: api.ProcessDefinition{
+			Name:        "foobar",
+			Description: "desc",
+			Type:        "type",
+			TypeOptions: map[string]string{"foo": "bar"},
+			Command:     "cmd",
+			Image:       "img",
+			Ports: []api.ProcessPort{
+				{
+					External: 8080,
+					Internal: 80,
+					Endpoint: "endpoint",
+				},
+			},
+			Volumes: []api.ProcessVolume{
+				{
+					ExternalMount: "/foo/bar",
+					InternalMount: "/baz/bat",
+					Mode:          "ro",
+					Name:          "volname",
+				},
+			},
+			EnvVars: map[string]string{"envfoo": "bar"},
+		},
+		Details: api.ProcessDetails{
+			ID: "idfoo",
+			Status: api.ProcessStatus{
+				Label: "running",
+			},
+		},
+	}
+
+	expectedResults := api.ListProcessesResults{
+		Results: []api.ListProcessResult{{
+			ID:    "foobar/idfoo",
 			Info:  expected,
 			Error: nil,
 		}},
@@ -194,9 +277,9 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := api.SetProcessesStatusArgs{
+		UnitTag: "foo/0",
 		Args: []api.SetProcessStatusArg{{
-			UnitTag: "foo/0",
-			ID:      "fooID",
+			ID: "fooID",
 			Status: api.ProcessStatus{
 				Label: "statusfoo",
 			},
@@ -246,35 +329,38 @@ type FakeState struct {
 	// inputs
 	unit   names.UnitTag
 	id     string
+	ids    []string
 	status *process.Status
 
 	// info is used as input and output
 	info process.Info
 
 	//outputs
-	err error
+	procs []process.Info
+	err   error
 }
 
-func (f *FakeState) RegisterProcess(unit names.UnitTag, info process.Info) error {
+func (f *FakeState) UnitProcesses(unit names.UnitTag) (UnitProcesses, error) {
 	f.unit = unit
+	return f, nil
+}
+
+func (f *FakeState) Register(info process.Info) error {
 	f.info = info
 	return f.err
 }
-func (f *FakeState) ListProcess(unit names.UnitTag, id string) (process.Info, error) {
-	f.unit = unit
-	f.id = id
-	return f.info, f.err
+func (f *FakeState) List(ids ...string) ([]process.Info, error) {
+	f.ids = ids
+	return f.procs, f.err
 }
 
-func (f *FakeState) SetProcessStatus(unit names.UnitTag, id string, status process.Status) error {
-	f.unit = unit
+func (f *FakeState) SetStatus(id string, status process.Status) error {
 	f.id = id
 	f.status = &status
 	return f.err
 }
 
-func (f *FakeState) UnregisterProcess(unit names.UnitTag, id string) error {
-	f.unit = unit
+func (f *FakeState) Unregister(id string) error {
 	f.id = id
 	return f.err
 }

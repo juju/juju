@@ -52,14 +52,14 @@ func (c workloadProcesses) registerHookContext() {
 
 	c.registerHookContextCommands()
 
-	factory := func(state *state.State, _ *common.Resources, authorizer common.Authorizer) (server.HookContextAPI, error) {
+	factory := func(state *state.State, _ *common.Resources, authorizer common.Authorizer) (*server.HookContextAPI, error) {
 		if !authorizer.AuthUnitAgent() {
-			return server.HookContextAPI{}, common.ErrPerm
+			return nil, common.ErrPerm
 		}
 
 		// TODO(natefinch): uncomment when the appropriate state functions exist.
-		// return  server.HookContextAPI{state}, nil
-		return server.HookContextAPI{}, common.ErrPerm
+		// return server.NewHookContextAPI(state), nil
+		return nil, common.ErrPerm
 	}
 
 	common.RegisterStandardFacade(

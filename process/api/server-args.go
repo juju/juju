@@ -4,21 +4,20 @@
 package api
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/params"
 )
 
+// BulkFailure indicates that at least one arg failed.
+var BulkFailure = errors.Errorf("at least one bulk arg has an error")
+
 // RegisterProcessArgs are the arguments for the RegisterProcesses endpoint.
 type RegisterProcessesArgs struct {
-	// Processes is the list of Processes to register
-	Processes []RegisterProcessArg
-}
-
-// RegisterProcessArg contains the arguments for a single RegisterProcess call.
-type RegisterProcessArg struct {
-	// UnitTag is the tag of the unit on which the process resides.
+	// UnitTag is the tag of the unit on which the processes reside.
 	UnitTag string
-	// Process contains information about the process being registered.
-	Process
+	// Processes is the list of Processes to register
+	Processes []Process
 }
 
 // ProcessResults is the result for a call that makes one or more requests
@@ -26,6 +25,8 @@ type RegisterProcessArg struct {
 type ProcessResults struct {
 	// Results is the list of results.
 	Results []ProcessResult
+	// Error is the error (if any) for the call as a whole.
+	Error *params.Error
 }
 
 // ProcessResult contains the result for a single call.
@@ -48,6 +49,8 @@ type ListProcessesArgs struct {
 type ListProcessesResults struct {
 	// Results is the list of process results.
 	Results []ListProcessResult
+	// Error is the error (if any) for the call as a whole.
+	Error *params.Error
 }
 
 // ListProcessResult contains the results for a single call to ListProcess.
@@ -62,6 +65,8 @@ type ListProcessResult struct {
 
 // SetProcessesStatusArgs are the arguments for the SetProcessesStatus endpoint.
 type SetProcessesStatusArgs struct {
+	// UnitTag is the tag of the unit on which the process resides.
+	UnitTag string
 	// Args is the list of arguments to pass to this function.
 	Args []SetProcessStatusArg
 }
@@ -69,8 +74,6 @@ type SetProcessesStatusArgs struct {
 // SetProcessStatusArg are the arguments for a single call to the
 // SetProcessStatus endpoint.
 type SetProcessStatusArg struct {
-	// UnitTag is the tag of the unit on which the process resides.
-	UnitTag string
 	// ID is the ID of the process.
 	ID string
 	// status is the status of the process.
