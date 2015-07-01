@@ -16,10 +16,6 @@ import os
 import sys
 from time import sleep
 
-AZURE_PACKAGE = os.path.realpath(os.path.join(
-    os.path.dirname(__file__), 'azure-sdk-for-python-master'))
-sys.path.insert(0, AZURE_PACKAGE)
-
 from azure.servicemanagement import (
     AZURE_MANAGEMENT_CERTFILE,
     AZURE_MANAGEMENT_SUBSCRIPTIONID,
