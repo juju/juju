@@ -80,6 +80,8 @@ func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string,
 		if attempt > 0 {
 			// The last attempt aborted so clear out any ops that failed
 			// the DocMissing assertion and try again.
+			found = []string{}
+			mismatched = []string{}
 			indexed, err := pp.indexDefinitionDocs(ids)
 			if err != nil {
 				return nil, errors.Trace(err)
