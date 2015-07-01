@@ -17,8 +17,8 @@ type RegisterProcessesArgs struct {
 type RegisterProcessArg struct {
 	// UnitTag is the tag of the unit on which the process resides.
 	UnitTag string
-	// ProcessInfo contains information about the process being registered.
-	ProcessInfo
+	// Process contains information about the process being registered.
+	Process
 }
 
 // ProcessResults is the result for a call that makes one or more requests
@@ -55,7 +55,7 @@ type ListProcessResult struct {
 	// ID is the id of the process this result applies to.
 	ID string
 	// Info holds the details of the process.
-	Info ProcessInfo
+	Info Process
 	// Error holds the error retrieving this information (if any).
 	Error *params.Error
 }
@@ -74,7 +74,7 @@ type SetProcessStatusArg struct {
 	// ID is the ID of the process.
 	ID string
 	// status is the status of the process.
-	Status ProcStatus
+	Status ProcessStatus
 }
 
 // UnregisterProcessesArgs are the arguments for the UnregisterProcesses endpoint.
@@ -85,18 +85,16 @@ type UnregisterProcessesArgs struct {
 	IDs []string
 }
 
-// ProcessInfo contains information about a workload process.
-type ProcessInfo struct {
+// Process contains information about a workload process.
+type Process struct {
 	// Process is information about the process itself.
-	Process Process
-	// Status is the status of the process.
-	Status int
+	Definition ProcessDefinition
 	// Details are the information returned from starting the process.
-	Details ProcDetails
+	Details ProcessDetails
 }
 
-// Process is the static definition of a workload process in a charm.
-type Process struct {
+// ProcessDefinition is the static definition of a workload process in a charm.
+type ProcessDefinition struct {
 	// Name is the name of the process.
 	Name string
 	// Description is a brief description of the process.
@@ -140,17 +138,17 @@ type ProcessVolume struct {
 	Name string
 }
 
-// ProcDetails represents information about a process launched by a plugin.
-type ProcDetails struct {
+// ProcessDetails represents information about a process launched by a plugin.
+type ProcessDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string
-	// ProcStatus is the status of the process after launch.
-	ProcStatus
+	// Status is the status of the process after launch.
+	Status ProcessStatus
 }
 
-// ProcStatus represents the data returned from the Status call.
-type ProcStatus struct {
-	// Status represents the human-readable string returned by the plugin for
-	// the process.
-	Status string
+// ProcessStatus represents the data returned from the Status call.
+type ProcessStatus struct {
+	// Label represents the human-readable label returned by the plugin for
+	// the process that represents the status of the workload process.
+	Label string
 }

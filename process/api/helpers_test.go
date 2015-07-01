@@ -5,7 +5,6 @@ package api
 
 import (
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 )
@@ -15,8 +14,8 @@ type suite struct{}
 var _ = gc.Suite(&suite{})
 
 func (suite) TestAPI2Proc(c *gc.C) {
-	p := ProcessInfo{
-		Process: Process{
+	p := Process{
+		Definition: ProcessDefinition{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
@@ -36,10 +35,11 @@ func (suite) TestAPI2Proc(c *gc.C) {
 			}},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: 5,
-		Details: ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: ProcStatus{Status: "process status"},
+		Details: ProcessDetails{
+			ID: "idfoo",
+			Status: ProcessStatus{
+				Label: "process status",
+			},
 		},
 	}
 
@@ -76,10 +76,11 @@ func (suite) TestProc2API(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: 5,
-		Details: plugin.ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: plugin.ProcStatus{Status: "process status"},
+		Details: process.Details{
+			ID: "idfoo",
+			Status: process.Status{
+				Label: "process status",
+			},
 		},
 	}
 

@@ -5,38 +5,34 @@ package api
 
 import (
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
 	"gopkg.in/juju/charm.v5"
 )
 
 // API2Proc converts an API Process info struct into a process.Info struct.
-func API2Proc(p ProcessInfo) process.Info {
+func API2Proc(p Process) process.Info {
 	return process.Info{
 		Process: charm.Process{
-			Name:        p.Process.Name,
-			Description: p.Process.Description,
-			Type:        p.Process.Type,
-			TypeOptions: p.Process.TypeOptions,
-			Command:     p.Process.Command,
-			Image:       p.Process.Image,
-			Ports:       API2charmPorts(p.Process.Ports),
-			Volumes:     API2charmVolumes(p.Process.Volumes),
-			EnvVars:     p.Process.EnvVars,
+			Name:        p.Definition.Name,
+			Description: p.Definition.Description,
+			Type:        p.Definition.Type,
+			TypeOptions: p.Definition.TypeOptions,
+			Command:     p.Definition.Command,
+			Image:       p.Definition.Image,
+			Ports:       API2charmPorts(p.Definition.Ports),
+			Volumes:     API2charmVolumes(p.Definition.Volumes),
+			EnvVars:     p.Definition.EnvVars,
 		},
-		Status: process.Status(p.Status),
-		Details: plugin.ProcDetails{
-			ID: p.Details.ID,
-			ProcStatus: plugin.ProcStatus{
-				Status: p.Details.Status,
-			},
+		Details: process.Details{
+			ID:     p.Details.ID,
+			Status: APIStatus2Status(p.Details.Status),
 		},
 	}
 }
 
-// Proc2api converts a process.Info struct into an api.ProcessInfo struct.
-func Proc2api(p process.Info) ProcessInfo {
-	return ProcessInfo{
-		Process: Process{
+// Proc2api converts a process.Info struct into an api.Process struct.
+func Proc2api(p process.Info) Process {
+	return Process{
+		Definition: ProcessDefinition{
 			Name:        p.Process.Name,
 			Description: p.Process.Description,
 			Type:        p.Process.Type,
@@ -47,13 +43,26 @@ func Proc2api(p process.Info) ProcessInfo {
 			Volumes:     Charm2apiVolumes(p.Process.Volumes),
 			EnvVars:     p.Process.EnvVars,
 		},
-		Status: int(p.Status),
-		Details: ProcDetails{
-			ID: p.Details.ID,
-			ProcStatus: ProcStatus{
-				Status: p.Details.Status,
-			},
+		Details: ProcessDetails{
+			ID:     p.Details.ID,
+			Status: Status2apiStatus(p.Details.Status),
 		},
+	}
+}
+
+// APIStatus2Status converts an API ProcessStatus struct into a
+// process.Status struct.
+func APIStatus2Status(status ProcessStatus) process.Status {
+	return process.Status{
+		Label: status.Label,
+	}
+}
+
+// Status2APIStatus converts a process.Status struct into an
+// API ProcessStatus struct.
+func Status2apiStatus(status process.Status) ProcessStatus {
+	return ProcessStatus{
+		Label: status.Label,
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
-	"github.com/juju/juju/process/plugin"
 )
 
 type suite struct{}
@@ -25,8 +24,8 @@ func (suite) TestRegisterProcess(c *gc.C) {
 	args := api.RegisterProcessesArgs{
 		Processes: []api.RegisterProcessArg{{
 			UnitTag: "foo/0",
-			ProcessInfo: api.ProcessInfo{
-				Process: api.Process{
+			Process: api.Process{
+				Definition: api.ProcessDefinition{
 					Name:        "foobar",
 					Description: "desc",
 					Type:        "type",
@@ -46,10 +45,11 @@ func (suite) TestRegisterProcess(c *gc.C) {
 					}},
 					EnvVars: map[string]string{"envfoo": "bar"},
 				},
-				Status: 5,
-				Details: api.ProcDetails{
-					ID:         "idfoo",
-					ProcStatus: api.ProcStatus{Status: "process status"},
+				Details: api.ProcessDetails{
+					ID: "idfoo",
+					Status: api.ProcessStatus{
+						Label: "running",
+					},
 				},
 			},
 		}},
@@ -93,10 +93,11 @@ func (suite) TestRegisterProcess(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: 5,
-		Details: plugin.ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: plugin.ProcStatus{Status: "process status"},
+		Details: process.Details{
+			ID: "idfoo",
+			Status: process.Status{
+				Label: "running",
+			},
 		},
 	}
 
@@ -129,10 +130,11 @@ func (suite) TestListProcesses(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: 5,
-		Details: plugin.ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: plugin.ProcStatus{Status: "process status"},
+		Details: process.Details{
+			ID: "idfoo",
+			Status: process.Status{
+				Label: "running",
+			},
 		},
 	}
 	st := &FakeState{info: proc}
@@ -144,8 +146,8 @@ func (suite) TestListProcesses(c *gc.C) {
 	results, err := a.ListProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.ProcessInfo{
-		Process: api.Process{
+	expected := api.Process{
+		Definition: api.ProcessDefinition{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
@@ -169,10 +171,11 @@ func (suite) TestListProcesses(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: 5,
-		Details: api.ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: api.ProcStatus{Status: "process status"},
+		Details: api.ProcessDetails{
+			ID: "idfoo",
+			Status: api.ProcessStatus{
+				Label: "running",
+			},
 		},
 	}
 
@@ -194,7 +197,9 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 		Args: []api.SetProcessStatusArg{{
 			UnitTag: "foo/0",
 			ID:      "fooID",
-			Status:  api.ProcStatus{Status: "statusfoo"},
+			Status: api.ProcessStatus{
+				Label: "statusfoo",
+			},
 		}},
 	}
 	res, err := a.SetProcessesStatus(args)
@@ -202,7 +207,9 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "fooID")
 	c.Assert(st.unit, gc.Equals, names.NewUnitTag("foo/0"))
-	c.Assert(st.status, gc.Equals, "statusfoo")
+	c.Assert(st.status, jc.DeepEquals, &process.Status{
+		Label: "statusfoo",
+	})
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
@@ -239,7 +246,7 @@ type FakeState struct {
 	// inputs
 	unit   names.UnitTag
 	id     string
-	status string
+	status *process.Status
 
 	// info is used as input and output
 	info process.Info
@@ -259,10 +266,10 @@ func (f *FakeState) ListProcess(unit names.UnitTag, id string) (process.Info, er
 	return f.info, f.err
 }
 
-func (f *FakeState) SetProcessStatus(unit names.UnitTag, id string, status string) error {
+func (f *FakeState) SetProcessStatus(unit names.UnitTag, id string, status process.Status) error {
 	f.unit = unit
 	f.id = id
-	f.status = status
+	f.status = &status
 	return f.err
 }
 

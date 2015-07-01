@@ -28,7 +28,7 @@ type State interface {
 	// ListProcess returns information on the process with the id on the unit.
 	ListProcess(unit names.UnitTag, id string) (process.Info, error)
 	// SetProcessStatus sets the status for the process with the given id on the unit.
-	SetProcessStatus(unit names.UnitTag, id string, status string) error
+	SetProcessStatus(unit names.UnitTag, id string, status process.Status) error
 	// UnregisterProcess removes the information for the process with the given id.
 	UnregisterProcess(unit names.UnitTag, id string) error
 }
@@ -37,7 +37,7 @@ type State interface {
 func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.ProcessResults, error) {
 	r := api.ProcessResults{}
 	for _, arg := range args.Processes {
-		info := api.API2Proc(arg.ProcessInfo)
+		info := api.API2Proc(arg.Process)
 		unit := names.NewUnitTag(arg.UnitTag)
 
 		res := api.ProcessResult{ID: arg.Details.ID}
@@ -79,7 +79,8 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 		res := api.ProcessResult{ID: arg.ID}
 
 		unit := names.NewUnitTag(arg.UnitTag)
-		err := a.State.SetProcessStatus(unit, arg.ID, arg.Status.Status)
+		status := api.APIStatus2Status(arg.Status)
+		err := a.State.SetProcessStatus(unit, arg.ID, status)
 		if err != nil {
 			res.Error = common.ServerError(err)
 		}
