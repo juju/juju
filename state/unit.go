@@ -985,9 +985,10 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 	db, closer := u.st.newDB()
 	defer closer()
-	envUUID := u.st.EnvironUUID()
-	units := getCollectionFromDB(db, unitsC, envUUID)
-	charms := getCollectionFromDB(db, charmsC, envUUID)
+	units, closer := db.GetCollection(unitsC)
+	defer closer()
+	charms, closer := db.GetCollection(charmsC)
+	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1460,17 +1461,18 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	}
 
 	// Find a clean, empty machine on which to create a container.
+	query, err := u.findCleanMachineQuery(true, cons)
+	if err != nil {
+		return err
+	}
+	machinesCollection, closer := u.st.getCollection(machinesC)
+	defer closer()
+
 	var host machineDoc
 	hostCons := *cons
 	noContainer := instance.NONE
 	hostCons.Container = &noContainer
-	query, closer, err := u.findCleanMachineQuery(true, &hostCons)
-	if err != nil {
-		return err
-	}
-	defer closer()
-	err = query.One(&host)
-	if err == mgo.ErrNotFound {
+	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
 		// No existing clean, empty machine so create a new one.
 		// The container constraint will be used by AssignToNewMachine to create the required container.
 		return u.AssignToNewMachine()
@@ -1727,23 +1729,20 @@ var hasNoContainersTerm = bson.DocElem{
 
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
-func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (_ *mgo.Query, _ func(), err error) {
+func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
 	db, closer := u.st.newDB()
-	defer func() {
-		if err != nil {
-			closer()
-		}
-	}()
-	containerRefsCollection := db.C(containerRefsC)
+	defer closer()
+	containerRefsCollection, closer := db.GetCollection(containerRefsC)
+	defer closer()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which have containers
 	// so we can exclude those.
 	if requireEmpty {
-		err = containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
+		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
-			return nil, closer, err
+			return nil, err
 		}
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
@@ -1796,10 +1795,11 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"tags", bson.D{{"$all", *cons.Tags}}})
 	}
 	if len(suitableTerms) > 0 {
-		instanceData := db.C(instanceDataC)
-		err := instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
+		instanceDataCollection, closer := db.GetCollection(instanceDataC)
+		defer closer()
+		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
-			return nil, closer, err
+			return nil, err
 		}
 		var suitableIds = make([]string, len(suitableInstanceData))
 		for i, m := range suitableInstanceData {
@@ -1807,8 +1807,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		}
 		terms = append(terms, bson.DocElem{"_id", bson.D{{"$in", suitableIds}}})
 	}
-	machines := db.C(machinesC)
-	return machines.Find(terms), closer, nil
+	return terms, nil
 }
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
@@ -1847,19 +1846,20 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	query, closer, err := u.findCleanMachineQuery(requireEmpty, cons)
+	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	defer closer()
 
 	// Find all of the candidate machines, and associated
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
+	machinesCollection, closer := u.st.getCollection(machinesC)
+	defer closer()
 	var mdocs []*machineDoc
-	if err := query.All(&mdocs); err != nil {
+	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}

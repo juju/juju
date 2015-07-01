@@ -6,7 +6,6 @@ package state
 import (
 	"strings"
 
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -21,8 +20,7 @@ import (
 // returned collection will automatically perform environment
 // filtering where possible. See envStateCollection below.
 func (st *State) getCollection(name string) (mongo.Collection, func()) {
-	collection, closer := mongo.CollectionFromName(st.db, name)
-	return newStateCollection(collection, st.EnvironUUID()), closer
+	return st.database.GetCollection(name)
 }
 
 // getRawCollection returns the named mgo Collection. As no automatic
@@ -30,78 +28,15 @@ func (st *State) getCollection(name string) (mongo.Collection, func()) {
 // should be rarely used. getCollection() should be used in almost all
 // cases.
 func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
-	collection, closer := mongo.CollectionFromName(st.db, name)
+	collection, closer := st.database.GetCollection(name)
 	return collection.Writeable().Underlying(), closer
 }
 
-// getCollectionFromDB returns the specified collection from the given
-// database.
-//
-// An environment UUID must be provided so that environment filtering
-// can be automatically applied if the collection stores data for
-// multiple environments.
-func getCollectionFromDB(db *mgo.Database, name, envUUID string) mongo.Collection {
-	collection := mongo.WrapCollection(db.C(name))
-	return newStateCollection(collection, envUUID)
-}
-
-// This is all collections that contain data for multiple
-// environments. Automatic environment filtering will be applied to
-// these collections.
-var multiEnvCollections = set.NewStrings(
-	actionNotificationsC,
-	actionsC,
-	annotationsC,
-	blockDevicesC,
-	blocksC,
-	charmsC,
-	cleanupsC,
-	constraintsC,
-	containerRefsC,
-	envUsersC,
-	filesystemsC,
-	filesystemAttachmentsC,
-	instanceDataC,
-	ipaddressesC,
-	machinesC,
-	meterStatusC,
-	minUnitsC,
-	networkInterfacesC,
-	networksC,
-	openedPortsC,
-	rebootC,
-	relationScopesC,
-	relationsC,
-	requestedNetworksC,
-	sequenceC,
-	servicesC,
-	settingsC,
-	settingsrefsC,
-	statusesC,
-	statusesHistoryC,
-	storageAttachmentsC,
-	storageConstraintsC,
-	storageInstancesC,
-	subnetsC,
-	unitsC,
-	volumesC,
-	volumeAttachmentsC,
-)
-
-func newStateCollection(collection mongo.Collection, envUUID string) mongo.Collection {
-	if multiEnvCollections.Contains(collection.Name()) {
-		return &envStateCollection{
-			WriteCollection: collection.Writeable(),
-			envUUID:         envUUID,
-		}
-	}
-	return collection
-}
-
 // envStateCollection wraps a mongo.Collection, preserving the
-// mongo.Collection interface and its Writeable behaviour.. It will
+// mongo.Collection interface and its Writeable behaviour. It will
 // automatically modify query selectors so that so that the query only
 // interacts with data for a single environment (where possible).
+//
 // In particular, Inserts are not trapped at all. Be careful.
 type envStateCollection struct {
 	mongo.WriteCollection

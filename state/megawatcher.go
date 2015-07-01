@@ -843,8 +843,8 @@ type backingEntityDoc interface {
 // type of value we use to store entity information
 // for that collection.
 type allWatcherStateCollection struct {
-	*mgo.Collection
-
+	// name stores the name of the collection.
+	name string
 	// infoType stores the type of the info type
 	// that we use for this collection.
 	infoType reflect.Type
@@ -861,40 +861,40 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}
 
 	collections := []allWatcherStateCollection{{
-		Collection: st.db.C(machinesC),
-		infoType:   reflect.TypeOf(backingMachine{}),
+		name:     machinesC,
+		infoType: reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection: st.db.C(unitsC),
-		infoType:   reflect.TypeOf(backingUnit{}),
+		name:     unitsC,
+		infoType: reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection: st.db.C(servicesC),
-		infoType:   reflect.TypeOf(backingService{}),
+		name:     servicesC,
+		infoType: reflect.TypeOf(backingService{}),
 	}, {
-		Collection: st.db.C(actionsC),
-		infoType:   reflect.TypeOf(backingAction{}),
+		name:     actionsC,
+		infoType: reflect.TypeOf(backingAction{}),
 	}, {
-		Collection: st.db.C(relationsC),
-		infoType:   reflect.TypeOf(backingRelation{}),
+		name:     relationsC,
+		infoType: reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection: st.db.C(annotationsC),
-		infoType:   reflect.TypeOf(backingAnnotation{}),
+		name:     annotationsC,
+		infoType: reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection: st.db.C(blocksC),
-		infoType:   reflect.TypeOf(backingBlock{}),
+		name:     blocksC,
+		infoType: reflect.TypeOf(backingBlock{}),
 	}, {
-		Collection: st.db.C(statusesC),
+		name:       statusesC,
 		infoType:   reflect.TypeOf(backingStatus{}),
 		subsidiary: true,
 	}, {
-		Collection: st.db.C(constraintsC),
+		name:       constraintsC,
 		infoType:   reflect.TypeOf(backingConstraints{}),
 		subsidiary: true,
 	}, {
-		Collection: st.db.C(settingsC),
+		name:       settingsC,
 		infoType:   reflect.TypeOf(backingSettings{}),
 		subsidiary: true,
 	}, {
-		Collection: st.db.C(openedPortsC),
+		name:       openedPortsC,
 		infoType:   reflect.TypeOf(backingOpenedPorts{}),
 		subsidiary: true,
 	}}
@@ -905,10 +905,10 @@ func newAllWatcherStateBacking(st *State) Backing {
 			panic(fmt.Errorf("duplicate collection type %s", docType))
 		}
 		collectionByType[docType] = c
-		if _, ok := b.collectionByName[c.Name]; ok {
-			panic(fmt.Errorf("duplicate collection name %q", c.Name))
+		if _, ok := b.collectionByName[c.name]; ok {
+			panic(fmt.Errorf("duplicate collection name %q", c.name))
 		}
-		b.collectionByName[c.Name] = c
+		b.collectionByName[c.name] = c
 	}
 	return b
 }
@@ -921,14 +921,14 @@ func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollectionWithFilter(c.Name, in, b.filterEnv)
+		b.st.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.Name, in)
+		b.st.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
@@ -937,17 +937,16 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 	db, closer := b.st.newDB()
 	defer closer()
 
-	envUUID := b.st.EnvironUUID()
-
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		if c.subsidiary {
 			continue
 		}
-		col := getCollectionFromDB(db, c.Name, envUUID)
+		col, closer := db.GetCollection(c.name)
+		defer closer()
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
 		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
-			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
+			return fmt.Errorf("cannot get all %s: %v", c.name, err)
 		}
 		infos := infoSlicePtr.Elem()
 		for i := 0; i < infos.Len(); i++ {
@@ -955,7 +954,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 			id := info.mongoId()
 			err := info.updated(b.st, all, id)
 			if err != nil {
-				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.Name, id)
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
 			}
 		}
 	}
@@ -965,14 +964,12 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
-	db, closer := b.st.newDB()
-	defer closer()
-
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
-	col := db.C(c.Name)
+	col, closer := b.st.getCollection(c.name)
+	defer closer()
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
 
 	// TODO(rog) investigate ways that this can be made more efficient

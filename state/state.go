@@ -37,87 +37,11 @@ import (
 var logger = loggo.GetLogger("juju.state")
 
 const (
-	// The following define the mongo collections used to record the Juju environment state.
-	environmentsC      = "environments"
-	charmsC            = "charms"
-	machinesC          = "machines"
-	containerRefsC     = "containerRefs"
-	instanceDataC      = "instanceData"
-	relationsC         = "relations"
-	relationScopesC    = "relationscopes"
-	servicesC          = "services"
-	requestedNetworksC = "requestednetworks"
-	networksC          = "networks"
-	networkInterfacesC = "networkinterfaces"
-	minUnitsC          = "minunits"
-	settingsC          = "settings"
-	settingsrefsC      = "settingsrefs"
-	constraintsC       = "constraints"
-	unitsC             = "units"
-	subnetsC           = "subnets"
-	ipaddressesC       = "ipaddresses"
-
-	// actionsC and related collections store state of Actions that
-	// have been enqueued.
-	actionsC = "actions"
-	// actionNotificationsC are only used for notification of newly
-	// enqueued Actions.
-	actionNotificationsC = "actionnotifications"
-	// actionResultsC is deprecated and will soon be folded into
-	// actionsC.
-	actionresultsC = "actionresults"
-
-	usersC                 = "users"
-	envUsersC              = "envusers"
-	presenceC              = "presence"
-	cleanupsC              = "cleanups"
-	annotationsC           = "annotations"
-	statusesC              = "statuses"
-	statusesHistoryC       = "statuseshistory"
-	stateServersC          = "stateServers"
-	openedPortsC           = "openedPorts"
-	metricsC               = "metrics"
-	metricsManagerC        = "metricsmanager"
-	upgradeInfoC           = "upgradeInfo"
-	rebootC                = "reboot"
-	blockDevicesC          = "blockdevices"
-	storageAttachmentsC    = "storageattachments"
-	storageConstraintsC    = "storageconstraints"
-	storageInstancesC      = "storageinstances"
-	volumesC               = "volumes"
-	volumeAttachmentsC     = "volumeattachments"
-	filesystemsC           = "filesystems"
-	filesystemAttachmentsC = "filesystemAttachments"
-
-	// leaseC is used to store lease tokens
-	leaseC = "lease"
-
-	// sequenceC is used to generate unique identifiers.
-	sequenceC = "sequence"
-
-	// meterStatusC is the collection used to store meter status information.
-	meterStatusC = "meterStatus"
-
-	// toolsmetadataC is the collection used to store tools metadata.
-	toolsmetadataC = "toolsmetadata"
-
-	// These collections are used by the mgo transaction runner.
-	txnLogC = "txns.log"
-	txnsC   = "txns"
+	// jujuDB is the name of the main juju database.
+	jujuDB = "juju"
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
-
-	// restoreInfoC is used to track restore progress
-	restoreInfoC = "restoreInfo"
-
-	// blocksC is used to identify collection of environment blocks.
-	blocksC = "blocks"
-
-	// The following mongo collections are used as unique key restraints. The
-	// _id field of each collection is a concatenation of multiple fields
-	// that form a compound index.
-	userenvnameC = "userenvname"
 )
 
 // State represents the state of an environment
@@ -125,21 +49,23 @@ const (
 type State struct {
 	// TODO(katco-): As state gets broken up, remove this.
 	*LeasePersistor
-	// transactionRunner is normally nil, which means that a new one
-	// will be created for each operation, ensuring a fresh mgo.Session
-	// is used. However, for tests, a value may be assigned and this will
-	// be used instead of creating a new runnner each time.
-	transactionRunner jujutxn.Runner
-	mongoInfo         *mongo.MongoInfo
-	policy            Policy
-	db                *mgo.Database
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
+
+	environTag names.EnvironTag
+	serverTag  names.EnvironTag
+	mongoInfo  *mongo.MongoInfo
+	session    *mgo.Session
+	database   Database
+	policy     Policy
+
+	// TODO(fwereade): move these out of state and make them independent
+	// workers on which state depends.
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
+	// leadershipManager leadership.Manager
+
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *storeManager
-	environTag names.EnvironTag
-	serverTag  names.EnvironTag
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -183,36 +109,38 @@ func (st *State) RemoveAllEnvironDocs() error {
 		Remove: true,
 	}}
 
-	// add all multiEnv docs to the txn
-	var ids []bson.M
-	for collName := range multiEnvCollections {
-		coll, closer := st.getCollection(collName)
+	// Add all per-environment docs to the txn.
+	for name, info := range st.database.Schema() {
+		if info.global {
+			continue
+		}
+		coll, closer := st.getCollection(name)
 		defer closer()
+
+		var ids []bson.M
 		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for _, id := range ids {
 			ops = append(ops, txn.Op{
-				C:      collName,
+				C:      name,
 				Id:     id["_id"],
 				Remove: true,
 			})
 		}
-		ids = nil
 	}
 
 	return st.runTransaction(ops)
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The
-// connection uses the same credentails and policy as the existing connection.
+// connection uses the same credentials and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	newState, err := open(env, st.mongoInfo, mongo.DialOpts{}, st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newState.environTag = env
 	newState.serverTag = st.serverTag
 	newState.startPresenceWatcher()
 	return newState, nil
@@ -235,24 +163,28 @@ func userEnvNameIndex(username, envName string) string {
 	return strings.ToLower(username) + ":" + envName
 }
 
-// EnsureEnvironmentRemoved returns an error if any multi-enviornment
+// EnsureEnvironmentRemoved returns an error if any multi-environment
 // documents for this environment are found. It is intended only to be used in
 // tests and exported so it can be used in the tests of other packages.
 func (st *State) EnsureEnvironmentRemoved() error {
-	colls := multiEnvCollections
-	colls.Remove(cleanupsC)
 	found := map[string]int{}
 	var foundOrdered []string
-	for collName := range colls {
-		coll, closer := st.getCollection(collName)
+	for name, info := range st.database.Schema() {
+		if info.global {
+			continue
+		}
+		if name == cleanupsC {
+			continue
+		}
+		coll, closer := st.getCollection(name)
 		defer closer()
 		n, err := coll.Find(nil).Count()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if n != 0 {
-			found[collName] = n
-			foundOrdered = append(foundOrdered, collName)
+			found[name] = n
+			foundOrdered = append(foundOrdered, name)
 		}
 	}
 
@@ -272,11 +204,11 @@ func (st *State) EnsureEnvironmentRemoved() error {
 
 // getPresence returns the presence m.
 func (st *State) getPresence() *mgo.Collection {
-	return st.db.Session.DB("presence").C(presenceC)
+	return st.session.DB("presence").C(presenceC)
 }
 
 func (st *State) startPresenceWatcher() {
-	pdb := st.db.Session.DB("presence")
+	pdb := st.session.DB("presence")
 	st.pwatcher = presence.NewWatcher(pdb.C(presenceC), st.environTag)
 }
 
@@ -284,15 +216,14 @@ func (st *State) startPresenceWatcher() {
 // a closer function for the session. This is useful where you need to work
 // with various collections in a single session, so don't want to call
 // getCollection multiple times.
-func (st *State) newDB() (*mgo.Database, func()) {
-	session := st.db.Session.Copy()
-	return st.db.With(session), session.Close
+func (st *State) newDB() (Database, func()) {
+	return st.database.CopySession()
 }
 
 // Ping probes the state's database connection to ensure
 // that it is still alive.
 func (st *State) Ping() error {
-	return st.db.Session.Ping()
+	return st.session.Ping()
 }
 
 // MongoSession returns the underlying mongodb session
@@ -300,7 +231,7 @@ func (st *State) Ping() error {
 // can maintain the mongo replica set and should not
 // otherwise be used.
 func (st *State) MongoSession() *mgo.Session {
-	return st.db.Session
+	return st.session
 }
 
 type closeFunc func()
@@ -1259,8 +1190,9 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 // fetchIPAddresses is a helper function for finding IP addresses
 func (st *State) fetchIPAddresses(query bson.D) ([]*IPAddress, error) {
 	addresses, closer := st.getCollection(ipaddressesC)
-	result := []*IPAddress{}
 	defer closer()
+
+	result := []*IPAddress{}
 	var doc struct {
 		Value string
 	}
@@ -1868,7 +1800,7 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	err := mongo.SetAdminMongoPassword(st.db.Session, mongo.AdminUser, password)
+	err := mongo.SetAdminMongoPassword(st.session, mongo.AdminUser, password)
 	return errors.Trace(err)
 }
 

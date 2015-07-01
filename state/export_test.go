@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
@@ -46,7 +47,6 @@ var (
 	PortsGlobalKey         = portsGlobalKey
 	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
-	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
 	CombineMeterStatus     = combineMeterStatus
@@ -63,25 +63,26 @@ type (
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
-	return txntesting.SetTestHooks(c, newMultiEnvRunnerForHooks(st), hooks...)
+	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetBeforeHooks(c, newMultiEnvRunnerForHooks(st), fs...)
+	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetAfterHooks(c, newMultiEnvRunnerForHooks(st), fs...)
+	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	return txntesting.SetRetryHooks(c, newMultiEnvRunnerForHooks(st), block, check)
+	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
-func newMultiEnvRunnerForHooks(st *State) jujutxn.Runner {
-	runner := newMultiEnvRunner(st.EnvironUUID(), st.db, txnAssertEnvIsAlive)
-	st.transactionRunner = runner
-	return getRawRunner(runner)
+func newRunnerForHooks(st *State) jujutxn.Runner {
+	db := st.database.(*database)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
+	db.runner = runner
+	return runner
 }
 
 // SetPolicy updates the State's policy field to the
@@ -203,11 +204,13 @@ func init() {
 
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
-func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
+func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	err := st.db.C(coll).FindId(id).One(&doc)
+	coll, closer := st.getCollection(collName)
+	defer closer()
+	err := coll.FindId(id).One(&doc)
 	if err != nil {
 		return 0, err
 	}
@@ -305,10 +308,16 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 }
 
 func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
+	collections := set.NewStrings()
+	for name, info := range allCollections {
+		if !info.global {
+			collections.Add(name)
+		}
+	}
 	return &multiEnvRunner{
-		rawRunner:      baseRunner,
-		envUUID:        envUUID,
-		assertEnvAlive: true,
+		rawRunner:   baseRunner,
+		envUUID:     envUUID,
+		collections: collections,
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -19,82 +18,51 @@ const (
 	txnAssertEnvIsNotAlive = false
 )
 
-// txnRunner returns a jujutxn.Runner instance.
-//
-// If st.transactionRunner is non-nil, then that will be
-// returned and the session argument will be ignored. This
-// is the case in tests only, when we want to test concurrent
-// operations.
-//
-// If st.transactionRunner is nil, then we create a new
-// transaction runner with the provided session and return
-// that.
-func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsAlive)
-}
-
-// txnRunnerNoEnvAliveAssert returns a jujutxn.Runner instance that does not
-// add an assertion for a live environment to the transaction. It was
-// introduced only to allow the initial environment to be created and should
-// be used rarely.
-func (st *State) txnRunnerNoEnvAliveAssert(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsNotAlive)
-}
-
-// runTransactionNoEnvAliveAssert is a convenience method delegating to txnRunnerNoEnvAliveAssert.
-func (st *State) runTransactionNoEnvAliveAssert(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunnerNoEnvAliveAssert(session).RunTransaction(ops)
-}
-
-// runTransaction is a convenience method delegating to transactionRunner.
+// runTransaction is a convenience method delegating to the state's Database.
 func (st *State) runTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).RunTransaction(ops)
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
 }
 
-// run is a convenience method delegating to transactionRunner.
+// runRawTransaction is a convenience method that will run a single
+// transaction using a "raw" transaction runner that won't perform
+// environment filtering.
+func (st *State) runRawTransaction(ops []txn.Op) error {
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiEnvRunner); ok {
+		runner = multiRunner.rawRunner
+	}
+	return runner.RunTransaction(ops)
+}
+
+// run is a convenience method delegating to the state's Database.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).Run(transactions)
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).ResumeTransactions()
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.ResumeTransactions()
 }
 
 // MaybePruneTransactions removes data for completed transactions.
 func (st *State) MaybePruneTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
 	// Prune txns only when txn count has doubled since last prune.
-	return st.txnRunner(session).MaybePruneTransactions(2.0)
-}
-
-func newMultiEnvRunner(envUUID string, db *mgo.Database, assertEnvAlive bool) jujutxn.Runner {
-	return &multiEnvRunner{
-		rawRunner:      jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
-		envUUID:        envUUID,
-		assertEnvAlive: assertEnvAlive,
-	}
+	return runner.MaybePruneTransactions(2.0)
 }
 
 type multiEnvRunner struct {
-	rawRunner      jujutxn.Runner
-	envUUID        string
-	assertEnvAlive bool
+	rawRunner   jujutxn.Runner
+	collections set.Strings
+	envUUID     string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
@@ -133,9 +101,19 @@ func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
-	var opsNeedEnvAlive bool
+	var referencesEnviron bool
+	var insertsEnvironSpecificDocs bool
 	for i, op := range ops {
-		if multiEnvCollections.Contains(op.C) {
+		if op.C == environmentsC {
+			if op.Id == r.envUUID {
+				referencesEnviron = true
+			}
+		}
+		if r.collections.Contains(op.C) {
+			// TODO(fwereade): this interface implies we're returning a copy
+			// of the transactions -- as I think we should be -- rather than
+			// rewriting them in place (which breaks client expectations
+			// pretty hard).
 			var docID interface{}
 			if id, ok := op.Id.(string); ok {
 				docID = addEnvUUID(r.envUUID, id)
@@ -153,14 +131,14 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 				default:
 					r.updateStruct(doc, docID, op.C)
 				}
-
-				if r.assertEnvAlive && !opsNeedEnvAlive && envAliveColls.Contains(op.C) {
-					opsNeedEnvAlive = true
-				}
+				insertsEnvironSpecificDocs = true
 			}
 		}
 	}
-	if opsNeedEnvAlive {
+	if insertsEnvironSpecificDocs && !referencesEnviron {
+		// TODO(fwereade): This serializes a large proportion of operations
+		// that could otherwise run in parallel. it's quite nice to be able
+		// to run more than one transaction per environment at once...
 		ops = append(ops, assertEnvAliveOp(r.envUUID))
 	}
 	return ops
@@ -172,17 +150,6 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 		Id:     envUUID,
 		Assert: isEnvAliveDoc,
 	}
-}
-
-var envAliveColls = newEnvAliveColls()
-
-// newEnvAliveColls returns a copy of multiEnvCollections minus cleanupsC.
-// This set is used to check if a txn needs to assert that there is a live
-// environment be inserting docs.
-func newEnvAliveColls() set.Strings {
-	e := set.NewStrings(multiEnvCollections.Values()...)
-	e.Remove(cleanupsC)
-	return e
 }
 
 func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName string) bson.D {
@@ -279,36 +246,4 @@ func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValu
 				"%s change but was passed by value", collName, name))
 		}
 	}
-}
-
-// rawTxnRunner returns a transaction runner that won't perform
-// automatic addition of environment UUIDs into transaction
-// operations, even for collections that contain documents for
-// multiple environments. It should be used rarely.
-func (st *State) rawTxnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return getRawRunner(st.transactionRunner)
-	}
-	return jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: st.db.With(session),
-	})
-}
-
-// runRawTransaction is a convenience method that will run a single
-// transaction using a "raw" transaction runner, as returned by
-// rawTxnRunner.
-func (st *State) runRawTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	runner := st.rawTxnRunner(session)
-	return runner.RunTransaction(ops)
-}
-
-// getRawRunner returns the underlying "raw" transaction runner from
-// the passed transaction runner.
-func getRawRunner(runner jujutxn.Runner) jujutxn.Runner {
-	if runner, ok := runner.(*multiEnvRunner); ok {
-		return runner.rawRunner
-	}
-	return runner
 }
