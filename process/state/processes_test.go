@@ -24,7 +24,7 @@ func (s *unitProcessesSuite) TestRegisterOkay(c *gc.C) {
 	proc := procs[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "EnsureDefinitions", "Insert")
@@ -35,7 +35,7 @@ func (s *unitProcessesSuite) TestRegisterInvalid(c *gc.C) {
 	proc := s.newProcesses("", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -46,7 +46,7 @@ func (s *unitProcessesSuite) TestRegisterEnsureDefinitionFailed(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -56,7 +56,7 @@ func (s *unitProcessesSuite) TestRegisterMismatchedDefinition(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -67,7 +67,7 @@ func (s *unitProcessesSuite) TestRegisterInsertFailed(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -77,7 +77,7 @@ func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
 	s.persist.setProcesses(&proc)
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc, s.charm)
+	err := ps.Register(proc)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }

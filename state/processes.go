@@ -14,10 +14,10 @@ import (
 // TODO(ericsnow) Track juju-level status in the status collection.
 
 // UnitProcesses exposes high-level interaction with workload processes
-// for the given unit.
+// for a unit.
 type UnitProcesses interface {
 	// Register registers a workload process in state.
-	Register(info process.Info, charm names.CharmTag) error
+	Register(info process.Info) error
 	// SetStatus sets the raw status of a workload process.
 	SetStatus(id string, status process.Status) error
 	// List builds the list of workload processes registered for

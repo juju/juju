@@ -47,7 +47,7 @@ func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, charm 
 }
 
 // Register adds the provided process info to state.
-func (ps UnitProcesses) Register(info process.Info, charm names.CharmTag) error {
+func (ps UnitProcesses) Register(info process.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad process info")
 	}
