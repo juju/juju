@@ -486,11 +486,16 @@ class TestDeployDummyStack(TestCase):
 
     def test_deploy_dummy_stack(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {
+                'dummy-sink': {'units': {
+                    'dummy-sink/0': {'agent-state': 'started'}}
+                }
+            }
+        })
 
         def output(args, **kwargs):
-            status = yaml.safe_dump({
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {}})
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
@@ -523,9 +528,12 @@ class TestDeployDummyStack(TestCase):
             'juju', '--show-log', 'status', '-e', 'foo'), 0,
             assign_stderr=True)
         assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'foo'), 1,
+            assign_stderr=True)
+        assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
-            GET_TOKEN_SCRIPT), 1, assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 2)
+            GET_TOKEN_SCRIPT), 2, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 3)
 
 
 class TestTestUpgrade(TestCase):

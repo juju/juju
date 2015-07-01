@@ -26,6 +26,8 @@ from utility import (
     get_auth_token,
     get_candidates_path,
     get_deb_arch,
+    get_winrm_certs,
+    quote,
     run_command,
     temp_dir,
     until_timeout,
@@ -291,3 +293,22 @@ class TestRunCommand(TestCase):
             with patch('utility.print_now') as p_mock:
                 run_command(['foo', 'bar'], verbose=True)
                 self.assertEqual(2, p_mock.call_count)
+
+
+class TestQuote(TestCase):
+
+    def test_quote(self):
+        self.assertEqual(quote("arg"), "arg")
+        self.assertEqual(quote("/a/file name"), "'/a/file name'")
+        self.assertEqual(quote("bob's"), "'bob'\"'\"'s'")
+
+
+class TestGetWinRmCerts(TestCase):
+
+    def test_get_certs(self):
+        with patch.dict(os.environ, {"HOME": "/fake/home"}):
+            certs = get_winrm_certs()
+        self.assertEqual(certs, (
+            "/fake/home/cloud-city/winrm_client_cert.key",
+            "/fake/home/cloud-city/winrm_client_cert.pem",
+        ))
