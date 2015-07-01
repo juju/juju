@@ -282,27 +282,38 @@ func removeStorageInstanceOps(
 		Assert: assert,
 		Remove: true,
 	}}
-	// If the storage instance has an assigned volume and/or filesystem,
-	// unassign them.
-	volume, err := st.StorageInstanceVolume(tag)
-	if err == nil {
-		ops = append(ops, txn.Op{
-			C:      volumesC,
-			Id:     volume.Tag().Id(),
+
+	machineStorageOp := func(c string, id string) txn.Op {
+		return txn.Op{
+			C:      c,
+			Id:     id,
 			Assert: bson.D{{"storageid", tag.Id()}},
 			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
-		})
+		}
+	}
+
+	// If the storage instance has an assigned volume and/or filesystem,
+	// unassign them. Any volumes and filesystems bound to the storage
+	// will be destroyed.
+	volume, err := st.storageInstanceVolume(tag)
+	if err == nil {
+		ops = append(ops, machineStorageOp(
+			volumesC, volume.Tag().Id(),
+		))
+		if volume.LifeBinding() == tag {
+			ops = append(ops, destroyVolumeOps(st, volume)...)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	filesystem, err := st.StorageInstanceFilesystem(tag)
+	filesystem, err := st.storageInstanceFilesystem(tag)
 	if err == nil {
-		ops = append(ops, txn.Op{
-			C:      filesystemsC,
-			Id:     filesystem.Tag().Id(),
-			Assert: bson.D{{"storageid", tag.Id()}},
-			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
-		})
+		ops = append(ops, machineStorageOp(
+			filesystemsC, filesystem.Tag().Id(),
+		))
+		if filesystem.LifeBinding() == tag {
+			ops = append(ops, destroyFilesystemOps(st, filesystem)...)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -469,10 +480,15 @@ func unitAssignedMachineStorageOps(
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, err := st.machineStorageOps(&m.doc, storageParams)
+	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
+		&m.doc, storageParams,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 	return storageOps, nil
 }
 
@@ -1011,9 +1027,10 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	switch kind {
 	case storage.StorageKindBlock:
 		loopPool := string(provider.LoopProviderType)
-		// No constraints at all
+
 		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {
+			// No constraints at all: use loop.
 			return loopPool, nil
 		}
 		// Either size or count specified, use env default.
@@ -1022,8 +1039,21 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 			defaultPool = loopPool
 		}
 		return defaultPool, nil
+
 	case storage.StorageKindFilesystem:
-		return string(provider.RootfsProviderType), nil
+		rootfsPool := string(provider.RootfsProviderType)
+		emptyConstraints := StorageConstraints{}
+		if cons == emptyConstraints {
+			return rootfsPool, nil
+		}
+
+		// TODO(axw) add env configuration for default
+		// filesystem source, prefer that.
+		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		if !ok {
+			defaultPool = rootfsPool
+		}
+		return defaultPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
 }

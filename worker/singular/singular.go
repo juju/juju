@@ -73,8 +73,7 @@ func (r *runner) pinger() {
 		r.Runner.Wait()
 		close(underlyingDead)
 	}()
-	timer := time.NewTimer(0)
-	for {
+	for timer := time.NewTimer(PingInterval); ; timer.Reset(PingInterval) {
 		if err := r.conn.Ping(); err != nil {
 			// The ping has failed: cause all other workers
 			// to exit with the ping error.
@@ -83,7 +82,7 @@ func (r *runner) pinger() {
 			close(r.pingerDied)
 			return
 		}
-		timer.Reset(PingInterval)
+
 		select {
 		case <-timer.C:
 		case <-underlyingDead:
