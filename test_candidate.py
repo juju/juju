@@ -316,8 +316,9 @@ class CandidateTestCase(TestCase):
                 with patch('shutil.copyfile') as cf_mock:
                     with patch('candidate.run_command') as rc_mock:
                         with patch('candidate.extract_candidates') as ec_mock:
-                            publish_candidates(base_dir, '~/streams',
-                                               juju_release_tools='../')
+                            with patch('candidate.publish') as p_mock:
+                                publish_candidates(base_dir, '~/streams',
+                                                   juju_release_tools='../')
         self.assertEqual(1, cf_mock.call_count)
         output, args, kwargs = cf_mock.mock_calls[0]
         self.assertEqual(package_path, args[0])
@@ -330,7 +331,7 @@ class CandidateTestCase(TestCase):
         actual_path = args[1].replace(args[1][5:14], 'foo')
         expected_path = os.path.join(
             '/tmp', 'foo', 'juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb')
-        self.assertEqual(2, rc_mock.call_count)
+        self.assertEqual(1, rc_mock.call_count)
         output, args, kwargs = rc_mock.mock_calls[0]
         normalised_args = list(args[0])
         self.assertTrue(normalised_args[2].startswith('/tmp/'))
@@ -340,12 +341,9 @@ class CandidateTestCase(TestCase):
              'IGNORE', '~/streams'],
             normalised_args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
-        output, args, kwargs = rc_mock.mock_calls[1]
-        self.assertEqual(
-            (['../publish-public-tools.bash', 'weekly', '~/streams/juju-dist',
-              'cpc'],),
-            args)
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        p_mock.assert_called_once_with(
+            '~/streams', '../publish-public-tools.bash',
+            dry_run=False, verbose=False)
         args, kwargs = ec_mock.call_args
         self.assertEqual((base_dir, ), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
