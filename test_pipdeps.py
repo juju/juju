@@ -15,7 +15,7 @@ class TestGetParser(unittest.TestCase):
         parser = pipdeps.get_parser("pipdeps.py")
         args = parser.parse_args(["list"])
         self.assertEqual("list", args.command)
-        self.assertEqual("~/cloud-city", args.cloud_city)
+        self.assertEqual(os.path.expanduser("~/cloud-city"), args.cloud_city)
         self.assertEqual(False, args.verbose)
 
     def test_install_verbose(self):

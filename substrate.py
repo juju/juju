@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from time import sleep
 
 from utility import temp_dir

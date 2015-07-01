@@ -26,7 +26,7 @@ def s3_anon():
 def s3_auth_with_rc(cloud_city):
     """Gives authenticated S3 connection using cloud-city credentials."""
     access_key = secret_key = None
-    with open(os.path.join(os.path.expanduser(cloud_city), "ec2rc")) as rc:
+    with open(os.path.join(cloud_city, "ec2rc")) as rc:
         for line in rc:
             parts = line.rstrip().split("=", 1)
             if parts[0] == "AWS_ACCESS_KEY":
@@ -53,7 +53,7 @@ def command_install(bucket, verbose=False):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         run_pip_install(["--user", "--no-index", "--find-links", archives_dir],
-            verbose=verbose)
+                        verbose=verbose)
 
 
 def command_update(s3, verbose=False):
@@ -77,6 +77,8 @@ def command_list(bucket, verbose=False):
 
 def command_delete(bucket, verbose=False):
     for key in bucket.list(prefix=PREFIX):
+        if verbose:
+            print("Deleting {}".format(key.name))
         key.delete()
 
 
@@ -84,14 +86,15 @@ def get_parser(argv0):
     """Parse and return arguments."""
     parser = argparse.ArgumentParser(
         prog=argv0, description="Manage pip dependencies")
-    parser.add_argument("-v", "--verbose", action="store_true",
-        help="Show more output.")
-    parser.add_argument("--cloud-city", default="~/cloud-city",
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show more output.")
+    parser.add_argument(
+        "--cloud-city", default="~/cloud-city", type=os.path.expanduser,
         help="Location of cloud-city repository for credentials.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("install", help="Download deps from S3 and install.")
-    subparsers.add_parser("update",
-        help="Get latest deps from PyPI and upload to S3.")
+    subparsers.add_parser(
+        "update", help="Get latest deps from PyPI and upload to S3.")
     subparsers.add_parser("list", help="Show packages currently in S3.")
     subparsers.add_parser("delete", help="Delete packages currently in S3.")
     return parser
