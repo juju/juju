@@ -11,6 +11,8 @@ type updateRelations struct {
 	ids []int
 
 	callbacks Callbacks
+
+	DoesNotRequireMachineLock
 }
 
 // String is part of the Operation interface.

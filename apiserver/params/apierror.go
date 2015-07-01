@@ -35,25 +35,26 @@ func (e Error) GoString() string {
 
 // The Code constants hold error codes for some kinds of error.
 const (
-	CodeNotFound              = "not found"
-	CodeUnauthorized          = "unauthorized access"
-	CodeCannotEnterScope      = "cannot enter scope"
-	CodeCannotEnterScopeYet   = "cannot enter scope yet"
-	CodeExcessiveContention   = "excessive contention"
-	CodeUnitHasSubordinates   = "unit has subordinates"
-	CodeNotAssigned           = "not assigned"
-	CodeStopped               = "stopped"
-	CodeDead                  = "dead"
-	CodeHasAssignedUnits      = "machine has assigned units"
-	CodeNotProvisioned        = "not provisioned"
-	CodeNoAddressSet          = "no address set"
-	CodeTryAgain              = "try again"
-	CodeNotImplemented        = rpc.CodeNotImplemented
-	CodeAlreadyExists         = "already exists"
-	CodeUpgradeInProgress     = "upgrade in progress"
-	CodeActionNotAvailable    = "action no longer available"
-	CodeOperationBlocked      = "operation is blocked"
-	CodeLeadershipClaimDenied = "leadership claim denied"
+	CodeNotFound                  = "not found"
+	CodeUnauthorized              = "unauthorized access"
+	CodeCannotEnterScope          = "cannot enter scope"
+	CodeCannotEnterScopeYet       = "cannot enter scope yet"
+	CodeExcessiveContention       = "excessive contention"
+	CodeUnitHasSubordinates       = "unit has subordinates"
+	CodeNotAssigned               = "not assigned"
+	CodeStopped                   = "stopped"
+	CodeDead                      = "dead"
+	CodeHasAssignedUnits          = "machine has assigned units"
+	CodeMachineHasAttachedStorage = "machine has attached storage"
+	CodeNotProvisioned            = "not provisioned"
+	CodeNoAddressSet              = "no address set"
+	CodeTryAgain                  = "try again"
+	CodeNotImplemented            = rpc.CodeNotImplemented
+	CodeAlreadyExists             = "already exists"
+	CodeUpgradeInProgress         = "upgrade in progress"
+	CodeActionNotAvailable        = "action no longer available"
+	CodeOperationBlocked          = "operation is blocked"
+	CodeLeadershipClaimDenied     = "leadership claim denied"
 )
 
 // ErrCode returns the error code associated with
@@ -135,6 +136,10 @@ func IsCodeDead(err error) bool {
 
 func IsCodeHasAssignedUnits(err error) bool {
 	return ErrCode(err) == CodeHasAssignedUnits
+}
+
+func IsCodeMachineHasAttachedStorage(err error) bool {
+	return ErrCode(err) == CodeMachineHasAttachedStorage
 }
 
 func IsCodeNotProvisioned(err error) bool {

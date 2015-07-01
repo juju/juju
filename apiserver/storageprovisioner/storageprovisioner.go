@@ -1128,3 +1128,42 @@ func (s *StorageProvisionerAPI) Remove(args params.Entities) (params.ErrorResult
 	}
 	return results, nil
 }
+
+// RemoveAttachments removes the specified machine storage attachments
+// from state.
+func (s *StorageProvisionerAPI) RemoveAttachment(args params.MachineStorageIds) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Ids)),
+	}
+	removeAttachment := func(arg params.MachineStorageId) error {
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return err
+		}
+		attachmentTag, err := names.ParseTag(arg.AttachmentTag)
+		if err != nil {
+			return err
+		}
+		if !canAccess(machineTag, attachmentTag) {
+			return common.ErrPerm
+		}
+		switch attachmentTag := attachmentTag.(type) {
+		case names.VolumeTag:
+			return s.st.RemoveVolumeAttachment(machineTag, attachmentTag)
+		case names.FilesystemTag:
+			return s.st.RemoveFilesystemAttachment(machineTag, attachmentTag)
+		default:
+			return common.ErrPerm
+		}
+	}
+	for i, arg := range args.Ids {
+		if err := removeAttachment(arg); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}

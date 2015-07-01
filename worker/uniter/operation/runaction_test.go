@@ -125,44 +125,6 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
-func (s *RunActionSuite) TestExecuteLockError(c *gc.C) {
-	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	callbacks := &RunActionCallbacks{
-		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("plonk")},
-	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
-	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err = op.Execute(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "plonk")
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
-}
-
-func (s *RunActionSuite) TestExecuteRunError(c *gc.C) {
-	runnerFactory := NewRunActionRunnerFactory(errors.New("snargle"))
-	callbacks := &RunActionCallbacks{
-		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
-	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err = op.Execute(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `running action "some-action-name": snargle`)
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
-	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
-}
-
 func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 	var stateChangeTests = []struct {
 		description string
@@ -192,9 +154,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
 		runnerFactory := NewRunActionRunnerFactory(nil)
-		callbacks := &RunActionCallbacks{
-			MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-		}
+		callbacks := &RunActionCallbacks{}
 		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 		op, err := factory.NewAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
@@ -206,8 +166,6 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
-		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
-		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
 	}
 }
@@ -272,4 +230,11 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		newState, err := op.Commit(test.before)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 	}
+}
+
+func (s *RunActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
 }
