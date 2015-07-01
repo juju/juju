@@ -83,7 +83,7 @@ def command_delete(bucket, verbose=False):
 
 
 def get_parser(argv0):
-    """Parse and return arguments."""
+    """Return parser for program arguments."""
     parser = argparse.ArgumentParser(
         prog=argv0, description="Manage pip dependencies")
     parser.add_argument(
