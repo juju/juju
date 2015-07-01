@@ -42,6 +42,7 @@ var (
 type apiOpenSuite struct{ coretesting.BaseSuite }
 
 func (s *apiOpenSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&checkProvisionedStrategy, utils.AttemptStrategy{})
 }
 
