@@ -45,3 +45,20 @@ class TestS3FromRc(unittest.TestCase):
                 s3 = pipdeps.s3_from_rc(fake_city)
                 self.assertIs(s3, o)
         s3_mock.assert_called_once_with("access", "secret")
+
+
+class TestRunPipInstall(unittest.TestCase):
+
+    req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
+
+    def test_added_args(self):
+        with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+            pipdeps.run_pip_install(["--user"])
+        cc_mock.assert_called_once_with([
+            "pip", "-q", "install", "-r", self.req_path, "--user"])
+
+    def test_verbose(self):
+        with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+            pipdeps.run_pip_install(["--download", "/tmp/pip"], verbose=True)
+        cc_mock.assert_called_once_with([
+            "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])

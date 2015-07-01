@@ -33,13 +33,13 @@ def s3_from_rc(cloud_city):
 
 def run_pip_install(extra_args, verbose=False):
     """Run pip install in a subprocess with given additional arguments."""
-    args = ["pip"]
+    cmd = ["pip"]
     if not verbose:
-        args.append("-q")
+        cmd.append("-q")
     requirements = os.path.join(os.path.dirname(__file__), "requirements.txt")
-    args.extend(["install", "-r", requirements])
-    args.extend(extra_args)
-    subprocess.check_call(args)
+    cmd.extend(["install", "-r", requirements])
+    cmd.extend(extra_args)
+    subprocess.check_call(cmd)
 
 
 def command_install(bucket, verbose=False):
