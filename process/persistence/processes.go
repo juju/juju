@@ -94,11 +94,11 @@ func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string,
 				} else { // Otherwise the op is dropped.
 					id := fmt.Sprintf("%s", op.Id)
 					found = append(found, id)
-					definition, ok := op.Insert.(*ProcessDefinitionDoc)
+					requested, ok := op.Insert.(*ProcessDefinitionDoc)
 					if !ok {
 						return nil, errors.Errorf("inserting invalid type %T", op.Insert)
 					}
-					if !reflect.DeepEqual(definition, &existing) {
+					if !reflect.DeepEqual(requested.definition(), existing.definition()) {
 						mismatched = append(mismatched, id)
 					}
 				}
