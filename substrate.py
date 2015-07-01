@@ -315,8 +315,6 @@ class AzureAccount:
         It writes the certificate to a temp file because the Azure client
         library requires it, then deletes the temp file when done.
         """
-        from winazure import AZURE_PACKAGE
-        sys.path.insert(0, AZURE_PACKAGE)
         from azure.servicemanagement import ServiceManagementService
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'azure.pem')
