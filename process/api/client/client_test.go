@@ -132,6 +132,29 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 	c.Check(numStubCalls, gc.Equals, 1)
 }
 
+func (s *clientSuite) TestUnregisterProcesses(c *gc.C) {
+	numStubCalls := 0
+
+	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
+		numStubCalls++
+		c.Check(name, gc.Equals, "UnregisterProcesses")
+
+		typedParams, ok := params.(*papi.UnregisterProcessesArgs)
+		c.Assert(ok, gc.Equals, true)
+
+		c.Check(len(typedParams.IDs), gc.Equals, 1)
+		c.Check(typedParams.UnitTag, gc.Equals, s.tag)
+
+		return nil
+	}
+
+	client := pclient.NewProcessClient(s.stub, s.stub)
+	err := client.UnregisterProcesses(s.tag, "idfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(numStubCalls, gc.Equals, 1)
+}
+
 type stubFacade struct {
 	FacadeCallFn func(name string, params, response interface{}) error
 }

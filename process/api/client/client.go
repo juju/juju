@@ -79,3 +79,9 @@ func (c *processClient) SetProcessesStatus(tag, status string, ids ...string) er
 	args := api.SetProcessesStatusArgs{Args: statusArgs}
 	return c.FacadeCall("SetProcessesStatus", &args, nil)
 }
+
+// UnregisterProcesses calls the UnregisterProcesses API server method.
+func (c *processClient) UnregisterProcesses(tag string, ids ...string) error {
+	args := api.UnregisterProcessesArgs{UnitTag: tag, IDs: ids}
+	return c.FacadeCall("UnregisterProcesses", &args, nil)
+}
