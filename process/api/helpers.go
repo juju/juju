@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
+// API2Proc converts an API Process info struct into a process.Info struct.
 func API2Proc(p ProcessInfo) process.Info {
 	return process.Info{
 		Process: charm.Process{
@@ -32,6 +33,7 @@ func API2Proc(p ProcessInfo) process.Info {
 	}
 }
 
+// Proc2api converts a process.Info struct into an api.ProcessInfo struct.
 func Proc2api(p process.Info) ProcessInfo {
 	return ProcessInfo{
 		Process: Process{
@@ -55,6 +57,8 @@ func Proc2api(p process.Info) ProcessInfo {
 	}
 }
 
+// API2charmPorts converts a slice of api.ProcessPorts into a slice of
+// charm.ProcessPorts.
 func API2charmPorts(ports []ProcessPort) []charm.ProcessPort {
 	ret := make([]charm.ProcessPort, len(ports))
 	for i, p := range ports {
@@ -67,6 +71,7 @@ func API2charmPorts(ports []ProcessPort) []charm.ProcessPort {
 	return ret
 }
 
+// API2charmVolumes converts a slice of api.ProcessVolume into a slice of charm.ProcessVolume.
 func API2charmVolumes(vols []ProcessVolume) []charm.ProcessVolume {
 	ret := make([]charm.ProcessVolume, len(vols))
 	for i, v := range vols {
@@ -80,6 +85,7 @@ func API2charmVolumes(vols []ProcessVolume) []charm.ProcessVolume {
 	return ret
 }
 
+// Charm2apiPorts converts a slice of charm.ProcessPorts into a slice of api.ProcessPort.
 func Charm2apiPorts(ports []charm.ProcessPort) []ProcessPort {
 	ret := make([]ProcessPort, len(ports))
 	for i, p := range ports {
@@ -92,6 +98,7 @@ func Charm2apiPorts(ports []charm.ProcessPort) []ProcessPort {
 	return ret
 }
 
+// Charm2apiVolumes converts a slice of charm.ProcessVolume into a slice of api.ProcessVolume.
 func Charm2apiVolumes(vols []charm.ProcessVolume) []ProcessVolume {
 	ret := make([]ProcessVolume, len(vols))
 	for i, v := range vols {
