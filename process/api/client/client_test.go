@@ -88,7 +88,7 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 	c.Check(ids[0], gc.Equals, processInfo.Details.ID)
 }
 
-func (s *clientSuite) TestListEmptyProcesses(c *gc.C) {
+func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 	numStubCalls := 0
 
 	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
