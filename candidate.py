@@ -206,9 +206,9 @@ def publish_candidates(path, streams_path,
 
 def publish(streams_path, publish_script, dry_run=False, verbose=False):
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
+    command = [publish_script, 'weekly', juju_dist_path, 'cpc']
     for attempt in range(3):
         try:
-            command = [publish_script, 'weekly', juju_dist_path, 'cpc']
             run_command(command, dry_run=dry_run, verbose=verbose)
             break
         except subprocess.CalledProcessError:
