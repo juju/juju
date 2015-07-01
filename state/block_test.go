@@ -162,6 +162,18 @@ func (s *blockSuite) TestRemoveAllBlocksForSystem(c *gc.C) {
 	c.Assert(len(blocks), gc.Equals, 0)
 }
 
+func (s *blockSuite) TestRemoveAllBlocksForSystemNoBlocks(c *gc.C) {
+	_, st2 := s.createTestEnv(c)
+	defer st2.Close()
+
+	err := st2.RemoveAllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := st2.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(blocks), gc.Equals, 0)
+}
+
 func (s *blockSuite) TestEnvUUID(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()

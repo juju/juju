@@ -209,10 +209,6 @@ func (st *State) RemoveAllBlocksForSystem() error {
 		return errors.Trace(err)
 	}
 
-	if len(blocks) == 0 {
-		return nil
-	}
-
 	ops := []txn.Op{}
 	for _, blk := range blocks {
 		ops = append(ops, txn.Op{
