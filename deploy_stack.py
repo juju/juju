@@ -329,7 +329,7 @@ def get_juju_path(args):
 
 def get_log_level(args):
     log_level = logging.INFO
-    if args.verbose:
+    if 'verbose' in args and args.verbose:
         log_level = logging.DEBUG
     return log_level
 

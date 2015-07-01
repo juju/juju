@@ -17,25 +17,7 @@ from utility import (
 )
 
 
-def is_healthy(cmd_path):
-    """Returns a boolean after running the health_checker."""
-    try:
-        sub_output = subprocess.check_output(cmd_path)
-        logging.info('Health check output: {}'.format(sub_output))
-    except OSError as e:
-        logging.error(
-            'The health check script failed to execute with: {}'.format(
-                e))
-        raise
-    except subprocess.CalledProcessError as e:
-        logging.error('Non-zero exit code returned from {}: {}'.format(
-            cmd_path, e))
-        logging.error(e.output)
-        return False
-    return True
-
-
-def run_deployer():
+def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument('bundle_path',
                         help='URL or path to a bundle')
@@ -64,7 +46,29 @@ def run_deployer():
 
     parser.add_argument('--new-juju-bin', default=None,
                         help='Dirctory containing the new Juju binary.')
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def is_healthy(cmd_path):
+    """Returns a boolean after running the health_checker."""
+    try:
+        sub_output = subprocess.check_output(cmd_path)
+        logging.info('Health check output: {}'.format(sub_output))
+    except OSError as e:
+        logging.error(
+            'The health check script failed to execute with: {}'.format(
+                e))
+        raise
+    except subprocess.CalledProcessError as e:
+        logging.error('Non-zero exit code returned from {}: {}'.format(
+            cmd_path, e))
+        logging.error(e.output)
+        return False
+    return True
+
+
+def run_deployer():
+    args = parse_args()
     juju_path = get_juju_path(args)
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
