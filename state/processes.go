@@ -100,7 +100,7 @@ func (up *unitProcesses) List(ids ...string) ([]process.Info, error) {
 		}
 	}
 
-	return up.List(ids...)
+	return up.UnitProcesses.List(ids...)
 }
 
 // TODO(ericsnow) DestroyProcess: Mark the proc as Dying.
