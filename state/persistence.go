@@ -51,7 +51,7 @@ func (sp statePersistence) All(collName string, query, docs interface{}) error {
 	coll, closeColl := sp.st.getCollection(collName)
 	defer closeColl()
 
-	if err := coll.FindId(query).All(docs); err != nil {
+	if err := coll.Find(query).All(docs); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
