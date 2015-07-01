@@ -366,7 +366,8 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 
 	results := make(map[string]ProcessDefinitionDoc)
 	for _, doc := range docs {
-		id := idMap[doc.DocID]
+		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		id := idMap[fullID]
 		results[id] = doc
 	}
 	return results, nil
@@ -445,7 +446,8 @@ func (pp Persistence) launches(ids []string) (map[string]ProcessLaunchDoc, error
 
 	results := make(map[string]ProcessLaunchDoc)
 	for _, doc := range docs {
-		id := idMap[doc.DocID]
+		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		id := idMap[fullID]
 		results[id] = doc
 	}
 	return results, nil
@@ -538,7 +540,8 @@ func (pp Persistence) procs(ids []string) (map[string]ProcessDoc, error) {
 
 	results := make(map[string]ProcessDoc)
 	for _, doc := range docs {
-		id := idMap[doc.DocID]
+		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		id := idMap[fullID]
 		results[id] = doc
 	}
 	return results, nil
