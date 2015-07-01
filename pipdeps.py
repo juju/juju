@@ -14,11 +14,16 @@ import boto.s3.key
 import utility
 
 
-BUCKET = "juju-qa-data"
-PREFIX = "pip-archives/"
+BUCKET = "juju-pip-archives"
+PREFIX = "juju-ci-tools/"
 
 
-def s3_from_rc(cloud_city):
+def s3_anon():
+    """Gives an unauthenticated S3 connection."""
+    return boto.s3.connection.S3Connection(anon=True)
+
+
+def s3_auth_with_rc(cloud_city):
     """Gives authenticated S3 connection using cloud-city credentials."""
     access_key = secret_key = None
     with open(os.path.join(os.path.expanduser(cloud_city), "ec2rc")) as rc:
@@ -51,13 +56,18 @@ def command_install(bucket, verbose=False):
             verbose=verbose)
 
 
-def command_update(bucket, verbose=False):
+def command_update(s3, verbose=False):
+    bucket = s3.lookup(BUCKET)
+    if bucket is None:
+        s3.create_bucket(BUCKET, policy="public-read")
+        bucket = s3.get_bucket(BUCKET)
     with utility.temp_dir() as archives_dir:
         run_pip_install(["--download", archives_dir], verbose=verbose)
         for archive in os.listdir(archives_dir):
+            filename = os.path.join(archives_dir, archive)
             key = boto.s3.key.Key(bucket)
             key.key = PREFIX + archive
-            key.set_contents_from_filename(os.path.join(archives_dir, archive))
+            key.set_contents_from_filename(filename, policy="public-read")
 
 
 def command_list(bucket, verbose=False):
@@ -65,10 +75,15 @@ def command_list(bucket, verbose=False):
         print(key.name[len(PREFIX):])
 
 
-def get_args(argv):
+def command_delete(bucket, verbose=False):
+    for key in bucket.list(prefix=PREFIX):
+        key.delete()
+
+
+def get_parser(argv0):
     """Parse and return arguments."""
     parser = argparse.ArgumentParser(
-        prog=argv[0], description="Manage pip dependencies")
+        prog=argv0, description="Manage pip dependencies")
     parser.add_argument("-v", "--verbose", action="store_true",
         help="Show more output.")
     parser.add_argument("--cloud-city", default="~/cloud-city",
@@ -78,20 +93,27 @@ def get_args(argv):
     subparsers.add_parser("update",
         help="Get latest deps from PyPI and upload to S3.")
     subparsers.add_parser("list", help="Show packages currently in S3.")
-    return parser.parse_args(argv[1:])
+    subparsers.add_parser("delete", help="Delete packages currently in S3.")
+    return parser
 
 
 def main(argv):
-    args = get_args(argv)
-    s3 = s3_from_rc(args.cloud_city)
-    bucket = s3.get_bucket(BUCKET)
-    if args.command == "install":
-        # XXX: Should maybe not bother requiring S3 creds?
-        command_install(bucket, args.verbose)
-    elif args.command == "update":
-        command_update(bucket, args.verbose)
-    elif args.command == "list":
-        command_list(bucket, args.verbose)
+    parser = get_parser(argv[0])
+    args = parser.parse_args(argv[1:])
+    use_auth = os.path.isdir(args.cloud_city)
+    if not use_auth and args.command in ("update", "delete"):
+        parser.error("Need cloud-city credentials to modify S3 cache.")
+    s3 = s3_auth_with_rc(args.cloud_city) if use_auth else s3_anon()
+    if args.command == "update":
+        command_update(s3, args.verbose)
+    else:
+        bucket = s3.get_bucket(BUCKET)
+        if args.command == "install":
+            command_install(bucket, args.verbose)
+        elif args.command == "list":
+            command_list(bucket, args.verbose)
+        elif args.command == "delete":
+            command_delete(bucket, args.verbose)
     return 0
 
 

@@ -9,29 +9,44 @@ import pipdeps
 import utility
 
 
-class TestGetArgs(unittest.TestCase):
+class TestGetParser(unittest.TestCase):
 
     def test_list_defaults(self):
-        args = pipdeps.get_args(["pipdeps.py", "list"])
+        parser = pipdeps.get_parser("pipdeps.py")
+        args = parser.parse_args(["list"])
         self.assertEqual("list", args.command)
         self.assertEqual("~/cloud-city", args.cloud_city)
         self.assertEqual(False, args.verbose)
 
     def test_install_verbose(self):
-        args = pipdeps.get_args(["pipdeps.py", "-v", "install"])
+        parser = pipdeps.get_parser("pipdeps.py")
+        args = parser.parse_args(["-v", "install"])
         self.assertEqual("install", args.command)
         self.assertEqual(True, args.verbose)
 
     def test_update_cloud_city(self):
-        args = pipdeps.get_args(["pipdeps.py", "--cloud-city", "/tmp/cc",
-                                 "update"])
+        parser = pipdeps.get_parser("pipdeps.py")
+        args = parser.parse_args(["--cloud-city", "/tmp/cc", "update"])
         self.assertEqual("update", args.command)
         self.assertEqual("/tmp/cc", args.cloud_city)
 
+    def test_delete(self):
+        parser = pipdeps.get_parser("pipdeps.py")
+        args = parser.parse_args(["delete"])
+        self.assertEqual("delete", args.command)
 
-class TestS3FromRc(unittest.TestCase):
 
-    def test_connection(self):
+class TestS3Connection(unittest.TestCase):
+
+    def test_anon(self):
+        sentinel = object()
+        with mock.patch("boto.s3.connection.S3Connection", autospec=True,
+                        return_value=sentinel) as s3_mock:
+            s3 = pipdeps.s3_anon()
+            self.assertIs(s3, sentinel)
+        s3_mock.assert_called_once_with(anon=True)
+
+    def test_auth_with_rc(self):
         with utility.temp_dir() as fake_city:
             with open(os.path.join(fake_city, "ec2rc"), "wb") as f:
                 f.write(
@@ -39,11 +54,11 @@ class TestS3FromRc(unittest.TestCase):
                     "AWS_ACCESS_KEY=access\n"
                     "export AWS_SECRET_KEY AWS_ACCESS_KEY\n"
                 )
-            o = object()
-            with mock.patch("boto.s3.connection.S3Connection", return_value=o,
-                            autospec=True) as s3_mock:
-                s3 = pipdeps.s3_from_rc(fake_city)
-                self.assertIs(s3, o)
+            sentinel = object()
+            with mock.patch("boto.s3.connection.S3Connection", autospec=True,
+                            return_value=sentinel) as s3_mock:
+                s3 = pipdeps.s3_auth_with_rc(fake_city)
+                self.assertIs(s3, sentinel)
         s3_mock.assert_called_once_with("access", "secret")
 
 
