@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
 )
 
 const registerDoc = `
@@ -59,7 +58,7 @@ func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
 		return errors.Trace(err)
 	}
 
-	details, err := plugin.UnmarshalDetails([]byte(detailsStr))
+	details, err := process.UnmarshalDetails([]byte(detailsStr))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -71,7 +70,7 @@ func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
 // Run implements cmd.Command.
 func (c *ProcRegistrationCommand) Run(ctx *cmd.Context) error {
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
-	if err := c.register(ctx, process.StatusActive); err != nil {
+	if err := c.register(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

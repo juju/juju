@@ -13,7 +13,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
 )
 
 // baseCommand implements the common portions of the workload process
@@ -76,7 +75,7 @@ func (c baseCommand) getInfo() (*process.Info, error, error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if pInfo.Status != process.StatusPending {
+	if pInfo.IsRegistered() {
 		return nil, nil, errors.Errorf("process %q already registered", c.Name)
 	}
 	return pInfo, nil, nil
@@ -88,7 +87,7 @@ type registeringCommand struct {
 	baseCommand
 
 	// Details is the launch details returned from the process plugin.
-	Details plugin.ProcDetails
+	Details process.Details
 
 	// Overrides overwrite the process definition.
 	Overrides []string
@@ -234,7 +233,7 @@ func (c *registeringCommand) parseDefinition(data []byte) (*process.Info, error)
 // register updates the hook context with the information for the
 // registered workload process. An error is returned if the process
 // was already registered.
-func (c *registeringCommand) register(ctx *cmd.Context, status process.Status) error {
+func (c *registeringCommand) register(ctx *cmd.Context) error {
 	if c.info != nil && c.info.IsRegistered() {
 		return errors.Errorf("already registered")
 	}
@@ -255,7 +254,6 @@ func (c *registeringCommand) register(ctx *cmd.Context, status process.Status) e
 		return errors.Trace(err)
 	}
 	info.Details = c.Details
-	info.Status = status
 
 	if err := c.compCtx.Set(c.Name, info); err != nil {
 		return errors.Trace(err)

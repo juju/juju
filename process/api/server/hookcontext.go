@@ -15,35 +15,56 @@ import (
 
 var logger = loggo.GetLogger("juju.process.api.server")
 
-// HookContextAPI serves workload process-specific API methods.
-type HookContextAPI struct {
-	State State
-}
-
 // State is an interface that exposes functionality this package needs to wrap
 // in an API.
 type State interface {
-	// RegisterProcess registers a workload process for the given unit and info.
-	RegisterProcess(unit names.UnitTag, info process.Info) error
-	// ListProcess returns information on the process with the id on the unit.
-	ListProcess(unit names.UnitTag, id string) (process.Info, error)
-	// SetProcessStatus sets the status for the process with the given id on the unit.
-	SetProcessStatus(unit names.UnitTag, id string, status string) error
-	// UnregisterProcess removes the information for the process with the given id.
-	UnregisterProcess(unit names.UnitTag, id string) error
+	// UnitProcesses exposes the State functionality for a unit's
+	// workload processes.
+	UnitProcesses(unit names.UnitTag) (UnitProcesses, error)
+}
+
+// UnitProcesses exposes the State functionality for a unit's
+// workload processes.
+type UnitProcesses interface {
+	// Register registers a workload process for the unit and info.
+	Register(info process.Info) error
+	// List returns information on the process with the id on the unit.
+	List(ids ...string) ([]process.Info, error)
+	// Settatus sets the status for the process with the given id on the unit.
+	SetStatus(id string, status process.Status) error
+	// Unregister removes the information for the process with the given id.
+	Unregister(id string) error
+}
+
+// HookContextAPI serves workload process-specific API methods.
+type HookContextAPI struct {
+	// State exposes the workload process aspect of Juju's state.
+	State State
+}
+
+// NewHookContextAPI builds a new facade for the given State.
+func NewHookContextAPI(st State) *HookContextAPI {
+	return &HookContextAPI{State: st}
 }
 
 // RegisterProcess registers a workload process in state.
 func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.ProcessResults, error) {
+	unit := names.NewUnitTag(args.UnitTag)
+	st, err := a.State.UnitProcesses(unit)
+	if err != nil {
+		return api.ProcessResults{Error: common.ServerError(err)}, nil
+	}
+
 	r := api.ProcessResults{}
-	for _, arg := range args.Processes {
-		info := api.API2Proc(arg.ProcessInfo)
-		unit := names.NewUnitTag(arg.UnitTag)
-
-		res := api.ProcessResult{ID: arg.Details.ID}
-
-		if err := errors.Trace(a.State.RegisterProcess(unit, info)); err != nil {
-			res.Error = common.ServerError(err)
+	for _, apiProc := range args.Processes {
+		info := api.API2Proc(apiProc)
+		res := api.ProcessResult{
+			ID: info.Name + "/" + info.Details.ID,
+			//ID: info.ID(),
+		}
+		if err := st.Register(info); err != nil {
+			res.Error = common.ServerError(errors.Trace(err))
+			r.Error = common.ServerError(api.BulkFailure)
 		}
 
 		r.Results = append(r.Results, res)
@@ -55,17 +76,54 @@ func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.P
 // the given unit and IDs. If no IDs are provided then all registered
 // processes for the unit are returned.
 func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProcessesResults, error) {
-	r := api.ListProcessesResults{}
+	var r api.ListProcessesResults
+
 	unit := names.NewUnitTag(args.UnitTag)
-	for _, id := range args.IDs {
-		info, err := a.State.ListProcess(unit, id)
+	st, err := a.State.UnitProcesses(unit)
+	if err != nil {
+		r.Error = common.ServerError(err)
+		return r, nil
+	}
+
+	ids := args.IDs
+	procs, err := st.List(ids...)
+	if err != nil {
+		r.Error = common.ServerError(err)
+		return r, nil
+	}
+
+	if len(ids) == 0 {
+		for _, proc := range procs {
+			id := proc.Name
+			if proc.Details.ID != "" {
+				id += "/" + proc.Details.ID
+			}
+			ids = append(ids, id)
+			//ids = append(ids, info.ID())
+		}
+	}
+
+	for _, id := range ids {
 		res := api.ListProcessResult{
 			ID: id,
 		}
-		if err != nil {
-			res.Error = common.ServerError(err)
-		} else {
-			res.Info = api.Proc2api(info)
+
+		found := false
+		for _, proc := range procs {
+			procID := proc.Name
+			if proc.Details.ID != "" {
+				procID += "/" + proc.Details.ID
+			}
+			//if id == proc.ID() {
+			if id == procID {
+				res.Info = api.Proc2api(proc)
+				found = true
+				break
+			}
+		}
+		if !found {
+			res.Error = common.ServerError(errors.NotFoundf("process %q", id))
+			r.Error = common.ServerError(api.BulkFailure)
 		}
 		r.Results = append(r.Results, res)
 	}
@@ -74,14 +132,22 @@ func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProce
 
 // SetProcessesStatus sets the raw status of a workload process.
 func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api.ProcessResults, error) {
+	unit := names.NewUnitTag(args.UnitTag)
+	st, err := a.State.UnitProcesses(unit)
+	if err != nil {
+		return api.ProcessResults{Error: common.ServerError(err)}, nil
+	}
+
 	r := api.ProcessResults{}
 	for _, arg := range args.Args {
-		res := api.ProcessResult{ID: arg.ID}
-
-		unit := names.NewUnitTag(arg.UnitTag)
-		err := a.State.SetProcessStatus(unit, arg.ID, arg.Status.Status)
+		res := api.ProcessResult{
+			ID: arg.ID,
+		}
+		status := api.APIStatus2Status(arg.Status)
+		err := st.SetStatus(arg.ID, status)
 		if err != nil {
 			res.Error = common.ServerError(err)
+			r.Error = common.ServerError(api.BulkFailure)
 		}
 		r.Results = append(r.Results, res)
 	}
@@ -90,13 +156,20 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 
 // UnregisterProcesses marks the identified process as unregistered.
 func (a HookContextAPI) UnregisterProcesses(args api.UnregisterProcessesArgs) (api.ProcessResults, error) {
-	r := api.ProcessResults{}
 	unit := names.NewUnitTag(args.UnitTag)
+	st, err := a.State.UnitProcesses(unit)
+	if err != nil {
+		return api.ProcessResults{Error: common.ServerError(err)}, nil
+	}
+
+	r := api.ProcessResults{}
 	for _, id := range args.IDs {
-		res := api.ProcessResult{ID: id}
-		err := errors.Trace(a.State.UnregisterProcess(unit, id))
-		if err != nil {
-			res.Error = common.ServerError(err)
+		res := api.ProcessResult{
+			ID: id,
+		}
+		if err := st.Unregister(id); err != nil {
+			res.Error = common.ServerError(errors.Trace(err))
+			r.Error = common.ServerError(api.BulkFailure)
 		}
 		r.Results = append(r.Results, res)
 	}

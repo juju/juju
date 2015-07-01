@@ -21,7 +21,7 @@ the charm's metadata.yaml.`
 type FindPluginFn func(string) (*plugin.Plugin, error)
 
 // LaunchPluginFn will launch a plugin given a plugin and a process definition.
-type LaunchPluginFn func(plugin.Plugin, charm.Process) (plugin.ProcDetails, error)
+type LaunchPluginFn func(plugin.Plugin, charm.Process) (process.Details, error)
 
 // NewProcLaunchCommand constructs a new ProcLaunchCommand.
 func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, ctx HookContext) (*ProcLaunchCommand, error) {
@@ -91,7 +91,7 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 	}
 	c.Details = procDetails
 
-	if err := c.register(ctx, process.StatusActive); err != nil {
+	if err := c.register(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

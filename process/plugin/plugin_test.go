@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
 )
 
@@ -25,7 +26,7 @@ const exitstatus1 = "exit status 1: "
 
 func (s *suite) TestLaunch(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo", "status" : "bar" }`),
+		out: []byte(`{ "id" : "foo", "status": { "label" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -34,10 +35,13 @@ func (s *suite) TestLaunch(c *gc.C) {
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, ProcDetails{"foo", ProcStatus{"bar"}})
+	c.Assert(pd, gc.Equals, process.Details{
+		ID:     "foo",
+		Status: process.Status{Label: "bar"},
+	})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "launch")
 	c.Assert(f.args, gc.HasLen, 1)
 	// fix this to be more stringent when we fix json serialization for charm.Process
@@ -54,12 +58,12 @@ func (s *suite) TestLaunchBadOutput(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(err, gc.ErrorMatches, `error parsing data for procdetails.*`)
+	c.Assert(err, gc.ErrorMatches, `error parsing data for workload process details.*`)
 }
 
 func (s *suite) TestLaunchNoId(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "status" : "bar" }`),
+		out: []byte(`{ "status" : { "status" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -67,7 +71,7 @@ func (s *suite) TestLaunchNoId(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, IsInvalid)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *suite) TestLaunchNoStatus(c *gc.C) {
@@ -80,7 +84,7 @@ func (s *suite) TestLaunchNoStatus(c *gc.C) {
 	proc := charm.Process{Image: "img"}
 
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), jc.Satisfies, IsInvalid)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *suite) TestLaunchErr(c *gc.C) {
@@ -98,7 +102,7 @@ func (s *suite) TestLaunchErr(c *gc.C) {
 
 func (s *suite) TestStatus(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "status" : "status!" }`),
+		out: []byte(`{ "label" : "status!" }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -106,9 +110,9 @@ func (s *suite) TestStatus(c *gc.C) {
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, ProcStatus{Status: "status!"})
+	c.Assert(status, gc.Equals, process.Status{Label: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "status")
 	c.Assert(f.args, gc.DeepEquals, []string{"id"})
 }
@@ -134,7 +138,7 @@ func (s *suite) TestDestroy(c *gc.C) {
 	err := p.Destroy("id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Path)
+	c.Assert(f.path, gc.Equals, p.Executable)
 	c.Assert(f.subcommand, gc.Equals, "destroy")
 	c.Assert(f.args, gc.DeepEquals, []string{"id"})
 }
