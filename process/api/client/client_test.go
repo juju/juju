@@ -1,38 +1,125 @@
 package client_test
 
 import (
+	"testing"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	pc "github.com/juju/juju/process/api/client"
-	"github.com/juju/juju/state"
+	papi "github.com/juju/juju/process/api"
+	pclient "github.com/juju/juju/process/api/client"
 )
 
-type clientSuite struct {
-	testing.JujuConnSuite
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}
 
-	st      *api.State
-	machine *state.Machine
+type clientSuite struct {
+	stub *stubFacade
+	tag  string
 }
 
 var _ = gc.Suite(&clientSuite{})
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.tag = "machine-tag"
+	s.stub = &stubFacade{}
+}
 
-	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
+func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
+	numStubCalls := 0
+	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
+		numStubCalls++
+		c.Check(name, gc.Equals, "RegisterProcesses")
+
+		typedResponse, ok := response.(*papi.ProcessResults)
+		c.Assert(ok, gc.Equals, true)
+
+		typedParams, ok := params.(*papi.RegisterProcessesArgs)
+		c.Assert(ok, gc.Equals, true)
+
+		for _, rpa := range typedParams.Processes {
+			typedResponse.Results = append(typedResponse.Results, papi.ProcessResult{
+				ID:    rpa.ProcessInfo.Details.ID,
+				Error: nil,
+			})
+		}
+
+		return nil
+	}
+
+	client := pclient.NewProcessClient(s.stub, s.stub)
+
+	processInfo := papi.ProcessInfo{
+		Process: papi.Process{
+			Name:        "foobar",
+			Description: "desc",
+			Type:        "type",
+			TypeOptions: map[string]string{"foo": "bar"},
+			Command:     "cmd",
+			Image:       "img",
+			Ports: []papi.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "endpoint",
+			}},
+			Volumes: []papi.ProcessVolume{{
+				ExternalMount: "/foo/bar",
+				InternalMount: "/baz/bat",
+				Mode:          "ro",
+				Name:          "volname",
+			}},
+			EnvVars: map[string]string{"envfoo": "bar"},
+		},
+		Status: 5,
+		Details: papi.ProcDetails{
+			ID:         "idfoo",
+			ProcStatus: papi.ProcStatus{Status: "process status"},
+		},
+	}
+
+	unregisteredProcesses := []papi.ProcessInfo{processInfo}
+
+	ids, err := client.RegisterProcesses(s.tag, unregisteredProcesses)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(len(ids), gc.Equals, 1)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(ids[0], gc.Equals, processInfo.Details.ID)
 }
 
 func (s *clientSuite) TestListEmptyProcesses(c *gc.C) {
-	client := pc.NewProcessClient(s.st)
+	numStubCalls := 0
 
-	processes, err := client.ListProcesses(s.machine.Tag().String())
+	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
+		numStubCalls++
+		c.Check(name, gc.Equals, "ListProcesses")
+		return nil
+	}
+	client := pclient.NewProcessClient(s.stub, s.stub)
+
+	processes, err := client.ListProcesses(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(processes), gc.Equals, 0)
+	c.Check(numStubCalls, gc.Equals, 1)
+}
+
+type stubFacade struct {
+	FacadeCallFn func(name string, params, response interface{}) error
+}
+
+func (s *stubFacade) FacadeCall(request string, params, response interface{}) error {
+	if s.FacadeCallFn != nil {
+		return s.FacadeCallFn(request, params, response)
+	}
+	return nil
+}
+
+func (s *stubFacade) BestAPIVersion() int {
+	return -1
+}
+
+func (s *stubFacade) Close() error {
+	return nil
 }

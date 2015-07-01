@@ -12,25 +12,58 @@ import (
 
 const processAPI = "Process"
 
+type facadeCaller interface {
+	FacadeCall(request string, params, response interface{}) error
+}
+
 // processClient provides methods for interacting with Juju's internal
 // RPC API, relative to workload processes.
 type processClient struct {
-	facade base.FacadeCaller
+	base.ClientFacade
+	facadeCaller
 }
 
 // NewProcessClient builds a new workload process API client.
-func NewProcessClient(caller base.APICaller) *processClient {
-	return &processClient{facade: base.NewFacadeCaller(caller, processAPI)}
+func NewProcessClient(facade base.ClientFacade, caller facadeCaller) *processClient {
+	return &processClient{facade, caller}
+}
+
+// RegisterProcesses calls the RegisterProcesses API server method.
+func (c *processClient) RegisterProcesses(tag string, processes []api.ProcessInfo) ([]string, error) {
+	var result api.ProcessResults
+
+	procArgs := make([]api.RegisterProcessArg, len(processes))
+	for i, procInfo := range processes {
+		procArg := api.RegisterProcessArg{UnitTag: tag, ProcessInfo: procInfo}
+		procArgs[i] = procArg
+	}
+
+	args := api.RegisterProcessesArgs{Processes: procArgs}
+	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ids := make([]string, len(result.Results))
+	for i, id := range result.Results {
+		ids[i] = id.ID
+	}
+
+	return ids, nil
 }
 
 // ListProcesses calls the ListProcesses API server method.
 func (c *processClient) ListProcesses(tag string, ids ...string) ([]api.ProcessInfo, error) {
-	var results []api.ProcessInfo
+	var result api.ListProcessesResults
 
-	args := api.ListProcessesArgs{Tag: tag, IDs: ids}
-	if err := c.facade.FacadeCall("ListProcesses", args, &results); err != nil {
+	args := api.ListProcessesArgs{UnitTag: tag, IDs: ids}
+	if err := c.FacadeCall("ListProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return results, nil
+	processes := make([]api.ProcessInfo, len(result.Results))
+	for i, proc := range result.Results {
+		processes[i] = proc.Info
+	}
+
+	return processes, nil
 }
