@@ -105,6 +105,33 @@ func (s *clientSuite) TestListEmptyProcesses(c *gc.C) {
 	c.Check(numStubCalls, gc.Equals, 1)
 }
 
+func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
+	numStubCalls := 0
+
+	s.stub.FacadeCallFn = func(name string, params, response interface{}) error {
+		numStubCalls++
+		c.Check(name, gc.Equals, "SetProcessesStatus")
+
+		typedParams, ok := params.(*papi.SetProcessesStatusArgs)
+		c.Assert(ok, gc.Equals, true)
+
+		c.Check(len(typedParams.Args), gc.Equals, 1)
+
+		arg := typedParams.Args[0]
+		c.Check(arg.UnitTag, gc.Equals, s.tag)
+		c.Check(arg.ID, gc.Equals, "idfoo")
+		c.Check(arg.Status, gc.DeepEquals, papi.ProcStatus{Status: "Running"})
+
+		return nil
+	}
+
+	client := pclient.NewProcessClient(s.stub, s.stub)
+	err := client.SetProcessesStatus(s.tag, "Running", "idfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(numStubCalls, gc.Equals, 1)
+}
+
 type stubFacade struct {
 	FacadeCallFn func(name string, params, response interface{}) error
 }

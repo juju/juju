@@ -67,3 +67,15 @@ func (c *processClient) ListProcesses(tag string, ids ...string) ([]api.ProcessI
 
 	return processes, nil
 }
+
+// SetProcessesStatus calls the SetProcessesStatus API server method.
+func (c *processClient) SetProcessesStatus(tag, status string, ids ...string) error {
+	statusArgs := make([]api.SetProcessStatusArg, len(ids))
+	for i, id := range ids {
+		procStatus := api.ProcStatus{Status: status}
+		statusArgs[i] = api.SetProcessStatusArg{UnitTag: tag, ID: id, Status: procStatus}
+	}
+
+	args := api.SetProcessesStatusArgs{Args: statusArgs}
+	return c.FacadeCall("SetProcessesStatus", &args, nil)
+}
