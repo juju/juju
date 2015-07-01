@@ -108,7 +108,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	var fakeOpenStateForUpgrade = func(upgradingMachineAgent, agent.Config) (*state.State, error) {
 		mongoInfo := s.State.MongoConnectionInfo()
-		st, err := state.Open(mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+		st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		c.Assert(err, jc.ErrorIsNil)
 		return st, nil
 	}

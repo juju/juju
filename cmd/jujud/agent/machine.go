@@ -1520,8 +1520,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	environmentUUID := agentConfig.Environment().Id()
-	st, err := state.Open(environmentUUID, info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Environment(), info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
