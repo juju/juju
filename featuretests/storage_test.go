@@ -160,10 +160,12 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	vol, err := s.State.StorageInstanceVolume(names.NewStorageTag("data/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+	err = s.State.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
 		Size:       1024,
 		Persistent: true,
+		VolumeId:   "vol-ume",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	context := runShow(c, "data/0")
 	expected := `

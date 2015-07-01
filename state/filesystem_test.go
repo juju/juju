@@ -83,7 +83,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	filesystemInfoSet := state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"}
 	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -96,6 +96,20 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 
 	filesystemInfoSet.Pool = "rootfs"
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfoSet)
+}
+
+func (s *FilesystemStateSuite) TestSetFilesystemInfoNoFilesystemId(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	filesystemTag := filesystem.FilesystemTag()
+	s.assertFilesystemUnprovisioned(c, filesystemTag)
+
+	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": filesystem ID not set`)
 }
 
 func (s *FilesystemStateSuite) TestVolumeFilesystem(c *gc.C) {
@@ -426,7 +440,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisio
 	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "rootfs", false)
 	err := s.State.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
-		state.FilesystemInfo{Size: 123},
+		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetFilesystemAttachmentInfo(
@@ -441,7 +455,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvision
 	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "loop", true)
 	err := s.State.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
-		state.FilesystemInfo{Size: 123},
+		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": volume attachment "0/0" on "0" not provisioned`)
 }
