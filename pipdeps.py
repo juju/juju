@@ -59,8 +59,9 @@ def command_install(bucket, verbose=False):
 def command_update(s3, verbose=False):
     bucket = s3.lookup(BUCKET)
     if bucket is None:
-        s3.create_bucket(BUCKET, policy="public-read")
-        bucket = s3.get_bucket(BUCKET)
+        if verbose:
+            print("Creating bucket {}".format(BUCKET))
+        bucket = s3.create_bucket(BUCKET, policy="public-read")
     with utility.temp_dir() as archives_dir:
         run_pip_install(["--download", archives_dir], verbose=verbose)
         for archive in os.listdir(archives_dir):
