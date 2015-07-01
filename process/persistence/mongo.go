@@ -253,29 +253,41 @@ type ProcessDefinitionDoc struct {
 }
 
 func (d ProcessDefinitionDoc) definition() charm.Process {
-	ports := make([]charm.ProcessPort, len(d.Ports))
-	for i, raw := range d.Ports {
-		p := ports[i]
-		fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
-	}
-
-	volumes := make([]charm.ProcessVolume, len(d.Volumes))
-	for i, raw := range d.Volumes {
-		v := volumes[i]
-		fmt.Sscanf(raw, "%s:%s:%s:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
-	}
-
-	return charm.Process{
+	definition := charm.Process{
 		Name:        d.Name,
 		Description: d.Description,
 		Type:        d.Type,
-		TypeOptions: d.TypeOptions,
 		Command:     d.Command,
 		Image:       d.Image,
-		Ports:       ports,
-		Volumes:     volumes,
-		EnvVars:     d.EnvVars,
 	}
+
+	if len(d.TypeOptions) > 0 {
+		definition.TypeOptions = d.TypeOptions
+	}
+
+	if len(d.EnvVars) > 0 {
+		definition.EnvVars = d.EnvVars
+	}
+
+	if len(d.Ports) > 0 {
+		ports := make([]charm.ProcessPort, len(d.Ports))
+		for i, raw := range d.Ports {
+			p := ports[i]
+			fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
+		}
+		definition.Ports = ports
+	}
+
+	if len(d.Volumes) > 0 {
+		volumes := make([]charm.ProcessVolume, len(d.Volumes))
+		for i, raw := range d.Volumes {
+			v := volumes[i]
+			fmt.Sscanf(raw, "%s:%s:%s:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
+		}
+		definition.Volumes = volumes
+	}
+
+	return definition
 }
 
 func (pp Persistence) newProcessDefinitionDoc(definition charm.Process) *ProcessDefinitionDoc {
