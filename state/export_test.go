@@ -199,7 +199,7 @@ func GetPasswordHash(e Authenticator) string {
 }
 
 func init() {
-	txnLogSize = txnLogSizeTests
+	allCollections[txnLogC].explicitCreate.MaxBytes = txnLogSizeTests
 }
 
 // TxnRevno returns the txn-revno field of the document
