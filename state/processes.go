@@ -83,7 +83,6 @@ func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	}
 
 	return &unitProcesses{
-		// TODO(ericsnow) Eliminate the dependency on process/state?
 		UnitProcesses: unitProcs,
 		charm:         charm,
 		st:            st,
