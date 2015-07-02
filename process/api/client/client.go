@@ -18,25 +18,18 @@ type facadeCaller interface {
 
 // ProcessClient provides methods for interacting with Juju's internal
 // RPC API, relative to workload processes.
-type ProcessClient interface {
-	RegisterProcesses(tag string, processes []api.ProcessInfo) ([]api.ProcessResult, error)
-	ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error)
-	SetProcessesStatus(tag, status string, ids ...string) error
-	UnregisterProcesses(tag string, ids ...string) error
-}
-
-type processClient struct {
+type ProcessClient struct {
 	base.ClientFacade
 	facadeCaller
 }
 
 // NewProcessClient builds a new workload process API client.
-func NewProcessClient(facade base.ClientFacade, caller facadeCaller) ProcessClient {
-	return &processClient{facade, caller}
+func NewProcessClient(facade base.ClientFacade, caller facadeCaller) *ProcessClient {
+	return &ProcessClient{facade, caller}
 }
 
 // RegisterProcesses calls the RegisterProcesses API server method.
-func (c *processClient) RegisterProcesses(tag string, processes []api.ProcessInfo) ([]api.ProcessResult, error) {
+func (c *ProcessClient) RegisterProcesses(tag string, processes []api.ProcessInfo) ([]api.ProcessResult, error) {
 	var result api.ProcessResults
 
 	procArgs := make([]api.RegisterProcessArg, len(processes))
@@ -54,7 +47,7 @@ func (c *processClient) RegisterProcesses(tag string, processes []api.ProcessInf
 }
 
 // ListProcesses calls the ListProcesses API server method.
-func (c *processClient) ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error) {
+func (c *ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error) {
 	var result api.ListProcessesResults
 
 	args := api.ListProcessesArgs{UnitTag: tag, IDs: ids}
@@ -66,7 +59,7 @@ func (c *processClient) ListProcesses(tag string, ids ...string) ([]api.ListProc
 }
 
 // SetProcessesStatus calls the SetProcessesStatus API server method.
-func (c *processClient) SetProcessesStatus(tag, status string, ids ...string) error {
+func (c *ProcessClient) SetProcessesStatus(tag, status string, ids ...string) error {
 	statusArgs := make([]api.SetProcessStatusArg, len(ids))
 	for i, id := range ids {
 		procStatus := api.ProcStatus{Status: status}
@@ -78,7 +71,7 @@ func (c *processClient) SetProcessesStatus(tag, status string, ids ...string) er
 }
 
 // UnregisterProcesses calls the UnregisterProcesses API server method.
-func (c *processClient) UnregisterProcesses(tag string, ids ...string) error {
+func (c *ProcessClient) UnregisterProcesses(tag string, ids ...string) error {
 	args := api.UnregisterProcessesArgs{UnitTag: tag, IDs: ids}
 	return c.FacadeCall("UnregisterProcesses", &args, nil)
 }
