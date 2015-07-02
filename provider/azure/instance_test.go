@@ -29,6 +29,7 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.env = makeEnviron(c)
 	s.service = makeDeployment(s.env, "service-name")
 	s.deployment = &s.service.Deployments[0]

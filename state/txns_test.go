@@ -31,6 +31,7 @@ const (
 )
 
 func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
 	s.multiEnvRunner = NewMultiEnvRunnerForTesting(envUUID, s.testRunner)
 }
