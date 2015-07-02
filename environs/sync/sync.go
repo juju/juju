@@ -217,7 +217,7 @@ var Upload UploadFunc = upload
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
 func upload(stor storage.Storage, stream string, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
-	builtTools, err := BuildToolsTarball(forceVersion, stream)
+	builtTools, err := BuildToolsArchive(forceVersion, stream)
 	if err != nil {
 		return nil, err
 	}
@@ -289,15 +289,15 @@ type BuiltTools struct {
 	Size        int64
 }
 
-// BuildToolsTarballFunc is a function which can build a tools tarball.
-type BuildToolsTarballFunc func(forceVersion *version.Number, stream string) (*BuiltTools, error)
+// BuildToolsArchiveFunc is a function which can build a tools tarball.
+type BuildToolsArchiveFunc func(forceVersion *version.Number, stream string) (*BuiltTools, error)
 
 // Override for testing.
-var BuildToolsTarball BuildToolsTarballFunc = buildToolsTarball
+var BuildToolsArchive BuildToolsArchiveFunc = buildToolsArchive
 
-// buildToolsTarball bundles a tools tarball and places it in a temp directory in
+// buildToolsArchive bundles a tools archive and places it in a temp directory in
 // the expected tools path.
-func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools *BuiltTools, err error) {
+func buildToolsArchive(forceVersion *version.Number, stream string) (builtTools *BuiltTools, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 

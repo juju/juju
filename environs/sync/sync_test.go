@@ -263,7 +263,7 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
-	builtTools, err := sync.BuildToolsTarball(nil, "released")
+	builtTools, err := sync.BuildToolsArchive(nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	if seriesToUpload == version.Current.Series {
 		seriesToUpload = "raring"
 	}
-	builtTools, err := sync.BuildToolsTarball(nil, "testing")
+	builtTools, err := sync.BuildToolsArchive(nil, "testing")
 	c.Assert(err, jc.ErrorIsNil)
 
 	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "quantal", seriesToUpload)
@@ -291,7 +291,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	builtTools, err := sync.BuildToolsTarball(&vers.Number, "released")
+	builtTools, err := sync.BuildToolsArchive(&vers.Number, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
@@ -423,15 +423,15 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
-	// Test that original BuildToolsTarball fails
-	builtTools, err := sync.BuildToolsTarball(nil, "released")
+	// Test that original BuildToolsArchive fails
+	builtTools, err := sync.BuildToolsArchive(nil, "released")
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 	c.Assert(builtTools, gc.IsNil)
 
-	// Test that BuildToolsTarball func passes after BundleTools func is
+	// Test that BuildToolsArchive func passes after BundleTools func is
 	// mocked out
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
-	builtTools, err = sync.BuildToolsTarball(nil, "released")
+	builtTools, err = sync.BuildToolsArchive(nil, "released")
 	c.Assert(builtTools.Version, gc.Equals, version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -453,7 +453,7 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 		return
 	})
 
-	_, err := sync.BuildToolsTarball(&version.Current.Number, "released")
+	_, err := sync.BuildToolsArchive(&version.Current.Number, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*forceVersion, gc.Equals, version.Current.Number)
 	c.Assert(writer, gc.NotNil)

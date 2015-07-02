@@ -54,13 +54,13 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	switch r.Method {
 	case "GET":
-		tarball, err := h.processGet(r, stateWrapper.state)
+		tarball, vers, err := h.processGet(r, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			h.sendExistingError(w, http.StatusBadRequest, err)
 			return
 		}
-		h.sendTools(w, http.StatusOK, tarball)
+		h.sendTools(w, http.StatusOK, tarball, vers)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -124,36 +124,36 @@ func (h *toolsHandler) sendExistingError(w http.ResponseWriter, statusCode int, 
 }
 
 // processGet handles a tools GET request.
-func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, error) {
-	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
+func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, version.Binary, error) {
+	vers, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
-		return nil, errors.Annotate(err, "error parsing version")
+		return nil, version.Binary{}, errors.Annotate(err, "error parsing version")
 	}
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return nil, errors.Annotate(err, "error getting tools storage")
+		return nil, version.Binary{}, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
-	_, reader, err := storage.Tools(version)
+	_, reader, err := storage.Tools(vers)
 	if errors.IsNotFound(err) {
 		// Tools could not be found in toolstorage,
 		// so look for them in simplestreams, fetch
 		// them and cache in toolstorage.
-		logger.Infof("%v tools not found locally, fetching", version)
-		reader, err = h.fetchAndCacheTools(version, storage, st)
+		logger.Infof("%v tools not found locally, fetching", vers)
+		reader, err = h.fetchAndCacheTools(vers, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching tools")
 		}
 	}
 	if err != nil {
-		return nil, err
+		return nil, version.Binary{}, err
 	}
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read tools tarball")
+		return nil, version.Binary{}, errors.Annotate(err, "failed to read tools tarball")
 	}
-	return data, nil
+	return data, vers, nil
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
@@ -211,8 +211,12 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolsto
 }
 
 // sendTools streams the tools tarball to the client.
-func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) {
-	w.Header().Set("Content-Type", "application/x-tar-gz")
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte, vers version.Binary) {
+	if tools.UseZipToolsWindows(vers) {
+		w.Header().Set("Content-Type", "application/x-zip")
+	} else {
+		w.Header().Set("Content-Type", "application/x-tar-gz")
+	}
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
@@ -234,10 +238,16 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.Annotatef(err, "invalid tools version %q", binaryVersionParam)
 	}
 
-	// Make sure the content type is x-tar-gz.
+	// Make sure the content type is correct.
 	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/x-tar-gz" {
-		return nil, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+	if tools.UseZipToolsWindows(toolsVersion) {
+		if contentType != "application/x-zip" {
+			return nil, errors.Errorf("expected Content-Type: application/x-zip, got: %v", contentType)
+		}
+	} else {
+		if contentType != "application/x-tar-gz" {
+			return nil, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+		}
 	}
 
 	// Get the server root, so we know how to form the URL in the Tools returned.

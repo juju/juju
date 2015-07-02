@@ -318,13 +318,20 @@ type MetadataFile struct {
 func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetadata {
 	metadata := make([]*ToolsMetadata, len(toolsList))
 	for i, t := range toolsList {
-		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
+		var fileType, path string
+		if coretools.UseZipToolsWindows(t.Version) {
+			path = fmt.Sprintf("%s/juju-%s-%s-%s.zip", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
+			fileType = "zip"
+		} else {
+			path = fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
+			fileType = "tar.gz"
+		}
 		metadata[i] = &ToolsMetadata{
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
 			Arch:     t.Version.Arch,
 			Path:     path,
-			FileType: "tar.gz",
+			FileType: fileType,
 			Size:     t.Size,
 			SHA256:   t.SHA256,
 		}

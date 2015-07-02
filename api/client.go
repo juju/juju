@@ -934,7 +934,11 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
 	req.SetBasicAuth(c.st.tag, c.st.password)
-	req.Header.Set("Content-Type", "application/x-tar-gz")
+	if tools.UseZipToolsWindows(vers) {
+		req.Header.Set("Content-Type", "application/x-zip")
+	} else {
+		req.Header.Set("Content-Type", "application/x-tar-gz")
+	}
 
 	// Send the request.
 

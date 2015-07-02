@@ -425,7 +425,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsArchive, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
 	hostPorts := [][]network.HostPort{

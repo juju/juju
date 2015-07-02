@@ -156,7 +156,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			logger.Warningf("no prepackaged tools available")
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
-		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
+		builtTools, err := sync.BuildToolsArchive(&selectedTools.Version.Number, cfg.AgentStream())
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}
