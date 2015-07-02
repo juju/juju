@@ -3,6 +3,8 @@
 
 package server
 
+// TODO(ericsnow) Eliminate the apiserver/common import if possible.
+
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -59,8 +61,7 @@ func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.P
 	for _, apiProc := range args.Processes {
 		info := api.API2Proc(apiProc)
 		res := api.ProcessResult{
-			ID: info.Name + "/" + info.Details.ID,
-			//ID: info.ID(),
+			ID: info.ID(),
 		}
 		if err := st.Register(info); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
@@ -94,12 +95,7 @@ func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProce
 
 	if len(ids) == 0 {
 		for _, proc := range procs {
-			id := proc.Name
-			if proc.Details.ID != "" {
-				id += "/" + proc.Details.ID
-			}
-			ids = append(ids, id)
-			//ids = append(ids, info.ID())
+			ids = append(ids, proc.ID())
 		}
 	}
 
@@ -114,8 +110,7 @@ func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProce
 			if proc.Details.ID != "" {
 				procID += "/" + proc.Details.ID
 			}
-			//if id == proc.ID() {
-			if id == procID {
+			if id == proc.ID() {
 				res.Info = api.Proc2api(proc)
 				found = true
 				break

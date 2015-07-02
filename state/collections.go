@@ -98,6 +98,7 @@ var multiEnvCollections = set.NewStrings(
 	unitsC,
 	volumesC,
 	volumeAttachmentsC,
+	workloadProcessesC,
 )
 
 func newStateCollection(coll *mgo.Collection, envUUID string) stateCollection {
@@ -235,8 +236,11 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		for _, elem := range inq {
 			switch elem.Name {
 			case "_id":
+				// TODO(ericsnow) We should be making a copy of elem.
 				if id, ok := elem.Value.(string); ok {
 					elem.Value = addEnvUUID(c.envUUID, id)
+				} else if subquery, ok := elem.Value.(bson.D); ok {
+					elem.Value = c.mungeIDSubQuery(subquery)
 				}
 			case "env-uuid":
 				panic("env-uuid is added automatically and should not be provided")
@@ -248,6 +252,30 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		outq = bson.D{{"env-uuid", c.envUUID}}
 	default:
 		panic("query must either be bson.D or nil")
+	}
+	return outq
+}
+
+// TODO(ericsnow) Is it okay to add support for $in?
+
+func (c *envStateCollection) mungeIDSubQuery(inq bson.D) bson.D {
+	var outq bson.D
+	for _, elem := range inq {
+		newElem := elem // copied
+		switch elem.Name {
+		case "$in":
+			ids, ok := elem.Value.([]string)
+			if !ok {
+				panic("$in requires []string")
+			}
+			var fullIDs []string
+			for _, id := range ids {
+				fullID := addEnvUUID(c.envUUID, id)
+				fullIDs = append(fullIDs, fullID)
+			}
+			newElem.Value = fullIDs
+		}
+		outq = append(outq, newElem)
 	}
 	return outq
 }

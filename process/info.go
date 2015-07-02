@@ -4,7 +4,9 @@
 package process
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
@@ -24,6 +26,8 @@ type Info struct {
 	Details Details
 }
 
+// TODO(ericsnow) Eliminate NewInfoUnvalidated.
+
 // NewInfoUnvalidated builds a new Info object with the provided
 // values. The returned Info may be invalid if the given values cause
 // that result. The Validate method can be used to check.
@@ -36,10 +40,34 @@ func NewInfoUnvalidated(name, procType string) *Info {
 	}
 }
 
+// ID composes a unique ID for the process (relative to the unit/charm).
+func (info Info) ID() string {
+	id := info.Process.Name
+	if info.Details.ID != "" {
+		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
+	}
+	return id
+}
+
+// ParseID extracts the process name and details ID from the provided string.
+func ParseID(id string) (string, string) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return id, ""
+}
+
 // Validate checks the process info to ensure it is correct.
 func (info Info) Validate() error {
 	if err := info.Process.Validate(); err != nil {
 		return errors.Trace(err)
+	}
+
+	if !reflect.DeepEqual(info.Details, Details{}) {
+		if err := info.Details.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
