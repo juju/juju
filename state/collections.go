@@ -211,18 +211,18 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 	switch inq := inq.(type) {
 	case bson.D:
 		for _, elem := range inq {
+			newElem := elem // copied
 			switch elem.Name {
 			case "_id":
-				// TODO(ericsnow) We should be making a copy of elem.
 				if id, ok := elem.Value.(string); ok {
-					elem.Value = addEnvUUID(c.envUUID, id)
+					newElem.Value = addEnvUUID(c.envUUID, id)
 				} else if subquery, ok := elem.Value.(bson.D); ok {
-					elem.Value = c.mungeIDSubQuery(subquery)
+					newElem.Value = c.mungeIDSubQuery(subquery)
 				}
 			case "env-uuid":
 				panic("env-uuid is added automatically and should not be provided")
 			}
-			outq = append(outq, elem)
+			outq = append(outq, newElem)
 		}
 		outq = append(outq, bson.DocElem{"env-uuid", c.envUUID})
 	case nil:
@@ -232,8 +232,6 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 	}
 	return outq
 }
-
-// TODO(ericsnow) Is it okay to add support for $in?
 
 func (c *envStateCollection) mungeIDSubQuery(inq bson.D) bson.D {
 	var outq bson.D
