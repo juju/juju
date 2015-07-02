@@ -100,9 +100,10 @@ var ubuntuSeries = map[string]string{
 }
 
 // Windows versions come in various flavors:
-// Standard, Datacenter, etc. We use regex to match them to one
+// Standard, Datacenter, etc. We use string prefix match them to one
 // of the following. Specify the longest name in a particular series first
-// For example, if we have "Win 2012" and "Win 2012 R2", we specify "Win 2012 R2" first
+// For example, if we have "Win 2012" and "Win 2012 R2", we specify "Win 2012 R2" first.
+// We need to make sure we manually update this list with each new windows release.
 var windowsVersionMatchOrder = []string{
 	"Hyper-V Server 2012 R2",
 	"Hyper-V Server 2012",

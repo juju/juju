@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 )
 
+// currentVersionKey is defined as a variable instead of a constant
+// to allow overwriting during testing
 var currentVersionKey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"
 
 func getVersionFromRegistry() (string, error) {
