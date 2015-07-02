@@ -24,12 +24,12 @@ type ProcessClient struct {
 }
 
 // NewProcessClient builds a new workload process API client.
-func NewProcessClient(facade base.ClientFacade, caller facadeCaller) *ProcessClient {
-	return &ProcessClient{facade, caller}
+func NewProcessClient(facade base.ClientFacade, caller facadeCaller) ProcessClient {
+	return ProcessClient{facade, caller}
 }
 
 // RegisterProcesses calls the RegisterProcesses API server method.
-func (c *ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDefinition) ([]api.ProcessResult, error) {
+func (c ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDefinition) ([]api.ProcessResult, error) {
 	var result api.ProcessResults
 
 	procs := make([]api.Process, len(processes))
@@ -46,7 +46,7 @@ func (c *ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDef
 }
 
 // ListProcesses calls the ListProcesses API server method.
-func (c *ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error) {
+func (c ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error) {
 	var result api.ListProcessesResults
 
 	args := api.ListProcessesArgs{UnitTag: tag, IDs: ids}
@@ -58,7 +58,7 @@ func (c *ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProc
 }
 
 // SetProcessesStatus calls the SetProcessesStatus API server method.
-func (c *ProcessClient) SetProcessesStatus(tag, status string, ids ...string) error {
+func (c ProcessClient) SetProcessesStatus(tag, status string, ids ...string) error {
 	statusArgs := make([]api.SetProcessStatusArg, len(ids))
 	for i, id := range ids {
 		procStatus := api.ProcessStatus{Label: status}
@@ -70,7 +70,7 @@ func (c *ProcessClient) SetProcessesStatus(tag, status string, ids ...string) er
 }
 
 // UnregisterProcesses calls the UnregisterProcesses API server method.
-func (c *ProcessClient) UnregisterProcesses(tag string, ids ...string) error {
+func (c ProcessClient) UnregisterProcesses(tag string, ids ...string) error {
 	args := api.UnregisterProcessesArgs{UnitTag: tag, IDs: ids}
 	return c.FacadeCall("UnregisterProcesses", &args, nil)
 }
