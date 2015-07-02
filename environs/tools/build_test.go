@@ -103,22 +103,31 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 	}
 }
 
-const emptyArchive = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
+const emptyTgz = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
+const emptyZip = "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
-func (b *buildSuite) TestEmptyArchive(c *gc.C) {
+func (b *buildSuite) testEmptyArchive(c *gc.C, v, emptyArchive string) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
-	vers, err := version.ParseBinary("1.2.3-precise-amd64")
+	vers, err := version.ParseBinary(v)
 	c.Assert(err, jc.ErrorIsNil)
 	err = tools.Archive(&buf, dir, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, emptyArchive)
 }
 
-func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
+func (b *buildSuite) TestEmptyArchiveTgz(c *gc.C) {
+	b.testEmptyArchive(c, "1.23.2-trusty-amd64", emptyTgz)
+}
+
+func (b *buildSuite) TestEmptyArchiveZip(c *gc.C) {
+	b.testEmptyArchive(c, "1.26.2-win2012r2-amd64", emptyZip)
+}
+
+func (b *buildSuite) testArchiveAndSHA256(c *gc.C, v, emptyArchive string) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
-	vers, err := version.ParseBinary("1.2.3-precise-amd64")
+	vers, err := version.ParseBinary(v)
 	c.Assert(err, jc.ErrorIsNil)
 	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir, vers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,4 +136,12 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	h := sha256.New()
 	h.Write([]byte(emptyArchive))
 	c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+}
+
+func (b *buildSuite) TestArchiveAndSHA256Tgz(c *gc.C) {
+	b.testArchiveAndSHA256(c, "1.23.2-trusty-amd64", emptyTgz)
+}
+
+func (b *buildSuite) TestArchiveAndSHA256Zip(c *gc.C) {
+	b.testArchiveAndSHA256(c, "1.26.2-win2012r2-amd64", emptyZip)
 }

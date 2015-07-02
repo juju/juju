@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

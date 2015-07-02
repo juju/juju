@@ -597,7 +597,13 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		URL:     "file:///tmp/proposed/juju-2.0.1-raring-amd64.tgz",
 		Size:    456,
 		SHA256:  "xyz",
+	}, {
+		Version: version.MustParseBinary("2.0.1-win2012r2-amd64"),
+		URL:     "file:///tmp/proposed/juju-2.0.1-win2012r2-amd64.tgz",
+		Size:    456,
+		SHA256:  "xyz",
 	}}
+	expectedFileType := []string{"tar.gz", "tar.gz", "zip"}
 	metadata = tools.MetadataFromTools(toolsList, "proposed")
 	c.Assert(metadata, gc.HasLen, len(toolsList))
 	for i, t := range toolsList {
@@ -609,7 +615,7 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		// It's not needed elsewhere and requires a URL() call.
 		c.Assert(md.FullPath, gc.Equals, "")
 		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version, "proposed")[len("tools/"):])
-		c.Assert(md.FileType, gc.Equals, "tar.gz")
+		c.Assert(md.FileType, gc.Equals, expectedFileType[i])
 		c.Assert(md.Size, gc.Equals, t.Size)
 		c.Assert(md.SHA256, gc.Equals, t.SHA256)
 	}

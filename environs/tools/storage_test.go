@@ -21,10 +21,22 @@ type StorageSuite struct {
 
 var _ = gc.Suite(&StorageSuite{})
 
+var storageNameTests = []struct {
+	vers     version.Binary
+	expected string
+}{{
+	vers:     version.MustParseBinary("1.2.3-precise-amd64"),
+	expected: "tools/proposed/juju-1.2.3-precise-amd64.tgz",
+}, {
+	vers:     version.MustParseBinary("1.26.3-win2012-amd64"),
+	expected: "tools/proposed/juju-1.26.3-win2012-amd64.zip",
+}}
+
 func (s *StorageSuite) TestStorageName(c *gc.C) {
-	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	path := envtools.StorageName(vers, "proposed")
-	c.Assert(path, gc.Equals, "tools/proposed/juju-1.2.3-precise-amd64.tgz")
+	for _, t := range storageNameTests {
+		path := envtools.StorageName(t.vers, "proposed")
+		c.Assert(path, gc.Equals, t.expected)
+	}
 }
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
@@ -41,11 +53,13 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v001, v100, v101, v111)
+	v1261 := version.MustParseBinary("1.26.1-win2012r2-amd64")
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v001, v100, v101, v111, v1261)
 	t001 := agentTools[0]
 	t100 := agentTools[1]
 	t101 := agentTools[2]
 	t111 := agentTools[3]
+	t1261 := agentTools[4]
 
 	for i, t := range []struct {
 		majorVersion,
@@ -58,7 +72,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	}, {
 		1, 1, coretools.List{t111},
 	}, {
-		1, -1, coretools.List{t100, t101, t111},
+		1, -1, coretools.List{t100, t101, t111, t1261},
 	}, {
 		1, 2, nil,
 	}, {

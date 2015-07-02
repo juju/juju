@@ -65,11 +65,11 @@ type ToolsFinder interface {
 // ToolsUploader provides an interface for uploading tools and associated
 // metadata.
 type ToolsUploader interface {
-	// UploadTools uploads the tools with the specified version and tarball contents.
+	// UploadTools uploads the tools with the specified version and archive contents.
 	UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error
 }
 
-// SyncTools copies the Juju tools tarball from the official bucket
+// SyncTools copies the Juju tools archive from the official bucket
 // or a specified source directory into the user's environment.
 func SyncTools(syncContext *SyncContext) error {
 	sourceDataSource, err := selectSourceDatasource(syncContext)
@@ -226,7 +226,7 @@ func upload(stor storage.Storage, stream string, forceVersion *version.Number, f
 	return syncBuiltTools(stor, stream, builtTools, fakeSeries...)
 }
 
-// cloneToolsForSeries copies the built tools tarball into a tarball for the specified
+// cloneToolsForSeries copies the built tools archive into a archive for the specified
 // stream and series and generates corresponding metadata.
 func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string) error {
 	// Copy the tools to the target storage, recording a Tools struct for each one.
@@ -255,7 +255,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string)
 		})
 		return name, nil
 	}
-	logger.Debugf("generating tarballs for %v", series)
+	logger.Debugf("generating archive for %v", series)
 	for _, series := range series {
 		_, err := version.SeriesVersion(series)
 		if err != nil {
@@ -279,7 +279,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string)
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
-// BuiltTools contains metadata for a tools tarball resulting from
+// BuiltTools contains metadata for a tools archive resulting from
 // a call to BundleTools.
 type BuiltTools struct {
 	Version     version.Binary
@@ -289,7 +289,7 @@ type BuiltTools struct {
 	Size        int64
 }
 
-// BuildToolsArchiveFunc is a function which can build a tools tarball.
+// BuildToolsArchiveFunc is a function which can build a tools archive.
 type BuildToolsArchiveFunc func(forceVersion *version.Number, stream string) (*BuiltTools, error)
 
 // Override for testing.
@@ -351,7 +351,7 @@ func buildToolsArchive(forceVersion *version.Number, stream string) (builtTools 
 	}, nil
 }
 
-// syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
+// syncBuiltTools copies to storage a tools archive and cloned copies for each series.
 func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltTools, fakeSeries ...string) (*coretools.Tools, error) {
 	if err := cloneToolsForSeries(builtTools, stream, fakeSeries...); err != nil {
 		return nil, err

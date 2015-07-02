@@ -320,11 +320,11 @@ func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetada
 	for i, t := range toolsList {
 		var fileType, path string
 		if coretools.UseZipToolsWindows(t.Version) {
-			path = fmt.Sprintf("%s/juju-%s-%s-%s.zip", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
 			fileType = "zip"
+			path = fmt.Sprintf("%s/juju-%s-%s-%s.%s", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch, fileType)
 		} else {
-			path = fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
 			fileType = "tar.gz"
+			path = fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
 		}
 		metadata[i] = &ToolsMetadata{
 			Release:  t.Version.Series,

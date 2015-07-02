@@ -136,7 +136,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func unpackTarTools(dir string, tools *coretools.Tools, r io.Reader) (err error) {

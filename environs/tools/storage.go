@@ -21,7 +21,11 @@ const (
 	toolPrefix        = "tools/%s/juju-"
 	unixToolSuffix    = ".tgz"
 	windowsToolSuffix = ".zip"
-	toolSuffixLen     = 4
+
+	// len(unixToolSuffix) == len(windowsToolSuffix) == 4
+	// 4 is used because it yields simpler logic in the code while
+	// still being correct
+	toolSuffixLen = 4
 )
 
 // StorageName returns the name that is used to store and retrieve the

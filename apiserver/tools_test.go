@@ -105,16 +105,24 @@ func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no tools uploaded")
 }
 
-func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
+func (s *toolsSuite) TestUploadFailsWithInvalidContentTypeTgz(c *gc.C) {
+	s.testUploadFailsWithInvalidContentType(c, "1.24.3-trusty-amd64", "application/x-tar-gz")
+}
+
+func (s *toolsSuite) TestUploadFailsWithInvalidContentTypeZip(c *gc.C) {
+	s.testUploadFailsWithInvalidContentType(c, "1.26.3-win2012r2-amd64", "application/x-zip")
+}
+
+func (s *toolsSuite) testUploadFailsWithInvalidContentType(c *gc.C, vers, expectedType string) {
 	// Create an empty file.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try with the default Content-Type.
-	resp, err := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), false, tempFile.Name())
+	resp, err := s.uploadRequest(c, s.toolsURI(c, fmt.Sprintf("?binaryVersion=%s", vers)), false, tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(
-		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
+		c, resp, http.StatusBadRequest, fmt.Sprintf("expected Content-Type: %s, got: application/octet-stream", expectedType))
 }
 
 func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, string) {
