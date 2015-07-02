@@ -3,6 +3,8 @@
 
 package api
 
+// TODO(ericsnow) Eliminate the params import if possible.
+
 import (
 	"github.com/juju/errors"
 
