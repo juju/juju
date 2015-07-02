@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -99,6 +100,17 @@ func (pp Persistence) checkRecords(id string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func dropEnvUUID(id string) string {
+	fullID := id
+	parts := strings.SplitN(fullID, ":", 2)
+	if len(parts) == 2 {
+		if names.IsValidEnvironment(parts[0]) {
+			fullID = parts[1]
+		}
+	}
+	return fullID
 }
 
 // TODO(ericsnow) Factor most of the below into a processesCollection type.
@@ -366,7 +378,7 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 
 	results := make(map[string]ProcessDefinitionDoc)
 	for _, doc := range docs {
-		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
 		results[id] = doc
 	}
@@ -446,7 +458,7 @@ func (pp Persistence) launches(ids []string) (map[string]ProcessLaunchDoc, error
 
 	results := make(map[string]ProcessLaunchDoc)
 	for _, doc := range docs {
-		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
 		results[id] = doc
 	}
@@ -540,7 +552,7 @@ func (pp Persistence) procs(ids []string) (map[string]ProcessDoc, error) {
 
 	results := make(map[string]ProcessDoc)
 	for _, doc := range docs {
-		fullID := strings.SplitN(doc.DocID, ":", 2)[1]
+		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
 		results[id] = doc
 	}
