@@ -783,6 +783,9 @@ func createMachineFilesystemAttachmentsOps(machineId string, attachments []files
 // SetFilesystemInfo sets the FilesystemInfo for the specified filesystem.
 func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem %q", tag.Id())
+	if info.FilesystemId == "" {
+		return errors.New("filesystem ID not set")
+	}
 	fs, err := st.Filesystem(tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -804,8 +807,6 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 	} else if errors.Cause(err) != ErrNoBackingVolume {
 		return errors.Trace(err)
 	}
-	// TODO(axw) we should reject info without FilesystemId set; can't do this
-	// until the providers all set it correctly.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			fs, err = st.Filesystem(tag)
