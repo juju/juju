@@ -74,11 +74,9 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 		return nil
 	}
 
-	pclient := client.NewProcessClient(s.stub, s.stub)
+	pclient := client.NewHookContextClient(s.stub)
 
-	unregisteredProcesses := []api.ProcessDefinition{s.definition}
-
-	ids, err := pclient.RegisterProcesses(s.tag, unregisteredProcesses)
+	ids, err := pclient.RegisterProcesses(s.process)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(ids), gc.Equals, 1)
@@ -101,7 +99,7 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 
 		return nil
 	}
-	pclient := client.NewProcessClient(s.stub, s.stub)
+	pclient := client.NewHookContextClient(s.stub)
 
 	processes, err := pclient.ListProcesses(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,8 +128,8 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 		return nil
 	}
 
-	pclient := client.NewProcessClient(s.stub, s.stub)
-	err := pclient.SetProcessesStatus(s.tag, "Running", "idfoo")
+	pclient := client.NewHookContextClient(s.stub)
+	err := pclient.SetProcessesStatus("Running", "idfoo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
@@ -152,8 +150,8 @@ func (s *clientSuite) TestUnregisterProcesses(c *gc.C) {
 		return nil
 	}
 
-	pclient := client.NewProcessClient(s.stub, s.stub)
-	err := pclient.UnregisterProcesses(s.tag, "idfoo")
+	pclient := client.NewHookContextClient(s.stub)
+	err := pclient.UnregisterProcesses(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
@@ -167,13 +165,5 @@ func (s *stubFacade) FacadeCall(request string, params, response interface{}) er
 	if s.FacadeCallFn != nil {
 		return s.FacadeCallFn(request, params, response)
 	}
-	return nil
-}
-
-func (s *stubFacade) BestAPIVersion() int {
-	return -1
-}
-
-func (s *stubFacade) Close() error {
 	return nil
 }
