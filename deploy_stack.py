@@ -289,7 +289,7 @@ def assess_juju_run(client):
     return responses
 
 
-def assess_upgrade(old_client, juju_path):
+def assess_upgrade(old_client, juju_path, skip_juju_run=False):
     client = EnvJujuClient.by_version(old_client.env, juju_path,
                                       old_client.debug)
     upgrade_juju(client)
@@ -298,8 +298,8 @@ def assess_upgrade(old_client, juju_path):
     else:
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
-    # TODO(gz): Don't call juju run against windows charms
-    assess_juju_run(client)
+    if not skip_juju_run:
+        assess_juju_run(client)
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
     check_token(client, token)
@@ -503,11 +503,12 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
             return
         client.juju('status', ())
         deploy_dummy_stack(client, charm_prefix)
-        if not charm_prefix.startswith("local:win"):
+        is_windows_charm = charm_prefix.startswith("local:win")
+        if not is_windows_charm:
             assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path)
+            assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
 
 
 def run_deployer():
