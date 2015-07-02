@@ -1,48 +1,30 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package version
 
 import (
 	"strings"
-	"syscall"
-	"unsafe"
 
+	"github.com/gabriel-samfira/sys/windows/registry"
 	"github.com/juju/errors"
 )
 
-func readRegString(h syscall.Handle, key string) (value string, err error) {
-	var typ uint32
-	var buf uint32
-
-	// Get size of registry key
-	err = syscall.RegQueryValueEx(h, syscall.StringToUTF16Ptr(key), nil, &typ, nil, &buf)
-	if err != nil {
-		return value, err
-	}
-
-	n := make([]uint16, buf/2+1)
-	err = syscall.RegQueryValueEx(h, syscall.StringToUTF16Ptr(key), nil, &typ, (*byte)(unsafe.Pointer(&n[0])), &buf)
-	if err != nil {
-		return value, err
-	}
-	return syscall.UTF16ToString(n[:]), err
-}
+var currentVersionKey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"
 
 func getVersionFromRegistry() (string, error) {
-	var h syscall.Handle
-	err := syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE,
-		syscall.StringToUTF16Ptr("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"),
-		0, syscall.KEY_READ, &h)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, currentVersionKey, registry.QUERY_VALUE)
 	if err != nil {
 		return "", err
 	}
-	defer syscall.RegCloseKey(h)
-	str, err := readRegString(h, "ProductName")
+	defer k.Close()
+	s, _, err := k.GetStringValue("ProductName")
 	if err != nil {
 		return "", err
 	}
-	return str, nil
+
+	return s, nil
 }
 
 func osVersion() (string, error) {
@@ -53,9 +35,11 @@ func osVersion() (string, error) {
 	if val, ok := windowsVersions[ver]; ok {
 		return val, nil
 	}
-	for key, value := range windowsVersions {
-		if strings.HasPrefix(ver, key) {
-			return value, nil
+	for _, value := range windowsVersionMatchOrder {
+		if strings.HasPrefix(ver, value) {
+			if val, ok := windowsVersions[value]; ok {
+				return val, nil
+			}
 		}
 	}
 	return "unknown", errors.Errorf("unknown series %q", ver)
