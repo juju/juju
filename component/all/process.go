@@ -10,9 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/process/api/client"
 	"github.com/juju/juju/process/api/server"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
@@ -40,14 +41,10 @@ func (c workloadProcesses) registerHookContext() {
 	}
 
 	runner.RegisterComponentFunc(process.ComponentName,
-		func() (jujuc.ContextComponent, error) {
-			// TODO(ericsnow) The API client or facade should be passed
-			// in to the factory func and passed to NewInternalClient.
-			client, err := api.NewInternalClient()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			component, err := context.NewContextAPI(client)
+		func(caller base.APICaller, authTag names.Tag) (jujuc.ContextComponent, error) {
+			facadeCaller := base.NewFacadeCallerForVersion(caller, authTag.String(), 0)
+			hctxClient := client.NewHookContextClient(facadeCaller)
+			component, err := context.NewContextAPI(hctxClient)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
