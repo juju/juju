@@ -35,6 +35,9 @@ type JujuOSEnvSuite struct {
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
+	regKeyExisted       bool
+	regEntryExisted     bool
+	oldRegEntryValue    string
 }
 
 func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
@@ -59,14 +62,14 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
-	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.setUpFeatureFlags(c)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
+	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
