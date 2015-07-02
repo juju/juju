@@ -341,6 +341,7 @@ func createStorageOps(
 	charmMeta *charm.Meta,
 	curl *charm.URL,
 	cons map[string]StorageConstraints,
+	series string,
 	machineOpsNeeded bool,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
@@ -423,7 +424,7 @@ func createStorageOps(
 			})
 			if machineOpsNeeded {
 				machineOps, err := unitAssignedMachineStorageOps(
-					st, entity, charmMeta, cons,
+					st, entity, charmMeta, cons, series,
 					&storageInstance{st, *doc},
 				)
 				if err == nil {
@@ -455,6 +456,7 @@ func unitAssignedMachineStorageOps(
 	entity names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
+	series string,
 	storage StorageInstance,
 ) (ops []txn.Op, err error) {
 	tag, ok := entity.(names.UnitTag)
@@ -462,7 +464,7 @@ func unitAssignedMachineStorageOps(
 		return nil, errors.NotSupportedf("dynamic creation of shared storage")
 	}
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, tag, cons, storage,
+		st, charmMeta, tag, series, cons, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1180,6 +1182,7 @@ func (st *State) constructAddUnitStorageOps(
 		ch.Meta(),
 		ch.URL(),
 		map[string]StorageConstraints{name: cons},
+		u.Series(),
 		true, // create machine storage
 	)
 	if err != nil {

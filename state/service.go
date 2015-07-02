@@ -441,6 +441,15 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 				name, oldCountMax, newStorageMeta.CountMax,
 			)
 		}
+		if oldStorageMeta.Location != "" && oldStorageMeta.CountMax == 1 && newStorageMeta.CountMax != 1 {
+			// If a location is specified, the store may not go
+			// from being a singleton to multiple, since then the
+			// location has a different meaning.
+			return errors.Errorf(
+				"existing storage %q with location changed from singleton to multiple",
+				name,
+			)
+		}
 	}
 	return nil
 }
@@ -760,6 +769,7 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, numStorageAttachments, err = createStorageOps(
 		s.st, tag, meta, url, cons,
+		s.doc.Series,
 		false, // unit is not assigned yet; don't create machine storage
 	)
 	if err != nil {
