@@ -4,6 +4,9 @@
 package subnet_test
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -27,37 +30,64 @@ func (s *AddSuite) SetUpTest(c *gc.C) {
 
 func (s *AddSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
-		about       string
-		args        []string
-		expectCIDR  string
-		expectSpace string
-		expectErr   string
+		about            string
+		args             []string
+		expectCIDR       string
+		expectRawCIDR    string
+		expectProviderId string
+		expectSpace      string
+		expectZones      []string
+		expectErr        string
 	}{{
 		about:     "no arguments",
-		expectErr: "CIDR is required",
+		expectErr: "either CIDR or provider ID is required",
 	}, {
-		about:     "only a subnet argument (invalid)",
-		args:      s.Strings("foo"),
+		about:     "single argument - invalid CIDR: space name is required",
+		args:      s.Strings("anything"),
 		expectErr: "space name is required",
 	}, {
-		about:       "too many arguments (first two valid)",
-		args:        s.Strings("10.0.0.0/8", "new-space", "bar", "baz"),
-		expectCIDR:  "10.0.0.0/8",
-		expectSpace: "new-space",
-		expectErr:   `unrecognized args: \["bar" "baz"\]`,
+		about:     "single argument - valid CIDR: space name is required",
+		args:      s.Strings("10.0.0.0/8"),
+		expectErr: "space name is required",
 	}, {
-		about:     "invalid CIDR",
-		args:      s.Strings("foo", "space"),
-		expectErr: `"foo" is not a valid CIDR`,
+		about:     "single argument - incorrect CIDR: space name is required",
+		args:      s.Strings("10.10.0.0/8"),
+		expectErr: "space name is required",
 	}, {
-		about:     "incorrectly specified CIDR",
-		args:      s.Strings("5.4.3.2/10", "space"),
-		expectErr: `"5.4.3.2/10" is not correctly specified, expected "5.0.0.0/10"`,
+		about:            "two arguments: an invalid CIDR is assumed to mean ProviderId",
+		args:             s.Strings("foo", "bar"),
+		expectProviderId: "foo",
+		expectSpace:      "bar",
 	}, {
-		about:      "invalid space name",
-		args:       s.Strings("10.10.0.0/24", "%inv$alid", "zone"),
-		expectCIDR: "10.10.0.0/24",
-		expectErr:  `"%inv\$alid" is not a valid space name`,
+		about:         "two arguments: an incorrectly specified CIDR is fixed",
+		args:          s.Strings("10.10.0.0/8", "bar"),
+		expectCIDR:    "10.0.0.0/8",
+		expectRawCIDR: "10.10.0.0/8",
+		expectSpace:   "bar",
+	}, {
+		about:         "more arguments parsed as zones",
+		args:          s.Strings("10.0.0.0/8", "new-space", "zone1", "zone2"),
+		expectCIDR:    "10.0.0.0/8",
+		expectRawCIDR: "10.0.0.0/8",
+		expectSpace:   "new-space",
+		expectZones:   s.Strings("zone1", "zone2"),
+	}, {
+		about:         "CIDR and invalid space name, one zone",
+		args:          s.Strings("10.10.0.0/24", "%inv$alid", "zone"),
+		expectCIDR:    "10.10.0.0/24",
+		expectRawCIDR: "10.10.0.0/24",
+		expectErr:     `"%inv\$alid" is not a valid space name`,
+	}, {
+		about:         "incorrect CIDR and invalid space name, no zones",
+		args:          s.Strings("10.10.0.0/8", "%inv$alid"),
+		expectCIDR:    "10.0.0.0/8",
+		expectRawCIDR: "10.10.0.0/8",
+		expectErr:     `"%inv\$alid" is not a valid space name`,
+	}, {
+		about:            "ProviderId and invalid space name, two zones",
+		args:             s.Strings("foo", "%inv$alid", "zone1", "zone2"),
+		expectProviderId: "foo",
+		expectErr:        `"%inv\$alid" is not a valid space name`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
@@ -71,7 +101,10 @@ func (s *AddSuite) TestInit(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(command.CIDR, gc.Equals, test.expectCIDR)
+		c.Check(command.RawCIDR, gc.Equals, test.expectRawCIDR)
+		c.Check(command.ProviderId, gc.Equals, test.expectProviderId)
 		c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
+		c.Check(command.Zones, jc.DeepEquals, test.expectZones)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -80,27 +113,60 @@ func (s *AddSuite) TestInit(c *gc.C) {
 
 func (s *AddSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
-		`added subnet "10.20.0.0/24" in space "myspace"\n`,
+		`added subnet with CIDR "10.20.0.0/24" in space "myspace"\n`,
 		"", // empty stdout.
 		"10.20.0.0/24", "myspace",
 	)
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		"10.20.0.0/24", names.NewSpaceTag("myspace"),
+		"10.20.0.0/24", "", names.NewSpaceTag("myspace"), []string(nil),
+	)
+}
+
+func (s *AddSuite) TestRunWithIncorrectlyGivenCIDRSucceedsWithWarning(c *gc.C) {
+	expectStderr := strings.Join([]string{
+		"(.|\n)*",
+		"WARNING: using CIDR \"10.0.0.0/8\" instead of ",
+		"the incorrectly specified \"10.10.0.0/8\".\n",
+		"added subnet with CIDR \"10.0.0.0/8\" in space \"myspace\"\n",
+	}, "")
+
+	s.AssertRunSucceeds(c,
+		expectStderr,
+		"", // empty stdout.
+		"10.10.0.0/8", "myspace",
+	)
+
+	s.api.CheckCallNames(c, "AddSubnet", "Close")
+	s.api.CheckCall(c, 0, "AddSubnet",
+		"10.0.0.0/8", "", names.NewSpaceTag("myspace"), []string(nil),
+	)
+}
+
+func (s *AddSuite) TestRunWithProviderIdSucceeds(c *gc.C) {
+	s.AssertRunSucceeds(c,
+		`added subnet with ProviderId "foo" in space "myspace"\n`,
+		"", // empty stdout.
+		"foo", "myspace", "zone1", "zone2",
+	)
+
+	s.api.CheckCallNames(c, "AddSubnet", "Close")
+	s.api.CheckCall(c, 0, "AddSubnet",
+		"", "foo", names.NewSpaceTag("myspace"), s.Strings("zone1", "zone2"),
 	)
 }
 
 func (s *AddSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
-		`added subnet "2001:db8::/32" in space "hyperspace"\n`,
+		`added subnet with CIDR "2001:db8::/32" in space "hyperspace"\n`,
 		"", // empty stdout.
 		"2001:db8::/32", "hyperspace",
 	)
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		"2001:db8::/32", names.NewSpaceTag("hyperspace"),
+		"2001:db8::/32", "", names.NewSpaceTag("hyperspace"), []string(nil),
 	)
 }
 
@@ -115,7 +181,7 @@ func (s *AddSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		"10.10.0.0/24", names.NewSpaceTag("space"),
+		"10.10.0.0/24", "", names.NewSpaceTag("space"), []string(nil),
 	)
 }
 
@@ -124,13 +190,29 @@ func (s *AddSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 
 	err := s.AssertRunFails(c,
 		`cannot add subnet "10.10.0.0/24": space "space" not found`,
-		"10.10.0.0/24", "space",
+		"10.10.0.0/24", "space", "zone1", "zone2",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		"10.10.0.0/24", names.NewSpaceTag("space"),
+		"10.10.0.0/24", "", names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
+	)
+}
+
+func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {
+	apiError := errors.New(`multiple subnets with CIDR "10.10.0.0/24" <snip>`)
+	s.api.SetErrors(apiError)
+
+	s.AssertRunSucceeds(c,
+		fmt.Sprintf("ERROR: %v.\n", apiError),
+		"",
+		"10.10.0.0/24", "space", "zone1", "zone2",
+	)
+
+	s.api.CheckCallNames(c, "AddSubnet", "Close")
+	s.api.CheckCall(c, 0, "AddSubnet",
+		"10.10.0.0/24", "", names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
 	)
 }
 
