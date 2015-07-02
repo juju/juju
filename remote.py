@@ -39,7 +39,7 @@ def remote_from_address(address, series=None):
 
 
 class _Remote:
-    """Remote represents a juju machine to access over the network."""
+    """_Remote represents a juju machine to access over the network."""
 
     __metaclass__ = abc.ABCMeta
 
@@ -75,6 +75,15 @@ class _Remote:
         """Returns True if remote machine is running windows."""
         return self.series and self.series.startswith("win")
 
+    def get_address(self):
+        """Gives the address of the remote machine."""
+        self._ensure_address()
+        return self.address
+
+    def update_address(self, address):
+        """Change address of remote machine."""
+        self.address = address
+
     def _get_status(self):
         if self.status is None:
             self.status = self.client.get_status()
@@ -91,7 +100,7 @@ class _Remote:
 
 
 class SSHRemote(_Remote):
-    """Remote represents a juju machine to access over the network."""
+    """SSHRemote represents a juju machine to access using ssh."""
 
     _ssh_opts = [
         "-o", "User ubuntu",
@@ -185,11 +194,18 @@ ForEach ($pattern in %s) {
 
 
 class WinRmRemote(_Remote):
+    """WinRmRemote represents a juju machine to access using winrm."""
 
-    def _session(self):
+    def __init__(self, *args, **kwargs):
+        super(WinRmRemote, self).__init__(*args, **kwargs)
         self._ensure_address()
-        certs = utility.get_winrm_certs()
-        return _SSLSession(self.address, certs)
+        self.certs = utility.get_winrm_certs()
+        self.session = _SSLSession(self.address, self.certs)
+
+    def update_address(self, address):
+        """Change address of remote machine, refreshes the winrm session."""
+        self.address = address
+        self.session = _SSLSession(self.address, self.certs)
 
     _escape = staticmethod(subprocess.list2cmdline)
 
@@ -200,21 +216,22 @@ class WinRmRemote(_Remote):
         # pywinrm does not correctly escape arguments, fix up before passing.
         cmd = self._escape(cmd_list[:1])
         args = [self._escape(cmd_list[1:])]
-        return self._session().run_cmd(cmd, args)
+        return self.session.run_cmd(cmd, args)
 
     def run_ps(self, script):
         """Run string of powershell returning response object."""
-        return self._session().run_ps(script)
+        return self.session.run_ps(script)
 
     def cat(self, filename):
         """Get the contents of filename from the remote machine."""
-        result = self._session().run_cmd("type", [self._escape([filename])])
+        result = self.session.run_cmd("type", [self._escape([filename])])
         if result.status_code:
             logging.warning("winrm cat failed %r", result)
         return result.std_out
 
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
+        # Encode globs into script to run on remote machine and return result.
         script = _ps_copy_script % ",".join(s.join('""') for s in source_globs)
         result = self.run_ps(script)
         if result.std_err:
@@ -226,7 +243,13 @@ class WinRmRemote(_Remote):
 
     @staticmethod
     def _encoded_copy_to_dir(destination_dir, output):
-        """Write remote files from powershell script to disk."""
+        """Write remote files from powershell script to disk.
+
+        The given output from the powershell script is one line per file, with
+        the filename first, then a pipe, then the base64 encoded deflated file
+        contents. This method reverses that process and creates the files in
+        the given destination_dir.
+        """
         start = 0
         while True:
             end = output.find("\n", start)
@@ -239,7 +262,8 @@ class WinRmRemote(_Remote):
                 raise ValueError("missing filename in encoded copy data")
             filename = output[start:mid]
             if "/" in filename:
-                raise AssertionError("path not filename %s" % filename)
+                # Just defense against path traversal bugs, should never reach.
+                raise ValueError("path not filename {!r}".format(filename))
             with open(os.path.join(destination_dir, filename), "wb") as f:
                 f.write(zlib.decompress(output[mid+1:end].decode("base64"),
                                         -zlib.MAX_WBITS))

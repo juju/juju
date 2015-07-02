@@ -89,7 +89,7 @@ class TestRemote(unittest.TestCase):
         remote = remote_from_unit(client, unit, status=status)
         self.assertEqual(
             repr(remote),
-            "<WinRmRemote env='an-env' unit='a-service/0'>")
+            "<WinRmRemote env='an-env' unit='a-service/0' addr='10.55.60.2'>")
         self.assertIs(True, remote.is_windows())
 
     def test_remote_from_address(self):
@@ -203,6 +203,27 @@ class TestRemote(unittest.TestCase):
             "/local/path",
         ])
 
+    def test_copy_on_windows(self):
+        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        client = EnvJujuClient(env, None, None)
+        unit = "a-service/0"
+        dest = "/local/path"
+        with patch.object(client, "get_status", autospec=True) as st:
+            st.return_value = Status.from_text(self.win2012hvr2_status_output)
+            response = winrm.Response(("fake output", "",  0))
+            remote = remote_from_unit(client, unit)
+            with patch.object(remote.session, "run_ps", autospec=True,
+                              return_value=response) as mock_run:
+                with patch.object(remote, "_encoded_copy_to_dir",
+                                  autospec=True) as mock_cpdir:
+                    remote.copy(dest, ["C:\\logs\\*", "%APPDATA%\\*.log"])
+        mock_cpdir.assert_called_once_with(dest, "fake output")
+        st.assert_called_once_with()
+        self.assertEquals(mock_run.call_count, 1)
+        self.assertRegexpMatches(
+            mock_run.call_args[0][0],
+            r'.*"C:\\logs\\[*]","%APPDATA%\\[*].log".*')
+
     def test_run_cmd(self):
         env = SimpleEnvironment("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
@@ -234,3 +255,9 @@ class TestRemote(unittest.TestCase):
             for name in ("test one", "test two"):
                 with open(os.path.join(dest, name)) as f:
                     self.assertEqual(f.read(), "test\n")
+
+    def test_encoded_copy_traversal_guard(self):
+        output = "../../../etc/passwd|K0ktLuECAA==\r\n"
+        with temp_dir() as dest:
+            with self.assertRaises(ValueError):
+                WinRmRemote._encoded_copy_to_dir(dest, output)

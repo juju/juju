@@ -415,7 +415,7 @@ class DumpEnvLogsTestCase(TestCase):
         status = Status.from_text("""\
             machines:
               "0":
-                dns-name: 10.11.12.13
+                instance-id: pending
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):

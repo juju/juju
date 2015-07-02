@@ -36,6 +36,7 @@ from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
     MAASAccount,
+    resolve_remote_dns_names,
     run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
@@ -128,8 +129,8 @@ def check_token(client, token):
     # package updates.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
-    if client.env.config['type'] == 'maas':
-        fixup_maas_addresses(client, [remote])
+    # Update remote with real address if needed.
+    resolve_remote_dns_names(client.env, [remote])
     start = time.time()
     while True:
         if remote.is_windows():
@@ -179,36 +180,20 @@ def retain_jenv(jenv_path, log_directory):
 
 
 def get_remote_machines(client, bootstrap_host):
-    """Return a dict of machine_id to remote address.
+    """Return a dict of machine_id to remote machines.
 
-    With a maas environment, the maas api will be queried for the real
-    ip addresses. Otherwise, bootstrap_host may be provided to
-    override the address of machine 0.
+    A bootstrap_host address may be provided as a fallback for machine 0 if
+    status fails. For some providers such as MAAS the dns-name will be
+    resolved to a real ip address using the substrate api.
     """
     # Try to get machine details from environment if possible.
     machines = dict(iter_remote_machines(client))
-
-    if client.env.config['type'] == 'maas':
-        fixup_maas_addresses(client, machines.itervalues())
-    elif bootstrap_host:
-        # The bootstrap host overrides the status output if provided in case
-        # status failed.
-        if '0' not in machines:
-            machines['0'] = remote_from_address(bootstrap_host)
-        else:
-            # TODO(gz): Do we ever actually want to do this?
-            machines['0'].address = bootstrap_host
+    # The bootstrap host is added as a fallback in case status failed.
+    if bootstrap_host and '0' not in machines:
+        machines['0'] = remote_from_address(bootstrap_host)
+    # Update remote machines in place with real addresses if substrate needs.
+    resolve_remote_dns_names(client.env, machines.itervalues())
     return machines
-
-
-def fixup_maas_addresses(client, remote_machines):
-    # Maas hostnames are not resolvable, but we can adapt them to IPs.
-    with MAASAccount.manager_from_config(client.env.config) as account:
-        allocated_ips = account.get_allocated_ips()
-    for remote in remote_machines:
-        remote._ensure_address()
-        if remote.address in allocated_ips:
-            remote.address = allocated_ips[remote.address]
 
 
 def iter_remote_machines(client):
