@@ -122,7 +122,6 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.Args), gc.Equals, 1)
-		c.Check(typedParams.UnitTag, gc.Equals, s.tag)
 
 		arg := typedParams.Args[0]
 		c.Check(arg.ID, gc.Equals, "idfoo")
@@ -149,7 +148,6 @@ func (s *clientSuite) TestUnregisterProcesses(c *gc.C) {
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.IDs), gc.Equals, 1)
-		c.Check(typedParams.UnitTag, gc.Equals, s.tag)
 
 		return nil
 	}

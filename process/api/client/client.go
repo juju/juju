@@ -37,7 +37,7 @@ func (c ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDefi
 		procs[i] = api.Process{Definition: procDef}
 	}
 
-	args := api.RegisterProcessesArgs{UnitTag: tag, Processes: procs}
+	args := api.RegisterProcessesArgs{Processes: procs}
 	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -49,7 +49,7 @@ func (c ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDefi
 func (c ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProcessResult, error) {
 	var result api.ListProcessesResults
 
-	args := api.ListProcessesArgs{UnitTag: tag, IDs: ids}
+	args := api.ListProcessesArgs{IDs: ids}
 	if err := c.FacadeCall("ListProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,12 +65,12 @@ func (c ProcessClient) SetProcessesStatus(tag, status string, ids ...string) err
 		statusArgs[i] = api.SetProcessStatusArg{ID: id, Status: procStatus}
 	}
 
-	args := api.SetProcessesStatusArgs{UnitTag: tag, Args: statusArgs}
+	args := api.SetProcessesStatusArgs{Args: statusArgs}
 	return c.FacadeCall("SetProcessesStatus", &args, nil)
 }
 
 // UnregisterProcesses calls the UnregisterProcesses API server method.
 func (c ProcessClient) UnregisterProcesses(tag string, ids ...string) error {
-	args := api.UnregisterProcessesArgs{UnitTag: tag, IDs: ids}
+	args := api.UnregisterProcessesArgs{IDs: ids}
 	return c.FacadeCall("UnregisterProcesses", &args, nil)
 }
