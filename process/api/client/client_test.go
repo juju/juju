@@ -15,9 +15,10 @@ func Test(t *testing.T) {
 }
 
 type clientSuite struct {
-	stub        *stubFacade
-	tag         string
-	processInfo api.ProcessInfo
+	stub       *stubFacade
+	tag        string
+	process    api.Process
+	definition api.ProcessDefinition
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -25,31 +26,32 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.tag = "machine-tag"
 	s.stub = &stubFacade{}
-	s.processInfo = api.ProcessInfo{
-		Process: api.Process{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []api.ProcessPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "endpoint",
-			}},
-			Volumes: []api.ProcessVolume{{
-				ExternalMount: "/foo/bar",
-				InternalMount: "/baz/bat",
-				Mode:          "ro",
-				Name:          "volname",
-			}},
-			EnvVars: map[string]string{"envfoo": "bar"},
-		},
-		Status: 5,
-		Details: api.ProcDetails{
-			ID:         "idfoo",
-			ProcStatus: api.ProcStatus{Status: "process status"},
+	s.definition = api.ProcessDefinition{
+		Name:        "foobar",
+		Description: "desc",
+		Type:        "type",
+		TypeOptions: map[string]string{"foo": "bar"},
+		Command:     "cmd",
+		Image:       "img",
+		Ports: []api.ProcessPort{{
+			External: 8080,
+			Internal: 80,
+			Endpoint: "endpoint",
+		}},
+		Volumes: []api.ProcessVolume{{
+			ExternalMount: "/foo/bar",
+			InternalMount: "/baz/bat",
+			Mode:          "ro",
+			Name:          "volname",
+		}},
+		EnvVars: map[string]string{"envfoo": "bar"},
+	}
+
+	s.process = api.Process{
+		Definition: s.definition,
+		Details: api.ProcessDetails{
+			ID:     "idfoo",
+			Status: api.ProcessStatus{Label: "process status"},
 		},
 	}
 
@@ -64,29 +66,24 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 		typedResponse, ok := response.(*api.ProcessResults)
 		c.Assert(ok, gc.Equals, true)
 
-		typedParams, ok := params.(*api.RegisterProcessesArgs)
-		c.Assert(ok, gc.Equals, true)
-
-		for _, rpa := range typedParams.Processes {
-			typedResponse.Results = append(typedResponse.Results, api.ProcessResult{
-				ID:    rpa.ProcessInfo.Details.ID,
-				Error: nil,
-			})
-		}
+		typedResponse.Results = append(typedResponse.Results, api.ProcessResult{
+			ID:    "idfoo",
+			Error: nil,
+		})
 
 		return nil
 	}
 
 	pclient := client.NewProcessClient(s.stub, s.stub)
 
-	unregisteredProcesses := []api.ProcessInfo{s.processInfo}
+	unregisteredProcesses := []api.ProcessDefinition{s.definition}
 
 	ids, err := pclient.RegisterProcesses(s.tag, unregisteredProcesses)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, api.ProcessResult{ID: s.processInfo.Details.ID, Error: nil})
+	c.Check(ids[0], gc.Equals, api.ProcessResult{ID: s.process.Details.ID, Error: nil})
 }
 
 func (s *clientSuite) TestListAllProcesses(c *gc.C) {
@@ -99,7 +96,7 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 		typedResponse, ok := response.(*api.ListProcessesResults)
 		c.Assert(ok, gc.Equals, true)
 
-		result := api.ListProcessResult{ID: s.processInfo.Details.ID, Info: s.processInfo, Error: nil}
+		result := api.ListProcessResult{ID: s.process.Details.ID, Info: s.process, Error: nil}
 		typedResponse.Results = append(typedResponse.Results, result)
 
 		return nil
@@ -111,7 +108,7 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 
 	c.Check(len(processes), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(processes[0], gc.DeepEquals, api.ListProcessResult{ID: "idfoo", Info: s.processInfo, Error: nil})
+	c.Check(processes[0], gc.DeepEquals, api.ListProcessResult{ID: "idfoo", Info: s.process, Error: nil})
 }
 
 func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
@@ -125,11 +122,11 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.Args), gc.Equals, 1)
+		c.Check(typedParams.UnitTag, gc.Equals, s.tag)
 
 		arg := typedParams.Args[0]
-		c.Check(arg.UnitTag, gc.Equals, s.tag)
 		c.Check(arg.ID, gc.Equals, "idfoo")
-		c.Check(arg.Status, gc.DeepEquals, api.ProcStatus{Status: "Running"})
+		c.Check(arg.Status, gc.DeepEquals, api.ProcessStatus{Label: "Running"})
 
 		return nil
 	}

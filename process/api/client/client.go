@@ -29,16 +29,15 @@ func NewProcessClient(facade base.ClientFacade, caller facadeCaller) *ProcessCli
 }
 
 // RegisterProcesses calls the RegisterProcesses API server method.
-func (c *ProcessClient) RegisterProcesses(tag string, processes []api.ProcessInfo) ([]api.ProcessResult, error) {
+func (c *ProcessClient) RegisterProcesses(tag string, processes []api.ProcessDefinition) ([]api.ProcessResult, error) {
 	var result api.ProcessResults
 
-	procArgs := make([]api.RegisterProcessArg, len(processes))
-	for i, procInfo := range processes {
-		procArg := api.RegisterProcessArg{UnitTag: tag, ProcessInfo: procInfo}
-		procArgs[i] = procArg
+	procs := make([]api.Process, len(processes))
+	for i, procDef := range processes {
+		procs[i] = api.Process{Definition: procDef}
 	}
 
-	args := api.RegisterProcessesArgs{Processes: procArgs}
+	args := api.RegisterProcessesArgs{UnitTag: tag, Processes: procs}
 	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -62,11 +61,11 @@ func (c *ProcessClient) ListProcesses(tag string, ids ...string) ([]api.ListProc
 func (c *ProcessClient) SetProcessesStatus(tag, status string, ids ...string) error {
 	statusArgs := make([]api.SetProcessStatusArg, len(ids))
 	for i, id := range ids {
-		procStatus := api.ProcStatus{Status: status}
-		statusArgs[i] = api.SetProcessStatusArg{UnitTag: tag, ID: id, Status: procStatus}
+		procStatus := api.ProcessStatus{Label: status}
+		statusArgs[i] = api.SetProcessStatusArg{ID: id, Status: procStatus}
 	}
 
-	args := api.SetProcessesStatusArgs{Args: statusArgs}
+	args := api.SetProcessesStatusArgs{UnitTag: tag, Args: statusArgs}
 	return c.FacadeCall("SetProcessesStatus", &args, nil)
 }
 
