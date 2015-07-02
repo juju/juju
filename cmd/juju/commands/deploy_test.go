@@ -574,7 +574,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegistrationURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
@@ -627,7 +627,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 	defer cleanup()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegistrationURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
