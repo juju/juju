@@ -643,6 +643,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.KeyRelation(id)
 	case names.NetworkTag:
 		return st.Network(id)
+	case names.IPAddressTag:
+		return st.IPAddressByTag(tag)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
 	case names.CharmTag:
@@ -1120,96 +1122,29 @@ func (st *State) AddService(
 // AddIPAddress creates and returns a new IP address. It can return an
 // error satisfying IsNotValid() or IsAlreadyExists() when the addr
 // does not contain a valid IP, or when addr is already added.
-func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
-
-	// This checks for a missing value as well as invalid values
-	ip := net.ParseIP(addr.Value)
-	if ip == nil {
-		return nil, errors.NotValidf("address")
-	}
-
-	addressID := st.docID(addr.Value)
-	ipDoc := ipaddressDoc{
-		DocID:    addressID,
-		EnvUUID:  st.EnvironUUID(),
-		Life:     Alive,
-		State:    AddressStateUnknown,
-		SubnetId: subnetid,
-		Value:    addr.Value,
-		Type:     string(addr.Type),
-		Scope:    string(addr.Scope),
-	}
-
-	ipaddress = &IPAddress{doc: ipDoc, st: st}
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     addressID,
-		Assert: txn.DocMissing,
-		Insert: ipDoc,
-	}}
-
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if _, err = st.IPAddress(addr.Value); err == nil {
-			return nil, errors.AlreadyExistsf("address")
-		}
-	case nil:
-		return ipaddress, nil
-	}
-	return nil, errors.Trace(err)
+func (st *State) AddIPAddress(addr network.Address, subnetID string) (*IPAddress, error) {
+	return addIPAddress(st, addr, subnetID)
 }
 
 // IPAddress returns an existing IP address from the state.
 func (st *State) IPAddress(value string) (*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
-	defer closer()
+	return ipAddress(st, value)
+}
 
-	doc := &ipaddressDoc{}
-	err := addresses.FindId(st.docID(value)).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("IP address %q", value)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
-	}
-	return &IPAddress{st, *doc}, nil
+// IPAddressByTag returns an existing IP address from the state
+// identified by its tag.
+func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
+	return ipAddressByTag(st, tag)
 }
 
 // AllocatedIPAddresses returns all the allocated addresses for a machine
 func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
-	return st.fetchIPAddresses(bson.D{{"machineid", machineId}})
+	return fetchIPAddresses(st, bson.D{{"machineid", machineId}})
 }
 
 // DeadIPAddresses returns all IP addresses with a Life of Dead
 func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return st.fetchIPAddresses(bson.D{{"life", Dead}})
-}
-
-// fetchIPAddresses is a helper function for finding IP addresses
-func (st *State) fetchIPAddresses(query bson.D) ([]*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
-	defer closer()
-
-	result := []*IPAddress{}
-	var doc struct {
-		Value string
-	}
-	iter := addresses.Find(query).Iter()
-	for iter.Next(&doc) {
-		addr, err := st.IPAddress(doc.Value)
-		if err != nil {
-			// shouldn't happen as we're only fetching
-			// addresses we know exist.
-			continue
-		}
-		result = append(result, addr)
-	}
-	if err := iter.Close(); err != nil {
-		return result, err
-	}
-	return result, nil
+	return fetchIPAddresses(st, isDeadDoc)
 }
 
 // AddSubnet creates and returns a new subnet
@@ -1399,7 +1334,11 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironUUID() + ":" + localID
+	prefix := st.EnvironUUID() + ":"
+	if strings.HasPrefix(localID, prefix) {
+		return localID
+	}
+	return prefix + localID
 }
 
 // localID returns the local id value by stripping

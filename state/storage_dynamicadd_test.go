@@ -10,8 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type storageAddSuite struct {
@@ -90,6 +88,7 @@ func (s *storageAddSuite) TestAddStorageToUnit(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
@@ -115,6 +114,7 @@ func (s *storageAddSuite) TestAddStorageWithCount(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+2)
 	s.assertVolumeCount(c, s.originalVolumeCount+2)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
@@ -132,6 +132,7 @@ func (s *storageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+2)
 	s.assertVolumeCount(c, s.originalVolumeCount+2)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
@@ -187,6 +188,7 @@ func (s *storageAddSuite) TestAddStorageMinCount(c *gc.C) {
 	s.assertStorageCount(c, 2)
 	s.assertVolumeCount(c, 2)
 	s.assertFileSystemCount(c, 0)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageZeroCount(c *gc.C) {
@@ -196,6 +198,7 @@ func (s *storageAddSuite) TestAddStorageZeroCount(c *gc.C) {
 	s.assertStorageCount(c, 1)
 	s.assertVolumeCount(c, 1)
 	s.assertFileSystemCount(c, 0)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
@@ -207,6 +210,7 @@ func (s *storageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageDiffPool(c *gc.C) {
@@ -218,6 +222,7 @@ func (s *storageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageDiffSize(c *gc.C) {
@@ -229,6 +234,7 @@ func (s *storageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
@@ -240,6 +246,7 @@ func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount)
 	s.assertVolumeCount(c, s.originalVolumeCount)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageWrongName(c *gc.C) {
@@ -266,6 +273,7 @@ func (s *storageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+2)
 	s.assertVolumeCount(c, s.originalVolumeCount+2)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
@@ -285,6 +293,7 @@ func (s *storageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 	s.assertStorageCount(c, s.originalStorageCount+count)
 	s.assertVolumeCount(c, s.originalVolumeCount+count)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
@@ -307,16 +316,12 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 	s.assertStorageCount(c, 2)
 	s.assertVolumeCount(c, 2)
 	s.assertFileSystemCount(c, 2)
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }
 
 func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	// Create a unit with static storage; ensure that storage-add
 	// fails to add more of this kind of storage.
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders("someprovider", "static")
-	defer registry.RegisterProvider("static", nil)
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "static")
 	s.assertStorageCount(c, 1)
 
@@ -337,4 +342,5 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 		`"static" storage provider does not support dynamic storage`)
 	s.assertStorageCount(c, 1)    // no change
 	s.assertFileSystemCount(c, 1) // no change
+	assertMachineStorageRefs(c, s.State, s.machineTag)
 }

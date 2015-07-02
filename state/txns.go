@@ -128,6 +128,8 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 					ops[i].Insert = r.updateBsonD(doc, docID, op.C)
 				case bson.M:
 					r.updateBsonM(doc, docID, op.C)
+				case map[string]interface{}:
+					r.updateBsonM(bson.M(doc), docID, op.C)
 				default:
 					r.updateStruct(doc, docID, op.C)
 				}
@@ -210,23 +212,24 @@ func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) {
 		t = v.Type()
 	}
 
-	if t.Kind() == reflect.Struct {
-		envUUIDSeen := false
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			switch f.Tag.Get("bson") {
-			case "_id":
-				r.updateStructField(v, f.Name, docID, collName, overrideField)
-			case "env-uuid":
-				r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
-				envUUIDSeen = true
-			}
-		}
-		if !envUUIDSeen {
-			panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
-		}
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("document %v for insert into %s has unexpected type", doc, collName))
 	}
 
+	envUUIDSeen := false
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		switch f.Tag.Get("bson") {
+		case "_id":
+			r.updateStructField(v, f.Name, docID, collName, overrideField)
+		case "env-uuid":
+			r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
+			envUUIDSeen = true
+		}
+	}
+	if !envUUIDSeen {
+		panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
+	}
 }
 
 const overrideField = "override"

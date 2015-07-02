@@ -219,6 +219,8 @@ var allCollections = collectionSchema{
 	// These collections hold information associated with networking.
 	ipaddressesC: {
 		indexes: []mgo.Index{{
+			Key: []string{"uuid"},
+		}, {
 			Key: []string{"env-uuid", "state"},
 		}, {
 			Key: []string{"env-uuid", "subnetid"},

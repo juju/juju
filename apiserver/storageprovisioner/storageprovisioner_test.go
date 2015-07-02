@@ -1186,6 +1186,72 @@ func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-4",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "removing attachment of volume 0/0 from machine 0: volume attachment is not dying"}},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{`removing attachment of volume 42 from machine 0: volume "42" on machine "0" not found`, "not found"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "filesystem-4",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying"}},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{`removing attachment of filesystem 42 from machine 0: filesystem "42" on machine "0" not found`, "not found"}},
+		},
+	})
+}
+
 type byMachineAndEntity []params.MachineStorageId
 
 func (b byMachineAndEntity) Len() int {

@@ -21,6 +21,7 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 		"add block device documents for existing machines",
 		"move service.UnitSeq to sequence collection",
 		"add instance id field to IP addresses",
+		"add UUID field to IP addresses",
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }

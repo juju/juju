@@ -342,9 +342,6 @@ func (st *State) cleanupContainers(machine *Machine) error {
 }
 
 func cleanupDyingMachineResources(m *Machine) error {
-	// TODO(axw) add a delete-on-termination flag field to volume/filesystem
-	// attachments, and when cleaning up here we would check it and trigger
-	// deletion of volumes/filesystems.
 	volumeAttachments, err := m.st.MachineVolumeAttachments(m.MachineTag())
 	if err != nil {
 		return errors.Annotate(err, "getting machine volume attachments")

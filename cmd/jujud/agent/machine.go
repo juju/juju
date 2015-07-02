@@ -728,7 +728,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+		accessor := machiner.APIMachineAccessor{st.Machiner()}
+		return machiner.NewMachiner(accessor, agentConfig), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -1554,12 +1555,12 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 // but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(start), nil
+		return a.upgradeWaiterWorker(name, start), nil
 	})
 }
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []chan struct{}{
@@ -1572,6 +1573,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 			case <-ch:
 			}
 		}
+		logger.Debugf("upgrades done, starting worker %q", name)
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1584,8 +1586,10 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		}()
 		select {
 		case err := <-waitCh:
+			logger.Debugf("worker %q exited with %v", name, err)
 			return err
 		case <-stop:
+			logger.Debugf("stopping so killing worker %q", name)
 			worker.Kill()
 		}
 		return <-waitCh // Ensure worker has stopped before returning.

@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -35,24 +38,31 @@ func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
 
 	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
 	})
 	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
 		StorageScope: storage.ScopeMachine,
+		IsDynamic:    true,
 	})
 	registry.RegisterProvider("environscoped-block", &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
 		SupportsFunc: func(k storage.StorageKind) bool {
 			return k == storage.StorageKindBlock
 		},
+		IsDynamic: true,
+	})
+	registry.RegisterProvider("static", &dummy.StorageProvider{
+		IsDynamic: false,
 	})
 	registry.RegisterEnvironStorageProviders(
 		"someprovider", "environscoped", "machinescoped",
-		"environscoped-block",
+		"environscoped-block", "static",
 	)
 	s.AddSuiteCleanup(func(c *gc.C) {
 		registry.RegisterProvider("environscoped", nil)
 		registry.RegisterProvider("machinescoped", nil)
 		registry.RegisterProvider("environscoped-block", nil)
+		registry.RegisterProvider("static", nil)
 	})
 }
 
@@ -64,6 +74,12 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
+	// Create a pool that creates persistent block devices.
+	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
+		"persistent": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
@@ -78,6 +94,39 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return service, unit, storageTag
+}
+
+func (s *StorageStateSuiteBase) createStorageCharm(c *gc.C, charmName string, storageMeta charm.Storage) *state.Charm {
+	meta := fmt.Sprintf(`
+name: %s
+summary: A charm for testing storage
+description: ditto
+storage:
+  %s:
+    type: %s
+`, charmName, storageMeta.Name, storageMeta.Type)
+	if storageMeta.ReadOnly {
+		meta += "    read-only: true\n"
+	}
+	if storageMeta.Shared {
+		meta += "    shared: true\n"
+	}
+	if storageMeta.MinimumSize > 0 {
+		meta += fmt.Sprintf("    minimum-size: %dM\n", storageMeta.MinimumSize)
+	}
+	if storageMeta.Location != "" {
+		meta += "    location: " + storageMeta.Location + "\n"
+	}
+	if storageMeta.CountMin != 1 || storageMeta.CountMax != 1 {
+		meta += "    multiple:\n"
+		meta += fmt.Sprintf("      range: %d-", storageMeta.CountMin)
+		if storageMeta.CountMax >= 0 {
+			meta += fmt.Sprint(storageMeta.CountMax)
+		}
+		meta += "\n"
+	}
+	ch := s.AddMetaCharm(c, charmName, meta, 1)
+	return ch
 }
 
 func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Service {
@@ -206,6 +255,108 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 	filesystem, err := s.State.StorageInstanceFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem
+}
+
+func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
+	u, err := s.State.Unit(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.obliterateUnitStorage(c, tag)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag) {
+	attachments, err := s.State.UnitStorageAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err = s.State.DestroyStorageAttachment(a.StorageInstance(), a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
+	err := s.State.DestroyVolume(tag)
+	if errors.IsNotFound(err) {
+		return
+	}
+	attachments, err := s.State.VolumeAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		s.obliterateVolumeAttachment(c, a.Machine(), a.Volume())
+	}
+	err = s.State.RemoveVolume(tag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) {
+	err := s.State.DetachVolume(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.FilesystemTag) {
+	err := s.State.DestroyFilesystem(tag)
+	if errors.IsNotFound(err) {
+		return
+	}
+	attachments, err := s.State.FilesystemAttachments(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		s.obliterateFilesystemAttachment(c, a.Machine(), a.Filesystem())
+	}
+	err = s.State.RemoveFilesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, m names.MachineTag, f names.FilesystemTag) {
+	err := s.State.DetachFilesystem(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertMachineStorageRefs ensures that the specified machine's set of volume
+// and filesystem references corresponds exactly to the volume and filesystem
+// attachments that relate to the machine.
+func assertMachineStorageRefs(c *gc.C, st *state.State, m names.MachineTag) {
+	machines, closer := state.GetRawCollection(st, state.MachinesC)
+	defer closer()
+
+	var doc struct {
+		Volumes     []string `bson:"volumes,omitempty"`
+		Filesystems []string `bson:"filesystems,omitempty"`
+	}
+	err := machines.FindId(state.DocID(st, m.Id())).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	have := make(set.Tags)
+	for _, v := range doc.Volumes {
+		have.Add(names.NewVolumeTag(v))
+	}
+	for _, f := range doc.Filesystems {
+		have.Add(names.NewFilesystemTag(f))
+	}
+
+	expect := make(set.Tags)
+	volumeAttachments, err := st.MachineVolumeAttachments(m)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range volumeAttachments {
+		expect.Add(a.Volume())
+	}
+	filesystemAttachments, err := st.MachineFilesystemAttachments(m)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range filesystemAttachments {
+		expect.Add(a.Filesystem())
+	}
+
+	c.Assert(have, jc.DeepEquals, expect)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
