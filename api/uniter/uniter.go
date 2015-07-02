@@ -90,6 +90,11 @@ func (st *State) BestAPIVersion() int {
 	return st.facade.BestAPIVersion()
 }
 
+// Facade returns the current facade.
+func (st *State) Facade() base.FacadeCaller {
+	return st.facade
+}
+
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag names.Tag) (params.Life, error) {
 	return common.Life(st.facade, tag)

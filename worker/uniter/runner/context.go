@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -27,7 +28,7 @@ var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func() (jujuc.ContextComponent, error)
+type ComponentFunc func(caller base.APICaller, authTag names.Tag) (jujuc.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -200,7 +201,8 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	if !ok {
 		return nil, errors.NotFoundf("context component %q", name)
 	}
-	compCtx, err := compCtxFunc()
+	facade := ctx.state.Facade()
+	compCtx, err := compCtxFunc(facade.RawAPICaller(), ctx.unit.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
