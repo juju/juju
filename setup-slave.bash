@@ -6,7 +6,7 @@ MASTER="http://ci-master.vapour.ws:8080/"
 KEY="staging-juju-rsa"
 
 SLAVE=$1
-SLAVE_ADDRESS="${2:$(juju status $SLAVE |
+SLAVE_ADDRESS="${2:-$(juju status $SLAVE |
     grep public-address |
     cut -d : -f 2 |
     sed 's/ //g')}"

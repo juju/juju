@@ -1,6 +1,7 @@
 import json
 from mock import patch
 import os
+from subprocess import CalledProcessError
 from unittest import TestCase
 
 from candidate import (
@@ -13,6 +14,7 @@ from candidate import (
     get_scripts,
     parse_args,
     prepare_dir,
+    publish,
     publish_candidates,
 )
 from jujuci import Credentials
@@ -124,7 +126,8 @@ class CandidateTestCase(TestCase):
             self.assertTrue(os.path.isdir(candidate_dir_path))
             self.assertEqual([], os.listdir(candidate_dir_path))
 
-    def test_prepare_dir_with_dry_run(self):
+    @patch('sys.stdout')
+    def test_prepare_dir_with_dry_run(self, so_mock):
         with temp_dir() as base_dir:
             os.makedirs(os.path.join(base_dir, 'candidate'))
             candidate_dir_path = os.path.join(base_dir, 'candidate', 'master')
@@ -242,7 +245,8 @@ class CandidateTestCase(TestCase):
         self.assertEqual(
             (['dpkg', '-x', package_path, master_dir], ), args)
 
-    def test_extract_candidates_dry_run(self):
+    @patch('sys.stdout')
+    def test_extract_candidates_dry_run(self, so_mock):
         results = self.setup_extract_candidates(dry_run=True, verbose=True)
         pd_mock, gp_mock, cc_mock = results[0:3]
         artifacts_dir, buildvars_path, master_dir, package_path = results[3:7]
@@ -312,8 +316,9 @@ class CandidateTestCase(TestCase):
                 with patch('shutil.copyfile') as cf_mock:
                     with patch('candidate.run_command') as rc_mock:
                         with patch('candidate.extract_candidates') as ec_mock:
-                            publish_candidates(base_dir, '~/streams',
-                                               juju_release_tools='../')
+                            with patch('candidate.publish') as p_mock:
+                                publish_candidates(base_dir, '~/streams',
+                                                   juju_release_tools='../')
         self.assertEqual(1, cf_mock.call_count)
         output, args, kwargs = cf_mock.mock_calls[0]
         self.assertEqual(package_path, args[0])
@@ -326,7 +331,7 @@ class CandidateTestCase(TestCase):
         actual_path = args[1].replace(args[1][5:14], 'foo')
         expected_path = os.path.join(
             '/tmp', 'foo', 'juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb')
-        self.assertEqual(2, rc_mock.call_count)
+        self.assertEqual(1, rc_mock.call_count)
         output, args, kwargs = rc_mock.mock_calls[0]
         normalised_args = list(args[0])
         self.assertTrue(normalised_args[2].startswith('/tmp/'))
@@ -336,17 +341,15 @@ class CandidateTestCase(TestCase):
              'IGNORE', '~/streams'],
             normalised_args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
-        output, args, kwargs = rc_mock.mock_calls[1]
-        self.assertEqual(
-            (['../publish-public-tools.bash', 'weekly', '~/streams/juju-dist',
-              'cpc'],),
-            args)
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        p_mock.assert_called_once_with(
+            '~/streams', '../publish-public-tools.bash',
+            dry_run=False, verbose=False)
         args, kwargs = ec_mock.call_args
         self.assertEqual((base_dir, ), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
 
-    def test_publish_candidates_with_dry_run(self):
+    @patch('sys.stdout')
+    def test_publish_candidates_with_dry_run(self, so_mock):
         with temp_dir() as base_dir:
             artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
             os.makedirs(artifacts_dir_path)
@@ -355,7 +358,7 @@ class CandidateTestCase(TestCase):
                     with patch('candidate.extract_candidates') as ec_mock:
                         publish_candidates(
                             base_dir, '~/streams', juju_release_tools='../',
-                            dry_run=True,  verbose=True)
+                            dry_run=True, verbose=True)
         self.assertEqual(2, rc_mock.call_count)
         output, args, kwargs = rc_mock.mock_calls[0]
         self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)
@@ -364,3 +367,26 @@ class CandidateTestCase(TestCase):
         args, kwargs = ec_mock.call_args
         self.assertEqual((base_dir, ), args)
         self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)
+
+    def test_publish_retry(self):
+        error = CalledProcessError('', '', '')
+        with patch('candidate.run_command', autospec=True,
+                   side_effect=[error, error, '']) as rc_mock:
+            publish('streams_path', 'publish_script',
+                    dry_run=True, verbose=True)
+        self.assertEqual(3, rc_mock.call_count)
+        rc_mock.assert_called_with(
+            ['publish_script', 'weekly', 'streams_path/juju-dist', 'cpc'],
+            verbose=True, dry_run=True)
+
+    def test_publish_faile(self):
+        error = CalledProcessError('', '', '')
+        with patch('candidate.run_command', autospec=True,
+                   side_effect=[error, error, error]) as rc_mock:
+            with self.assertRaises(CalledProcessError):
+                publish('streams_path', 'publish_script',
+                        dry_run=True, verbose=True)
+        self.assertEqual(3, rc_mock.call_count)
+        rc_mock.assert_called_with(
+            ['publish_script', 'weekly', 'streams_path/juju-dist', 'cpc'],
+            verbose=True, dry_run=True)
