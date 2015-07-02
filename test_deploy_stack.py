@@ -30,8 +30,8 @@ from deploy_stack import (
     dump_logs,
     get_juju_path,
     get_log_level,
-    get_machine_addrs,
-    get_machines_for_logs,
+    iter_remote_machines,
+    get_remote_machines,
     GET_TOKEN_SCRIPT,
     prepare_environment,
     assess_upgrade,
@@ -46,6 +46,9 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     Status,
+)
+from remote import (
+    remote_from_address,
 )
 from test_jujupy import (
     assert_juju_call,
@@ -63,14 +66,6 @@ def make_logs(log_dir):
         with open(os.path.join(log_dir, 'extra'), 'w') as l:
             l.write('not compressed')
     return write_dumped_files
-
-
-def get_machine_addresses():
-    return {
-        '0': '10.10.0.1',
-        '1': '10.10.0.11',
-        '2': '10.10.0.22',
-    }
 
 
 class ArgParserTestCase(TestCase):
@@ -228,14 +223,24 @@ class DumpEnvLogsTestCase(TestCase):
     def setUp(self):
         setup_test_logging(self, level=logging.DEBUG)
 
+    def assert_machines(self, expected, got):
+        self.assertEqual(expected, dict((k, got[k].address) for k in got))
+
+    r0 = remote_from_address('10.10.0.1')
+    r1 = remote_from_address('10.10.0.11')
+    r2 = remote_from_address('10.10.0.22')
+
+    @classmethod
+    def fake_remote_machines(cls):
+        return {'0': cls.r0, '1': cls.r1, '2': cls.r2}
+
     def test_dump_env_logs_non_local_env(self):
         with temp_dir() as artifacts_dir:
-            with patch('deploy_stack.get_machines_for_logs', autospec=True,
-                       return_value=get_machine_addresses()) as gm_mock:
+            with patch('deploy_stack.get_remote_machines', autospec=True,
+                       return_value=self.fake_remote_machines()) as gm_mock:
                 with patch('deploy_stack.dump_logs', autospec=True) as dl_mock:
-                    client = EnvJujuClient(
-                        SimpleEnvironment(
-                            'foo', {'type': 'nonlocal'}), '1.234-76', None)
+                    env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+                    client = EnvJujuClient(env, '1.234-76', None)
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
             self.assertEqual(
                 ['machine-0', 'machine-1', 'machine-2'],
@@ -244,75 +249,73 @@ class DumpEnvLogsTestCase(TestCase):
             (client, '10.10.0.1'), gm_mock.call_args[0])
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
-            [((client, '10.10.0.1', '%s/machine-0' % artifacts_dir),
+            [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.11', '%s/machine-1' % artifacts_dir),
+             ((env, self.r1, '%s/machine-1' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.22', '%s/machine-2' % artifacts_dir),
+             ((env, self.r2, '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
             call_list)
         self.assertEqual(
-            ['INFO Retrieving logs for machine-0',
-             'INFO Retrieving logs for machine-1',
-             'INFO Retrieving logs for machine-2'],
+            ['INFO Retrieving logs for machine-0 using ' + repr(self.r0),
+             'INFO Retrieving logs for machine-1 using ' + repr(self.r1),
+             'INFO Retrieving logs for machine-2 using ' + repr(self.r2)],
             sorted(self.log_stream.getvalue().splitlines()))
 
     def test_dump_env_logs_local_env(self):
         with temp_dir() as artifacts_dir:
-            with patch('deploy_stack.get_machines_for_logs', autospec=True,
-                       return_value=get_machine_addresses()):
+            with patch('deploy_stack.get_remote_machines', autospec=True,
+                       return_value=self.fake_remote_machines()):
                 with patch('deploy_stack.dump_logs', autospec=True) as dl_mock:
-                    client = EnvJujuClient(
-                        SimpleEnvironment(
-                            'foo', {'type': 'local'}), '1.234-76', None)
+                    env = SimpleEnvironment('foo', {'type': 'local'})
+                    client = EnvJujuClient(env, '1.234-76', None)
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
-            [((client, '10.10.0.1', '%s/machine-0' % artifacts_dir),
+            [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': True}),
-             ((client, '10.10.0.11', '%s/machine-1' % artifacts_dir),
+             ((env, self.r1, '%s/machine-1' % artifacts_dir),
               {'local_state_server': False}),
-             ((client, '10.10.0.22', '%s/machine-2' % artifacts_dir),
+             ((env, self.r2, '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
             call_list)
 
     def test_dump_logs_with_local_state_server_false(self):
         # copy_remote_logs is called for non-local envs.
-        client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'nonlocal'}), '1.234-76', None)
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        remote = object()
         with temp_dir() as log_dir:
             with patch('deploy_stack.copy_local_logs',
                        autospec=True) as cll_mock:
                 with patch('deploy_stack.copy_remote_logs', autospec=True,
                            side_effect=make_logs(log_dir)) as crl_mock:
-                    dump_logs(client, '10.10.0.1', log_dir,
+                    dump_logs(env, remote, log_dir,
                               local_state_server=False)
             self.assertEqual(['cloud.log.gz', 'extra'],
                              sorted(os.listdir(log_dir)))
         self.assertEqual(0, cll_mock.call_count)
-        self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
+        self.assertEqual((remote, log_dir), crl_mock.call_args[0])
 
     def test_dump_logs_with_local_state_server_true(self):
         # copy_local_logs is called for machine 0 in a local env.
-        client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        remote = object()
         with temp_dir() as log_dir:
             with patch('deploy_stack.copy_local_logs', autospec=True,
                        side_effect=make_logs(log_dir)) as cll_mock:
                 with patch('deploy_stack.copy_remote_logs',
                            autospec=True) as crl_mock:
-                    dump_logs(client, '10.10.0.1', log_dir,
+                    dump_logs(env, remote, log_dir,
                               local_state_server=True)
             self.assertEqual(['cloud.log.gz', 'extra'],
                              sorted(os.listdir(log_dir)))
-        self.assertEqual((log_dir, client), cll_mock.call_args[0])
+        self.assertEqual((env, log_dir), cll_mock.call_args[0])
         self.assertEqual(0, crl_mock.call_count)
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
         # to allow access by non-root user.
-        client = EnvJujuClient(
-            SimpleEnvironment('a-local', {'type': 'local'}), '1.234-76', None)
+        env = SimpleEnvironment('a-local', {'type': 'local'})
         with temp_dir() as juju_home_dir:
             log_dir = os.path.join(juju_home_dir, "a-local", "log")
             os.makedirs(log_dir)
@@ -325,7 +328,7 @@ class DumpEnvLogsTestCase(TestCase):
                 with patch('deploy_stack.lxc_template_glob',
                            os.path.join(template_dir, "*.log")):
                     with patch('subprocess.check_call') as cc_mock:
-                        copy_local_logs('/destination/dir', client)
+                        copy_local_logs(env, '/destination/dir')
         expected_files = [os.path.join(juju_home_dir, *p) for p in (
             ('a-local', 'cloud-init-output.log'),
             ('a-local', 'log', 'all-machines.log'),
@@ -342,7 +345,7 @@ class DumpEnvLogsTestCase(TestCase):
         # to ensure errors do not prevent some logs from being retrieved.
         with patch('deploy_stack.wait_for_port', autospec=True):
             with patch('subprocess.check_output') as cc_mock:
-                copy_remote_logs('10.10.0.1', '/foo')
+                copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
         self.assertEqual(
             (['timeout', '5m', 'ssh',
               '-o', 'User ubuntu',
@@ -361,6 +364,16 @@ class DumpEnvLogsTestCase(TestCase):
               '/foo'],),
             cc_mock.call_args_list[1][0])
 
+    def test_copy_remote_logs_windows(self):
+        remote = remote_from_address('10.10.0.1', series="win2012hvr2")
+        with patch.object(remote, "copy", autospec=True) as copy_mock:
+            copy_remote_logs(remote, '/foo')
+        paths = [
+            "%ProgramFiles(x86)%\\Cloudbase Solutions\\Cloudbase-Init\\log\\*",
+            "C:\\Juju\\log\\juju\\*.log",
+        ]
+        copy_mock.assert_called_once_with("/foo", paths)
+
     def test_copy_remote_logs_with_errors(self):
         # Ssh and scp errors will happen when /var/log/juju doesn't exist yet,
         # but we log the case anc continue to retrieve as much as we can.
@@ -372,10 +385,10 @@ class DumpEnvLogsTestCase(TestCase):
 
         with patch('subprocess.check_output', side_effect=remote_op) as co:
             with patch('deploy_stack.wait_for_port', autospec=True):
-                copy_remote_logs('10.10.0.1', '/foo')
+                copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
         self.assertEqual(2, co.call_count)
         self.assertEqual(
-            ['WARNING Could not change the permission of the juju logs:',
+            ['WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
              'WARNING None'],
@@ -393,9 +406,9 @@ class DumpEnvLogsTestCase(TestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machine_addrs = get_machines_for_logs(client, None)
-        self.assertEqual(
-            {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
+            machines = get_remote_machines(client, None)
+        self.assert_machines(
+            {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
     def test_get_machines_for_logs_with_boostrap_host(self):
         client = EnvJujuClient(
@@ -403,23 +416,23 @@ class DumpEnvLogsTestCase(TestCase):
         status = Status.from_text("""\
             machines:
               "0":
-                dns-name: 10.11.12.13
+                instance-id: pending
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machine_addrs = get_machines_for_logs(client, '10.11.111.222')
-        self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
+            machines = get_remote_machines(client, '10.11.111.222')
+        self.assert_machines({'0': '10.11.111.222'}, machines)
 
     def test_get_machines_for_logs_with_no_addresses(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         with patch.object(client, 'get_status', autospec=True,
                           side_effect=Exception):
-            machine_addrs = get_machines_for_logs(client, '10.11.111.222')
-        self.assertEqual({'0': '10.11.111.222'}, machine_addrs)
+            machines = get_remote_machines(client, '10.11.111.222')
+        self.assert_machines({'0': '10.11.111.222'}, machines)
 
     @patch('subprocess.check_call')
-    def test_get_machines_for_logs_with_maas(self, cc_mock):
+    def test_get_remote_machines_with_maas(self, cc_mock):
         config = {
             'type': 'maas',
             'name': 'foo',
@@ -442,11 +455,11 @@ class DumpEnvLogsTestCase(TestCase):
             }
             with patch('deploy_stack.MAASAccount.get_allocated_ips',
                        autospec=True, return_value=allocated_ips):
-                machine_addrs = get_machines_for_logs(client, 'node1.maas')
-        self.assertEqual(
-            {'0': '10.11.12.13', '1': '10.11.12.14'}, machine_addrs)
+                machines = get_remote_machines(client, 'node1.maas')
+        self.assert_machines(
+            {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
-    def test_get_machine_addrs(self):
+    def test_iter_remote_machines(self):
         client = EnvJujuClient(
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         status = Status.from_text("""\
@@ -458,9 +471,30 @@ class DumpEnvLogsTestCase(TestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machine_addrs = [ma for ma in get_machine_addrs(client)]
+            machines = [(m, r.address)
+                        for m, r in iter_remote_machines(client)]
         self.assertEqual(
-            [('0', '10.11.12.13'), ('1', '10.11.12.14')], machine_addrs)
+            [('0', '10.11.12.13'), ('1', '10.11.12.14')], machines)
+
+    def test_iter_remote_machines_with_series(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
+        status = Status.from_text("""\
+            machines:
+              "0":
+                dns-name: 10.11.12.13
+                series: trusty
+              "1":
+                dns-name: 10.11.12.14
+                series: win2012hvr2
+            """)
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            machines = [(m, r.address, r.series)
+                        for m, r in iter_remote_machines(client)]
+        self.assertEqual(
+            [('0', '10.11.12.13', 'trusty'),
+             ('1', '10.11.12.14', 'win2012hvr2')], machines)
 
     def test_retain_jenv(self):
         with temp_dir() as jenv_dir:
@@ -485,7 +519,8 @@ class TestDeployDummyStack(TestCase):
         setup_test_logging(self)
 
     def test_deploy_dummy_stack(self):
-        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, '/foo/juju')
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {

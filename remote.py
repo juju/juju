@@ -4,11 +4,12 @@ __metaclass__ = type
 
 import abc
 import logging
+import os
 import subprocess
+import zlib
 
 import winrm
 
-from substrate import MAASAccount
 import utility
 
 
@@ -38,7 +39,7 @@ def remote_from_address(address, series=None):
 
 
 class _Remote:
-    """Remote represents a juju machine to access over the network."""
+    """_Remote represents a juju machine to access over the network."""
 
     __metaclass__ = abc.ABCMeta
 
@@ -79,6 +80,15 @@ class _Remote:
         """Returns True if remote machine is running windows."""
         return self.series and self.series.startswith("win")
 
+    def get_address(self):
+        """Gives the address of the remote machine."""
+        self._ensure_address()
+        return self.address
+
+    def update_address(self, address):
+        """Change address of remote machine."""
+        self.address = address
+
     def _get_status(self):
         if self.status is None:
             self.status = self.client.get_status()
@@ -92,17 +102,10 @@ class _Remote:
         status = self._get_status()
         unit = status.get_unit(self.unit)
         self.address = unit['public-address']
-        # TODO(gz): Avoid special casing MAAS here and in deploy_stack
-        if self.client.env.config['type'] == 'maas':
-            config = self.client.env.config
-            with MAASAccount.manager_from_config(config) as account:
-                allocated_ips = account.get_allocated_ips()
-            if self.address in allocated_ips:
-                self.address = allocated_ips[self.address]
 
 
 class SSHRemote(_Remote):
-    """Remote represents a juju machine to access over the network."""
+    """SSHRemote represents a juju machine to access using ssh."""
 
     _ssh_opts = [
         "-o", "User ubuntu",
@@ -158,13 +161,60 @@ class _SSLSession(winrm.Session):
                                        cert_key_pem=key, cert_pem=cert)
 
 
+_ps_copy_script = """\
+function CopyText {
+    param([String]$file, [IO.Stream]$outstream)
+    $enc = New-Object Text.UTF8Encoding($False)
+    $us = New-Object IO.StreamWriter($outstream, $enc)
+    $us.NewLine = "\n"
+    $uin = New-Object IO.StreamReader($file)
+    while (($line = $uin.ReadLine()) -ne $Null) {
+        $us.WriteLine($line)
+    }
+    $uin.Close()
+    $us.Close()
+}
+
+function CopyBinary {
+    param([String]$file, [IO.Stream]$outstream)
+    $in = New-Object IO.FileStream($file, [IO.FileMode]::Open,
+        [IO.FileAccess]::Read, [IO.FileShare]"ReadWrite,Delete")
+    $in.CopyTo($outstream)
+    $in.Close()
+}
+
+ForEach ($pattern in %s) {
+    $path = [Environment]::ExpandEnvironmentVariables($pattern)
+    $files = Get-Item -path $path
+    ForEach ($file in $files) {
+        [Console]::Out.Write($file.name + "|")
+        $trans = New-Object Security.Cryptography.ToBase64Transform
+        $out = [Console]::OpenStandardOutput()
+        $bs = New-Object Security.Cryptography.CryptoStream($out, $trans,
+            [Security.Cryptography.CryptoStreamMode]::Write)
+        $zs = New-Object IO.Compression.DeflateStream($bs,
+            [IO.Compression.CompressionMode]::Compress)
+        CopyBinary -file $file -outstream $zs
+        $zs.Close()
+        [Console]::Out.Write("\n")
+    }
+}
+"""
+
+
 class WinRmRemote(_Remote):
+    """WinRmRemote represents a juju machine to access using winrm."""
 
     def __init__(self, *args, **kwargs):
         super(WinRmRemote, self).__init__(*args, **kwargs)
         self._ensure_address()
-        certs = utility.get_winrm_certs()
-        self.session = _SSLSession(self.address, certs)
+        self.certs = utility.get_winrm_certs()
+        self.session = _SSLSession(self.address, self.certs)
+
+    def update_address(self, address):
+        """Change address of remote machine, refreshes the winrm session."""
+        self.address = address
+        self.session = _SSLSession(self.address, self.certs)
 
     _escape = staticmethod(subprocess.list2cmdline)
 
@@ -196,4 +246,40 @@ class WinRmRemote(_Remote):
 
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
-        raise NotImplementedError
+        # Encode globs into script to run on remote machine and return result.
+        script = _ps_copy_script % ",".join(s.join('""') for s in source_globs)
+        result = self.run_ps(script)
+        if result.std_err:
+            logging.warning("winrm copy stderr:\n%s", result.std_err)
+        if result.status_code:
+            raise subprocess.CalledProcessError(result.status_code,
+                                                "powershell", result)
+        self._encoded_copy_to_dir(destination_dir, result.std_out)
+
+    @staticmethod
+    def _encoded_copy_to_dir(destination_dir, output):
+        """Write remote files from powershell script to disk.
+
+        The given output from the powershell script is one line per file, with
+        the filename first, then a pipe, then the base64 encoded deflated file
+        contents. This method reverses that process and creates the files in
+        the given destination_dir.
+        """
+        start = 0
+        while True:
+            end = output.find("\n", start)
+            if end == -1:
+                break
+            mid = output.find("|", start, end)
+            if mid == -1:
+                if not output[start:end].rstrip("\r\n"):
+                    break
+                raise ValueError("missing filename in encoded copy data")
+            filename = output[start:mid]
+            if "/" in filename:
+                # Just defense against path traversal bugs, should never reach.
+                raise ValueError("path not filename {!r}".format(filename))
+            with open(os.path.join(destination_dir, filename), "wb") as f:
+                f.write(zlib.decompress(output[mid+1:end].decode("base64"),
+                                        -zlib.MAX_WBITS))
+            start = end + 1
