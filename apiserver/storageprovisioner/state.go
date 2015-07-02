@@ -40,7 +40,9 @@ type provisionerState interface {
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 
 	RemoveFilesystem(names.FilesystemTag) error
+	RemoveFilesystemAttachment(names.MachineTag, names.FilesystemTag) error
 	RemoveVolume(names.VolumeTag) error
+	RemoveVolumeAttachment(names.MachineTag, names.VolumeTag) error
 
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
 	SetFilesystemAttachmentInfo(names.MachineTag, names.FilesystemTag, state.FilesystemAttachmentInfo) error

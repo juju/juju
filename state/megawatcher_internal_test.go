@@ -1398,6 +1398,58 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
 					Service:    "wordpress",
+					Status:     multiwatcher.Status("started"),
+					StatusInfo: "",
+					AgentStatus: multiwatcher.StatusInfo{
+						Current: "idle",
+						Message: "",
+						Data:    map[string]interface{}{},
+						Since:   &now,
+					},
+					WorkloadStatus: multiwatcher.StatusInfo{
+						Current: "maintenance",
+						Message: "working",
+						Data:    map[string]interface{}{},
+						Since:   &now,
+					},
+				}},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Status:     multiwatcher.Status("started"),
+						StatusInfo: "",
+						StatusData: make(map[string]interface{}),
+						WorkloadStatus: multiwatcher.StatusInfo{
+							Current: "maintenance",
+							Message: "working",
+							Data:    map[string]interface{}{},
+						},
+						AgentStatus: multiwatcher.StatusInfo{
+							Current: "idle",
+							Message: "",
+							Data:    map[string]interface{}{},
+						},
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.SetAgentStatus(StatusIdle, "", nil)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.SetStatus(StatusMaintenance, "doing work", nil)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "unit status is changed if the agent comes off error state",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+					Name:       "wordpress/0",
+					Service:    "wordpress",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
 					AgentStatus: multiwatcher.StatusInfo{
@@ -1421,12 +1473,12 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
 						Service:    "wordpress",
-						Status:     multiwatcher.Status("error"),
-						StatusInfo: "failure",
+						Status:     multiwatcher.Status("started"),
+						StatusInfo: "",
 						StatusData: make(map[string]interface{}),
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "error",
-							Message: "failure",
+							Current: "maintenance",
+							Message: "doing work",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{

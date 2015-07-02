@@ -49,6 +49,37 @@ type CheckArgs struct {
 	VersionIsZero bool
 }
 
+func checkArgs(c *gc.C, args *CheckArgs, facade string, version int, id, method string, inArgs, outResults interface{}) {
+	if args == nil {
+		c.Logf("checkArgs: args is nil!")
+		return
+	} else {
+		if args.Facade != "" {
+			c.Check(facade, gc.Equals, args.Facade)
+		}
+		if args.Version != 0 {
+			c.Check(version, gc.Equals, args.Version)
+		} else if args.VersionIsZero {
+			c.Check(version, gc.Equals, 0)
+		}
+		if args.Id != "" {
+			c.Check(id, gc.Equals, args.Id)
+		} else if args.IdIsEmpty {
+			c.Check(id, gc.Equals, "")
+		}
+		if args.Method != "" {
+			c.Check(method, gc.Equals, args.Method)
+		}
+		if args.Args != nil {
+			c.Check(inArgs, jc.DeepEquals, args.Args)
+		}
+		if args.Results != nil {
+			c.Check(outResults, gc.NotNil)
+			testing.PatchValue(outResults, args.Results)
+		}
+	}
+}
+
 // CheckingAPICaller returns an APICallerFunc which can report the
 // number of times its APICall() method was called (if numCalls is not
 // nil), as well as check if any of the arguments passed to the
@@ -62,29 +93,23 @@ func CheckingAPICaller(c *gc.C, args *CheckArgs, numCalls *int, err error) base.
 				*numCalls++
 			}
 			if args != nil {
-				if args.Facade != "" {
-					c.Check(facade, gc.Equals, args.Facade)
-				}
-				if args.Version != 0 {
-					c.Check(version, gc.Equals, args.Version)
-				} else if args.VersionIsZero {
-					c.Check(version, gc.Equals, 0)
-				}
-				if args.Id != "" {
-					c.Check(id, gc.Equals, args.Id)
-				} else if args.IdIsEmpty {
-					c.Check(id, gc.Equals, "")
-				}
-				if args.Method != "" {
-					c.Check(method, gc.Equals, args.Method)
-				}
-				if args.Args != nil {
-					c.Check(inArgs, jc.DeepEquals, args.Args)
-				}
-				if args.Results != nil {
-					c.Check(outResults, gc.NotNil)
-					testing.PatchValue(outResults, args.Results)
-				}
+				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
+			}
+			return err
+		},
+	)
+}
+
+// NotifyingCheckingAPICaller returns an APICallerFunc which sends a message on the channel "called" every
+// time it recives a call, as well as check if any of the arguments passed to the APICall() method match
+// the values given in args (if args itself is not nil, otherwise no arguments are checked). The final
+// error result of the APICall() will be set to err.
+func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, err error) base.APICaller {
+	return APICallerFunc(
+		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+			called <- struct{}{}
+			if args != nil {
+				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
 			}
 			return err
 		},

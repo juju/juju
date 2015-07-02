@@ -123,33 +123,14 @@ func (mock *MockFailAction) Call(actionId, message string) error {
 	return mock.err
 }
 
-type MockAcquireExecutionLock struct {
-	gotMessage *string
-	didUnlock  bool
-	err        error
-}
-
-func (mock *MockAcquireExecutionLock) Call(message string) (func(), error) {
-	mock.gotMessage = &message
-	if mock.err != nil {
-		return nil, mock.err
-	}
-	return func() { mock.didUnlock = true }, nil
-}
-
 type RunActionCallbacks struct {
 	operation.Callbacks
 	*MockFailAction
-	*MockAcquireExecutionLock
 	executingMessage string
 }
 
 func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
 	return cb.MockFailAction.Call(actionId, message)
-}
-
-func (cb *RunActionCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
 }
 
 func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
@@ -159,12 +140,7 @@ func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
 
 type RunCommandsCallbacks struct {
 	operation.Callbacks
-	*MockAcquireExecutionLock
 	executingMessage string
-}
-
-func (cb *RunCommandsCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
 }
 
 func (cb *RunCommandsCallbacks) SetExecutingStatus(message string) error {
@@ -215,13 +191,8 @@ func (mock *MockNotify) Call(hookName string, ctx runner.Context) {
 
 type ExecuteHookCallbacks struct {
 	*PrepareHookCallbacks
-	*MockAcquireExecutionLock
 	MockNotifyHookCompleted *MockNotify
 	MockNotifyHookFailed    *MockNotify
-}
-
-func (cb *ExecuteHookCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	return cb.MockAcquireExecutionLock.Call(message)
 }
 
 func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runner.Context) {
