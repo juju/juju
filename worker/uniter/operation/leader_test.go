@@ -114,6 +114,13 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *LeaderSuite) TestAcceptLeadership_DoesNotNeedGlobalMachineLock(c *gc.C) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := factory.NewAcceptLeadership()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+}
+
 func (s *LeaderSuite) TestResignLeadership_Prepare_Leader(c *gc.C) {
 	factory := operation.NewFactory(nil, nil, nil, nil, nil)
 	op, err := factory.NewResignLeadership()
@@ -178,4 +185,11 @@ func (s *LeaderSuite) TestResignLeadership_Commit_All(c *gc.C) {
 	newState, err := op.Commit(leaderState)
 	c.Check(newState, gc.DeepEquals, &overwriteState)
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *LeaderSuite) TestResignLeadership_DoesNotNeedGlobalMachineLock(c *gc.C) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := factory.NewResignLeadership()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
 }

@@ -98,11 +98,19 @@ type RestartableService interface {
 // and several helper functions.
 
 // NewService returns a new Service based on the provided info.
-func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
+func NewService(name string, conf common.Conf, series string) (Service, error) {
 	if name == "" {
 		return nil, errors.New("missing name")
 	}
 
+	initSystem, err := versionInitSystem(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newService(name, conf, initSystem, series)
+}
+
+func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
 	switch initSystem {
 	case InitSystemWindows:
 		svc, err := windows.NewService(name, conf)
@@ -113,13 +121,9 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		// TODO(ericsnow) lp:1457122
-		// dataDir should come from the series or be passed in.
-		// Until the proper fix is in place, we use paths.DataDir here
-		// with a non-windows series (e.g. vivid).
-		dataDir, err := paths.DataDir("vivid")
+		dataDir, err := paths.DataDir(series)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
 		}
 
 		svc, err := systemd.NewService(name, conf, dataDir)
@@ -134,9 +138,9 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 
 // ListServices lists all installed services on the running system
 func ListServices() ([]string, error) {
-	initName, ok := VersionInitSystem(version.Current)
-	if !ok {
-		return nil, errors.NotFoundf("init system on local host")
+	initName, err := VersionInitSystem(version.Current.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	switch initName {

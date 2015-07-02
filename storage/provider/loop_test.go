@@ -24,13 +24,15 @@ var _ = gc.Suite(&loopSuite{})
 
 type loopSuite struct {
 	testing.BaseSuite
-	storageDir string
-	commands   *mockRunCommand
+	storageDir       string
+	commands         *mockRunCommand
+	runningInsideLXC bool
 }
 
 func (s *loopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
+	s.runningInsideLXC = false
 }
 
 func (s *loopSuite) TearDownTest(c *gc.C) {
@@ -40,7 +42,10 @@ func (s *loopSuite) TearDownTest(c *gc.C) {
 
 func (s *loopSuite) loopProvider(c *gc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
-	return provider.LoopProvider(s.commands.run)
+	runningInsideLXC := func() (bool, error) {
+		return s.runningInsideLXC, nil
+	}
+	return provider.LoopProvider(s.commands.run, runningInsideLXC)
 }
 
 func (s *loopSuite) TestVolumeSource(c *gc.C) {
@@ -83,6 +88,7 @@ func (s *loopSuite) loopVolumeSource(c *gc.C) (storage.VolumeSource, *provider.M
 	return provider.LoopVolumeSource(
 		s.storageDir,
 		s.commands.run,
+		s.runningInsideLXC,
 	)
 }
 
@@ -122,6 +128,32 @@ func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 	}})
 	// loop volumes may be created without attachments
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loopSuite) TestCreateVolumesInsideLXC(c *gc.C) {
+	s.runningInsideLXC = true
+
+	source, _ := s.loopVolumeSource(c)
+	s.testCreateVolumesInsideLXC(c, source)
+
+	p := s.loopProvider(c)
+	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
+		"storage-dir": s.storageDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	source, err = p.VolumeSource(nil, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.testCreateVolumesInsideLXC(c, source)
+}
+
+func (s *loopSuite) testCreateVolumesInsideLXC(c *gc.C, source storage.VolumeSource) {
+	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
+	volumes, _, err := source.CreateVolumes([]storage.VolumeParams{{
+		Tag: names.NewVolumeTag("0"), Size: 2,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+	c.Assert(volumes[0].VolumeInfo.Persistent, jc.IsTrue)
 }
 
 func (s *loopSuite) TestDestroyVolumes(c *gc.C) {

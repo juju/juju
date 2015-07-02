@@ -13,7 +13,6 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	ActiveMetricsTimer  = &activeMetricsTimer
 	IdleWaitTime        = &idleWaitTime
 	LeadershipGuarantee = &leadershipGuarantee
 )
@@ -42,6 +41,13 @@ func (t *ManualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duratio
 func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
 		c: make(chan time.Time, 1),
+	}
+}
+
+func NewTestingMetricsTimerChooser(active TimedSignal) *timerChooser {
+	return &timerChooser{
+		active:   active,
+		inactive: inactiveMetricsTimer,
 	}
 }
 

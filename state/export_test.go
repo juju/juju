@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
@@ -295,7 +296,7 @@ func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
 
-func GetCollection(st *State, name string) (stateCollection, func()) {
+func GetCollection(st *State, name string) (mongo.Collection, func()) {
 	return st.getCollection(name)
 }
 

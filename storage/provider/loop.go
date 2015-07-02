@@ -25,8 +25,11 @@ const (
 
 // loopProviders create volume sources which use loop devices.
 type loopProvider struct {
-	// run is a function type used for running commands on the local machine.
+	// run is a function used for running commands on the local machine.
 	run runCommandFunc
+	// runningInsideLXC is a function that determines whether or not
+	// the code is running within an LXC container.
+	runningInsideLXC func() (bool, error)
 }
 
 var _ storage.Provider = (*loopProvider)(nil)
@@ -59,12 +62,17 @@ func (lp *loopProvider) VolumeSource(
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	insideLXC, err := lp.runningInsideLXC()
+	if err != nil {
+		return nil, err
+	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &loopVolumeSource{
 		&osDirFuncs{lp.run},
 		lp.run,
 		storageDir,
+		insideLXC,
 	}, nil
 }
 
@@ -94,9 +102,10 @@ func (*loopProvider) Dynamic() bool {
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
-	dirFuncs   dirFuncs
-	run        runCommandFunc
-	storageDir string
+	dirFuncs         dirFuncs
+	run              runCommandFunc
+	storageDir       string
+	runningInsideLXC bool
 }
 
 var _ storage.VolumeSource = (*loopVolumeSource)(nil)
@@ -128,6 +137,10 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		storage.VolumeInfo{
 			VolumeId: volumeId,
 			Size:     params.Size,
+			// Loop devices may outlive LXC containers. If we're
+			// running inside an LXC container, mark the volume as
+			// persistent.
+			Persistent: lvs.runningInsideLXC,
 		},
 	}, nil
 }

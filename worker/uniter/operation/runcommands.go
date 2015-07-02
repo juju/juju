@@ -19,6 +19,8 @@ type runCommands struct {
 	runnerFactory runner.Factory
 
 	runner runner.Runner
+
+	RequiresMachineLock
 }
 
 // String is part of the Operation interface.
@@ -53,12 +55,6 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 // state change.
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(state State) (*State, error) {
-	unlock, err := rc.callbacks.AcquireExecutionLock("run commands")
-	if err != nil {
-		return nil, err
-	}
-	defer unlock()
-
 	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}

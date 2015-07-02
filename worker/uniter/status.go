@@ -17,3 +17,8 @@ func updateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-cha
 	waitDuration := interval - now.Sub(lastSignal)
 	return time.After(waitDuration)
 }
+
+// NewUpdateStatusTimer returns a timed signal suitable for update-status hook.
+func NewUpdateStatusTimer() TimedSignal {
+	return updateStatusSignal
+}

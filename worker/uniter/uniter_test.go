@@ -35,7 +35,8 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	ticker *uniter.ManualTicker
+	metricsTicker          *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -70,10 +71,10 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
+	s.metricsTicker = uniter.NewManualTicker()
+	s.updateStatusHookTicker = uniter.NewManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.ticker = uniter.NewManualTicker()
-	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
 }
 
@@ -101,13 +102,14 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 			env, err := s.State.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{
-				s:       s,
-				st:      s.State,
-				uuid:    env.UUID(),
-				path:    s.unitDir,
-				dataDir: s.dataDir,
-				charms:  make(map[string][]byte),
-				ticker:  s.ticker,
+				s:                      s,
+				st:                     s.State,
+				uuid:                   env.UUID(),
+				path:                   s.unitDir,
+				dataDir:                s.dataDir,
+				charms:                 make(map[string][]byte),
+				metricsTicker:          s.metricsTicker,
+				updateStatusHookTicker: s.updateStatusHookTicker,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -200,6 +202,21 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 				status: params.StatusIdle,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook runs on timer",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: params.StatusIdle},
+			updateStatusHookTick{},
+			waitHooks{"update-status"},
 		),
 	})
 }
@@ -1753,11 +1770,13 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create a test context for later use.
 	ctx := &context{
-		s:       s,
-		st:      s.State,
-		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
-		dataDir: s.dataDir,
-		charms:  make(map[string][]byte),
+		s:                      s,
+		st:                     s.State,
+		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
+		dataDir:                s.dataDir,
+		charms:                 make(map[string][]byte),
+		metricsTicker:          s.metricsTicker,
+		updateStatusHookTicker: s.updateStatusHookTicker,
 	}
 
 	addStateServerMachine(c, ctx.st)
