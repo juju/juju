@@ -434,6 +434,63 @@ func (s *envManagerSuite) TestUnauthorizedEnvironmentGet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
+func (s *envManagerSuite) TestListBlockedEnvironments(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test"})
+	defer st.Close()
+
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	s.setAPIUser(c, s.AdminUserTag(c))
+	list, err := s.envmanager.ListBlockedEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
+		params.EnvironmentBlockInfo{
+			params.Environment{
+				Name:       "dummyenv",
+				UUID:       s.State.EnvironUUID(),
+				OwnerTag:   s.AdminUserTag(c).String(),
+				ServerUUID: s.State.EnvironUUID(),
+			},
+			[]string{
+				"BlockDestroy",
+				"BlockChange",
+			},
+		},
+		params.EnvironmentBlockInfo{
+			params.Environment{
+				Name:       "test",
+				UUID:       st.EnvironUUID(),
+				OwnerTag:   s.AdminUserTag(c).String(),
+				ServerUUID: s.State.EnvironUUID(),
+			},
+			[]string{
+				"BlockDestroy",
+				"BlockChange",
+			},
+		},
+	})
+
+}
+
+func (s *envManagerSuite) TestUnauthorizedListBlockedEnvironments(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	_, err := s.envmanager.ListBlockedEnvironments()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
+	s.setAPIUser(c, s.AdminUserTag(c))
+	list, err := s.envmanager.ListBlockedEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(list.Environments), gc.Equals, 0)
+}
+
 type fakeProvider struct {
 	environs.EnvironProvider
 }

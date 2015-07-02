@@ -168,3 +168,7 @@ func (st *mockBlock) Type() state.BlockType {
 func (st *mockBlock) Message() string {
 	return "not allowed"
 }
+
+func (st *mockBlock) EnvUUID() string {
+	return "uuid"
+}

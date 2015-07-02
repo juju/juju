@@ -65,6 +65,8 @@ func NewEnvironmentManagerAPI(
 	}, nil
 }
 
+// authCheck checks if the user is acting on their own behalf, or if they
+// are an administrator acting on behalf of another user.
 func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error {
 	authTag := em.authorizer.GetAuthTag()
 	apiUser, ok := authTag.(names.UserTag)
@@ -82,6 +84,49 @@ func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error 
 		return nil
 	}
 	return common.ErrPerm
+}
+
+// environmentAuthCheck determines if the user has access to the current environment
+// either by explicitly having access to the environment, or if they are a
+// system administrator.
+func (em *EnvironmentManagerAPI) environmentAuthCheck(st stateInterface) error {
+	err := em.isSystemAdministrator()
+	if err == nil {
+		return err
+	}
+
+	// Not an admin, see if they have access the the specified environment
+	authTag := em.authorizer.GetAuthTag()
+	apiUserTag, ok := authTag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+	}
+
+	_, err = st.EnvironmentUser(apiUserTag)
+	if err != nil {
+		return common.ErrPerm
+	}
+
+	return nil
+}
+
+// isSystemAdministrator determines if the api user is a system administrator
+func (em *EnvironmentManagerAPI) isSystemAdministrator() error {
+	authTag := em.authorizer.GetAuthTag()
+	apiUser, ok := authTag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+	}
+
+	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isAdmin {
+		return common.ErrPerm
+	}
+
+	return nil
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -379,12 +424,9 @@ func (em *EnvironmentManagerAPI) AllEnvironments() (params.UserEnvironmentList, 
 		return result, errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
 	}
 
-	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	err := em.isSystemAdministrator()
 	if err != nil {
 		return result, errors.Trace(err)
-	}
-	if !isAdmin {
-		return result, common.ErrPerm
 	}
 
 	// Get all the environments that the authenticated user can see, and
@@ -427,33 +469,117 @@ func (em *EnvironmentManagerAPI) AllEnvironments() (params.UserEnvironmentList, 
 	return result, nil
 }
 
-func (em *EnvironmentManagerAPI) environmentAuthCheck(st stateInterface) error {
-	authTag := em.authorizer.GetAuthTag()
-	apiUserTag, ok := authTag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+// ListBlockedEnvironments returns a list of all environments on the system which
+// have a block in place.  Callers must be system administrators to retrieve the list.
+func (em *EnvironmentManagerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error) {
+	results := params.EnvironmentBlockInfoList{}
+
+	// Check that we are authorized
+	err := em.isSystemAdministrator()
+	if err != nil {
+		return results, errors.Trace(err)
 	}
 
-	stateServerEnv, err := st.StateServerEnvironment()
+	blocks, err := em.state.AllBlocksForSystem()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	envBlocks := make(map[string][]string)
+	for _, block := range blocks {
+		uuid := block.EnvUUID()
+		types, ok := envBlocks[uuid]
+		if !ok {
+			types = []string{block.Type().String()}
+		} else {
+			types = append(types, block.Type().String())
+		}
+		envBlocks[uuid] = types
+	}
+
+	for uuid, blocks := range envBlocks {
+		envInfo, err := em.state.GetEnvironment(names.NewEnvironTag(uuid))
+		if err != nil {
+			logger.Debugf("Unable to get name for environment: %s", uuid)
+			continue
+		}
+		results.Environments = append(results.Environments, params.EnvironmentBlockInfo{
+			Environment: params.Environment{
+				UUID:       envInfo.UUID(),
+				Name:       envInfo.Name(),
+				OwnerTag:   envInfo.Owner().String(),
+				ServerUUID: envInfo.ServerUUID(),
+			},
+			Blocks: blocks,
+		})
+	}
+
+	return results, nil
+}
+
+func (em *EnvironmentManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
+	// Check we're destroying the system env
+	st := em.state
+	if args.EnvUUID != st.EnvironUUID() {
+		return errors.Errorf("%q is not a system", args.EnvUUID)
+	}
+
+	// Check that we are authorized
+	err := em.isSystemAdministrator()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	adminUserTag := stateServerEnv.Owner()
 
-	// The user may modify or query the environment if they are the admin user
-	// or any user with access to the environment.
-	_, err = st.EnvironmentUser(apiUserTag)
-	if err != nil && apiUserTag != adminUserTag {
-		return common.ErrPerm
+	// Get list of all environments in the system.
+	allEnvs, err := st.AllEnvironments()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	return nil
+	// If there are hosted environments and KillEnvs was not specified, don't
+	// bother trying to destroy the system, as it will fail.
+	if len(allEnvs) > 1 && !args.KillEnvs {
+		return errors.Errorf("state server environment cannot be destroyed before all other environments are destroyed")
+	}
+
+	// Check for blocks
+	blocks, err := st.AllBlocksForSystem()
+	if err != nil {
+		logger.Debugf("Unable to get blocks for system: %s", err)
+		if !args.IgnoreBlocks {
+			return errors.Trace(err)
+		}
+	}
+	if len(blocks) > 0 {
+		if !args.IgnoreBlocks {
+			return common.ErrOperationBlocked("found blocks in system environments")
+		}
+
+		err := st.RemoveAllBlocksForSystem()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if args.KillEnvs {
+		for _, env := range allEnvs {
+			if env.UUID() != st.EnvironUUID() {
+				err = em.DestroyEnvironment(params.DestroyEnvironmentArgs{EnvUUID: env.UUID()})
+				if err != nil {
+					logger.Warningf("unable to destroy environment %q: %s", env.UUID(), err)
+				}
+			}
+		}
+	}
+
+	return em.DestroyEnvironment(params.DestroyEnvironmentArgs{EnvUUID: st.EnvironUUID()})
 }
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment.
-func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.EnvironmentDestroyArgs) (err error) {
+func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.DestroyEnvironmentArgs) (err error) {
 	st := em.state
+	logger.Warningf("Destroy environment called: %s\n", args.EnvUUID)
 	envUUID := args.EnvUUID
 	if envUUID != em.state.EnvironUUID() {
 		envTag := names.NewEnvironTag(envUUID)

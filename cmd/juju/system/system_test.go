@@ -25,6 +25,7 @@ var expectedCommmandNames = []string{
 	"create-environment",
 	"destroy",
 	"environments",
+	"force-destroy",
 	"help",
 	"list",
 	"login",

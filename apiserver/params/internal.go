@@ -89,9 +89,23 @@ type EnvironmentSkeletonConfigArgs struct {
 	Region   string
 }
 
-// EnvironmentDestroyArgs wraps the environment UUID to destroy.
-type EnvironmentDestroyArgs struct {
+// DestroyEnvironmentArgs wraps the environment UUID to destroy.
+type DestroyEnvironmentArgs struct {
 	EnvUUID string
+}
+
+// DestroySystemArgs holds the arguments for destroying a system.
+type DestroySystemArgs struct {
+	// EnvUUID is the UUID of the system to destroy.
+	EnvUUID string
+
+	// KillEnvs specifies whether or not the hosted systems
+	// should be destroyed in the DestroySystem call.
+	KillEnvs bool
+
+	// IgnoreBlocks specifies whether or not to ignore blocks
+	// on hosted environments.
+	IgnoreBlocks bool
 }
 
 // EnvironmentCreateArgs holds the arguments that are necessary to create
@@ -119,6 +133,27 @@ type Environment struct {
 	UUID       string
 	OwnerTag   string
 	ServerUUID string
+}
+
+// EnvironmentList holds information about a list of environments.
+type EnvironmentList struct {
+	Environments []Environment
+}
+
+// EnvironmentBlockInfo holds information about an environment and its
+// current blocks.
+type EnvironmentBlockInfo struct {
+	Environment
+
+	// Blocks contains a list of the current block types enabled
+	// for this environment.
+	Blocks []string
+}
+
+// EnvironmentBlockInfoList holds information about the blocked environments
+// for a system.
+type EnvironmentBlockInfoList struct {
+	Environments []EnvironmentBlockInfo
 }
 
 // UserEnvironment holds information about an environment and the last

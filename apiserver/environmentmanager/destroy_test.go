@@ -14,6 +14,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/environmentmanager"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -80,7 +81,7 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 func (s *destroyEnvironmentSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
+	return envManager.DestroyEnvironment(params.DestroyEnvironmentArgs{envUUID})
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
@@ -218,6 +219,7 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
 	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		Name:    "dummytoo",
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
 		ConfigAttrs: jujutesting.Attrs{
@@ -231,7 +233,17 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 func (s *destroyTwoEnvironmentsSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
+	return envManager.DestroyEnvironment(params.DestroyEnvironmentArgs{envUUID})
+}
+
+func (s *destroyTwoEnvironmentsSuite) destroySystem(c *gc.C, envUUID string, killAll bool, ignoreBlocks bool) error {
+	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	return envManager.DestroySystem(params.DestroySystemArgs{
+		EnvUUID:      envUUID,
+		KillEnvs:     killAll,
+		IgnoreBlocks: ignoreBlocks,
+	})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
@@ -266,4 +278,134 @@ func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.destroyEnvironment(c, s.State.EnvironUUID())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemNotASystem(c *gc.C) {
+	err := s.destroySystem(c, s.otherState.EnvironUUID(), false, false)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q is not a system", s.otherState.EnvironUUID()))
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemUnauthorized(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:      "unautheduser",
+		NoEnvUser: true,
+	})
+
+	authoriser := apiservertesting.FakeAuthorizer{
+		Tag: user.UserTag(),
+	}
+
+	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = envmanager.DestroySystem(params.DestroySystemArgs{
+		EnvUUID:      s.State.EnvironUUID(),
+		KillEnvs:     true,
+		IgnoreBlocks: true,
+	})
+
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
+	// Tests killEnvs=true, ignoreBlocks=true, hosted environments=Y, blocks=Y
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockRemoveObject(c, "TestBlockRemoveObject")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	err := s.destroySystem(c, s.State.EnvironUUID(), true, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.otherState.Environment()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
+	// Tests killEnvs=true, ignoreBlocks=false, hosted environments=Y, blocks=Y
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockRemoveObject(c, "TestBlockRemoveObject")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	err := s.destroySystem(c, s.State.EnvironUUID(), true, false)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+
+	numBlocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(numBlocks), gc.Equals, 4)
+
+	_, err = s.otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
+	// Tests killEnvs=true, ignoreBlocks=false, hosted environments=Y, blocks=N
+	err := s.destroySystem(c, s.State.EnvironUUID(), true, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.otherState.Environment()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) {
+	// Tests killEnvs=false, ignoreBlocks=true, hosted environments=Y, blocks=Y
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockRemoveObject(c, "TestBlockRemoveObject")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	err := s.destroySystem(c, s.State.EnvironUUID(), false, true)
+	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+
+	numBlocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(numBlocks), gc.Equals, 4)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
+	// Tests killEnvs=false, ignoreBlocks=false, hosted environments=N, blocks=N
+	err := s.destroyEnvironment(c, s.otherState.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.destroySystem(c, s.State.EnvironUUID(), false, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockRemoveObject(c, "TestBlockRemoveObject")
+	err := s.destroyEnvironment(c, s.otherState.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.destroySystem(c, s.State.EnvironUUID(), false, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockRemoveObject(c, "TestBlockRemoveObject")
+	err := s.destroyEnvironment(c, s.otherState.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.destroySystem(c, s.State.EnvironUUID(), false, false)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+
+	numBlocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(numBlocks), gc.Equals, 2)
 }
