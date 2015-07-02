@@ -87,7 +87,7 @@ func (c *CreateCommand) Init(args []string) error {
 	}
 
 	// Validate given CIDR.
-	c.CIDR, err = c.ValidateCIDR(args[0])
+	c.CIDR, err = c.ValidateCIDR(args[0], true)
 	if err != nil {
 		return err
 	}
