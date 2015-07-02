@@ -86,8 +86,15 @@ var multiEnvCollections = set.NewStrings(
 	unitsC,
 	volumesC,
 	volumeAttachmentsC,
-	workloadProcessesC,
 )
+
+// RegisterMultiEnvCollections adds the collections to the set of
+// collections that get managed per-environment.
+func RegisterMultiEnvCollections(names ...string) {
+	for _, name := range names {
+		multiEnvCollections.Add(name)
+	}
+}
 
 func newStateCollection(collection mongo.Collection, envUUID string) mongo.Collection {
 	if multiEnvCollections.Contains(collection.Name()) {

@@ -18,7 +18,15 @@ import (
 	"github.com/juju/juju/process"
 )
 
-const workloadProcessesC = "workloadprocesses"
+const (
+	workloadProcessesC = "workloadprocesses"
+)
+
+// Collections is the list of names of the mongo collections where state
+// is stored for workload processes.
+var Collections = []string{
+	workloadProcessesC,
+}
 
 // TODO(ericsnow) These two functions are copied from state.
 
