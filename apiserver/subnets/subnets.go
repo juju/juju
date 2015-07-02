@@ -4,9 +4,14 @@
 package subnets
 
 import (
+	"fmt"
+	"net"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -149,11 +154,20 @@ func NewAPI(backing Backing, resources *common.Resources, authorizer common.Auth
 func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 	var results params.ZoneResults
 
+	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
+		results := make([]string, len(zones))
+		for i, zone := range zones {
+			results[i] = zone.Name()
+		}
+		return `"` + strings.Join(results, `", "`) + `"`
+	}
+
 	// Try fetching cached zones first.
 	zones, err := a.backing.AvailabilityZones()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
+
 	if len(zones) == 0 {
 		// This is likely the first time we're called.
 		// Fetch all zones from the provider and update.
@@ -161,9 +175,11 @@ func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 		if err != nil {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
-		logger.Debugf("updated the list of known zones from the environment: %v", zones)
+		logger.Debugf(
+			"updated the list of known zones from the environment: %s", zonesAsString(zones),
+		)
 	} else {
-		logger.Debugf("using cached list of known zones: %v", zones)
+		logger.Debugf("using cached list of known zones: %s", zonesAsString(zones))
 	}
 
 	results.Results = make([]params.ZoneResult, len(zones))
@@ -205,7 +221,7 @@ func (a *internalAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
 		return zonedEnv, nil
@@ -225,7 +241,7 @@ func (a *internalAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		return netEnv, nil
@@ -252,92 +268,317 @@ func (a *internalAPI) updateZones() ([]providercommon.AvailabilityZone, error) {
 	return zones, nil
 }
 
-func (a *internalAPI) addOneSubnet(args params.AddSubnetParams, cachedInfo *[]network.SubnetInfo) error {
-	// Validate required arguments.
-	if args.SubnetTag == "" && args.SubnetProviderId == "" {
-		return errors.Errorf("either SubnetTag or SubnetProviderId is required")
-	} else if args.SubnetTag != "" && args.SubnetProviderId != "" {
-		return errors.Errorf("SubnetTag or SubnetProviderId cannot be both set")
+type addSubnetsCache struct {
+	api            *internalAPI
+	allSpaces      set.Strings
+	allZones       set.Strings
+	availableZones set.Strings
+	allSubnets     []network.SubnetInfo
+	// providerIdsByCIDR maps possibly duplicated CIDRs to one or more ids.
+	providerIdsByCIDR   map[string]set.Strings
+	subnetsByProviderId map[string]*network.SubnetInfo
+}
+
+func initAddSubnetsCache(api *internalAPI) *addSubnetsCache {
+	return &addSubnetsCache{
+		api:                 api,
+		allSpaces:           nil,
+		allZones:            nil,
+		availableZones:      nil,
+		allSubnets:          nil,
+		providerIdsByCIDR:   nil,
+		subnetsByProviderId: nil,
 	}
-	if args.SpaceTag == "" {
-		return errors.Errorf("SpaceTag is required")
+}
+
+func (a *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error) {
+	if spaceTag == "" {
+		return nil, errors.Errorf("SpaceTag is required")
 	}
-	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
+	tag, err := names.ParseSpaceTag(spaceTag)
 	if err != nil {
-		return errors.Annotate(err, "invalid space tag given")
+		return nil, errors.Annotate(err, "given SpaceTag is invalid")
 	}
 
-	// Get all subnets (from cache or the provider).
-	var subnetInfo []network.SubnetInfo
-	if cachedInfo == nil || len(*cachedInfo) == 0 {
-		netEnv, err := a.networkingEnviron()
+	// Otherwise we need the cache to validate.
+	if a.allSpaces == nil {
+		// Not yet cached.
+		logger.Debugf("caching known spaces")
+
+		allSpaces, err := a.api.backing.AllSpaces()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot validate given SpaceTag")
 		}
-		subnetInfo, err = netEnv.Subnets(instance.UnknownId, nil)
+		a.allSpaces = set.NewStrings()
+		for _, space := range allSpaces {
+			if a.allSpaces.Contains(space.Name()) {
+				logger.Warningf("ignoring duplicated space %q", space.Name())
+				continue
+			}
+			a.allSpaces.Add(space.Name())
+		}
+	}
+	if a.allSpaces.IsEmpty() {
+		return nil, errors.Errorf("no spaces defined")
+	}
+	logger.Tracef("using cached spaces: %v", a.allSpaces.SortedValues())
+
+	if !a.allSpaces.Contains(tag.Id()) {
+		return nil, errors.NotFoundf("given SpaceTag %q", tag.String()) // " not found"
+	}
+	return &tag, nil
+}
+
+func (a *addSubnetsCache) cacheZones() error {
+	if a.allZones != nil {
+		// Already cached.
+		logger.Tracef("using cached zones: %v", a.allZones.SortedValues())
+		return nil
+	}
+
+	allZones, err := a.api.AllZones()
+	if err != nil {
+		return errors.Annotate(err, "given Zones cannot be validated")
+	}
+	a.allZones = set.NewStrings()
+	a.availableZones = set.NewStrings()
+	for _, zone := range allZones.Results {
+		// AllZones() does not use the Error result field, so no
+		// need to check it here.
+		if a.allZones.Contains(zone.Name) {
+			logger.Warningf("ignoring duplicated zone %q", zone.Name)
+			continue
+		}
+
+		if zone.Available {
+			a.availableZones.Add(zone.Name)
+		}
+		a.allZones.Add(zone.Name)
+	}
+	logger.Debugf(
+		"%d known and %d available zones cached: %v",
+		a.allZones.Size(), a.availableZones.Size(), a.allZones.SortedValues(),
+	)
+	if a.allZones.IsEmpty() {
+		a.allZones = nil
+		// Cached an empty list.
+		return errors.Errorf("no zones defined")
+	}
+	return nil
+}
+
+func (a *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]string, error) {
+	haveProviderZones := len(providerZones) > 0
+	haveGivenZones := len(givenZones) > 0
+	givenSet := set.NewStrings(givenZones...)
+
+	// First check if we can validate without using the cache.
+	if !haveProviderZones && !haveGivenZones {
+		return nil, errors.Errorf("Zones cannot be discovered from the provider and must be set")
+	} else if haveProviderZones {
+		providerSet := set.NewStrings(providerZones...)
+		if !haveGivenZones {
+			// Use provider zones when none given.
+			return providerSet.SortedValues(), nil
+		}
+
+		extraGiven := givenSet.Difference(providerSet)
+		if !extraGiven.IsEmpty() {
+			extra := `"` + strings.Join(extraGiven.SortedValues(), `", "`) + `"`
+			msg := fmt.Sprintf("Zones contain zones not allowed by the provider: %s", extra)
+			return nil, errors.Errorf(msg)
+		}
+	}
+
+	// Otherwise we need the cache to validate.
+	if err := a.cacheZones(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	diffAvailable := givenSet.Difference(a.availableZones)
+	diffAll := givenSet.Difference(a.allZones)
+
+	if !diffAll.IsEmpty() {
+		extra := `"` + strings.Join(diffAll.SortedValues(), `", "`) + `"`
+		return nil, errors.Errorf("Zones contain unknown zones: %s", extra)
+	}
+	if !diffAvailable.IsEmpty() {
+		extra := `"` + strings.Join(diffAvailable.SortedValues(), `", "`) + `"`
+		return nil, errors.Errorf("Zones contain unavailable zones: %s", extra)
+	}
+	// All good - given zones are a subset and none are
+	// unavailable.
+	return givenSet.SortedValues(), nil
+}
+
+func (a *addSubnetsCache) cacheSubnets() error {
+	if a.allSubnets != nil {
+		// Already cached.
+		logger.Tracef("using %d cached subnets", len(a.allSubnets))
+		return nil
+	}
+
+	netEnv, err := a.api.networkingEnviron()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	subnetInfo, err := netEnv.Subnets(instance.UnknownId, nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot get provider subnets")
+	}
+	logger.Debugf("got %d subnets to cache from the provider", len(subnetInfo))
+
+	if len(subnetInfo) > 0 {
+		// Trying to avoid reallocations.
+		a.allSubnets = make([]network.SubnetInfo, 0, len(subnetInfo))
+	}
+	a.providerIdsByCIDR = make(map[string]set.Strings)
+	a.subnetsByProviderId = make(map[string]*network.SubnetInfo)
+
+	for i, _ := range subnetInfo {
+		subnet := subnetInfo[i]
+		cidr := subnet.CIDR
+		providerId := string(subnet.ProviderId)
+		logger.Debugf("caching subnet with CIDR %q and ProviderId %q", cidr, providerId)
+
+		if providerId == "" && cidr == "" {
+			logger.Warningf("found subnet with empty CIDR and ProviderId")
+			// But we still save it for lookups, which will probably fail anyway.
+		} else if providerId == "" {
+			logger.Warningf("found subnet with CIDR %q and empty ProviderId", cidr)
+			// But we still save it for lookups.
+		} else {
+			_, ok := a.subnetsByProviderId[providerId]
+			if ok {
+				logger.Warningf(
+					"found subnet with CIDR %q and duplicated ProviderId %q",
+					cidr, providerId,
+				)
+				// We just overwrite what's there for the same id.
+				// It's a weird case and it shouldn't happen with
+				// properly written providers, but anyway..
+			}
+		}
+		a.subnetsByProviderId[providerId] = &subnet
+
+		if ids, ok := a.providerIdsByCIDR[cidr]; !ok {
+			a.providerIdsByCIDR[cidr] = set.NewStrings(providerId)
+		} else {
+			ids.Add(providerId)
+			logger.Debugf(
+				"duplicated subnet CIDR %q; collected ProviderIds so far: %v",
+				cidr, ids.SortedValues(),
+			)
+			a.providerIdsByCIDR[cidr] = ids
+		}
+
+		a.allSubnets = append(a.allSubnets, subnet)
+	}
+	logger.Debugf("%d provider subnets cached", len(a.allSubnets))
+	if len(a.allSubnets) == 0 {
+		// Cached an empty list.
+		return errors.Errorf("no subnets defined")
+	}
+	return nil
+}
+
+func (a *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network.SubnetInfo, error) {
+	haveTag := subnetTag != ""
+	haveProviderId := providerId != ""
+
+	if !haveTag && !haveProviderId {
+		return nil, errors.Errorf("either SubnetTag or SubnetProviderId is required")
+	} else if haveTag && haveProviderId {
+		return nil, errors.Errorf("SubnetTag and SubnetProviderId cannot be both set")
+	}
+	var tag names.SubnetTag
+	if haveTag {
+		var err error
+		tag, err = names.ParseSubnetTag(subnetTag)
 		if err != nil {
-			return errors.Annotate(err, "cannot get provider subnets")
+			return nil, errors.Annotate(err, "given SubnetTag is invalid")
 		}
-		// Only cache them if requested (cachedInfo != nil).
-		if cachedInfo != nil {
-			*cachedInfo = make([]network.SubnetInfo, len(subnetInfo))
-			copy(*cachedInfo, subnetInfo)
-		}
-	} else if cachedInfo != nil && len(*cachedInfo) > 0 {
-		// Use the cache instead.
-		subnetInfo = make([]network.SubnetInfo, len(*cachedInfo))
-		copy(subnetInfo, *cachedInfo)
-	}
-	if len(subnetInfo) == 0 {
-		return errors.Errorf("cannot find any subnets")
 	}
 
-	// Use the tag if specified, otherwise use the provider ID.
-	var subnetTag names.SubnetTag
-	var providerId network.Id
-	if args.SubnetTag != "" {
-		subnetTag, err = names.ParseSubnetTag(args.SubnetTag)
-		if err != nil {
-			return errors.Annotate(err, "invalid subnet tag given")
-		}
-	} else {
-		providerId = network.Id(args.SubnetProviderId)
+	// Otherwise we need the cache to validate.
+	if err := a.cacheSubnets(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// Find a matching subnet info - by tag or provider ID.
-	var sub network.SubnetInfo
-	for _, info := range subnetInfo {
-		if (info.CIDR == subnetTag.Id() && info.CIDR != "") ||
-			(info.ProviderId == providerId && info.ProviderId != "") {
-			sub = info
-			break
+	if haveTag {
+		providerIds, ok := a.providerIdsByCIDR[tag.Id()]
+		if !ok || providerIds.IsEmpty() {
+			return nil, errors.NotFoundf("subnet with CIDR %q", tag.Id())
 		}
-	}
-	// Return nicer error when we can't find it.
-	if sub.CIDR == "" {
-		if args.SubnetProviderId != "" {
-			return errors.NotFoundf("subnet with ProviderId %q", args.SubnetProviderId)
+		if providerIds.Size() > 1 {
+			ids := `"` + strings.Join(providerIds.SortedValues(), `", "`) + `"`
+			return nil, errors.Errorf(
+				"multiple subnets with CIDR %q: retry using ProviderId from: %s",
+				tag.Id(), ids,
+			)
 		}
-		return errors.NotFoundf("subnet %q", subnetTag.Id())
+		// A single CIDR matched.
+		providerId = providerIds.Values()[0]
 	}
 
-	// At this point zones must be specified if cannot be discovered.
-	if len(sub.AvailabilityZones) == 0 {
-		return errors.Errorf("Zones cannot be discovered from the provider and must be set")
+	info, ok := a.subnetsByProviderId[providerId]
+	if !ok || info == nil {
+		return nil, errors.NotFoundf(
+			"subnet with CIDR %q and ProviderId %q",
+			tag.Id(), providerId,
+		)
+	}
+	// Do last-call validation.
+	if !names.IsValidSubnet(info.CIDR) {
+		_, ipnet, err := net.ParseCIDR(info.CIDR)
+		if err != nil && info.CIDR != "" {
+			// The underlying error is not important here, just that
+			// the CIDR is invalid.
+			return nil, errors.Errorf(
+				"subnet with CIDR %q and ProviderId %q: invalid CIDR",
+				info.CIDR, providerId,
+			)
+		}
+		if info.CIDR == "" {
+			return nil, errors.Errorf(
+				"subnet with ProviderId %q: empty CIDR", providerId,
+			)
+		}
+		return nil, errors.Errorf(
+			"subnet with ProviderId %q: incorrect CIDR format %q, expected %q",
+			providerId, info.CIDR, ipnet.String(),
+		)
+	}
+	return info, nil
+}
+
+func (a *internalAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubnetsCache) error {
+	subnetInfo, err := cache.validateSubnet(args.SubnetTag, args.SubnetProviderId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spaceTag, err := cache.validateSpace(args.SpaceTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	zones, err := cache.validateZones(subnetInfo.AvailabilityZones, args.Zones)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Try adding the subnet.
 	backingInfo := BackingSubnetInfo{
-		ProviderId:        string(sub.ProviderId),
-		CIDR:              sub.CIDR,
-		AvailabilityZones: sub.AvailabilityZones,
+		ProviderId:        string(subnetInfo.ProviderId),
+		CIDR:              subnetInfo.CIDR,
+		VLANTag:           subnetInfo.VLANTag,
+		AvailabilityZones: zones,
 		SpaceName:         spaceTag.Id(),
 	}
-	if sub.AllocatableIPLow != nil {
-		backingInfo.AllocatableIPLow = sub.AllocatableIPLow.String()
+	if subnetInfo.AllocatableIPLow != nil {
+		backingInfo.AllocatableIPLow = subnetInfo.AllocatableIPLow.String()
 	}
-	if sub.AllocatableIPHigh != nil {
-		backingInfo.AllocatableIPHigh = sub.AllocatableIPHigh.String()
+	if subnetInfo.AllocatableIPHigh != nil {
+		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
 	}
 	if _, err := a.backing.AddSubnet(backingInfo); err != nil {
 		return errors.Annotate(err, "cannot add subnet")
@@ -347,15 +588,17 @@ func (a *internalAPI) addOneSubnet(args params.AddSubnetParams, cachedInfo *[]ne
 
 // AddSubnets is defined on the API interface.
 func (a *internalAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Subnets))}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Subnets)),
+	}
 
 	if len(args.Subnets) == 0 {
 		return results, nil
 	}
 
-	var cache []network.SubnetInfo
+	cache := initAddSubnetsCache(a)
 	for i, arg := range args.Subnets {
-		err := a.addOneSubnet(arg, &cache)
+		err := a.addOneSubnet(arg, cache)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
