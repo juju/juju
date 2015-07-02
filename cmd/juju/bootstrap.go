@@ -324,7 +324,18 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 			ctx.Infof("Bootstrap complete")
 			return nil
 		}
-		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
+		// As the API server is coming up, it goes through a number of steps.
+		// Initially the upgrade steps run, but the api server allows some
+		// calls to be processed during the upgrade, but not the list blocks.
+		// It is also possible that the underlying database causes connections
+		// to be dropped as it is initialising, or reconfiguring. These can
+		// lead to EOF or "connection is shut down" error messages. We skip
+		// these too, hoping that things come back up before the end of the
+		// retry poll count.
+		errorMessage := err.Error()
+		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
+			strings.HasSuffix(errorMessage, "EOF") ||
+			strings.HasSuffix(errorMessage, "connection is shut down") {
 			ctx.Infof("Waiting for API to become available")
 			continue
 		}
