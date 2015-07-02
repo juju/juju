@@ -56,10 +56,10 @@ func (c workloadProcesses) registerHookContext() {
 	)
 
 	c.registerHookContextCommands()
-	c.registerHookContextFacades()
+	c.registerHookContextFacade()
 }
 
-func (c workloadProcesses) registerHookContextFacades() {
+func (c workloadProcesses) registerHookContextFacade() {
 
 	newHookContextApi := func(st *state.State, _ *state.Unit) (interface{}, error) {
 		if st == nil {
