@@ -131,7 +131,9 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
-	originalConfig := s.st.config
+	originalConfig, err := s.st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetConfig(c, coretesting.Attrs{
 		"type": "invalid",
 	})
@@ -182,16 +184,13 @@ type fakeState struct {
 	mu sync.Mutex
 
 	changes chan struct{}
-	config  *config.Config
+	config  map[string]interface{}
 }
 
 var _ worker.EnvironConfigObserver = (*fakeState)(nil)
 
 // WatchForEnvironConfigChanges implements EnvironConfigObserver.
 func (s *fakeState) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.MethodCall(s, "WatchForEnvironConfigChanges")
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -208,46 +207,36 @@ func (s *fakeState) EnvironConfig() (*config.Config, error) {
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}
-	return s.config, nil
+	return config.New(config.NoDefaults, s.config)
 }
 
 // SetConfig changes the stored environment config with the given
-// extraAttrs (if not nil) and triggers a change for the watcher.
+// extraAttrs and triggers a change for the watcher.
 func (s *fakeState) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	attrs := dummy.SampleConfig()
-	if extraAttrs != nil {
-		for k, v := range extraAttrs {
-			attrs[k] = v
-		}
+	for k, v := range extraAttrs {
+		attrs[k] = v
 	}
+
 	// Simulate it's prepared.
 	attrs["broken"] = ""
 	attrs["state-id"] = "42"
 
-	changes := s.changes
-	s.config = coretesting.CustomEnvironConfig(c, attrs)
-	defer func() {
-		changes <- struct{}{}
-	}()
+	s.config = coretesting.CustomEnvironConfig(c, attrs).AllAttrs()
+	s.changes <- struct{}{}
 }
 
 // Err implements apiwatcher.NotifyWatcher.
 func (s *fakeState) Err() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.MethodCall(s, "Err")
 	return s.NextErr()
 }
 
 // Stop implements apiwatcher.NotifyWatcher.
 func (s *fakeState) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.MethodCall(s, "Stop")
 	return s.NextErr()
 }
@@ -265,18 +254,9 @@ func (s *fakeState) Changes() <-chan struct{} {
 	return s.changes
 }
 
-// CheckCallNames is a thread-safe wrapper around
-// testing.Stub.CheckCallNames.
-func (s *fakeState) CheckCallNames(c *gc.C, names ...string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.Stub.CheckCallNames(c, names...)
-}
-
 func (s *fakeState) AssertConfig(c *gc.C, expected *config.Config) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	c.Assert(s.config.AllAttrs(), jc.DeepEquals, expected.AllAttrs())
+	c.Assert(s.config, jc.DeepEquals, expected.AllAttrs())
 }

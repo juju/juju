@@ -13,6 +13,8 @@ type updateStorage struct {
 	tags []names.StorageTag
 
 	storageUpdater StorageUpdater
+
+	DoesNotRequireMachineLock
 }
 
 // String is part of the Operation interface.

@@ -87,6 +87,10 @@ func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
 	c.Assert(docID, gc.Equals, s.State.EnvironUUID()+":"+id)
+
+	// Ensure that the prefix isn't added if it's already there.
+	docID2 := state.DocID(s.State, docID)
+	c.Assert(docID2, gc.Equals, docID)
 }
 
 func (s *StateSuite) TestLocalID(c *gc.C) {

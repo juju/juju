@@ -60,12 +60,15 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
+	// A net.TCPAddr cannot be directly stringified into a valid hostname.
+	address := fmt.Sprintf("localhost:%d", srv.Addr().Port)
+
 	// Note we can't use openAs because we're not connecting to
 	apiInfo := &api.Info{
 		Tag:        machine.Tag(),
 		Password:   password,
 		Nonce:      "fake_nonce",
-		Addrs:      []string{srv.Addr().String()},
+		Addrs:      []string{address},
 		CACert:     coretesting.CACert,
 		EnvironTag: s.State.EnvironTag(),
 	}

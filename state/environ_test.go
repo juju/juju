@@ -302,7 +302,7 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 
 	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
