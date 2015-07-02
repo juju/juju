@@ -66,7 +66,8 @@ func (c workloadProcesses) registerHookContextFacade() {
 			return nil, errors.NewNotValid(nil, "st is nil")
 		}
 		// TODO(natefinch): uncomment when the appropriate state functions exist.
-		return &server.HookContextAPI{ /* st */ }, nil
+		//return &server.HookContextAPI{ st }, nil
+		return &server.HookContextAPI{}, nil
 	}
 
 	common.RegisterHookContextFacade(
