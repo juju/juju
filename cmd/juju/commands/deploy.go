@@ -28,14 +28,14 @@ import (
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
-	CharmName       string
-	ServiceName     string
-	Config          cmd.FileVar
-	Constraints     constraints.Value
-	Networks        string
-	BumpRevision    bool   // Remove this once the 1.16 support is dropped.
-	RepoPath        string // defaults to JUJU_REPOSITORY
-	RegistrationURL string
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	Networks     string
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
+	RepoPath     string // defaults to JUJU_REPOSITORY
+	RegisterURL  string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -302,7 +302,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = registerMeteredCharm(c.RegistrationURL, state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
+	err = registerMeteredCharm(c.RegisterURL, state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
 	if err != nil {
 		return err
 	}
