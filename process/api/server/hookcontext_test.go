@@ -4,7 +4,6 @@
 package server
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -22,7 +21,6 @@ func (suite) TestRegisterProcess(c *gc.C) {
 	a := HookContextAPI{st}
 
 	args := api.RegisterProcessesArgs{
-		UnitTag: "foo/0",
 		Processes: []api.Process{{
 			Definition: api.ProcessDefinition{
 				Name:        "foobar",
@@ -55,7 +53,6 @@ func (suite) TestRegisterProcess(c *gc.C) {
 
 	res, err := a.RegisterProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st.unit, gc.Equals, names.NewUnitTag("foo/0"))
 
 	expectedResults := api.ProcessResults{
 		Results: []api.ProcessResult{{
@@ -138,8 +135,7 @@ func (suite) TestListProcessesOne(c *gc.C) {
 	st := &FakeState{procs: []process.Info{proc}}
 	a := HookContextAPI{st}
 	args := api.ListProcessesArgs{
-		UnitTag: "foo/0",
-		IDs:     []string{"foobar/idfoo"},
+		IDs: []string{"foobar/idfoo"},
 	}
 	results, err := a.ListProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,9 +219,7 @@ func (suite) TestListProcessesAll(c *gc.C) {
 	}
 	st := &FakeState{procs: []process.Info{proc}}
 	a := HookContextAPI{st}
-	args := api.ListProcessesArgs{
-		UnitTag: "foo/0",
-	}
+	args := api.ListProcessesArgs{}
 	results, err := a.ListProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -277,7 +271,6 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := api.SetProcessesStatusArgs{
-		UnitTag: "foo/0",
 		Args: []api.SetProcessStatusArg{{
 			ID: "fooID",
 			Status: api.ProcessStatus{
@@ -289,7 +282,6 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(st.id, gc.Equals, "fooID")
-	c.Assert(st.unit, gc.Equals, names.NewUnitTag("foo/0"))
 	c.Assert(st.status, jc.DeepEquals, &process.Status{
 		Label: "statusfoo",
 	})
@@ -307,14 +299,12 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := api.UnregisterProcessesArgs{
-		UnitTag: "foo/0",
-		IDs:     []string{"fooID"},
+		IDs: []string{"fooID"},
 	}
 	res, err := a.UnregisterProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(st.id, gc.Equals, "fooID")
-	c.Assert(st.unit, gc.Equals, names.NewUnitTag("foo/0"))
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
@@ -327,7 +317,6 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 
 type FakeState struct {
 	// inputs
-	unit   names.UnitTag
 	id     string
 	ids    []string
 	status *process.Status
@@ -338,11 +327,6 @@ type FakeState struct {
 	//outputs
 	procs []process.Info
 	err   error
-}
-
-func (f *FakeState) UnitProcesses(unit names.UnitTag) (UnitProcesses, error) {
-	f.unit = unit
-	return f, nil
 }
 
 func (f *FakeState) Register(info process.Info) error {

@@ -63,21 +63,21 @@ type unitProcesses struct {
 
 // UnitProcesses exposes interaction with workload processes in state
 // for a the given unit.
-func (st *State) UnitProcesses(unit names.UnitTag) (UnitProcesses, error) {
+func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	if newUnitProcesses == nil {
 		return nil, errors.Errorf("unit processes not supported")
 	}
 
-	// TODO(ericsnow) State.unitCharm is sometimes wrong...
-	// TODO(ericsnow) Do we really need the charm tag?
-	charm, err := st.unitCharm(unit)
+	// TODO(ericsnow) unit.charm is sometimes wrong...
+	charm, err := unit.charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(ericsnow) Do we really need the charm tag?
 	charmTag := charm.Tag().(names.CharmTag)
 
 	persist := st.newPersistence()
-	unitProcs, err := newUnitProcesses(persist, unit, charmTag)
+	unitProcs, err := newUnitProcesses(persist, unit.UnitTag(), charmTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
