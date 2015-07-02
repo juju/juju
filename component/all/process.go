@@ -61,13 +61,16 @@ func (c workloadProcesses) registerHookContext() {
 
 func (c workloadProcesses) registerHookContextFacade() {
 
-	newHookContextApi := func(st *state.State, _ *state.Unit) (interface{}, error) {
+	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
 		if st == nil {
 			return nil, errors.NewNotValid(nil, "st is nil")
 		}
-		// TODO(natefinch): uncomment when the appropriate state functions exist.
-		//return &server.HookContextAPI{ st }, nil
-		return &server.HookContextAPI{}, nil
+
+		up, err := st.UnitProcesses(unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return server.NewHookContextAPI(up), nil
 	}
 
 	common.RegisterHookContextFacade(

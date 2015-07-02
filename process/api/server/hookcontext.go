@@ -8,7 +8,6 @@ package server
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
@@ -16,14 +15,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.process.api.server")
-
-// State is an interface that exposes functionality this package needs to wrap
-// in an API.
-type State interface {
-	// UnitProcesses exposes the State functionality for a unit's
-	// workload processes.
-	UnitProcesses(unit names.UnitTag) (UnitProcesses, error)
-}
 
 // UnitProcesses exposes the State functionality for a unit's
 // workload processes.
@@ -41,29 +32,23 @@ type UnitProcesses interface {
 // HookContextAPI serves workload process-specific API methods.
 type HookContextAPI struct {
 	// State exposes the workload process aspect of Juju's state.
-	State State
+	State UnitProcesses
 }
 
 // NewHookContextAPI builds a new facade for the given State.
-func NewHookContextAPI(st State) *HookContextAPI {
+func NewHookContextAPI(st UnitProcesses) *HookContextAPI {
 	return &HookContextAPI{State: st}
 }
 
 // RegisterProcess registers a workload process in state.
 func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.ProcessResults, error) {
-	unit := names.NewUnitTag(args.UnitTag)
-	st, err := a.State.UnitProcesses(unit)
-	if err != nil {
-		return api.ProcessResults{Error: common.ServerError(err)}, nil
-	}
-
 	r := api.ProcessResults{}
 	for _, apiProc := range args.Processes {
 		info := api.API2Proc(apiProc)
 		res := api.ProcessResult{
 			ID: info.ID(),
 		}
-		if err := st.Register(info); err != nil {
+		if err := a.State.Register(info); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}
@@ -79,15 +64,8 @@ func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.P
 func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProcessesResults, error) {
 	var r api.ListProcessesResults
 
-	unit := names.NewUnitTag(args.UnitTag)
-	st, err := a.State.UnitProcesses(unit)
-	if err != nil {
-		r.Error = common.ServerError(err)
-		return r, nil
-	}
-
 	ids := args.IDs
-	procs, err := st.List(ids...)
+	procs, err := a.State.List(ids...)
 	if err != nil {
 		r.Error = common.ServerError(err)
 		return r, nil
@@ -127,19 +105,13 @@ func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProce
 
 // SetProcessesStatus sets the raw status of a workload process.
 func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api.ProcessResults, error) {
-	unit := names.NewUnitTag(args.UnitTag)
-	st, err := a.State.UnitProcesses(unit)
-	if err != nil {
-		return api.ProcessResults{Error: common.ServerError(err)}, nil
-	}
-
 	r := api.ProcessResults{}
 	for _, arg := range args.Args {
 		res := api.ProcessResult{
 			ID: arg.ID,
 		}
 		status := api.APIStatus2Status(arg.Status)
-		err := st.SetStatus(arg.ID, status)
+		err := a.State.SetStatus(arg.ID, status)
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)
@@ -151,18 +123,12 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 
 // UnregisterProcesses marks the identified process as unregistered.
 func (a HookContextAPI) UnregisterProcesses(args api.UnregisterProcessesArgs) (api.ProcessResults, error) {
-	unit := names.NewUnitTag(args.UnitTag)
-	st, err := a.State.UnitProcesses(unit)
-	if err != nil {
-		return api.ProcessResults{Error: common.ServerError(err)}, nil
-	}
-
 	r := api.ProcessResults{}
 	for _, id := range args.IDs {
 		res := api.ProcessResult{
 			ID: id,
 		}
-		if err := st.Unregister(id); err != nil {
+		if err := a.State.Unregister(id); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}

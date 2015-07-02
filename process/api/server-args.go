@@ -14,8 +14,6 @@ var BulkFailure = errors.Errorf("at least one bulk arg has an error")
 
 // RegisterProcessArgs are the arguments for the RegisterProcesses endpoint.
 type RegisterProcessesArgs struct {
-	// UnitTag is the tag of the unit on which the processes reside.
-	UnitTag string
 	// Processes is the list of Processes to register
 	Processes []Process
 }
@@ -39,8 +37,6 @@ type ProcessResult struct {
 
 // ListProcessesesArgs are the arguments for the ListProcesses endpoint.
 type ListProcessesArgs struct {
-	// UnitTag is the tag of the unit on which the process resides.
-	UnitTag string
 	// IDs is the list of IDs of the processes you want information on.
 	IDs []string
 }
@@ -65,8 +61,6 @@ type ListProcessResult struct {
 
 // SetProcessesStatusArgs are the arguments for the SetProcessesStatus endpoint.
 type SetProcessesStatusArgs struct {
-	// UnitTag is the tag of the unit on which the process resides.
-	UnitTag string
 	// Args is the list of arguments to pass to this function.
 	Args []SetProcessStatusArg
 }
@@ -82,8 +76,6 @@ type SetProcessStatusArg struct {
 
 // UnregisterProcessesArgs are the arguments for the UnregisterProcesses endpoint.
 type UnregisterProcessesArgs struct {
-	// UnitTag is the tag of the unit on which the process resides.
-	UnitTag string
 	// IDs is a list of IDs of processes.
 	IDs []string
 }

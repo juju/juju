@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/state"
 )
 
 func init() {
@@ -38,7 +39,7 @@ processes:
       IMPORTANT: YES
 `
 
-func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, names.UnitTag) {
+func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
 	ch := s.AddTestingCharm(c, charmName)
 	ch = s.AddMetaCharm(c, charmName, meta, 2)
 
@@ -47,14 +48,13 @@ func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmTag := ch.Tag().(names.CharmTag)
-	unitTag := unit.UnitTag()
-	return charmTag, unitTag
+	return charmTag, unit
 }
 
 func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
-	_, unitTag := s.addUnit(c, "dummy", "a-service", metaYAML)
+	_, unit := s.addUnit(c, "dummy", "a-service", metaYAML)
 
-	st, err := s.State.UnitProcesses(unitTag)
+	st, err := s.State.UnitProcesses(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err := st.List()
