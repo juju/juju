@@ -4,6 +4,8 @@
 package all
 
 import (
+	"reflect"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -54,21 +56,25 @@ func (c workloadProcesses) registerHookContext() {
 	)
 
 	c.registerHookContextCommands()
+	c.registerHookContextFacade()
+}
 
-	factory := func(state *state.State, _ *common.Resources, authorizer common.Authorizer) (*server.HookContextAPI, error) {
-		if !authorizer.AuthUnitAgent() {
-			return nil, common.ErrPerm
+func (c workloadProcesses) registerHookContextFacade() {
+
+	newHookContextApi := func(st *state.State, _ *state.Unit) (interface{}, error) {
+		if st == nil {
+			return nil, errors.NewNotValid(nil, "st is nil")
 		}
-
 		// TODO(natefinch): uncomment when the appropriate state functions exist.
-		// return server.NewHookContextAPI(state), nil
-		return nil, common.ErrPerm
+		//return &server.HookContextAPI{ st }, nil
+		return &server.HookContextAPI{}, nil
 	}
 
-	common.RegisterStandardFacade(
+	common.RegisterHookContextFacade(
 		process.ComponentName,
 		0,
-		factory,
+		newHookContextApi,
+		reflect.TypeOf(server.HookContextAPI{}),
 	)
 }
 
