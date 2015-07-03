@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
+	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -95,10 +97,22 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			if err := h.handle(stateWrapper.state, params, socket, h.stop); err != nil {
-				logger.Warningf("debug-log handler error: %v", err)
+				if isBrokenPipe(err) {
+					logger.Tracef("debug-log handler stopped (client disconnected)")
+				} else {
+					logger.Errorf("debug-log handler error: %v", err)
+				}
 			}
 		}}
 	server.ServeHTTP(w, req)
+}
+
+func isBrokenPipe(err error) bool {
+	err = errors.Cause(err)
+	if opErr, ok := err.(*net.OpError); ok {
+		return opErr.Err == syscall.EPIPE
+	}
+	return false
 }
 
 // debugLogSocket describes the functionality required for the
