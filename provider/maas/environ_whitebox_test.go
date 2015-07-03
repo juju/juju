@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
+	"strings"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -1299,6 +1301,51 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	// valid instance id and net id
 	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
+
+	devicesURL := "/api/1.0/devices/?op=list"
+	resp, err := http.Get(suite.testMAASObject.TestServer.Server.URL + devicesURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := gomaasapi.Parse(gomaasapi.Client{}, content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray, err := result.GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devicesArray, gc.HasLen, 1)
+
+	device, err := devicesArray[0].GetMap()
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostname, err := device["hostname"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostname, gc.Equals, "bar")
+
+	parent, err := device["parent"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	trimmedId := strings.TrimRight(string(testInstance.Id()), "/")
+	split := strings.Split(trimmedId, "/")
+	maasId := split[len(split)-1]
+	c.Assert(parent, gc.Equals, maasId)
+
+	addressesArray, err := device["ip_addresses"].GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addressesArray, gc.HasLen, 1)
+	address, err := addressesArray[0].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, gc.Equals, "192.168.2.1")
+
+	macArray, err := device["macaddress_set"].GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(macArray, gc.HasLen, 1)
+	macMap, err := macArray[0].GetMap()
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := macMap["mac_address"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mac, gc.Equals, "foo")
 }
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
