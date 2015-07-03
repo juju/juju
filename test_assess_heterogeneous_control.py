@@ -16,31 +16,42 @@ from jujupy import (
     SimpleEnvironment,
     _temp_env,
     )
+from utility import (
+    temp_dir,
+)
 
 
 class TestDumping_env(TestCase):
 
     def test_dumping_env_exception(self):
         client = EnvJujuClient(SimpleEnvironment('env'), '5', '4')
-        with patch.object(client, 'destroy_environment') as de_mock:
-            with patch('subprocess.check_call') as cc_mock:
-                with patch('deploy_stack.copy_remote_logs') as crl_mock:
-                    with self.assertRaises(ValueError):
-                        with dumping_env(client, 'foo', 'bar'):
-                            raise ValueError
-        crl_mock.assert_called_once_with('foo', 'bar')
-        cc_mock.assert_called_once_with(['gzip', '-f'])
+        with temp_dir() as log_dir:
+            with patch.object(client, 'destroy_environment') as de_mock:
+                with patch('subprocess.check_call', autospec=True) as cc_mock:
+                    with patch('deploy_stack.copy_remote_logs') as crl_mock:
+                        with self.assertRaises(ValueError):
+                            with dumping_env(client, 'a-hostname', log_dir):
+                                raise ValueError
+            crl_mock.assert_called_once_with('a-hostname', log_dir)
+        self.assertEquals(cc_mock.call_count, 0)
         de_mock.assert_called_once_with()
 
+
     def test_dumping_env_success(self):
+        def _fake_remote_logs(remote, directory):
+            with open(os.path.join(directory, 'fake.log'), 'w') as f:
+                f.write('log contents')
         client = EnvJujuClient(SimpleEnvironment('env'), '5', '4')
-        with patch.object(client, 'destroy_environment') as de_mock:
-            with patch('subprocess.check_call') as cc_mock:
-                with patch('deploy_stack.copy_remote_logs') as crl_mock:
-                    with dumping_env(client, 'foo', 'bar'):
-                        pass
-        crl_mock.assert_called_once_with('foo', 'bar')
-        cc_mock.assert_called_once_with(['gzip', '-f'])
+        with temp_dir() as log_dir:
+            with patch.object(client, 'destroy_environment') as de_mock:
+                with patch('subprocess.check_call', autospec=True) as cc_mock:
+                    with patch('deploy_stack.copy_remote_logs', autospec=True,
+                           side_effect=_fake_remote_logs) as crl_mock:
+                        with dumping_env(client, 'a-hostname', log_dir):
+                            pass
+            crl_mock.assert_called_once_with('a-hostname', log_dir)
+            log_path = os.path.join(log_dir, 'fake.log')
+            cc_mock.assert_called_once_with(['gzip', '-f', log_path])
         self.assertEqual(de_mock.call_count, 0)
 
 
