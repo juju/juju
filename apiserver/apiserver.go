@@ -117,6 +117,8 @@ func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.S
 
 // Accept waits for and returns the next connection to the listener.
 func (cl *changeCertListener) Accept() (c net.Conn, err error) {
+	cl.m.Lock()
+	defer cl.m.Unlock()
 	if c, err = cl.Listener.Accept(); err != nil {
 		return c, err
 	}
