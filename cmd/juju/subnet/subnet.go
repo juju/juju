@@ -32,7 +32,7 @@ type SubnetAPI interface {
 	CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error
 
 	// AddSubnet adds an existing subnet to Juju.
-	AddSubnet(subnetCIDR string, spaceTag names.SpaceTag) error
+	AddSubnet(cidr, id string, spaceTag names.SpaceTag, zones []string) error
 
 	// RemoveSubnet marks an existing subnet as no longer used, which
 	// will cause it to get removed at some point after all its
@@ -48,14 +48,16 @@ type SubnetAPI interface {
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
 
 const commandDoc = `
-"juju subnet" provides commands to manage Juju subnets. In Juju, a subnet
-is a logical address range, a subdivision of a network, defined by the
-subnet's Classless Inter-Domain Routing (CIDR) range, like 10.10.0.0/24 or
-2001:db8::/32. Subnets have two kinds of supported access: "public" (using
-shadow addresses) or "private" (using cloud-local addresses, this is the
-default). For more information about subnets and shadow addresses, please
-refer to Juju's glossary help topics ("juju help glossary").
-`
+"juju subnet" provides commands to manage Juju subnets. In Juju, a
+subnet is a logical address range, a subdivision of a network, defined
+by the subnet's Classless Inter-Domain Routing (CIDR) range, like
+10.10.0.0/24 or 2001:db8::/32. Alternatively, subnets can be
+identified uniquely by their provider-specific identifier
+(ProviderId), if the provider supports that. Subnets have two kinds of
+supported access: "public" (using shadow addresses) or "private"
+(using cloud-local addresses, this is the default). For more
+information about subnets and shadow addresses, please refer to Juju's
+glossary help topics ("juju help glossary"). `
 
 // NewSuperCommand creates the "subnet" supercommand and registers the
 // subcommands that it supports.
@@ -96,9 +98,10 @@ func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
 
 // Common errors shared between subcommands.
 var (
-	errNoCIDR  = errors.New("CIDR is required")
-	errNoSpace = errors.New("space name is required")
-	errNoZones = errors.New("at least one zone is required")
+	errNoCIDR     = errors.New("CIDR is required")
+	errNoCIDROrID = errors.New("either CIDR or provider ID is required")
+	errNoSpace    = errors.New("space name is required")
+	errNoZones    = errors.New("at least one zone is required")
 )
 
 // CheckArgs is a helper used to validate the number of arguments
@@ -113,16 +116,19 @@ func (s *SubnetCommandBase) CheckNumArgs(args []string, errors []error) error {
 	return nil
 }
 
-// ValidateCIDR parses given and returns an error if it's not a CIDR
-// in the expected format, otherwise returns the parsed CIDR and no
-// error.
-func (s *SubnetCommandBase) ValidateCIDR(given string) (string, error) {
+// ValidateCIDR parses given and returns an error if it's not valid.
+// If the CIDR is incorrectly specified (e.g. 10.10.10.0/16 instead of
+// 10.10.0.0/16) and strict is false, the correctly parsed CIDR in the
+// expected format is returned instead without an error. Otherwise,
+// when strict is true and given is incorrectly formatted, an error
+// will be returned.
+func (s *SubnetCommandBase) ValidateCIDR(given string, strict bool) (string, error) {
 	_, ipNet, err := net.ParseCIDR(given)
 	if err != nil {
-		logger.Debugf("cannot parse %q: %v", given, err)
+		logger.Debugf("cannot parse CIDR %q: %v", given, err)
 		return "", errors.Errorf("%q is not a valid CIDR", given)
 	}
-	if ipNet.String() != given {
+	if strict && given != ipNet.String() {
 		expected := ipNet.String()
 		return "", errors.Errorf("%q is not correctly specified, expected %q", given, expected)
 	}

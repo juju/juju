@@ -215,8 +215,8 @@ func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zone
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(subnetCIDR string, spaceTag names.SpaceTag) error {
-	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceTag)
+func (sa *StubAPI) AddSubnet(cidr, id string, spaceTag names.SpaceTag, zones []string) error {
+	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()
 }
 
