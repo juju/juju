@@ -128,14 +128,14 @@ type API interface {
 	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
 }
 
-// internalAPI implements the API interface.
-type internalAPI struct {
+// subnetsAPI implements the API interface.
+type subnetsAPI struct {
 	backing    Backing
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-var _ API = (*internalAPI)(nil)
+var _ API = (*subnetsAPI)(nil)
 
 // NewAPI creates a new server-side Subnets API facade.
 func NewAPI(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
@@ -143,7 +143,7 @@ func NewAPI(backing Backing, resources *common.Resources, authorizer common.Auth
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &internalAPI{
+	return &subnetsAPI{
 		backing:    backing,
 		resources:  resources,
 		authorizer: authorizer,
@@ -151,7 +151,7 @@ func NewAPI(backing Backing, resources *common.Resources, authorizer common.Auth
 }
 
 // AllZones is defined on the API interface.
-func (a *internalAPI) AllZones() (params.ZoneResults, error) {
+func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
@@ -163,7 +163,7 @@ func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 	}
 
 	// Try fetching cached zones first.
-	zones, err := a.backing.AvailabilityZones()
+	zones, err := api.backing.AvailabilityZones()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -171,7 +171,7 @@ func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 	if len(zones) == 0 {
 		// This is likely the first time we're called.
 		// Fetch all zones from the provider and update.
-		zones, err = a.updateZones()
+		zones, err = api.updateZones()
 		if err != nil {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
@@ -191,10 +191,10 @@ func (a *internalAPI) AllZones() (params.ZoneResults, error) {
 }
 
 // AllSpaces is defined on the API interface.
-func (a *internalAPI) AllSpaces() (params.SpaceResults, error) {
+func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
 	var results params.SpaceResults
 
-	spaces, err := a.backing.AllSpaces()
+	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -213,8 +213,8 @@ func (a *internalAPI) AllSpaces() (params.SpaceResults, error) {
 // the current environment config. If the environment does not support
 // zones, an error satisfying errors.IsNotSupported() will be
 // returned.
-func (a *internalAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
-	envConfig, err := a.backing.EnvironConfig()
+func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
+	envConfig, err := api.backing.EnvironConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environment config")
 	}
@@ -233,8 +233,8 @@ func (a *internalAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 // from the current environment config, if supported. If the
 // environment does not support environs.Networking, an error
 // satisfying errors.IsNotSupported() will be returned.
-func (a *internalAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
-	envConfig, err := a.backing.EnvironConfig()
+func (api *subnetsAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
+	envConfig, err := api.backing.EnvironConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environment config")
 	}
@@ -252,8 +252,8 @@ func (a *internalAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
 // updateZones attempts to retrieve all availability zones from the
 // environment provider (if supported) and then updates the persisted
 // list of zones in state, returning them as well on success.
-func (a *internalAPI) updateZones() ([]providercommon.AvailabilityZone, error) {
-	zoned, err := a.zonedEnviron()
+func (api *subnetsAPI) updateZones() ([]providercommon.AvailabilityZone, error) {
+	zoned, err := api.zonedEnviron()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -262,24 +262,29 @@ func (a *internalAPI) updateZones() ([]providercommon.AvailabilityZone, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := a.backing.SetAvailabilityZones(zones); err != nil {
+	if err := api.backing.SetAvailabilityZones(zones); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return zones, nil
 }
 
+// addSubnetsCache holds cached lists of spaces, zones, and subnets,
+// used for fast lookups while adding subnets.
 type addSubnetsCache struct {
-	api            *internalAPI
-	allSpaces      set.Strings
-	allZones       set.Strings
-	availableZones set.Strings
-	allSubnets     []network.SubnetInfo
+	api            *subnetsAPI
+	allSpaces      set.Strings          // all defined backing spaces
+	allZones       set.Strings          // all known provider zones
+	availableZones set.Strings          // all the available zones
+	allSubnets     []network.SubnetInfo // all (valid) provider subnets
 	// providerIdsByCIDR maps possibly duplicated CIDRs to one or more ids.
-	providerIdsByCIDR   map[string]set.Strings
+	providerIdsByCIDR map[string]set.Strings
+	// subnetsByProviderId maps unique subnet ProviderIds to pointers
+	// to entries in allSubnets.
 	subnetsByProviderId map[string]*network.SubnetInfo
 }
 
-func initAddSubnetsCache(api *internalAPI) *addSubnetsCache {
+func newAddSubnetsCache(api *subnetsAPI) *addSubnetsCache {
+	// Empty cache initially.
 	return &addSubnetsCache{
 		api:                 api,
 		allSpaces:           nil,
@@ -291,7 +296,9 @@ func initAddSubnetsCache(api *internalAPI) *addSubnetsCache {
 	}
 }
 
-func (a *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error) {
+// validateSpace parses the given spaceTag and verifies it exists by
+// looking it up in the cache (or populates the cache if empty).
+func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error) {
 	if spaceTag == "" {
 		return nil, errors.Errorf("SpaceTag is required")
 	}
@@ -301,87 +308,94 @@ func (a *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error
 	}
 
 	// Otherwise we need the cache to validate.
-	if a.allSpaces == nil {
+	if cache.allSpaces == nil {
 		// Not yet cached.
 		logger.Debugf("caching known spaces")
 
-		allSpaces, err := a.api.backing.AllSpaces()
+		allSpaces, err := cache.api.backing.AllSpaces()
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot validate given SpaceTag")
 		}
-		a.allSpaces = set.NewStrings()
+		cache.allSpaces = set.NewStrings()
 		for _, space := range allSpaces {
-			if a.allSpaces.Contains(space.Name()) {
+			if cache.allSpaces.Contains(space.Name()) {
 				logger.Warningf("ignoring duplicated space %q", space.Name())
 				continue
 			}
-			a.allSpaces.Add(space.Name())
+			cache.allSpaces.Add(space.Name())
 		}
 	}
-	if a.allSpaces.IsEmpty() {
+	if cache.allSpaces.IsEmpty() {
 		return nil, errors.Errorf("no spaces defined")
 	}
-	logger.Tracef("using cached spaces: %v", a.allSpaces.SortedValues())
+	logger.Tracef("using cached spaces: %v", cache.allSpaces.SortedValues())
 
-	if !a.allSpaces.Contains(tag.Id()) {
+	if !cache.allSpaces.Contains(tag.Id()) {
 		return nil, errors.NotFoundf("given SpaceTag %q", tag.String()) // " not found"
 	}
 	return &tag, nil
 }
 
-func (a *addSubnetsCache) cacheZones() error {
-	if a.allZones != nil {
+// cacheZones populates the allZones and availableZones cache, if it's
+// empty.
+func (cache *addSubnetsCache) cacheZones() error {
+	if cache.allZones != nil {
 		// Already cached.
-		logger.Tracef("using cached zones: %v", a.allZones.SortedValues())
+		logger.Tracef("using cached zones: %v", cache.allZones.SortedValues())
 		return nil
 	}
 
-	allZones, err := a.api.AllZones()
+	allZones, err := cache.api.AllZones()
 	if err != nil {
 		return errors.Annotate(err, "given Zones cannot be validated")
 	}
-	a.allZones = set.NewStrings()
-	a.availableZones = set.NewStrings()
+	cache.allZones = set.NewStrings()
+	cache.availableZones = set.NewStrings()
 	for _, zone := range allZones.Results {
 		// AllZones() does not use the Error result field, so no
 		// need to check it here.
-		if a.allZones.Contains(zone.Name) {
+		if cache.allZones.Contains(zone.Name) {
 			logger.Warningf("ignoring duplicated zone %q", zone.Name)
 			continue
 		}
 
 		if zone.Available {
-			a.availableZones.Add(zone.Name)
+			cache.availableZones.Add(zone.Name)
 		}
-		a.allZones.Add(zone.Name)
+		cache.allZones.Add(zone.Name)
 	}
 	logger.Debugf(
 		"%d known and %d available zones cached: %v",
-		a.allZones.Size(), a.availableZones.Size(), a.allZones.SortedValues(),
+		cache.allZones.Size(), cache.availableZones.Size(), cache.allZones.SortedValues(),
 	)
-	if a.allZones.IsEmpty() {
-		a.allZones = nil
+	if cache.allZones.IsEmpty() {
+		cache.allZones = nil
 		// Cached an empty list.
 		return errors.Errorf("no zones defined")
 	}
 	return nil
 }
 
-func (a *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]string, error) {
-	haveProviderZones := len(providerZones) > 0
-	haveGivenZones := len(givenZones) > 0
+// validateZones ensures givenZones are valid. When providerZones are
+// also set, givenZones must be a subset of them or match exactly.
+// With non-empty providerZones and empty givenZones, it returns the
+// providerZones (i.e. trusts the provider to know better). When no
+// providerZones and only givenZones are set, only then the cache is
+// used to validate givenZones.
+func (cache *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]string, error) {
 	givenSet := set.NewStrings(givenZones...)
+	providerSet := set.NewStrings(providerZones...)
 
 	// First check if we can validate without using the cache.
-	if !haveProviderZones && !haveGivenZones {
+	switch {
+	case providerSet.IsEmpty() && givenSet.IsEmpty():
 		return nil, errors.Errorf("Zones cannot be discovered from the provider and must be set")
-	} else if haveProviderZones {
-		providerSet := set.NewStrings(providerZones...)
-		if !haveGivenZones {
-			// Use provider zones when none given.
-			return providerSet.SortedValues(), nil
-		}
-
+	case !providerSet.IsEmpty() && givenSet.IsEmpty():
+		// Use provider zones when none given.
+		return providerSet.SortedValues(), nil
+	case !providerSet.IsEmpty() && !givenSet.IsEmpty():
+		// Ensure givenZones either match providerZones or are a
+		// subset of them.
 		extraGiven := givenSet.Difference(providerSet)
 		if !extraGiven.IsEmpty() {
 			extra := `"` + strings.Join(extraGiven.SortedValues(), `", "`) + `"`
@@ -391,12 +405,12 @@ func (a *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]s
 	}
 
 	// Otherwise we need the cache to validate.
-	if err := a.cacheZones(); err != nil {
+	if err := cache.cacheZones(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	diffAvailable := givenSet.Difference(a.availableZones)
-	diffAll := givenSet.Difference(a.allZones)
+	diffAvailable := givenSet.Difference(cache.availableZones)
+	diffAll := givenSet.Difference(cache.allZones)
 
 	if !diffAll.IsEmpty() {
 		extra := `"` + strings.Join(diffAll.SortedValues(), `", "`) + `"`
@@ -411,14 +425,18 @@ func (a *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]s
 	return givenSet.SortedValues(), nil
 }
 
-func (a *addSubnetsCache) cacheSubnets() error {
-	if a.allSubnets != nil {
+// cacheSubnets tries to get and cache once all known provider
+// subnets. It handles the case when subnets have duplicated CIDRs but
+// distinct ProviderIds. It also handles weird edge cases, like no
+// CIDR and/or ProviderId set for a subnet.
+func (cache *addSubnetsCache) cacheSubnets() error {
+	if cache.allSubnets != nil {
 		// Already cached.
-		logger.Tracef("using %d cached subnets", len(a.allSubnets))
+		logger.Tracef("using %d cached subnets", len(cache.allSubnets))
 		return nil
 	}
 
-	netEnv, err := a.api.networkingEnviron()
+	netEnv, err := cache.api.networkingEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -430,10 +448,10 @@ func (a *addSubnetsCache) cacheSubnets() error {
 
 	if len(subnetInfo) > 0 {
 		// Trying to avoid reallocations.
-		a.allSubnets = make([]network.SubnetInfo, 0, len(subnetInfo))
+		cache.allSubnets = make([]network.SubnetInfo, 0, len(subnetInfo))
 	}
-	a.providerIdsByCIDR = make(map[string]set.Strings)
-	a.subnetsByProviderId = make(map[string]*network.SubnetInfo)
+	cache.providerIdsByCIDR = make(map[string]set.Strings)
+	cache.subnetsByProviderId = make(map[string]*network.SubnetInfo)
 
 	for i, _ := range subnetInfo {
 		subnet := subnetInfo[i]
@@ -448,7 +466,7 @@ func (a *addSubnetsCache) cacheSubnets() error {
 			logger.Warningf("found subnet with CIDR %q and empty ProviderId", cidr)
 			// But we still save it for lookups.
 		} else {
-			_, ok := a.subnetsByProviderId[providerId]
+			_, ok := cache.subnetsByProviderId[providerId]
 			if ok {
 				logger.Warningf(
 					"found subnet with CIDR %q and duplicated ProviderId %q",
@@ -459,30 +477,33 @@ func (a *addSubnetsCache) cacheSubnets() error {
 				// properly written providers, but anyway..
 			}
 		}
-		a.subnetsByProviderId[providerId] = &subnet
+		cache.subnetsByProviderId[providerId] = &subnet
 
-		if ids, ok := a.providerIdsByCIDR[cidr]; !ok {
-			a.providerIdsByCIDR[cidr] = set.NewStrings(providerId)
+		if ids, ok := cache.providerIdsByCIDR[cidr]; !ok {
+			cache.providerIdsByCIDR[cidr] = set.NewStrings(providerId)
 		} else {
 			ids.Add(providerId)
 			logger.Debugf(
 				"duplicated subnet CIDR %q; collected ProviderIds so far: %v",
 				cidr, ids.SortedValues(),
 			)
-			a.providerIdsByCIDR[cidr] = ids
+			cache.providerIdsByCIDR[cidr] = ids
 		}
 
-		a.allSubnets = append(a.allSubnets, subnet)
+		cache.allSubnets = append(cache.allSubnets, subnet)
 	}
-	logger.Debugf("%d provider subnets cached", len(a.allSubnets))
-	if len(a.allSubnets) == 0 {
+	logger.Debugf("%d provider subnets cached", len(cache.allSubnets))
+	if len(cache.allSubnets) == 0 {
 		// Cached an empty list.
 		return errors.Errorf("no subnets defined")
 	}
 	return nil
 }
 
-func (a *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network.SubnetInfo, error) {
+// validateSubnet ensures either subnetTag or providerId is valid (not
+// both), then uses the cache to validate and lookup the provider
+// SubnetInfo for the subnet, if found.
+func (cache *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network.SubnetInfo, error) {
 	haveTag := subnetTag != ""
 	haveProviderId := providerId != ""
 
@@ -501,12 +522,12 @@ func (a *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network
 	}
 
 	// Otherwise we need the cache to validate.
-	if err := a.cacheSubnets(); err != nil {
+	if err := cache.cacheSubnets(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if haveTag {
-		providerIds, ok := a.providerIdsByCIDR[tag.Id()]
+		providerIds, ok := cache.providerIdsByCIDR[tag.Id()]
 		if !ok || providerIds.IsEmpty() {
 			return nil, errors.NotFoundf("subnet with CIDR %q", tag.Id())
 		}
@@ -521,7 +542,7 @@ func (a *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network
 		providerId = providerIds.Values()[0]
 	}
 
-	info, ok := a.subnetsByProviderId[providerId]
+	info, ok := cache.subnetsByProviderId[providerId]
 	if !ok || info == nil {
 		return nil, errors.NotFoundf(
 			"subnet with CIDR %q and ProviderId %q",
@@ -552,7 +573,10 @@ func (a *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network
 	return info, nil
 }
 
-func (a *internalAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubnetsCache) error {
+// addOneSubnet validates the given arguments, using cache for lookups
+// (initialized on first use), then adds it to the backing store, if
+// successful.
+func (api *subnetsAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubnetsCache) error {
 	subnetInfo, err := cache.validateSubnet(args.SubnetTag, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)
@@ -580,14 +604,14 @@ func (a *internalAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubnet
 	if subnetInfo.AllocatableIPHigh != nil {
 		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
 	}
-	if _, err := a.backing.AddSubnet(backingInfo); err != nil {
+	if _, err := api.backing.AddSubnet(backingInfo); err != nil {
 		return errors.Annotate(err, "cannot add subnet")
 	}
 	return nil
 }
 
 // AddSubnets is defined on the API interface.
-func (a *internalAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+func (api *subnetsAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Subnets)),
 	}
@@ -596,9 +620,9 @@ func (a *internalAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResu
 		return results, nil
 	}
 
-	cache := initAddSubnetsCache(a)
+	cache := newAddSubnetsCache(api)
 	for i, arg := range args.Subnets {
-		err := a.addOneSubnet(arg, cache)
+		err := api.addOneSubnet(arg, cache)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
