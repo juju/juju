@@ -306,6 +306,16 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 	return st.getRawCollection(name)
 }
 
+func MultiEnvCollections() []string {
+	var result []string
+	for name, info := range allCollections() {
+		if !info.global {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
 func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }

@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	//mgotxn "gopkg.in/mgo.v2/txn"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -134,8 +134,25 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestOpenRequiresEnvironmentTag(c *gc.C) {
-	c.Fatalf("not done")
+func (s *StateSuite) TestOpenRequiresValidEnvironmentTag(c *gc.C) {
+	st, err := state.Open(names.EnvironTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	if !c.Check(st, gc.IsNil) {
+		c.Check(st.Close(), jc.ErrorIsNil)
+	}
+	c.Check(err, gc.ErrorMatches, "invalid environment UUID")
+}
+
+func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
+	st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	c.Logf("1")
+	if !c.Check(st, gc.IsNil) {
+		c.Logf("2")
+		c.Check(st.Close(), jc.ErrorIsNil)
+		c.Logf("3")
+	}
+	c.Logf("4")
+	c.Check(err, gc.ErrorMatches, "cannot open environment deadbeef-0bad-400d-8000-4b1d0d06f00d: environment not found")
+	c.Logf("5")
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
@@ -2655,63 +2672,60 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	c.Fatalf("broken")
-	/*
-		st := s.factory.MakeEnvironment(c, nil)
-		defer st.Close()
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
 
-		// insert one doc for each multiEnvCollection
-		var ops []mgotxn.Op
-		for collName := range state.MultiEnvCollections {
-			// skip adding constraints, envuser and settings as they were added when the
-			// environment was created
-			if collName == "constraints" || collName == "envusers" || collName == "settings" {
-				continue
-			}
-			ops = append(ops, mgotxn.Op{
-				C:      collName,
-				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for _, collName := range state.MultiEnvCollections() {
+		// skip adding constraints, envuser and settings as they were added when the
+		// environment was created
+		if collName == "constraints" || collName == "envusers" || collName == "settings" {
+			continue
 		}
-		err := state.RunTransaction(st, ops)
-		c.Assert(err, jc.ErrorIsNil)
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
+	c.Assert(err, jc.ErrorIsNil)
 
-		// test that we can find each doc in state
-		for collName := range state.MultiEnvCollections {
-			coll, closer := state.GetRawCollection(st, collName)
-			defer closer()
-			n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, 1)
-		}
-
-		// test that we can find the user:envName unique index
-		env, err := st.Environment()
-		c.Assert(err, jc.ErrorIsNil)
-		indexColl, closer := state.GetCollection(st, "userenvname")
+	// test that we can find each doc in state
+	for _, collName := range state.MultiEnvCollections() {
+		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
-		id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
-		n, err := indexColl.FindId(id).Count()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 1)
+	}
 
-		err = st.RemoveAllEnvironDocs()
-		c.Assert(err, jc.ErrorIsNil)
+	// test that we can find the user:envName unique index
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	indexColl, closer := state.GetCollection(st, "userenvname")
+	defer closer()
+	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	n, err := indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
 
-		// test that we can not find the user:envName unique index
-		n, err = indexColl.FindId(id).Count()
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	n, err = indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	// ensure all docs for all multiEnvCollections are removed
+	for _, collName := range state.MultiEnvCollections() {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
-
-		// ensure all docs for all multiEnvCollections are removed
-		for collName := range state.MultiEnvCollections {
-			coll, closer := state.GetRawCollection(st, collName)
-			defer closer()
-			n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, 0)
-		}
-	*/
+	}
 }
 
 type attrs map[string]interface{}

@@ -6,6 +6,8 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 
@@ -101,6 +103,9 @@ type collectionSchema map[string]collectionInfo
 // the returned Database will filter queries and transactions according to the
 // suppplied environment UUID.
 func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Database, error) {
+	if !names.IsValidEnvironment(environUUID) {
+		return nil, errors.New("invalid environment UUID")
+	}
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
