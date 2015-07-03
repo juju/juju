@@ -56,6 +56,15 @@ type SubnetInfo struct {
 	// allocatable.
 	AllocatableIPLow  net.IP
 	AllocatableIPHigh net.IP
+
+	// AvailabilityZones describes with availability zone(s) this
+	// subnet is in. It can be empty if the provider does not support
+	// availability zones.
+	AvailabilityZones []string
+
+	// SpaceName holds the juju network space associated with this
+	// subnet. Can be empty if not supported.
+	SpaceName string
 }
 
 type SpaceInfo struct {
