@@ -48,14 +48,16 @@ type SubnetAPI interface {
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
 
 const commandDoc = `
-"juju subnet" provides commands to manage Juju subnets. In Juju, a subnet
-is a logical address range, a subdivision of a network, defined by the
-subnet's Classless Inter-Domain Routing (CIDR) range, like 10.10.0.0/24 or
-2001:db8::/32. Subnets have two kinds of supported access: "public" (using
-shadow addresses) or "private" (using cloud-local addresses, this is the
-default). For more information about subnets and shadow addresses, please
-refer to Juju's glossary help topics ("juju help glossary").
-`
+"juju subnet" provides commands to manage Juju subnets. In Juju, a
+subnet is a logical address range, a subdivision of a network, defined
+by the subnet's Classless Inter-Domain Routing (CIDR) range, like
+10.10.0.0/24 or 2001:db8::/32. Alternatively, subnets can be
+identified uniquely by their provider-specific identifier
+(ProviderId), if the provider supports that. Subnets have two kinds of
+supported access: "public" (using shadow addresses) or "private"
+(using cloud-local addresses, this is the default). For more
+information about subnets and shadow addresses, please refer to Juju's
+glossary help topics ("juju help glossary"). `
 
 // NewSuperCommand creates the "subnet" supercommand and registers the
 // subcommands that it supports.
