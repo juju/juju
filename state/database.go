@@ -22,9 +22,9 @@ type Database interface {
 	// CopySession returns a matching Database with its own session, and a
 	// func that must be called when the Database is no longer needed.
 	//
-	// GetCollection results from the resulting Database will all share a
-	// session; this does not absolve you of responsibility for calling those
-	// collections' closers.
+	// GetCollection and TransactionRunner results from the resulting Database
+	// will all share a session; this does not absolve you of responsibility
+	// for calling those collections' closers.
 	CopySession() (Database, SessionCloser)
 
 	// GetCollection returns the named Collection, and a func that must be
@@ -38,13 +38,18 @@ type Database interface {
 	GetCollection(name string) (mongo.Collection, SessionCloser)
 
 	// TransactionRunner() returns a runner responsible for making changes to
-	// the database. It will reject transactions that reference raw-access (or
-	// unknown) collections, and it will automatically rewrite operations that
-	// reference non-global collections.
+	// the database, and a func that must be called when the runner is no longer
+	// needed. The returned Runner might or might not have its own session,
+	// depending on the Database; the closer must always be called regardless.
+	//
+	// It will reject transactions that reference raw-access (or unknown)
+	// collections; it will automatically rewrite operations that reference
+	// non-global collections; and it will ensure that non-global documents can
+	// only be inserted while the corresponding environment is still Alive.
 	TransactionRunner() (jujutxn.Runner, SessionCloser)
 
 	// Schema returns the schema used to load the database. The returned schema
-	// must not be written to.
+	// is not a copy and must not be modified.
 	Schema() collectionSchema
 }
 

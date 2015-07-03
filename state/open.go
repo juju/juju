@@ -41,7 +41,7 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, maybeUnauthorized(err, "cannot connect to mongodb")
 	}
 	logger.Debugf("connection established")
 
@@ -148,7 +148,7 @@ func maybeUnauthorized(err error, msg string) error {
 	if isUnauthorized(err) {
 		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
-	return errors.Annotatef(err, "%s: %v", msg, err)
+	return errors.Annotatef(err, msg)
 }
 
 func isUnauthorized(err error) bool {
@@ -183,7 +183,7 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 
 	// Set up database.
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections.Load(rawDB, environTag.Id())
+	database, err := allCollections().Load(rawDB, environTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

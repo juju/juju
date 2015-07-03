@@ -2918,7 +2918,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "no reachable servers")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
@@ -2934,7 +2934,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "no reachable servers")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
 	// tryOpenState should have delayed for at least retryDelay
 	if t1 := time.Since(t0); t1 < retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
