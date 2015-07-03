@@ -36,14 +36,15 @@ func (s *enumService) Name() string {
 	return ""
 }
 
-// mgrInterface exposes Mgr methods needed by the windows service package.
-type mgrInterface interface {
-	CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error)
-	OpenService(name string) (svcInterface, error)
+// windowsManager exposes Mgr methods needed by the windows service package.
+type windowsManager interface {
+	CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error)
+	OpenService(name string) (windowsService, error)
 }
 
-// svcInterface exposes mgr.Service methods needed by the windows service package.
-type svcInterface interface {
+// windowsService exposes mgr.Service methods needed by the windows service package.
+type windowsService interface {
+	Close() error
 	Config() (mgr.Config, error)
 	Control(c svc.Cmd) (svc.Status, error)
 	Delete() error
@@ -57,25 +58,29 @@ type manager struct {
 }
 
 // CreateService wraps Mgr.CreateService method.
-func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error) {
-	return m.m.CreateService(name, exepath, c, args...)
-}
-
-// CreateService wraps Mgr.OpenService method. It returns a svcInterface object.
-// This allows us to stub out this module for testing.
-func (m *manager) OpenService(name string) (svcInterface, error) {
-	return m.m.OpenService(name)
-}
-
-func newManagerConn() (mgrInterface, error) {
+func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error) {
 	s, err := mgr.Connect()
 	if err != nil {
 		return nil, err
 	}
-	return &manager{m: s}, nil
+	defer s.Disconnect()
+	return s.CreateService(name, exepath, c, args...)
 }
 
-var newConn = newManagerConn
+// CreateService wraps Mgr.OpenService method. It returns a windowsService object.
+// This allows us to stub out this module for testing.
+func (m *manager) OpenService(name string) (windowsService, error) {
+	s, err := mgr.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer s.Disconnect()
+	return s.OpenService(name)
+}
+
+var newManager = func() (windowsManager, error) {
+	return &manager{}, nil
+}
 
 // enumServices casts the bytes returned by enumServicesStatus into an array of
 // enumService with all the services on the current system
@@ -116,11 +121,16 @@ var getPassword = func() (string, error) {
 // listServices returns an array of strings containing all the services on
 // the current system. It is defined as a variable to allow us to mock it out
 // for testing
-var listServices = func() ([]string, error) {
-	services := []string{}
+var listServices = func() (services []string, err error) {
 	host := syscall.StringToUTF16Ptr(".")
 
 	sc, err := windows.OpenSCManager(host, nil, windows.SC_MANAGER_ALL_ACCESS)
+	defer func() {
+		// The close service handle error is less important than others
+		if err == nil {
+			err = windows.CloseServiceHandle(sc)
+		}
+	}()
 	if err != nil {
 		return services, err
 	}
@@ -136,39 +146,40 @@ var listServices = func() ([]string, error) {
 
 // SvcManager implements ServiceManager interface
 type SvcManager struct {
-	svc         svcInterface
-	mgr         mgrInterface
+	svc         windowsService
+	mgr         windowsManager
 	serviceConf common.Conf
 }
 
-func (s *SvcManager) query(name string) (svc.State, error) {
-	var err error
-	s.svc, err = s.mgr.OpenService(name)
+func (s *SvcManager) getService(name string) (windowsService, error) {
+	service, err := s.mgr.OpenService(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service, nil
+}
+
+func (s *SvcManager) status(name string) (svc.State, error) {
+	service, err := s.getService(name)
 	if err != nil {
 		return svc.Stopped, errors.Trace(err)
 	}
-	status, err := s.svc.Query()
+	defer service.Close()
+	status, err := service.Query()
 	if err != nil {
 		return svc.Stopped, errors.Trace(err)
 	}
 	return status.State, nil
 }
 
-func (s *SvcManager) status(name string) (svc.State, error) {
-	status, err := s.query(name)
-	if err != nil {
-		return svc.Stopped, errors.Trace(err)
-	}
-	return status, nil
-}
-
 func (s *SvcManager) exists(name string) (bool, error) {
-	_, err := s.query(name)
+	service, err := s.getService(name)
 	if err == c_ERROR_SERVICE_DOES_NOT_EXIST {
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
+	defer service.Close()
 	return true, nil
 }
 
@@ -181,7 +192,12 @@ func (s *SvcManager) Start(name string) error {
 	if running {
 		return nil
 	}
-	err = s.svc.Start()
+	service, err := s.getService(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer service.Close()
+	err = service.Start()
 	if err != nil {
 		return err
 	}
@@ -238,7 +254,12 @@ func (s *SvcManager) Stop(name string) error {
 	if !running {
 		return nil
 	}
-	_, err = s.svc.Control(svc.Stop)
+	service, err := s.getService(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer service.Close()
+	_, err = service.Control(svc.Stop)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -254,7 +275,12 @@ func (s *SvcManager) Delete(name string) error {
 	if !exists {
 		return nil
 	}
-	err = s.svc.Delete()
+	service, err := s.getService(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer service.Close()
+	err = service.Delete()
 	if err == c_ERROR_SERVICE_DOES_NOT_EXIST {
 		return nil
 	} else if err != nil {
@@ -271,6 +297,7 @@ func (s *SvcManager) Create(name string, conf common.Conf) error {
 	}
 	cfg := mgr.Config{
 		Dependencies:     []string{"Winmgmt"},
+		ErrorControl:     mgr.ErrorSevere,
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
 		ServiceStartName: jujudUser,
@@ -279,10 +306,11 @@ func (s *SvcManager) Create(name string, conf common.Conf) error {
 	// mgr.CreateService actually does correct argument escaping itself. There is no
 	// need for quoted strings of any kind passed to this function. It takes in
 	// a binary name, and an array or arguments.
-	_, err = s.mgr.CreateService(name, conf.ServiceBinary, cfg, conf.ServiceArgs...)
+	service, err := s.mgr.CreateService(name, conf.ServiceBinary, cfg, conf.ServiceArgs...)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer service.Close()
 	return nil
 }
 
@@ -309,11 +337,16 @@ func (s *SvcManager) Config(name string) (mgr.Config, error) {
 	if !exists {
 		return mgr.Config{}, c_ERROR_SERVICE_DOES_NOT_EXIST
 	}
-	return s.svc.Config()
+	service, err := s.getService(name)
+	if err != nil {
+		return mgr.Config{}, errors.Trace(err)
+	}
+	defer service.Close()
+	return service.Config()
 }
 
 var newServiceManager = func() (ServiceManager, error) {
-	m, err := newConn()
+	m, err := newManager()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
