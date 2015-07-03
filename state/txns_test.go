@@ -273,6 +273,10 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, updatedOps)
 }
 
+func (s *MultiEnvRunnerSuite) TestForbiddenCollections(c *gc.C) {
+	c.Fatalf("not done")
+}
+
 func (s *MultiEnvRunnerSuite) TestPanicWhenStructIsPassedByValueAndNeedsChange(c *gc.C) {
 	// When a document struct is passed by reference it can't be
 	// changed in place. It's important that the caller sees any

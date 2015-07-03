@@ -19,7 +19,8 @@ var (
 // any collection we use. It's broken up into 4 main sections:
 //
 //  * infrastructure: we really don't have any business touching these once
-//    we've created them.
+//    we've created them. They should have the rawAccess attribute set, so that
+//    the multiEnvRunner we create has them marked as forbidden.
 //
 //  * global: these hold information external to environments. They may include
 //    environment metadata, or references; but they're generally not relevant
@@ -48,6 +49,7 @@ var allCollections = collectionSchema{
 	txnsC: {
 		// This collection is used exclusively by mgo/txn to record transactions.
 		global:         true,
+		rawAccess:      true,
 		explicitCreate: &mgo.CollectionInfo{},
 	},
 	txnLogC: {
@@ -55,7 +57,8 @@ var allCollections = collectionSchema{
 		// affected by each successful transaction; and by state/watcher to
 		// generate a stream of document-resolution events that are delivered
 		// to, and interpreted by, both state and state/multiwatcher.
-		global: true,
+		global:    true,
+		rawAccess: true,
 		explicitCreate: &mgo.CollectionInfo{
 			Capped:   true,
 			MaxBytes: txnLogSize,

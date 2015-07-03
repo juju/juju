@@ -4,9 +4,9 @@
 package state
 
 import (
-	"fmt"
 	"reflect"
 
+	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
@@ -62,6 +62,7 @@ func (st *State) MaybePruneTransactions() error {
 type multiEnvRunner struct {
 	rawRunner   jujutxn.Runner
 	collections set.Strings
+	forbidden   set.Strings
 	envUUID     string
 }
 
@@ -69,7 +70,10 @@ type multiEnvRunner struct {
 // that affect multi-environment collections will be modified in-place
 // to ensure correct interaction with these collections.
 func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
-	ops = r.updateOps(ops)
+	ops, err := r.updateOps(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return r.rawRunner.RunTransaction(ops)
 }
 
@@ -85,7 +89,10 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 			// and won't deal correctly with some returned errors.
 			return nil, err
 		}
-		ops = r.updateOps(ops)
+		ops, err = r.updateOps(ops)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return ops, nil
 	})
 }
@@ -100,7 +107,7 @@ func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
 	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
-func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
+func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 	var referencesEnviron bool
 	var insertsEnvironSpecificDocs bool
 	for i, op := range ops {
@@ -109,11 +116,15 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 				referencesEnviron = true
 			}
 		}
+		if r.forbidden.Contains(op.C) {
+			return nil, errors.Errorf("forbidden transaction: references collection %q", op.C)
+		}
 		if r.collections.Contains(op.C) {
 			// TODO(fwereade): this interface implies we're returning a copy
 			// of the transactions -- as I think we should be -- rather than
 			// rewriting them in place (which breaks client expectations
-			// pretty hard).
+			// pretty hard, and renders us unable to accept structs by value,
+			// or which lack an env-uuid field).
 			var docID interface{}
 			if id, ok := op.Id.(string); ok {
 				docID = addEnvUUID(r.envUUID, id)
@@ -123,17 +134,21 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 			}
 
 			if op.Insert != nil {
+				insertsEnvironSpecificDocs = true
+				var err error
 				switch doc := op.Insert.(type) {
 				case bson.D:
-					ops[i].Insert = r.updateBsonD(doc, docID, op.C)
+					ops[i].Insert, err = r.updateBsonD(doc, docID)
 				case bson.M:
-					r.updateBsonM(doc, docID, op.C)
+					err = r.updateBsonM(doc, docID)
 				case map[string]interface{}:
-					r.updateBsonM(bson.M(doc), docID, op.C)
+					err = r.updateBsonM(bson.M(doc), docID)
 				default:
-					r.updateStruct(doc, docID, op.C)
+					err = r.updateStruct(doc, docID)
 				}
-				insertsEnvironSpecificDocs = true
+				if err != nil {
+					return nil, errors.Annotatef(err, "cannot insert %#v into %q", op.Insert, op.C)
+				}
 			}
 		}
 	}
@@ -141,9 +156,15 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 		// TODO(fwereade): This serializes a large proportion of operations
 		// that could otherwise run in parallel. it's quite nice to be able
 		// to run more than one transaction per environment at once...
+		//
+		// Consider representing environ life with a collection of N docs,
+		// and selecting different ones per transaction, so as to claw back
+		// parallelism of up to N. (Environ dying would update all docs and
+		// thus end up serializing everything, but at least we get some
+		// benefits for the bulk of an environment's lifetime.)
 		ops = append(ops, assertEnvAliveOp(r.envUUID))
 	}
-	return ops
+	return ops, nil
 }
 
 func assertEnvAliveOp(envUUID string) txn.Op {
@@ -154,7 +175,7 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 	}
 }
 
-func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName string) bson.D {
+func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}) (bson.D, error) {
 	idSeen := false
 	envUUIDSeen := false
 	for i, elem := range doc {
@@ -165,8 +186,7 @@ func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName str
 		case "env-uuid":
 			envUUIDSeen = true
 			if elem.Value != r.envUUID {
-				panic(fmt.Sprintf("environment UUID for document to insert into "+
-					"%s does not match state", collName))
+				return nil, errors.Errorf("bad env-uuid: expected %s, got %s", r.envUUID, elem.Value)
 			}
 		}
 	}
@@ -176,10 +196,10 @@ func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName str
 	if !envUUIDSeen {
 		doc = append(doc, bson.DocElem{"env-uuid", r.envUUID})
 	}
-	return doc
+	return doc, nil
 }
 
-func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName string) {
+func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}) error {
 	idSeen := false
 	envUUIDSeen := false
 	for key, value := range doc {
@@ -190,8 +210,7 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName str
 		case "env-uuid":
 			envUUIDSeen = true
 			if value != r.envUUID {
-				panic(fmt.Sprintf("environment UUID for document to insert into "+
-					"%s does not match state", collName))
+				return errors.Errorf("bad env-uuid: expected %s, got %s", r.envUUID, value)
 			}
 		}
 	}
@@ -201,9 +220,10 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName str
 	if !envUUIDSeen {
 		doc["env-uuid"] = r.envUUID
 	}
+	return nil
 }
 
-func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) {
+func (r *multiEnvRunner) updateStruct(doc, docID interface{}) error {
 	v := reflect.ValueOf(doc)
 	t := v.Type()
 
@@ -213,40 +233,44 @@ func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) {
 	}
 
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("document %v for insert into %s has unexpected type", doc, collName))
+		return errors.Errorf("expected a struct")
 	}
 
 	envUUIDSeen := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		var err error
 		switch f.Tag.Get("bson") {
 		case "_id":
-			r.updateStructField(v, f.Name, docID, collName, overrideField)
+			err = r.updateStructField(v, f.Name, docID, overrideField)
 		case "env-uuid":
-			r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
+			err = r.updateStructField(v, f.Name, r.envUUID, fieldMustMatch)
 			envUUIDSeen = true
+		}
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	if !envUUIDSeen {
-		panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
+		return errors.Errorf(`struct lacks field with bson:"env-uuid" tag`)
 	}
+	return nil
 }
 
 const overrideField = "override"
 const fieldMustMatch = "mustmatch"
 
-func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValue interface{}, collName, updateType string) {
+func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValue interface{}, updateType string) error {
 	fv := v.FieldByName(name)
 	if fv.Interface() != newValue {
 		if updateType == fieldMustMatch && fv.String() != "" {
-			panic(fmt.Sprintf("%s for insert into %s does not match expected value",
-				name, collName))
+			return errors.Errorf("bad %q field value: expected %s, got %s", name, newValue, fv.String())
 		}
 		if fv.CanSet() {
 			fv.Set(reflect.ValueOf(newValue))
 		} else {
-			panic(fmt.Sprintf("struct for insert into %s requires "+
-				"%s change but was passed by value", collName, name))
+			return errors.Errorf("cannot set %q field: struct passed by value")
 		}
 	}
+	return nil
 }

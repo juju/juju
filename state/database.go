@@ -207,14 +207,19 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		runner = jujutxn.NewRunner(params)
 	}
 	collections := set.NewStrings()
+	forbidden := set.NewStrings()
 	for name, info := range db.schema {
 		if !info.global && !info.ignoreInsertRestrictions {
 			collections.Add(name)
+		}
+		if info.rawAccess {
+			forbidden.Add(name)
 		}
 	}
 	return &multiEnvRunner{
 		rawRunner:   runner,
 		collections: collections,
+		forbidden:   forbidden,
 		envUUID:     db.environUUID,
 	}, closer
 }
