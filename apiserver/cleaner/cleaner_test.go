@@ -49,7 +49,6 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresEnvironManager(c *gc.C) {
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(common.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
-	//c.Assert(common.ServerError(err), jc.Satisfies, errors.IsUnauthorized)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {

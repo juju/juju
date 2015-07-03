@@ -612,7 +612,8 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(st.EnvironTag(), info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -630,7 +631,8 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(st.EnvironTag(), info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"

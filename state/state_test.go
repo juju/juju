@@ -139,7 +139,7 @@ func (s *StateSuite) TestOpenRequiresValidEnvironmentTag(c *gc.C) {
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	c.Check(err, gc.ErrorMatches, "cannot open environment: invalid environment UUID")
+	c.Check(err, gc.ErrorMatches, "invalid environment UUID")
 }
 
 func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
@@ -2907,15 +2907,17 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(s.envTag, info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = names.NewUserTag("arble"), ""
 	err = tryOpenState(s.envTag, info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = nil, ""
 	err = tryOpenState(s.envTag, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
@@ -4433,7 +4435,10 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = tryOpenState(st.EnvironTag(), mongoInfo)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	// note: collections are set up in arbitrary order, proximate cause of
+	// failure may differ.
+	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)
 
 	mongoInfo.Password = "foo"
 	err = tryOpenState(st.EnvironTag(), mongoInfo)

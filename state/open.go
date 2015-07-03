@@ -54,7 +54,7 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	st, err := newState(tag, session, info, policy)
 	if err != nil {
 		session.Close()
-		return nil, maybeUnauthorized(err, "cannot load environment")
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -166,11 +166,13 @@ func isUnauthorized(err error) bool {
 	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
+	if strings.HasPrefix(err.Error(), "not authorized") {
+		return true
+	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized" ||
-			strings.HasPrefix(err.Message, "not authorized")
+			err.Message == "unauthorized"
 	}
 	return false
 }
@@ -191,7 +193,7 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 	rawDB := session.DB(jujuDB)
 	database, err := allCollections().Load(rawDB, environTag.Id())
 	if err != nil {
-		return nil, maybeUnauthorized(err, "cannot initialize collections")
+		return nil, errors.Trace(err)
 	}
 	if err := InitDbLogs(session); err != nil {
 		return nil, errors.Trace(err)

@@ -342,13 +342,13 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
 	st, err := state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
-	if errors.IsUnauthorized(err) {
+	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
-			if !errors.IsUnauthorized(err) {
+			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
 		}

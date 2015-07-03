@@ -110,14 +110,13 @@ func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Datab
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
 			if err := rawCollection.Create(spec); isNotCollectionExistsError(err) {
-				message := fmt.Sprintf("cannot create collection %q with %#v", name, spec)
+				message := fmt.Sprintf("cannot create collection %q", name)
 				return nil, maybeUnauthorized(err, message)
 			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
-				message := fmt.Sprintf("cannot create index on collection %q with %v", name, index)
-				return nil, maybeUnauthorized(err, message)
+				return nil, maybeUnauthorized(err, "cannot create index")
 			}
 		}
 	}
