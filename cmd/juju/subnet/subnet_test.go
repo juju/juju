@@ -86,36 +86,68 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
 	for i, test := range []struct {
 		about     string
 		input     string
+		strict    bool
+		output    string
 		expectErr string
 	}{{
-		about: "valid IPv4 CIDR",
-		input: "10.0.5.0/24",
+		about:  "valid IPv4 CIDR, struct=false",
+		input:  "10.0.5.0/24",
+		strict: false,
+		output: "10.0.5.0/24",
 	}, {
-		about: "valid IPv6 CIDR",
-		input: "2001:db8::/32",
+		about:  "valid IPv4 CIDR, struct=true",
+		input:  "10.0.5.0/24",
+		strict: true,
+		output: "10.0.5.0/24",
 	}, {
-		about:     "incorrectly specified IPv4 CIDR",
+		about:  "valid IPv6 CIDR, strict=false",
+		input:  "2001:db8::/32",
+		strict: false,
+		output: "2001:db8::/32",
+	}, {
+		about:  "valid IPv6 CIDR, strict=true",
+		input:  "2001:db8::/32",
+		strict: true,
+		output: "2001:db8::/32",
+	}, {
+		about:  "incorrectly specified IPv4 CIDR, strict=false",
+		input:  "192.168.10.20/16",
+		strict: false,
+		output: "192.168.0.0/16",
+	}, {
+		about:     "incorrectly specified IPv4 CIDR, strict=true",
 		input:     "192.168.10.20/16",
+		strict:    true,
 		expectErr: `"192.168.10.20/16" is not correctly specified, expected "192.168.0.0/16"`,
 	}, {
-		about:     "incorrectly specified IPv6 CIDR",
+		about:  "incorrectly specified IPv6 CIDR, strict=false",
+		input:  "2001:db8::2/48",
+		strict: false,
+		output: "2001:db8::/48",
+	}, {
+		about:     "incorrectly specified IPv6 CIDR, strict=true",
 		input:     "2001:db8::2/48",
+		strict:    true,
 		expectErr: `"2001:db8::2/48" is not correctly specified, expected "2001:db8::/48"`,
 	}, {
-		about:     "empty CIDR",
+		about:     "empty CIDR, strict=false",
 		input:     "",
+		strict:    false,
+		expectErr: `"" is not a valid CIDR`,
+	}, {
+		about:     "empty CIDR, strict=true",
+		input:     "",
+		strict:    true,
 		expectErr: `"" is not a valid CIDR`,
 	}} {
 		c.Logf("test #%d: %s -> %s", i, test.about, test.expectErr)
-		validated, err := s.baseCmd.ValidateCIDR(test.input)
+		validated, err := s.baseCmd.ValidateCIDR(test.input, test.strict)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
-			c.Check(validated, gc.Equals, "")
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			// When the input is valid it should stay the same.
-			c.Check(validated, gc.Equals, test.input)
 		}
+		c.Check(validated, gc.Equals, test.output)
 	}
 }
 
