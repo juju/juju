@@ -1290,6 +1290,17 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
