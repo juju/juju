@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type baseCharmsSuite struct {
@@ -154,4 +155,22 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.CharmURLs, gc.HasLen, len(expected))
 	c.Check(found.CharmURLs, jc.DeepEquals, expected)
+}
+
+func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	metered, err := s.api.IsMetered(params.CharmInfo{
+		CharmURL: charm.URL().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metered.Metered, jc.IsFalse)
+}
+
+func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	metered, err := s.api.IsMetered(params.CharmInfo{
+		CharmURL: meteredCharm.URL().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metered.Metered, jc.IsTrue)
 }

@@ -925,6 +925,9 @@ func setProvisionedVolumeInfo(st *State, volumes map[names.VolumeTag]VolumeInfo)
 // SetVolumeInfo sets the VolumeInfo for the specified volume.
 func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume %q", tag.Id())
+	if info.VolumeId == "" {
+		return errors.New("volume ID not set")
+	}
 	// TODO(axw) we should reject info without VolumeId set; can't do this
 	// until the providers all set it correctly.
 	buildTxn := func(attempt int) ([]txn.Op, error) {

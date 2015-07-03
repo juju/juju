@@ -1403,7 +1403,11 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironUUID() + ":" + localID
+	prefix := st.EnvironUUID() + ":"
+	if strings.HasPrefix(localID, prefix) {
+		return localID
+	}
+	return prefix + localID
 }
 
 // localID returns the local id value by stripping
