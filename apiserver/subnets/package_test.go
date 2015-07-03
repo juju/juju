@@ -64,39 +64,39 @@ func init() {
 		ProviderId:        "sn-ipv6",
 		AvailabilityZones: []string{"zone1", "zone3"},
 	}, {
+		// no CIDR or provider id -> cached, but cannot be added
 		CIDR:       "",
 		ProviderId: "",
-		// no CIDR or provider id -> cached, but cannot be added
 	}, {
+		// no CIDR, just provider id -> cached, but can only be added by id
 		CIDR:       "",
 		ProviderId: "sn-empty",
-		// no CIDR, just provider id -> cached, but can only be added by id
 	}, {
+		// invalid CIDR and provider id -> cannot be added, but is cached
 		CIDR:       "invalid",
 		ProviderId: "sn-invalid",
-		// invalid CIDR and provider id -> cannot be added, but is cached
 	}, {
+		// incorrectly specified CIDR, with provider id -> cached, cannot be added
 		CIDR:       "0.1.2.3/4",
 		ProviderId: "sn-awesome",
-		// incorrectly specified CIDR, with provider id -> cached, cannot be added
 	}, {
-		CIDR: "10.20.0.0/16",
 		// no zones, no provider-id -> cached, but can only be added by CIDR
+		CIDR: "10.20.0.0/16",
 	}, {
+		// with zones, duplicate provider-id -> overwritten by the last
+		// subnet with the same provider id when caching.
 		CIDR:              "10.99.88.0/24",
 		ProviderId:        "sn-deadbeef",
 		AvailabilityZones: []string{"zone1", "zone2"},
-		// with zones, duplicate provider-id -> overwritten by the last
-		// subnet with the same provider id when caching.
 	}, {
+		// no zones
 		CIDR:       "10.42.0.0/16",
 		ProviderId: "sn-42",
-		// no zones
 	}, {
+		// in an unavailable zone, duplicate CIDR -> cannot be added, but is cached
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-deadbeef",
 		AvailabilityZones: []string{"zone2"},
-		// in an unavailable zone, duplicate CIDR -> cannot be added, but is cached
 	}, {
 		CIDR:              "10.30.1.0/24",
 		ProviderId:        "vlan-42",
@@ -266,8 +266,9 @@ const (
 )
 
 func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
-	// This method should be called at the beginning of each test, so
-	// reset the recorded calls and errors.
+	// This method must be called at the beginning of each test, which
+	// needs access to any of the mocks, to reset the recorded calls
+	// and errors, as well as to initialize the mocks as needed.
 	ResetStub(sb.Stub)
 
 	// Make sure we use the stub provider.
