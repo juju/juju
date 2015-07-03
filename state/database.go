@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -199,28 +198,17 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 	if runner == nil {
 		raw := db.raw
 		if !db.ownSession {
-			session := db.raw.Session.Copy()
+			session := raw.Session.Copy()
 			raw = raw.With(session)
 			closer = session.Close
 		}
 		params := jujutxn.RunnerParams{Database: raw}
 		runner = jujutxn.NewRunner(params)
 	}
-	collections := set.NewStrings()
-	forbidden := set.NewStrings()
-	for name, info := range db.schema {
-		if !info.global && !info.ignoreInsertRestrictions {
-			collections.Add(name)
-		}
-		if info.rawAccess {
-			forbidden.Add(name)
-		}
-	}
 	return &multiEnvRunner{
-		rawRunner:   runner,
-		collections: collections,
-		forbidden:   forbidden,
-		envUUID:     db.environUUID,
+		rawRunner: runner,
+		envUUID:   db.environUUID,
+		schema:    db.schema,
 	}, closer
 }
 

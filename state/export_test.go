@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
@@ -305,20 +304,6 @@ func GetCollection(st *State, name string) (mongo.Collection, func()) {
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 	return st.getRawCollection(name)
-}
-
-func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
-	collections := set.NewStrings()
-	for name, info := range allCollections {
-		if !info.global {
-			collections.Add(name)
-		}
-	}
-	return &multiEnvRunner{
-		rawRunner:   baseRunner,
-		envUUID:     envUUID,
-		collections: collections,
-	}
 }
 
 func Sequence(st *State, name string) (int, error) {

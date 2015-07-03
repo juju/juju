@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -60,10 +59,9 @@ func (st *State) MaybePruneTransactions() error {
 }
 
 type multiEnvRunner struct {
-	rawRunner   jujutxn.Runner
-	collections set.Strings
-	forbidden   set.Strings
-	envUUID     string
+	rawRunner jujutxn.Runner
+	schema    collectionSchema
+	envUUID   string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
@@ -111,20 +109,25 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 	var referencesEnviron bool
 	var insertsEnvironSpecificDocs bool
 	for i, op := range ops {
-		if op.C == environmentsC {
-			if op.Id == r.envUUID {
-				referencesEnviron = true
-			}
+		info, found := r.schema[op.C]
+		if !found {
+			return nil, errors.Errorf("forbidden transaction: references unknown collection %q", op.C)
 		}
-		if r.forbidden.Contains(op.C) {
-			return nil, errors.Errorf("forbidden transaction: references collection %q", op.C)
+		if info.rawAccess {
+			return nil, errors.Errorf("forbidden transaction: references raw-access collection %q", op.C)
 		}
-		if r.collections.Contains(op.C) {
+		if !info.global {
 			// TODO(fwereade): this interface implies we're returning a copy
 			// of the transactions -- as I think we should be -- rather than
-			// rewriting them in place (which breaks client expectations
-			// pretty hard, and renders us unable to accept structs by value,
-			// or which lack an env-uuid field).
+			// rewriting them in place (which IMO breaks client expectations
+			// pretty hard, not to mention rendering us unable to accept any
+			// structs passed by value, or which lack an env-uuid field).
+			//
+			// The counterargument is that it's convenient to use rewritten
+			// docs directly to construct entities; I think that's suboptimal,
+			// because the cost of a DB read to just grab the actual data pales
+			// in the face of the transaction operation itself, and it's a
+			// small price to pay for a safer implementation.
 			var docID interface{}
 			if id, ok := op.Id.(string); ok {
 				docID = addEnvUUID(r.envUUID, id)
@@ -132,9 +135,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 			} else {
 				docID = op.Id
 			}
-
 			if op.Insert != nil {
-				insertsEnvironSpecificDocs = true
 				var err error
 				switch doc := op.Insert.(type) {
 				case bson.D:
@@ -147,8 +148,16 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 					err = r.updateStruct(doc, docID)
 				}
 				if err != nil {
-					return nil, errors.Annotatef(err, "cannot insert %#v into %q", op.Insert, op.C)
+					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
+				if !info.ignoreInsertRestrictions {
+					insertsEnvironSpecificDocs = true
+				}
+			}
+		}
+		if op.C == environmentsC {
+			if op.Id == r.envUUID {
+				referencesEnviron = true
 			}
 		}
 	}
@@ -186,7 +195,7 @@ func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}) (bson.D, err
 		case "env-uuid":
 			envUUIDSeen = true
 			if elem.Value != r.envUUID {
-				return nil, errors.Errorf("bad env-uuid: expected %s, got %s", r.envUUID, elem.Value)
+				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, elem.Value)
 			}
 		}
 	}
@@ -210,7 +219,7 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}) error {
 		case "env-uuid":
 			envUUIDSeen = true
 			if value != r.envUUID {
-				return errors.Errorf("bad env-uuid: expected %s, got %s", r.envUUID, value)
+				return errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, value)
 			}
 		}
 	}
@@ -233,7 +242,7 @@ func (r *multiEnvRunner) updateStruct(doc, docID interface{}) error {
 	}
 
 	if t.Kind() != reflect.Struct {
-		return errors.Errorf("expected a struct")
+		return errors.Errorf("unknown type %s", t)
 	}
 
 	envUUIDSeen := false
@@ -269,7 +278,7 @@ func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValu
 		if fv.CanSet() {
 			fv.Set(reflect.ValueOf(newValue))
 		} else {
-			return errors.Errorf("cannot set %q field: struct passed by value")
+			return errors.Errorf("cannot set %q field: struct passed by value", name)
 		}
 	}
 	return nil

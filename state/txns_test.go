@@ -33,7 +33,18 @@ const (
 func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
-	s.multiEnvRunner = NewMultiEnvRunnerForTesting(envUUID, s.testRunner)
+	s.multiEnvRunner = &multiEnvRunner{
+		rawRunner: s.testRunner,
+		envUUID:   envUUID,
+		schema: collectionSchema{
+			machinesC:          {},
+			networkInterfacesC: {},
+			environmentsC:      {global: true},
+			"other":            {global: true},
+			"raw":              {rawAccess: true},
+			"insert":           {ignoreInsertRestrictions: true},
+		},
+	}
 }
 
 // An alternative machine document to test that fields are matched by
@@ -273,92 +284,165 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, updatedOps)
 }
 
-func (s *MultiEnvRunnerSuite) TestForbiddenCollections(c *gc.C) {
-	c.Fatalf("not done")
+func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      environmentsC,
+		Id:     envUUID,
+		Insert: bson.M{},
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
+		C:      environmentsC,
+		Id:     envUUID,
+		Insert: bson.M{},
+	}})
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicWhenStructIsPassedByValueAndNeedsChange(c *gc.C) {
+func (s *MultiEnvRunnerSuite) TestIgnoreInsertRestrictionsWorks(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      "insert",
+		Id:     "whatever",
+		Insert: bson.M{},
+	}})
+	c.Check(err, jc.ErrorIsNil)
+
+	docID := envUUID + ":whatever"
+	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
+		C:  "insert",
+		Id: docID,
+		Insert: bson.M{
+			"_id":      docID,
+			"env-uuid": envUUID,
+		},
+	}})
+}
+
+func (s *MultiEnvRunnerSuite) TestIgnoreInsertRestrictionsDoesNotOverride(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      "insert",
+		Id:     "whatever",
+		Insert: bson.M{},
+	}, {
+		C:      machinesC,
+		Id:     "123",
+		Insert: bson.M{},
+	}})
+	c.Check(err, jc.ErrorIsNil)
+
+	insertID := envUUID + ":whatever"
+	machineID := envUUID + ":123"
+	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
+		C:  "insert",
+		Id: insertID,
+		Insert: bson.M{
+			"_id":      insertID,
+			"env-uuid": envUUID,
+		},
+	}, {
+		C:  machinesC,
+		Id: machineID,
+		Insert: bson.M{
+			"_id":      machineID,
+			"env-uuid": envUUID,
+		},
+	}, assertEnvAliveOp(envUUID),
+	})
+}
+
+func (s *MultiEnvRunnerSuite) TestRejectRawAccessCollection(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      "raw",
+		Id:     "whatever",
+		Assert: bson.D{{"any", "thing"}},
+	}})
+	c.Check(err, gc.ErrorMatches, `forbidden transaction: references raw-access collection "raw"`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
+}
+
+func (s *MultiEnvRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      "unknown",
+		Id:     "whatever",
+		Assert: bson.D{{"any", "thing"}},
+	}})
+	c.Check(err, gc.ErrorMatches, `forbidden transaction: references unknown collection "unknown"`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
+}
+
+func (s *MultiEnvRunnerSuite) TestRejectStructPassedByValueAndNeedsChange(c *gc.C) {
 	// When a document struct is passed by reference it can't be
-	// changed in place. It's important that the caller sees any
+	// changed in place, it's important that the caller sees any
 	// modifications made by multiEnvRunner in case the document
 	// struct is used to create an object after insertion into
-	// MongoDB.
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:      machinesC,
-			Id:     "uuid:0",
-			Insert: machineDoc{},
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches,
-		"struct for insert into machines requires DocID change but was passed by value")
+	// MongoDB (but see comments in multiEnvRunner.updateOps).
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     "uuid:0",
+		Insert: machineDoc{},
+	}})
+	c.Check(err, gc.ErrorMatches,
+		`cannot insert into "machines": cannot set "DocID" field: struct passed by value`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicWhenStructIsMissingEnvUUIDField(c *gc.C) {
+func (s *MultiEnvRunnerSuite) TestRejectStructMissingEnvUUIDField(c *gc.C) {
 	type someDoc struct {
 		DocID string `bson:"_id"`
 	}
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:      machinesC,
-			Id:     "uuid:0",
-			Insert: &someDoc{DocID: "uuid:0"},
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches,
-		"struct for insert into machines is missing an env-uuid field")
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     "uuid:0",
+		Insert: &someDoc{DocID: "uuid:0"},
+	}})
+	c.Check(err, gc.ErrorMatches,
+		`cannot insert into "machines": struct lacks field with bson:"env-uuid" tag`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicWhenStructEnvUUIDMismatch(c *gc.C) {
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:  machinesC,
-			Id: "uuid:0",
-			Insert: &machineDoc{
-				DocID:   "uuid:0",
-				EnvUUID: "somethingelse",
-			},
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches,
-		"EnvUUID for insert into machines does not match expected value")
+func (s *MultiEnvRunnerSuite) TestRejectStructEnvUUIDMismatch(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:  machinesC,
+		Id: "uuid:0",
+		Insert: &machineDoc{
+			DocID:   "uuid:0",
+			EnvUUID: "somethingelse",
+		},
+	}})
+	c.Check(err, gc.ErrorMatches,
+		`cannot insert into "machines": bad "EnvUUID" field value: expected uuid, got somethingelse`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicWhenBsonDEnvUUIDMismatch(c *gc.C) {
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:      machinesC,
-			Id:     "uuid:0",
-			Insert: bson.D{{"env-uuid", "wtf"}},
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches,
-		"environment UUID for document to insert into machines does not match state")
+func (s *MultiEnvRunnerSuite) TestRejectBsonDEnvUUIDMismatch(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     "uuid:0",
+		Insert: bson.D{{"env-uuid", "wtf"}},
+	}})
+	c.Check(err, gc.ErrorMatches,
+		`cannot insert into "machines": bad "env-uuid" value: expected uuid, got wtf`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicWhenBsonMEnvUUIDMismatch(c *gc.C) {
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:      machinesC,
-			Id:     "uuid:0",
-			Insert: bson.M{"env-uuid": "wtf"},
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches,
-		"environment UUID for document to insert into machines does not match state")
+func (s *MultiEnvRunnerSuite) TestRejectBsonMEnvUUIDMismatch(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     "uuid:0",
+		Insert: bson.M{"env-uuid": "wtf"},
+	}})
+	c.Check(err, gc.ErrorMatches,
+		`cannot insert into "machines": bad "env-uuid" value: expected uuid, got wtf`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestPanicForUnsupportedDocType(c *gc.C) {
-	attempt := func() {
-		s.multiEnvRunner.RunTransaction([]txn.Op{{
-			C:      machinesC,
-			Id:     "uuid:0",
-			Insert: make(map[int]int),
-		}})
-	}
-	c.Assert(attempt, gc.PanicMatches, `unsupported document type for multi-environment `+
-		`collection \(must be bson.D, bson.M or struct\). Got map\[int\]int for insert `+
-		`into machines.`)
+func (s *MultiEnvRunnerSuite) TestRejectUnsupportedDocType(c *gc.C) {
+	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     "uuid:0",
+		Insert: make(map[int]int),
+	}})
+	c.Check(err, gc.ErrorMatches, `cannot insert into "machines": unknown type map\[int\]int`)
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
 func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
@@ -386,32 +470,32 @@ func (s *MultiEnvRunnerSuite) TestRunWithError(c *gc.C) {
 	err := s.multiEnvRunner.Run(func(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("boom")
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(s.testRunner.seenOps, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
 func (s *MultiEnvRunnerSuite) TestResumeTransactions(c *gc.C) {
 	err := s.multiEnvRunner.ResumeTransactions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.testRunner.resumeTransactionsCalled, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.testRunner.resumeTransactionsCalled, jc.IsTrue)
 }
 
 func (s *MultiEnvRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 	s.testRunner.resumeTransactionsErr = errors.New("boom")
 	err := s.multiEnvRunner.ResumeTransactions()
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 func (s *MultiEnvRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
 	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
 }
 
 func (s *MultiEnvRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 	s.testRunner.pruneTransactionsErr = errors.New("boom")
 	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 // recordingRunner is fake transaction running that implements the
