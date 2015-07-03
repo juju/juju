@@ -35,7 +35,6 @@ from remote import (
 from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
-    MAASAccount,
     resolve_remote_dns_names,
     run_instances,
     start_libvirt_domain,
@@ -216,12 +215,12 @@ def dump_logs(env, remote, directory, local_state_server=False):
             copy_local_logs(env, directory)
         else:
             copy_remote_logs(remote, directory)
-        subprocess.check_call(
-            ['gzip', '-f'] +
-            glob.glob(os.path.join(directory, '*.log')))
     except Exception as e:
         print_now("Failed to retrieve logs")
         print_now(str(e))
+    log_files = glob.glob(os.path.join(directory, '*.log'))
+    if log_files:
+        subprocess.check_call(['gzip', '-f'] + log_files)
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
