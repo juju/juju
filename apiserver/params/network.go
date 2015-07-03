@@ -492,3 +492,19 @@ type SpaceResult struct {
 type SpaceResults struct {
 	Results []SpaceResult `json:"Results"`
 }
+
+// AddSubnetsParams holds the arguments of AddSubnets API call.
+type AddSubnetsParams struct {
+	Subnets []AddSubnetParams `json:"Subnets"`
+}
+
+// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// and a list of zones to associate the subnet to. Either SubnetTag or
+// SubnetProviderId must be set, but not both. Zones can be empty if
+// they can be discovered
+type AddSubnetParams struct {
+	SubnetTag        string   `json:"SubnetTag,omitempty"`
+	SubnetProviderId string   `json:"SubnetProviderId,omitempty"`
+	SpaceTag         string   `json:"SpaceTag"`
+	Zones            []string `json:"Zones,omitempty"`
+}
