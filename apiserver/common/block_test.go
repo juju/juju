@@ -16,6 +16,7 @@ import (
 )
 
 type mockBlock struct {
+	state.Block
 	t state.BlockType
 	m string
 }

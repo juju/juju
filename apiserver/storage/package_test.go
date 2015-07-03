@@ -178,7 +178,10 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 }
 
 func (s *baseStorageSuite) addBlock(c *gc.C, t state.BlockType, msg string) {
-	s.blocks[t] = mockBlock{t, msg}
+	s.blocks[t] = mockBlock{
+		t:   t,
+		msg: msg,
+	}
 }
 
 func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
@@ -469,16 +472,9 @@ func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
 }
 
 type mockBlock struct {
+	state.Block
 	t   state.BlockType
 	msg string
-}
-
-func (b mockBlock) Id() string {
-	panic("not implemented for test")
-}
-
-func (b mockBlock) Tag() (names.Tag, error) {
-	panic("not implemented for test")
 }
 
 func (b mockBlock) Type() state.BlockType {

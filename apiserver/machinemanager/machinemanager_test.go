@@ -151,7 +151,9 @@ func (st *mockState) AddMachineInsideMachine(template state.MachineTemplate, par
 	panic("not implemented")
 }
 
-type mockBlock struct{}
+type mockBlock struct {
+	state.Block
+}
 
 func (st *mockBlock) Id() string {
 	return "id"
