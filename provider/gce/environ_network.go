@@ -12,7 +12,7 @@ import (
 )
 
 // AllocateAddress implements environs.Environ, but is not implmemented.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {
 	return errors.Trace(errNotImplemented)
 }
 

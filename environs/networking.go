@@ -16,7 +16,7 @@ import (
 type Networking interface {
 	// AllocateAddress requests a specific address to be allocated for the
 	// given instance on the given subnet.
-	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
+	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
 
 	// ReleaseAddress releases a specific address previously allocated with
 	// AllocateAddress.
