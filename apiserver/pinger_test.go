@@ -104,7 +104,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 
 	// As long as we don't wait too long, the connection stays open
 	for i := 0; i < 10; i++ {
-		time.Sleep(shortTimeout / 2)
+		time.Sleep(shortTimeout / 4)
 		err = st.Ping()
 		c.Assert(err, jc.ErrorIsNil)
 	}

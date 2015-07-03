@@ -54,7 +54,7 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	st, err := newState(tag, session, info, policy)
 	if err != nil {
 		session.Close()
-		return nil, errors.Trace(err)
+		return nil, maybeUnauthorized(err, "cannot load environment")
 	}
 	return st, nil
 }
@@ -191,7 +191,7 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 	rawDB := session.DB(jujuDB)
 	database, err := allCollections().Load(rawDB, environTag.Id())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, maybeUnauthorized(err, "cannot initialize collections")
 	}
 	if err := InitDbLogs(session); err != nil {
 		return nil, errors.Trace(err)

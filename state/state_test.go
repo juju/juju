@@ -128,7 +128,7 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+		st, err := state.Open(s.envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -139,20 +139,15 @@ func (s *StateSuite) TestOpenRequiresValidEnvironmentTag(c *gc.C) {
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	c.Check(err, gc.ErrorMatches, "invalid environment UUID")
+	c.Check(err, gc.ErrorMatches, "cannot open environment: invalid environment UUID")
 }
 
 func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
 	st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
-	c.Logf("1")
 	if !c.Check(st, gc.IsNil) {
-		c.Logf("2")
 		c.Check(st.Close(), jc.ErrorIsNil)
-		c.Logf("3")
 	}
-	c.Logf("4")
 	c.Check(err, gc.ErrorMatches, "cannot open environment deadbeef-0bad-400d-8000-4b1d0d06f00d: environment not found")
-	c.Logf("5")
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
@@ -3732,7 +3727,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
