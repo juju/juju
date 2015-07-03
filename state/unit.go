@@ -1466,17 +1466,16 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	}
 
 	// Find a clean, empty machine on which to create a container.
-	query, err := u.findCleanMachineQuery(true, cons)
+	hostCons := *cons
+	noContainer := instance.NONE
+	hostCons.Container = &noContainer
+	query, err := u.findCleanMachineQuery(true, &hostCons)
 	if err != nil {
 		return err
 	}
 	machinesCollection, closer := u.st.getCollection(machinesC)
 	defer closer()
-
 	var host machineDoc
-	hostCons := *cons
-	noContainer := instance.NONE
-	hostCons.Container = &noContainer
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
 		// No existing clean, empty machine so create a new one.
 		// The container constraint will be used by AssignToNewMachine to create the required container.
@@ -1484,6 +1483,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	} else if err != nil {
 		return err
 	}
+
 	svc, err := u.Service()
 	if err != nil {
 		return err
