@@ -36,7 +36,6 @@ class TestDumping_env(TestCase):
         self.assertEquals(cc_mock.call_count, 0)
         de_mock.assert_called_once_with()
 
-
     def test_dumping_env_success(self):
         def _fake_remote_logs(remote, directory):
             with open(os.path.join(directory, 'fake.log'), 'w') as f:
@@ -46,7 +45,7 @@ class TestDumping_env(TestCase):
             with patch.object(client, 'destroy_environment') as de_mock:
                 with patch('subprocess.check_call', autospec=True) as cc_mock:
                     with patch('deploy_stack.copy_remote_logs', autospec=True,
-                           side_effect=_fake_remote_logs) as crl_mock:
+                               side_effect=_fake_remote_logs) as crl_mock:
                         with dumping_env(client, 'a-hostname', log_dir):
                             pass
             crl_mock.assert_called_once_with('a-hostname', log_dir)

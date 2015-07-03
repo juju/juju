@@ -35,7 +35,6 @@ from remote import (
 from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
-    MAASAccount,
     resolve_remote_dns_names,
     run_instances,
     start_libvirt_domain,
