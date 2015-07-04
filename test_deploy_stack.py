@@ -453,7 +453,7 @@ class DumpEnvLogsTestCase(TestCase):
                 'node1.maas': '10.11.12.13',
                 'node2.maas': '10.11.12.14',
             }
-            with patch('deploy_stack.MAASAccount.get_allocated_ips',
+            with patch('substrate.MAASAccount.get_allocated_ips',
                        autospec=True, return_value=allocated_ips):
                 machines = get_remote_machines(client, 'node1.maas')
         self.assert_machines(

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from argparse import ArgumentParser
+import os
 
 from utility import run_command
 
@@ -71,7 +72,7 @@ def run_cmds(commands):
         run_command(cmd, verbose=True)
 
 
-def main():
+def sniff_openstack():
     run_cmds(ceilometer_cmds)
     run_cmds(cinder_cmds)
     run_cmds(glance_cmds)
@@ -80,6 +81,51 @@ def main():
     run_cmds(neutron_cmds)
     run_cmds(nova_cmds)
     run_cmds(swift_cmds)
+
+
+def set_environ(args):
+    os.environ['OS_USERNAME'] = args.user
+    os.environ['OS_PASSWORD'] = args.password
+    os.environ['OS_TENANT_NAME'] = args.tenant
+    os.environ['OS_REGION_NAME'] = args.region
+    os.environ['OS_AUTH_URL'] = args.auth_url
+
+
+def get_args(argv=None):
+    parser = ArgumentParser()
+    parser.add_argument('--user', default=os.environ.get('OS_USERNAME'),
+                        help='OpenStack user name.')
+    parser.add_argument('--password', default=os.environ.get('OS_PASSWORD'),
+                        help='OpenStack admin password.')
+    parser.add_argument('--tenant', default=os.environ.get('OS_TENANT_NAME'),
+                        help='OpenStack tenant.')
+    parser.add_argument('--region', default=os.environ.get('OS_REGION_NAME'),
+                        help='OpenStack region.')
+    parser.add_argument('--auth-url', default=os.environ.get('OS_AUTH_URL'),
+                        help='URL to Keystone.')
+    args = parser.parse_args(argv)
+    if not args.user:
+        raise Exception(
+            "User must be provided; pass --user or set OS_USERNAME.")
+    if not args.password:
+        raise Exception(
+            "Password must be provided; pass --password or set OS_PASSWORD.")
+    if not args.tenant:
+        raise Exception(
+            "Tenant must be provided; pass --tenant or set OS_TENANT_NAME.")
+    if not args.region:
+        raise Exception(
+            "Region must be provided; pass --region or set OS_REGION_NAME.")
+    if not args.auth_url:
+        raise Exception(
+            "auth-url must be provided; pass --auth-url or set OS_AUTH_URL.")
+    return args
+
+
+def main():
+    args = get_args()
+    set_environ(args)
+    sniff_openstack()
 
 
 if __name__ == '__main__':

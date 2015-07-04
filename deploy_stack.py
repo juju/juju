@@ -340,7 +340,7 @@ def get_juju_path(args):
 
 def get_log_level(args):
     log_level = logging.INFO
-    if args.verbose:
+    if 'verbose' in args and args.verbose:
         log_level = logging.DEBUG
     return log_level
 
@@ -416,7 +416,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        if client.env.config['type'] == 'maas':
+        if client.env.config['type'] == 'maas' and machines:
             for machine in machines:
                 name, URI = machine.split('@')
                 # Record already running domains, so they can be left running,
@@ -513,47 +513,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
         if upgrade:
             client.juju('status', ())
             assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
-
-
-def run_deployer():
-    parser = ArgumentParser('Test with deployer')
-    parser.add_argument('bundle_path',
-                        help='URL or path to a bundle')
-    parser.add_argument('env',
-                        help='The juju environment to test')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('job_name', help='Name of the Jenkins job.')
-    parser.add_argument('--bundle-name', default=None,
-                        help='Name of the bundle to deploy.')
-    add_juju_args(parser)
-    add_output_args(parser)
-    add_path_args(parser)
-    args = parser.parse_args()
-    juju_path = get_juju_path(args)
-    configure_logging(get_log_level(args))
-    env = SimpleEnvironment.from_config(args.env)
-    update_env(env, args.job_name, series=args.series,
-               agent_url=args.agent_url, agent_stream=args.agent_stream)
-    client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
-    juju_home = get_juju_home()
-    with temp_bootstrap_env(
-            get_juju_home(), client, set_home=False) as juju_home:
-        client.bootstrap(juju_home=juju_home)
-    host = get_machine_dns_name(client, 0)
-    if host is None:
-        raise Exception('Could not get machine 0 host')
-    try:
-        client.wait_for_started()
-        safe_print_status(client)
-        client.deployer(args.bundle_path, args.bundle_name)
-    except BaseException as e:
-        logging.exception(e)
-        sys.exit(1)
-    finally:
-        safe_print_status(client)
-        if host is not None:
-            dump_env_logs(client, host, args.logs, jenv_path=None)
-        client.destroy_environment()
 
 
 def safe_print_status(client):
