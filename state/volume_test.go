@@ -150,11 +150,25 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	volumeTag := volume.VolumeTag()
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
+}
+
+func (s *VolumeStateSuite) TestSetVolumeInfoNoVolumeId(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume := s.storageInstanceVolume(c, storageTag)
+	volumeTag := volume.VolumeTag()
+	s.assertVolumeUnprovisioned(c, volumeTag)
+
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": volume ID not set`)
 }
 
 func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
@@ -193,7 +207,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 
 	s.assertVolumeUnprovisioned(c, volumeTag)
-	volumeInfoSet := state.VolumeInfo{Size: 123}
+	volumeInfoSet := state.VolumeInfo{Size: 123, VolumeId: "vol-ume"}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
@@ -207,7 +221,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
-	volumeInfoSet := state.VolumeInfo{Size: 123}
+	volumeInfoSet := state.VolumeInfo{Size: 123, VolumeId: "vol-ume"}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -465,11 +479,11 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	c.Assert(volume2.LifeBinding(), gc.Equals, machine.MachineTag())
 	c.Assert(volume3.LifeBinding(), gc.Equals, machine.MachineTag())
 
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false, VolumeId: "vol-2"}
 	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -696,13 +710,13 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false, VolumeId: "vol-2"}
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/3"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet = state.VolumeInfo{Size: 789, Persistent: false}
+	volumeInfoSet = state.VolumeInfo{Size: 789, Persistent: false, VolumeId: "vol-3"}
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("4"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 

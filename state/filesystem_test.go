@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -83,7 +84,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	filesystemInfoSet := state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"}
 	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -96,6 +97,20 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 
 	filesystemInfoSet.Pool = "rootfs"
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfoSet)
+}
+
+func (s *FilesystemStateSuite) TestSetFilesystemInfoNoFilesystemId(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	filesystemTag := filesystem.FilesystemTag()
+	s.assertFilesystemUnprovisioned(c, filesystemTag)
+
+	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": filesystem ID not set`)
 }
 
 func (s *FilesystemStateSuite) TestVolumeFilesystem(c *gc.C) {
@@ -426,7 +441,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisio
 	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "rootfs", false)
 	err := s.State.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
-		state.FilesystemInfo{Size: 123},
+		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetFilesystemAttachmentInfo(
@@ -441,7 +456,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvision
 	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "loop", true)
 	err := s.State.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
-		state.FilesystemInfo{Size: 123},
+		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": volume attachment "0/0" on "0" not provisioned`)
 }
@@ -757,6 +772,82 @@ func (s *FilesystemStateSuite) TestEnsureMachineDeadRemoveFilesystemConcurrently
 	// Removing a filesystem concurrently does not cause a transaction failure.
 	err := machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsSingletonNoLocation(c *gc.C) {
+	s.testFilesystemAttachmentParams(c, 0, 1, "", state.FilesystemAttachmentParams{
+		Location: "/var/lib/juju/storage/data/0",
+	})
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsMultipleNoLocation(c *gc.C) {
+	s.testFilesystemAttachmentParams(c, 0, -1, "", state.FilesystemAttachmentParams{
+		Location: "/var/lib/juju/storage/data/0",
+	})
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsSingletonLocation(c *gc.C) {
+	s.testFilesystemAttachmentParams(c, 0, 1, "/srv", state.FilesystemAttachmentParams{
+		Location: "/srv",
+	})
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsMultipleLocation(c *gc.C) {
+	s.testFilesystemAttachmentParams(c, 0, -1, "/srv", state.FilesystemAttachmentParams{
+		Location: "/srv/data/0",
+	})
+}
+
+func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
+	c *gc.C, countMin, countMax int, location string,
+	expect state.FilesystemAttachmentParams,
+) {
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: countMin,
+		CountMax: countMax,
+		Location: location,
+	})
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("rootfs", 1024, 1),
+	}
+
+	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	storageTag := names.NewStorageTag("data/0")
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	filesystemAttachment := s.filesystemAttachment(
+		c, names.NewMachineTag(machineId), filesystem.FilesystemTag(),
+	)
+	params, ok := filesystemAttachment.Params()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(params, jc.DeepEquals, expect)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(c *gc.C) {
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: 1,
+		CountMax: 1,
+		Location: "/var/lib/juju/storage",
+	})
+	service := s.AddTestingService(c, "storage-filesystem", ch)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit \"storage-filesystem/0\" to machine: `+
+		`cannot assign unit "storage-filesystem/0" to clean, empty machine: `+
+		`getting filesystem mount point for storage data: `+
+		`invalid location "/var/lib/juju/storage": `+
+		`must not fall within "/var/lib/juju/storage"`)
 }
 
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {

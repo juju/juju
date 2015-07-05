@@ -582,7 +582,7 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return p.prepare(cfg)
+	return cfg, nil
 }
 
 func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {

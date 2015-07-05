@@ -17,6 +17,9 @@ const (
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
 
+	// Registry key containing juju related information
+	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
+
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
 	// needed as MAAS still needs it at this stage, and we can't fix
