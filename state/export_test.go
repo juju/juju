@@ -329,14 +329,18 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func EnvironCount(c *gc.C, st *State) int {
-	var doc envCountDoc
+func HostedEnvironCount(c *gc.C, st *State) int {
+	var doc hostedEnvCountDoc
 	stateServers, closer := st.getCollection(stateServersC)
 	defer closer()
 
 	err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Count
+}
+
+func IncHostedEnvironCount(c *gc.C, st *State) {
+	c.Assert(st.runTransaction([]txn.Op{incHostedEnvironCountOp()}), jc.ErrorIsNil)
 }
 
 type MockGlobalEntity struct {

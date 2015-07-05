@@ -204,6 +204,21 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
 }
 
+func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
+	// Simulate an environment being added just before the remove txn is
+	// called.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		st := s.State
+		c.Assert(state.HostedEnvironCount(c, st), gc.Equals, 0)
+		state.IncHostedEnvironCount(c, st)
+		c.Assert(state.HostedEnvironCount(c, st), gc.Equals, 1)
+	}).Check()
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: transaction aborted")
+}
+
 func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,24 +327,24 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
 }
 
-func (s *EnvironSuite) TestEnvironCount(c *gc.C) {
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
+func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
 
 	st1 := s.factory.MakeEnvironment(c, nil)
 	defer st1.Close()
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
 	st2 := s.factory.MakeEnvironment(c, nil)
 	defer st2.Close()
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 2)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 2)
 
 	env1, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env1.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
 }
