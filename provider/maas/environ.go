@@ -1530,15 +1530,33 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 
 	supportsDevices, err := environ.supportsDevices()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	if supportsDevices {
 		device, err := environ.fetchFullDevice(macAddress)
 		if errors.IsNotFound(err) {
-			fmt.Printf("%v", device)
+			addresses, err := device["ip_addresses"].GetArray()
+			if err != nil {
+				return err
+			}
+			systemId, err := device["system_id"].GetString()
+			if err != nil {
+				return err
+			}
+
+			if len(addresses) == 1 {
+				// With our current usage of devices they will always
+				// have exactly one IP address, but in theory that
+				// could change and this code will continue to work.
+				// The device is only destroyed when we come to release
+				// the last address. Race conditions aside.
+				deviceAPI := environ.getMAASClient().GetSubObject("device").GetSubObject(systemId)
+				err = deviceAPI.Delete()
+				return err
+			}
 
 		} else if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		// No device for this IP address, release the address normally.
 	}
