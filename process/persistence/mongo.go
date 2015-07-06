@@ -38,7 +38,7 @@ func charmGlobalKey(charmURL *charm.URL) string {
 	return "c#" + charmURL.String()
 }
 
-// TOOD(ericsnow) Move the methods under their own type.
+// TODO(ericsnow) Move the methods under their own type.
 
 func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]definitionDoc, error) {
 	var docs []definitionDoc
