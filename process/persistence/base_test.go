@@ -41,54 +41,22 @@ type ProcessInfoDocs struct {
 	Docs       []interface{}
 }
 
-type DefinitionDoc struct {
-	DocID   string
-	DocKind string
-	UnitID  string
-	Name    string
-	Type    string
-}
+type DefinitionDoc definitionDoc
 
 func (doc DefinitionDoc) convert() interface{} {
-	return &definitionDoc{
-		DocID:   doc.DocID,
-		DocKind: doc.DocKind,
-		UnitID:  doc.UnitID,
-		Name:    doc.Name,
-		Type:    doc.Type,
-	}
+	return (*definitionDoc)(&doc)
 }
 
-type LaunchDoc struct {
-	DocID     string
-	DocKind   string
-	PluginID  string
-	RawStatus string
-}
+type LaunchDoc launchDoc
 
 func (doc LaunchDoc) convert() interface{} {
-	return &launchDoc{
-		DocID:     doc.DocID,
-		DocKind:   doc.DocKind,
-		PluginID:  doc.PluginID,
-		RawStatus: doc.RawStatus,
-	}
+	return (*launchDoc)(&doc)
 }
 
-type ProcessDoc struct {
-	DocID        string
-	DocKind      string
-	Life         int
-	PluginStatus string
-}
+type ProcessDoc processDoc
 
 func (doc ProcessDoc) convert() interface{} {
-	return &processDoc{
-		DocID:        doc.DocID,
-		DocKind:      doc.DocKind,
-		Life:         Life(doc.Life),
-		PluginStatus: doc.PluginStatus,
-	}
+	return (*processDoc)(&doc)
 }
 
 func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
