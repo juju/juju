@@ -165,7 +165,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

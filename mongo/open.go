@@ -137,14 +137,20 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 // DialWithInfo establishes a new session to the cluster identified by info,
 // with the specified options.
 func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
+	if opts.Timeout == 0 {
+		return nil, errors.New("a non-zero Timeout must be specified")
+	}
+
 	dialInfo, err := DialInfo(info, opts)
 	if err != nil {
 		return nil, err
 	}
+
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return nil, err
 	}
+
 	if opts.SocketTimeout == 0 {
 		opts.SocketTimeout = SocketTimeout
 	}
