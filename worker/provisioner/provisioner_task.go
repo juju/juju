@@ -345,7 +345,7 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 		var classification MachineClassification
 		classification, err = classifyMachine(machine)
 		if err != nil {
-			return
+			return // return the error
 		}
 		switch classification {
 		case Pending:
@@ -372,10 +372,10 @@ type ClassifiableMachine interface {
 type MachineClassification string
 
 const (
-	None     = "none"
-	Pending  = "Pending"
-	Dead     = "Dead"
-	Maintain = "Maintain"
+	None     MachineClassification = "none"
+	Pending  MachineClassification = "Pending"
+	Dead     MachineClassification = "Dead"
+	Maintain MachineClassification = "Maintain"
 )
 
 func classifyMachine(machine ClassifiableMachine) (

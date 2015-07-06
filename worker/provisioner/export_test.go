@@ -95,7 +95,4 @@ func init() {
 	}
 }
 
-func ClassifyMachine(machine ClassifiableMachine) (
-	classification MachineClassification, err error) {
-	return classifyMachine(machine)
-}
+var ClassifyMachine = classifyMachine
