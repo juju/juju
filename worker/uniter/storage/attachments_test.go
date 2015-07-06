@@ -379,6 +379,7 @@ type attachmentsUpdateSuite struct {
 var _ = gc.Suite(&attachmentsUpdateSuite{})
 
 func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("mysql/0")
 	s.storageTag0 = names.NewStorageTag("data/0")
 	s.storageTag1 = names.NewStorageTag("data/1")

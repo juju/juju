@@ -215,7 +215,16 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return uniter.NewUniter(uniterFacade, unitTag, leadership.NewClient(st), dataDir, hookLock), nil
+		uniterParams := uniter.UniterParams{
+			uniterFacade,
+			unitTag,
+			leadership.NewClient(st),
+			dataDir,
+			hookLock,
+			uniter.NewMetricsTimerChooser(),
+			uniter.NewUpdateStatusTimer(),
+		}
+		return uniter.NewUniter(&uniterParams), nil
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {

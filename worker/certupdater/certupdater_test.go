@@ -90,7 +90,7 @@ func (g *mockConfigGetter) EnvironConfig() (*config.Config, error) {
 }
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		return nil
 	}
 	changes := make(chan struct{})
@@ -105,7 +105,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
 		c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +156,7 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		close(updated)
 		return nil
 	}

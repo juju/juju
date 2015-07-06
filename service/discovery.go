@@ -21,7 +21,7 @@ var getVersion = func() version.Binary {
 	return version.Current
 }
 
-// DiscoverService returns an interface to a service apropriate
+// DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
 	initName, err := discoverInitSystem()
@@ -29,7 +29,8 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		return nil, errors.Trace(err)
 	}
 
-	service, err := NewService(name, conf, initName)
+	jujuVersion := getVersion()
+	service, err := newService(name, conf, initName, jujuVersion.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,11 +42,11 @@ func discoverInitSystem() (string, error) {
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
 		jujuVersion := getVersion()
-		versionInitName, ok := VersionInitSystem(jujuVersion)
-		if !ok {
+		versionInitName, err2 := VersionInitSystem(jujuVersion.Series)
+		if err2 != nil {
 			// The key error is the one from discoverLocalInitSystem so
 			// that is what we return.
-			return "", errors.Trace(err)
+			return "", errors.Wrap(err2, err)
 		}
 		initName = versionInitName
 	} else if err != nil {
@@ -55,45 +56,41 @@ func discoverInitSystem() (string, error) {
 }
 
 // VersionInitSystem returns an init system name based on the provided
-// version info. If one cannot be identified then false if returned
-// for the second return value.
-func VersionInitSystem(vers version.Binary) (string, bool) {
-	initName, ok := versionInitSystem(vers)
-	if !ok {
-		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
-		return "", false
+// series. If one cannot be identified a NotFound error is returned.
+func VersionInitSystem(series string) (string, error) {
+	initName, err := versionInitSystem(series)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
-	return initName, true
+	logger.Debugf("discovered init system %q from series %q", initName, series)
+	return initName, nil
 }
 
-func versionInitSystem(vers version.Binary) (string, bool) {
-	switch vers.OS {
+func versionInitSystem(series string) (string, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		notFound := errors.NotFoundf("init system for series %q", series)
+		return "", errors.Wrap(err, notFound)
+	}
+
+	switch os {
 	case version.Windows:
-		return InitSystemWindows, true
+		return InitSystemWindows, nil
 	case version.Ubuntu:
-		switch vers.Series {
+		switch series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
-			return InitSystemUpstart, true
-		case "":
-			return "", false
+			return InitSystemUpstart, nil
 		default:
-			// Check for pre-precise releases.
-			os, _ := version.GetOSFromSeries(vers.Series)
-			if os == version.Unknown {
-				return "", false
-			}
 			// vivid and later
 			if featureflag.Enabled(feature.LegacyUpstart) {
-				return InitSystemUpstart, true
+				return InitSystemUpstart, nil
 			}
-			return InitSystemSystemd, true
+			return InitSystemSystemd, nil
 		}
 	case version.CentOS:
-		return InitSystemSystemd, true
-	default:
-		return "", false
+		return InitSystemSystemd, nil
 	}
+	return "", errors.NotFoundf("unknown os %q (from series %q), init system", os, series)
 }
 
 type discoveryCheck struct {
