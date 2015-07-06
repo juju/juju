@@ -28,16 +28,6 @@ var Collections = []string{
 	workloadProcessesC,
 }
 
-// TODO(ericsnow) These two functions are copied from state.
-
-func unitGlobalKey(name string) string {
-	return "u#" + name + "#charm"
-}
-
-func charmGlobalKey(charmURL *charm.URL) string {
-	return "c#" + charmURL.String()
-}
-
 // TODO(ericsnow) Move the methods under their own type.
 
 func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]definitionDoc, error) {
@@ -140,13 +130,11 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 
 func (pp Persistence) definitionID(id string) string {
 	name, _ := process.ParseID(id)
-	// The URL will always parse successfully.
-	charmURL, _ := charm.ParseURL(pp.charm.Id())
-	return fmt.Sprintf("%s#%s", charmGlobalKey(charmURL), name)
+	return fmt.Sprintf("procd#%s#%s", pp.charm.Id(), name)
 }
 
 func (pp Persistence) processID(id string) string {
-	return fmt.Sprintf("%s#%s", unitGlobalKey(pp.unit.Id()), id)
+	return fmt.Sprintf("proc#%s#%s", pp.unit.Id(), id)
 }
 
 func (pp Persistence) launchID(id string) string {

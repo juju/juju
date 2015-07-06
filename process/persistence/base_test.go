@@ -63,7 +63,7 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 	docs := ProcessInfoDocs{}
 
 	docs.Definition = &definitionDoc{
-		DocID:    "c#" + s.Charm.Id() + "#" + proc.Name,
+		DocID:    "procd#" + s.Charm.Id() + "#" + proc.Name,
 		CharmID:  s.Charm.Id(),
 		ProcName: proc.Name,
 		DocKind:  "definition",
@@ -74,7 +74,7 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 
 	if proc.Details.ID != "" {
 		docs.Launch = &launchDoc{
-			DocID:     "u#" + s.Unit.Id() + "#charm#" + proc.ID() + "#launch",
+			DocID:     "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch",
 			UnitID:    s.Unit.Id(),
 			ProcName:  proc.Name,
 			PluginID:  proc.Details.ID,
@@ -82,7 +82,7 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 			RawStatus: proc.Details.Status.Label,
 		}
 		docs.Proc = &processDoc{
-			DocID:        "u#" + s.Unit.Id() + "#charm#" + proc.ID(),
+			DocID:        "proc#" + s.Unit.Id() + "#" + proc.ID(),
 			UnitID:       s.Unit.Id(),
 			ProcName:     proc.Name,
 			PluginID:     proc.Details.ID,
@@ -110,11 +110,11 @@ func (s *BaseSuite) RemoveDoc(proc process.Info, kind string) {
 	var docID string
 	switch kind {
 	case "definition":
-		docID = "c#" + s.Charm.Id() + "#" + proc.Name
+		docID = "procd#" + s.Charm.Id() + "#" + proc.Name
 	case "launch":
-		docID = "u#" + s.Unit.Id() + "#charm#" + proc.ID() + "#launch"
+		docID = "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch"
 	case "process":
-		docID = "u#" + s.Unit.Id() + "#charm#" + proc.ID()
+		docID = "proc#" + s.Unit.Id() + "#" + proc.ID()
 	}
 	delete(s.State.docs, docID)
 }
