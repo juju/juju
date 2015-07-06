@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/leadership"
+	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -40,8 +42,15 @@ const (
 	// jujuDB is the name of the main juju database.
 	jujuDB = "juju"
 
+	// presenceDB is the name of the database used to hold presence pinger data.
+	presenceDB = "presence"
+
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
+
+	// serviceLeadershipNamespace is the name of the lease.Client namespace
+	// used by the leadership manager.
+	serviceLeadershipNamespace = "service-leadership"
 )
 
 // State represents the state of an environment
@@ -59,9 +68,9 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher  *watcher.Watcher
-	pwatcher *presence.Watcher
-	// leadershipManager leadership.Manager
+	watcher           *watcher.Watcher
+	pwatcher          *presence.Watcher
+	leadershipManager leadership.ManagerWorker
 
 	// mu guards allManager.
 	mu         sync.Mutex
@@ -141,9 +150,51 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newState.serverTag = st.serverTag
-	newState.startPresenceWatcher()
+	if err := newState.start(st.serverTag); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return newState, nil
+}
+
+// start starts the presence watcher and leadership manager, and fills in the
+// serverTag field with the supplied value.
+func (st *State) start(serverTag names.EnvironTag) error {
+	st.serverTag = serverTag
+
+	if identity := st.mongoInfo.Tag; identity != nil {
+		logger.Infof("creating lease client")
+		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
+		// think it's just coincidental that the mongodb user happens to map to
+		// the machine that's executing the code -- but there doesn't seem to be
+		// an accessible alternative.
+		clock := lease.SystemClock{}
+		leaseClient, err := lease.NewClient(lease.ClientConfig{
+			Id:         identity.String(),
+			Namespace:  serviceLeadershipNamespace,
+			Collection: leasesC,
+			Mongo:      &environMongo{st},
+			Clock:      clock,
+		})
+		if err != nil {
+			return errors.Annotatef(err, "cannot create lease client")
+		}
+		logger.Infof("starting leadership manager")
+		leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
+			Client: leaseClient,
+			Clock:  clock,
+		})
+		if err != nil {
+			return errors.Annotatef(err, "cannot create leadership manager")
+		}
+		st.leadershipManager = leadershipManager
+	} else {
+		logger.Warningf("running state anonymously")
+	}
+
+	logger.Infof("starting presence watcher")
+	presenceCollection := st.session.DB(presenceDB).C(presenceC)
+	st.pwatcher = presence.NewWatcher(presenceCollection, st.environTag)
+	return nil
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by
@@ -171,9 +222,6 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	var foundOrdered []string
 	for name, info := range st.database.Schema() {
 		if info.global {
-			continue
-		}
-		if name == cleanupsC {
 			continue
 		}
 		coll, closer := st.getCollection(name)

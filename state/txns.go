@@ -150,7 +150,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
-				if !info.ignoreInsertRestrictions {
+				if !info.allowInsertWhileEnvironmentDying {
 					insertsEnvironSpecificDocs = true
 				}
 			}

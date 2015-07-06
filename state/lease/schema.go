@@ -80,9 +80,14 @@ type leaseDoc struct {
 	// Apart from checking validity on load, though, there's little reason
 	// to use Id elsewhere; Namespace and Name are the sources of truth.
 	Id        string `bson:"_id"`
-	Type      string `bson:"type"`      // TODO(fwereade) add index
-	Namespace string `bson:"namespace"` // TODO(fwereade) add index
+	Type      string `bson:"type"`
+	Namespace string `bson:"namespace"`
 	Name      string `bson:"name"`
+
+	// EnvUUID exists because state.multiEnvRunner can't handle structs
+	// without `bson:"env-uuid"` fields. It's not necessary for the logic
+	// in this package, though.
+	EnvUUID string `bson:"env-uuid"`
 
 	// Holder, Expiry, and Writer map directly to entry.
 	Holder string `bson:"holder"`
@@ -95,7 +100,9 @@ func (doc leaseDoc) validate() error {
 	if doc.Type != typeLease {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	if doc.Id != leaseDocId(doc.Namespace, doc.Name) {
+	// state.multiEnvRunner prepends environ ids in our documents, and
+	// state.envStateCollection does not strip them out.
+	if !strings.HasSuffix(doc.Id, leaseDocId(doc.Namespace, doc.Name)) {
 		return errors.Errorf("inconsistent _id")
 	}
 	if err := validateString(doc.Holder); err != nil {
@@ -156,6 +163,11 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
+	// EnvUUID exists because state.multiEnvRunner can't handle structs
+	// without `bson:"env-uuid"` fields. It's not necessary for the logic
+	// in this package, though.
+	EnvUUID string `bson:"env-uuid"`
+
 	// Writers holds a the latest acknowledged time for every known client.
 	Writers map[string]int64 `bson:"writers"`
 }
@@ -165,7 +177,9 @@ func (doc clockDoc) validate() error {
 	if doc.Type != typeClock {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	if doc.Id != clockDocId(doc.Namespace) {
+	// state.multiEnvRunner prepends environ ids in our documents, and
+	// state.envStateCollection does not strip them out.
+	if !strings.HasSuffix(doc.Id, clockDocId(doc.Namespace)) {
 		return errors.Errorf("inconsistent _id")
 	}
 	for writer, written := range doc.Writers {
@@ -199,15 +213,15 @@ func (doc clockDoc) skews(readAfter, readBefore time.Time) (map[string]Skew, err
 }
 
 // newClockDoc returns an empty clockDoc for the supplied namespace.
-func newClockDoc(namespace string) (clockDoc, error) {
-	doc := clockDoc{
+func newClockDoc(namespace string) (*clockDoc, error) {
+	doc := &clockDoc{
 		Id:        clockDocId(namespace),
 		Type:      typeClock,
 		Namespace: namespace,
 		Writers:   make(map[string]int64),
 	}
 	if err := doc.validate(); err != nil {
-		return clockDoc{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	return doc, nil
 }
