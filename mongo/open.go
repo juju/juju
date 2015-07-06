@@ -39,9 +39,9 @@ type DialOpts struct {
 	Timeout time.Duration
 
 	// SocketTimeout is the amount of time to wait for a
-	// non-responding socket to the database before it is
-	// forcefully closed. If this is zero, Timeout will be
-	// used.
+	// non-responding socket to the database before it is forcefully
+	// closed. If this is zero, the value of the SocketTimeout const
+	// will be used.
 	SocketTimeout time.Duration
 
 	// Direct informs whether to establish connections only with the
@@ -145,9 +145,11 @@ func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	if opts.SocketTimeout != 0 {
-		session.SetSocketTimeout(opts.SocketTimeout)
+	if opts.SocketTimeout == 0 {
+		opts.SocketTimeout = SocketTimeout
 	}
+	session.SetSocketTimeout(opts.SocketTimeout)
+
 	if opts.PostDial != nil {
 		if err := opts.PostDial(session); err != nil {
 			session.Close()
