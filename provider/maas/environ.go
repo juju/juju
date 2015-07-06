@@ -1382,9 +1382,9 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	return device, nil
 }
 
-// fetchDevice fetches an existing device Id associated with a MAC address, or
+// fetchFullDevice fetches an existing device Id associated with a MAC address, or
 // returns an error if there is no device.
-func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+func (environ *maasEnviron) fetchFullDevice(macAddress string) (map[string]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
 	params := url.Values{}
@@ -1407,8 +1407,16 @@ func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	return resultMap, nil
+}
 
-	device, err := resultMap["system_id"].GetString()
+func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+	deviceMap, err := environ.fetchFullDevice(macAddress)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	deviceId, err := deviceMap["system_id"].GetString()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1513,12 +1521,28 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
+
+	supportsDevices, err := environ.supportsDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if supportsDevices {
+		device, err := environ.fetchFullDevice(macAddres)
+		if errors.IsNotFound(err) {
+			fmt.Printf("%v", device)
+
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		// No device for this IP address, release the address normally.
+	}
+
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released
 	// or is unknown by maas. However this, like any other error, would be
