@@ -33,16 +33,7 @@ func (s *procsPersistenceSuite) SetUpTest(c *gc.C) {
 	s.state = &fakeStatePersistence{Stub: s.stub}
 }
 
-type processesPersistence interface {
-	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
-	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.Status) (bool, error)
-	List(ids ...string) ([]process.Info, []string, error)
-	ListAll() ([]process.Info, error)
-	Remove(id string) (bool, error)
-}
-
-func (s *procsPersistenceSuite) newPersistence() processesPersistence {
+func (s *procsPersistenceSuite) newPersistence() *persistence.Persistence {
 	return persistence.NewPersistence(s.state, &s.charm, &s.unit)
 }
 
