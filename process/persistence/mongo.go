@@ -257,11 +257,13 @@ func (d processInfoDoc) info() process.Info {
 type definitionDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
-	DocKind string `bson:"dockind"`
+
+	CharmID  string `bson:"charmid"`
+	ProcName string `bson:"procname"`
+	DocKind  string `bson:"dockind"`
 
 	UnitID string `bson:"unitid"`
 
-	Name        string            `bson:"name"`
 	Description string            `bson:"description"`
 	Type        string            `bson:"type"`
 	TypeOptions map[string]string `bson:"typeoptions"`
@@ -274,7 +276,7 @@ type definitionDoc struct {
 
 func (d definitionDoc) definition() charm.Process {
 	definition := charm.Process{
-		Name:        d.Name,
+		Name:        d.ProcName,
 		Description: d.Description,
 		Type:        d.Type,
 		Command:     d.Command,
@@ -326,11 +328,14 @@ func (pp Persistence) newdefinitionDoc(definition charm.Process) *definitionDoc 
 	}
 
 	return &definitionDoc{
-		DocID:   id,
-		DocKind: "definition",
-		UnitID:  pp.unit.Id(),
+		DocID: id,
 
-		Name:        definition.Name,
+		CharmID:  pp.charmID(),
+		ProcName: definition.Name,
+		DocKind:  "definition",
+
+		UnitID: pp.unit.Id(),
+
 		Description: definition.Description,
 		Type:        definition.Type,
 		TypeOptions: definition.TypeOptions,
@@ -397,9 +402,12 @@ func (pp Persistence) definitions(ids []string) (map[string]definitionDoc, error
 type launchDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
-	DocKind string `bson:"dockind"`
 
-	PluginID  string `bson:"pluginid"`
+	UnitID   string `bson:"unitid"`
+	ProcName string `bson:"procname"`
+	PluginID string `bson:"pluginid"`
+	DocKind  string `bson:"dockind"`
+
 	RawStatus string `bson:"rawstatus"`
 }
 
@@ -415,10 +423,13 @@ func (d launchDoc) details() process.Details {
 func (pp Persistence) newLaunchDoc(info process.Info) *launchDoc {
 	id := pp.launchID(info.ID())
 	return &launchDoc{
-		DocID:   id,
-		DocKind: "launch",
+		DocID: id,
 
-		PluginID:  info.Details.ID,
+		UnitID:   pp.unit.Id(),
+		ProcName: info.Name,
+		PluginID: info.Details.ID,
+		DocKind:  "launch",
+
 		RawStatus: info.Details.Status.Label,
 	}
 }
@@ -489,7 +500,11 @@ var IsAliveDoc = bson.D{{"life", Alive}}
 type processDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
-	DocKind string `bson:"dockind"`
+
+	UnitID   string `bson:"unitid"`
+	ProcName string `bson:"procname"`
+	PluginID string `bson:"pluginid"`
+	DocKind  string `bson:"dockind"`
 
 	Life         Life   `bson:"life"`
 	PluginStatus string `bson:"pluginstatus"`
@@ -509,8 +524,12 @@ func (pp Persistence) newprocessDoc(info process.Info) *processDoc {
 	id := pp.processID(info.ID())
 
 	return &processDoc{
-		DocID:   id,
-		DocKind: "process",
+		DocID: id,
+
+		UnitID:   pp.unit.Id(),
+		ProcName: info.Name,
+		PluginID: info.Details.ID,
+		DocKind:  "process",
 
 		Life:         Alive,
 		PluginStatus: info.Details.Status.Label,

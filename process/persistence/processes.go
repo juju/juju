@@ -58,6 +58,10 @@ func NewPersistence(st PersistenceBase, charm *names.CharmTag, unit *names.UnitT
 	return pp
 }
 
+func (pp Persistence) charmID() string {
+	return pp.charm.Id()
+}
+
 // EnsureDefinitions checks persistence to see if records for the
 // definitions are already there. If not then they are added. If so then
 // they are checked to be sure they match those provided. The lists of

@@ -40,11 +40,12 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmAndUnit(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procA",
-				DocKind: "definition",
-				UnitID:  "a-unit/0",
-				Name:    "procA",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procA",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procA",
+				DocKind:  "definition",
+				UnitID:   "a-unit/0",
+				Type:     "docker",
 			},
 		},
 	}})
@@ -67,10 +68,11 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsCharmOnly(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procA",
-				DocKind: "definition",
-				Name:    "procA",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procA",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procA",
+				DocKind:  "definition",
+				Type:     "docker",
 			},
 		},
 	}})
@@ -93,20 +95,22 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMultiple(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procA",
-				DocKind: "definition",
-				Name:    "procA",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procA",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procA",
+				DocKind:  "definition",
+				Type:     "docker",
 			},
 		}, {
 			C:      "workloadprocesses",
 			Id:     "c#local:series/dummy-1#procB",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procB",
-				DocKind: "definition",
-				Name:    "procB",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procB",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procB",
+				DocKind:  "definition",
+				Type:     "docker",
 			},
 		},
 	}})
@@ -140,10 +144,11 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsFound(c *gc.C) {
 	definitions := s.NewDefinitions("docker", "procA")
 	s.SetUnit("")
 	expected := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		Type:     "docker",
 	}
 	s.State.SetDocs(expected)
 
@@ -171,10 +176,11 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatched(c *gc.C) {
 	definitions := s.NewDefinitions("kvm", "procA")
 	s.SetUnit("")
 	doc := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		Type:     "docker",
 	}
 	s.State.SetDocs(doc)
 
@@ -195,10 +201,11 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatched(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procA",
-				DocKind: "definition",
-				Name:    "procA",
-				Type:    "kvm",
+				DocID:    "c#local:series/dummy-1#procA",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procA",
+				DocKind:  "definition",
+				Type:     "kvm",
 			},
 		},
 	}})
@@ -210,18 +217,20 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 	definitions = append(definitions, s.NewDefinitions("docker", "procB", "procC")...)
 	s.SetUnit("a-unit/0")
 	doc := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		UnitID:  "a-unit/0",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		UnitID:   "a-unit/0",
+		Type:     "docker",
 	}
 	expected := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procB",
-		DocKind: "definition",
-		Name:    "procB",
-		UnitID:  "a-unit/0",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procB",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procB",
+		DocKind:  "definition",
+		UnitID:   "a-unit/0",
+		Type:     "docker",
 	}
 	s.State.SetDocs(doc, expected)
 
@@ -244,11 +253,12 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procA",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procA",
-				DocKind: "definition",
-				Name:    "procA",
-				UnitID:  "a-unit/0",
-				Type:    "kvm",
+				DocID:    "c#local:series/dummy-1#procA",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procA",
+				DocKind:  "definition",
+				UnitID:   "a-unit/0",
+				Type:     "kvm",
 			},
 		},
 		{
@@ -256,11 +266,12 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procB",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procB",
-				DocKind: "definition",
-				Name:    "procB",
-				UnitID:  "a-unit/0",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procB",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procB",
+				DocKind:  "definition",
+				UnitID:   "a-unit/0",
+				Type:     "docker",
 			},
 		},
 		{
@@ -268,11 +279,12 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procC",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procC",
-				DocKind: "definition",
-				Name:    "procC",
-				UnitID:  "a-unit/0",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procC",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procC",
+				DocKind:  "definition",
+				UnitID:   "a-unit/0",
+				Type:     "docker",
 			},
 		},
 	}, {
@@ -282,11 +294,12 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 			Id:     "c#local:series/dummy-1#procC",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:   "c#local:series/dummy-1#procC",
-				DocKind: "definition",
-				Name:    "procC",
-				UnitID:  "a-unit/0",
-				Type:    "docker",
+				DocID:    "c#local:series/dummy-1#procC",
+				CharmID:  "local:series/dummy-1",
+				ProcName: "procC",
+				DocKind:  "definition",
+				UnitID:   "a-unit/0",
+				Type:     "docker",
 			},
 		},
 	}})
@@ -308,8 +321,10 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.LaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
-				DocKind:   "launch",
+				UnitID:    "a-unit/0",
+				ProcName:  "procA",
 				PluginID:  "procA-xyz",
+				DocKind:   "launch",
 				RawStatus: "running",
 			},
 		},
@@ -319,6 +334,9 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				UnitID:       "a-unit/0",
+				ProcName:     "procA",
+				PluginID:     "procA-xyz",
 				DocKind:      "process",
 				Life:         0,
 				PluginStatus: "running",
@@ -331,8 +349,9 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 		//	Assert: txn.DocMissing,
 		//	Insert: &persistence.DefinitionDoc{
 		//		DocID: "c#local:series/dummy-1#procA",
+		//		CharmID:  "local:series/dummy-1",
+		//		ProcName: "procA",
 		//      DocKind: "definition",
-		//		Name:  "procA",
 		//		Type:  "docker",
 		//	},
 		//},
@@ -341,10 +360,11 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 	expected := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		Type:     "docker",
 	}
 	s.State.SetDocs(expected)
 	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
@@ -362,8 +382,10 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.LaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
-				DocKind:   "launch",
+				UnitID:    "a-unit/0",
+				ProcName:  "procA",
 				PluginID:  "procA-xyz",
+				DocKind:   "launch",
 				RawStatus: "running",
 			},
 		},
@@ -373,6 +395,9 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				UnitID:       "a-unit/0",
+				ProcName:     "procA",
+				PluginID:     "procA-xyz",
 				DocKind:      "process",
 				Life:         0,
 				PluginStatus: "running",
@@ -383,10 +408,11 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 	expected := &persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		Type:     "docker",
 	}
 	s.State.SetDocs(expected)
 	proc := s.NewProcesses("kvm", "procA/procA-xyz")[0]
@@ -405,8 +431,10 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.LaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
-				DocKind:   "launch",
+				UnitID:    "a-unit/0",
+				ProcName:  "procA",
 				PluginID:  "procA-xyz",
+				DocKind:   "launch",
 				RawStatus: "running",
 			},
 		},
@@ -416,6 +444,9 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				UnitID:       "a-unit/0",
+				ProcName:     "procA",
+				PluginID:     "procA-xyz",
 				DocKind:      "process",
 				Life:         0,
 				PluginStatus: "running",
@@ -442,8 +473,10 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.LaunchDoc{
 				DocID:     "u#a-unit/0#charm#procA/procA-xyz#launch",
-				DocKind:   "launch",
+				UnitID:    "a-unit/0",
+				ProcName:  "procA",
 				PluginID:  "procA-xyz",
+				DocKind:   "launch",
 				RawStatus: "running",
 			},
 		},
@@ -453,6 +486,9 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 			Assert: txn.DocMissing,
 			Insert: &persistence.ProcessDoc{
 				DocID:        "u#a-unit/0#charm#procA/procA-xyz",
+				UnitID:       "a-unit/0",
+				ProcName:     "procA",
+				PluginID:     "procA-xyz",
 				DocKind:      "process",
 				Life:         0,
 				PluginStatus: "running",
@@ -653,10 +689,11 @@ func (s *procsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestListAllIncludeCharmDefined(c *gc.C) {
 	s.State.SetDocs(&persistence.DefinitionDoc{
-		DocID:   "c#local:series/dummy-1#procA",
-		DocKind: "definition",
-		Name:    "procA",
-		Type:    "docker",
+		DocID:    "c#local:series/dummy-1#procA",
+		CharmID:  "local:series/dummy-1",
+		ProcName: "procA",
+		DocKind:  "definition",
+		Type:     "docker",
 	})
 	existing := s.NewProcesses("docker", "procB/abc", "procC/xyz")
 	s.SetDocs(existing...)

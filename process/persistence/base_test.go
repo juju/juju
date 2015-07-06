@@ -63,23 +63,29 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 	docs := ProcessInfoDocs{}
 
 	docs.Definition = &definitionDoc{
-		DocID:   "c#" + s.Charm.Id() + "#" + proc.Name,
-		DocKind: "definition",
-		UnitID:  s.Unit.Id(),
-		Name:    proc.Name,
-		Type:    proc.Type,
+		DocID:    "c#" + s.Charm.Id() + "#" + proc.Name,
+		CharmID:  s.Charm.Id(),
+		ProcName: proc.Name,
+		DocKind:  "definition",
+		UnitID:   s.Unit.Id(),
+		Type:     proc.Type,
 	}
 	docs.Docs = append(docs.Docs, docs.Definition)
 
 	if proc.Details.ID != "" {
 		docs.Launch = &launchDoc{
 			DocID:     "u#" + s.Unit.Id() + "#charm#" + proc.ID() + "#launch",
-			DocKind:   "launch",
+			UnitID:    s.Unit.Id(),
+			ProcName:  proc.Name,
 			PluginID:  proc.Details.ID,
+			DocKind:   "launch",
 			RawStatus: proc.Details.Status.Label,
 		}
 		docs.Proc = &processDoc{
 			DocID:        "u#" + s.Unit.Id() + "#charm#" + proc.ID(),
+			UnitID:       s.Unit.Id(),
+			ProcName:     proc.Name,
+			PluginID:     proc.Details.ID,
 			DocKind:      "process",
 			Life:         0,
 			PluginStatus: proc.Details.Status.Label,
