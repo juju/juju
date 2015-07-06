@@ -40,20 +40,20 @@ func charmGlobalKey(charmURL *charm.URL) string {
 
 // TOOD(ericsnow) Move the methods under their own type.
 
-func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]ProcessDefinitionDoc, error) {
-	var docs []ProcessDefinitionDoc
+func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]definitionDoc, error) {
+	var docs []definitionDoc
 	query := bson.D{{"$in", ids}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	indexed := make(map[interface{}]ProcessDefinitionDoc)
+	indexed := make(map[interface{}]definitionDoc)
 	for _, doc := range docs {
 		indexed[doc.DocID] = doc
 	}
 	return indexed, nil
 }
 
-func (pp Persistence) extractProc(id string, definitionDocs map[string]ProcessDefinitionDoc, launchDocs map[string]ProcessLaunchDoc, procDocs map[string]ProcessDoc) (*process.Info, int) {
+func (pp Persistence) extractProc(id string, definitionDocs map[string]definitionDoc, launchDocs map[string]launchDoc, procDocs map[string]processDoc) (*process.Info, int) {
 	missing := 0
 	name, _ := process.ParseID(id)
 	definitionDoc, ok := definitionDocs[name]
@@ -154,7 +154,7 @@ func (pp Persistence) launchID(id string) string {
 }
 
 func (pp Persistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
-	doc := pp.newProcessDefinitionDoc(definition)
+	doc := pp.newdefinitionDoc(definition)
 	return txn.Op{
 		C:      workloadProcessesC,
 		Id:     doc.DocID,
@@ -181,7 +181,7 @@ func (pp Persistence) newInsertLaunchOp(info process.Info) txn.Op {
 }
 
 func (pp Persistence) newInsertProcOp(info process.Info) txn.Op {
-	doc := pp.newProcessDoc(info)
+	doc := pp.newprocessDoc(info)
 	return txn.Op{
 		C:      workloadProcessesC,
 		Id:     doc.DocID,
@@ -236,9 +236,9 @@ func (pp Persistence) newRemoveProcOps(id string) []txn.Op {
 }
 
 type processInfoDoc struct {
-	definition ProcessDefinitionDoc
-	launch     ProcessLaunchDoc
-	proc       ProcessDoc
+	definition definitionDoc
+	launch     launchDoc
+	proc       processDoc
 }
 
 func (d processInfoDoc) info() process.Info {
@@ -253,8 +253,8 @@ func (d processInfoDoc) info() process.Info {
 	return info
 }
 
-// ProcessDefinitionDoc is the document for process definitions.
-type ProcessDefinitionDoc struct {
+// definitionDoc is the document for process definitions.
+type definitionDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 	DocKind string `bson:"dockind"`
@@ -272,7 +272,7 @@ type ProcessDefinitionDoc struct {
 	EnvVars     map[string]string `bson:"envvars"`
 }
 
-func (d ProcessDefinitionDoc) definition() charm.Process {
+func (d definitionDoc) definition() charm.Process {
 	definition := charm.Process{
 		Name:        d.Name,
 		Description: d.Description,
@@ -310,7 +310,7 @@ func (d ProcessDefinitionDoc) definition() charm.Process {
 	return definition
 }
 
-func (pp Persistence) newProcessDefinitionDoc(definition charm.Process) *ProcessDefinitionDoc {
+func (pp Persistence) newdefinitionDoc(definition charm.Process) *definitionDoc {
 	id := pp.definitionID(definition.Name)
 
 	var ports []string
@@ -325,10 +325,10 @@ func (pp Persistence) newProcessDefinitionDoc(definition charm.Process) *Process
 		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
 	}
 
-	return &ProcessDefinitionDoc{
+	return &definitionDoc{
 		DocID:   id,
-		UnitID:  pp.unit.Id(),
 		DocKind: "definition",
+		UnitID:  pp.unit.Id(),
 
 		Name:        definition.Name,
 		Description: definition.Description,
@@ -342,24 +342,24 @@ func (pp Persistence) newProcessDefinitionDoc(definition charm.Process) *Process
 	}
 }
 
-func (pp Persistence) definition(id string) (*ProcessDefinitionDoc, error) {
+func (pp Persistence) definition(id string) (*definitionDoc, error) {
 	id = pp.definitionID(id)
 
-	var doc ProcessDefinitionDoc
+	var doc definitionDoc
 	if err := pp.one(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
 }
 
-func (pp Persistence) allDefinitions() (map[string]ProcessDefinitionDoc, error) {
-	var docs []ProcessDefinitionDoc
+func (pp Persistence) allDefinitions() (map[string]definitionDoc, error) {
+	var docs []definitionDoc
 	query := bson.D{{"dockind", "definition"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessDefinitionDoc)
+	results := make(map[string]definitionDoc)
 	for _, doc := range docs {
 		parts := strings.Split(doc.DocID, "#")
 		id := parts[len(parts)-1]
@@ -368,7 +368,7 @@ func (pp Persistence) allDefinitions() (map[string]ProcessDefinitionDoc, error) 
 	return results, nil
 }
 
-func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc, error) {
+func (pp Persistence) definitions(ids []string) (map[string]definitionDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
@@ -378,13 +378,13 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 		idMap[fullID] = name
 	}
 
-	var docs []ProcessDefinitionDoc
+	var docs []definitionDoc
 	query := bson.D{{"$in", fullIDs}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessDefinitionDoc)
+	results := make(map[string]definitionDoc)
 	for _, doc := range docs {
 		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
@@ -393,8 +393,8 @@ func (pp Persistence) definitions(ids []string) (map[string]ProcessDefinitionDoc
 	return results, nil
 }
 
-// ProcessLaunchDoc is the document for process launch details.
-type ProcessLaunchDoc struct {
+// launchDoc is the document for process launch details.
+type launchDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 	DocKind string `bson:"dockind"`
@@ -403,7 +403,7 @@ type ProcessLaunchDoc struct {
 	RawStatus string `bson:"rawstatus"`
 }
 
-func (d ProcessLaunchDoc) details() process.Details {
+func (d launchDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
 		Status: process.Status{
@@ -412,9 +412,9 @@ func (d ProcessLaunchDoc) details() process.Details {
 	}
 }
 
-func (pp Persistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
+func (pp Persistence) newLaunchDoc(info process.Info) *launchDoc {
 	id := pp.launchID(info.ID())
-	return &ProcessLaunchDoc{
+	return &launchDoc{
 		DocID:   id,
 		DocKind: "launch",
 
@@ -423,24 +423,24 @@ func (pp Persistence) newLaunchDoc(info process.Info) *ProcessLaunchDoc {
 	}
 }
 
-func (pp Persistence) launch(id string) (*ProcessLaunchDoc, error) {
+func (pp Persistence) launch(id string) (*launchDoc, error) {
 	id = pp.launchID(id)
 
-	var doc ProcessLaunchDoc
+	var doc launchDoc
 	if err := pp.one(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
 }
 
-func (pp Persistence) allLaunches() (map[string]ProcessLaunchDoc, error) {
-	var docs []ProcessLaunchDoc
+func (pp Persistence) allLaunches() (map[string]launchDoc, error) {
+	var docs []launchDoc
 	query := bson.D{{"dockind", "launch"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessLaunchDoc)
+	results := make(map[string]launchDoc)
 	for _, doc := range docs {
 		parts := strings.Split(doc.DocID, "#")
 		id := parts[len(parts)-2]
@@ -449,7 +449,7 @@ func (pp Persistence) allLaunches() (map[string]ProcessLaunchDoc, error) {
 	return results, nil
 }
 
-func (pp Persistence) launches(ids []string) (map[string]ProcessLaunchDoc, error) {
+func (pp Persistence) launches(ids []string) (map[string]launchDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
@@ -458,13 +458,13 @@ func (pp Persistence) launches(ids []string) (map[string]ProcessLaunchDoc, error
 		idMap[fullID] = id
 	}
 
-	var docs []ProcessLaunchDoc
+	var docs []launchDoc
 	query := bson.D{{"$in", fullIDs}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessLaunchDoc)
+	results := make(map[string]launchDoc)
 	for _, doc := range docs {
 		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
@@ -485,8 +485,8 @@ const (
 
 var IsAliveDoc = bson.D{{"life", Alive}}
 
-// ProcessDoc is the top-level document for processes.
-type ProcessDoc struct {
+// processDoc is the top-level document for processes.
+type processDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 	DocKind string `bson:"dockind"`
@@ -495,7 +495,7 @@ type ProcessDoc struct {
 	PluginStatus string `bson:"pluginstatus"`
 }
 
-func (d ProcessDoc) info() process.Info {
+func (d processDoc) info() process.Info {
 	return process.Info{
 		Details: process.Details{
 			Status: process.Status{
@@ -505,10 +505,10 @@ func (d ProcessDoc) info() process.Info {
 	}
 }
 
-func (pp Persistence) newProcessDoc(info process.Info) *ProcessDoc {
+func (pp Persistence) newprocessDoc(info process.Info) *processDoc {
 	id := pp.processID(info.ID())
 
-	return &ProcessDoc{
+	return &processDoc{
 		DocID:   id,
 		DocKind: "process",
 
@@ -517,24 +517,24 @@ func (pp Persistence) newProcessDoc(info process.Info) *ProcessDoc {
 	}
 }
 
-func (pp Persistence) proc(id string) (*ProcessDoc, error) {
+func (pp Persistence) proc(id string) (*processDoc, error) {
 	id = pp.processID(id)
 
-	var doc ProcessDoc
+	var doc processDoc
 	if err := pp.one(id, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
 }
 
-func (pp Persistence) allProcs() (map[string]ProcessDoc, error) {
-	var docs []ProcessDoc
+func (pp Persistence) allProcs() (map[string]processDoc, error) {
+	var docs []processDoc
 	query := bson.D{{"dockind", "process"}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessDoc)
+	results := make(map[string]processDoc)
 	for _, doc := range docs {
 		parts := strings.Split(doc.DocID, "#")
 		id := parts[len(parts)-1]
@@ -543,7 +543,7 @@ func (pp Persistence) allProcs() (map[string]ProcessDoc, error) {
 	return results, nil
 }
 
-func (pp Persistence) procs(ids []string) (map[string]ProcessDoc, error) {
+func (pp Persistence) procs(ids []string) (map[string]processDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
@@ -552,13 +552,13 @@ func (pp Persistence) procs(ids []string) (map[string]ProcessDoc, error) {
 		idMap[fullID] = id
 	}
 
-	var docs []ProcessDoc
+	var docs []processDoc
 	query := bson.D{{"$in", fullIDs}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]ProcessDoc)
+	results := make(map[string]processDoc)
 	for _, doc := range docs {
 		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
