@@ -1391,21 +1391,21 @@ func (environ *maasEnviron) fetchFullDevice(macAddress string) (map[string]gomaa
 	params.Add("mac_address", macAddress)
 	result, err := devices.CallGet("list", params)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	resultArray, err := result.GetArray()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if len(resultArray) == 0 {
-		return "", errors.NotFoundf("no device for MAC %q", macAddress)
+		return nil, errors.NotFoundf("no device for MAC %q", macAddress)
 	}
 	if len(resultArray) != 1 {
-		return "", errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
+		return nil, errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
 	}
 	resultMap, err := resultArray[0].GetMap()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	return resultMap, nil
 }
@@ -1420,7 +1420,7 @@ func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return device, nil
+	return deviceId, nil
 }
 
 // createOrFetchDevice returns a device Id associated with a MAC address. If
@@ -1533,7 +1533,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		return errors.Trace(err)
 	}
 	if supportsDevices {
-		device, err := environ.fetchFullDevice(macAddres)
+		device, err := environ.fetchFullDevice(macAddress)
 		if errors.IsNotFound(err) {
 			fmt.Printf("%v", device)
 
