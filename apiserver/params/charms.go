@@ -17,3 +17,8 @@ type CharmsList struct {
 type CharmsListResult struct {
 	CharmURLs []string
 }
+
+// IsMeteredResult stores result from a charms.IsMetered call
+type IsMeteredResult struct {
+	Metered bool
+}

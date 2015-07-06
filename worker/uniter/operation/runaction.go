@@ -19,6 +19,8 @@ type runAction struct {
 
 	name   string
 	runner runner.Runner
+
+	RequiresMachineLock
 }
 
 // String is part of the Operation interface.
@@ -61,17 +63,12 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 // Execute is part of the Operation interface.
 func (ra *runAction) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
-	unlock, err := ra.callbacks.AcquireExecutionLock(message)
-	if err != nil {
-		return nil, err
-	}
-	defer unlock()
 
 	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
 		return nil, err
 	}
 
-	err = ra.runner.RunAction(ra.name)
+	err := ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.

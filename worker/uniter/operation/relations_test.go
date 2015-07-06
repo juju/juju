@@ -69,3 +69,10 @@ func (s *UpdateRelationsSuite) TestCommit(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(state, gc.IsNil)
 }
+
+func (s *UpdateRelationsSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := factory.NewUpdateRelations(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+}

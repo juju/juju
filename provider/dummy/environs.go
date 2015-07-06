@@ -37,6 +37,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -445,12 +446,34 @@ func SetStorageDelay(d time.Duration) {
 	}
 }
 
-var configFields = schema.Fields{
-	"state-server": schema.Bool(),
-	"broken":       schema.String(),
-	"secret":       schema.String(),
-	"state-id":     schema.String(),
+var configSchema = environschema.Fields{
+	"state-server": {
+		Description: "Whether the environment should start a state server",
+		Type:        environschema.Tbool,
+	},
+	"broken": {
+		Description: "Whitespace-separated Environ methods that should return an error when called",
+		Type:        environschema.Tstring,
+	},
+	"secret": {
+		Description: "A secret",
+		Type:        environschema.Tstring,
+	},
+	"state-id": {
+		Description: "Id of state server",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+	},
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
+
 var configDefaults = schema.Defaults{
 	"broken":   "",
 	"secret":   "pork",
@@ -492,6 +515,14 @@ func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) 
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+func (p *environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
@@ -553,7 +584,7 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return p.prepare(cfg)
+	return cfg, nil
 }
 
 func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {

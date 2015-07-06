@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/schema"
 	"gopkg.in/amz.v3/aws"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -59,12 +60,39 @@ amazon:
 
 `
 
-var configFields = schema.Fields{
-	"access-key":     schema.String(),
-	"secret-key":     schema.String(),
-	"region":         schema.String(),
-	"control-bucket": schema.String(),
+var configSchema = environschema.Fields{
+	"access-key": {
+		Description: "The EC2 access key",
+		EnvVar:      "AWS_ACCESS_KEY_ID",
+		Type:        environschema.Tstring,
+		Mandatory:   true,
+		Group:       environschema.AccountGroup,
+	},
+	"secret-key": {
+		Description: "The EC2 secret key",
+		EnvVar:      "AWS_SECRET_ACCESS_KEY",
+		Type:        environschema.Tstring,
+		Mandatory:   true,
+		Secret:      true,
+		Group:       environschema.AccountGroup,
+	},
+	"region": {
+		Description: "The EC2 region to use",
+		Type:        environschema.Tstring,
+	},
+	"control-bucket": {
+		Description: "The S3 bucket used to store environment metadata",
+		Type:        environschema.Tstring,
+	},
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
 
 var configDefaults = schema.Defaults{
 	"access-key":     "",
@@ -100,6 +128,15 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {

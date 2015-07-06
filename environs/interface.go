@@ -28,6 +28,8 @@ type EnvironProvider interface {
 	// additional configuration attributes are added to the config passed in
 	// and returned.  This allows providers to add additional required config
 	// for new environments that may be created in an existing juju server.
+	// Note that this is not called in a client context, so environment variables,
+	// local files, etc are not available.
 	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
 
 	// PrepareForBootstrap prepares an environment for use. Any additional

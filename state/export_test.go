@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
@@ -295,7 +296,7 @@ func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
 
-func GetCollection(st *State, name string) (stateCollection, func()) {
+func GetCollection(st *State, name string) (mongo.Collection, func()) {
 	return st.getCollection(name)
 }
 
@@ -326,6 +327,26 @@ func RemoveEnvironment(st *State, uuid string) error {
 		Remove: true,
 	}}
 	return st.runTransaction(ops)
+}
+
+func SetEnvLifeDying(st *State, envUUID string) error {
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     envUUID,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Assert: isEnvAliveDoc,
+	}}
+	return st.runTransaction(ops)
+}
+
+func EnvironCount(c *gc.C, st *State) int {
+	var doc envCountDoc
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
+	err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.Count
 }
 
 type MockGlobalEntity struct {
