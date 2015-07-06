@@ -325,12 +325,17 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	unit, closer := u.st.getCollection(statusesHistoryC)
+	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	historyW := history.Writeable()
+
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
 		return err
 	}
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
 		return err
 	}
 	return nil
@@ -1174,10 +1179,15 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return errors.Trace(err)
 	}
-	storageOps, err := u.st.machineStorageOps(&m.doc, storageParams)
+	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
+		&m.doc, storageParams,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1576,7 +1586,7 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1609,6 +1619,7 @@ func machineStorageParamsForStorageInstance(
 	st *State,
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
+	series string,
 	allCons map[string]StorageConstraints,
 	storage StorageInstance,
 ) (*machineStorageParams, error) {
@@ -1631,6 +1642,7 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -1648,8 +1660,15 @@ func machineStorageParamsForStorageInstance(
 			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 		}
 	case StorageKindFilesystem:
+		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		if err != nil {
+			return nil, errors.Annotatef(
+				err, "getting filesystem mount point for storage %s",
+				storage.StorageName(),
+			)
+		}
 		filesystemAttachmentParams := FilesystemAttachmentParams{
-			charmStorage.Location,
+			location,
 			charmStorage.ReadOnly,
 		}
 		if unit == storage.Owner() {
@@ -1658,6 +1677,7 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
+				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}

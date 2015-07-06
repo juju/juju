@@ -35,14 +35,7 @@ func minimalConfigValues() map[string]interface{} {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	minimal := minimalConfigValues()
-	testConfig, err := config.New(config.NoDefaults, minimal)
-	c.Assert(err, jc.ErrorIsNil)
-	testConfig, err = local.Provider.PrepareForCreateEnvironment(testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	valid, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return valid
+	return localConfig(c, nil)
 }
 
 func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
@@ -52,11 +45,9 @@ func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
 	}
 	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, jc.ErrorIsNil)
-	testConfig, err = local.Provider.PrepareForCreateEnvironment(testConfig)
+	testEnv, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	valid, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return valid
+	return testEnv.Config()
 }
 
 func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {

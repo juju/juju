@@ -18,6 +18,8 @@ type charmsMockSuite struct {
 	charmsClient *charms.Client
 }
 
+//TODO (mattyw) There are just mock tests in here. We need real tests for each api call.
+
 var _ = gc.Suite(&charmsMockSuite{})
 
 func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
@@ -83,4 +85,32 @@ func (s *charmsMockSuite) TestList(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(listResult, gc.HasLen, 1)
 	c.Assert(listResult[0], gc.DeepEquals, curl)
+}
+
+func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
+	var called bool
+	curl := "local:quantal/dummy-1"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Charms")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "IsMetered")
+
+			args, ok := a.(params.CharmInfo)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.CharmURL, gc.DeepEquals, curl)
+			if wanted, k := result.(*charms.CharmInfo); k {
+				wanted.URL = curl
+			}
+			return nil
+		})
+	charmsClient := charms.NewClient(apiCaller)
+	_, err := charmsClient.IsMetered(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }

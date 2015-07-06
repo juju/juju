@@ -26,7 +26,7 @@ var _ = gc.Suite(&CleanerSuite{})
 type TestCommon struct {
 	apiCaller base.APICaller
 	apiArgs   apitesting.CheckArgs
-	numCalls  int
+	called    chan struct{}
 	api       *cleaner.API
 }
 
@@ -42,35 +42,30 @@ func Init(c *gc.C, method string, expectArgs, useResults interface{}, err error)
 		Results:       useResults,
 	}
 
-	t.apiCaller = apitesting.CheckingAPICaller(c, &t.apiArgs, &t.numCalls, err)
+	t.called = make(chan struct{}, 100)
+	t.apiCaller = apitesting.NotifyingCheckingAPICaller(c, &t.apiArgs, t.called, err)
 	t.api = cleaner.NewAPI(t.apiCaller)
 
 	c.Check(t.api, gc.NotNil)
-	c.Check(t.numCalls, gc.Equals, 0)
 	return
 }
 
-// AssertEventuallyEqual checks that numCalls reaches the value "calls" within a
-// LongWait, but returns as soon as possible.
-func AssertEventuallyEqual(c *gc.C, watched *int, calls int) {
-	ch := make(chan struct{})
+// AssertNumReceives checks that the watched channel receives "expected" messages
+// within a LongWait, but returns as soon as possible.
+func AssertNumReceives(c *gc.C, watched chan struct{}, expected uint32) {
+	var receives uint32
 
-	go func() {
-		for *watched < calls {
-			time.Sleep(coretesting.ShortWait)
+	for receives < expected {
+		select {
+		case <-watched:
+			receives++
+		case <-time.After(coretesting.LongWait):
+			c.Errorf("timeout while waiting for a call")
 		}
-		// Wait just in case this could get larger
-		time.Sleep(coretesting.ShortWait)
-		ch <- struct{}{}
-	}()
-
-	select {
-	case <-ch:
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("timeout while waiting for a call")
 	}
 
-	c.Assert(*watched, gc.Equals, calls)
+	time.Sleep(coretesting.ShortWait)
+	c.Assert(receives, gc.Equals, expected)
 }
 
 func (s *CleanerSuite) TestNewAPI(c *gc.C) {
@@ -81,7 +76,7 @@ func (s *CleanerSuite) TestWatchCleanups(c *gc.C) {
 	t := Init(c, "", nil, nil, nil)
 	t.apiArgs.Facade = "" // Multiple facades are called, so we can't check this.
 	m, err := t.api.WatchCleanups()
-	AssertEventuallyEqual(c, &t.numCalls, 2)
+	AssertNumReceives(c, t.called, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.NotNil)
 }
@@ -89,7 +84,7 @@ func (s *CleanerSuite) TestWatchCleanups(c *gc.C) {
 func (s *CleanerSuite) TestCleanup(c *gc.C) {
 	t := Init(c, "Cleanup", nil, nil, nil)
 	err := t.api.Cleanup()
-	AssertEventuallyEqual(c, &t.numCalls, 1)
+	AssertNumReceives(c, t.called, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -97,7 +92,7 @@ func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *gc.C) {
 	t := Init(c, "WatchCleanups", nil, nil, errors.New("client error!"))
 	m, err := t.api.WatchCleanups()
 	c.Assert(err, gc.ErrorMatches, "client error!")
-	AssertEventuallyEqual(c, &t.numCalls, 1)
+	AssertNumReceives(c, t.called, 1)
 	c.Assert(m, gc.IsNil)
 }
 
@@ -110,7 +105,7 @@ func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *gc.C) {
 	}
 	t := Init(c, "WatchCleanups", nil, p, nil)
 	m, err := t.api.WatchCleanups()
-	AssertEventuallyEqual(c, &t.numCalls, 1)
+	AssertNumReceives(c, t.called, 1)
 	c.Assert(err, gc.ErrorMatches, e.Message)
 	c.Assert(m, gc.IsNil)
 }

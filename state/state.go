@@ -562,17 +562,6 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
 }
 
-var ErrDead = fmt.Errorf("not found or dead")
-var errNotAlive = fmt.Errorf("not found or not alive")
-
-func onAbort(txnErr, err error) error {
-	if txnErr == txn.ErrAborted ||
-		errors.Cause(txnErr) == txn.ErrAborted {
-		return errors.Trace(err)
-	}
-	return errors.Trace(txnErr)
-}
-
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
@@ -723,6 +712,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.KeyRelation(id)
 	case names.NetworkTag:
 		return st.Network(id)
+	case names.IPAddressTag:
+		return st.IPAddressByTag(tag)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
 	case names.CharmTag:
@@ -788,35 +779,28 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
-	// The charm may already exist in state as a placeholder, so we
-	// check for that situation and update the existing charm record
-	// if necessary, otherwise add a new record.
-	var existing charmDoc
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
-	if err == mgo.ErrNotFound {
-		cdoc := &charmDoc{
-			DocID:        st.docID(curl.String()),
-			URL:          curl,
-			EnvUUID:      st.EnvironTag().Id(),
-			Meta:         ch.Meta(),
-			Config:       ch.Config(),
-			Metrics:      ch.Metrics(),
-			Actions:      ch.Actions(),
-			BundleSha256: bundleSha256,
-			StoragePath:  storagePath,
+	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var placeholderDoc struct {
+			Placeholder bool `bson:"placeholder"`
 		}
-		err = charms.Insert(cdoc)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot add charm %q", curl)
+		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
+			return insertCharmOps(st, ch, curl, storagePath, bundleSha256)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else if placeholderDoc.Placeholder {
+			return updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPlaceholder)
 		}
-		return newCharm(st, cdoc), nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.AlreadyExistsf("charm %q", curl)
 	}
-	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPlaceholder)
+	if err = st.run(buildTxn); err == nil {
+		return st.Charm(curl)
+	}
+	return nil, errors.Trace(err)
 }
 
 // AllCharms returns all charms in state.
@@ -927,20 +911,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			chosenRevision = maxRevision + 1
 		}
 		chosenUrl = curl.WithRevision(chosenRevision)
-
-		uploadedCharm := &charmDoc{
-			DocID:         st.docID(chosenUrl.String()),
-			EnvUUID:       st.EnvironTag().Id(),
-			URL:           chosenUrl,
-			PendingUpload: true,
-		}
-		ops := []txn.Op{{
-			C:      charmsC,
-			Id:     uploadedCharm.DocID,
-			Assert: txn.DocMissing,
-			Insert: uploadedCharm,
-		}}
-		return ops, nil
+		return insertPendingCharmOps(st, chosenUrl)
 	}
 	if err = st.run(buildTxn); err == nil {
 		return chosenUrl, nil
@@ -951,7 +922,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 // PrepareStoreCharmUpload must be called before a charm store charm
 // is uploaded to the provider storage in order to create a charm
 // document in state. If a charm with the same URL is already in
-// state, it will be returned as a *state.Charm (is can be still
+// state, it will be returned as a *state.Charm (it can be still
 // pending or already uploaded). Otherwise, a new charm document is
 // added in state with just the given charm URL and
 // PendingUpload=true, which is then returned as a *state.Charm.
@@ -976,55 +947,28 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
 		err := charms.FindId(curl.String()).One(&uploadedCharm)
-		if err != nil && err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		} else if err == nil && !uploadedCharm.Placeholder {
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		} else if err == mgo.ErrNotFound {
-			// Prepare the pending charm document for insertion.
+		switch {
+		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
 				EnvUUID:       st.EnvironTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
-				Placeholder:   false,
 			}
-		}
-
-		var ops []txn.Op
-		if uploadedCharm.Placeholder {
-			// Convert the placeholder to a pending charm, while
-			// asserting the fields updated after an upload have not
-			// changed yet.
-			ops = []txn.Op{{
-				C:  charmsC,
-				Id: uploadedCharm.DocID,
-				Assert: bson.D{
-					{"bundlesha256", ""},
-					{"pendingupload", false},
-					{"placeholder", true},
-				},
-				Update: bson.D{{"$set", bson.D{
-					{"pendingupload", true},
-					{"placeholder", false},
-				}}},
-			}}
+			return insertAnyCharmOps(&uploadedCharm)
+		case err != nil:
+			return nil, errors.Trace(err)
+		case uploadedCharm.Placeholder:
 			// Update the fields of the document we're returning.
 			uploadedCharm.PendingUpload = true
 			uploadedCharm.Placeholder = false
-		} else {
-			// No charm document with this curl yet, insert it.
-			ops = []txn.Op{{
-				C:      charmsC,
-				Id:     uploadedCharm.DocID,
-				Assert: txn.DocMissing,
-				Insert: uploadedCharm,
-			}}
+			return convertPlaceholderCharmOps(uploadedCharm.DocID)
+		default:
+			// The charm exists and it's either uploaded or still
+			// pending, but it's not a placeholder. In any case,
+			// there's nothing to do.
+			return nil, jujutxn.ErrNoOperations
 		}
-		return ops, nil
 	}
 	if err = st.run(buildTxn); err == nil {
 		return newCharm(st, &uploadedCharm), nil
@@ -1063,89 +1007,19 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
-		ops, err := st.deleteOldPlaceholderCharmsOps(curl)
+		deleteOps, err := deleteOldPlaceholderCharmsOps(st, charms, curl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Add the new charm doc.
-		placeholderCharm := &charmDoc{
-			DocID:       st.docID(curl.String()),
-			EnvUUID:     st.EnvironTag().Id(),
-			URL:         curl,
-			Placeholder: true,
+		insertOps, err := insertPlaceholderCharmOps(st, curl)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
-			Id:     placeholderCharm.DocID,
-			Assert: txn.DocMissing,
-			Insert: placeholderCharm,
-		})
+		ops := append(deleteOps, insertOps...)
 		return ops, nil
 	}
 	return errors.Trace(st.run(buildTxn))
 }
-
-// deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
-// records older than the specified charm URL.
-func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
-	// Get a regex with the charm URL and no revision.
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	var docs []charmDoc
-	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
-	err := charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var ops []txn.Op
-	for _, doc := range docs {
-		if doc.URL.Revision >= curl.Revision {
-			continue
-		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
-			Id:     doc.DocID,
-			Assert: stillPlaceholder,
-			Remove: true,
-		})
-	}
-	return ops, nil
-}
-
-// ErrCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
-// the given charm is already uploaded and marked as not pending in
-// state.
-type ErrCharmAlreadyUploaded struct {
-	curl *charm.URL
-}
-
-func (e *ErrCharmAlreadyUploaded) Error() string {
-	return fmt.Sprintf("charm %q already uploaded", e.curl)
-}
-
-// IsCharmAlreadyUploadedError returns if the given error is
-// ErrCharmAlreadyUploaded.
-func IsCharmAlreadyUploadedError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*ErrCharmAlreadyUploaded)
-	return ok
-}
-
-// ErrCharmRevisionAlreadyModified is returned when a pending or
-// placeholder charm is no longer pending or a placeholder, signaling
-// the charm is available in state with its full information.
-var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
@@ -1165,40 +1039,10 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
 	}
 
-	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPending)
-}
-
-// updateCharmDoc updates the charm with specified URL with the given
-// data, and resets the placeholder and pendingupdate flags.  If the
-// charm is no longer a placeholder or pending (depending on preReq),
-// it returns ErrCharmRevisionAlreadyModified.
-func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
-
-	// Make sure we escape any "$" and "." in config option names
-	// first. See http://pad.lv/1308146.
-	cfg := ch.Config()
-	escapedConfig := charm.NewConfig()
-	for optionName, option := range cfg.Options {
-		escapedName := escapeReplacer.Replace(optionName)
-		escapedConfig.Options[escapedName] = option
+	ops, err := updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPending)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	updateFields := bson.D{{"$set", bson.D{
-		{"meta", ch.Meta()},
-		{"config", escapedConfig},
-		{"actions", ch.Actions()},
-		{"metrics", ch.Metrics()},
-		{"storagepath", storagePath},
-		{"bundlesha256", bundleSha256},
-		{"pendingupload", false},
-		{"placeholder", false},
-	}}}
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: preReq,
-		Update: updateFields,
-	}}
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
@@ -1347,95 +1191,29 @@ func (st *State) AddService(
 // AddIPAddress creates and returns a new IP address. It can return an
 // error satisfying IsNotValid() or IsAlreadyExists() when the addr
 // does not contain a valid IP, or when addr is already added.
-func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
-
-	// This checks for a missing value as well as invalid values
-	ip := net.ParseIP(addr.Value)
-	if ip == nil {
-		return nil, errors.NotValidf("address")
-	}
-
-	addressID := st.docID(addr.Value)
-	ipDoc := ipaddressDoc{
-		DocID:    addressID,
-		EnvUUID:  st.EnvironUUID(),
-		Life:     Alive,
-		State:    AddressStateUnknown,
-		SubnetId: subnetid,
-		Value:    addr.Value,
-		Type:     string(addr.Type),
-		Scope:    string(addr.Scope),
-	}
-
-	ipaddress = &IPAddress{doc: ipDoc, st: st}
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     addressID,
-		Assert: txn.DocMissing,
-		Insert: ipDoc,
-	}}
-
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if _, err = st.IPAddress(addr.Value); err == nil {
-			return nil, errors.AlreadyExistsf("address")
-		}
-	case nil:
-		return ipaddress, nil
-	}
-	return nil, errors.Trace(err)
+func (st *State) AddIPAddress(addr network.Address, subnetID string) (*IPAddress, error) {
+	return addIPAddress(st, addr, subnetID)
 }
 
 // IPAddress returns an existing IP address from the state.
 func (st *State) IPAddress(value string) (*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
-	defer closer()
+	return ipAddress(st, value)
+}
 
-	doc := &ipaddressDoc{}
-	err := addresses.FindId(st.docID(value)).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("IP address %q", value)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
-	}
-	return &IPAddress{st, *doc}, nil
+// IPAddressByTag returns an existing IP address from the state
+// identified by its tag.
+func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
+	return ipAddressByTag(st, tag)
 }
 
 // AllocatedIPAddresses returns all the allocated addresses for a machine
 func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
-	return st.fetchIPAddresses(bson.D{{"machineid", machineId}})
+	return fetchIPAddresses(st, bson.D{{"machineid", machineId}})
 }
 
 // DeadIPAddresses returns all IP addresses with a Life of Dead
 func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return st.fetchIPAddresses(bson.D{{"life", Dead}})
-}
-
-// fetchIPAddresses is a helper function for finding IP addresses
-func (st *State) fetchIPAddresses(query bson.D) ([]*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
-	result := []*IPAddress{}
-	defer closer()
-	var doc struct {
-		Value string
-	}
-	iter := addresses.Find(query).Iter()
-	for iter.Next(&doc) {
-		addr, err := st.IPAddress(doc.Value)
-		if err != nil {
-			// shouldn't happen as we're only fetching
-			// addresses we know exist.
-			continue
-		}
-		result = append(result, addr)
-	}
-	if err := iter.Close(); err != nil {
-		return result, err
-	}
-	return result, nil
+	return fetchIPAddresses(st, isDeadDoc)
 }
 
 // AddSubnet creates and returns a new subnet
@@ -1625,7 +1403,11 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironUUID() + ":" + localID
+	prefix := st.EnvironUUID() + ":"
+	if strings.HasPrefix(localID, prefix) {
+		return localID
+	}
+	return prefix + localID
 }
 
 // localID returns the local id value by stripping
