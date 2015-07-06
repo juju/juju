@@ -62,7 +62,8 @@ type unitProcesses struct {
 }
 
 // UnitProcesses exposes interaction with workload processes in state
-// for a the given unit.
+// for a the given unit. It also ensures that all of the process
+// definitions in the charm's metadata are in state.
 func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	if newUnitProcesses == nil {
 		return nil, errors.Errorf("unit processes not supported")
@@ -74,30 +75,19 @@ func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	}
 	charmTag := charm.Tag().(names.CharmTag)
 
+	// TODO(ericsnow) Instead call st.defineProcesses when a charm
+	// is added or its URL changes?
+	if err := st.defineProcesses(charmTag, *charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	persist := st.newPersistence()
 	unitProcs, err := newUnitProcesses(persist, unit.UnitTag(), charmTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return &unitProcesses{
-		UnitProcesses: unitProcs,
-		charm:         charm,
-		st:            st,
-	}, nil
-}
-
-// List implements UnitProcesses. It also ensures that all of the
-// process definitions in the charm's metadata are added to state.
-func (up *unitProcesses) List(ids ...string) ([]process.Info, error) {
-	if len(ids) == 0 {
-		// TODO(ericsnow) Instead call st.defineProcesses when a charm is added?
-		if err := up.st.defineProcesses(up.charm.Tag().(names.CharmTag), *up.charm.Meta()); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	return up.UnitProcesses.List(ids...)
+	return unitProcs, nil
 }
 
 // TODO(ericsnow) DestroyProcess: Mark the proc as Dying.
