@@ -162,42 +162,51 @@ class _SSLSession(winrm.Session):
 
 
 _ps_copy_script = """\
-function CopyText {
-    param([String]$file, [IO.Stream]$outstream)
-    $enc = New-Object Text.UTF8Encoding($False)
-    $us = New-Object IO.StreamWriter($outstream, $enc)
-    $us.NewLine = "\n"
-    $uin = New-Object IO.StreamReader($file)
-    while (($line = $uin.ReadLine()) -ne $Null) {
-        $us.WriteLine($line)
+$ErrorActionPreference = "Stop"
+
+function OutputEncodedFile {
+    param([String]$filename, [IO.Stream]$instream)
+    $trans = New-Object Security.Cryptography.ToBase64Transform
+    $out = [Console]::OpenStandardOutput()
+    $bs = New-Object Security.Cryptography.CryptoStream($out, $trans,
+        [Security.Cryptography.CryptoStreamMode]::Write)
+    $zs = New-Object IO.Compression.DeflateStream($bs,
+        [IO.Compression.CompressionMode]::Compress)
+    [Console]::Out.Write($filename + "|")
+    try {
+        $instream.CopyTo($zs)
+    } finally {
+        $zs.close()
+        $bs.close()
+        [Console]::Out.Write("`n")
     }
-    $uin.Close()
-    $us.Close()
 }
 
-function CopyBinary {
-    param([String]$file, [IO.Stream]$outstream)
-    $in = New-Object IO.FileStream($file, [IO.FileMode]::Open,
-        [IO.FileAccess]::Read, [IO.FileShare]"ReadWrite,Delete")
-    $in.CopyTo($outstream)
-    $in.Close()
+function GatherFiles {
+    param([String[]]$patterns)
+    ForEach ($pattern in $patterns) {
+        $path = [Environment]::ExpandEnvironmentVariables($pattern)
+        ForEach ($file in Get-Item -path $path) {
+            try {
+                $in = New-Object IO.FileStream($file, [IO.FileMode]::Open,
+                    [IO.FileAccess]::Read, [IO.FileShare]"ReadWrite,Delete")
+                OutputEncodedFile -filename $file.name -instream $in
+            } catch {
+                $utf8 = New-Object Text.UTF8Encoding($False)
+                $errstream = New-Object IO.MemoryStream(
+                    $utf8.GetBytes($_.Exception), $False)
+                $errfilename = $file.name + ".copyerror"
+                OutputEncodedFile -filename $errfilename -instream $errstream
+            }
+        }
+    }
 }
 
-ForEach ($pattern in %s) {
-    $path = [Environment]::ExpandEnvironmentVariables($pattern)
-    $files = Get-Item -path $path
-    ForEach ($file in $files) {
-        [Console]::Out.Write($file.name + "|")
-        $trans = New-Object Security.Cryptography.ToBase64Transform
-        $out = [Console]::OpenStandardOutput()
-        $bs = New-Object Security.Cryptography.CryptoStream($out, $trans,
-            [Security.Cryptography.CryptoStreamMode]::Write)
-        $zs = New-Object IO.Compression.DeflateStream($bs,
-            [IO.Compression.CompressionMode]::Compress)
-        CopyBinary -file $file -outstream $zs
-        $zs.Close()
-        [Console]::Out.Write("\n")
-    }
+try {
+    GatherFiles -patterns %s
+} catch {
+    Write-Error $_.Exception
+    exit 1
 }
 """
 
@@ -249,9 +258,8 @@ class WinRmRemote(_Remote):
         # Encode globs into script to run on remote machine and return result.
         script = _ps_copy_script % ",".join(s.join('""') for s in source_globs)
         result = self.run_ps(script)
-        if result.std_err:
-            logging.warning("winrm copy stderr:\n%s", result.std_err)
         if result.status_code:
+            logging.warning("winrm copy stderr:\n%s", result.std_err)
             raise subprocess.CalledProcessError(result.status_code,
                                                 "powershell", result)
         self._encoded_copy_to_dir(destination_dir, result.std_out)
