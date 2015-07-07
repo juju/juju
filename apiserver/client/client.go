@@ -1045,5 +1045,6 @@ func (c *Client) DestroyEnvironment() (err error) {
 		return errors.Trace(err)
 	}
 
-	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{c.api.state.EnvironUUID()})
+	envTag := names.NewEnvironTag(c.api.state.EnvironUUID())
+	return envManager.DestroyEnvironment(params.DestroyEnvironmentArgs{envTag.String()})
 }

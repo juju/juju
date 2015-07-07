@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -118,27 +117,12 @@ dummyenv (system) -> new-env
 }
 
 func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		Name:        "just-a-system",
-		ConfigAttrs: testing.Attrs{"state-server": true},
-	})
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"})
+	otherTag := otherState.EnvironTag()
+	defer otherState.Close()
 
-	ports, err := st.APIHostPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	info := s.ConfigStore.CreateInfo("just-a-system")
-	endpoint := configstore.APIEndpoint{
-		CACert:      testing.CACert,
-		EnvironUUID: st.EnvironUUID(),
-		Addresses:   []string{ports[0][0].String()},
-	}
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	s.run(c, "destroy", "dummyenv", "-y", "--destroy-all-envs")
 
-	st.Close()
-	s.run(c, "destroy", "just-a-system", "-y")
-
-	store, err := configstore.Default()
-	_, err = store.ReadInfo("just-a-system")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err := s.State.GetEnvironment(otherTag)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }

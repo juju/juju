@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,11 +32,13 @@ type DestroySuite struct {
 
 var _ = gc.Suite(&DestroySuite{})
 
-// fakeDestroyAPI mocks out the environmentmanager API
+// fakeDestroyAPI mocks out the systemmanager API
 type fakeDestroyAPI struct {
-	err     error
-	env     map[string]interface{}
-	envUUID string
+	err          error
+	env          map[string]interface{}
+	envUUID      string
+	destroyAll   bool
+	ignoreBlocks bool
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -47,8 +50,10 @@ func (f *fakeDestroyAPI) EnvironmentGet() (map[string]interface{}, error) {
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPI) DestroyEnvironment(envUUID string) error {
-	f.envUUID = envUUID
+func (f *fakeDestroyAPI) DestroySystem(envTag names.EnvironTag, destroyAll bool, ignoreBlocks bool) error {
+	f.envUUID = envTag.Id()
+	f.destroyAll = destroyAll
+	f.ignoreBlocks = ignoreBlocks
 	return f.err
 }
 
@@ -177,12 +182,12 @@ func (s *DestroySuite) TestDestroyNonSystemEnvFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a system; use juju environment destroy to destroy it")
 }
 
-func (s *DestroySuite) TestDestroySystemNotFoundRemovedFromStore(c *gc.C) {
+func (s *DestroySuite) TestDestroySystemNotFoundNotRemovedFromStore(c *gc.C) {
 	s.apierror = errors.NotFoundf("test1")
-	ctx, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "system not found, removing config file\n")
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to API: test1 not found")
+	c.Check(c.GetTestLog(), jc.Contains, "If the system is unusable")
+	checkSystemExistsInStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -197,6 +202,18 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.envUUID, gc.Equals, "test1-uuid")
+	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
+	c.Assert(s.api.destroyAll, jc.IsFalse)
+	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
+	checkSystemRemovedFromStore(c, "test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-envs")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.envUUID, gc.Equals, "test1-uuid")
+	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
+	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test1", s.store)
 }
 
@@ -230,6 +247,8 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy system: permission denied")
 	c.Assert(s.api.envUUID, gc.Equals, "test1-uuid")
+	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
+	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkSystemExistsInStore(c, "test1", s.store)
 }
 
@@ -258,7 +277,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction aborted")
+		c.Check(err, gc.ErrorMatches, "system destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
@@ -271,7 +290,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction aborted")
+		c.Check(err, gc.ErrorMatches, "system destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}

@@ -72,3 +72,8 @@ type EnvUserInfoResult struct {
 type EnvUserInfoResults struct {
 	Results []EnvUserInfoResult `json:"results"`
 }
+
+// DestroyEnvironmentArgs wraps the environment environment tag to destroy.
+type DestroyEnvironmentArgs struct {
+	EnvTag string
+}

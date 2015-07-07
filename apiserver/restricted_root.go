@@ -28,6 +28,7 @@ func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
 var restrictedRootNames = set.NewStrings(
 	"EnvironmentManager",
 	"UserManager",
+	"SystemManager",
 )
 
 // FindMethod returns a not supported error if the rootName is not one
