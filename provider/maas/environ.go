@@ -1532,7 +1532,10 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	if err != nil {
 		return err
 	}
-	if supportsDevices {
+
+	// Addresses originally allocated without a device will have macAddress
+	// set to "". We shouldn't look for a device for these addresses.
+	if supportsDevices && macAddress != "" {
 		device, err := environ.fetchFullDevice(macAddress)
 		if errors.IsNotFound(err) {
 			addresses, err := device["ip_addresses"].GetArray()

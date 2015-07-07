@@ -818,7 +818,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
