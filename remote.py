@@ -203,7 +203,7 @@ function GatherFiles {
 }
 
 try {
-    GatherFiles -patterns %s
+    GatherFiles -patterns @(%s)
 } catch {
     Write-Error $_.Exception
     exit 1
