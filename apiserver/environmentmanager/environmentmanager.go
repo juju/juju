@@ -452,11 +452,14 @@ func (em *EnvironmentManagerAPI) environmentAuthCheck(st stateInterface) error {
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment.
-func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.EnvironmentDestroyArgs) (err error) {
+func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.DestroyEnvironmentArgs) (err error) {
 	st := em.state
-	envUUID := args.EnvUUID
-	if envUUID != em.state.EnvironUUID() {
-		envTag := names.NewEnvironTag(envUUID)
+	envTag, err := names.ParseEnvironTag(args.EnvTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if envTag.Id() != em.state.EnvironUUID() {
 		if st, err = em.state.ForEnviron(envTag); err != nil {
 			return errors.Trace(err)
 		}

@@ -80,7 +80,7 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 func (s *destroyEnvironmentSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
+	return envManager.DestroyEnvironment(params.DestroyEnvironmentArgs{names.NewEnvironTag(envUUID).String()})
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
@@ -231,7 +231,7 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 func (s *destroyTwoEnvironmentsSuite) destroyEnvironment(c *gc.C, envUUID string) error {
 	envManager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	return envManager.DestroyEnvironment(params.EnvironmentDestroyArgs{envUUID})
+	return envManager.DestroyEnvironment(params.DestroyEnvironmentArgs{names.NewEnvironTag(envUUID).String()})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {

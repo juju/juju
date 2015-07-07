@@ -145,7 +145,7 @@ func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 // and removes all non-manager machine instances. DestroyEnvironment
 // will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroyEnvironment(envUUID string) error {
-	env := params.EnvironmentDestroyArgs{envUUID}
+func (c *Client) DestroyEnvironment(envUUID names.EnvironTag) error {
+	env := params.DestroyEnvironmentArgs{envUUID.String()}
 	return c.facade.FacadeCall("DestroyEnvironment", env, nil)
 }

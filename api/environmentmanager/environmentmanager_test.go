@@ -5,6 +5,7 @@ package environmentmanager_test
 
 import (
 	"fmt"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -150,4 +151,17 @@ func (s *environmentmanagerSuite) TestEnvironmentGet(c *gc.C) {
 	env, err := envManager.EnvironmentGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env["name"], gc.Equals, "dummyenv")
+}
+
+func (s *environmentmanagerSuite) TestDestroyEnvironment(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	envManager := s.OpenAPI(c)
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "test"})
+	defer otherState.Close()
+
+	err := envManager.DestroyEnvironment(names.NewEnvironTag(otherState.EnvironUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = otherState.Environment()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }

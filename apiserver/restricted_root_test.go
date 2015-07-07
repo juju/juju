@@ -41,6 +41,10 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 	r.assertMethodAllowed(c, "UserManager", 0, "AddUser")
 	r.assertMethodAllowed(c, "UserManager", 0, "SetPassword")
 	r.assertMethodAllowed(c, "UserManager", 0, "UserInfo")
+
+	r.assertMethodAllowed(c, "SystemManager", 0, "DestroySystem")
+	r.assertMethodAllowed(c, "SystemManager", 0, "EnvironmentGet")
+	r.assertMethodAllowed(c, "SystemManager", 0, "ListBlockedEnvironments")
 }
 
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
