@@ -1537,7 +1537,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	// set to "". We shouldn't look for a device for these addresses.
 	if supportsDevices && macAddress != "" {
 		device, err := environ.fetchFullDevice(macAddress)
-		if errors.IsNotFound(err) {
+		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
 			if err != nil {
 				return err
@@ -1558,7 +1558,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 				return err
 			}
 
-		} else if err != nil {
+		} else if !errors.IsNotFound(err) {
 			return err
 		}
 		// No device for this IP address, release the address normally.
