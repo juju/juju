@@ -16,7 +16,7 @@ var (
 
 func PatchMgrConnect(patcher patcher, stub *testing.Stub) *StubMgr {
 	conn := &StubMgr{Stub: stub}
-	patcher.PatchValue(&newConn, func() (windowsManager, error) { return conn, nil })
+	patcher.PatchValue(&newManager, func() (windowsManager, error) { return conn, nil })
 	return conn
 }
 
