@@ -20,7 +20,7 @@ start:
             type: string
             enum: [deny-all, deny-incoming, deny-outgoing, deny-state-server,
             deny-api-server, deny-sys-log, kill-jujud, kill-mongod,
-            restart-unit]
+            restart-unit, delay, delay-long, drop, corrupt, duplicate]
             description: Exclude commands from the test list.
         exclude-group:
             type: string
@@ -30,7 +30,7 @@ start:
             type: string
             enum: [deny-all, deny-incoming, deny-outgoing, deny-state-server,
             deny-api-server, deny-sys-log, kill-jujud, kill-mongod,
-            restart-unit]
+            restart-unit, delay, delay-long, drop, corrupt, duplicate]
             description: Include only these commands in the test list.
         include-group:
             type: string
