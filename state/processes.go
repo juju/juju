@@ -80,7 +80,7 @@ type unitProcesses struct {
 // definitions in the charm's metadata are in state.
 func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	if newUnitProcesses == nil {
-		return nil, errors.Errorf("unit processes not supported")
+		return nil, errors.Errorf("workload processes not supported")
 	}
 
 	charm, err := unit.charm()
@@ -110,7 +110,7 @@ func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 // charm metadata to state.
 func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error {
 	if newProcessDefinitions == nil {
-		return errors.Errorf("process definitions not supported")
+		return errors.Errorf("workload processes not supported")
 	}
 
 	var definitions []charm.Process
