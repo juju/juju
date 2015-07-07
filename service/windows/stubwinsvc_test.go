@@ -7,6 +7,7 @@
 package windows
 
 import (
+	"github.com/gabriel-samfira/sys/windows"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 
@@ -128,6 +129,19 @@ func (m *StubMgr) OpenService(name string) (windowsService, error) {
 		return stubSvc, m.NextErr()
 	}
 	return nil, c_ERROR_SERVICE_DOES_NOT_EXIST
+}
+
+func (m *StubMgr) GetHandle(name string) (handle windows.Handle, err error) {
+	m.Stub.AddCall("GetHandle", name)
+	if _, ok := Services[name]; ok {
+		return handle, m.NextErr()
+	}
+	return handle, c_ERROR_SERVICE_DOES_NOT_EXIST
+}
+
+func (m *StubMgr) CloseHandle(handle windows.Handle) (err error) {
+	m.Stub.AddCall("CloseHandle")
+	return m.NextErr()
 }
 
 func (m *StubMgr) Exists(name string) bool {
