@@ -78,7 +78,7 @@ func (suite) TestProc2API(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "idfoo",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "process status",
 			},
 		},

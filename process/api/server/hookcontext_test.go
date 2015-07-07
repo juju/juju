@@ -90,7 +90,7 @@ func (suite) TestRegisterProcess(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "idfoo",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -127,7 +127,7 @@ func (suite) TestListProcessesOne(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "idfoo",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -212,7 +212,7 @@ func (suite) TestListProcessesAll(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "idfoo",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -282,7 +282,7 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(st.id, gc.Equals, "fooID")
-	c.Assert(st.status, jc.DeepEquals, &process.Status{
+	c.Assert(st.status, jc.DeepEquals, &process.PluginStatus{
 		Label: "statusfoo",
 	})
 
@@ -319,7 +319,7 @@ type FakeState struct {
 	// inputs
 	id     string
 	ids    []string
-	status *process.Status
+	status *process.PluginStatus
 
 	// info is used as input and output
 	info process.Info
@@ -338,7 +338,7 @@ func (f *FakeState) List(ids ...string) ([]process.Info, error) {
 	return f.procs, f.err
 }
 
-func (f *FakeState) SetStatus(id string, status process.Status) error {
+func (f *FakeState) SetStatus(id string, status process.PluginStatus) error {
 	f.id = id
 	f.status = &status
 	return f.err

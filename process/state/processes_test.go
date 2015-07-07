@@ -85,7 +85,7 @@ func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 
@@ -102,7 +102,7 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 
@@ -113,7 +113,7 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 

@@ -24,7 +24,7 @@ type UnitProcesses interface {
 	// List returns information on the process with the id on the unit.
 	List(ids ...string) ([]process.Info, error)
 	// Settatus sets the status for the process with the given id on the unit.
-	SetStatus(id string, status process.Status) error
+	SetStatus(id string, status process.PluginStatus) error
 	// Unregister removes the information for the process with the given id.
 	Unregister(id string) error
 }

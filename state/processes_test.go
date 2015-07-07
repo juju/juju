@@ -84,7 +84,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "xyz",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -100,7 +100,9 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(procs, jc.DeepEquals, []process.Info{info})
 
-	err = st.SetStatus("procA/xyz", process.Status{Label: "still running"})
+	err = st.SetStatus("procA/xyz", process.PluginStatus{
+		Label: "still running",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err = st.List("procA/xyz")
@@ -117,7 +119,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		},
 		Details: process.Details{
 			ID: "xyz",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "still running",
 			},
 		},

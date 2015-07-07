@@ -14,7 +14,7 @@ type Details struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string `json:"id"`
 	// Status is the most recent plugin-defined status of the process.
-	Status Status `json:"status"`
+	Status PluginStatus `json:"status"`
 }
 
 // UnmarshalDetails de-serialized the provided data into a Details.

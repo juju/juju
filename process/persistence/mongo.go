@@ -178,7 +178,7 @@ func (pp Persistence) newInsertProcOp(info process.Info) txn.Op {
 	}
 }
 
-func (pp Persistence) newSetRawStatusOps(id string, status process.Status) []txn.Op {
+func (pp Persistence) newSetRawStatusOps(id string, status process.PluginStatus) []txn.Op {
 	id = pp.processID(id)
 	return []txn.Op{{
 		C:      workloadProcessesC,
@@ -394,7 +394,7 @@ type launchDoc struct {
 func (d launchDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
-		Status: process.Status{
+		Status: process.PluginStatus{
 			Label: d.RawStatus,
 		},
 	}
@@ -480,7 +480,7 @@ type processDoc struct {
 func (d processDoc) info() process.Info {
 	return process.Info{
 		Details: process.Details{
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: d.PluginStatus,
 			},
 		},

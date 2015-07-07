@@ -507,7 +507,9 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
 	s.SetDocs(proc)
-	newStatus := process.Status{Label: "still running"}
+	newStatus := process.PluginStatus{
+		Label: "still running",
+	}
 
 	pp := s.NewPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -529,7 +531,9 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
-	newStatus := process.Status{Label: "still running"}
+	newStatus := process.PluginStatus{
+		Label: "still running",
+	}
 
 	pp := s.NewPersistence()
 	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -554,7 +558,9 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 //	docs := s.SetDocs(proc)
 //	docs[0].Proc.Life = persistence.Dying
 //	s.Stub.SetErrors(txn.ErrAborted)
-//	newStatus := process.Status{Label: "still running"}
+//	newStatus := process.PluginStatus{
+//		Label: "still running",
+//	}
 //
 //	pp := s.NewPersistence()
 //	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
@@ -581,7 +587,9 @@ func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus("procA/procA-xyz", process.Status{Label: "still running"})
+	_, err := pp.SetStatus("procA/procA-xyz", process.PluginStatus{
+		Label: "still running",
+	})
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

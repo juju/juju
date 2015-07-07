@@ -167,7 +167,7 @@ func (s *BaseSuite) NewProcesses(pType string, names ...string) []process.Info {
 			Process: definition,
 			Details: process.Details{
 				ID: id,
-				Status: process.Status{
+				Status: process.PluginStatus{
 					Label: "running",
 				},
 			},

@@ -51,7 +51,12 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
 		numLaunchPluginCalls++
 		c.Check(p, gc.DeepEquals, *mockPlugin)
-		return process.Details{ID: "id", Status: process.Status{Label: "foo"}}, nil
+		return process.Details{
+			ID: "id",
+			Status: process.PluginStatus{
+				Label: "foo",
+			},
+		}, nil
 	}
 
 	numFindPluginCalls := 0

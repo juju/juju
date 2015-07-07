@@ -52,15 +52,15 @@ func Proc2api(p process.Info) Process {
 
 // APIStatus2Status converts an API ProcessStatus struct into a
 // process.Status struct.
-func APIStatus2Status(status ProcessStatus) process.Status {
-	return process.Status{
+func APIStatus2Status(status ProcessStatus) process.PluginStatus {
+	return process.PluginStatus{
 		Label: status.Label,
 	}
 }
 
 // Status2APIStatus converts a process.Status struct into an
 // API ProcessStatus struct.
-func Status2apiStatus(status process.Status) ProcessStatus {
+func Status2apiStatus(status process.PluginStatus) ProcessStatus {
 	return ProcessStatus{
 		Label: status.Label,
 	}

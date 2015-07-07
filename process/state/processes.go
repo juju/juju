@@ -22,7 +22,7 @@ import (
 type processesPersistence interface {
 	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.Status) (bool, error)
+	SetStatus(id string, status process.PluginStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
 	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
@@ -75,7 +75,7 @@ func (ps UnitProcesses) Register(info process.Info) error {
 
 // SetStatus updates the raw status for the identified process to the
 // provided value.
-func (ps UnitProcesses) SetStatus(id string, status process.Status) error {
+func (ps UnitProcesses) SetStatus(id string, status process.PluginStatus) error {
 	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)

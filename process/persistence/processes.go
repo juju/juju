@@ -149,7 +149,7 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The process is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id string, status process.Status) (bool, error) {
+func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?

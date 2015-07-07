@@ -29,7 +29,7 @@ type UnitProcesses interface {
 	// ID is in the format provided by process.Info.ID()
 	// ("<proc name>/<plugin ID>"). If the process is not in state then
 	// the request will fail.
-	SetStatus(id string, status process.Status) error
+	SetStatus(id string, status process.PluginStatus) error
 	// List builds the list of workload processes registered for
 	// the given unit and IDs. If no IDs are provided then all
 	// registered processes for the unit are returned. In the case that

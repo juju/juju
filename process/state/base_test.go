@@ -64,7 +64,7 @@ func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []proce
 			Process: definition,
 			Details: process.Details{
 				ID: id,
-				Status: process.Status{
+				Status: process.PluginStatus{
 					Label: "running",
 				},
 			},
@@ -173,7 +173,7 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) SetStatus(id string, status process.Status) (bool, error) {
+func (s *fakeProcsPersistence) SetStatus(id string, status process.PluginStatus) (bool, error) {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
