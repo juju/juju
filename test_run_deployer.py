@@ -1,6 +1,7 @@
 from argparse import Namespace
 import os
 import stat
+import subprocess
 from tempfile import NamedTemporaryFile
 from unittest import TestCase
 
@@ -11,7 +12,7 @@ from jujupy import (
     SimpleEnvironment,
     )
 from run_deployer import (
-    is_healthy,
+    check_health,
     parse_args,
     run_deployer
     )
@@ -54,7 +55,7 @@ class TestRunDeployer(TestCase):
                                    bundle_path='', bundle_name='')):
                         with patch(
                                 'run_deployer.EnvJujuClient.deployer') as dm:
-                            with patch('run_deployer.is_healthy') as hm:
+                            with patch('run_deployer.check_health') as hm:
                                 run_deployer()
         self.assertEqual(dm.call_count, 1)
         self.assertEqual(hm.call_count, 0)
@@ -73,52 +74,50 @@ class TestRunDeployer(TestCase):
                                    health_cmd='/tmp/check', debug=False,
                                    bundle_path='', bundle_name='')):
                         with patch('run_deployer.EnvJujuClient.deployer'):
-                            with patch('run_deployer.is_healthy') as hm:
+                            with patch('run_deployer.check_health') as hm:
                                 run_deployer()
         self.assertEqual(hm.call_count, 1)
 
 
 class TestIsHealthy(TestCase):
 
-    def test_is_healthy(self):
+    def test_check_health(self):
         SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
             health_script.close()
             with patch('logging.info') as lo_mock:
-                result = is_healthy(health_script.name)
+                check_health(health_script.name)
             os.unlink(health_script.name)
-            self.assertTrue(result)
             self.assertEqual(lo_mock.call_args[0][0],
                              'Health check output: PASS')
 
-    def test_is_healthy_with_env_name(self):
+    def test_check_health_with_env_name(self):
         SCRIPT = """#!/bin/bash\necho -n \"PASS on $1\"\nexit 0"""
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
             health_script.close()
             with patch('logging.info') as lo_mock:
-                result = is_healthy(health_script.name, 'foo')
+                check_health(health_script.name, 'foo')
             os.unlink(health_script.name)
-            self.assertTrue(result)
             self.assertEqual(lo_mock.call_args[0][0],
                              'Health check output: PASS on foo')
 
-    def test_is_healthy_fail(self):
+    def test_check_health_fail(self):
         SCRIPT = """#!/bin/bash\necho -n 'FAIL'\nexit 1"""
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
             health_script.close()
             with patch('logging.error') as le_mock:
-                result = is_healthy(health_script.name)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    check_health(health_script.name)
             os.unlink(health_script.name)
-            self.assertFalse(result)
             self.assertEqual(le_mock.call_args[0][0], 'FAIL')
 
-    def test_is_healthy_with_no_execute_perms(self):
+    def test_check_health_with_no_execute_perms(self):
         SCRIPT = """#!/bin/bash\nexit 0"""
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
@@ -126,7 +125,7 @@ class TestIsHealthy(TestCase):
             health_script.close()
             with patch('logging.error') as le_mock:
                 with self.assertRaises(OSError):
-                    is_healthy(health_script.name)
+                    check_health(health_script.name)
             os.unlink(health_script.name)
         self.assertRegexpMatches(
             le_mock.call_args[0][0],

@@ -49,8 +49,8 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def is_healthy(cmd_path, env_name=''):
-    """Returns a boolean after running the health_checker."""
+def check_health(cmd_path, env_name=''):
+    """Run the health checker command and raise on error."""
     try:
         cmd = (cmd_path, env_name)
         logging.debug('Calling {}'.format(cmd))
@@ -65,8 +65,7 @@ def is_healthy(cmd_path, env_name=''):
         logging.error('Non-zero exit code returned from {}: {}'.format(
             cmd, e))
         logging.error(e.output)
-        return False
-    return True
+        raise
 
 
 def run_deployer():
@@ -80,6 +79,6 @@ def run_deployer():
                       args.keep_env, False):
         client.deployer(args.bundle_path, args.bundle_name)
         if args.health_cmd:
-            is_healthy(args.health_cmd, args.job_name)
+            check_health(args.health_cmd, args.job_name)
 if __name__ == '__main__':
     run_deployer()
