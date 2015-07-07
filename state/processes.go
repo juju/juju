@@ -13,6 +13,11 @@ import (
 
 // TODO(ericsnow) Track juju-level status in the status collection.
 
+// TODO(ericsnow) Rename Register to Add and Unregister to Remove.
+
+// TODO(ericsnow) Distinguish between marking as unregistered and
+// removing a proc from state?
+
 // UnitProcesses exposes high-level interaction with workload processes
 // for a unit.
 type UnitProcesses interface {
