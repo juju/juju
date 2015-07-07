@@ -1533,6 +1533,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		return err
 	}
 
+	logger.Trace("releasing address: %q, MAC address: %q, supports devices: %v", addr, macAddress, supportsDevices)
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
 	if supportsDevices && macAddress != "" {
@@ -1553,11 +1554,10 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 				// could change and this code will continue to work.
 				// The device is only destroyed when we come to release
 				// the last address. Race conditions aside.
-				deviceAPI := environ.getMAASClient().GetSubObject("device").GetSubObject(systemId)
+				deviceAPI := environ.getMAASClient().GetSubObject("devices").GetSubObject(systemId)
 				err = deviceAPI.Delete()
 				return err
 			}
-
 		} else if !errors.IsNotFound(err) {
 			return err
 		}
