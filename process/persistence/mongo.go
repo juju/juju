@@ -184,10 +184,6 @@ func (pp Persistence) newSetRawStatusOps(id string, status process.Status) []txn
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
-	}, {
-		C:      workloadProcessesC,
-		Id:     id,
-		Assert: IsAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Label}}}},
 	}}
 }
@@ -212,10 +208,6 @@ func (pp Persistence) newRemoveLaunchOp(id string) txn.Op {
 func (pp Persistence) newRemoveProcOps(id string) []txn.Op {
 	id = pp.processID(id)
 	return []txn.Op{{
-		C:      workloadProcessesC,
-		Id:     id,
-		Assert: IsAliveDoc,
-	}, {
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
@@ -472,18 +464,6 @@ func (pp Persistence) launches(ids []string) (map[string]launchDoc, error) {
 	return results, nil
 }
 
-// TODO(ericsnow) The life stuff here is just a temporary hack.
-
-type Life int8 // a mirror of state.Life.
-
-const (
-	Alive Life = iota
-	Dying
-	Dead
-)
-
-var IsAliveDoc = bson.D{{"life", Alive}}
-
 // processDoc is the top-level document for processes.
 type processDoc struct {
 	DocID   string `bson:"_id"`
@@ -494,7 +474,6 @@ type processDoc struct {
 	PluginID string `bson:"pluginid"`
 	DocKind  string `bson:"dockind"`
 
-	Life         Life   `bson:"life"`
 	PluginStatus string `bson:"pluginstatus"`
 }
 
@@ -519,7 +498,6 @@ func (pp Persistence) newprocessDoc(info process.Info) *processDoc {
 		PluginID: info.Details.ID,
 		DocKind:  "process",
 
-		Life:         Alive,
 		PluginStatus: info.Details.Status.Label,
 	}
 }

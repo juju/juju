@@ -338,7 +338,6 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 				ProcName:     "procA",
 				PluginID:     "procA-xyz",
 				DocKind:      "process",
-				Life:         0,
 				PluginStatus: "running",
 			},
 		},
@@ -399,7 +398,6 @@ func (s *procsPersistenceSuite) TestInsertDefinitionExists(c *gc.C) {
 				ProcName:     "procA",
 				PluginID:     "procA-xyz",
 				DocKind:      "process",
-				Life:         0,
 				PluginStatus: "running",
 			},
 		},
@@ -448,7 +446,6 @@ func (s *procsPersistenceSuite) TestInsertDefinitionMismatch(c *gc.C) {
 				ProcName:     "procA",
 				PluginID:     "procA-xyz",
 				DocKind:      "process",
-				Life:         0,
 				PluginStatus: "running",
 			},
 		},
@@ -490,7 +487,6 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 				ProcName:     "procA",
 				PluginID:     "procA-xyz",
 				DocKind:      "process",
-				Life:         0,
 				PluginStatus: "running",
 			},
 		},
@@ -524,10 +520,6 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "proc#a-unit/0#procA/procA-xyz",
 			Assert: txn.DocExists,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
-			Assert: persistence.IsAliveDoc,
 			Update: bson.D{
 				{"$set", bson.D{{"pluginstatus", "still running"}}},
 			},
@@ -550,10 +542,6 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 			C:      "workloadprocesses",
 			Id:     "proc#a-unit/0#procA/procA-xyz",
 			Assert: txn.DocExists,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
-			Assert: persistence.IsAliveDoc,
 			Update: bson.D{
 				{"$set", bson.D{{"pluginstatus", "still running"}}},
 			},
@@ -561,34 +549,30 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
-	docs := s.SetDocs(proc)
-	docs[0].Proc.Life = persistence.Dying
-	s.Stub.SetErrors(txn.ErrAborted)
-	newStatus := process.Status{Label: "still running"}
-
-	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(okay, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run", "One")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
-			Assert: txn.DocExists,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
-			Assert: persistence.IsAliveDoc,
-			Update: bson.D{
-				{"$set", bson.D{{"pluginstatus", "still running"}}},
-			},
-		},
-	}})
-}
+//func (s *procsPersistenceSuite) TestSetStatusDying(c *gc.C) {
+//	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
+//	docs := s.SetDocs(proc)
+//	docs[0].Proc.Life = persistence.Dying
+//	s.Stub.SetErrors(txn.ErrAborted)
+//	newStatus := process.Status{Label: "still running"}
+//
+//	pp := s.NewPersistence()
+//	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	c.Check(okay, jc.IsTrue)
+//	s.Stub.CheckCallNames(c, "Run", "One")
+//	s.State.CheckOps(c, [][]txn.Op{{
+//		{
+//			C:      "workloadprocesses",
+//			Id:     "proc#a-unit/0#procA/procA-xyz",
+//			Assert: txn.DocExists,
+//			Update: bson.D{
+//				{"$set", bson.D{{"pluginstatus", "still running"}}},
+//			},
+//		},
+//	}})
+//}
 
 func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
@@ -761,10 +745,6 @@ func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "proc#a-unit/0#procA/xyz",
-			Assert: persistence.IsAliveDoc,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
@@ -789,45 +769,37 @@ func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
 		}, {
 			C:      "workloadprocesses",
 			Id:     "proc#a-unit/0#procA/xyz",
-			Assert: persistence.IsAliveDoc,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 	}})
 }
 
-func (s *procsPersistenceSuite) TestRemoveDying(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/xyz")[0]
-	docs := s.SetDocs(proc)
-	docs[0].Proc.Life = persistence.Dying
-
-	pp := s.NewPersistence()
-	found, err := pp.Remove("procA/xyz")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(found, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz#launch",
-			Assert: txn.DocExists,
-			Remove: true,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
-			Assert: persistence.IsAliveDoc,
-		}, {
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
-			Assert: txn.DocExists,
-			Remove: true,
-		},
-	}})
-}
+//func (s *procsPersistenceSuite) TestRemoveDying(c *gc.C) {
+//	proc := s.NewProcesses("docker", "procA/xyz")[0]
+//	docs := s.SetDocs(proc)
+//	docs[0].Proc.Life = persistence.Dying
+//
+//	pp := s.NewPersistence()
+//	found, err := pp.Remove("procA/xyz")
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	c.Check(found, jc.IsTrue)
+//	s.Stub.CheckCallNames(c, "Run")
+//	s.State.CheckOps(c, [][]txn.Op{{
+//		{
+//			C:      "workloadprocesses",
+//			Id:     "proc#a-unit/0#procA/xyz#launch",
+//			Assert: txn.DocExists,
+//			Remove: true,
+//		}, {
+//			C:      "workloadprocesses",
+//			Id:     "proc#a-unit/0#procA/xyz",
+//			Assert: txn.DocExists,
+//			Remove: true,
+//		},
+//	}})
+//}
 
 func (s *procsPersistenceSuite) TestRemoveInconsistent(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/xyz")[0]

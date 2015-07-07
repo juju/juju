@@ -87,7 +87,6 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 			ProcName:     proc.Name,
 			PluginID:     proc.Details.ID,
 			DocKind:      "process",
-			Life:         0,
 			PluginStatus: proc.Details.Status.Label,
 		}
 		docs.Docs = append(docs.Docs, docs.Launch, docs.Proc)
