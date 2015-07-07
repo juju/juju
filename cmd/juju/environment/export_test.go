@@ -51,3 +51,10 @@ func NewUsersCommand(api UsersAPI) *UsersCommand {
 		api: api,
 	}
 }
+
+// NewDestroyCommand returns a DestroyCommand with the api provided as specified.
+func NewDestroyCommand(api DestroyEnvironmentAPI) *DestroyCommand {
+	return &DestroyCommand{
+		api: api,
+	}
+}

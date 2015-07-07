@@ -39,6 +39,7 @@ func NewSuperCommand() cmd.Command {
 		environmentCmd.Register(envcmd.Wrap(&ShareCommand{}))
 		environmentCmd.Register(envcmd.Wrap(&UnshareCommand{}))
 		environmentCmd.Register(envcmd.Wrap(&UsersCommand{}))
+		environmentCmd.Register(envcmd.Wrap(&DestroyCommand{}))
 	}
 	return environmentCmd
 }

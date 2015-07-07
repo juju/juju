@@ -14,6 +14,7 @@ import (
 
 	cmdenvironment "github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -155,4 +156,30 @@ func (s *cmdEnvironmentSuite) assertEnvValueMissing(c *gc.C, key string) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)
+}
+
+func (s *cmdEnvironmentSuite) TestEnvironmentDestroy(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name:        "just-an-environment",
+		ConfigAttrs: testing.Attrs{"state-server": false},
+	})
+
+	ports, err := st.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	info := s.ConfigStore.CreateInfo("just-an-environment")
+	endpoint := configstore.APIEndpoint{
+		CACert:      testing.CACert,
+		EnvironUUID: st.EnvironUUID(),
+		Addresses:   []string{ports[0][0].String()},
+	}
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st.Close()
+	s.run(c, "destroy", "just-an-environment", "-y")
+
+	store, err := configstore.Default()
+	_, err = store.ReadInfo("just-an-environment")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
