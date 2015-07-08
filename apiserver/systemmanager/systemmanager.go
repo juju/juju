@@ -215,7 +215,7 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 			environTag := env.EnvironTag()
 			if environTag != systemTag {
 				if err := common.DestroyEnvironment(s.state, environTag); err != nil {
-					logger.Warningf("unable to destroy environment %q: %s", env.UUID(), err)
+					logger.Errorf("unable to destroy environment %q: %s", env.UUID(), err)
 				}
 			}
 		}

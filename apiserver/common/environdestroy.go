@@ -14,7 +14,7 @@ import (
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment. This function assumes that all
-// necessary authenticiation checks have been done.
+// necessary authentication checks have been done.
 func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 	var err error
 	if environTag != st.EnvironTag() {
@@ -48,7 +48,7 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 	// destroy non-state machines; we leave destroying state servers in non-
 	// hosted environments to the CLI, as otherwise the API server may get cut
 	// off.
-	if err := destroyInstances(st, machines); err != nil {
+	if err := destroyNonManagerMachines(st, machines); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -65,9 +65,9 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 	return nil
 }
 
-// destroyInstances directly destroys all non-manager, non-manual machine
-// instances.
-func destroyInstances(st *state.State, machines []*state.Machine) error {
+// destroyNonManagerMachines directly destroys all non-manager, non-manual
+// machine instances.
+func destroyNonManagerMachines(st *state.State, machines []*state.Machine) error {
 	var ids []instance.Id
 	for _, m := range machines {
 		if m.IsManager() {
@@ -77,11 +77,13 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 			continue
 		}
 		manual, err := m.IsManual()
-		if manual {
-			continue
-		} else if err != nil {
+		if err != nil {
 			return err
+		} else if manual {
+			continue
 		}
+		// There is a possible race here if a machine is being
+		// provisioned, but hasn't yet come up.
 		id, err := m.InstanceId()
 		if err != nil {
 			continue
