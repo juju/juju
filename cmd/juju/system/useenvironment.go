@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	envmgr "github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -22,7 +22,7 @@ type UseEnvironmentCommand struct {
 	envcmd.SysCommandBase
 
 	apiOpen   APIOpenFunc
-	api       EnvironmentManagerAPI
+	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint
 
@@ -30,6 +30,13 @@ type UseEnvironmentCommand struct {
 	Owner     string
 	EnvName   string
 	EnvUUID   string
+}
+
+// UseEnvironmentAPI defines the methods on the environment manager API that
+// the use environment command calls.
+type UseEnvironmentAPI interface {
+	Close() error
+	ListEnvironments(user string) ([]base.UserEnvironment, error)
 }
 
 var useEnvDoc = `
@@ -89,7 +96,7 @@ func (c *UseEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UseEnvironmentCommand) getAPI() (EnvironmentManagerAPI, error) {
+func (c *UseEnvironmentCommand) getAPI() (UseEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -228,9 +235,9 @@ func (c *UseEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, e
 	return errors.Trace(info.Write())
 }
 
-func (c *UseEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client EnvironmentManagerAPI, creds configstore.APICredentials) (envmgr.UserEnvironment, error) {
+func (c *UseEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserEnvironment, error) {
 
-	var empty envmgr.UserEnvironment
+	var empty base.UserEnvironment
 
 	envs, err := client.ListEnvironments(creds.User)
 	if err != nil {
@@ -257,7 +264,7 @@ func (c *UseEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 		return empty, errors.NotFoundf("matching environment")
 	}
 
-	var matches []envmgr.UserEnvironment
+	var matches []base.UserEnvironment
 	for _, env := range envs {
 		match := env.Name == c.EnvName
 		if match && owner != "" {

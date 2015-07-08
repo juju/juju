@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
@@ -42,7 +42,7 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 	err := envcmd.WriteCurrentSystem("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envs := []environmentmanager.UserEnvironment{{
+	envs := []base.UserEnvironment{{
 		Name:  "unique",
 		Owner: "tester@local",
 		UUID:  "some-uuid",
