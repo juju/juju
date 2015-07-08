@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/state"
@@ -27,7 +26,7 @@ func (s *unitProcessesSuite) TestRegisterOkay(c *gc.C) {
 	err := ps.Register(proc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "EnsureDefinitions", "Insert")
+	s.stub.CheckCallNames(c, "Insert")
 	s.persist.checkProcesses(c, procs)
 }
 
@@ -51,19 +50,9 @@ func (s *unitProcessesSuite) TestRegisterEnsureDefinitionFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestRegisterMismatchedDefinition(c *gc.C) {
-	s.persist.setDefinitions(&charm.Process{Name: "procA", Type: "kvm"})
-	proc := s.newProcesses("docker", "procA")[0]
-
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
 func (s *unitProcessesSuite) TestRegisterInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
-	s.stub.SetErrors(nil, failure)
+	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}

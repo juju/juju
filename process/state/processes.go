@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/persistence"
@@ -20,7 +19,6 @@ import (
 
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
-	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
 	SetStatus(id string, status process.PluginStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
@@ -50,14 +48,6 @@ func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, charm 
 func (ps UnitProcesses) Register(info process.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad process info")
-	}
-
-	_, mismatched, err := ps.Persist.EnsureDefinitions(info.Process)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(mismatched) > 0 {
-		return errors.NotValidf("mismatched definition for %q", info.Name)
 	}
 
 	ok, err := ps.Persist.Insert(info)

@@ -166,6 +166,10 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
+	if _, ok := s.ensureDefinition(info.Process); !ok {
+		return false, nil
+	}
+
 	if _, ok := s.procs[info.ID()]; ok {
 		return false, nil
 	}

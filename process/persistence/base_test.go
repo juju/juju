@@ -66,13 +66,14 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 		DocID:    "procd#" + s.Charm.Id() + "#" + proc.Name,
 		CharmID:  s.Charm.Id(),
 		ProcName: proc.Name,
-		DocKind:  "definition",
 		UnitID:   s.Unit.Id(),
+		DocKind:  "definition",
 		Type:     proc.Type,
 	}
 	docs.Docs = append(docs.Docs, docs.Definition)
 
 	if proc.Details.ID != "" {
+		docs.Definition.DocID += "#" + s.Unit.Id()
 		docs.Launch = &launchDoc{
 			DocID:     "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch",
 			UnitID:    s.Unit.Id(),

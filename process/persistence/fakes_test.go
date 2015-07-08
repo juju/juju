@@ -129,12 +129,16 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 
 	var ids []string
 	elems := query.(bson.D)
-	if len(elems) != 1 {
+	if len(elems) < 1 {
 		err := errors.Errorf("bad query %v", query)
 		panic(err)
 	}
 	switch elems[0].Name {
 	case "_id":
+		if len(elems) != 1 {
+			err := errors.Errorf("bad query %v", query)
+			panic(err)
+		}
 		elems = elems[0].Value.(bson.D)
 		if len(elems) != 1 || elems[0].Name != "$in" {
 			err := errors.Errorf("bad query %v", query)
@@ -142,6 +146,10 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		ids = elems[0].Value.([]string)
 	case "dockind":
+		if len(elems) > 2 {
+			err := errors.Errorf("bad query %v", query)
+			panic(err)
+		}
 		switch elems[0].Value.(string) {
 		case "definition":
 			ids = sp.definitionDocs

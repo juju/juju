@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/juju/juju/process"
 )
+
+var logger = loggo.GetLogger("juju.process.persistence")
 
 // TODO(ericsnow) Implement persistence using a TXN abstraction (used
 // in the business logic) with ops factories available from the
@@ -58,6 +61,8 @@ func NewPersistence(st PersistenceBase, charm *names.CharmTag, unit *names.UnitT
 	return pp
 }
 
+var noUnit names.UnitTag
+
 func (pp Persistence) charmID() string {
 	return pp.charm.Id()
 }
@@ -74,14 +79,17 @@ func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string,
 		return found, mismatched, nil
 	}
 
+	// TODO(ericsnow) Move this to newInsertDefinitionsOps?
 	var ids []string
 	var ops []txn.Op
 	for _, definition := range definitions {
 		ids = append(ids, pp.definitionID(definition.Name))
-		ops = append(ops, pp.newInsertDefinitionOp(definition))
+		ops = append(ops, pp.newInsertDefinitionOps(definition)...)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			// TODO(ericsnow) Move this logic into adjustInsertDefinitionsOps?
+
 			// The last attempt aborted so clear out any ops that failed
 			// the DocMissing assertion and try again.
 			found = []string{}
@@ -125,19 +133,41 @@ func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string,
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp Persistence) Insert(info process.Info) (bool, error) {
+	if err := pp.lockDefinition(info.ID()); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	ok, err := pp.insert(info)
+	if err != nil {
+		if err := pp.unlockDefinition(info.ID()); err != nil {
+			logger.Errorf("while unlocking %q %q: %v", pp.unit.Id(), info.ID(), err)
+		}
+		return ok, errors.Trace(err)
+	}
+
+	if err := pp.lockDefinition(info.ID()); err != nil {
+		return ok, errors.Trace(err)
+	}
+
+	return ok, nil
+}
+
+func (pp Persistence) insert(info process.Info) (bool, error) {
+	if ok, err := pp.checkDefinition(info.Process); err != nil {
+		return false, errors.Trace(err)
+	} else if !ok {
+		return false, nil
+	}
+
 	var okay bool
-	var ops []txn.Op
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
-	ops = append(ops, pp.newInsertProcessOps(info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			// One of the records already exists.
 			okay = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		okay = true
-		return ops, nil
+		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+		return pp.newInsertProcessOps(info), nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
@@ -164,7 +194,6 @@ func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, e
 				return nil, errors.Trace(err)
 			}
 			// We ignore the request since the proc is dying.
-			// TODO(ericsnow) Ensure that procDoc.Status != state.Alive?
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true
@@ -238,7 +267,7 @@ func (pp Persistence) ListAll() ([]process.Info, error) {
 	for id := range procDocs {
 		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
 		if missingCount > 0 {
-			return nil, errors.Errorf("found inconsistent records for process %q", id)
+			return nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, missingCount)
 		}
 		results = append(results, *proc)
 	}

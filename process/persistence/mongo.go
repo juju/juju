@@ -7,10 +7,12 @@ package persistence
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -72,6 +74,7 @@ func (pp Persistence) extractProc(id string, definitionDocs map[string]definitio
 }
 
 func (pp Persistence) checkRecords(id string) (bool, error) {
+	// TODO(ericsnow) racy?
 	missing := 0
 	_, err := pp.definition(id)
 	if errors.IsNotFound(err) {
@@ -128,9 +131,42 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.all(query, docs))
 }
 
-func (pp Persistence) definitionID(id string) string {
+func (pp Persistence) tryUntilSuccess(ops []txn.Op) error {
+	// TODO(ericsnow) Support an attempt strategy?
+	done := false
+	for done {
+		done = true
+		err := pp.st.Run(func(attempt int) ([]txn.Op, error) {
+			if attempt > 0 {
+				done = false
+				return nil, jujutxn.ErrNoOperations
+			}
+			return ops, nil
+		})
+		if err == txn.ErrAborted {
+			continue
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (pp Persistence) definitionIDByUnit(id, unitID string) string {
 	name, _ := process.ParseID(id)
-	return fmt.Sprintf("procd#%s#%s", pp.charm.Id(), name)
+	unit := ""
+	if unitID != "" {
+		unit = "#" + unitID
+	}
+	return fmt.Sprintf("procd#%s#%s%s", pp.charm.Id(), name, unit)
+}
+
+func (pp Persistence) definitionID(id string) string {
+	if pp.unit == noUnit {
+		return pp.definitionIDByUnit(id, "")
+	}
+	return pp.definitionIDByUnit(id, pp.unit.Id())
 }
 
 func (pp Persistence) processID(id string) string {
@@ -141,41 +177,72 @@ func (pp Persistence) launchID(id string) string {
 	return pp.processID(id) + "#launch"
 }
 
-func (pp Persistence) newInsertDefinitionOp(definition charm.Process) txn.Op {
-	doc := pp.newdefinitionDoc(definition)
-	return txn.Op{
+func (pp Persistence) newLockOps(id string) []txn.Op {
+	return []txn.Op{{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: bson.D{{"locked", false}},
+		Update: bson.D{{"locked", true}},
+	}}
+}
+
+func (pp Persistence) newUnlockOps(id string) []txn.Op {
+	return []txn.Op{{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: bson.D{{"locked", true}},
+		Update: bson.D{{"locked", false}},
+	}}
+}
+
+func (pp Persistence) newInsertDefinitionOps(definition charm.Process) []txn.Op {
+	doc := pp.newDefinitionDoc(definition)
+	return []txn.Op{{
 		C:      workloadProcessesC,
 		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}
+	}}
 }
 
 func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 	var ops []txn.Op
-	ops = append(ops, pp.newInsertLaunchOp(info))
-	ops = append(ops, pp.newInsertProcOp(info))
+
+	{
+		// Existing definition docs must be locked already.
+		doc := pp.newDefinitionDoc(info.Process)
+		insertOp := txn.Op{
+			C:      workloadProcessesC,
+			Id:     doc.DocID,
+			Insert: doc,
+			// We use the checkDefinition method instead of an assert.
+		}
+		ops = append(ops, insertOp)
+	}
+
+	{
+		doc := pp.newLaunchDoc(info)
+		ops = append(ops, txn.Op{
+			C:      workloadProcessesC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+
+	{
+		doc := pp.newprocessDoc(info)
+		ops = append(ops, txn.Op{
+			C:      workloadProcessesC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+
 	return ops
-}
-
-func (pp Persistence) newInsertLaunchOp(info process.Info) txn.Op {
-	doc := pp.newLaunchDoc(info)
-	return txn.Op{
-		C:      workloadProcessesC,
-		Id:     doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}
-}
-
-func (pp Persistence) newInsertProcOp(info process.Info) txn.Op {
-	doc := pp.newprocessDoc(info)
-	return txn.Op{
-		C:      workloadProcessesC,
-		Id:     doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}
 }
 
 func (pp Persistence) newSetRawStatusOps(id string, status process.PluginStatus) []txn.Op {
@@ -188,21 +255,31 @@ func (pp Persistence) newSetRawStatusOps(id string, status process.PluginStatus)
 	}}
 }
 
+func (pp Persistence) newRemoveDefinitionOps(id string) []txn.Op {
+	id = pp.definitionID(id)
+	return []txn.Op{{
+		C:      workloadProcessesC,
+		Id:     id,
+		Assert: bson.D{{"locked", false}},
+		Remove: true,
+	}}
+}
+
 func (pp Persistence) newRemoveProcessOps(id string) []txn.Op {
 	var ops []txn.Op
-	ops = append(ops, pp.newRemoveLaunchOp(id))
+	ops = append(ops, pp.newRemoveLaunchOps(id)...)
 	ops = append(ops, pp.newRemoveProcOps(id)...)
 	return ops
 }
 
-func (pp Persistence) newRemoveLaunchOp(id string) txn.Op {
+func (pp Persistence) newRemoveLaunchOps(id string) []txn.Op {
 	id = pp.launchID(id)
-	return txn.Op{
+	return []txn.Op{{
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
-	}
+	}}
 }
 
 func (pp Persistence) newRemoveProcOps(id string) []txn.Op {
@@ -240,9 +317,10 @@ type definitionDoc struct {
 
 	CharmID  string `bson:"charmid"`
 	ProcName string `bson:"procname"`
+	UnitID   string `bson:"unitid"`
 	DocKind  string `bson:"dockind"`
 
-	UnitID string `bson:"unitid"`
+	Locked bool `bson:"locked"`
 
 	Description string            `bson:"description"`
 	Type        string            `bson:"type"`
@@ -292,7 +370,7 @@ func (d definitionDoc) definition() charm.Process {
 	return definition
 }
 
-func (pp Persistence) newdefinitionDoc(definition charm.Process) *definitionDoc {
+func (pp Persistence) newDefinitionDoc(definition charm.Process) *definitionDoc {
 	id := pp.definitionID(definition.Name)
 
 	var ports []string
@@ -312,9 +390,8 @@ func (pp Persistence) newdefinitionDoc(definition charm.Process) *definitionDoc 
 
 		CharmID:  pp.charmID(),
 		ProcName: definition.Name,
+		UnitID:   pp.unit.Id(),
 		DocKind:  "definition",
-
-		UnitID: pp.unit.Id(),
 
 		Description: definition.Description,
 		Type:        definition.Type,
@@ -340,6 +417,10 @@ func (pp Persistence) definition(id string) (*definitionDoc, error) {
 func (pp Persistence) allDefinitions() (map[string]definitionDoc, error) {
 	var docs []definitionDoc
 	query := bson.D{{"dockind", "definition"}}
+	unitID := pp.unit.Id()
+	if unitID != "" {
+		query = append(query, bson.DocElem{"unitid", unitID})
+	}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -347,7 +428,11 @@ func (pp Persistence) allDefinitions() (map[string]definitionDoc, error) {
 	results := make(map[string]definitionDoc)
 	for _, doc := range docs {
 		parts := strings.Split(doc.DocID, "#")
-		id := parts[len(parts)-1]
+		pos := len(parts) - 1
+		if unitID != "" {
+			pos -= 1
+		}
+		id := parts[pos]
 		results[id] = doc
 	}
 	return results, nil
@@ -376,6 +461,60 @@ func (pp Persistence) definitions(ids []string) (map[string]definitionDoc, error
 		results[id] = doc
 	}
 	return results, nil
+}
+
+func (pp Persistence) lockDefinition(id string) error {
+	idByUnit := pp.definitionID(id)
+	if err := pp.tryUntilSuccess(pp.newLockOps(idByUnit)); err != nil {
+		return errors.Trace(err)
+	}
+
+	idByCharm := pp.definitionIDByUnit(id, "")
+	if err := pp.tryUntilSuccess(pp.newLockOps(idByCharm)); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (pp Persistence) unlockDefinition(id string) error {
+	idByUnit := pp.definitionID(id)
+	if err := pp.tryUntilSuccess(pp.newUnlockOps(idByUnit)); err != nil {
+		return errors.Trace(err)
+	}
+
+	idByCharm := pp.definitionIDByUnit(id, "")
+	if err := pp.tryUntilSuccess(pp.newUnlockOps(idByCharm)); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (pp Persistence) checkDefinition(definition charm.Process) (bool, error) {
+	doc := pp.newDefinitionDoc(definition)
+
+	var unitDoc definitionDoc
+	idByUnit := pp.definitionID(definition.Name)
+	if err := pp.one(idByUnit, &unitDoc); err == nil {
+		if !reflect.DeepEqual(doc, &unitDoc) {
+			return false, nil
+		}
+	} else if !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+
+	var charmDoc definitionDoc
+	idByCharm := pp.definitionIDByUnit(definition.Name, "")
+	if err := pp.one(idByCharm, &charmDoc); err == nil {
+		if doc.Type != charmDoc.Type {
+			return false, nil
+		}
+	} else if !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+
+	return true, nil
 }
 
 // launchDoc is the document for process launch details.
