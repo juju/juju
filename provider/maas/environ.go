@@ -1533,7 +1533,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		return err
 	}
 
-	logger.Tracef("releasing address: %q, MAC address: %q, supports devices: %v", addr, macAddress, supportsDevices)
+	logger.Infof("releasing address: %q, MAC address: %q, supports devices: %v", addr, macAddress, supportsDevices)
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
 	if supportsDevices && macAddress != "" {

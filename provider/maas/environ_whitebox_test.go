@@ -1364,9 +1364,10 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
-	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "bar")
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
+	devicesArray = suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 0)
 }
 
