@@ -222,13 +222,17 @@ func (e *Environment) Config() (*config.Config, error) {
 	if e.st.environTag.Id() == e.UUID() {
 		return e.st.EnvironConfig()
 	}
-	// The active environment isn't the same as the environment
-	// we are querying.
-	envState, err := e.st.ForEnviron(e.ServerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
+	envState := e.st
+	if envState.environTag != e.EnvironTag() {
+		// The active environment isn't the same as the environment
+		// we are querying.
+		var err error
+		envState, err = e.st.ForEnviron(e.EnvironTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer envState.Close()
 	}
-	defer envState.Close()
 	return envState.EnvironConfig()
 }
 
