@@ -229,7 +229,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if !constraints.IsEmpty(&c.Constraints) {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ToMachineSpec == "" {
+		if numUnits == 1 && c.PlacementSpec == "" {
 			numUnits = 0
 		} else {
 			return errors.New("cannot use --num-units or --to with subordinate service")
@@ -262,7 +262,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			numUnits,
 			string(configYAML),
 			c.Constraints,
-			c.ToMachineSpec,
+			c.PlacementSpec,
 			requestedNetworks,
 			c.Storage,
 		)
@@ -278,7 +278,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		numUnits,
 		string(configYAML),
 		c.Constraints,
-		c.ToMachineSpec,
+		c.PlacementSpec,
 		requestedNetworks,
 	)
 	if params.IsCodeNotImplemented(err) {
@@ -291,7 +291,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			numUnits,
 			string(configYAML),
 			c.Constraints,
-			c.ToMachineSpec)
+			c.PlacementSpec)
 	}
 
 	if err != nil {

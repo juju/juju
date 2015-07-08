@@ -7,43 +7,69 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
 type UnitCommandBase struct {
-	ToMachineSpec string
+	Placement     []*instance.Placement
+	PlacementSpec string
 	NumUnits      int
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ToMachineSpec, "to", "", "the machine or container to deploy the unit in, bypasses constraints")
+	f.StringVar(&c.PlacementSpec, "to", "", "the machine, container or placement directive to deploy the unit in, bypasses constraints")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
 	if c.NumUnits < 1 {
 		return errors.New("--num-units must be a positive integer")
 	}
-	if c.ToMachineSpec != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units > 1 with --to")
+	if c.PlacementSpec != "" {
+		// Older Juju versions just accept a single machine or container.
+		if IsMachineOrNewContainer(c.PlacementSpec) {
+			return nil
 		}
-		if !IsMachineOrNewContainer(c.ToMachineSpec) {
-			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
+		// Newer Juju versions accept a comma separated list of placement directives.
+		placementSpecs := strings.Split(c.PlacementSpec, ",")
+		c.Placement = make([]*instance.Placement, len(placementSpecs))
+		for i, spec := range placementSpecs {
+			placement, err := parsePlacement(spec)
+			if err != nil {
+				return fmt.Errorf("invalid --to parameter %q", spec)
+			}
+			c.Placement[i] = placement
 		}
-
+	}
+	if len(c.Placement) > c.NumUnits {
+		logger.Warningf("%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
 	}
 	return nil
+}
+
+func parsePlacement(spec string) (*instance.Placement, error) {
+	placement, err := instance.ParsePlacement(spec)
+	if err == instance.ErrPlacementScopeMissing {
+		spec = "env-uuid" + ":" + spec
+		placement, err = instance.ParsePlacement(spec)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("invalid --to parameter %q", spec)
+	}
+	return placement, nil
 }
 
 // TODO(anastasiamac) 2014-10-20 Bug#1383116
@@ -52,7 +78,11 @@ func (c *UnitCommandBase) Init(args []string) error {
 // this when the local provider's machine 0 is a container.
 // TODO(cherylj) Unexport CheckProvider once deploy is moved under service
 func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
-	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
+	isMachineZero := c.PlacementSpec == "0"
+	for _, p := range c.Placement {
+		isMachineZero = isMachineZero || (p.Scope == instance.MachineScope && p.Directive == "0")
+	}
+	if conf.Type() == provider.Local && isMachineZero {
 		return errors.New("machine 0 is the state server for a local environment and cannot host units")
 	}
 	return nil
@@ -125,7 +155,9 @@ func (c *AddUnitCommand) Init(args []string) error {
 // that the service add-unit command calls.
 type ServiceAddUnitAPI interface {
 	Close() error
+	EnvironmentUUID() string
 	AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error)
+	AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error)
 	EnvironmentGet() (map[string]interface{}, error)
 }
 
@@ -154,7 +186,28 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
+	for i, p := range c.Placement {
+		if p.Scope == "env-uuid" {
+			p.Scope = apiclient.EnvironmentUUID()
+		}
+		c.Placement[i] = p
+	}
+	if len(c.Placement) > 0 {
+		_, err = apiclient.AddServiceUnitsWithPlacement(c.ServiceName, c.NumUnits, c.Placement)
+		if err == nil {
+			return nil
+		}
+		if !params.IsCodeNotImplemented(err) {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+	}
+	if c.PlacementSpec != "" && !IsMachineOrNewContainer(c.PlacementSpec) {
+		return fmt.Errorf("invalid --to parameter %q", c.PlacementSpec)
+	}
+	if c.PlacementSpec != "" && c.NumUnits > 1 {
+		return errors.New("this version of Juju does not support --num-units > 1 with --to")
+	}
+	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.PlacementSpec)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

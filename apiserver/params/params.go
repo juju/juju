@@ -334,6 +334,7 @@ type AddServiceUnits struct {
 	ServiceName   string
 	NumUnits      int
 	ToMachineSpec string
+	Placement     []*instance.Placement
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.

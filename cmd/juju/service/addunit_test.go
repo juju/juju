@@ -11,9 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,11 +29,17 @@ type fakeServiceAddUnitAPI struct {
 	service     string
 	numUnits    int
 	machineSpec string
+	placement   []*instance.Placement
 	err         error
+	newAPI      bool
 }
 
 func (f *fakeServiceAddUnitAPI) Close() error {
 	return nil
+}
+
+func (f *fakeServiceAddUnitAPI) EnvironmentUUID() string {
+	return "fake-uuid"
 }
 
 func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
@@ -47,6 +55,19 @@ func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, ma
 	f.machineSpec = machineSpec
 
 	// The add-unit subcommand doesn't check the results, so we can just return nil
+	return nil, nil
+}
+
+func (f *fakeServiceAddUnitAPI) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	if !f.newAPI {
+		return nil, &params.Error{Code: params.CodeNotImplemented}
+	}
+	if service != f.service {
+		return nil, errors.NotFoundf("service %q", service)
+	}
+
+	f.numUnits += numUnits
+	f.placement = placement
 	return nil, nil
 }
 
@@ -80,11 +101,8 @@ var initAddUnitErrorTests = []struct {
 		args: []string{},
 		err:  `no service specified`,
 	}, {
-		args: []string{"some-service-name", "--to", "bigglesplop"},
-		err:  `invalid --to parameter "bigglesplop"`,
-	}, {
-		args: []string{"some-service-name", "-n", "2", "--to", "123"},
-		err:  `cannot use --num-units > 1 with --to`,
+		args: []string{"some-service-name", "--to", "1,#:foo"},
+		err:  `invalid --to parameter "#:foo"`,
 	},
 }
 
@@ -101,6 +119,24 @@ func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
 	return err
 }
 
+func (s *AddUnitSuite) TestInvalidToParamWithOlderServer(c *gc.C) {
+	err := s.runAddUnit(c, "some-service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 2)
+
+	err = s.runAddUnit(c, "--to", "bigglesplop", "some-service-name")
+	c.Assert(err, gc.ErrorMatches, `invalid --to parameter "bigglesplop"`)
+}
+
+func (s *AddUnitSuite) TestUnsupportedNumUnitsWithOlderServer(c *gc.C) {
+	err := s.runAddUnit(c, "some-service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 2)
+
+	err = s.runAddUnit(c, "-n", "2", "--to", "123", "some-service-name")
+	c.Assert(err, gc.ErrorMatches, `this version of Juju does not support --num-units > 1 with --to`)
+}
+
 func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 	err := s.runAddUnit(c, "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,6 +145,23 @@ func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 	err = s.runAddUnit(c, "--num-units", "2", "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 4)
+}
+
+func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
+	s.fake.newAPI = true
+	err := s.runAddUnit(c, "some-service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 2)
+
+	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxc:1,1/lxc/2,foo", "some-service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 4)
+	c.Assert(s.fake.placement, jc.DeepEquals, []*instance.Placement{
+		{"#", "123"},
+		{"lxc", "1"},
+		{"#", "1/lxc/2"},
+		{"fake-uuid", "foo"},
+	})
 }
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
@@ -129,6 +182,8 @@ func (s *AddUnitSuite) TestNonLocalCanHostUnits(c *gc.C) {
 func (s *AddUnitSuite) TestLocalCannotHostUnits(c *gc.C) {
 	s.fake.envType = "local"
 	err := s.runAddUnit(c, "some-service-name", "--to", "0")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+	err = s.runAddUnit(c, "some-service-name", "--to", "1,#:0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
 }
 

@@ -78,11 +78,8 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `--num-units must be a positive integer`,
 	}, {
-		args: []string{"craziness", "burble1", "--to", "bigglesplop"},
-		err:  `invalid --to parameter "bigglesplop"`,
-	}, {
-		args: []string{"craziness", "burble1", "-n", "2", "--to", "123"},
-		err:  `cannot use --num-units > 1 with --to`,
+		args: []string{"craziness", "burble1", "--to", "#:foo"},
+		err:  `invalid --to parameter "#:foo"`,
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
