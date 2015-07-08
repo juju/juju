@@ -808,12 +808,12 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.ReleaseAddress(instId, "", addr)
+	err = env.ReleaseAddress(instId, "", addr, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
-	err = env.ReleaseAddress(instId, "", addr)
+	err = env.ReleaseAddress(instId, "", addr, "")
 	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
@@ -824,7 +824,7 @@ func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
 	// We should be able to release an address with an unknown instance id
 	// without it being allocated.
 	addr := network.Address{Value: "8.0.0.4"}
-	err := env.ReleaseAddress(instance.UnknownId, "", addr)
+	err := env.ReleaseAddress(instance.UnknownId, "", addr, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -909,7 +909,7 @@ func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
 func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
 	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
-	err := env.ReleaseAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	err := env.ReleaseAddress("i-foo", "net1", network.NewAddress("1.2.3.4"), "")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
