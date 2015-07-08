@@ -1,36 +1,21 @@
-// Copyright 2015 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package spaces_test
+package testing
 
 import (
+	"fmt"
 	"net"
-	stdtesting "testing"
 
-	"github.com/juju/testing"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/spaces"
-	ast "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/subnets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-)
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
-const (
-	StubProviderType               = "stub-provider"
-	StubEnvironName                = "stub-environ"
-	StubZonedEnvironName           = "stub-zoned-environ"
-	StubNetworkingEnvironName      = "stub-networking-environ"
-	StubZonedNetworkingEnvironName = "stub-zoned-networking-environ"
+	"github.com/juju/testing"
+	"github.com/juju/utils"
 )
 
 var (
@@ -45,15 +30,23 @@ var (
 	ZonedNetworkingEnvironInstance = &StubZonedNetworkingEnviron{Stub: SharedStub}
 )
 
+const (
+	StubProviderType               = "stub-provider"
+	StubEnvironName                = "stub-environ"
+	StubZonedEnvironName           = "stub-zoned-environ"
+	StubNetworkingEnvironName      = "stub-networking-environ"
+	StubZonedNetworkingEnvironName = "stub-zoned-networking-environ"
+)
+
 func init() {
 	ProviderInstance.Zones = []providercommon.AvailabilityZone{
-		&ast.FakeZone{"zone1", true},
-		&ast.FakeZone{"zone2", false},
-		&ast.FakeZone{"zone3", true},
-		&ast.FakeZone{"zone4", false},
-		&ast.FakeZone{"zone4", false}, // duplicates are ignored
+		&FakeZone{"zone1", true},
+		&FakeZone{"zone2", false},
+		&FakeZone{"zone3", true},
+		&FakeZone{"zone4", false},
+		&FakeZone{"zone4", false}, // duplicates are ignored
 	}
-	ProviderInstance.Spaces = []network.SubnetInfo{{
+	ProviderInstance.Subnets = []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
 		AvailabilityZones: []string{"zone1"},
@@ -105,6 +98,42 @@ func init() {
 	}}
 
 	environs.RegisterProvider(StubProviderType, ProviderInstance)
+}
+
+// FakeSpace implements spaces.BackingSpace for testing.
+type FakeSpace struct {
+	SpaceName string
+}
+
+var _ spaces.BackingSpace = (*FakeSpace)(nil)
+
+func (f *FakeSpace) Name() string {
+	return f.SpaceName
+}
+
+func (f *FakeSpace) CIDRs() []string {
+	return []string{"1.1.1.0/24"}
+}
+
+func (f *FakeSpace) Type() string {
+	return "IPv4"
+}
+
+func (f *FakeSpace) ProviderID() string {
+	return ""
+}
+
+func (f *FakeSpace) Zones() []string {
+	return []string{""}
+}
+
+func (f *FakeSpace) Status() string {
+	return "InUse"
+}
+
+// GoString implements fmt.GoStringer.
+func (f *FakeSpace) GoString() string {
+	return fmt.Sprintf("&FakeSpace{%q}", f.SpaceName)
 }
 
 // StubMethodCall is like testing.StubCall, but includes the receiver
@@ -186,9 +215,37 @@ func CheckMethodCalls(c *gc.C, stub *testing.Stub, calls ...StubMethodCall) {
 	}
 }
 
-// FakeSubnet implements spaces.BackingSubnet for testing.
+// FakeZone implements providercommon.AvailabilityZone for testing.
+type FakeZone struct {
+	ZoneName      string
+	ZoneAvailable bool
+}
+
+var _ providercommon.AvailabilityZone = (*FakeZone)(nil)
+
+func (f *FakeZone) Name() string {
+	return f.ZoneName
+}
+
+func (f *FakeZone) Available() bool {
+	return f.ZoneAvailable
+}
+
+// GoString implements fmt.GoStringer.
+func (f *FakeZone) GoString() string {
+	return fmt.Sprintf("&FakeZone{%q, %v}", f.ZoneName, f.ZoneAvailable)
+}
+
+// FakeSubnet implements subnets.BackingSubnet for testing.
 type FakeSubnet struct {
-	info spaces.BackingSpaceInfo
+	info subnets.BackingSubnetInfo
+}
+
+var _ subnets.BackingSubnet = (*FakeSubnet)(nil)
+
+// GoString implements fmt.GoStringer.
+func (f *FakeSubnet) GoString() string {
+	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.
@@ -196,29 +253,32 @@ func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
 }
 
-// StubBacking implements spaces.Backing and records calls to its
+// StubBacking implements subnets.Backing and records calls to its
 // methods.
 type StubBacking struct {
 	*testing.Stub
 
 	EnvConfig *config.Config
 
-	Zones  []providercommon.AvailabilityZone
-	Spaces []spaces.BackingSpace
+	Zones   []providercommon.AvailabilityZone
+	Spaces  []spaces.BackingSpace
+	Subnets []subnets.BackingSubnet
 }
 
-var _ spaces.Backing = (*StubBacking)(nil)
+var _ subnets.Backing = (*StubBacking)(nil)
 
 type SetUpFlag bool
 
 const (
-	WithZones     SetUpFlag = true
-	WithoutZones  SetUpFlag = false
-	WithSpaces    SetUpFlag = true
-	WithoutSpaces SetUpFlag = false
+	WithZones      SetUpFlag = true
+	WithoutZones   SetUpFlag = false
+	WithSpaces     SetUpFlag = true
+	WithoutSpaces  SetUpFlag = false
+	WithSubnets    SetUpFlag = true
+	WithoutSubnets SetUpFlag = false
 )
 
-func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces SetUpFlag) {
+func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
 	// This method must be called at the beginning of each test, which
 	// needs access to any of the mocks, to reset the recorded calls
 	// and errors, as well as to initialize the mocks as needed.
@@ -239,13 +299,34 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces SetU
 	sb.Spaces = []spaces.BackingSpace{}
 	if withSpaces {
 		sb.Spaces = []spaces.BackingSpace{
-			&ast.FakeSpace{"default"},
-			&ast.FakeSpace{"dmz"},
-			&ast.FakeSpace{"private"},
-			&ast.FakeSpace{"private"}, // duplicates are ignored when caching spaces.
+			&FakeSpace{"default"},
+			&FakeSpace{"dmz"},
+			&FakeSpace{"private"},
+			&FakeSpace{"private"}, // duplicates are ignored when caching spaces.
 		}
 	}
-	sb.Spaces = []spaces.BackingSpace{}
+	sb.Subnets = []subnets.BackingSubnet{}
+	if withSubnets {
+		info0 := subnets.BackingSubnetInfo{
+			CIDR:              ProviderInstance.Subnets[0].CIDR,
+			ProviderId:        string(ProviderInstance.Subnets[0].ProviderId),
+			AllocatableIPLow:  ProviderInstance.Subnets[0].AllocatableIPLow.String(),
+			AllocatableIPHigh: ProviderInstance.Subnets[0].AllocatableIPHigh.String(),
+			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
+			SpaceName:         "private",
+		}
+		info1 := subnets.BackingSubnetInfo{
+			CIDR:              ProviderInstance.Subnets[1].CIDR,
+			ProviderId:        string(ProviderInstance.Subnets[1].ProviderId),
+			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
+			SpaceName:         "dmz",
+		}
+
+		sb.Subnets = []subnets.BackingSubnet{
+			&FakeSubnet{info0},
+			&FakeSubnet{info1},
+		}
+	}
 }
 
 func (sb *StubBacking) EnvironConfig() (*config.Config, error) {
@@ -269,6 +350,24 @@ func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZ
 	return sb.NextErr()
 }
 
+func (sb *StubBacking) AllSpaces() ([]spaces.BackingSpace, error) {
+	sb.MethodCall(sb, "AllSpaces")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	return sb.Spaces, nil
+}
+
+func (sb *StubBacking) AddSubnet(subnetInfo subnets.BackingSubnetInfo) (subnets.BackingSubnet, error) {
+	sb.MethodCall(sb, "AddSubnet", subnetInfo)
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	fs := &FakeSubnet{info: subnetInfo}
+	sb.Subnets = append(sb.Subnets, fs)
+	return fs, nil
+}
+
 // GoString implements fmt.GoStringer.
 func (se *StubBacking) GoString() string {
 	return "&StubBacking{}"
@@ -279,8 +378,8 @@ func (se *StubBacking) GoString() string {
 type StubProvider struct {
 	*testing.Stub
 
-	Zones  []providercommon.AvailabilityZone
-	Spaces []network.SubnetInfo
+	Zones   []providercommon.AvailabilityZone
+	Subnets []network.SubnetInfo
 
 	environs.EnvironProvider // panic on any not implemented method call.
 }
@@ -357,12 +456,12 @@ type StubNetworkingEnviron struct {
 
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
-func (se *StubNetworkingEnviron) Spaces(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
-	se.MethodCall(se, "Spaces", instId, subIds)
+func (se *StubNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+	se.MethodCall(se, "Subnets", instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}
-	return ProviderInstance.Spaces, nil
+	return ProviderInstance.Subnets, nil
 }
 
 // GoString implements fmt.GoStringer.
@@ -386,12 +485,12 @@ func (se *StubZonedNetworkingEnviron) GoString() string {
 	return "&StubZonedNetworkingEnviron{}"
 }
 
-func (se *StubZonedNetworkingEnviron) Spaces(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
-	se.MethodCall(se, "Spaces", instId, subIds)
+func (se *StubZonedNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+	se.MethodCall(se, "Subnets", instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}
-	return ProviderInstance.Spaces, nil
+	return ProviderInstance.Subnets, nil
 }
 
 func (se *StubZonedNetworkingEnviron) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {

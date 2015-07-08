@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/spaces"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -27,17 +28,6 @@ var logger = loggo.GetLogger("juju.apiserver.subnets")
 func init() {
 	// TODO(dimitern): Uncomment once *state.State implements Backing.
 	//common.RegisterStandardFacade("Subnets", 1, NewAPI)
-}
-
-// BackingSpace defines the methods supported by a Space entity stored
-// persistently.
-//
-// TODO(dimitern): Once *state.Space is implemented, ensure it has
-// those methods, move the interface somewhere common and rename it as
-// needed, and change Backing.AllSpaces() to return that.
-type BackingSpace interface {
-	// Name returns the space name.
-	Name() string
 }
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -108,7 +98,7 @@ type Backing interface {
 	SetAvailabilityZones(zones []providercommon.AvailabilityZone) error
 
 	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]BackingSpace, error)
+	AllSpaces() ([]spaces.BackingSpace, error)
 
 	// AddSubnet creates a backing subnet for an existing subnet.
 	AddSubnet(subnetInfo BackingSubnetInfo) (BackingSubnet, error)

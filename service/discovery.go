@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
-	"github.com/dooferlad/here"
 )
 
 // This exists to allow patching during tests.
@@ -26,13 +25,11 @@ var getVersion = func() version.Binary {
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
 	initName, err := discoverInitSystem()
-	here.Is(initName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	jujuVersion := getVersion()
-	here.Is(jujuVersion)
 	service, err := newService(name, conf, initName, jujuVersion.Series)
 	if err != nil {
 		return nil, errors.Trace(err)

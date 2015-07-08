@@ -8,12 +8,14 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
+	providercommon "github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 func init() {
-	common.RegisterStandardFacade("Spaces", 1, NewAPI)
+	// TODO(dimitern): Uncomment once *state.State implements Backing.
+	// common.RegisterStandardFacade("Spaces", 1, NewAPI)
 }
 
 // BackingSpace defines the methods supported by a Space entity stored
@@ -31,7 +33,10 @@ type BackingSpace interface {
 	ProviderID() string
 	Zones() []string
 	Status() string // TODO: convert to an enumerated type of InUse / NotInUse / Terminating
+}
 
+type BackingSpaceInfo struct {
+	Name string
 }
 
 // Backing defines the methods needed by the API facade to store and
@@ -40,20 +45,28 @@ type BackingSpace interface {
 type Backing interface {
 	// EnvironConfig returns the current environment config.
 	EnvironConfig() (*config.Config, error)
+
+	// AvailabilityZones returns all cached availability zones (i.e.
+	// not from the provider, but in state).
+	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
+
+	// SetAvailabilityZones replaces the cached list of availability
+	// zones with the given zones.
+	SetAvailabilityZones(zones []providercommon.AvailabilityZone) error
 }
 
-// API defines the methods the Subnets API facade implements.
+// API defines the methods the Spaces API facade implements.
 type API interface {
 }
 
-// subnetsAPI implements the API interface.
-type subnetsAPI struct {
+// spacesAPI implements the API interface.
+type spacesAPI struct {
 	backing    Backing
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-var _ API = (*subnetsAPI)(nil)
+var _ API = (*spacesAPI)(nil)
 
 // NewAPI creates a new server-side Subnets API facade.
 func NewAPI(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
@@ -61,7 +74,7 @@ func NewAPI(backing Backing, resources *common.Resources, authorizer common.Auth
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &subnetsAPI{
+	return &spacesAPI{
 		backing:    backing,
 		resources:  resources,
 		authorizer: authorizer,

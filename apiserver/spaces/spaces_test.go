@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/spaces"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
+	ast "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -18,7 +18,7 @@ type SpacesSuite struct {
 	coretesting.BaseSuite
 
 	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	authorizer ast.FakeAuthorizer
 	facade     spaces.API
 }
 
@@ -26,10 +26,10 @@ var _ = gc.Suite(&SpacesSuite{})
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithZones, WithSpaces, WithSpaces)
+	BackingInstance.SetUp(c, StubZonedEnvironName, WithZones, WithSpaces)
 
 	s.resources = common.NewResources()
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = ast.FakeAuthorizer{
 		Tag:            names.NewUserTag("admin"),
 		EnvironManager: false,
 	}
