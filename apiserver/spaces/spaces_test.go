@@ -26,7 +26,7 @@ var _ = gc.Suite(&SpacesSuite{})
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithZones, WithSpaces)
+	ast.BackingInstance.SetUp(c, ast.StubZonedEnvironName, ast.WithZones, ast.WithSpaces, ast.WithSubnets)
 
 	s.resources = common.NewResources()
 	s.authorizer = ast.FakeAuthorizer{
@@ -35,7 +35,7 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.facade, err = spaces.NewAPI(BackingInstance, s.resources, s.authorizer)
+	s.facade, err = spaces.NewAPI(ast.BackingInstance, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
 }
@@ -49,18 +49,18 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 
 func (s *SpacesSuite) TestNewAPI(c *gc.C) {
 	// Clients are allowed.
-	facade, err := spaces.NewAPI(BackingInstance, s.resources, s.authorizer)
+	facade, err := spaces.NewAPI(ast.BackingInstance, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
 	// No calls so far.
-	CheckMethodCalls(c, SharedStub)
+	ast.CheckMethodCalls(c, ast.SharedStub)
 
 	// Agents are not allowed
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
-	facade, err = spaces.NewAPI(BackingInstance, s.resources, agentAuthorizer)
+	facade, err = spaces.NewAPI(ast.BackingInstance, s.resources, agentAuthorizer)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
-	CheckMethodCalls(c, SharedStub)
+	ast.CheckMethodCalls(c, ast.SharedStub)
 }
