@@ -23,6 +23,7 @@ type StubService struct {
 	Name      string
 	config    mgr.Config
 	ExecStart string
+	Closed    bool
 
 	Status svc.Status
 }
@@ -35,6 +36,12 @@ func AddService(name, execStart string, stub *testing.Stub, status svc.Status) {
 		config:    mgr.Config{},
 		Status:    status,
 	}
+}
+
+func (s *StubService) Close() error {
+	s.Stub.AddCall("Close")
+	s.Closed = true
+	return s.NextErr()
 }
 
 func (s *StubService) SetConfig(c mgr.Config) {
@@ -93,7 +100,7 @@ type StubMgr struct {
 	*testing.Stub
 }
 
-func (m *StubMgr) CreateService(name, exepath string, c mgr.Config, args ...string) (svcInterface, error) {
+func (m *StubMgr) CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error) {
 	m.Stub.AddCall("CreateService", name, exepath, c)
 
 	if _, ok := Services[name]; ok {
@@ -115,7 +122,7 @@ func (m *StubMgr) Disconnect() error {
 	return m.NextErr()
 }
 
-func (m *StubMgr) OpenService(name string) (svcInterface, error) {
+func (m *StubMgr) OpenService(name string) (windowsService, error) {
 	m.Stub.AddCall("OpenService", name)
 	if stubSvc, ok := Services[name]; ok {
 		return stubSvc, m.NextErr()
