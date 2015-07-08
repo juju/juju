@@ -1396,12 +1396,13 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress)
+	macAddress := "foobar"
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// by releasing again we can test that the first release worked, *and*
 	// the error handling of ReleaseError
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
 }
