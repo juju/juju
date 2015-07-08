@@ -32,6 +32,9 @@ type DeployServiceParams struct {
 	// - a new container on an existing machine eg "lxc:1"
 	// Use string to avoid ambiguity around machine 0.
 	ToMachineSpec string
+	// Placement is a list of placement directives which may be used
+	// instead of a machine spec.
+	Placement []*instance.Placement
 	// Networks holds a list of networks to required to start on boot.
 	Networks []string
 	Storage  map[string]storage.Constraints
@@ -100,84 +103,136 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := AddUnits(st, service, args.NumUnits, args.ToMachineSpec); err != nil {
+		var err error
+		// We either have a machine spec or a placement directive.
+		if args.ToMachineSpec != "" {
+			_, err = AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
+		} else {
+			_, err = AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}
 	return service, nil
 }
 
+func addMachineForUnit(st *state.State, unit *state.Unit, placement *instance.Placement, networks []string) (*state.Machine, error) {
+	unitCons, err := unit.Constraints()
+	if err != nil {
+		return nil, err
+	}
+	var containerType instance.ContainerType
+	var mid, placementDirective string
+	// Extract container type and parent from container placement directives.
+	if containerType, err = instance.ParseContainerType(placement.Scope); err == nil {
+		mid = placement.Directive
+	} else {
+		switch placement.Scope {
+		case st.EnvironUUID():
+			placementDirective = placement.Directive
+		case instance.MachineScope:
+			mid = placement.Directive
+		default:
+			return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+		}
+	}
+
+	// Create any new machine marked as dirty so that
+	// nothing else will grab it before we assign the unit to it.
+
+	// If a container is to be used, create it.
+	if containerType != "" {
+		template := state.MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []state.MachineJob{state.JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+		}
+		return st.AddMachineInsideMachine(template, mid, containerType)
+	}
+	// If a placement directive is to be used, do that here.
+	if placementDirective != "" {
+		template := state.MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []state.MachineJob{state.JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+			Placement:         placementDirective,
+		}
+		return st.AddOneMachine(template)
+	}
+
+	// Otherwise use an existing machine.
+	return st.Machine(mid)
+}
+
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
 func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
+	if machineIdSpec != "" && n != 1 {
+		return nil, errors.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
+	}
+	var placement []*instance.Placement
+	if machineIdSpec != "" {
+		mid := machineIdSpec
+		scope := instance.MachineScope
+		var containerType instance.ContainerType
+		specParts := strings.SplitN(machineIdSpec, ":", 2)
+		if len(specParts) > 1 {
+			firstPart := specParts[0]
+			var err error
+			if containerType, err = instance.ParseContainerType(firstPart); err == nil {
+				mid = specParts[1]
+				scope = string(containerType)
+			}
+		}
+		if !names.IsValidMachine(mid) {
+			return nil, fmt.Errorf("invalid force machine id %q", mid)
+		}
+		placement = []*instance.Placement{
+			{
+				Scope:     scope,
+				Directive: mid,
+			},
+		}
+	}
+	return AddUnitsWithPlacement(st, svc, n, placement)
+}
+
+// AddUnitsWithPlacement starts n units of the given service using the specified placement
+// directives to allocate the machines.
+func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
 	// All units should have the same networks as the service.
 	networks, err := svc.Networks()
 	if err != nil {
-		return nil, fmt.Errorf("cannot get service %q networks: %v", svc.Name(), err)
+		return nil, errors.Errorf("cannot get service %q networks", svc.Name())
 	}
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
 		if err != nil {
-			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
+			return nil, errors.Annotatef(err, "cannot add unit %d/%d to service %q", i+1, n, svc.Name())
 		}
-		if machineIdSpec != "" {
-			if n != 1 {
-				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
+		// Are there still placement directives to use?
+		if i > len(placement)-1 {
+			if err := st.AssignUnit(unit, policy); err != nil {
+				return nil, errors.Trace(err)
 			}
-			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
-			// or a new container on a machine, eg lxc:3
-			mid := machineIdSpec
-			var containerType instance.ContainerType
-			specParts := strings.SplitN(machineIdSpec, ":", 2)
-			if len(specParts) > 1 {
-				firstPart := specParts[0]
-				var err error
-				if containerType, err = instance.ParseContainerType(firstPart); err == nil {
-					mid = specParts[1]
-				} else {
-					mid = machineIdSpec
-				}
-			}
-			if !names.IsValidMachine(mid) {
-				return nil, fmt.Errorf("invalid force machine id %q", mid)
-			}
-			var unitCons *constraints.Value
-			unitCons, err = unit.Constraints()
-			if err != nil {
-				return nil, err
-			}
-
-			var err error
-			var m *state.Machine
-			// If a container is to be used, create it.
-			if containerType != "" {
-				// Create the new machine marked as dirty so that
-				// nothing else will grab it before we assign the unit to it.
-				template := state.MachineTemplate{
-					Series:            unit.Series(),
-					Jobs:              []state.MachineJob{state.JobHostUnits},
-					Dirty:             true,
-					Constraints:       *unitCons,
-					RequestedNetworks: networks,
-				}
-				m, err = st.AddMachineInsideMachine(template, mid, containerType)
-			} else {
-				m, err = st.Machine(mid)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
-			}
-			err = unit.AssignToMachine(m)
-
-			if err != nil {
-				return nil, err
-			}
-		} else if err := st.AssignUnit(unit, policy); err != nil {
-			return nil, err
+			units[i] = unit
+			continue
+		}
+		m, err := addMachineForUnit(st, unit, placement[i], networks)
+		if err != nil {
+			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
+		}
+		if err = unit.AssignToMachine(m); err != nil {
+			return nil, errors.Trace(err)
 		}
 		units[i] = unit
 	}
