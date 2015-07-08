@@ -92,10 +92,10 @@ func (c *Client) ServiceDeploy(
 	var err error
 	if len(placement) > 0 {
 		err = c.facade.FacadeCall("ServicesDeployWithPlacement", args, &results)
-		if params.IsCodeNotImplemented(err) {
-			return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
-		}
 		if err != nil {
+			if params.IsCodeNotImplemented(err) {
+				return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
+			}
 			return err
 		}
 	} else {
