@@ -147,6 +147,41 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
+func (s *EnvironSuite) TestConfigForStateServerEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+
+	env, err := otherState.GetEnvironment(s.envTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "testenv")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, s.envTag.Id())
+}
+
+func (s *EnvironSuite) TestConfigForOtherEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+	otherEnv, err := otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// By getting the environment through a different state connection,
+	// the underlying state pointer in the *state.Environment struct has
+	// a different environment tag.
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "other")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, otherEnv.UUID())
+}
+
 // createTestEnvConfig returns a new environment config and its UUID for testing.
 func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
