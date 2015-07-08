@@ -248,14 +248,20 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// If storage is specified, we attempt to use a new API on the service facade.
-	if len(c.Storage) > 0 {
-		notSupported := errors.New("cannot deploy charms with storage: not supported by the API server")
+	// If storage or placement is specified, we attempt to use a new API on the service facade.
+	if len(c.Storage) > 0 || len(c.Placement) > 0 {
+		notSupported := errors.New("cannot deploy charms with storage or placement: not supported by the API server")
 		serviceClient, err := c.newServiceAPIClient()
 		if err != nil {
 			return notSupported
 		}
 		defer serviceClient.Close()
+		for i, p := range c.Placement {
+			if p.Scope == "env-uuid" {
+				p.Scope = serviceClient.EnvironmentUUID()
+			}
+			c.Placement[i] = p
+		}
 		err = serviceClient.ServiceDeploy(
 			curl.String(),
 			serviceName,
@@ -263,6 +269,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			string(configYAML),
 			c.Constraints,
 			c.PlacementSpec,
+			c.Placement,
 			requestedNetworks,
 			c.Storage,
 		)

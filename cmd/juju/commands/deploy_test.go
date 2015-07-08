@@ -245,6 +245,27 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	})
 }
 
+// TODO(wallyworld) - add another test that deploy with placement fails for older environments
+// (need deploy client to be refactored to use API stub)
+func (s *DeploySuite) TestPlacement(c *gc.C) {
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	// Add a machine that will be ignored due to placement directive.
+	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runDeploy(c, "local:dummy", "-n", "1", "--to", "valid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc, err := s.State.Service("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Not(gc.Equals), machine.Id())
+}
+
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")
