@@ -42,7 +42,7 @@ type DeployServiceParams struct {
 
 // DeployService takes a charm and various parameters and deploys it.
 func DeployService(st *state.State, args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+	if args.NumUnits > 1 && len(args.Placement) == 0 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use --num-units with --to")
 	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
@@ -105,10 +105,11 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	if args.NumUnits > 0 {
 		var err error
 		// We either have a machine spec or a placement directive.
-		if args.ToMachineSpec != "" {
-			_, err = AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
-		} else {
+		// Placement directives take precedence.
+		if len(args.Placement) > 0 || args.ToMachineSpec == "" {
 			_, err = AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
+		} else {
+			_, err = AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
 		}
 		if err != nil {
 			return nil, err

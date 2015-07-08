@@ -232,6 +232,7 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 				{Scope: "#", Directive: "0"},
 				{Scope: "lxc", Directive: "1"},
 			},
+			ToMachineSpec: "will be ignored",
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConstraints(c, service, serviceCons)
