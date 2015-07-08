@@ -4,12 +4,11 @@
 package service
 
 import (
-	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
@@ -24,9 +23,11 @@ import (
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
 type UnitCommandBase struct {
-	Placement     []*instance.Placement
+	// PlacementSpec is the raw string command arg value used to specify placement directives.
 	PlacementSpec string
-	NumUnits      int
+	// Placement is the result of parsing the PlacementSpec arg value.
+	Placement []*instance.Placement
+	NumUnits  int
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
@@ -49,7 +50,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		for i, spec := range placementSpecs {
 			placement, err := parsePlacement(spec)
 			if err != nil {
-				return fmt.Errorf("invalid --to parameter %q", spec)
+				return errors.Errorf("invalid --to parameter %q", spec)
 			}
 			c.Placement[i] = placement
 		}
@@ -67,7 +68,7 @@ func parsePlacement(spec string) (*instance.Placement, error) {
 		placement, err = instance.ParsePlacement(spec)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("invalid --to parameter %q", spec)
+		return nil, errors.Errorf("invalid --to parameter %q", spec)
 	}
 	return placement, nil
 }
@@ -202,7 +203,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		}
 	}
 	if c.PlacementSpec != "" && !IsMachineOrNewContainer(c.PlacementSpec) {
-		return fmt.Errorf("invalid --to parameter %q", c.PlacementSpec)
+		return errors.Errorf("unsupported --to parameter %q", c.PlacementSpec)
 	}
 	if c.PlacementSpec != "" && c.NumUnits > 1 {
 		return errors.New("this version of Juju does not support --num-units > 1 with --to")

@@ -125,7 +125,7 @@ func (s *AddUnitSuite) TestInvalidToParamWithOlderServer(c *gc.C) {
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 
 	err = s.runAddUnit(c, "--to", "bigglesplop", "some-service-name")
-	c.Assert(err, gc.ErrorMatches, `invalid --to parameter "bigglesplop"`)
+	c.Assert(err, gc.ErrorMatches, `unsupported --to parameter "bigglesplop"`)
 }
 
 func (s *AddUnitSuite) TestUnsupportedNumUnitsWithOlderServer(c *gc.C) {
