@@ -1302,19 +1302,7 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	devicesURL := "/api/1.0/devices/?op=list"
-	resp, err := http.Get(suite.testMAASObject.TestServer.Server.URL + devicesURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-
-	defer resp.Body.Close()
-	content, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := gomaasapi.Parse(gomaasapi.Client{}, content)
-	c.Assert(err, jc.ErrorIsNil)
-
-	devicesArray, err := result.GetArray()
-	c.Assert(err, jc.ErrorIsNil)
+	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
 	device, err := devicesArray[0].GetMap()
@@ -1346,6 +1334,40 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	mac, err := macMap["mac_address"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mac, gc.Equals, "foo")
+}
+
+func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
+	devicesURL := "/api/1.0/devices/?op=list"
+	resp, err := http.Get(suite.testMAASObject.TestServer.Server.URL + devicesURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := gomaasapi.Parse(gomaasapi.Client{}, content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray, err := result.GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	return devicesArray
+}
+
+func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+	addr := network.NewAddress("192.168.2.1")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray := suite.getDeviceArray(c)
+	c.Assert(devicesArray, gc.HasLen, 1)
+
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(devicesArray, gc.HasLen, 0)
 }
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
