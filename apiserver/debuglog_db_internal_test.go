@@ -23,6 +23,7 @@ type debugLogDBIntSuite struct {
 var _ = gc.Suite(&debugLogDBIntSuite{})
 
 func (s *debugLogDBIntSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.sock = newFakeDebugLogSocket()
 }
 
