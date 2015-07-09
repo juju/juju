@@ -23,6 +23,9 @@ const (
 
 	// Id of the default private juju network
 	DefaultPrivate = "juju-private"
+
+	// Provider Id for the default network
+	DefaultProviderId = "juju-unknown"
 )
 
 // Id defines a provider-specific network id.
