@@ -4,6 +4,8 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -31,9 +33,6 @@ type baseCommand struct {
 	Name string
 	// info is the process info for the named workload process.
 	info *process.Info
-	// notFounderr is the cached error in the case that the named
-	// process was not found.
-	notFoundErr error
 }
 
 func newCommand(ctx HookContext) (*baseCommand, error) {
@@ -62,29 +61,13 @@ func (c *baseCommand) init(name string) error {
 	}
 	c.Name = name
 
-	// TODO(ericsnow) Pull from metadata.yaml instead of state (for
-	// charm-defined proc definitions).
-	pInfo, maybeErr, err := c.getInfo()
-	if err != nil {
+	pInfo, err := c.compCtx.Get(c.Name)
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	c.notFoundErr = maybeErr
 	c.info = pInfo
-	return nil
-}
 
-func (c baseCommand) getInfo() (*process.Info, error, error) {
-	pInfo, err := c.compCtx.Get(c.Name)
-	if errors.IsNotFound(err) {
-		return nil, err, nil
-	}
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if pInfo.IsRegistered() {
-		return nil, nil, errors.Errorf("process %q already registered", c.Name)
-	}
-	return pInfo, nil, nil
+	return nil
 }
 
 // registeringCommand is the base for commands that register a process
@@ -106,6 +89,9 @@ type registeringCommand struct {
 
 	// Definition is the file definition of the process.
 	Definition cmd.FileVar
+
+	// ReadMetadata extracts charm metadata from the given file.
+	ReadMetadata func(filename string) (*charm.Meta, error)
 }
 
 func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
@@ -114,8 +100,24 @@ func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
 		return nil, errors.Trace(err)
 	}
 	return &registeringCommand{
-		baseCommand: *base,
+		baseCommand:  *base,
+		ReadMetadata: readMetadata,
 	}, nil
+}
+
+func readMetadata(filename string) (*charm.Meta, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer file.Close()
+
+	meta, err := charm.ReadMeta(file)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return meta, nil
 }
 
 // SetFlags implements cmd.Command.
@@ -129,6 +131,11 @@ func (c *registeringCommand) init(name string) error {
 	if err := c.baseCommand.init(name); err != nil {
 		return errors.Trace(err)
 	}
+
+	if c.info != nil {
+		return errors.Errorf("process %q already registered", c.Name)
+	}
+
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
 	}
@@ -139,14 +146,103 @@ func (c *registeringCommand) init(name string) error {
 		if c.info != nil {
 			return errors.Errorf("process %q already defined", c.Name)
 		}
-	} else if c.info == nil {
-		// c.info is nil only when the named process was not found. In
-		// that case we can return the orignal error from when we looked
-		// up the process.
-		return errors.Trace(c.notFoundErr)
 	}
 
 	return nil
+}
+
+// register updates the hook context with the information for the
+// registered workload process. An error is returned if the process
+// was already registered.
+func (c *registeringCommand) register(ctx *cmd.Context) error {
+	info, err := c.findValidInfo(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	newProcess, err := c.parseUpdates(info.Process)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.UpdatedProcess = newProcess
+	info.Process = *newProcess
+
+	info.Details = c.Details
+
+	if err := c.compCtx.Set(c.Name, info); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(ericsnow) flush here?
+	return nil
+}
+
+func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, error) {
+	if c.info != nil {
+		copied := *c.info
+		return &copied, nil
+	}
+
+	var definition charm.Process
+	if c.Definition.Path == "" {
+		filename := filepath.Join(ctx.Dir, "metadata.yaml")
+		charmDef, err := c.defFromMetadata(c.Name, filename)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		definition = *charmDef
+	} else {
+		// c.info must be nil at this point.
+		data, err := c.Definition.Read(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cliDef, err := parseDefinition(c.Name, data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		definition = *cliDef
+	}
+	info := &process.Info{Process: definition}
+	c.info = info
+
+	// validate
+	if err := info.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if info.IsRegistered() {
+		return nil, errors.Errorf("already registered")
+	}
+	return info, nil
+}
+
+func (c *registeringCommand) defFromMetadata(name, filename string) (*charm.Process, error) {
+	meta, err := c.ReadMetadata(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, definition := range meta.Processes {
+		if name == definition.Name {
+			return &definition, nil
+		}
+	}
+	return nil, errors.NotFoundf(name)
+}
+
+func parseDefinition(name string, data []byte) (*charm.Process, error) {
+	raw := make(map[interface{}]interface{})
+	if err := yaml.Unmarshal(data, raw); err != nil {
+		return nil, errors.Trace(err)
+	}
+	definition, err := charm.ParseProcess(name, raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if definition.Name == "" {
+		definition.Name = name
+	} else if definition.Name != name {
+		return nil, errors.Errorf("process name mismatch; %q != %q", definition.Name, name)
+	}
+	return definition, nil
 }
 
 // checkSpace ensures that the requested network space is available
@@ -156,25 +252,23 @@ func (c *registeringCommand) checkSpace() error {
 	return nil
 }
 
-func (c *registeringCommand) parseUpdates(info *process.Info) error {
+func (c *registeringCommand) parseUpdates(definition charm.Process) (*charm.Process, error) {
 	overrides, err := parseUpdates(c.Overrides)
 	if err != nil {
-		return errors.Annotate(err, "override")
+		return nil, errors.Annotate(err, "override")
 	}
 
 	additions, err := parseUpdates(c.Additions)
 	if err != nil {
-		return errors.Annotate(err, "extend")
+		return nil, errors.Annotate(err, "extend")
 	}
 
-	newProcess, err := info.Process.Apply(overrides, additions)
+	newDefinition, err := definition.Apply(overrides, additions)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	c.UpdatedProcess = newProcess
-	info.Process = *newProcess
-	return nil
+	return newDefinition, nil
 }
 
 // parseUpdate builds a charm.ProcessFieldValue from an update string.
@@ -214,56 +308,4 @@ func parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
 		results = append(results, pfv)
 	}
 	return results, nil
-}
-
-func (c *registeringCommand) parseDefinition(data []byte) (*process.Info, error) {
-	raw := make(map[interface{}]interface{})
-	if err := yaml.Unmarshal(data, raw); err != nil {
-		return nil, errors.Trace(err)
-	}
-	definition, err := charm.ParseProcess(c.Name, raw)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if definition.Name == "" {
-		definition.Name = c.Name
-	} else if definition.Name != c.Name {
-		return nil, errors.Errorf("process name mismatch; %q != %q", definition.Name, c.Name)
-	}
-	info := &process.Info{
-		Process: *definition,
-	}
-	return info, nil
-}
-
-// register updates the hook context with the information for the
-// registered workload process. An error is returned if the process
-// was already registered.
-func (c *registeringCommand) register(ctx *cmd.Context) error {
-	if c.info != nil && c.info.IsRegistered() {
-		return errors.Errorf("already registered")
-	}
-
-	info := c.info
-	if c.Definition.Path != "" {
-		// c.info must be nil at this point.
-		data, err := c.Definition.Read(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info, err = c.parseDefinition(data)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if err := c.parseUpdates(info); err != nil {
-		return errors.Trace(err)
-	}
-	info.Details = c.Details
-
-	if err := c.compCtx.Set(c.Name, info); err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(ericsnow) flush here?
-	return nil
 }

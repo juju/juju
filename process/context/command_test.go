@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
@@ -19,15 +20,18 @@ import (
 type commandSuite struct {
 	baseSuite
 
-	cmdName string
-	cmd     cmd.Command
-	cmdCtx  *cmd.Context
+	cmdName  string
+	cmd      cmd.Command
+	cmdCtx   *cmd.Context
+	metadata *charm.Meta
 }
 
 func (s *commandSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.cmdCtx = coretesting.Context(c)
+
+	s.setMetadata()
 }
 
 func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
@@ -36,6 +40,24 @@ func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
 
 	s.cmdName = name + jujuc.CmdSuffix
 	s.cmd = cmd
+}
+
+func (s *commandSuite) readMetadata(string) (*charm.Meta, error) {
+	return s.metadata, nil
+}
+
+func (s *commandSuite) setMetadata(procs ...process.Info) {
+	definitions := make(map[string]charm.Process)
+	for _, proc := range procs {
+		definition := proc.Process
+		definitions[definition.Name] = definition
+	}
+	s.metadata = &charm.Meta{
+		Name:        "a-charm",
+		Summary:     "a charm",
+		Description: "a charm",
+		Processes:   definitions,
+	}
 }
 
 func (s *commandSuite) checkStdout(c *gc.C, expected string) {

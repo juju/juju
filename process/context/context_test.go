@@ -19,6 +19,12 @@ type contextSuite struct {
 
 var _ = gc.Suite(&contextSuite{})
 
+func (s *contextSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	context.AddProcs(s.compCtx, s.proc)
+}
+
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient)
 	procs, err := ctx.Processes()

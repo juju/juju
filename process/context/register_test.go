@@ -27,6 +27,7 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 
 	cmd, err := context.NewProcRegistrationCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
+	cmd.ReadMetadata = s.readMetadata
 
 	s.registerCmd = cmd
 	s.setCommand(c, "register", s.registerCmd)
@@ -90,6 +91,18 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	})
 }
 
+func (s *registerSuite) TestInitAlreadyRegistered(c *gc.C) {
+	s.proc.Details.ID = "xyz123"
+	context.AddProcs(s.compCtx, s.proc)
+
+	err := s.registerCmd.Init([]string{
+		s.proc.Name,
+		`{"id":"abc123", "status":{"label":"okay"}}`,
+	})
+
+	c.Check(err, gc.ErrorMatches, ".*already registered")
+}
+
 func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{})
 	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
@@ -101,7 +114,7 @@ func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":{"status":"okay"}}`,
+		`{"id":"abc123", "status":{"label":"okay"}}`,
 		"other",
 	})
 
@@ -155,6 +168,7 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 
 func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = "notFoo"
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{
 		"description:foo",
 	}
@@ -169,6 +183,7 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 
 func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	s.proc.Process.EnvVars = map[string]string{"foo": "bar"}
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{
 		"env/foo:baz",
 	}
@@ -182,6 +197,7 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{
 		":value",
 	}
@@ -193,6 +209,7 @@ func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingValue(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{
 		"field:",
 	}
@@ -204,6 +221,7 @@ func (s *registerSuite) TestOverridesMissingValue(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingColon(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{
 		"fieldvalue",
 	}
@@ -216,6 +234,7 @@ func (s *registerSuite) TestOverridesMissingColon(c *gc.C) {
 
 func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = ""
+	s.setMetadata(*s.proc)
 	s.registerCmd.Additions = []string{
 		"description:foo",
 	}
@@ -229,6 +248,7 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Additions = []string{
 		"env/foo:baz",
 	}
@@ -242,6 +262,7 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Additions = []string{
 		":value",
 	}
@@ -253,6 +274,7 @@ func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsMissingValue(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Additions = []string{
 		"field:",
 	}
@@ -264,6 +286,7 @@ func (s *registerSuite) TestAdditionsMissingValue(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.registerCmd.Additions = []string{
 		"fieldvalue",
 	}
@@ -275,6 +298,7 @@ func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
 }
 
 func (s *registerSuite) TestRunOkay(c *gc.C) {
+	s.setMetadata(*s.proc)
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
@@ -283,6 +307,7 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.proc.Process.Description = "bar"
+	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{"description:foo"}
 	s.init(c, s.proc.Name, "abc123", "running")
 
@@ -294,13 +319,4 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 		FuncName: "Set",
 		Args:     []interface{}{s.proc.Name, s.proc},
 	}})
-}
-
-func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
-	s.init(c, s.proc.Name, "abc123", "running")
-	context.GetCmdInfo(s.cmd).Details.ID = "xyz123"
-
-	err := s.cmd.Run(s.cmdCtx)
-
-	c.Check(err, gc.ErrorMatches, "already registered")
 }
