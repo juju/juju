@@ -498,7 +498,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
 	})
-
 	if err != nil {
 		return nil, err
 	}
