@@ -4,8 +4,6 @@
 package environmentmanager
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -53,7 +51,7 @@ func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, 
 func (c *Client) CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error) {
 	var result params.Environment
 	if !names.IsValidUser(owner) {
-		return result, fmt.Errorf("invalid owner name %q", owner)
+		return result, errors.Errorf("invalid owner name %q", owner)
 	}
 	createArgs := params.EnvironmentCreateArgs{
 		OwnerTag: names.NewUserTag(owner).String(),
@@ -75,7 +73,7 @@ func (c *Client) CreateEnvironment(owner string, account, config map[string]inte
 func (c *Client) ListEnvironments(user string) ([]base.UserEnvironment, error) {
 	var environments params.UserEnvironmentList
 	if !names.IsValidUser(user) {
-		return nil, fmt.Errorf("invalid user name %q", user)
+		return nil, errors.Errorf("invalid user name %q", user)
 	}
 	entity := params.Entity{names.NewUserTag(user).String()}
 	err := c.facade.FacadeCall("ListEnvironments", entity, &environments)
