@@ -2,11 +2,6 @@
 # This script presumes ~/ci and ~/.juju is setup on the remote machine.
 set -eu
 SCRIPTS=$(readlink -f $(dirname $0))
-JUJU_HOME=${JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
-
-SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
 
 usage() {
     echo "usage: $0 user@host"
@@ -24,30 +19,10 @@ source ./buildvars.bash
 rev=${REVNO-$(echo $REVISION_ID | head -c8)}
 echo "Testing $BRANCH $rev"
 
-ssh $SSH_OPTIONS $USER_AT_HOST <<"EOT"
-#!/bin/bash
-set -eu
-RELEASE_SCRIPTS=$HOME/juju-release-tools
-SCRIPTS=$HOME/juju-ci-tools
-WORKSPACE=$HOME/workspace
-JUJU_HOME=$HOME/.juju
-source $HOME/.bashrc
-source $HOME/cloud-city/juju-qa.jujuci
-set -x
-
-cd $WORKSPACE
-$SCRIPTS/jujuci.py setup-workspace --clean-env testing-osx-client $WORKSPACE
-~/Bin/juju destroy-environment --force -y testing-osx-client || true
-TARFILE=$($SCRIPTS/jujuci.py get build-osx-client 'juju-*-osx.tar.gz' ./)
-echo "Downloaded $TARFILE"
-tar -xf ./$TARFILE -C $WORKSPACE
-
-export PATH=$WORKSPACE/juju-bin:$PATH
-$SCRIPTS/deploy_stack.py testing-osx-client
-EXIT_STATUS=$?
-juju destroy-environment -y testing-osx-client || true
-exit $EXIT_STATUS
+cat > temp-config.yaml <<EOT
+install:
+  remote:
+    - $SCRIPTS/run-osx-client-remote.bash
+command: [remote/run-osx-client-remote.bash]
 EOT
-EXIT_STATUS=$?
-
-exit $EXIT_STATUS
+workspace-run temp-config.yaml $USER_AT_HOST
