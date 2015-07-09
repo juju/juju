@@ -17,7 +17,7 @@ func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr n
 }
 
 // ReleaseAddress implements environs.Environ, but is not implmemented.
-func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address, macAddres string) error {
 	return errors.Trace(errNotImplemented)
 }
 

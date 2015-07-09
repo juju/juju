@@ -1263,7 +1263,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 				addr.String(), state.AddressStateUnavailable, err,
 			)
 		}
-		err = environ.ReleaseAddress(instId, subnetId, addr.Address())
+		err = environ.ReleaseAddress(instId, subnetId, addr.Address(), addr.MACAddress())
 		if err == nil {
 			logger.Infof("address %q released; trying to allocate new", addr.String())
 			return

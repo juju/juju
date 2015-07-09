@@ -1364,7 +1364,7 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	params.Add("mac_addresses", macAddress)
 	params.Add("hostname", hostname)
 	params.Add("parent", extractSystemId(instId))
-	logger.Warningf("creating a new MAAS device for MAC %q, hostname %q, parent %q", macAddress, hostname, string(instId))
+	logger.Tracef("creating a new MAAS device for MAC %q, hostname %q, parent %q", macAddress, hostname, string(instId))
 	result, err := devices.CallPost("new", params)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -1382,37 +1382,45 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	return device, nil
 }
 
-// fetchDevice fetches an existing device Id associated with a MAC address, or
+// fetchFullDevice fetches an existing device Id associated with a MAC address, or
 // returns an error if there is no device.
-func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+func (environ *maasEnviron) fetchFullDevice(macAddress string) (map[string]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
 	params := url.Values{}
 	params.Add("mac_address", macAddress)
 	result, err := devices.CallGet("list", params)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	resultArray, err := result.GetArray()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if len(resultArray) == 0 {
-		return "", errors.NotFoundf("no device for MAC %q", macAddress)
+		return nil, errors.NotFoundf("no device for MAC %q", macAddress)
 	}
 	if len(resultArray) != 1 {
-		return "", errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
+		return nil, errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
 	}
 	resultMap, err := resultArray[0].GetMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resultMap, nil
+}
+
+func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+	deviceMap, err := environ.fetchFullDevice(macAddress)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	device, err := resultMap["system_id"].GetString()
+	deviceId, err := deviceMap["system_id"].GetString()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return device, nil
+	return deviceId, nil
 }
 
 // createOrFetchDevice returns a device Id associated with a MAC address. If
@@ -1513,12 +1521,49 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
+
+	supportsDevices, err := environ.supportsDevices()
+	if err != nil {
+		return err
+	}
+
+	logger.Infof("releasing address: %q, MAC address: %q, supports devices: %v", addr, macAddress, supportsDevices)
+	// Addresses originally allocated without a device will have macAddress
+	// set to "". We shouldn't look for a device for these addresses.
+	if supportsDevices && macAddress != "" {
+		device, err := environ.fetchFullDevice(macAddress)
+		if err == nil {
+			addresses, err := device["ip_addresses"].GetArray()
+			if err != nil {
+				return err
+			}
+			systemId, err := device["system_id"].GetString()
+			if err != nil {
+				return err
+			}
+
+			if len(addresses) == 1 {
+				// With our current usage of devices they will always
+				// have exactly one IP address, but in theory that
+				// could change and this code will continue to work.
+				// The device is only destroyed when we come to release
+				// the last address. Race conditions aside.
+				deviceAPI := environ.getMAASClient().GetSubObject("devices").GetSubObject(systemId)
+				err = deviceAPI.Delete()
+				return err
+			}
+		} else if !errors.IsNotFound(err) {
+			return err
+		}
+		// No device for this IP address, release the address normally.
+	}
+
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released
 	// or is unknown by maas. However this, like any other error, would be

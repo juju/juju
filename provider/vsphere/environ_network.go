@@ -17,8 +17,8 @@ func (env *environ) AllocateAddress(instID instance.Id, subnetID network.Id, add
 	return env.changeAddress(instID, subnetID, addr, true)
 }
 
-// ReleaseAddress implements environs.Environ:w.
-func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+// ReleaseAddress implements environs.Environ.
+func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address, _ string) error {
 	return env.changeAddress(instID, netID, addr, false)
 }
 
