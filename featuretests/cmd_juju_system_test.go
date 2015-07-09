@@ -30,8 +30,8 @@ type cmdSystemSuite struct {
 }
 
 func (s *cmdSystemSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.JES)
 	s.JujuConnSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 }
 
 func (s *cmdSystemSuite) run(c *gc.C, args ...string) *cmd.Context {
@@ -45,7 +45,6 @@ func (s *cmdSystemSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
-	s.SetFeatureFlags(feature.JES)
 	envManager := environmentmanager.NewClient(conn)
 	_, err = envManager.CreateEnvironment(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
@@ -123,22 +122,10 @@ func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"state-server": true},
 	})
 
-	ports, err := st.APIHostPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	info := s.ConfigStore.CreateInfo("just-a-system")
-	endpoint := configstore.APIEndpoint{
-		CACert:      testing.CACert,
-		EnvironUUID: st.EnvironUUID(),
-		Addresses:   []string{ports[0][0].String()},
-	}
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
 	st.Close()
-	s.run(c, "destroy", "just-a-system", "-y")
+	s.run(c, "destroy", "dummyenv", "-y", "--destroy-all-environments")
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("just-a-system")
+	_, err = store.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
