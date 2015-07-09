@@ -358,10 +358,12 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm, repository=None):
+    def deploy(self, charm, repository=None, to=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
+        if to is not None:
+            args.extend(['--to', to])
         return self.juju('deploy', tuple(args))
 
     def deployer(self, bundle, name=None):

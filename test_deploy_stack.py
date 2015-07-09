@@ -575,7 +575,7 @@ class TestTestUpgrade(TestCase):
 
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
-        '--machine', '1,2', 'uname')
+        '--service', 'dummy-source,dummy-sink', 'uname')
     VERSION = ('/bar/juju', '--version')
     STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
     GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
