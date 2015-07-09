@@ -4,20 +4,18 @@ set -eu
 SCRIPTS=$(readlink -f $(dirname $0))
 
 usage() {
-    echo "usage: $0 user@host"
+    echo "usage: $0 user@host revsion_build"
     echo "  user@host: The user and host to ssh to."
     exit 1
 }
 
 
-test $# -eq 1 || usage
+test $# -eq 2 || usage
 USER_AT_HOST="$1"
+revision_build="$2"
 
 set -x
-$SCRIPTS/jujuci.py get build-revision 'buildvars.bash' ./
-source ./buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-echo "Testing $BRANCH $rev"
+$SCRIPTS/jujuci.py get-build-vars --summary $revision_build
 
 cat > temp-config.yaml <<EOT
 install:
