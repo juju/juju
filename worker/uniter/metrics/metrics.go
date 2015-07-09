@@ -163,12 +163,19 @@ func (m *JSONMetricRecorder) Close() error {
 
 // AddMetric implements the MetricsRecorder interface.
 func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	if _, ok := m.validMetrics[key]; !ok {
+	if !m.IsValidMetric(key) {
 		return errors.Errorf("invalid metric key: %v", key)
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+}
+
+// IsValidMetric returns true if the metric the recorder is permitted to store this metric.
+// Returns false if the uniter using this recorder doesn't define this metric.
+func (m *JSONMetricRecorder) IsValidMetric(key string) bool {
+	_, ok := m.validMetrics[key]
+	return ok
 }
 
 func (m *JSONMetricRecorder) open() error {

@@ -36,6 +36,7 @@ type meterStatus struct {
 // MetricsRecorder is used to store metrics supplied by the add-metric command.
 type MetricsRecorder interface {
 	AddMetric(key, value string, created time.Time) error
+	IsValidMetric(key string) bool
 	Close() error
 }
 
@@ -464,7 +465,7 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
-// AddMetrics adds metrics to the hook context.
+// AddMetric adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	if ctx.metricsRecorder == nil || ctx.definedMetrics == nil {
 		return errors.New("metrics disabled")
@@ -553,12 +554,28 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
+// addJujuUnitsMetric adds the juju-units built in metric if it
+// is defined for this context.
+func (ctx *HookContext) addJujuUnitsMetric() error {
+	if ctx.metricsRecorder.IsValidMetric("juju-units") {
+		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // FlushContext implements the Context interface.
 func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	// A non-existant metricsRecorder simply means that metrics were disabled
 	// for this hook run.
 	if ctx.metricsRecorder != nil {
-		err := ctx.metricsRecorder.Close()
+		err := ctx.addJujuUnitsMetric()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = ctx.metricsRecorder.Close()
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -5,12 +5,15 @@ package jujuc
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 )
+
+const builtinMetricPrexix string = "juju"
 
 // Metric represents a single metric set by the charm.
 type Metric struct {
@@ -24,6 +27,11 @@ type AddMetricCommand struct {
 	cmd.CommandBase
 	ctx     Context
 	Metrics []Metric
+}
+
+// IsBuiltinMetric returns true if the metric key provided is in the builtin metric namespace.
+func IsBuiltinMetric(key string) bool {
+	return strings.HasPrefix(key, builtinMetricPrexix)
 }
 
 // NewAddMetricCommand generates a new AddMetricCommand.
@@ -59,6 +67,9 @@ func (c *AddMetricCommand) Init(args []string) error {
 // Run adds metrics to the hook context.
 func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
+		if IsBuiltinMetric(metric.Key) {
+			return errors.Errorf("%v is in the builtin metric namespace", metric.Key)
+		}
 		err := c.ctx.AddMetric(metric.Key, metric.Value, metric.Time)
 		if err != nil {
 			return errors.Annotate(err, "cannot record metric")
