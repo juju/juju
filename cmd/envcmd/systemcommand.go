@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
@@ -53,14 +54,24 @@ func (c *SysCommandBase) SystemName() string {
 	return c.systemName
 }
 
-// NewEnvironmentManagerAPIClient returns an API client for the EnvironmentManager on the
-// current system using the current credentials.
+// NewEnvironmentManagerAPIClient returns an API client for the
+// EnvironmentManager on the current system using the current credentials.
 func (c *SysCommandBase) NewEnvironmentManagerAPIClient() (*environmentmanager.Client, error) {
 	root, err := c.newAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return environmentmanager.NewClient(root), nil
+}
+
+// NewSystemManagerAPIClient returns an API client for the SystemManager on
+// the current system using the current credentials.
+func (c *SysCommandBase) NewSystemManagerAPIClient() (*systemmanager.Client, error) {
+	root, err := c.newAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return systemmanager.NewClient(root), nil
 }
 
 // NewUserManagerAPIClient returns an API client for the UserManager on the

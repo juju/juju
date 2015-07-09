@@ -25,9 +25,10 @@ func NewCreateEnvironmentCommand(api CreateEnvironmentAPI) *CreateEnvironmentCom
 
 // NewEnvironmentsCommand returns a EnvironmentsCommand with the API and userCreds
 // provided as specified.
-func NewEnvironmentsCommand(api EnvironmentManagerAPI, userCreds *configstore.APICredentials) *EnvironmentsCommand {
+func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) *EnvironmentsCommand {
 	return &EnvironmentsCommand{
-		api:       api,
+		envAPI:    envAPI,
+		sysAPI:    sysAPI,
 		userCreds: userCreds,
 	}
 }
@@ -43,7 +44,7 @@ func NewLoginCommand(apiOpen APIOpenFunc, getUserManager GetUserManagerFunc) *Lo
 
 // NewUseEnvironmentCommand returns a UseEnvironmentCommand with the API and
 // userCreds provided as specified.
-func NewUseEnvironmentCommand(api EnvironmentManagerAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) *UseEnvironmentCommand {
+func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) *UseEnvironmentCommand {
 	return &UseEnvironmentCommand{
 		api:       api,
 		userCreds: userCreds,

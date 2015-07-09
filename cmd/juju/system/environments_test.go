@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
@@ -29,7 +29,7 @@ var _ = gc.Suite(&EnvironmentsSuite{})
 type fakeEnvMgrAPIClient struct {
 	err  error
 	user string
-	envs []environmentmanager.UserEnvironment
+	envs []base.UserEnvironment
 	all  bool
 }
 
@@ -37,7 +37,7 @@ func (f *fakeEnvMgrAPIClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]environmentmanager.UserEnvironment, error) {
+func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]base.UserEnvironment, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -46,7 +46,7 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]environmentmanage
 	return f.envs, nil
 }
 
-func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]environmentmanager.UserEnvironment, error) {
+func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserEnvironment, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -63,7 +63,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	envs := []environmentmanager.UserEnvironment{
+	envs := []base.UserEnvironment{
 		{
 			Name:           "test-env1",
 			Owner:          "user-admin@local",
@@ -85,7 +85,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironmentsSuite) newCommand() cmd.Command {
-	command := system.NewEnvironmentsCommand(s.api, s.creds)
+	command := system.NewEnvironmentsCommand(s.api, s.api, s.creds)
 	return envcmd.WrapSystem(command)
 }
 
