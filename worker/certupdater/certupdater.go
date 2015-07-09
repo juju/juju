@@ -6,9 +6,11 @@ package certupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -23,11 +25,12 @@ var logger = loggo.GetLogger("juju.worker.certupdater")
 // that server's machines addresses in state, and write a new certificate to the
 // agent's config file.
 type CertificateUpdater struct {
-	addressWatcher AddressWatcher
-	getter         StateServingInfoGetter
-	setter         StateServingInfoSetter
-	configGetter   EnvironConfigGetter
-	certChanged    chan params.StateServingInfo
+	addressWatcher  AddressWatcher
+	getter          StateServingInfoGetter
+	setter          StateServingInfoSetter
+	configGetter    EnvironConfigGetter
+	hostPortsGetter APIHostPortsGetter
+	certChanged     chan params.StateServingInfo
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -53,29 +56,59 @@ type StateServingInfoGetter interface {
 // StateServingInfo value with a newly generated certificate.
 type StateServingInfoSetter func(info params.StateServingInfo) error
 
+// APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
+// whose APIHostPorts method will be invoked to get state server addresses.
+type APIHostPortsGetter interface {
+	APIHostPorts() ([][]network.HostPort, error)
+}
+
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new state server certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter EnvironConfigGetter, setter StateServingInfoSetter, certChanged chan params.StateServingInfo,
+	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
+	certChanged chan params.StateServingInfo,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&CertificateUpdater{
-		addressWatcher: addressWatcher,
-		configGetter:   configGetter,
-		getter:         getter,
-		setter:         setter,
-		certChanged:    certChanged,
+		addressWatcher:  addressWatcher,
+		configGetter:    configGetter,
+		hostPortsGetter: hostPortsGetter,
+		getter:          getter,
+		setter:          setter,
+		certChanged:     certChanged,
 	})
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
+	// Populate certificate SAN with any addresses we know about now.
+	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving initial server addesses")
+	}
+	var initialSANAddresses []network.Address
+	for _, server := range apiHostPorts {
+		for _, nhp := range server {
+			if nhp.Scope != network.ScopeCloudLocal {
+				continue
+			}
+			initialSANAddresses = append(initialSANAddresses, nhp.Address)
+		}
+	}
+	if err := c.updateCertificate(initialSANAddresses); err != nil {
+		return nil, errors.Annotate(err, "setting initial cerificate SAN list")
+	}
+	// Return
 	return c.addressWatcher.WatchAddresses(), nil
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) Handle() error {
 	addresses := c.addressWatcher.Addresses()
+	return c.updateCertificate(addresses)
+}
+
+func (c *CertificateUpdater) updateCertificate(addresses []network.Address) error {
 	logger.Debugf("new machine addresses: %v", addresses)
 
 	// Older Juju deployments will not have the CA cert private key
@@ -112,9 +145,17 @@ func (c *CertificateUpdater) Handle() error {
 		}
 		serverAddrs = append(serverAddrs, addr.Value)
 	}
+	newServerAddrs, update, err := updateRequired(stateInfo.Cert, serverAddrs)
+	if err != nil {
+		return errors.Annotate(err, "cannot determine if cert update needed")
+	}
+	if !update {
+		logger.Debugf("no certificate update required")
+		return nil
+	}
 
 	// Generate a new state server certificate with the machine addresses in the SAN value.
-	newCert, newKey, err := envConfig.GenerateStateServerCertAndKey(serverAddrs)
+	newCert, newKey, err := envConfig.GenerateStateServerCertAndKey(newServerAddrs)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate state server certificate")
 	}
@@ -124,8 +165,29 @@ func (c *CertificateUpdater) Handle() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
 	}
-	logger.Infof("State Server cerificate addresses updated to %q", addresses)
+	logger.Infof("State Server cerificate addresses updated to %q", newServerAddrs)
 	return nil
+}
+
+// updateRequired returns true and a list of merged addresses if any of the
+// new addresses are not yet contained in the server cert SAN list.
+func updateRequired(serverCert string, newAddr []string) ([]string, bool, error) {
+	x509Cert, err := cert.ParseCert(serverCert)
+	if err != nil {
+		return nil, false, errors.Annotate(err, "cannot parse existing TLS certificate")
+	}
+	existingAddr := set.NewStrings()
+	for _, ip := range x509Cert.IPAddresses {
+		existingAddr.Add(ip.String())
+	}
+	logger.Debugf("existing cert addresses %v", existingAddr)
+	logger.Debugf("new addresses %v", newAddr)
+	// Does newAddr contain any that are not already in existingAddr?
+	update := set.NewStrings(newAddr...).Difference(existingAddr).Size() > 0
+	for _, addr := range newAddr {
+		existingAddr.Add(addr)
+	}
+	return existingAddr.SortedValues(), update, nil
 }
 
 // TearDown is defined on the NotifyWatchHandler interface.
