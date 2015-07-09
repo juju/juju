@@ -171,7 +171,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 
 // updateRequired returns true and a list of merged addresses if any of the
 // new addresses are not yet contained in the server cert SAN list.
-func updateRequired(serverCert string, newAddr []string) ([]string, bool, error) {
+func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error) {
 	x509Cert, err := cert.ParseCert(serverCert)
 	if err != nil {
 		return nil, false, errors.Annotate(err, "cannot parse existing TLS certificate")
@@ -181,13 +181,12 @@ func updateRequired(serverCert string, newAddr []string) ([]string, bool, error)
 		existingAddr.Add(ip.String())
 	}
 	logger.Debugf("existing cert addresses %v", existingAddr)
-	logger.Debugf("new addresses %v", newAddr)
+	logger.Debugf("new addresses %v", newAddrs)
 	// Does newAddr contain any that are not already in existingAddr?
-	update := set.NewStrings(newAddr...).Difference(existingAddr).Size() > 0
-	for _, addr := range newAddr {
-		existingAddr.Add(addr)
-	}
-	return existingAddr.SortedValues(), update, nil
+	newAddrSet := set.NewStrings(newAddrs...)
+	update := newAddrSet.Difference(existingAddr).Size() > 0
+	newAddrSet = newAddrSet.Union(existingAddr)
+	return newAddrSet.SortedValues(), update, nil
 }
 
 // TearDown is defined on the NotifyWatchHandler interface.
