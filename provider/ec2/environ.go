@@ -498,7 +498,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
 	})
-	logger.Debugf("\nEC2 INSTANCE SPEC \n%v\nERR: %v\n\n", spec, err)
 
 	if err != nil {
 		return nil, err
