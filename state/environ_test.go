@@ -70,6 +70,10 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
 	// Remove the first environment.
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env1.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -201,22 +205,42 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
 }
 
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
 	// Simulate an environment being added just before the remove txn is
 	// called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		st := s.State
-		c.Assert(state.HostedEnvironCount(c, st), gc.Equals, 0)
-		state.IncHostedEnvironCount(c, st)
-		c.Assert(state.HostedEnvironCount(c, st), gc.Equals, 1)
+		blocker := s.factory.MakeEnvironment(c, nil)
+		err := blocker.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}).Check()
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: transaction aborted")
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Simulate an environment being destroyed by another client just before
+	// the remove txn is called.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Destroy(), jc.ErrorIsNil)
+	}).Check()
+
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {

@@ -232,6 +232,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 		renderer.Quote(s.Service.Name),
 		renderer.Quote(s.Service.Conf.Desc),
 		renderer.Quote(s.Service.Conf.ExecStart),
+		renderer.Quote(s.Service.Name),
 	)
 	return strings.Split(cmd, "\n"), nil
 }
@@ -243,4 +244,5 @@ func (s *Service) StartCommands() ([]string, error) {
 }
 
 const serviceInstallCommands = `
-New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s`
+New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
+sc.exe failure %s reset=5 actions=restart/1000`

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -261,56 +262,77 @@ func (e *Environment) Users() ([]*EnvironmentUser, error) {
 // addition of services or machines to state.
 func (e *Environment) Destroy() (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
-	if e.Life() != Alive {
-		return nil
-	}
 
-	if err := e.ensureDestroyable(); err != nil {
-		return errors.Trace(err)
-	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 
-	ops := []txn.Op{
-		// Set the environment to Dying, to lock out new machines and services.
-		// This puts the environment into an unusable state.
-		{
-			C:      environmentsC,
-			Id:     e.doc.UUID,
-			Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-			Assert: isEnvAliveDoc,
-		},
-	}
-
-	// We add a cleanup for services, but not for machines; machines are
-	// destroyed via the provider interface. The exception to this rule is
-	// manual machines; the API prevents destroy-environment from succeeding
-	// if any non-manager manual machines exist.
-	//
-	// We don't bother adding a cleanup for a non state server environment, as
-	// RemoveAllEnvironDocs() at the end of apiserver/client.Destroy() removes
-	// these documents for us.
-	if e.UUID() == e.doc.ServerUUID {
-		ops = []txn.Op{
-			e.st.newCleanupOp(cleanupServicesForDyingEnvironment, ""),
-
-			// The system environment cannot be destroyed before all hosted
-			// environments are removed. This assert safe guards against a
-			// race condition where an environment may have been added after
-			// ensureDestroyable was called and before this txn began.
-			{
-				C:      stateServersC,
-				Id:     hostedEnvCountKey,
-				Assert: bson.D{{"count", 0}},
-			},
+		// On the first attempt, we assume memory state is recent
+		// enough to try using...
+		if attempt != 0 {
+			// ...but on subsequent attempts, we read fresh environ
+			// state from the DB. Note that we do *not* refresh `e`
+			// itself, as detailed in doc/hacking-state.txt
+			if e, err = e.st.Environment(); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-	} else {
-		ops = []txn.Op{decHostedEnvironCountOp()}
+
+		ops, err := e.destroyOps()
+		if err == errEnvironNotAlive {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return ops, nil
+	}
+	return e.st.run(buildTxn)
+}
+
+// errEnvironNotAlive is a signal emitted from destroyOps to indicate
+// that environment destruction is already underway.
+var errEnvironNotAlive = errors.New("environment is no longer alive")
+
+// destroyOps returns the txn operations necessary to begin environ
+// destruction, or an error indicating why it can't.
+func (e *Environment) destroyOps() ([]txn.Op, error) {
+	if e.Life() != Alive {
+		return nil, errEnvironNotAlive
 	}
 
-	err = e.st.runTransaction(ops)
+	err := e.ensureDestroyable()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return nil
+
+	uuid := e.UUID()
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     uuid,
+		Assert: isEnvAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+
+	if uuid == e.doc.ServerUUID {
+		if count, err := hostedEnvironCount(e.st); err != nil {
+			return nil, errors.Trace(err)
+		} else if count != 0 {
+			return nil, errors.Errorf("hosting %d other environments", count)
+		}
+		ops = append(ops, assertNoHostedEnvironsOp())
+	} else {
+		// When we're destroying a hosted environment, no further
+		// checks are necessary -- we just need to make sure we
+		// update the refcount.
+		ops = append(ops, decHostedEnvironCountOp())
+	}
+
+	// Because txn operations execute in order, and may encounter
+	// arbitrarily long delays, we need to make sure every op
+	// causes a state change that's still consistent; so we make
+	// sure the cleanup op is the last thing that will execute.
+	cleanupOp := e.st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
+	ops = append(ops, cleanupOp)
+	return ops, nil
 }
 
 // checkManualMachines checks if any of the machines in the slice were
@@ -337,14 +359,14 @@ func checkManualMachines(machines []*Machine) error {
 	return nil
 }
 
-// ensureDestroyable returns an error if there is more than one environment
-// and the environment to be destroyed is the state server environment. An
-// error is also returned if any manual machines or peristent volumes are
+// ensureDestroyable an error if any manual machines or persistent volumes are
 // found.
 func (e *Environment) ensureDestroyable() error {
-	// after another client checks. Destroy-environment will
-	// still fail, but the environment will be in a state where
-	// entities can only be destroyed.
+
+	// TODO(waigani) bug #1475212: Environment destroy can miss manual machines and
+	// persistent volumes. We need to be able to assert the absence of these
+	// as part of the destroy txn, but in order to do this  manual machines
+	// and persistent volumes need to add refcounts to their environments.
 
 	// First, check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the environment.
@@ -364,21 +386,6 @@ func (e *Environment) ensureDestroyable() error {
 	}
 	if len(volumes) > 0 {
 		return ErrPersistentVolumesExist
-	}
-
-	// If this is not the state server environment, it can be destroyed
-	if e.doc.UUID != e.doc.ServerUUID {
-		return nil
-	}
-
-	environments, closer := e.st.getCollection(environmentsC)
-	defer closer()
-	n, err := environments.Count()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if n > 1 {
-		return errors.Errorf("state server environment cannot be destroyed before all other environments are destroyed")
 	}
 	return nil
 }
@@ -405,9 +412,17 @@ const hostedEnvCountKey = "hostedEnvironCount"
 
 type hostedEnvCountDoc struct {
 
-	// Count is the number of environments in the Juju system. We do not count
+	// RefCount is the number of environments in the Juju system. We do not count
 	// the system environment.
-	Count int `bson:"count"`
+	RefCount int `bson:"refcount"`
+}
+
+func assertNoHostedEnvironsOp() txn.Op {
+	return txn.Op{
+		C:      stateServersC,
+		Id:     hostedEnvCountKey,
+		Assert: bson.D{{"refcount", 0}},
+	}
 }
 
 func incHostedEnvironCountOp() txn.Op {
@@ -423,9 +438,20 @@ func hostedEnvironCountOp(amount int) txn.Op {
 		C:  stateServersC,
 		Id: hostedEnvCountKey,
 		Update: bson.M{
-			"$inc": bson.M{"count": amount},
+			"$inc": bson.M{"refcount": amount},
 		},
 	}
+}
+
+func hostedEnvironCount(st *State) (int, error) {
+	var doc hostedEnvCountDoc
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
+	if err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc); err != nil {
+		return 0, errors.Trace(err)
+	}
+	return doc.RefCount, nil
 }
 
 // createUniqueOwnerEnvNameOp returns the operation needed to create

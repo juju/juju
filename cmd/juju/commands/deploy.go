@@ -229,7 +229,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if !constraints.IsEmpty(&c.Constraints) {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ToMachineSpec == "" {
+		if numUnits == 1 && c.PlacementSpec == "" {
 			numUnits = 0
 		} else {
 			return errors.New("cannot use --num-units or --to with subordinate service")
@@ -248,21 +248,28 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// If storage is specified, we attempt to use a new API on the service facade.
-	if len(c.Storage) > 0 {
-		notSupported := errors.New("cannot deploy charms with storage: not supported by the API server")
+	// If storage or placement is specified, we attempt to use a new API on the service facade.
+	if len(c.Storage) > 0 || len(c.Placement) > 0 {
+		notSupported := errors.New("cannot deploy charms with storage or placement: not supported by the API server")
 		serviceClient, err := c.newServiceAPIClient()
 		if err != nil {
 			return notSupported
 		}
 		defer serviceClient.Close()
+		for i, p := range c.Placement {
+			if p.Scope == "env-uuid" {
+				p.Scope = serviceClient.EnvironmentUUID()
+			}
+			c.Placement[i] = p
+		}
 		err = serviceClient.ServiceDeploy(
 			curl.String(),
 			serviceName,
 			numUnits,
 			string(configYAML),
 			c.Constraints,
-			c.ToMachineSpec,
+			c.PlacementSpec,
+			c.Placement,
 			requestedNetworks,
 			c.Storage,
 		)
@@ -278,7 +285,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		numUnits,
 		string(configYAML),
 		c.Constraints,
-		c.ToMachineSpec,
+		c.PlacementSpec,
 		requestedNetworks,
 	)
 	if params.IsCodeNotImplemented(err) {
@@ -291,7 +298,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			numUnits,
 			string(configYAML),
 			c.Constraints,
-			c.ToMachineSpec)
+			c.PlacementSpec)
 	}
 
 	if err != nil {

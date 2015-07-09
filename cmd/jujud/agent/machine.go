@@ -1440,7 +1440,9 @@ func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
 	// Note: we set Direct=true in the mongo options because it's
 	// possible that we've previously upgraded the mongo server's
 	// configuration to form a replicaset, but failed to initiate it.
-	st, _, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, _, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return err
 	}
@@ -1485,7 +1487,9 @@ func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 // network addresses.
 func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
 	logger.Debugf("opening state to get machine addresses")
-	st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, m, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
 	}

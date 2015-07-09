@@ -329,18 +329,20 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func HostedEnvironCount(c *gc.C, st *State) int {
-	var doc hostedEnvCountDoc
-	stateServers, closer := st.getCollection(stateServersC)
-	defer closer()
-
-	err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	return doc.Count
+func SetEnvLifeDying(st *State, envUUID string) error {
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     envUUID,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Assert: isEnvAliveDoc,
+	}}
+	return st.runTransaction(ops)
 }
 
-func IncHostedEnvironCount(c *gc.C, st *State) {
-	c.Assert(st.runTransaction([]txn.Op{incHostedEnvironCountOp()}), jc.ErrorIsNil)
+func HostedEnvironCount(c *gc.C, st *State) int {
+	count, err := hostedEnvironCount(st)
+	c.Assert(err, jc.ErrorIsNil)
+	return count
 }
 
 type MockGlobalEntity struct {

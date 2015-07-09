@@ -457,6 +457,19 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 	return results.Units, err
 }
 
+// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
+// placement directives to assign units to machines.
+func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+		Placement:   placement,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
+	return results.Units, err
+}
+
 // DestroyServiceUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
