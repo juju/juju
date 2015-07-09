@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/process"
@@ -33,7 +34,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
 	s.apiClient = newStubAPIClient(s.Stub)
-	proc := process.NewInfoUnvalidated("proc A", "docker")
+	proc := s.newProc("proc A", "docker")
 	compCtx := context.NewContext(s.apiClient)
 
 	hctx, info := s.NewHookContext()
@@ -42,6 +43,15 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.proc = proc
 	s.compCtx = compCtx
 	s.Ctx = hctx
+}
+
+func (s *baseSuite) newProc(name, ptype string) *process.Info {
+	return &process.Info{
+		Process: charm.Process{
+			Name: name,
+			Type: ptype,
+		},
+	}
 }
 
 func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInfo) {
