@@ -6,14 +6,10 @@ package persistence
 // TODO(ericsnow) Eliminate the mongo-related imports here.
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
@@ -42,135 +38,33 @@ type PersistenceBase interface {
 // Persistence exposes the high-level persistence functionality
 // related to workload processes in Juju.
 type Persistence struct {
-	st    PersistenceBase
-	charm names.CharmTag
-	unit  names.UnitTag
+	st   PersistenceBase
+	unit names.UnitTag
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, charm *names.CharmTag, unit *names.UnitTag) *Persistence {
-	pp := &Persistence{
-		st: st,
+func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
+	return &Persistence{
+		st:   st,
+		unit: unit,
 	}
-	if charm != nil {
-		pp.charm = *charm
-	}
-	if unit != nil {
-		pp.unit = *unit
-	}
-	return pp
-}
-
-var noUnit names.UnitTag
-
-func (pp Persistence) charmID() string {
-	return pp.charm.Id()
-}
-
-// EnsureDefinitions checks persistence to see if records for the
-// definitions are already there. If not then they are added. If so then
-// they are checked to be sure they match those provided. The lists of
-// names for those that already exist and that don't match are returned.
-func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error) {
-	var found []string
-	var mismatched []string
-
-	if len(definitions) == 0 {
-		return found, mismatched, nil
-	}
-
-	// TODO(ericsnow) Move this to newInsertDefinitionsOps?
-	var ids []string
-	var ops []txn.Op
-	for _, definition := range definitions {
-		ids = append(ids, pp.definitionID(definition.Name))
-		ops = append(ops, pp.newInsertDefinitionOps(definition)...)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// TODO(ericsnow) Move this logic into adjustInsertDefinitionsOps?
-
-			// The last attempt aborted so clear out any ops that failed
-			// the DocMissing assertion and try again.
-			found = []string{}
-			mismatched = []string{}
-			indexed, err := pp.indexDefinitionDocs(ids)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var okOps []txn.Op
-			for _, op := range ops {
-				if existing, ok := indexed[op.Id]; !ok {
-					okOps = append(okOps, op)
-				} else { // Otherwise the op is dropped.
-					id := fmt.Sprintf("%s", op.Id)
-					found = append(found, id)
-					requested, ok := op.Insert.(*definitionDoc)
-					if !ok {
-						return nil, errors.Errorf("inserting invalid type %T", op.Insert)
-					}
-					if !reflect.DeepEqual(requested.definition(), existing.definition()) {
-						mismatched = append(mismatched, id)
-					}
-				}
-			}
-			if len(okOps) == 0 {
-				return nil, jujutxn.ErrNoOperations
-			}
-			ops = okOps
-		}
-		return ops, nil
-	}
-	if err := pp.st.Run(buildTxn); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return found, mismatched, nil
 }
 
 // Insert adds records for the process to persistence. If the process
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp Persistence) Insert(info process.Info) (bool, error) {
-	if err := pp.lockDefinition(info.ID()); err != nil {
-		return false, errors.Trace(err)
-	}
-
-	ok, err := pp.insert(info)
-	if err != nil {
-		if err := pp.unlockDefinition(info.ID()); err != nil {
-			logger.Errorf("while unlocking %q %q: %v", pp.unit.Id(), info.ID(), err)
-		}
-		return ok, errors.Trace(err)
-	}
-
-	if err := pp.unlockDefinition(info.ID()); err != nil {
-		return ok, errors.Trace(err)
-	}
-
-	return ok, nil
-}
-
-func (pp Persistence) insert(info process.Info) (bool, error) {
-	defExists := false
-	if doc, ok, err := pp.checkDefinition(info.Process); err != nil {
-		return false, errors.Trace(err)
-	} else if !ok {
-		return false, nil
-	} else if doc != nil {
-		defExists = true
-	}
-
 	var okay bool
+	var ops []txn.Op
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+	ops = append(ops, pp.newInsertProcessOps(info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			okay = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		okay = true
-		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-		return pp.newInsertProcessOps(info, defExists), nil
+		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
@@ -189,14 +83,7 @@ func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, e
 	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			_, err := pp.proc(id)
-			if errors.IsNotFound(err) {
-				found = false
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// We ignore the request since the proc is dying.
+			found = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true
@@ -210,32 +97,20 @@ func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, e
 
 // List builds the list of processes found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
-// returned. Inconsistent records result in errors.NotValid.
+// returned.
 func (pp Persistence) List(ids ...string) ([]process.Info, []string, error) {
-	var missing []string
-
 	// TODO(ericsnow) Ensure that the unit is Alive?
-	// TODO(ericsnow) fix race that exists between the 3 calls
-	definitionDocs, err := pp.definitions(ids)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	launchDocs, err := pp.launches(ids)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+
 	procDocs, err := pp.procs(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	var results []process.Info
+	var missing []string
 	for _, id := range ids {
-		proc, code := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if code > 0 {
-			if code < 7 {
-				return nil, nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, code)
-			}
+		proc, ok := pp.extractProc(id, procDocs)
+		if !ok {
 			missing = append(missing, id)
 			continue
 		}
@@ -248,45 +123,16 @@ func (pp Persistence) List(ids ...string) ([]process.Info, []string, error) {
 // Inconsistent records result in errors.NotValid.
 func (pp Persistence) ListAll() ([]process.Info, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
-	// TODO(ericsnow) fix race that exists between the 3 calls
-	definitionDocs, err := pp.allDefinitions()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	launchDocs, err := pp.allLaunches()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	procDocs, err := pp.allProcs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(launchDocs) > len(procDocs) {
-		return nil, errors.Errorf("found inconsistent records (extra launch docs)")
-	}
-
 	var results []process.Info
 	for id := range procDocs {
-		proc, code := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if code > 0 {
-			return nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, code)
-		}
+		proc, _ := pp.extractProc(id, procDocs)
 		results = append(results, *proc)
-	}
-	for name, doc := range definitionDocs {
-		matched := false
-		for _, proc := range results {
-			if name == proc.Name {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			results = append(results, process.Info{
-				Process: doc.definition(),
-			})
-		}
 	}
 	return results, nil
 }
@@ -300,47 +146,13 @@ func (pp Persistence) ListAll() ([]process.Info, error) {
 // found. If the records for the process are not consistent then
 // errors.NotValid is returned.
 func (pp Persistence) Remove(id string) (bool, error) {
-	if err := pp.lockDefinition(id); err != nil {
-		return false, errors.Trace(err)
-	}
-
-	ok, err := pp.remove(id)
-	if err != nil {
-		if err := pp.unlockDefinition(id); err != nil {
-			logger.Errorf("while unlocking %q %q: %v", pp.unit.Id(), id, err)
-		}
-		return ok, errors.Trace(err)
-	}
-
-	if err := pp.unlockDefinition(id); err != nil {
-		return ok, errors.Trace(err)
-	}
-
-	return ok, nil
-}
-
-func (pp Persistence) remove(id string) (bool, error) {
-	clearDef := false
-	var doc definitionDoc
-	if err := pp.one(pp.definitionID(id), &doc); err != nil {
-		return false, errors.Trace(err)
-	}
-	if doc.RefCount <= 1 {
-		clearDef = true
-	}
-
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemoveProcessOps(id, clearDef)...)
+	ops = append(ops, pp.newRemoveProcessOps(id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			okay, err := pp.checkRecords(id)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// If okay is true, it must be dying.
-			found = okay
+			found = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true

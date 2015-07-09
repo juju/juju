@@ -21,7 +21,6 @@ type BaseSuite struct {
 
 	Stub  *gitjujutesting.Stub
 	State *fakeStatePersistence
-	Charm names.CharmTag
 	Unit  names.UnitTag
 }
 
@@ -30,97 +29,47 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &gitjujutesting.Stub{}
 	s.State = &fakeStatePersistence{Stub: s.Stub}
-	s.Charm = names.NewCharmTag("local:series/dummy-1")
 	s.Unit = names.NewUnitTag("a-unit/0")
-}
-
-type ProcessInfoDocs struct {
-	Definition *definitionDoc
-	Launch     *launchDoc
-	Proc       *processDoc
-	Docs       []interface{}
-}
-
-type DefinitionDoc definitionDoc
-
-func (doc DefinitionDoc) convert() interface{} {
-	return (*definitionDoc)(&doc)
-}
-
-type LaunchDoc launchDoc
-
-func (doc LaunchDoc) convert() interface{} {
-	return (*launchDoc)(&doc)
 }
 
 type ProcessDoc processDoc
 
-func (doc ProcessDoc) convert() interface{} {
+func (doc ProcessDoc) convert() *processDoc {
 	return (*processDoc)(&doc)
 }
 
-func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
-	docs := ProcessInfoDocs{}
+func (s *BaseSuite) NewDoc(proc process.Info) *processDoc {
+	return &processDoc{
+		DocID:  "proc#" + s.Unit.Id() + "#" + proc.ID(),
+		UnitID: s.Unit.Id(),
 
-	docs.Definition = &definitionDoc{
-		DocID:    fmt.Sprintf("procd#%s#%s#u#%s", s.Charm.Id(), proc.Name, s.Unit.Id()),
-		CharmID:  s.Charm.Id(),
-		ProcName: proc.Name,
-		UnitID:   s.Unit.Id(),
-		DocKind:  "definition",
-		Type:     proc.Type,
+		Name: proc.Name,
+		Type: proc.Type,
+
+		PluginID:       proc.Details.ID,
+		OriginalStatus: proc.Details.Status.Label,
+
+		PluginStatus: proc.Details.Status.Label,
 	}
-	docs.Docs = append(docs.Docs, docs.Definition)
-
-	if proc.Details.ID != "" {
-		docs.Definition.DocID += "#" + s.Unit.Id()
-		docs.Launch = &launchDoc{
-			DocID:     "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch",
-			UnitID:    s.Unit.Id(),
-			ProcName:  proc.Name,
-			PluginID:  proc.Details.ID,
-			DocKind:   "launch",
-			RawStatus: proc.Details.Status.Label,
-		}
-		docs.Proc = &processDoc{
-			DocID:        "proc#" + s.Unit.Id() + "#" + proc.ID(),
-			UnitID:       s.Unit.Id(),
-			ProcName:     proc.Name,
-			PluginID:     proc.Details.ID,
-			DocKind:      "process",
-			PluginStatus: proc.Details.Status.Label,
-		}
-		docs.Docs = append(docs.Docs, docs.Launch, docs.Proc)
-	}
-
-	return docs
 }
 
-func (s *BaseSuite) SetDocs(procs ...process.Info) []ProcessInfoDocs {
-	var results []ProcessInfoDocs
+func (s *BaseSuite) SetDocs(procs ...process.Info) []*processDoc {
+	var results []*processDoc
 	for _, proc := range procs {
-		procDocs := s.NewDocs(proc)
-		results = append(results, procDocs)
-		s.State.SetDocs(procDocs.Docs...)
+		procDoc := s.NewDoc(proc)
+		results = append(results, procDoc)
+		s.State.SetDocs(procDoc)
 	}
 	return results
 }
 
-func (s *BaseSuite) RemoveDoc(proc process.Info, kind string) {
-	var docID string
-	switch kind {
-	case "definition":
-		docID = fmt.Sprintf("procd#%s#%s#u#%s", s.Charm.Id(), proc.Name, s.Unit.Id())
-	case "launch":
-		docID = "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch"
-	case "process":
-		docID = "proc#" + s.Unit.Id() + "#" + proc.ID()
-	}
+func (s *BaseSuite) RemoveDoc(proc process.Info) {
+	docID := "proc#" + s.Unit.Id() + "#" + proc.ID()
 	delete(s.State.docs, docID)
 }
 
 func (s *BaseSuite) NewPersistence() *Persistence {
-	return NewPersistence(s.State, &s.Charm, &s.Unit)
+	return NewPersistence(s.State, s.Unit)
 }
 
 func (s *BaseSuite) SetUnit(id string) {
@@ -131,43 +80,21 @@ func (s *BaseSuite) SetUnit(id string) {
 	}
 }
 
-func (s *BaseSuite) SetCharm(id string) {
-	if id == "" {
-		s.Charm = names.CharmTag{}
-	} else {
-		s.Charm = names.NewCharmTag(id)
-	}
-}
-
-func (s *BaseSuite) NewDefinitions(pType string, names ...string) []charm.Process {
-	var definitions []charm.Process
-	for _, name := range names {
-		definitions = append(definitions, charm.Process{
-			Name: name,
-			Type: pType,
-		})
-	}
-	return definitions
-}
-
-func (s *BaseSuite) NewProcesses(pType string, names ...string) []process.Info {
-	var ids []string
-	for i, name := range names {
-		name, id := process.ParseID(name)
-		names[i] = name
-		if id == "" {
-			id = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
-		}
-		ids = append(ids, id)
-	}
-
+func (s *BaseSuite) NewProcesses(pType string, ids ...string) []process.Info {
 	var processes []process.Info
-	for i, definition := range s.NewDefinitions(pType, names...) {
-		id := ids[i]
+	for _, id := range ids {
+		name, pluginID := process.ParseID(id)
+		if pluginID == "" {
+			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
+		}
+
 		processes = append(processes, process.Info{
-			Process: definition,
+			Process: charm.Process{
+				Name: name,
+				Type: pType,
+			},
 			Details: process.Details{
-				ID: id,
+				ID: pluginID,
 				Status: process.PluginStatus{
 					Label: "running",
 				},

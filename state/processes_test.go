@@ -59,18 +59,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 
 	procs, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			EnvVars: map[string]string{
-				// TODO(erisnow) YAML coerces YES into true...
-				"IMPORTANT": "true",
-			},
-		},
-	}})
+	c.Check(procs, gc.HasLen, 0)
 
 	info := process.Info{
 		Process: charm.Process{
@@ -79,6 +68,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Command: "do-something cool",
 			Image:   "spam/eggs",
 			EnvVars: map[string]string{
+				// TODO(erisnow) YAML coerces YES into true...
 				"IMPORTANT": "true",
 			},
 		},
@@ -110,18 +100,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				Label: "running",
 			},
 		},
-	}, {
-		Process: charm.Process{
-			Name:    "procA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
-		},
-	},
-	})
+	}})
 
 	procs, err = st.List("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,15 +136,5 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 
 	procs, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
-		},
-	}})
+	c.Check(procs, gc.HasLen, 0)
 }

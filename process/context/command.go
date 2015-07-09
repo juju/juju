@@ -58,6 +58,8 @@ func (c *baseCommand) init(name string) error {
 	}
 	c.Name = name
 
+	// TODO(ericsnow) Pull from metadata.yaml instead of state (for
+	// charm-defined proc definitions).
 	pInfo, maybeErr, err := c.getInfo()
 	if err != nil {
 		return errors.Trace(err)

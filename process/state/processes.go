@@ -35,9 +35,9 @@ type UnitProcesses struct {
 	Unit names.UnitTag
 }
 
-// NewUnitProcesses builds a UnitProcesses for a charm/unit.
-func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, charm *names.CharmTag) *UnitProcesses {
-	persist := persistence.NewPersistence(st, charm, &unit)
+// NewUnitProcesses builds a UnitProcesses for a unit.
+func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag) *UnitProcesses {
+	persist := persistence.NewPersistence(st, unit)
 	return &UnitProcesses{
 		Persist: persist,
 		Unit:    unit,

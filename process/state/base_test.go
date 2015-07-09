@@ -5,10 +5,8 @@ package state_test
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -24,7 +22,6 @@ type baseProcessesSuite struct {
 
 	stub    *gitjujutesting.Stub
 	persist *fakeProcsPersistence
-	charm   names.CharmTag
 }
 
 func (s *baseProcessesSuite) SetUpTest(c *gc.C) {
@@ -32,38 +29,23 @@ func (s *baseProcessesSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &gitjujutesting.Stub{}
 	s.persist = &fakeProcsPersistence{Stub: s.stub}
-	s.charm = names.NewCharmTag("local:series/dummy-1")
 }
 
-func (s *baseProcessesSuite) newDefinitions(pType string, names ...string) []charm.Process {
-	var definitions []charm.Process
-	for _, name := range names {
-		definitions = append(definitions, charm.Process{
-			Name: name,
-			Type: pType,
-		})
-	}
-	return definitions
-}
-
-func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []process.Info {
-	var ids []string
-	for i, name := range names {
-		name, id := process.ParseID(name)
-		names[i] = name
-		if id == "" {
-			id = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
-		}
-		ids = append(ids, id)
-	}
-
+func (s *baseProcessesSuite) newProcesses(pType string, ids ...string) []process.Info {
 	var processes []process.Info
-	for i, definition := range s.newDefinitions(pType, names...) {
-		id := ids[i]
+	for _, id := range ids {
+		name, pluginID := process.ParseID(id)
+		if pluginID == "" {
+			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
+		}
+
 		processes = append(processes, process.Info{
-			Process: definition,
+			Process: charm.Process{
+				Name: name,
+				Type: pType,
+			},
 			Details: process.Details{
-				ID: id,
+				ID: pluginID,
 				Status: process.PluginStatus{
 					Label: "running",
 				},
@@ -75,21 +57,7 @@ func (s *baseProcessesSuite) newProcesses(pType string, names ...string) []proce
 
 type fakeProcsPersistence struct {
 	*gitjujutesting.Stub
-	definitions  map[string]*charm.Process
-	procs        map[string]*process.Info
-	inconsistent []string
-}
-
-func (s *fakeProcsPersistence) checkDefinitions(c *gc.C, expectedList []charm.Process) {
-	c.Check(s.definitions, gc.HasLen, len(expectedList))
-	for _, expected := range expectedList {
-		definition, ok := s.definitions[expected.Name]
-		if !ok {
-			c.Errorf("definition %q not found", expected.Name)
-		} else {
-			c.Check(definition, jc.DeepEquals, &expected)
-		}
-	}
+	procs map[string]*process.Info
 }
 
 func (s *fakeProcsPersistence) checkProcesses(c *gc.C, expectedList []process.Info) {
@@ -101,22 +69,6 @@ func (s *fakeProcsPersistence) checkProcesses(c *gc.C, expectedList []process.In
 		} else {
 			c.Check(proc, jc.DeepEquals, &expected)
 		}
-
-		definition, ok := s.definitions[expected.Name]
-		if !ok {
-			c.Errorf("definition %q not found", expected.Name)
-		} else {
-			c.Check(definition, jc.DeepEquals, &expected.Process)
-		}
-	}
-}
-
-func (s *fakeProcsPersistence) setDefinitions(definitions ...*charm.Process) {
-	if s.definitions == nil {
-		s.definitions = make(map[string]*charm.Process)
-	}
-	for _, definition := range definitions {
-		s.definitions[definition.Name] = definition
 	}
 }
 
@@ -129,45 +81,10 @@ func (s *fakeProcsPersistence) setProcesses(procs ...*process.Info) {
 	}
 }
 
-func (s *fakeProcsPersistence) EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error) {
-	s.AddCall("EnsureDefinitions", definitions)
-	if err := s.NextErr(); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	var existing []string
-	var mismatched []string
-	for _, definition := range definitions {
-		if added, ok := s.ensureDefinition(definition); !added {
-			existing = append(existing, definition.Name)
-			if !ok {
-				mismatched = append(mismatched, definition.Name)
-			}
-		}
-	}
-	return existing, mismatched, nil
-}
-
-func (s *fakeProcsPersistence) ensureDefinition(definition charm.Process) (bool, bool) {
-	if expected, ok := s.definitions[definition.Name]; ok {
-		if !reflect.DeepEqual(&definition, expected) {
-			return false, false
-		}
-		return false, true
-	} else {
-		s.setDefinitions(&definition)
-		return true, true
-	}
-}
-
 func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	s.AddCall("Insert", info)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
-	}
-
-	if _, ok := s.ensureDefinition(info.Process); !ok {
-		return false, nil
 	}
 
 	if _, ok := s.procs[info.ID()]; ok {
@@ -203,11 +120,6 @@ func (s *fakeProcsPersistence) List(ids ...string) ([]process.Info, []string, er
 		if proc, ok := s.procs[id]; !ok {
 			missing = append(missing, id)
 		} else {
-			for _, inconsistent := range s.inconsistent {
-				if id == inconsistent {
-					return nil, nil, errors.NotValidf(id)
-				}
-			}
 			procs = append(procs, *proc)
 		}
 	}
@@ -236,12 +148,6 @@ func (s *fakeProcsPersistence) Remove(id string) (bool, error) {
 	if _, ok := s.procs[id]; !ok {
 		return false, nil
 	}
-	for _, inconsistent := range s.inconsistent {
-		if id == inconsistent {
-			return false, errors.NotValidf(id)
-		}
-	}
 	delete(s.procs, id)
-	// TODO(ericsnow) Remove definition if appropriate.
 	return true, nil
 }

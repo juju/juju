@@ -16,45 +16,17 @@ import (
 type fakeStatePersistence struct {
 	*gitjujutesting.Stub
 
-	docs           map[string]interface{}
-	definitionDocs []string
-	launchDocs     []string
-	procDocs       []string
-	ops            [][]txn.Op
+	docs map[string]*processDoc
+	ops  [][]txn.Op
 }
 
-func (sp *fakeStatePersistence) SetDocs(docs ...interface{}) {
+func (sp *fakeStatePersistence) SetDocs(docs ...*processDoc) {
 	if sp.docs == nil {
-		sp.docs = make(map[string]interface{})
+		sp.docs = make(map[string]*processDoc)
 	}
 	for _, doc := range docs {
-		if fakeDoc, ok := doc.(converter); ok {
-			doc = fakeDoc.convert()
-		}
-
-		var id string
-		switch doc := doc.(type) {
-		case *definitionDoc:
-			id = doc.DocID
-			sp.definitionDocs = append(sp.definitionDocs, id)
-		case *launchDoc:
-			id = doc.DocID
-			sp.launchDocs = append(sp.launchDocs, id)
-		case *processDoc:
-			id = doc.DocID
-			sp.procDocs = append(sp.procDocs, id)
-		default:
-			panic(doc)
-		}
-		if id == "" {
-			panic(doc)
-		}
-		sp.docs[id] = doc
+		sp.docs[doc.DocID] = doc
 	}
-}
-
-type converter interface {
-	convert() interface{}
 }
 
 func (sp fakeStatePersistence) CheckOps(c *gc.C, expected [][]txn.Op) {
@@ -74,11 +46,11 @@ func (sp fakeStatePersistence) CheckOps(c *gc.C, expected [][]txn.Op) {
 			c.Logf(" <op %d>\n", j)
 			expectedOp := expectedRun[j]
 			if expectedOp.Insert != nil {
-				if doc, ok := expectedOp.Insert.(converter); ok {
+				if doc, ok := expectedOp.Insert.(*ProcessDoc); ok {
 					expectedOp.Insert = doc.convert()
 				}
 			} else if expectedOp.Update != nil {
-				if doc, ok := expectedOp.Update.(converter); ok {
+				if doc, ok := expectedOp.Update.(*ProcessDoc); ok {
 					expectedOp.Update = doc.convert()
 				}
 			}
@@ -104,20 +76,8 @@ func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
 	if !ok {
 		return errors.NotFoundf(id)
 	}
-
-	switch doc := doc.(type) {
-	case *definitionDoc:
-		expected := found.(*definitionDoc)
-		*doc = *expected
-	case *launchDoc:
-		expected := found.(*launchDoc)
-		*doc = *expected
-	case *processDoc:
-		expected := found.(*processDoc)
-		*doc = *expected
-	default:
-		panic(doc)
-	}
+	actual := doc.(*processDoc)
+	*actual = *found
 	return nil
 }
 
@@ -145,53 +105,24 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 			panic(err)
 		}
 		ids = elems[0].Value.([]string)
-	case "dockind":
-		if len(elems) > 2 {
-			err := errors.Errorf("bad query %v", query)
-			panic(err)
-		}
-		switch elems[0].Value.(string) {
-		case "definition":
-			ids = sp.definitionDocs
-		case "launch":
-			ids = sp.launchDocs
-		case "process":
-			ids = sp.procDocs
+	case "unitid":
+		for id := range sp.docs {
+			ids = append(ids, id)
 		}
 	default:
 		panic(query)
 	}
 
-	var found []interface{}
+	var found []processDoc
 	for _, id := range ids {
 		doc, ok := sp.docs[id]
 		if !ok {
 			continue
 		}
-		found = append(found, doc)
+		found = append(found, *doc)
 	}
-	switch docs := docs.(type) {
-	case *[]definitionDoc:
-		var actual []definitionDoc
-		for _, doc := range found {
-			actual = append(actual, *doc.(*definitionDoc))
-		}
-		*docs = actual
-	case *[]launchDoc:
-		var actual []launchDoc
-		for _, doc := range found {
-			actual = append(actual, *doc.(*launchDoc))
-		}
-		*docs = actual
-	case *[]processDoc:
-		var actual []processDoc
-		for _, doc := range found {
-			actual = append(actual, *doc.(*processDoc))
-		}
-		*docs = actual
-	default:
-		panic(docs)
-	}
+	actual := docs.(*[]processDoc)
+	*actual = found
 	return nil
 }
 

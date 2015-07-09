@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
@@ -42,90 +41,37 @@ type UnitProcesses interface {
 	Unregister(id string) error
 }
 
-// ProcessDefiniitions provides the state functionality related to
-// workload process definitions.
-type ProcessDefinitions interface {
-	// EnsureDefined adds the definitions to state if they aren't there
-	// already. If they are there then it verfies that the existing
-	// definitions match the provided ones.
-	EnsureDefined(definitions ...charm.Process) error
-}
-
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitProcessesFunc func(persist Persistence, unit names.UnitTag, charm names.CharmTag) (UnitProcesses, error)
-
-type newProcessDefinitionsFunc func(persist Persistence, charm names.CharmTag) (ProcessDefinitions, error)
+type newUnitProcessesFunc func(persist Persistence, unit names.UnitTag) (UnitProcesses, error)
 
 var (
-	newUnitProcesses      newUnitProcessesFunc
-	newProcessDefinitions newProcessDefinitionsFunc
+	newUnitProcesses newUnitProcessesFunc
 )
 
 // SetProcessesComponent registers the functions that provide the state
 // functionality related to workload processes.
-func SetProcessesComponent(upFunc newUnitProcessesFunc, pdFunc newProcessDefinitionsFunc) {
+func SetProcessesComponent(upFunc newUnitProcessesFunc) {
 	newUnitProcesses = upFunc
-	newProcessDefinitions = pdFunc
 }
 
 type unitProcesses struct {
 	UnitProcesses
-	charm *Charm
-	st    *State
+	st *State
 }
 
 // UnitProcesses exposes interaction with workload processes in state
-// for a the given unit. It also ensures that all of the process
-// definitions in the charm's metadata are in state.
+// for a the given unit.
 func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	if newUnitProcesses == nil {
 		return nil, errors.Errorf("workload processes not supported")
 	}
 
-	charm, err := unit.charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	charmTag := charm.Tag().(names.CharmTag)
-
-	// TODO(ericsnow) Instead call st.defineProcesses when a charm
-	// is added or its URL changes?
-	if err := st.defineProcesses(charmTag, *charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	persist := st.newPersistence()
-	unitProcs, err := newUnitProcesses(persist, unit.UnitTag(), charmTag)
+	unitProcs, err := newUnitProcesses(persist, unit.UnitTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return unitProcs, nil
-}
-
-// TODO(ericsnow) DestroyProcess: Mark the proc as Dying.
-
-// defineProcesses adds the workload process definitions from the provided
-// charm metadata to state.
-func (st *State) defineProcesses(charmTag names.CharmTag, meta charm.Meta) error {
-	if newProcessDefinitions == nil {
-		return errors.Errorf("workload processes not supported")
-	}
-
-	var definitions []charm.Process
-	for _, definition := range meta.Processes {
-		definitions = append(definitions, definition)
-	}
-
-	persist := st.newPersistence()
-	pd, err := newProcessDefinitions(persist, charmTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := pd.EnsureDefined(definitions...); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
