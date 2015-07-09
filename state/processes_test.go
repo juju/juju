@@ -35,6 +35,10 @@ processes:
     type: docker
     command: do-something cool
     image: spam/eggs
+    ports:
+      - 8080:80
+    volumes:
+      - /var/nginx/html:/usr/share/nginx/html:ro
     env:
       IMPORTANT: YES
 `
@@ -67,6 +71,17 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
 			EnvVars: map[string]string{
 				// TODO(erisnow) YAML coerces YES into true...
 				"IMPORTANT": "true",
@@ -90,6 +105,17 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
 			EnvVars: map[string]string{
 				"IMPORTANT": "true",
 			},
@@ -119,6 +145,17 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
 			EnvVars: map[string]string{
 				"IMPORTANT": "true",
 			},

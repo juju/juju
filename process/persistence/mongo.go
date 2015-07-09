@@ -142,7 +142,7 @@ func (d processDoc) definition() charm.Process {
 	if len(d.Ports) > 0 {
 		ports := make([]charm.ProcessPort, len(d.Ports))
 		for i, raw := range d.Ports {
-			p := ports[i]
+			p := &ports[i]
 			fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
 		}
 		definition.Ports = ports
@@ -151,8 +151,14 @@ func (d processDoc) definition() charm.Process {
 	if len(d.Volumes) > 0 {
 		volumes := make([]charm.ProcessVolume, len(d.Volumes))
 		for i, raw := range d.Volumes {
-			v := volumes[i]
-			fmt.Sscanf(raw, "%s:%s:%s:%s", &v.ExternalMount, &v.InternalMount, &v.Mode, &v.Name)
+			parts := strings.Split(raw, ":")
+			// len(parts) will always be 4.
+			volumes[i] = charm.ProcessVolume{
+				ExternalMount: parts[0],
+				InternalMount: parts[1],
+				Mode:          parts[2],
+				Name:          parts[3],
+			}
 		}
 		definition.Volumes = volumes
 	}
