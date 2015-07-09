@@ -139,7 +139,8 @@ func (pp Persistence) ListAll() ([]process.Info, error) {
 
 // TODO(ericsnow) Add procs to state/cleanup.go.
 
-// TODO(ericsnow) How to ensure they are completely removed from state?
+// TODO(ericsnow) How to ensure they are completely removed from state
+// (when you factor in status stored in a separate collection)?
 
 // Remove removes all records associated with the identified process
 // from persistence. Also returned is whether or not the process was

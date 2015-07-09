@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(ericsnow) Move this to a subpackage and split it up?
-
 package persistence
 
 import (
@@ -28,7 +26,7 @@ var Collections = []string{
 	workloadProcessesC,
 }
 
-// TODO(ericsnow) Move the methods under their own type.
+// TODO(ericsnow) Move the methods under their own type (processcollection?).
 
 func (pp Persistence) extractProc(id string, procDocs map[string]processDoc) (*process.Info, bool) {
 	procDoc, ok := procDocs[id]
@@ -38,8 +36,6 @@ func (pp Persistence) extractProc(id string, procDocs map[string]processDoc) (*p
 	info := procDoc.info()
 	return &info, true
 }
-
-// TODO(ericsnow) Factor most of the below into a processesCollection type.
 
 func (pp Persistence) one(id string, doc interface{}) error {
 	return errors.Trace(pp.st.One(workloadProcessesC, id, doc))
