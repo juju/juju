@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -26,14 +26,15 @@ import (
 // DestroyCommand destroys the specified system.
 type DestroyCommand struct {
 	envcmd.SysCommandBase
-	systemName string
-	assumeYes  bool
+	systemName  string
+	assumeYes   bool
+	destroyEnvs bool
 
 	// The following fields are for mocking out
 	// api behavior for testing.
-	api       destroyEnvironmentAPI
-	clientapi destroyEnvironmentClientAPI
+	api       destroySystemAPI
 	apierr    error
+	clientapi destroyClientAPI
 }
 
 var destroyDoc = `Destroys the specified system`
@@ -43,26 +44,19 @@ This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
 
-// environmentGetterAPI defines the method on the API endpoint that
-// the destroy command calls to obtain bootstrap information for
-// the system being destroyed.
-type environmentGetterAPI interface {
+// destroySystemAPI defines the methods on the system manager API endpoint
+// that the destroy command calls.
+type destroySystemAPI interface {
+	Close() error
+	EnvironmentConfig() (map[string]interface{}, error)
+	DestroySystem(destroyEnvs bool, ignoreBlocks bool) error
+}
+
+// destroyClientAPI defines the methods on the client API endpoint that the
+// destroy command might call.
+type destroyClientAPI interface {
+	Close() error
 	EnvironmentGet() (map[string]interface{}, error)
-}
-
-// destroyEnvironmentAPI defines the methods on the environmentmanager
-// API that the destroy command calls.
-type destroyEnvironmentAPI interface {
-	environmentGetterAPI
-	Close() error
-	DestroyEnvironment(string) error
-}
-
-// destroyEnvironmentClientAPI defines the methods on the client
-// API that the destroy command calls.
-type destroyEnvironmentClientAPI interface {
-	environmentGetterAPI
-	Close() error
 	DestroyEnvironment() error
 }
 
@@ -80,6 +74,7 @@ func (c *DestroyCommand) Info() *cmd.Info {
 func (c *DestroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.BoolVar(&c.destroyEnvs, "destroy-all-environments", false, "destroy all hosted environments on the system")
 }
 
 // Init implements Command.Init.
@@ -95,23 +90,27 @@ func (c *DestroyCommand) Init(args []string) error {
 	}
 }
 
-func (c *DestroyCommand) getAPI() (destroyEnvironmentAPI, error) {
+func (c *DestroyCommand) getSystemAPI() (destroySystemAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
 	root, err := juju.NewAPIFromName(c.systemName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
-	return environmentmanager.NewClient(root), nil
+	return systemmanager.NewClient(root), nil
 }
 
-func (c *DestroyCommand) getClientAPI() (destroyEnvironmentClientAPI, error) {
+func (c *DestroyCommand) getClientAPI() (destroyClientAPI, error) {
 	if c.clientapi != nil {
 		return c.clientapi, nil
 	}
-	return juju.NewAPIClientFromName(c.systemName)
+	root, err := juju.NewAPIFromName(c.systemName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return root.Client(), nil
 }
 
 // Run implements Command.Run
@@ -133,47 +132,27 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.systemName)
-
-		scanner := bufio.NewScanner(ctx.Stdin)
-		scanner.Scan()
-		err := scanner.Err()
-		if err != nil && err != io.EOF {
-			return errors.Annotate(err, "environment destruction aborted")
-		}
-		answer := strings.ToLower(scanner.Text())
-		if answer != "y" && answer != "yes" {
-			return errors.New("environment destruction aborted")
+		if err = confirmDestruction(ctx, c.systemName); err != nil {
+			return err
 		}
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
 	// need to use the system force-destroy command if we can't connect.
-	api, err := c.getAPI()
+	api, err := c.getSystemAPI()
 	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Warningf("system not found, removing config file")
-			ctx.Infof("system not found, removing config file")
-			return environs.DestroyInfo(c.systemName, store)
-		}
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
 	}
 	defer api.Close()
 
 	// Obtain bootstrap / system environ information
 	systemEnviron, err := c.getSystemEnviron(cfgInfo, api)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to obtain bootstrap
-		// information and to destroy the system, sending the info
-		// we were already able to collect.
-		return c.destroyEnvironmentViaClient(ctx, cfgInfo, nil, store)
-	}
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
 
 	// Attempt to destroy the system.
-	err = api.DestroyEnvironment(apiEndpoint.EnvironUUID)
+	err = api.DestroySystem(c.destroyEnvs, false)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.
@@ -189,18 +168,30 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 // getSystemEnviron gets the bootstrap information required to destroy the environment
 // by first checking the config store, then querying the API if the information is not
 // in the store.
-func (c *DestroyCommand) getSystemEnviron(info configstore.EnvironInfo, api environmentGetterAPI) (_ environs.Environ, err error) {
+func (c *DestroyCommand) getSystemEnviron(info configstore.EnvironInfo, sysAPI destroySystemAPI) (_ environs.Environ, err error) {
 	bootstrapCfg := info.BootstrapConfig()
 	if bootstrapCfg == nil {
-		bootstrapCfg, err = api.EnvironmentGet()
-		if err != nil {
-			return nil, err
+		bootstrapCfg, err = sysAPI.EnvironmentConfig()
+		if params.IsCodeNotImplemented(err) {
+			// Fallback to the client API. Better to encapsulate the logic for
+			// old servers than worry about connecting twice.
+			client, err := c.getClientAPI()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			defer client.Close()
+			bootstrapCfg, err = client.EnvironmentGet()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 
 	cfg, err := config.New(config.NoDefaults, bootstrapCfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return environs.New(cfg)
 }
@@ -210,21 +201,9 @@ func (c *DestroyCommand) getSystemEnviron(info configstore.EnvironInfo, api envi
 func (c *DestroyCommand) destroyEnvironmentViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Warningf("environment not found, removing config file")
-			ctx.Infof("environment not found, removing config file")
-			return environs.DestroyInfo(c.systemName, store)
-		}
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
 	}
 	defer api.Close()
-
-	if systemEnviron == nil {
-		systemEnviron, err = c.getSystemEnviron(info, api)
-		if err != nil {
-			return errors.Annotate(err, "cannot obtain bootstrap information")
-		}
-	}
 
 	err = api.DestroyEnvironment()
 	if err != nil {
@@ -247,11 +226,29 @@ func (c *DestroyCommand) ensureUserFriendlyErrorLog(err error) error {
 	return err
 }
 
+func confirmDestruction(ctx *cmd.Context, systemName string) error {
+	// Get confirmation from the user that they want to continue
+	fmt.Fprintf(ctx.Stdout, destroyEnvMsg, systemName)
+
+	scanner := bufio.NewScanner(ctx.Stdin)
+	scanner.Scan()
+	err := scanner.Err()
+	if err != nil && err != io.EOF {
+		return errors.Annotate(err, "system destruction aborted")
+	}
+	answer := strings.ToLower(scanner.Text())
+	if answer != "y" && answer != "yes" {
+		return errors.New("system destruction aborted")
+	}
+
+	return nil
+}
+
 var stdFailureMsg = `failed to destroy system %q
 
 If the system is unusable, then you may run
 
-    juju system force-destroy
+    juju system kill
 
 to forcefully destroy the system. Upon doing so, review
 your environment provider console for any resources that need
