@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs/configstore"
@@ -28,7 +28,8 @@ type EnvironmentsCommand struct {
 	user      string
 	listUUID  bool
 	exactTime bool
-	api       EnvironmentManagerAPI
+	envAPI    EnvironmentsEnvAPI
+	sysAPI    EnvironmentsSysAPI
 	userCreds *configstore.APICredentials
 }
 
@@ -46,12 +47,18 @@ See Also:
     juju help environment unshare
 `
 
-// EnvironmentManagerAPI defines the methods on the client API that the
-// environments command calls.
-type EnvironmentManagerAPI interface {
+// EnvironmentsEnvAPI defines the methods on the environment manager API that
+// the environments command calls.
+type EnvironmentsEnvAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]environmentmanager.UserEnvironment, error)
-	AllEnvironments() ([]environmentmanager.UserEnvironment, error)
+	ListEnvironments(user string) ([]base.UserEnvironment, error)
+}
+
+// EnvironmentsSysAPI defines the methods on the system manager API that the
+// environments command calls.
+type EnvironmentsSysAPI interface {
+	Close() error
+	AllEnvironments() ([]base.UserEnvironment, error)
 }
 
 // Info implements Command.Info
@@ -63,11 +70,18 @@ func (c *EnvironmentsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EnvironmentsCommand) getAPI() (EnvironmentManagerAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+func (c *EnvironmentsCommand) getEnvAPI() (EnvironmentsEnvAPI, error) {
+	if c.envAPI != nil {
+		return c.envAPI, nil
 	}
 	return c.NewEnvironmentManagerAPIClient()
+}
+
+func (c *EnvironmentsCommand) getSysAPI() (EnvironmentsSysAPI, error) {
+	if c.sysAPI != nil {
+		return c.sysAPI, nil
+	}
+	return c.NewSystemManagerAPIClient()
 }
 
 func (c *EnvironmentsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
@@ -100,12 +114,6 @@ type UserEnvironment struct {
 
 // Run implements Command.Run
 func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-
 	if c.user == "" {
 		creds, err := c.getConnectionCredentials()
 		if err != nil {
@@ -114,11 +122,12 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 		c.user = creds.User
 	}
 
-	var envs []environmentmanager.UserEnvironment
+	var envs []base.UserEnvironment
+	var err error
 	if c.all {
-		envs, err = client.AllEnvironments()
+		envs, err = c.getAllEnvironments()
 	} else {
-		envs, err = client.ListEnvironments(c.user)
+		envs, err = c.getUserEnvironments()
 	}
 	if err != nil {
 		return errors.Annotate(err, "cannot list environments")
@@ -136,6 +145,24 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return c.out.Write(ctx, output)
+}
+
+func (c *EnvironmentsCommand) getAllEnvironments() ([]base.UserEnvironment, error) {
+	client, err := c.getSysAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer client.Close()
+	return client.AllEnvironments()
+}
+
+func (c *EnvironmentsCommand) getUserEnvironments() ([]base.UserEnvironment, error) {
+	client, err := c.getEnvAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer client.Close()
+	return client.ListEnvironments(c.user)
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
