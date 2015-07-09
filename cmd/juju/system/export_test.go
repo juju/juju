@@ -74,7 +74,7 @@ func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
 
 // NewDestroyCommand returns a DestroyCommand with the the environmentmanager and client
 // endpoints mocked out.
-func NewDestroyCommand(api destroyEnvironmentAPI, clientapi destroyEnvironmentClientAPI, apierr error) *DestroyCommand {
+func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *DestroyCommand {
 	return &DestroyCommand{
 		api:       api,
 		clientapi: clientapi,
