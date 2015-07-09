@@ -9,13 +9,17 @@ package service
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
+
+var logger = loggo.GetLogger("juju.api.service")
 
 // Client allows access to the service API end point.
 type Client struct {
@@ -44,11 +48,22 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 	return errors.Trace(results.OneError())
 }
 
+// EnvironmentUUID returns the environment UUID from the client connection.
+func (c *Client) EnvironmentUUID() string {
+	tag, err := c.st.EnvironTag()
+	if err != nil {
+		logger.Warningf("environ tag not an environ: %v", err)
+		return ""
+	}
+	return tag.Id()
+}
+
 // ServiceDeploy obtains the charm, either locally or from
 // the charm store, and deploys it. It allows the specification of
 // requested networks that must be present on the machines where the
 // service is deployed. Another way to specify networks to include/exclude
-// is using constraints.
+// is using constraints. Placement directives, if provided, specify the
+// machine on which the charm is deployed.
 func (c *Client) ServiceDeploy(
 	charmURL string,
 	serviceName string,
@@ -56,6 +71,7 @@ func (c *Client) ServiceDeploy(
 	configYAML string,
 	cons constraints.Value,
 	toMachineSpec string,
+	placement []*instance.Placement,
 	networks []string,
 	storage map[string]storage.Constraints,
 ) error {
@@ -67,12 +83,24 @@ func (c *Client) ServiceDeploy(
 			ConfigYAML:    configYAML,
 			Constraints:   cons,
 			ToMachineSpec: toMachineSpec,
+			Placement:     placement,
 			Networks:      networks,
 			Storage:       storage,
 		}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ServicesDeploy", args, &results)
+	var err error
+	if len(placement) > 0 {
+		err = c.facade.FacadeCall("ServicesDeployWithPlacement", args, &results)
+		if err != nil {
+			if params.IsCodeNotImplemented(err) {
+				return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
+			}
+			return err
+		}
+	} else {
+		err = c.facade.FacadeCall("ServicesDeploy", args, &results)
+	}
 	if err != nil {
 		return err
 	}

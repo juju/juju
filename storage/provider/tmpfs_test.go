@@ -98,7 +98,8 @@ func (s *tmpfsSuite) TestCreateFilesystems(c *gc.C) {
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
 		Tag: names.NewFilesystemTag("6"),
 		FilesystemInfo: storage.FilesystemInfo{
-			Size: 2,
+			FilesystemId: "filesystem-6",
+			Size:         2,
 		},
 	}})
 }
@@ -120,12 +121,14 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
 	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
 		Tag: names.NewFilesystemTag("1"),
 		FilesystemInfo: storage.FilesystemInfo{
-			Size: 32,
+			FilesystemId: "filesystem-1",
+			Size:         32,
 		},
 	}, {
 		Tag: names.NewFilesystemTag("2"),
 		FilesystemInfo: storage.FilesystemInfo{
-			Size: 16,
+			FilesystemId: "filesystem-2",
+			Size:         16,
 		},
 	}})
 }

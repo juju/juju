@@ -37,7 +37,8 @@ func noImportance(err0, err1 error) bool {
 
 func (s *runnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&worker.RestartDelay, time.Duration(0))
+	// Avoid patching RestartDealy to zero, as it changes worker behaviour.
+	s.PatchValue(&worker.RestartDelay, time.Duration(time.Millisecond))
 }
 
 func (*runnerSuite) TestOneWorkerStart(c *gc.C) {

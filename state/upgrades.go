@@ -1099,35 +1099,48 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 		}
 		newID := st.docID(fmt.Sprint(oldID))
 
-		// Collection specific updates.
-		for _, update := range updates {
-			var err error
-			doc, err = update(doc)
+		if oldID == newID {
+			// The _id already has the env UUID prefix. This shouldn't
+			// really happen, except in the case of bugs, but it
+			// should still be handled. Just set the env-uuid field.
+			ops = append(ops,
+				txn.Op{
+					C:      collName,
+					Id:     oldID,
+					Assert: txn.DocExists,
+					Update: bson.M{"$set": bson.M{"env-uuid": uuid}},
+				})
+		} else {
+			// Collection specific updates.
+			for _, update := range updates {
+				var err error
+				doc, err = update(doc)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+
+			doc, err = addBsonDField(doc, "env-uuid", uuid)
 			if err != nil {
 				return errors.Trace(err)
 			}
+
+			// Note: there's no need to update _id on the document. Id
+			// from the txn.Op takes precedence.
+
+			ops = append(ops,
+				[]txn.Op{{
+					C:      collName,
+					Id:     oldID,
+					Assert: txn.DocExists,
+					Remove: true,
+				}, {
+					C:      collName,
+					Id:     newID,
+					Assert: txn.DocMissing,
+					Insert: doc,
+				}}...)
 		}
-
-		doc, err = addBsonDField(doc, "env-uuid", uuid)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Note: there's no need to update _id on the document. Id
-		// from the txn.Op takes precedence.
-
-		ops = append(ops,
-			[]txn.Op{{
-				C:      collName,
-				Id:     oldID,
-				Assert: txn.DocExists,
-				Remove: true,
-			}, {
-				C:      collName,
-				Id:     newID,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}...)
 		doc = nil // Force creation of new doc for the next iteration
 	}
 	if err = iter.Err(); err != nil {
@@ -1492,4 +1505,38 @@ func AddDefaultBlockDevicesDocs(st *State) error {
 		}
 	}
 	return nil
+}
+
+// SetHostedEnvironCount sets envCountDoc.Count to the number of hosted
+// environments.
+func SetHostedEnvironCount(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	envCount, err := environments.Find(nil).Count()
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
+	count, err := stateServers.FindId(hostedEnvCountKey).Count()
+	if err != nil {
+		return errors.Annotate(err, "failed to read state server")
+	}
+
+	hostedCount := envCount - 1 // -1 as we don't count the system environment
+	op := txn.Op{
+		C:  stateServersC,
+		Id: hostedEnvCountKey,
+	}
+	if count == 0 {
+		op.Assert = txn.DocMissing
+		op.Insert = &envCountDoc{hostedCount}
+	} else {
+		op.Update = bson.D{{"$set", bson.D{{"count", hostedCount}}}}
+	}
+
+	return st.runTransaction([]txn.Op{op})
 }

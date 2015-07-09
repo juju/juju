@@ -1440,7 +1440,9 @@ func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
 	// Note: we set Direct=true in the mongo options because it's
 	// possible that we've previously upgraded the mongo server's
 	// configuration to form a replicaset, but failed to initiate it.
-	st, _, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, _, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return err
 	}
@@ -1485,7 +1487,9 @@ func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 // network addresses.
 func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
 	logger.Debugf("opening state to get machine addresses")
-	st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, m, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
 	}
@@ -1555,12 +1559,12 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 // but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(start), nil
+		return a.upgradeWaiterWorker(name, start), nil
 	})
 }
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []chan struct{}{
@@ -1573,6 +1577,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 			case <-ch:
 			}
 		}
+		logger.Debugf("upgrades done, starting worker %q", name)
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1585,8 +1590,10 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		}()
 		select {
 		case err := <-waitCh:
+			logger.Debugf("worker %q exited with %v", name, err)
 			return err
 		case <-stop:
+			logger.Debugf("stopping so killing worker %q", name)
 			worker.Kill()
 		}
 		return <-waitCh // Ensure worker has stopped before returning.

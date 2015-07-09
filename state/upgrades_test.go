@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -473,6 +474,14 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummyCharm.BundleURL(), gc.IsNil)
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
+}
+
+func (s *upgradesSuite) TestEnvUUIDMigrationWithIdAlreadyPrefixed(c *gc.C) {
+	s.checkEnvUUID(c, AddEnvUUIDToServices, servicesC,
+		[]bson.M{
+			{"_id": s.state.docID("mysql")},
+			{"_id": s.state.docID("mediawiki")},
+		}, false)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToServices(c *gc.C) {
@@ -3151,4 +3160,60 @@ func (s *upgradesSuite) TestMoveServiceUnitSeqToSequenceWithPreExistingSequence(
 	count, err := s.state.sequence("service-my-service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 7)
+}
+
+func (s *upgradesSuite) TestSetHostedEnvironCount(c *gc.C) {
+	s.removeEnvCountDoc(c)
+
+	s.makeEnvironment(c)
+	s.makeEnvironment(c)
+	s.makeEnvironment(c)
+	SetHostedEnvironCount(s.state)
+
+	//While there are 4 environments, the system environment should not be
+	//counted.
+	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+}
+
+func (s *upgradesSuite) TestSetHostedEnvironCountIdempotent(c *gc.C) {
+	s.removeEnvCountDoc(c)
+
+	s.makeEnvironment(c)
+	s.makeEnvironment(c)
+	s.makeEnvironment(c)
+	SetHostedEnvironCount(s.state)
+	SetHostedEnvironCount(s.state)
+
+	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+}
+
+var index uint32
+
+// We can't use factory.MakeEnvironment due to an import cycle.
+func (s *upgradesSuite) makeEnvironment(c *gc.C) {
+	st := s.state
+
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ops := []txn.Op{createEnvironmentOp(
+		s.state, env.Owner(),
+		fmt.Sprintf("envname-%d", int(atomic.AddUint32(&index, 1))),
+		uuid.String(),
+		env.UUID())}
+
+	err = st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) removeEnvCountDoc(c *gc.C) {
+	err := s.state.runTransaction([]txn.Op{{
+		C:      stateServersC,
+		Id:     hostedEnvCountKey,
+		Assert: txn.DocExists,
+		Remove: true,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
 }

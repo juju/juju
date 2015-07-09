@@ -117,7 +117,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 
 	os.Remove(JujuRun) // ignore error; may not exist
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
@@ -259,6 +259,10 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 		return s.metricAPI
 	})
 	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
+	// Most of these tests normally finish sub-second on a fast machine.
+	// If any given test hits a minute, we have almost certainly become
+	// wedged, so dump the logs.
+	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {

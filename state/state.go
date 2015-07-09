@@ -180,6 +180,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}}
 
@@ -205,10 +206,11 @@ func (st *State) RemoveAllEnvironDocs() error {
 	return st.runTransaction(ops)
 }
 
-// ForEnviron returns a connection to mongo for the specified environment. The
-// connection uses the same credentails and policy as the existing connection.
+// ForEnviron returns a connection to mongo for the specified
+// environment. The connection uses the same credentials and policy as
+// the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	newState, err := open(st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1403,7 +1405,11 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironUUID() + ":" + localID
+	prefix := st.EnvironUUID() + ":"
+	if strings.HasPrefix(localID, prefix) {
+		return localID
+	}
+	return prefix + localID
 }
 
 // localID returns the local id value by stripping

@@ -75,6 +75,13 @@ func (s *UpdateStorageSuite) TestCommit(c *gc.C) {
 	c.Check(state, gc.IsNil)
 }
 
+func (s *UpdateStorageSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
+	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	op, err := factory.NewUpdateStorage(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+}
+
 type mockStorageUpdater struct {
 	tags [][]names.StorageTag
 	err  error
