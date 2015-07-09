@@ -15,8 +15,6 @@ import (
 
 // TODO(ericsnow) We need a worker to clean up dying procs.
 
-// TODO(ericsnow) Export ProcessesPersistence?
-
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
 	Insert(info process.Info) (bool, error)

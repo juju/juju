@@ -180,13 +180,11 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 
 	var ports []string
 	for _, p := range definition.Ports {
-		// TODO(ericsnow) Ensure p.Endpoint is in state?
 		ports = append(ports, fmt.Sprintf("%d:%d:%s", p.External, p.Internal, p.Endpoint))
 	}
 
 	var volumes []string
 	for _, v := range definition.Volumes {
-		// TODO(ericsnow) Ensure v.Name is in state?
 		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
 	}
 
