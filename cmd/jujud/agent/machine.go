@@ -1020,7 +1020,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
 			})
 
 			if featureflag.Enabled(feature.DbLog) {
