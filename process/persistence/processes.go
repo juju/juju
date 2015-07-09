@@ -145,7 +145,7 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 		return ok, errors.Trace(err)
 	}
 
-	if err := pp.lockDefinition(info.ID()); err != nil {
+	if err := pp.unlockDefinition(info.ID()); err != nil {
 		return ok, errors.Trace(err)
 	}
 
@@ -153,10 +153,13 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 }
 
 func (pp Persistence) insert(info process.Info) (bool, error) {
-	if ok, err := pp.checkDefinition(info.Process); err != nil {
+	defExists := false
+	if doc, ok, err := pp.checkDefinition(info.Process); err != nil {
 		return false, errors.Trace(err)
 	} else if !ok {
 		return false, nil
+	} else if doc != nil {
+		defExists = true
 	}
 
 	var okay bool
@@ -167,7 +170,7 @@ func (pp Persistence) insert(info process.Info) (bool, error) {
 		}
 		okay = true
 		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-		return pp.newInsertProcessOps(info), nil
+		return pp.newInsertProcessOps(info, defExists), nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
@@ -228,10 +231,10 @@ func (pp Persistence) List(ids ...string) ([]process.Info, []string, error) {
 
 	var results []process.Info
 	for _, id := range ids {
-		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if missingCount > 0 {
-			if missingCount < 7 {
-				return nil, nil, errors.Errorf("found inconsistent records for process %q", id)
+		proc, code := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
+		if code > 0 {
+			if code < 7 {
+				return nil, nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, code)
 			}
 			missing = append(missing, id)
 			continue
@@ -265,9 +268,9 @@ func (pp Persistence) ListAll() ([]process.Info, error) {
 
 	var results []process.Info
 	for id := range procDocs {
-		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if missingCount > 0 {
-			return nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, missingCount)
+		proc, code := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
+		if code > 0 {
+			return nil, errors.Errorf("found inconsistent records for process %q (code: %d)", id, code)
 		}
 		results = append(results, *proc)
 	}
@@ -297,10 +300,39 @@ func (pp Persistence) ListAll() ([]process.Info, error) {
 // found. If the records for the process are not consistent then
 // errors.NotValid is returned.
 func (pp Persistence) Remove(id string) (bool, error) {
+	if err := pp.lockDefinition(id); err != nil {
+		return false, errors.Trace(err)
+	}
+
+	ok, err := pp.remove(id)
+	if err != nil {
+		if err := pp.unlockDefinition(id); err != nil {
+			logger.Errorf("while unlocking %q %q: %v", pp.unit.Id(), id, err)
+		}
+		return ok, errors.Trace(err)
+	}
+
+	if err := pp.unlockDefinition(id); err != nil {
+		return ok, errors.Trace(err)
+	}
+
+	return ok, nil
+}
+
+func (pp Persistence) remove(id string) (bool, error) {
+	clearDef := false
+	var doc definitionDoc
+	if err := pp.one(pp.definitionID(id), &doc); err != nil {
+		return false, errors.Trace(err)
+	}
+	if doc.RefCount <= 1 {
+		clearDef = true
+	}
+
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemoveProcessOps(id)...)
+	ops = append(ops, pp.newRemoveProcessOps(id, clearDef)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			okay, err := pp.checkRecords(id)

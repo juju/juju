@@ -63,7 +63,7 @@ func (s *BaseSuite) NewDocs(proc process.Info) ProcessInfoDocs {
 	docs := ProcessInfoDocs{}
 
 	docs.Definition = &definitionDoc{
-		DocID:    "procd#" + s.Charm.Id() + "#" + proc.Name,
+		DocID:    fmt.Sprintf("procd#%s#%s#u#%s", s.Charm.Id(), proc.Name, s.Unit.Id()),
 		CharmID:  s.Charm.Id(),
 		ProcName: proc.Name,
 		UnitID:   s.Unit.Id(),
@@ -110,7 +110,7 @@ func (s *BaseSuite) RemoveDoc(proc process.Info, kind string) {
 	var docID string
 	switch kind {
 	case "definition":
-		docID = "procd#" + s.Charm.Id() + "#" + proc.Name
+		docID = fmt.Sprintf("procd#%s#%s#u#%s", s.Charm.Id(), proc.Name, s.Unit.Id())
 	case "launch":
 		docID = "proc#" + s.Unit.Id() + "#" + proc.ID() + "#launch"
 	case "process":

@@ -37,10 +37,10 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsAddForUnit(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procA#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				DocKind:  "definition",
@@ -67,10 +67,10 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsAddWithOverrides(c *gc.C)
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procA#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				DocKind:  "definition",
@@ -205,7 +205,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsFoundForUnit(c *gc.C) {
 	definitions := s.NewDefinitions("docker", "procA")
 	s.SetUnit("a-unit/0")
 	expected := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procA",
 		UnitID:   "a-unit/0",
@@ -220,14 +220,14 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsFoundForUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.DeepEquals, []string{
-		"procd#local:series/dummy-1#procA#a-unit/0",
+		"procd#local:series/dummy-1#procA#u#a-unit/0",
 	})
 	c.Check(mismatched, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procA#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: expected,
 		},
@@ -278,7 +278,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatchedForUnit(c *gc.C
 	definitions := s.NewDefinitions("kvm", "procA")
 	s.SetUnit("a-unit/0")
 	doc := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procA",
 		UnitID:   "a-unit/0",
@@ -293,19 +293,19 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMismatchedForUnit(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.DeepEquals, []string{
-		"procd#local:series/dummy-1#procA#a-unit/0",
+		"procd#local:series/dummy-1#procA#u#a-unit/0",
 	})
 	c.Check(mismatched, jc.DeepEquals, []string{
-		"procd#local:series/dummy-1#procA#a-unit/0",
+		"procd#local:series/dummy-1#procA#u#a-unit/0",
 	})
 	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procA#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				UnitID:   "a-unit/0",
@@ -321,7 +321,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 	definitions = append(definitions, s.NewDefinitions("docker", "procB", "procC")...)
 	s.SetUnit("a-unit/0")
 	doc := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procA",
 		DocKind:  "definition",
@@ -329,7 +329,7 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 		Type:     "docker",
 	}
 	expected := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procB#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procB#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procB",
 		DocKind:  "definition",
@@ -344,21 +344,21 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.DeepEquals, []string{
-		"procd#local:series/dummy-1#procA#a-unit/0",
-		"procd#local:series/dummy-1#procB#a-unit/0",
+		"procd#local:series/dummy-1#procA#u#a-unit/0",
+		"procd#local:series/dummy-1#procB#u#a-unit/0",
 	})
 	c.Check(mismatched, jc.DeepEquals, []string{
-		"procd#local:series/dummy-1#procA#a-unit/0",
+		"procd#local:series/dummy-1#procA#u#a-unit/0",
 	})
 	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		// first attempt
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procA#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				DocKind:  "definition",
@@ -368,10 +368,10 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 		},
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procB#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procB#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procB#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procB#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procB",
 				DocKind:  "definition",
@@ -381,10 +381,10 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 		},
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procC#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procC#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procC#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procC#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procC",
 				DocKind:  "definition",
@@ -396,10 +396,10 @@ func (s *procsPersistenceSuite) TestEnsureDefininitionsMixed(c *gc.C) {
 		// second attempt
 		{
 			C:      "workloadprocesses",
-			Id:     "procd#local:series/dummy-1#procC#a-unit/0",
+			Id:     "procd#local:series/dummy-1#procC#u#a-unit/0",
 			Assert: txn.DocMissing,
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procC#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procC#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procC",
 				DocKind:  "definition",
@@ -424,9 +424,9 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:  "workloadprocesses",
-			Id: "procd#local:series/dummy-1#procA#a-unit/0",
+			Id: "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				UnitID:   "a-unit/0",
@@ -484,9 +484,9 @@ func (s *procsPersistenceSuite) TestInsertCharmDefinitionExists(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:  "workloadprocesses",
-			Id: "procd#local:series/dummy-1#procA#a-unit/0",
+			Id: "procd#local:series/dummy-1#procA#u#a-unit/0",
 			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+				DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 				CharmID:  "local:series/dummy-1",
 				ProcName: "procA",
 				UnitID:   "a-unit/0",
@@ -525,7 +525,7 @@ func (s *procsPersistenceSuite) TestInsertCharmDefinitionExists(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestInsertUnitDefinitionExists(c *gc.C) {
 	existing := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procA",
 		UnitID:   "a-unit/0",
@@ -544,16 +544,10 @@ func (s *procsPersistenceSuite) TestInsertUnitDefinitionExists(c *gc.C) {
 	s.Stub.CheckCallNames(c, "One", "One", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:  "workloadprocesses",
-			Id: "procd#local:series/dummy-1#procA#a-unit/0",
-			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
-				CharmID:  "local:series/dummy-1",
-				ProcName: "procA",
-				UnitID:   "a-unit/0",
-				DocKind:  "definition",
-				Type:     "docker",
-			},
+			C:      "workloadprocesses",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
+			Assert: txn.DocExists,
+			Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 		},
 		{
 			C:      "workloadprocesses",
@@ -608,7 +602,7 @@ func (s *procsPersistenceSuite) TestInsertCharmDefinitionMismatch(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestInsertUnitDefinitionMismatch(c *gc.C) {
 	existing := &persistence.DefinitionDoc{
-		DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
+		DocID:    "procd#local:series/dummy-1#procA#u#a-unit/0",
 		CharmID:  "local:series/dummy-1",
 		ProcName: "procA",
 		UnitID:   "a-unit/0",
@@ -641,16 +635,10 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 	s.Stub.CheckCallNames(c, "One", "One", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:  "workloadprocesses",
-			Id: "procd#local:series/dummy-1#procA#a-unit/0",
-			Insert: &persistence.DefinitionDoc{
-				DocID:    "procd#local:series/dummy-1#procA#a-unit/0",
-				CharmID:  "local:series/dummy-1",
-				ProcName: "procA",
-				UnitID:   "a-unit/0",
-				DocKind:  "definition",
-				Type:     "docker",
-			},
+			C:      "workloadprocesses",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
+			Assert: txn.DocExists,
+			Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 		},
 		{
 			C:      "workloadprocesses",
@@ -931,8 +919,14 @@ func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
+	s.Stub.CheckCallNames(c, "One", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
+		{
+			C:      "workloadprocesses",
+			Id:     "procd#local:series/dummy-1#procA#u#a-unit/0",
+			Assert: txn.DocExists,
+			Remove: true,
+		},
 		{
 			C:      "workloadprocesses",
 			Id:     "proc#a-unit/0#procA/xyz#launch",
@@ -948,7 +942,7 @@ func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
 }
 
 func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
-	s.Stub.SetErrors(txn.ErrAborted)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
 	found, err := pp.Remove("procA/xyz")
@@ -1001,7 +995,7 @@ func (s *procsPersistenceSuite) TestRemoveInconsistent(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/xyz")[0]
 	s.SetDocs(proc)
 	s.RemoveDoc(proc, "launch")
-	s.Stub.SetErrors(txn.ErrAborted)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
 	_, err := pp.Remove("procA/xyz")

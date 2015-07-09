@@ -48,7 +48,7 @@ func (pp Persistence) indexDefinitionDocs(ids []string) (map[interface{}]definit
 func (pp Persistence) extractProc(id string, definitionDocs map[string]definitionDoc, launchDocs map[string]launchDoc, procDocs map[string]processDoc) (*process.Info, int) {
 	missing := 0
 	name, _ := process.ParseID(id)
-	definitionDoc, ok := definitionDocs[name]
+	definitionDoc, ok := definitionDocs[name+"#u#"+pp.unit.Id()]
 	if !ok {
 		missing += 1
 	}
@@ -157,7 +157,7 @@ func (pp Persistence) definitionIDByUnit(id, unitID string) string {
 	name, _ := process.ParseID(id)
 	unit := ""
 	if unitID != "" {
-		unit = "#" + unitID
+		unit = "#u#" + unitID
 	}
 	return fmt.Sprintf("procd#%s#%s%s", pp.charm.Id(), name, unit)
 }
@@ -205,19 +205,25 @@ func (pp Persistence) newInsertDefinitionOps(definition charm.Process) []txn.Op 
 	}}
 }
 
-func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
+func (pp Persistence) newInsertProcessOps(info process.Info, defExists bool) []txn.Op {
 	var ops []txn.Op
 
 	{
 		// Existing definition docs must be locked already.
 		doc := pp.newDefinitionDoc(info.Process)
-		insertOp := txn.Op{
-			C:      workloadProcessesC,
-			Id:     doc.DocID,
-			Insert: doc,
+		op := txn.Op{
+			C:  workloadProcessesC,
+			Id: doc.DocID,
+		}
+		if defExists {
+			op.Assert = txn.DocExists
+			op.Update = bson.D{{"$inc", bson.D{{"refcount", 1}}}}
+		} else {
+			doc.RefCount = 1
+			op.Insert = doc
 			// We use the checkDefinition method instead of an assert.
 		}
-		ops = append(ops, insertOp)
+		ops = append(ops, op)
 	}
 
 	{
@@ -239,8 +245,6 @@ func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 			Insert: doc,
 		})
 	}
-
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 
 	return ops
 }
@@ -265,8 +269,24 @@ func (pp Persistence) newRemoveDefinitionOps(id string) []txn.Op {
 	}}
 }
 
-func (pp Persistence) newRemoveProcessOps(id string) []txn.Op {
+func (pp Persistence) newRemoveProcessOps(id string, clearDef bool) []txn.Op {
 	var ops []txn.Op
+
+	{
+		idForUnit := pp.definitionID(id)
+		op := txn.Op{
+			C:      workloadProcessesC,
+			Id:     idForUnit,
+			Assert: txn.DocExists,
+		}
+		if clearDef {
+			op.Remove = true
+		} else {
+			op.Update = bson.D{{"$dec", bson.D{{"refcount", 1}}}}
+		}
+		ops = append(ops, op)
+	}
+
 	ops = append(ops, pp.newRemoveLaunchOps(id)...)
 	ops = append(ops, pp.newRemoveProcOps(id)...)
 	return ops
@@ -320,7 +340,8 @@ type definitionDoc struct {
 	UnitID   string `bson:"unitid"`
 	DocKind  string `bson:"dockind"`
 
-	Locked bool `bson:"locked"`
+	Locked   bool `bson:"locked"`
+	RefCount int  `bson:"refcount"`
 
 	Description string            `bson:"description"`
 	Type        string            `bson:"type"`
@@ -416,10 +437,9 @@ func (pp Persistence) definition(id string) (*definitionDoc, error) {
 
 func (pp Persistence) allDefinitions() (map[string]definitionDoc, error) {
 	var docs []definitionDoc
-	query := bson.D{{"dockind", "definition"}}
-	unitID := pp.unit.Id()
-	if unitID != "" {
-		query = append(query, bson.DocElem{"unitid", unitID})
+	query := bson.D{
+		{"dockind", "definition"},
+		{"charmid", pp.charmID()},
 	}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
@@ -428,11 +448,31 @@ func (pp Persistence) allDefinitions() (map[string]definitionDoc, error) {
 	results := make(map[string]definitionDoc)
 	for _, doc := range docs {
 		parts := strings.Split(doc.DocID, "#")
-		pos := len(parts) - 1
-		if unitID != "" {
-			pos -= 1
+		last := len(parts) - 1
+		id := parts[last]
+		if parts[last-1] == "u" {
+			id = strings.Join(parts[last-2:], "#")
 		}
-		id := parts[pos]
+		results[id] = doc
+	}
+	return results, nil
+}
+
+func (pp Persistence) allUnitDefinitions() (map[string]definitionDoc, error) {
+	var docs []definitionDoc
+	query := bson.D{
+		{"dockind", "definition"},
+		{"charmid", pp.charmID()},
+		{"unitid", pp.unit.Id()},
+	}
+	if err := pp.all(query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make(map[string]definitionDoc)
+	for _, doc := range docs {
+		parts := strings.Split(doc.DocID, "#")
+		id := parts[len(parts)-3]
 		results[id] = doc
 	}
 	return results, nil
@@ -491,30 +531,30 @@ func (pp Persistence) unlockDefinition(id string) error {
 	return nil
 }
 
-func (pp Persistence) checkDefinition(definition charm.Process) (bool, error) {
+func (pp Persistence) checkDefinition(definition charm.Process) (*definitionDoc, bool, error) {
 	doc := pp.newDefinitionDoc(definition)
 
 	var unitDoc definitionDoc
 	idByUnit := pp.definitionID(definition.Name)
 	if err := pp.one(idByUnit, &unitDoc); err == nil {
 		if !reflect.DeepEqual(doc, &unitDoc) {
-			return false, nil
+			return nil, false, nil
 		}
 	} else if !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
 
 	var charmDoc definitionDoc
 	idByCharm := pp.definitionIDByUnit(definition.Name, "")
 	if err := pp.one(idByCharm, &charmDoc); err == nil {
 		if doc.Type != charmDoc.Type {
-			return false, nil
+			return nil, false, nil
 		}
 	} else if !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
 
-	return true, nil
+	return &unitDoc, true, nil
 }
 
 // launchDoc is the document for process launch details.

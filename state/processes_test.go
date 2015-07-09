@@ -94,7 +94,34 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 
 	procs, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{info})
+	c.Check(procs, jc.DeepEquals, []process.Info{{
+		Process: charm.Process{
+			Name:    "procA",
+			Type:    "docker",
+			Command: "do-something cool",
+			Image:   "spam/eggs",
+			EnvVars: map[string]string{
+				"IMPORTANT": "true",
+			},
+		},
+		Details: process.Details{
+			ID: "xyz",
+			Status: process.PluginStatus{
+				Label: "running",
+			},
+		},
+	}, {
+		Process: charm.Process{
+			Name:    "procA",
+			Type:    "docker",
+			Command: "do-something cool",
+			Image:   "spam/eggs",
+			EnvVars: map[string]string{
+				"IMPORTANT": "true",
+			},
+		},
+	},
+	})
 
 	procs, err = st.List("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
