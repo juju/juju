@@ -7,6 +7,7 @@
 package windows_test
 
 import (
+	win "github.com/gabriel-samfira/sys/windows"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -44,6 +45,9 @@ func (s *serviceManagerSuite) SetUpTest(c *gc.C) {
 	s.passwdStub = &testing.Stub{}
 	s.conn = windows.PatchMgrConnect(s, s.stub)
 	s.getPasswd = windows.PatchGetPassword(s, s.passwdStub)
+	s.PatchValue(&windows.WinChangeServiceConfig2, func(win.Handle, uint32, *byte) error {
+		return nil
+	})
 
 	// Set up the service.
 	s.name = "machine-1"
@@ -211,4 +215,32 @@ func (s *serviceManagerSuite) TestDeleteInexistent(c *gc.C) {
 
 	err := s.mgr.Delete(s.name)
 	c.Assert(errors.Cause(err), gc.Equals, windows.ERROR_SERVICE_DOES_NOT_EXIST)
+}
+
+func (s *serviceManagerSuite) TestCloseCalled(c *gc.C) {
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
+	s.stub.ResetCalls()
+
+	_, err = s.mgr.Running(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Start(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close", "OpenService", "Start", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Stop(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close", "OpenService", "Control", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Delete(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Close", "OpenService", "Control", "Close")
+	s.stub.ResetCalls()
+
 }

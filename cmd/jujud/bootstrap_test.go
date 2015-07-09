@@ -397,7 +397,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(stateinfo, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err = state.Open(stateinfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

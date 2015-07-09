@@ -78,11 +78,8 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `--num-units must be a positive integer`,
 	}, {
-		args: []string{"craziness", "burble1", "--to", "bigglesplop"},
-		err:  `invalid --to parameter "bigglesplop"`,
-	}, {
-		args: []string{"craziness", "burble1", "-n", "2", "--to", "123"},
-		err:  `cannot use --num-units > 1 with --to`,
+		args: []string{"craziness", "burble1", "--to", "#:foo"},
+		err:  `invalid --to parameter "#:foo"`,
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
@@ -246,6 +243,27 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Size:  1024,
 		},
 	})
+}
+
+// TODO(wallyworld) - add another test that deploy with placement fails for older environments
+// (need deploy client to be refactored to use API stub)
+func (s *DeploySuite) TestPlacement(c *gc.C) {
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	// Add a machine that will be ignored due to placement directive.
+	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runDeploy(c, "local:dummy", "-n", "1", "--to", "valid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc, err := s.State.Service("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Not(gc.Equals), machine.Id())
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
