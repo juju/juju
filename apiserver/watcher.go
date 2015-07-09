@@ -6,6 +6,8 @@ package apiserver
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -35,6 +37,10 @@ func init() {
 	common.RegisterFacade(
 		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"EntityWatcher", 0, newEntityWatcher,
+		reflect.TypeOf((*srvEntityWatcher)(nil)),
 	)
 }
 
@@ -285,5 +291,70 @@ func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResul
 
 // Stop stops the watcher.
 func (w *srvMachineStorageIdsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// EntityWatcher defines an interface based on the StringsWatcher
+// but also providing a method for the mapping of the received
+// strings to the tags of the according entities.
+type EntityWatcher interface {
+	state.StringsWatcher
+
+	// MapChanges maps the received strings to their according tag strings.
+	// The EntityFinder interface representing state or a mock has to be
+	// upcasted into the needed sub-interface of state for the real mapping.
+	MapChanges(st *state.State, in []string) ([]string, error)
+}
+
+// srvEntityWatcher defines the API for methods on a state.StringsWatcher.
+// Each client has its own current set of watchers, stored in resources.
+// srvEntityWatcher notifies about changes for all entities of a given kind,
+// sending the changes as a list of strings, which could be transformed
+// from state entity ids to their corresponding entity tags.
+type srvEntityWatcher struct {
+	st        *state.State
+	resources *common.Resources
+	id        string
+	watcher   EntityWatcher
+}
+
+func newEntityWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+	if !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(EntityWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvEntityWatcher{
+		st:        st,
+		resources: resources,
+		id:        id,
+		watcher:   watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvEntityWatcher.
+func (w *srvEntityWatcher) Next() (params.EntityWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		mapped, err := w.watcher.MapChanges(w.st, changes)
+		if err != nil {
+			return params.EntityWatchResult{}, errors.Annotate(err, "cannot map changes")
+		}
+		return params.EntityWatchResult{
+			Changes: mapped,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.EntityWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvEntityWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

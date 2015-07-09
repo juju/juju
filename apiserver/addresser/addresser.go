@@ -4,8 +4,7 @@
 package addresser
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -23,6 +22,7 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
+	*common.EnvironWatcher
 	*common.LifeGetter
 	*common.Remover
 
@@ -45,32 +45,32 @@ func NewAddresserAPI(
 	getAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return isEnvironManager
-		}
+		}, nil
 	}
 	sti := getState(st)
 	return &AddresserAPI{
-		LifeGetter: common.NewLifeGetter(sti, getAuthFunc),
-		Remover:    common.NewRemover(sti, false, getAuthFunc),
-		st:         sti,
-		resources:  resources,
-		authorizer: authorizer,
+		EnvironWatcher: common.NewEnvironWatcher(sti, resources, authorizer),
+		LifeGetter:     common.NewLifeGetter(sti, getAuthFunc),
+		Remover:        common.NewRemover(sti, false, getAuthFunc),
+		st:             sti,
+		resources:      resources,
+		authorizer:     authorizer,
 	}, nil
 }
 
 // WatchIPAddresses observes changes to the IP addresses.
-func (a *AddresserAPI) WatchIPAddresses() (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !a.authorizer.AuthEnvironManager() {
-		return result, common.ErrPerm
-	}
-	watch := a.st.WatchIPAddresses()
-	// Consume the initial event and forward it to the result.
+func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
+	watch := &ipAddressesWatcher{api.st.WatchIPAddresses()}
+
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = a.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		err := watcher.EnsureErr(watch)
-		return result, fmt.Errorf("cannot obtain initial IP addresses: %v", err)
+		mappedChanges, err := watch.MapChanges(api.st, changes)
+		if err != nil {
+			return params.EntityWatchResult{}, errors.Trace(err)
+		}
+		return params.EntityWatchResult{
+			EntityWatcherId: api.resources.Register(watch),
+			Changes:         mappedChanges,
+		}, nil
 	}
-	return result, nil
+	return params.EntityWatchResult{}, watcher.EnsureErr(watch)
 }
