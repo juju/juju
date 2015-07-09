@@ -19,14 +19,14 @@ var logger = loggo.GetLogger("juju.process.api.server")
 // UnitProcesses exposes the State functionality for a unit's
 // workload processes.
 type UnitProcesses interface {
-	// Register registers a workload process for the unit and info.
-	Register(info process.Info) error
+	// Add registers a workload process for the unit and info.
+	Add(info process.Info) error
 	// List returns information on the process with the id on the unit.
 	List(ids ...string) ([]process.Info, error)
 	// Settatus sets the status for the process with the given id on the unit.
 	SetStatus(id string, status process.PluginStatus) error
-	// Unregister removes the information for the process with the given id.
-	Unregister(id string) error
+	// Remove removes the information for the process with the given id.
+	Remove(id string) error
 }
 
 // HookContextAPI serves workload process-specific API methods.
@@ -48,7 +48,7 @@ func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.P
 		res := api.ProcessResult{
 			ID: info.ID(),
 		}
-		if err := a.State.Register(info); err != nil {
+		if err := a.State.Add(info); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}
@@ -128,7 +128,7 @@ func (a HookContextAPI) UnregisterProcesses(args api.UnregisterProcessesArgs) (a
 		res := api.ProcessResult{
 			ID: id,
 		}
-		if err := a.State.Unregister(id); err != nil {
+		if err := a.State.Remove(id); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}

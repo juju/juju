@@ -79,7 +79,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			},
 		},
 	}
-	err = st.Register(info)
+	err = st.Add(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err = st.List()
@@ -131,7 +131,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	err = st.Unregister("procA/xyz")
+	err = st.Remove("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err = st.List()

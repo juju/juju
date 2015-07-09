@@ -44,19 +44,17 @@ func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag) *UnitP
 	}
 }
 
-// Register adds the provided process info to state.
-func (ps UnitProcesses) Register(info process.Info) error {
+// Add registers the provided process info in state.
+func (ps UnitProcesses) Add(info process.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad process info")
 	}
 
 	ok, err := ps.Persist.Insert(info)
 	if err != nil {
-		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
 	}
 	if !ok {
-		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.NotValidf("process %s (already in state)", info.ID())
 	}
 
@@ -93,19 +91,16 @@ func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(ericsnow) Ensure that the number returned matches the
-	// number expected.
 	return results, nil
 }
 
-// Unregister removes the identified process from state. It does not
+// Remove removes the identified process from state. It does not
 // trigger the actual destruction of the process.
-func (ps UnitProcesses) Unregister(id string) error {
+func (ps UnitProcesses) Remove(id string) error {
 	// If the record wasn't found then we're already done.
 	_, err := ps.Persist.Remove(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	return nil
 }

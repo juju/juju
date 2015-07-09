@@ -329,7 +329,7 @@ type FakeState struct {
 	err   error
 }
 
-func (f *FakeState) Register(info process.Info) error {
+func (f *FakeState) Add(info process.Info) error {
 	f.info = info
 	return f.err
 }
@@ -344,7 +344,7 @@ func (f *FakeState) SetStatus(id string, status process.PluginStatus) error {
 	return f.err
 }
 
-func (f *FakeState) Unregister(id string) error {
+func (f *FakeState) Remove(id string) error {
 	f.id = id
 	return f.err
 }
