@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -69,7 +69,7 @@ type environ struct {
 	ecfgUnlocked    *environConfig
 	ec2Unlocked     *ec2.EC2
 	s3Unlocked      *s3.S3
-	storageUnlocked envstorage.Storage
+	storageUnlocked storage.Storage
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -189,7 +189,7 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() envstorage.Storage {
+func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
@@ -498,6 +498,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
 	})
+	logger.Debugf("\nEC2 INSTANCE SPEC \n%v\nERR: %v\n\n", spec, err)
+
 	if err != nil {
 		return nil, err
 	}
@@ -1391,4 +1393,12 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-ec2 environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
 }

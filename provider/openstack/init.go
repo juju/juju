@@ -15,6 +15,10 @@ const (
 
 func init() {
 	environs.RegisterProvider(providerType, environProvider{})
+
+	// Register cloud local storage as data source
+	environs.RegisterImageDataSourceFunc("cloud local storage", getCustomImageSource)
+
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 
@@ -26,5 +30,4 @@ func init() {
 
 	// Register the Cinder provider with the Openstack provider.
 	registry.RegisterEnvironStorageProviders(providerType, CinderProviderType)
-
 }

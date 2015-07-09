@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -1828,4 +1829,12 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	}
 	err := processNodes(lshw.Nodes)
 	return interfaces, primaryIface, err
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*maasEnviron)
+	if !ok {
+		return nil, errors.NotSupportedf("non-maas environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
 }

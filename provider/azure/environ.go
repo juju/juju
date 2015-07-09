@@ -1302,3 +1302,11 @@ func (env *azureEnviron) SupportsUnitPlacement() error {
 	}
 	return nil
 }
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*azureEnviron)
+	if !ok {
+		return nil, errors.NotSupportedf("non-azure environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
+}

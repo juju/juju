@@ -20,4 +20,7 @@ func init() {
 
 	// Inform the storage provider registry about the AWS providers.
 	registry.RegisterEnvironStorageProviders(providerType, EBS_ProviderType)
+
+	// Register cloud local storage as data source
+	environs.RegisterImageDataSourceFunc("cloud local storage", getCustomImageSource)
 }

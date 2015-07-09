@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
@@ -590,4 +591,12 @@ func (env *localEnviron) Ports() ([]network.PortRange, error) {
 // Provider is specified in the Environ interface.
 func (env *localEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*localEnviron)
+	if !ok {
+		return nil, errors.NotSupportedf("non-local environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("local storage", e.Storage(), storage.BaseImagesPath), nil
 }

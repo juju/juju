@@ -46,6 +46,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
@@ -1507,4 +1509,12 @@ func delay() {
 		logger.Infof("pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-dummy environment")
+	}
+	return envstorage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), envstorage.BaseImagesPath), nil
 }

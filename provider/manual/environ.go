@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -382,3 +383,11 @@ func (e *manualEnviron) StorageAuthKey() string {
 }
 
 var _ localstorage.LocalTLSStorageConfig = (*manualEnviron)(nil)
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*manualEnviron)
+	if !ok {
+		return nil, errors.NotSupportedf("non-manual environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("local storage", e.Storage(), storage.BaseImagesPath), nil
+}

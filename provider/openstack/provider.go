@@ -1657,3 +1657,11 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 		Endpoint: e.ecfg().authURL(),
 	}, nil
 }
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-openstack environment")
+	}
+	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
+}
