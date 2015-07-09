@@ -1414,7 +1414,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1438,7 +1438,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1497,7 +1497,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
