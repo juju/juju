@@ -15,6 +15,10 @@ import (
 	"github.com/juju/juju/process"
 )
 
+// TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
+// into actual ports? For now we should error out with such definitions
+// (and recommend overriding).
+
 // baseCommand implements the common portions of the workload process
 // hook env commands.
 type baseCommand struct {
