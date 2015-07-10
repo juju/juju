@@ -322,7 +322,7 @@ const (
 	MirrorFormat  = "mirrors:1.0"
 )
 
-type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
+type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.
 type ValueParams struct {
@@ -1003,7 +1003,10 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source Da
 		}
 		sort.Sort(bv)
 		for _, itemCollVersion := range bv {
-			matchingItems = filterFunc(source, matchingItems, itemCollVersion.ItemCollection.Items, cons)
+			matchingItems, err = filterFunc(source, matchingItems, itemCollVersion.ItemCollection.Items, cons)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 	return matchingItems, nil

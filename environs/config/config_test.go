@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -90,7 +91,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"agent-stream":       "agent-stream-value",
+			"agent-stream":       "released",
 		},
 	}, {
 		about:       "Deprecated tools-stream used",
@@ -106,7 +107,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"agent-stream": "agent-stream-value",
+			"agent-stream": "released",
 			"tools-stream": "ignore-me",
 		},
 	}, {
@@ -597,7 +598,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		err: "invalid firewall mode in environment configuration: .*",
+		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
@@ -664,18 +665,14 @@ var configTests = []configTest{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			"incorrect",
-		),
+		about:       "provisioner-harvest-mode: incorrect",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
 			"provisioner-harvest-mode": "yes please",
 		},
-		err: `unknown harvesting method: yes please`,
+		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -891,7 +888,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
 		},
-		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+		err: `uuid: expected uuid, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
 	}, {
 		about:       "invalid uuid 2",
 		useDefaults: config.UseDefaults,
@@ -900,7 +897,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "uuid",
 		},
-		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+		err: `uuid: expected uuid, got string\("uuid"\)`,
 	}, {
 		about:       "blank uuid",
 		useDefaults: config.UseDefaults,
@@ -909,7 +906,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: "uuid: expected uuid, got string\\(\"\"\\)",
+		err: `empty uuid in environment configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -963,7 +960,7 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"resource-tags": []string{"a"},
 		},
-		err: `validating resource tags: expected "key=value", got "a"`,
+		err: `resource-tags: expected "key=value", got "a"`,
 	},
 }
 
@@ -1780,6 +1777,43 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	// The default proxy settings should still be empty.
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
+}
+
+func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
+	schema, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+	// Check that we actually returned a copy, not the original.
+	schema["foo"] = environschema.Attr{}
+	_, ok := orig["foo"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
+	extraField := environschema.Attr{
+		Description: "fooish",
+		Type:        environschema.Tstring,
+	}
+	schema, err := config.Schema(environschema.Fields{
+		"foo": extraField,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(schema["foo"], gc.DeepEquals, extraField)
+	delete(schema, "foo")
+	orig := config.ConfigSchema
+	c.Assert(schema, jc.DeepEquals, orig)
+}
+
+func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
+	schema, err := config.Schema(environschema.Fields{
+		"type": environschema.Attr{
+			Description: "duplicate",
+			Type:        environschema.Tstring,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)
+	c.Assert(schema, gc.IsNil)
 }
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {

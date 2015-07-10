@@ -478,16 +478,25 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
-	storageOps, err := st.machineStorageOps(mdoc, &machineStorageParams{
-		filesystems:           template.Filesystems,
-		filesystemAttachments: template.FilesystemAttachments,
-		volumes:               template.Volumes,
-		volumeAttachments:     template.VolumeAttachments,
-	})
+	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
+		mdoc, &machineStorageParams{
+			filesystems:           template.Filesystems,
+			filesystemAttachments: template.FilesystemAttachments,
+			volumes:               template.Volumes,
+			volumeAttachments:     template.VolumeAttachments,
+		},
+	)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}
+	for _, v := range volumesAttached {
+		mdoc.Volumes = append(mdoc.Volumes, v.Id())
+	}
+	for _, f := range filesystemsAttached {
+		mdoc.Filesystems = append(mdoc.Filesystems, f.Id())
+	}
 	prereqOps = append(prereqOps, storageOps...)
+
 	return prereqOps, machineOp, nil
 }
 
@@ -498,16 +507,23 @@ type machineStorageParams struct {
 	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 }
 
-func (st *State) machineStorageOps(mdoc *machineDoc, args *machineStorageParams) ([]txn.Op, error) {
+// machineStorageOps creates txn.Ops for creating volumes, filesystems,
+// and attachments to the specified machine. The results are the txn.Ops,
+// and the tags of volumes and filesystems newly attached to the machine.
+func (st *State) machineStorageOps(
+	mdoc *machineDoc, args *machineStorageParams,
+) ([]txn.Op, []names.VolumeTag, []names.FilesystemTag, error) {
 	var filesystemOps, volumeOps []txn.Op
 	var fsAttachments []filesystemAttachmentTemplate
 	var volumeAttachments []volumeAttachmentTemplate
+	var volumesAttached []names.VolumeTag
+	var filesystemsAttached []names.FilesystemTag
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
 		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		filesystemOps = append(filesystemOps, ops...)
 		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
@@ -525,7 +541,7 @@ func (st *State) machineStorageOps(mdoc *machineDoc, args *machineStorageParams)
 	for _, v := range args.volumes {
 		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		volumeOps = append(volumeOps, op)
 		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
@@ -538,16 +554,54 @@ func (st *State) machineStorageOps(mdoc *machineDoc, args *machineStorageParams)
 
 	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
 	if len(fsAttachments) > 0 {
+		for _, a := range fsAttachments {
+			filesystemsAttached = append(filesystemsAttached, a.tag)
+		}
 		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		ops = append(ops, filesystemOps...)
 		ops = append(ops, attachmentOps...)
 	}
 	if len(volumeAttachments) > 0 {
+		for _, a := range volumeAttachments {
+			volumesAttached = append(volumesAttached, a.tag)
+		}
 		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		ops = append(ops, volumeOps...)
 		ops = append(ops, attachmentOps...)
 	}
-	return ops, nil
+	return ops, volumesAttached, filesystemsAttached, nil
+}
+
+// addMachineStorageAttachmentsOp returns a txn.Op for adding the IDs of
+// attached volumes and filesystems to a machine doc.
+func addMachineStorageAttachmentsOp(
+	machineId string, volumes []names.VolumeTag, filesystems []names.FilesystemTag,
+) txn.Op {
+	var updates bson.D
+	if len(volumes) > 0 {
+		volumeIds := make([]string, len(volumes))
+		for i, v := range volumes {
+			volumeIds[i] = v.Id()
+		}
+		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
+			"volumes", bson.D{{"$each", volumeIds}}}},
+		})
+	}
+	if len(filesystems) > 0 {
+		filesystemIds := make([]string, len(filesystems))
+		for i, f := range filesystems {
+			filesystemIds[i] = f.Id()
+		}
+		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
+			"filesystems", bson.D{{"$each", filesystemIds}}}},
+		})
+	}
+	return txn.Op{
+		C:      machinesC,
+		Id:     machineId,
+		Assert: isAliveDoc,
+		Update: updates,
+	}
 }
 
 func hasJob(jobs []MachineJob, job MachineJob) bool {

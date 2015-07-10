@@ -37,7 +37,7 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:forcecharm"`
+	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
 	UnitCount         int        `bson:"unitcount"`
 	RelationCount     int        `bson:"relationcount"`
@@ -441,6 +441,15 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 				name, oldCountMax, newStorageMeta.CountMax,
 			)
 		}
+		if oldStorageMeta.Location != "" && oldStorageMeta.CountMax == 1 && newStorageMeta.CountMax != 1 {
+			// If a location is specified, the store may not go
+			// from being a singleton to multiple, since then the
+			// location has a different meaning.
+			return errors.Errorf(
+				"existing storage %q with location changed from singleton to multiple",
+				name,
+			)
+		}
 	}
 	return nil
 }
@@ -649,6 +658,8 @@ func (s *Service) newUnitName() (string, error) {
 	return name, nil
 }
 
+const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
+
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. Only one subordinate of a given
@@ -693,7 +704,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 	unitStatusDoc := statusDoc{
 		Status:     StatusUnknown,
-		StatusInfo: "Waiting for agent initialization to finish",
+		StatusInfo: MessageWaitForAgentInit,
 		Updated:    &now,
 		EnvUUID:    s.st.EnvironUUID(),
 	}
@@ -756,7 +767,11 @@ func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttac
 	url := charm.URL()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, url, cons)
+	ops, numStorageAttachments, err = createStorageOps(
+		s.st, tag, meta, url, cons,
+		s.doc.Series,
+		false, // unit is not assigned yet; don't create machine storage
+	)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}

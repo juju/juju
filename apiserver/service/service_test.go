@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/service"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -319,6 +320,56 @@ func (s *serviceSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) 
 			Pool:  "rootfs",
 		},
 	})
+}
+
+func (s *serviceSuite) TestClientServiceDeployWithPlacement(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	args := params.ServiceDeploy{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		NumUnits:    1,
+		Constraints: cons,
+		Placement: []*instance.Placement{
+			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+		},
+		ToMachineSpec: "will be ignored",
+	}
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+	svc := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+}
+
+func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	args := params.ServiceDeploy{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		NumUnits:    1,
+		Constraints: cons,
+		Placement: []*instance.Placement{
+			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"},
+		},
+	}
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client

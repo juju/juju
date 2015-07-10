@@ -52,7 +52,7 @@ var expectedIndex = `{
             "path": "streams/v1/com.ubuntu.juju-proposed-tools.json",
             "products": [
                 "com.ubuntu.juju:14.04:arm64",
-                "com.ubuntu.juju:14.10:ppc64el"
+                "com.ubuntu.juju:14.10:ppc64el"            
             ]
         },
         "com.ubuntu.juju:released:tools": {
@@ -63,7 +63,7 @@ var expectedIndex = `{
             "products": [
                 "com.ubuntu.juju:12.04:amd64",
                 "com.ubuntu.juju:12.04:arm",
-                "com.ubuntu.juju:13.10:arm"
+                "com.ubuntu.juju:13.10:arm"            
             ]
         }
     },
@@ -81,7 +81,7 @@ var expectedLegacyIndex = `{
             "products": [
                 "com.ubuntu.juju:12.04:amd64",
                 "com.ubuntu.juju:12.04:arm",
-                "com.ubuntu.juju:13.10:arm"
+                "com.ubuntu.juju:13.10:arm"            
             ]
         }
     },
@@ -225,6 +225,22 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 		FileType: "tar.gz",
 		SHA256:   "afb14e65c794464e378def12cbad6a96f9186d69",
 	},
+	{
+		Release:  "xuanhuaceratops",
+		Version:  "4.3.2.1",
+		Arch:     "amd64",
+		Size:     42,
+		Path:     "dinodance.tar.gz",
+		FileType: "tar.gz",
+	},
+	{
+		Release:  "xuanhanosaurus",
+		Version:  "5.4.3.2",
+		Arch:     "amd64",
+		Size:     42,
+		Path:     "dinodisco.tar.gz",
+		FileType: "tar.gz",
+	},
 }
 
 var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
@@ -242,6 +258,22 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 		Arch:     "arm64",
 		Size:     42,
 		Path:     "gotham.tar.gz",
+		FileType: "tar.gz",
+	},
+	{
+		Release:  "xuanhuaceratops",
+		Version:  "4.3.2.1",
+		Arch:     "amd64",
+		Size:     42,
+		Path:     "dinodance.tar.gz",
+		FileType: "tar.gz",
+	},
+	{
+		Release:  "xuanhanosaurus",
+		Version:  "5.4.3.2",
+		Arch:     "amd64",
+		Size:     42,
+		Path:     "dinodisco.tar.gz",
 		FileType: "tar.gz",
 	},
 }

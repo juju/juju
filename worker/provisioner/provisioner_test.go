@@ -71,16 +71,25 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 
 	s.BackingState.StartSync()
 
-	// Wait for the PA to load the new configuration.
-	select {
-	case newCfg := <-cfgObserver:
-		c.Assert(
-			newCfg.ProvisionerHarvestMode().String(),
-			gc.Equals,
-			config.HarvestAll.String(),
-		)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("PA did not action config change")
+	// Wait for the PA to load the new configuration. We wait for the change we expect
+	// like this because sometimes we pick up the initial harvest config (destroyed)
+	// rather than the one we change to (all).
+	received := []string{}
+	for {
+		select {
+		case newCfg := <-cfgObserver:
+			if newCfg.ProvisionerHarvestMode().String() == config.HarvestAll.String() {
+				return
+			}
+			received = append(received, newCfg.ProvisionerHarvestMode().String())
+		case <-time.After(coretesting.LongWait):
+			if len(received) == 0 {
+				c.Fatalf("PA did not action config change")
+			} else {
+				c.Fatalf("timed out waiting for config to change to '%s', received %+v",
+					config.HarvestAll.String(), received)
+			}
+		}
 	}
 }
 
@@ -719,7 +728,7 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 	}
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -745,6 +754,186 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// create a machine to host the container.
+	m, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	inst := s.checkStartInstanceNoSecureConnection(c, m)
+
+	// make a container on the machine we just created
+	template := state.MachineTemplate{
+		Series: coretesting.FakeDefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// the PA should not attempt to create it
+	s.checkNoOperations(c)
+
+	// cleanup
+	c.Assert(container.EnsureDead(), gc.IsNil)
+	c.Assert(container.Remove(), gc.IsNil)
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitRemoved(c, m)
+}
+
+type MachineClassifySuite struct {
+}
+
+var _ = gc.Suite(&MachineClassifySuite{})
+
+type MockMachine struct {
+	life          params.Life
+	status        params.Status
+	id            string
+	idErr         error
+	ensureDeadErr error
+	statusErr     error
+}
+
+func (m *MockMachine) Life() params.Life {
+	return m.life
+}
+
+func (m *MockMachine) InstanceId() (instance.Id, error) {
+	return instance.Id(m.id), m.idErr
+}
+
+func (m *MockMachine) EnsureDead() error {
+	return m.ensureDeadErr
+}
+
+func (m *MockMachine) Status() (params.Status, string, error) {
+	return m.status, "", m.statusErr
+}
+
+func (m *MockMachine) Id() string {
+	return m.id
+}
+
+type machineClassificationTest struct {
+	description    string
+	life           params.Life
+	status         params.Status
+	idErr          string
+	ensureDeadErr  string
+	expectErrCode  string
+	expectErrFmt   string
+	statusErr      string
+	classification provisioner.MachineClassification
+}
+
+var machineClassificationTests = []machineClassificationTest{{
+	description:    "Dead machine is dead",
+	life:           params.Dead,
+	status:         params.StatusStarted,
+	classification: provisioner.Dead,
+}, {
+	description:    "Dying machine can carry on dying",
+	life:           params.Dying,
+	status:         params.StatusStarted,
+	classification: provisioner.None,
+}, {
+	description:    "Dying unprovisioned machine is ensured dead",
+	life:           params.Dying,
+	status:         params.StatusStarted,
+	classification: provisioner.Dead,
+	idErr:          params.CodeNotProvisioned,
+}, {
+	description:    "Can't load provisioned dying machine",
+	life:           params.Dying,
+	status:         params.StatusStarted,
+	classification: provisioner.None,
+	idErr:          params.CodeNotFound,
+	expectErrCode:  params.CodeNotFound,
+	expectErrFmt:   "failed to load dying machine id:%s.*",
+}, {
+	description:    "Alive machine is not provisioned - pending",
+	life:           params.Alive,
+	status:         params.StatusPending,
+	classification: provisioner.Pending,
+	idErr:          params.CodeNotProvisioned,
+	expectErrFmt:   "found machine pending provisioning id:%s.*",
+}, {
+	description:    "Alive, pending machine not found",
+	life:           params.Alive,
+	status:         params.StatusPending,
+	classification: provisioner.None,
+	idErr:          params.CodeNotFound,
+	expectErrCode:  params.CodeNotFound,
+	expectErrFmt:   "failed to load machine id:%s.*",
+}, {
+	description:    "Cannot get unprovisioned machine status",
+	life:           params.Alive,
+	classification: provisioner.None,
+	statusErr:      params.CodeNotFound,
+	idErr:          params.CodeNotProvisioned,
+}, {
+	description:    "Dying machine fails to ensure dead",
+	life:           params.Dying,
+	status:         params.StatusStarted,
+	classification: provisioner.None,
+	idErr:          params.CodeNotProvisioned,
+	expectErrCode:  params.CodeNotFound,
+	ensureDeadErr:  params.CodeNotFound,
+	expectErrFmt:   "failed to ensure machine dead id:%s.*",
+}}
+
+var machineClassificationTestsRequireMaintenance = machineClassificationTest{
+	description:    "Machine needs maintaining",
+	life:           params.Alive,
+	status:         params.StatusStarted,
+	classification: provisioner.Maintain,
+}
+
+var machineClassificationTestsNoMaintenance = machineClassificationTest{
+	description:    "Machine doesn't need maintaining",
+	life:           params.Alive,
+	status:         params.StatusStarted,
+	classification: provisioner.None,
+}
+
+func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
+	test := func(t machineClassificationTest, id string) {
+		// Run a sub-test from the test table
+		s2e := func(s string) error {
+			// Little helper to turn a non-empty string into a useful error for "ErrorMaches"
+			if s != "" {
+				return &params.Error{Code: s}
+			}
+			return nil
+		}
+
+		c.Logf("%s: %s", id, t.description)
+		machine := MockMachine{t.life, t.status, id, s2e(t.idErr), s2e(t.ensureDeadErr), s2e(t.statusErr)}
+		classification, err := provisioner.ClassifyMachine(&machine)
+		if err != nil {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
+		} else {
+			c.Assert(err, gc.Equals, s2e(t.expectErrCode))
+		}
+		c.Assert(classification, gc.Equals, t.classification)
+	}
+
+	machineIds := []string{"0/lxc/0", "0/kvm/0", "0"}
+	for _, id := range machineIds {
+		tests := machineClassificationTests
+		if id == "0" {
+			tests = append(tests, machineClassificationTestsNoMaintenance)
+		} else {
+			tests = append(tests, machineClassificationTestsRequireMaintenance)
+		}
+		for _, t := range tests {
+			test(t, id)
+		}
+	}
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {

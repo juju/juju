@@ -102,19 +102,20 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 	c.Check(svc.Conf(), jc.DeepEquals, conf)
 }
 
-func (dt discoveryTest) checkInitSystem(c *gc.C, name string, ok bool) {
+func (dt discoveryTest) checkInitSystem(c *gc.C, name string, err error) {
 	if dt.expected == "" {
-		if !c.Check(ok, jc.IsFalse) {
+		if !c.Check(err, jc.Satisfies, errors.IsNotFound) {
 			c.Logf("found init system %q", name)
 		}
 	} else {
-		c.Check(ok, jc.IsTrue)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(name, gc.Equals, dt.expected)
 	}
 }
 
 var discoveryTests = []discoveryTest{{
 	os:       version.Windows,
+	series:   "win2012",
 	expected: service.InitSystemWindows,
 }, {
 	os:       version.Ubuntu,
@@ -174,12 +175,15 @@ func (s *discoverySuite) setLegacyUpstart(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	var localInitSystem string
+	var err error
 	switch runtime.GOOS {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, _ = service.VersionInitSystem(version.Current)
+		localInitSystem, err = service.VersionInitSystem(version.Current.Series)
 	}
+	c.Assert(err, gc.IsNil)
+
 	test := discoveryTest{
 		os:       version.Current.OS,
 		series:   version.Current.Series,
@@ -191,19 +195,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	test.checkService(c, svc, err, s.name, s.conf)
-}
-
-func (s *discoverySuite) TestDiscoverServiceLocalOnly(c *gc.C) {
-	for _, test := range discoveryTests {
-		test.log(c)
-
-		test.setLocal(c, s)
-		test.disableVersionDiscovery(s)
-
-		svc, err := service.DiscoverService(s.name, s.conf)
-
-		test.checkService(c, svc, err, s.name, s.conf)
-	}
 }
 
 func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
@@ -222,12 +213,8 @@ func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
 func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 	for _, test := range discoveryTests {
 		test.log(c)
-
-		vers := test.setVersion(s)
-
-		initSystem, ok := service.VersionInitSystem(vers)
-
-		test.checkInitSystem(c, initSystem, ok)
+		initSystem, err := service.VersionInitSystem(test.series)
+		test.checkInitSystem(c, initSystem, err)
 	}
 }
 
@@ -240,9 +227,9 @@ func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 	}
 	vers := test.setVersion(s)
 
-	initSystem, ok := service.VersionInitSystem(vers)
+	initSystem, err := service.VersionInitSystem(vers.Series)
 
-	test.checkInitSystem(c, initSystem, ok)
+	test.checkInitSystem(c, initSystem, err)
 }
 
 func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
@@ -254,9 +241,9 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	}
 	vers := test.setVersion(s)
 
-	initSystem, ok := service.VersionInitSystem(vers)
+	initSystem, err := service.VersionInitSystem(vers.Series)
 
-	test.checkInitSystem(c, initSystem, ok)
+	test.checkInitSystem(c, initSystem, err)
 }
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirst(c *gc.C) {

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -38,10 +39,10 @@ type MetricsRecorder interface {
 	Close() error
 }
 
-// MetricsReader is used to read metrics batches stored by the metrics recorder
+// metricsReader is used to read metrics batches stored by the metrics recorder
 // and remove metrics batches that have been marked as succesfully sent.
-type MetricsReader interface {
-	Open() ([]MetricsBatch, error)
+type metricsReader interface {
+	Open() ([]metrics.MetricBatch, error)
 	Remove(uuid string) error
 	Close() error
 }
@@ -118,9 +119,6 @@ type HookContext struct {
 
 	// metricsRecorder is used to write metrics batches to a storage (usually a file).
 	metricsRecorder MetricsRecorder
-
-	// metricsReader is used to read metric batches from storage.
-	metricsReader MetricsReader
 
 	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
 	definedMetrics *charm.Metrics
@@ -330,11 +328,11 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	return ctx.storage.Storage(tag)
 }
 
@@ -644,56 +642,8 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
 
-	if ctx.metricsReader == nil {
-		return ctxErr
-	}
-
 	if !writeChanges {
 		return ctxErr
-	}
-
-	batches, err := ctx.metricsReader.Open()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer ctx.metricsReader.Close()
-
-	var sendBatches []params.MetricBatch
-	for _, batch := range batches {
-		if len(batch.Metrics) == 0 { // empty batches not supported yet.
-			logger.Infof("skipping and removing empty metrics batch with UUID %q", batch.UUID)
-			err := ctx.metricsReader.Remove(batch.UUID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			continue
-		}
-		metrics := make([]params.Metric, len(batch.Metrics))
-		for i, metric := range batch.Metrics {
-			metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
-		}
-		batchParam := params.MetricBatch{
-			UUID:     batch.UUID,
-			CharmURL: batch.CharmURL,
-			Created:  batch.Created,
-			Metrics:  metrics,
-		}
-		sendBatches = append(sendBatches, batchParam)
-	}
-	results, err := ctx.unit.AddMetricBatches(sendBatches)
-	if err != nil {
-		// Do not return metric sending error.
-		logger.Errorf("%v", err)
-	}
-	for batchUUID, resultErr := range results {
-		if resultErr == nil || resultErr == (*params.Error)(nil) || params.IsCodeAlreadyExists(resultErr) {
-			err = ctx.metricsReader.Remove(batchUUID)
-			if err != nil {
-				logger.Errorf("could not remove batch %q from spool: %v", batchUUID, err)
-			}
-		} else {
-			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
-		}
 	}
 
 	return ctxErr

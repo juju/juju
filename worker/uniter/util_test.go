@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/metrics"
 )
 
 // worstCase is used for timeouts when timing out
@@ -75,24 +76,26 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 }
 
 type context struct {
-	uuid          string
-	path          string
-	dataDir       string
-	s             *UniterSuite
-	st            *state.State
-	api           *apiuniter.State
-	leader        leadership.LeadershipManager
-	charms        map[string][]byte
-	hooks         []string
-	sch           *state.Charm
-	svc           *state.Service
-	unit          *state.Unit
-	uniter        *uniter.Uniter
-	relatedSvc    *state.Service
-	relation      *state.Relation
-	relationUnits map[string]*state.RelationUnit
-	subordinate   *state.Unit
-	ticker        *uniter.ManualTicker
+	uuid                   string
+	path                   string
+	dataDir                string
+	s                      *UniterSuite
+	st                     *state.State
+	api                    *apiuniter.State
+	leader                 leadership.LeadershipManager
+	charms                 map[string][]byte
+	hooks                  []string
+	sch                    *state.Charm
+	svc                    *state.Service
+	unit                   *state.Unit
+	uniter                 *uniter.Uniter
+	relatedSvc             *state.Service
+	relation               *state.Relation
+	relationUnits          map[string]*state.RelationUnit
+	subordinate            *state.Unit
+	collectMetricsTicker   *uniter.ManualTicker
+	sendMetricsTicker      *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -101,12 +104,14 @@ type context struct {
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
 
+// HookCompleted implements the UniterExecutionObserver interface.
 func (ctx *context) HookCompleted(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, hookName)
 	ctx.mu.Unlock()
 }
 
+// HookFailed implements the UniterExecutionObserver interface.
 func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
@@ -292,7 +297,7 @@ var (
 	baseCharmHooks = []string{
 		"install", "start", "config-changed", "upgrade-charm", "stop",
 		"db-relation-joined", "db-relation-changed", "db-relation-departed",
-		"db-relation-broken", "meter-status-changed", "collect-metrics",
+		"db-relation-broken", "meter-status-changed", "collect-metrics", "update-status",
 	}
 	leaderCharmHooks = []string{
 		"leader-elected", "leader-deposed", "leader-settings-changed",
@@ -335,6 +340,10 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision)})
+}
+
+func (s createCharm) charmURL() string {
+	return curl(s.revision).String()
 }
 
 type addCharm struct {
@@ -452,7 +461,19 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	uniterParams := uniter.UniterParams{
+		St:                ctx.api,
+		UnitTag:           tag,
+		LeadershipManager: ctx.leader,
+		DataDir:           ctx.dataDir,
+		HookLock:          lock,
+		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
+			ctx.collectMetricsTicker.ReturnTimer,
+			ctx.sendMetricsTicker.ReturnTimer,
+		),
+		UpdateStatusSignal: ctx.updateStatusHookTicker.ReturnTimer,
+	}
+	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -466,6 +487,7 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.ErrorMatches, s.err)
 		return
 	}
+
 	// In the default case, we're waiting for worker.ErrTerminateAgent, but
 	// the path to that error can be tricky. If the unit becomes Dead at an
 	// inconvenient time, unrelated calls can fail -- as they should -- but
@@ -859,11 +881,80 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type metricsTick struct{}
+type collectMetricsTick struct{}
 
-func (s metricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.ticker.Tick()
+func (s collectMetricsTick) step(c *gc.C, ctx *context) {
+	err := ctx.collectMetricsTicker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type updateStatusHookTick struct{}
+
+func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
+	err := ctx.updateStatusHookTicker.Tick()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type sendMetricsTick struct{}
+
+func (s sendMetricsTick) step(c *gc.C, ctx *context) {
+	err := ctx.sendMetricsTicker.Tick()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addMetrics struct {
+	values []string
+}
+
+func (s addMetrics) step(c *gc.C, ctx *context) {
+	var declaredMetrics map[string]corecharm.Metric
+	if ctx.sch.Metrics() != nil {
+		declaredMetrics = ctx.sch.Metrics().Metrics
+	}
+	spoolDir := filepath.Join(ctx.path, "state", "spool", "metrics")
+
+	recorder, err := metrics.NewJSONMetricRecorder(spoolDir, declaredMetrics, ctx.sch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, value := range s.values {
+		recorder.AddMetric("pings", value, time.Now())
+	}
+
+	err = recorder.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type checkStateMetrics struct {
+	number int
+	values []string
+}
+
+func (s checkStateMetrics) step(c *gc.C, ctx *context) {
+	timeout := time.After(worstCase)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("specified number of metric batches not received by the state server")
+		case <-time.After(coretesting.ShortWait):
+			batches, err := ctx.st.MetricBatches()
+			c.Assert(err, jc.ErrorIsNil)
+			if len(batches) != s.number {
+				continue
+			}
+			for _, value := range s.values {
+				found := false
+				for _, batch := range batches {
+					for _, metric := range batch.Metrics() {
+						if metric.Key == "pings" && metric.Value == value {
+							found = true
+						}
+					}
+				}
+				c.Assert(found, gc.Equals, true)
+			}
+			return
+		}
+	}
 }
 
 type changeConfig map[string]interface{}
@@ -880,7 +971,6 @@ type addAction struct {
 
 func (s addAction) step(c *gc.C, ctx *context) {
 	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
-	// _, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

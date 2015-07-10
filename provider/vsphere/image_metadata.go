@@ -82,7 +82,7 @@ func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.
 }
 
 func appendMatchingFunc(source simplestreams.DataSource, matchingImages []interface{},
-	images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+	images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
 
 	for _, val := range images {
 		file := val.(*OvaFileMetadata)
@@ -93,5 +93,5 @@ func appendMatchingFunc(source simplestreams.DataSource, matchingImages []interf
 			matchingImages = append(matchingImages, file)
 		}
 	}
-	return matchingImages
+	return matchingImages, nil
 }

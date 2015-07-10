@@ -35,7 +35,9 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	ticker *uniter.ManualTicker
+	collectMetricsTicker   *uniter.ManualTicker
+	sendMetricsTicker      *uniter.ManualTicker
+	updateStatusHookTicker *uniter.ManualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -70,10 +72,11 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
+	s.collectMetricsTicker = uniter.NewManualTicker()
+	s.sendMetricsTicker = uniter.NewManualTicker()
+	s.updateStatusHookTicker = uniter.NewManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.ticker = uniter.NewManualTicker()
-	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
 }
 
@@ -101,13 +104,15 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 			env, err := s.State.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{
-				s:       s,
-				st:      s.State,
-				uuid:    env.UUID(),
-				path:    s.unitDir,
-				dataDir: s.dataDir,
-				charms:  make(map[string][]byte),
-				ticker:  s.ticker,
+				s:                      s,
+				st:                     s.State,
+				uuid:                   env.UUID(),
+				path:                   s.unitDir,
+				dataDir:                s.dataDir,
+				charms:                 make(map[string][]byte),
+				collectMetricsTicker:   s.collectMetricsTicker,
+				sendMetricsTicker:      s.sendMetricsTicker,
+				updateStatusHookTicker: s.updateStatusHookTicker,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -123,7 +128,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			createCharm{},
 			createServiceAndUnit{},
 			startUniter{},
-			waitUniterDead{`failed to initialize uniter for "unit-u-0": .*` + errNotDir},
+			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": .*` + errNotDir},
 		), ut(
 			"unknown unit",
 			// We still need to create a unit, because that's when we also
@@ -132,7 +137,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			createCharm{},
 			createServiceAndUnit{serviceName: "w"},
 			startUniter{"unit-u-0"},
-			waitUniterDead{`failed to initialize uniter for "unit-u-0": permission denied`},
+			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
 		),
 	})
 }
@@ -150,13 +155,13 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
+			waitUniterDead{err: `ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: preparing operation "install cs:quantal/wordpress-0": failed to download charm .* 404 Not Found`},
+			waitUniterDead{err: `ModeInstalling cs:quantal/wordpress-0: preparing operation "install cs:quantal/wordpress-0": failed to download charm .* 404 Not Found`},
 		),
 	})
 }
@@ -200,6 +205,21 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 				status: params.StatusIdle,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook runs on timer",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: params.StatusIdle},
+			updateStatusHookTick{},
+			waitHooks{"update-status"},
 		),
 	})
 }
@@ -1324,6 +1344,26 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterSendMetricsBeforeDying(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"metrics must be sent before the unit is destroyed",
+			createCharm{
+				customize: func(c *gc.C, ctx *context, path string) {
+					ctx.writeMetricsYaml(c, path)
+				},
+			},
+			serveCharm{},
+			createUniter{},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
+			addMetrics{[]string{"5", "42"}},
+			unitDying,
+			waitUniterDead{},
+			checkStateMetrics{number: 1, values: []string{"5", "42"}},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1342,7 +1382,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			metricsTick{},
+			collectMetricsTick{},
 			waitHooks{"collect-metrics"},
 		),
 		ut(
@@ -1353,7 +1393,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			metricsTick{},
+			collectMetricsTick{},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
@@ -1374,7 +1414,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			metricsTick{},
+			collectMetricsTick{},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
@@ -1392,8 +1432,75 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 		ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			metricsTick{},
+			collectMetricsTick{},
 			waitHooks{},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"send metrics event triggered by manual timer",
+			createCharm{
+				customize: func(c *gc.C, ctx *context, path string) {
+					ctx.writeMetricsYaml(c, path)
+				},
+			},
+			serveCharm{},
+			createUniter{},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
+			addMetrics{[]string{"15", "17"}},
+			sendMetricsTick{},
+			checkStateMetrics{number: 1, values: []string{"17", "15"}},
+		),
+		ut(
+			"send-metrics resumed after hook error",
+			startupErrorWithCustomCharm{
+				badHook: "config-changed",
+				customize: func(c *gc.C, ctx *context, path string) {
+					ctx.writeMetricsYaml(c, path)
+				},
+			},
+			addMetrics{[]string{"15"}},
+			sendMetricsTick{},
+			fixHook{"config-changed"},
+			resolveError{state.ResolvedRetryHooks},
+			waitHooks{"config-changed", "start"},
+			addMetrics{[]string{"17"}},
+			sendMetricsTick{},
+			checkStateMetrics{number: 2, values: []string{"15", "17"}},
+			verifyRunning{},
+		),
+		ut(
+			"send-metrics state maintained during uniter restart",
+			startupErrorWithCustomCharm{
+				badHook: "config-changed",
+				customize: func(c *gc.C, ctx *context, path string) {
+					ctx.writeMetricsYaml(c, path)
+				},
+			},
+			collectMetricsTick{},
+			addMetrics{[]string{"13"}},
+			sendMetricsTick{},
+			fixHook{"config-changed"},
+			stopUniter{},
+			startUniter{},
+			resolveError{state.ResolvedRetryHooks},
+			waitHooks{"config-changed", "start", "collect-metrics"},
+			addMetrics{[]string{"21"}},
+			sendMetricsTick{},
+			checkStateMetrics{number: 2, values: []string{"13", "21"}},
+			verifyRunning{},
+		),
+		ut(
+			"collect-metrics event not triggered for non-metered charm",
+			quickStart{},
+			collectMetricsTick{},
+			addMetrics{[]string{"21"}},
+			sendMetricsTick{},
+			waitHooks{},
+			checkStateMetrics{number: 0},
 		),
 	})
 }
@@ -1753,11 +1860,14 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create a test context for later use.
 	ctx := &context{
-		s:       s,
-		st:      s.State,
-		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
-		dataDir: s.dataDir,
-		charms:  make(map[string][]byte),
+		s:                      s,
+		st:                     s.State,
+		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
+		dataDir:                s.dataDir,
+		charms:                 make(map[string][]byte),
+		collectMetricsTicker:   s.collectMetricsTicker,
+		sendMetricsTicker:      s.sendMetricsTicker,
+		updateStatusHookTicker: s.updateStatusHookTicker,
 	}
 
 	addStateServerMachine(c, ctx.st)
@@ -1845,7 +1955,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			waitHooks{"install"},
 			startUniter{},
 			waitUnitAgent{
@@ -1869,7 +1979,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			waitHooks{"install"},
 			startUniter{},
 			waitUnitAgent{
@@ -1912,28 +2022,28 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			"test juju-reboot",
 			quickStart{},
 			runCommands{"juju-reboot"},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
 			waitHooks{"config-changed"},
 		), ut(
 			"test juju-reboot with bad hook",
 			startupError{"install"},
 			runCommands{"juju-reboot"},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
 			waitHooks{},
 		), ut(
 			"test juju-reboot --now",
 			quickStart{},
 			runCommands{"juju-reboot --now"},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
 			waitHooks{"config-changed"},
 		), ut(
 			"test juju-reboot --now with bad hook",
 			startupError{"install"},
 			runCommands{"juju-reboot --now"},
-			waitUniterDead{"machine needs to reboot"},
+			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
 			waitHooks{},
 		),

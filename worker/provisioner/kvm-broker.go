@@ -124,8 +124,9 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	kvmLogger.Infof("started kvm container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: hardware,
+		Instance:    inst,
+		Hardware:    hardware,
+		NetworkInfo: network.Interfaces,
 	}, nil
 }
 
@@ -147,8 +148,30 @@ func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) 
 	return broker.manager.ListContainers()
 }
 
-// MaintainInstance is only called for LXC hosts.
-// Stub to fulfill the environs.InstanceBroker interface.
-func (*kvmBroker) MaintainInstance(environs.StartInstanceParams) error {
-	return nil
+// MaintainInstance checks that the container's host has the required iptables and routing
+// rules to make the container visible to both the host and other machines on the same subnet.
+func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineId := args.InstanceConfig.MachineId
+	if !environs.AddressAllocationEnabled() {
+		kvmLogger.Debugf("address allocation disabled: Not running maintenance for kvm with machineId: %s",
+			machineId)
+		return nil
+	}
+
+	kvmLogger.Debugf("running maintenance for kvm with machineId: %s", machineId)
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = kvm.DefaultKvmBridge
+	}
+	_, err := configureContainerNetwork(
+		machineId,
+		bridgeDevice,
+		broker.api,
+		args.NetworkInfo,
+		false, // don't allocate a new address.
+		broker.enableNAT,
+	)
+	return err
 }

@@ -9,11 +9,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/sys/windows/svc"
+	"github.com/gabriel-samfira/sys/windows/svc"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/cmd/service"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 )
+
+func init() {
+	featureflag.SetFlagsFromRegistry(osenv.JujuRegistryKey, osenv.JujuFeatureFlagEnvKey)
+}
 
 func main() {
 	isInteractive, err := svc.IsAnInteractiveSession()

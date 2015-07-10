@@ -70,6 +70,10 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
 	// Remove the first environment.
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env1.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -215,6 +219,23 @@ func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
 }
 
+func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
+	// create another environment
+	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	defer otherEnvState.Close()
+	otherEnv, err := otherEnvState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// get that environment from State
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that the Users method errors
+	users, err := env.Users()
+	c.Assert(users, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot lookup environment users outside the current environment")
+}
+
 func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -285,7 +306,7 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 
 	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -293,4 +314,26 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
 	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
+}
+
+func (s *EnvironSuite) TestEnvironCount(c *gc.C) {
+	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
+
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 2)
+
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env1.Destroy(), jc.ErrorIsNil)
+	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env2.Destroy(), jc.ErrorIsNil)
+	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
 }

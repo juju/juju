@@ -7,10 +7,13 @@
 package windows_test
 
 import (
+	"syscall"
+
+	win "github.com/gabriel-samfira/sys/windows"
+	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"golang.org/x/sys/windows/svc"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
@@ -44,6 +47,9 @@ func (s *serviceManagerSuite) SetUpTest(c *gc.C) {
 	s.passwdStub = &testing.Stub{}
 	s.conn = windows.PatchMgrConnect(s, s.stub)
 	s.getPasswd = windows.PatchGetPassword(s, s.passwdStub)
+	s.PatchValue(&windows.WinChangeServiceConfig2, func(win.Handle, uint32, *byte) error {
+		return nil
+	})
 
 	// Set up the service.
 	s.name = "machine-1"
@@ -196,6 +202,79 @@ func (s *serviceManagerSuite) TestStop(c *gc.C) {
 	c.Assert(running, jc.IsFalse)
 }
 
+func (s *serviceManagerSuite) TestChangePassword(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	exists := s.conn.Exists(s.name)
+	c.Assert(exists, jc.IsTrue)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.IsNil)
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "obviously-better-password")
+
+}
+
+func (s *serviceManagerSuite) TestChangePasswordAccessDenied(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	s.stub.SetErrors(syscall.ERROR_ACCESS_DENIED)
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.IsNil)
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+}
+
+func (s *serviceManagerSuite) TestChangePasswordErrorOut(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	s.stub.SetErrors(errors.New("poof"))
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.ErrorMatches, "poof")
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+}
+
 func (s *serviceManagerSuite) TestDelete(c *gc.C) {
 	windows.AddService(s.name, s.execPath, s.stub, svc.Status{State: svc.Running})
 
@@ -211,4 +290,32 @@ func (s *serviceManagerSuite) TestDeleteInexistent(c *gc.C) {
 
 	err := s.mgr.Delete(s.name)
 	c.Assert(errors.Cause(err), gc.Equals, windows.ERROR_SERVICE_DOES_NOT_EXIST)
+}
+
+func (s *serviceManagerSuite) TestCloseCalled(c *gc.C) {
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
+	s.stub.ResetCalls()
+
+	_, err = s.mgr.Running(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Start(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close", "OpenService", "Start", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Stop(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Query", "Close", "OpenService", "Control", "Close")
+	s.stub.ResetCalls()
+
+	err = s.mgr.Delete(s.name)
+	c.Assert(err, gc.IsNil)
+	s.stub.CheckCallNames(c, "OpenService", "Close", "OpenService", "Control", "Close")
+	s.stub.ResetCalls()
+
 }

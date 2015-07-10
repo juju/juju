@@ -62,7 +62,7 @@ var (
 const fails = true
 const succeeds = false
 
-func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) {
 	s.aptMutex.Lock()
 	defer s.aptMutex.Unlock()
 	if cmd == nil {
@@ -70,7 +70,6 @@ func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
 	} else {
 		s.aptCmds = append(s.aptCmds, cmd)
 	}
-	return s.aptCmds
 }
 
 func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
@@ -82,8 +81,10 @@ func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
+	// clear s.aptCmds
+	s.setAptCmds(nil)
+
 	// Capture all apt commands.
-	s.aptCmds = nil
 	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
@@ -118,6 +119,10 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 		return s.machineIsMaster, nil
 	}
 	s.PatchValue(&isMachineMaster, fakeIsMachineMaster)
+	// Most of these tests normally finish sub-second on a fast machine.
+	// If any given test hits a minute, we have almost certainly become
+	// wedged, so dump the logs.
+	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {

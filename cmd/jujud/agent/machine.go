@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -77,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
@@ -116,6 +118,7 @@ var (
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
+	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -257,12 +260,14 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			apiAddressSetter,
+			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 		)
@@ -274,16 +279,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 ) *MachineAgent {
-
 	return &MachineAgent{
 		machineId:            machineId,
 		AgentConfigWriter:    agentConfWriter,
 		apiAddressSetter:     apiAddressSetter,
-		workersStarted:       make(chan struct{}),
+		bufferedLogs:         bufferedLogs,
 		upgradeWorkerContext: upgradeWorkerContext,
+		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
@@ -305,6 +311,7 @@ type MachineAgent struct {
 	previousAgentVersion version.Number
 	apiAddressSetter     apiaddressupdater.APIAddressSetter
 	runner               worker.Runner
+	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
 	restoreMode          bool
@@ -430,6 +437,17 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.upgradeCertificateDNSNames(); err != nil {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
+
+	// For windows clients we need to make sure we set a random password in a
+	// registry file and use that password for the jujud user and its services
+	// before starting anything else.
+	// Services on windows need to know the user's password to start up. The only
+	// way to store that password securely is if the user running the services
+	// sets the password. This cannot be done during cloud-init so it is done here.
+	if err := password.EnsureJujudPassword(); err != nil {
+		return errors.Annotate(err, "Could not ensure jujud password")
+	}
+
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
@@ -702,12 +720,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 	}
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	if isEnvironManager {
-		rsyslogMode = rsyslog.RsyslogModeAccumulate
-	}
-
 	runner := newConnRunner(st)
+
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
@@ -726,8 +740,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
+	if feature.IsDbLogEnabled() {
+		runner.StartWorker("logsender", func() (worker.Worker, error) {
+			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+		})
+	}
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+		accessor := machiner.APIMachineAccessor{st.Machiner()}
+		return machiner.NewMachiner(accessor, agentConfig), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -747,9 +768,16 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
+	if !featureflag.Enabled(feature.DisableRsyslog) {
+		rsyslogMode := rsyslog.RsyslogModeForwarding
+		if isEnvironManager {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+		}
+
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		})
+	}
 
 	if !isEnvironManager {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
@@ -1022,19 +1050,23 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Infof("update apiserver worker with new certificate")
-					certChangedChan <- info
-					return nil
+					select {
+					case certChangedChan <- info:
+						return nil
+					case <-done:
+						return nil
+					}
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
 			})
 
-			if featureflag.Enabled(feature.DbLog) {
+			if feature.IsDbLogEnabled() {
 				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
@@ -1113,9 +1145,6 @@ func (a *MachineAgent) startEnvWorkers(
 	// Start workers that depend on a *state.State.
 	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
 	// Seriously, these should all be using the API.
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return cleaner.NewCleaner(st), nil
-	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
@@ -1140,6 +1169,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
 		return newInstancePoller(apiSt.InstancePoller()), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return newCleaner(apiSt.Cleaner()), nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
@@ -1434,7 +1466,9 @@ func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
 	// Note: we set Direct=true in the mongo options because it's
 	// possible that we've previously upgraded the mongo server's
 	// configuration to form a replicaset, but failed to initiate it.
-	st, _, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, _, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return err
 	}
@@ -1479,7 +1513,9 @@ func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 // network addresses.
 func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
 	logger.Debugf("opening state to get machine addresses")
-	st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, m, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
 	}
@@ -1549,12 +1585,12 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 // but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(start), nil
+		return a.upgradeWaiterWorker(name, start), nil
 	})
 }
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []chan struct{}{
@@ -1567,6 +1603,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 			case <-ch:
 			}
 		}
+		logger.Debugf("upgrades done, starting worker %q", name)
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1579,8 +1616,10 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		}()
 		select {
 		case err := <-waitCh:
+			logger.Debugf("worker %q exited with %v", name, err)
 			return err
 		case <-stop:
+			logger.Debugf("stopping so killing worker %q", name)
 			worker.Kill()
 		}
 		return <-waitCh // Ensure worker has stopped before returning.

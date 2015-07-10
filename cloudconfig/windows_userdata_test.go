@@ -808,20 +808,6 @@ $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $
 icacls "C:\Juju" /grant "jujud:(OI)(CI)(F)" /T
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
-
-
-Set-Content "C:\juju\bin\save_pass.ps1" @"
-Param (
- [Parameter(Mandatory=` + "`" + `$true)]
- [string]` + "`" + `$pass
-)
-
-` + "`" + `$secpasswd = ConvertTo-SecureString ` + "`" + `$pass -AsPlainText -Force
-` + "`" + `$secpasswd | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass
-"@
-
-
-Start-ProcessAsUser -Command $powershell -Arguments "-File C:\juju\bin\save_pass.ps1 $juju_passwd" -Credential $jujuCreds
 mkdir "C:\Juju\lib\juju\locks"
 Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%PATH%` + ";" + `C:\Juju\bin"' -Credential $jujuCreds
 Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"
@@ -838,6 +824,15 @@ if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 & "${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"
 rm "$binDir\tools.tar*"
 Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz","sha256":"1234","size":10}'
+New-Item -Path 'HKLM:\SOFTWARE\juju-core'
+$acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
+$acl.SetAccessRuleProtection($true, $false)
+$perm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm
+$acl.SetAccessRule($rule)
+Set-Acl -Path 'HKLM:\SOFTWARE\juju-core' -AclObject $acl
+New-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS'
+Set-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS' -Value ''
 mkdir 'C:\Juju\lib\juju\agents\machine-10'
 Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
 # format 1.18
@@ -874,4 +869,5 @@ values:
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
 New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
+sc.exe failure 'jujud-machine-10' reset=5 actions=restart/1000
 Start-Service 'jujud-machine-10'`

@@ -90,16 +90,21 @@ func (e *EnvironmentUser) LastConnection() *time.Time {
 func (e *EnvironmentUser) UpdateLastConnection() error {
 	envUsers, closer := e.st.getCollection(envUsersC)
 	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	envUsersW := envUsers.Writeable()
+
 	// Update the safe mode of the underlying session to be not require
 	// write majority, nor sync to disk.
-	session := envUsers.Underlying().Database.Session
+	session := envUsersW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
 	timestamp := nowToTheSecond()
 	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
 
 	id := strings.ToLower(e.UserName())
-	if err := envUsers.UpdateId(id, update); err != nil {
+	if err := envUsersW.UpdateId(id, update); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
 
@@ -156,32 +161,36 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 	return &EnvironmentUser{st: st, doc: *doc}, nil
 }
 
-func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
+// envUserID returns the document id of the environment user
+func envUserID(user names.UserTag) string {
 	username := user.Username()
-	usernameLowerCase := strings.ToLower(username)
+	return strings.ToLower(username)
+}
+
+func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
 	creatorname := createdBy.Username()
 	doc := &envUserDoc{
-		ID:          usernameLowerCase,
+		ID:          envUserID(user),
 		EnvUUID:     envuuid,
-		UserName:    username,
+		UserName:    user.Username(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
 	}
 	op := txn.Op{
 		C:      envUsersC,
-		Id:     usernameLowerCase,
+		Id:     envUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
 	return op, doc
 }
 
-// RemoveEnvironmentUser adds a new user to the database.
+// RemoveEnvironmentUser removes a user from the database.
 func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      envUsersC,
-		Id:     user.Username(),
+		Id:     envUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}

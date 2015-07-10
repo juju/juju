@@ -234,7 +234,6 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 		default:
 			return nil, errors.Trace(err)
 		}
-		return nil, jujutxn.ErrTransientFailure
 	}
 	return st.run(buildTxn)
 }
@@ -248,7 +247,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
-		return removeStorageInstanceOps(s.StorageTag(), assert), nil
+		return removeStorageInstanceOps(st, s.StorageTag(), assert)
 	}
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
@@ -272,13 +271,53 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 
 // removeStorageInstanceOps removes the storage instance with the given
 // tag from state, if the specified assertions hold true.
-func removeStorageInstanceOps(tag names.StorageTag, assert bson.D) []txn.Op {
-	return []txn.Op{{
+func removeStorageInstanceOps(
+	st *State,
+	tag names.StorageTag,
+	assert bson.D,
+) ([]txn.Op, error) {
+	ops := []txn.Op{{
 		C:      storageInstancesC,
 		Id:     tag.Id(),
 		Assert: assert,
 		Remove: true,
 	}}
+
+	machineStorageOp := func(c string, id string) txn.Op {
+		return txn.Op{
+			C:      c,
+			Id:     id,
+			Assert: bson.D{{"storageid", tag.Id()}},
+			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
+		}
+	}
+
+	// If the storage instance has an assigned volume and/or filesystem,
+	// unassign them. Any volumes and filesystems bound to the storage
+	// will be destroyed.
+	volume, err := st.storageInstanceVolume(tag)
+	if err == nil {
+		ops = append(ops, machineStorageOp(
+			volumesC, volume.Tag().Id(),
+		))
+		if volume.LifeBinding() == tag {
+			ops = append(ops, destroyVolumeOps(st, volume)...)
+		}
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	filesystem, err := st.storageInstanceFilesystem(tag)
+	if err == nil {
+		ops = append(ops, machineStorageOp(
+			filesystemsC, filesystem.Tag().Id(),
+		))
+		if filesystem.LifeBinding() == tag {
+			ops = append(ops, destroyFilesystemOps(st, filesystem)...)
+		}
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }
 
 // createStorageOps returns txn.Ops for creating storage instances
@@ -302,6 +341,8 @@ func createStorageOps(
 	charmMeta *charm.Meta,
 	curl *charm.URL,
 	cons map[string]StorageConstraints,
+	series string,
+	machineOpsNeeded bool,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
@@ -381,6 +422,19 @@ func createStorageOps(
 				Assert: txn.DocMissing,
 				Insert: doc,
 			})
+			if machineOpsNeeded {
+				machineOps, err := unitAssignedMachineStorageOps(
+					st, entity, charmMeta, cons, series,
+					&storageInstance{st, *doc},
+				)
+				if err == nil {
+					ops = append(ops, machineOps...)
+				} else if !errors.IsNotAssigned(err) {
+					return nil, -1, errors.Annotatef(
+						err, "creating machine storage for storage %s", id,
+					)
+				}
+			}
 		}
 	}
 
@@ -392,6 +446,52 @@ func createStorageOps(
 	// is when units are added to said service.
 
 	return ops, numStorageAttachments, nil
+}
+
+// unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
+// and their attachments to the machine that the specified unit is assigned to,
+// corresponding to the specified storage instance.
+func unitAssignedMachineStorageOps(
+	st *State,
+	entity names.Tag,
+	charmMeta *charm.Meta,
+	cons map[string]StorageConstraints,
+	series string,
+	storage StorageInstance,
+) (ops []txn.Op, err error) {
+	tag, ok := entity.(names.UnitTag)
+	if !ok {
+		return nil, errors.NotSupportedf("dynamic creation of shared storage")
+	}
+	storageParams, err := machineStorageParamsForStorageInstance(
+		st, charmMeta, tag, series, cons, storage,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	u, err := st.Unit(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	m, err := u.machine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
+		&m.doc, storageParams,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
+	return storageOps, nil
 }
 
 // createStorageAttachmentOps returns a txn.Op for creating a storage attachment.
@@ -542,7 +642,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := removeStorageAttachmentOps(s, inst)
+		ops, err := removeStorageAttachmentOps(st, s, inst)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -551,7 +651,11 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 	return st.run(buildTxn)
 }
 
-func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
+func removeStorageAttachmentOps(
+	st *State,
+	s *storageAttachment,
+	si *storageInstance,
+) ([]txn.Op, error) {
 	if s.doc.Life != Dying {
 		return nil, errors.New("storage attachment is not dying")
 	}
@@ -566,10 +670,24 @@ func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]tx
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
 	}}
-	if si.doc.Life == Dying && si.doc.AttachmentCount == 1 {
-		hasLastRef := bson.D{{"life", Dying}, {"attachmentcount", 1}}
-		ops = append(ops, removeStorageInstanceOps(si.StorageTag(), hasLastRef)...)
-		return ops, nil
+	if si.doc.AttachmentCount == 1 {
+		var hasLastRef bson.D
+		if si.doc.Life == Dying {
+			hasLastRef = bson.D{{"life", Dying}, {"attachmentcount", 1}}
+		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
+			hasLastRef = bson.D{{"attachmentcount", 1}}
+		}
+		if len(hasLastRef) > 0 {
+			// Either the storage instance is dying, or its owner
+			// is a unit; in either case, no more attachments can
+			// be added to the instance, so it can be removed.
+			siOps, err := removeStorageInstanceOps(st, si.StorageTag(), hasLastRef)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, siOps...)
+			return ops, nil
+		}
 	}
 	decrefOp := txn.Op{
 		C:      storageInstancesC,
@@ -911,9 +1029,10 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	switch kind {
 	case storage.StorageKindBlock:
 		loopPool := string(provider.LoopProviderType)
-		// No constraints at all
+
 		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {
+			// No constraints at all: use loop.
 			return loopPool, nil
 		}
 		// Either size or count specified, use env default.
@@ -922,8 +1041,21 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 			defaultPool = loopPool
 		}
 		return defaultPool, nil
+
 	case storage.StorageKindFilesystem:
-		return string(provider.RootfsProviderType), nil
+		rootfsPool := string(provider.RootfsProviderType)
+		emptyConstraints := StorageConstraints{}
+		if cons == emptyConstraints {
+			return rootfsPool, nil
+		}
+
+		// TODO(axw) add env configuration for default
+		// filesystem source, prefer that.
+		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		if !ok {
+			defaultPool = rootfsPool
+		}
+		return defaultPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
 }
@@ -993,9 +1125,13 @@ func (st *State) addStorageForUnit(
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := u.Refresh()
-		if err != nil {
-			return nil, errors.Trace(err)
+		if attempt > 0 {
+			if err := u.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if u.Life() != Alive {
+			return nil, unitNotAliveErr
 		}
 		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
 		if err != nil {
@@ -1008,7 +1144,7 @@ func (st *State) addStorageForUnit(
 		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
-		return errors.Annotate(err, "while creating storage")
+		return errors.Annotatef(err, "adding storage to unit %s", u)
 	}
 	return nil
 }
@@ -1045,7 +1181,10 @@ func (st *State) constructAddUnitStorageOps(
 		u.Tag(),
 		ch.Meta(),
 		ch.URL(),
-		map[string]StorageConstraints{name: cons})
+		map[string]StorageConstraints{name: cons},
+		u.Series(),
+		true, // create machine storage
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1053,16 +1192,15 @@ func (st *State) constructAddUnitStorageOps(
 	// Update storage attachment count.
 	priorCount := u.doc.StorageAttachmentCount
 	newCount := priorCount + int(cons.Count)
-	ops := []txn.Op{
-		{
-			C:  unitsC,
-			Id: u.doc.DocID,
-			// Count validation ensures transactionality.
-			Assert: bson.D{{"storageattachmentcount", priorCount}},
-			Update: bson.D{{"$set",
-				bson.D{{"storageattachmentcount", newCount}}}},
-		},
-	}
+
+	attachmentsUnchanged := bson.D{{"storageattachmentcount", priorCount}}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: append(attachmentsUnchanged, isAliveDoc...),
+		Update: bson.D{{"$set",
+			bson.D{{"storageattachmentcount", newCount}}}},
+	}}
 	return append(ops, storageOps...), nil
 }
 

@@ -794,7 +794,7 @@ func canBeLost(status *api.UnitStatus) bool {
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
 	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != "installing charm software"
+	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
 	return isInstalled
 }
 

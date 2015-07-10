@@ -9,6 +9,7 @@ package jujuc
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/rpc"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
@@ -23,6 +25,10 @@ import (
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
+
+// ErrNoStdin is returned by Jujuc.Main if the hook tool requests
+// stdin, and none is supplied.
+var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
 type creator func(Context) cmd.Command
 
@@ -97,7 +103,12 @@ type Request struct {
 	Dir         string
 	CommandName string
 	Args        []string
-	Stdin       []byte
+
+	// StdinSet indicates whether or not the client supplied stdin. This is
+	// necessary as Stdin will be nil if the client supplied stdin but it
+	// is empty.
+	StdinSet bool
+	Stdin    []byte
 }
 
 // CmdGetter looks up a Command implementation connected to a particular Context.
@@ -127,10 +138,18 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	if err != nil {
 		return badReqErrorf("%s", err)
 	}
+	var stdin io.Reader
+	if req.StdinSet {
+		stdin = bytes.NewReader(req.Stdin)
+	} else {
+		// noStdinReader will error with ErrNoStdin
+		// if its Read method is called.
+		stdin = noStdinReader{}
+	}
 	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
 		Dir:    req.Dir,
-		Stdin:  bytes.NewBuffer(req.Stdin),
+		Stdin:  stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -138,7 +157,11 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	defer j.mu.Unlock()
 	logger.Infof("running hook tool %q %q", req.CommandName, req.Args)
 	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
-	resp.Code = cmd.Main(c, ctx, req.Args)
+	wrapper := &cmdWrapper{c, nil}
+	resp.Code = cmd.Main(wrapper, ctx, req.Args)
+	if errors.Cause(wrapper.err) == ErrNoStdin {
+		return ErrNoStdin
+	}
 	resp.Stdout = stdout.Bytes()
 	resp.Stderr = stderr.Bytes()
 	return nil
@@ -211,4 +234,23 @@ func (s *Server) Close() {
 	close(s.closing)
 	s.listener.Close()
 	<-s.closed
+}
+
+type noStdinReader struct{}
+
+// Read implements io.Reader, simply returning ErrNoStdin any time it's called.
+func (noStdinReader) Read([]byte) (int, error) {
+	return 0, ErrNoStdin
+}
+
+// cmdWrapper wraps a cmd.Command's Run method so the error returned can be
+// intercepted when the command is run via cmd.Main.
+type cmdWrapper struct {
+	cmd.Command
+	err error
+}
+
+func (c *cmdWrapper) Run(ctx *cmd.Context) error {
+	c.err = c.Command.Run(ctx)
+	return c.err
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -164,6 +165,8 @@ type OpAllocateAddress struct {
 	InstanceId instance.Id
 	SubnetId   network.Id
 	Address    network.Address
+	HostName   string
+	MACAddress string
 }
 
 type OpReleaseAddress struct {
@@ -171,6 +174,7 @@ type OpReleaseAddress struct {
 	InstanceId instance.Id
 	SubnetId   network.Id
 	Address    network.Address
+	MACAddress string
 }
 
 type OpNetworkInterfaces struct {
@@ -443,12 +447,34 @@ func SetStorageDelay(d time.Duration) {
 	}
 }
 
-var configFields = schema.Fields{
-	"state-server": schema.Bool(),
-	"broken":       schema.String(),
-	"secret":       schema.String(),
-	"state-id":     schema.String(),
+var configSchema = environschema.Fields{
+	"state-server": {
+		Description: "Whether the environment should start a state server",
+		Type:        environschema.Tbool,
+	},
+	"broken": {
+		Description: "Whitespace-separated Environ methods that should return an error when called",
+		Type:        environschema.Tstring,
+	},
+	"secret": {
+		Description: "A secret",
+		Type:        environschema.Tstring,
+	},
+	"state-id": {
+		Description: "Id of state server",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+	},
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
+
 var configDefaults = schema.Defaults{
 	"broken":   "",
 	"secret":   "pork",
@@ -490,6 +516,14 @@ func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) 
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+func (p *environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
@@ -551,7 +585,7 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return p.prepare(cfg)
+	return cfg, nil
 }
 
 func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
@@ -1061,7 +1095,7 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1082,13 +1116,15 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 		InstanceId: instId,
 		SubnetId:   subnetId,
 		Address:    addr,
+		MACAddress: macAddress,
+		HostName:   hostname,
 	}
 	return nil
 }
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1108,6 +1144,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr
 		InstanceId: instId,
 		SubnetId:   subnetId,
 		Address:    addr,
+		MACAddress: macAddress,
 	}
 	return nil
 }

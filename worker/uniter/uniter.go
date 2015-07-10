@@ -83,37 +83,52 @@ type Uniter struct {
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
 
+	// metricsTimerChooser is a struct that allows metrics to switch between
+	// active and inactive timers.
+	metricsTimerChooser *timerChooser
+
 	// collectMetricsAt defines a function that will be used to generate signals
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
+
+	// sendMetricsAt defines a function that will be used to generate signals
+	// to send metrics to the state server.
+	sendMetricsAt TimedSignal
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
 }
 
+// UniterParams hold all the necessary parameters for a new Uniter.
+type UniterParams struct {
+	St                  *uniter.State
+	UnitTag             names.UnitTag
+	LeadershipManager   coreleadership.LeadershipManager
+	DataDir             string
+	HookLock            *fslock.Lock
+	MetricsTimerChooser *timerChooser
+	UpdateStatusSignal  TimedSignal
+}
+
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(
-	st *uniter.State,
-	unitTag names.UnitTag,
-	leadershipManager coreleadership.LeadershipManager,
-	dataDir string,
-	hookLock *fslock.Lock,
-) *Uniter {
+func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                st,
-		paths:             NewPaths(dataDir, unitTag),
-		hookLock:          hookLock,
-		leadershipManager: leadershipManager,
-		collectMetricsAt:  inactiveMetricsTimer,
-		updateStatusAt:    updateStatusSignal,
+		st:                  uniterParams.St,
+		paths:               NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		hookLock:            uniterParams.HookLock,
+		leadershipManager:   uniterParams.LeadershipManager,
+		metricsTimerChooser: uniterParams.MetricsTimerChooser,
+		collectMetricsAt:    uniterParams.MetricsTimerChooser.inactive,
+		sendMetricsAt:       uniterParams.MetricsTimerChooser.inactive,
+		updateStatusAt:      uniterParams.UpdateStatusSignal,
 	}
 	go func() {
 		defer u.tomb.Done()
 		defer u.runCleanups()
-		u.tomb.Kill(u.loop(unitTag))
+		u.tomb.Kill(u.loop(uniterParams.UnitTag))
 	}()
 	return u
 }
@@ -189,6 +204,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 	}
+
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -258,16 +274,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	u.operationFactory = operation.NewFactory(
-		u.deployer,
-		runnerFactory,
-		&operationCallbacks{u},
-		u.storage,
-		u.tomb.Dying(),
-	)
+	u.operationFactory = operation.NewFactory(operation.FactoryParams{
+		Deployer:       u.deployer,
+		RunnerFactory:  runnerFactory,
+		Callbacks:      &operationCallbacks{u},
+		StorageUpdater: u.storage,
+		Abort:          u.tomb.Dying(),
+		MetricSender:   u.unit,
+		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
+	})
 
 	operationExecutor, err := operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL,
+		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
 	)
 	if err != nil {
 		return err
@@ -322,14 +340,15 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// initializeMetricsCollector enables the periodic collect-metrics hook
-// for charms that declare metrics.
-func (u *Uniter) initializeMetricsCollector() error {
+// initializeMetricsTimers enables the periodic collect-metrics hook
+// and periodic sending of collected metrics for charms that declare metrics.
+func (u *Uniter) initializeMetricsTimers() error {
 	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
+	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
 	return nil
 }
 
@@ -411,4 +430,25 @@ func (u *Uniter) runOperation(creator creator) error {
 		}
 	}()
 	return u.operationExecutor.Run(op)
+}
+
+// acquireExecutionLock acquires the machine-level execution lock, and
+// returns a func that must be called to unlock it. It's used by operation.Executor
+// when running operations that execute external code.
+func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// Uniter's tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return nil
+		}
+	}
+	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
+	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+		return nil, err
+	}
+	return func() error { return u.hookLock.Unlock() }, nil
 }

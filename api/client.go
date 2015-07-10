@@ -457,6 +457,19 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 	return results.Units, err
 }
 
+// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
+// placement directives to assign units to machines.
+func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+		Placement:   placement,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
+	return results.Units, err
+}
+
 // DestroyServiceUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
@@ -773,7 +786,12 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Trace(err)
 	}
 
-	req, err := http.NewRequest("POST", endPoint, archive)
+	// wrap archive in a noopCloser to prevent the underlying transport closing
+	// the request body. This is neccessary to prevent a data race on the underlying
+	// *os.File as the http transport _may_ issue Close once the body is sent, or it
+	// may not if there is an error.
+	noop := &noopCloser{archive}
+	req, err := http.NewRequest("POST", endPoint, noop)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -813,6 +831,20 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("error uploading charm: %v", jsonResponse.Error)
 	}
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
+}
+
+// noopCloser implements io.ReadCloser, but does not close the underlying io.ReadCloser.
+// This is necessary to ensure the ownership of io.ReadCloser implementations that are
+// passed to the net/http Transport which may (under some circumstances), call Close on
+// the body passed to a request.
+type noopCloser struct {
+	io.ReadCloser
+}
+
+func (n *noopCloser) Close() error {
+
+	// do not propogate the Close method to the underlying ReadCloser.
+	return nil
 }
 
 func (c *Client) apiEndpoint(destination, query string) (string, error) {

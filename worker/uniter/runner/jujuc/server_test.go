@@ -30,6 +30,7 @@ type RpcCommand struct {
 	cmd.CommandBase
 	Value string
 	Slow  bool
+	Echo  bool
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
@@ -43,6 +44,7 @@ func (c *RpcCommand) Info() *cmd.Info {
 func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 	f.BoolVar(&c.Slow, "slow", false, "doc")
+	f.BoolVar(&c.Echo, "echo", false, "doc")
 }
 
 func (c *RpcCommand) Init(args []string) error {
@@ -57,8 +59,10 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 		time.Sleep(testing.ShortWait)
 		return nil
 	}
-	if _, err := io.Copy(ctx.Stdout, ctx.Stdin); err != nil {
-		return err
+	if c.Echo {
+		if _, err := io.Copy(ctx.Stdout, ctx.Stdin); err != nil {
+			return err
+		}
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
@@ -125,8 +129,12 @@ func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, 
 func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	dir := c.MkDir()
 	resp, err := s.Call(c, jujuc.Request{
-		"validCtx", dir, "remote", []string{"--value", "something"},
-		[]byte("wool of bat\n"),
+		ContextId:   "validCtx",
+		Dir:         dir,
+		CommandName: "remote",
+		Args:        []string{"--value", "something", "--echo"},
+		StdinSet:    true,
+		Stdin:       []byte("wool of bat\n"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, 0)
@@ -137,6 +145,17 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	c.Assert(string(content), gc.Equals, "something")
 }
 
+func (s *ServerSuite) TestNoStdin(c *gc.C) {
+	dir := c.MkDir()
+	_, err := s.Call(c, jujuc.Request{
+		ContextId:   "validCtx",
+		Dir:         dir,
+		CommandName: "remote",
+		Args:        []string{"--echo"},
+	})
+	c.Assert(err, gc.ErrorMatches, jujuc.ErrNoStdin.Error())
+}
+
 func (s *ServerSuite) TestLocks(c *gc.C) {
 	var wg sync.WaitGroup
 	t0 := time.Now()
@@ -145,7 +164,10 @@ func (s *ServerSuite) TestLocks(c *gc.C) {
 		go func() {
 			dir := c.MkDir()
 			resp, err := s.Call(c, jujuc.Request{
-				"validCtx", dir, "remote", []string{"--slow"}, nil,
+				ContextId:   "validCtx",
+				Dir:         dir,
+				CommandName: "remote",
+				Args:        []string{"--slow"},
 			})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(resp.Code, gc.Equals, 0)
@@ -159,29 +181,49 @@ func (s *ServerSuite) TestLocks(c *gc.C) {
 
 func (s *ServerSuite) TestBadCommandName(c *gc.C) {
 	dir := c.MkDir()
-	_, err := s.Call(c, jujuc.Request{"validCtx", dir, "", nil, nil})
+	_, err := s.Call(c, jujuc.Request{
+		ContextId: "validCtx",
+		Dir:       dir,
+	})
 	c.Assert(err, gc.ErrorMatches, "bad request: command not specified")
-	_, err = s.Call(c, jujuc.Request{"validCtx", dir, "witchcraft", nil, nil})
+	_, err = s.Call(c, jujuc.Request{
+		ContextId:   "validCtx",
+		Dir:         dir,
+		CommandName: "witchcraft",
+	})
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *gc.C) {
-	for _, req := range []jujuc.Request{
-		{"validCtx", "", "anything", nil, nil},
-		{"validCtx", "foo/bar", "anything", nil, nil},
-	} {
+	for _, req := range []jujuc.Request{{
+		ContextId:   "validCtx",
+		CommandName: "anything",
+	}, {
+		ContextId:   "validCtx",
+		Dir:         "foo/bar",
+		CommandName: "anything",
+	}} {
 		_, err := s.Call(c, req)
 		c.Assert(err, gc.ErrorMatches, "bad request: Dir is not absolute")
 	}
 }
 
 func (s *ServerSuite) TestBadContextId(c *gc.C) {
-	_, err := s.Call(c, jujuc.Request{"whatever", c.MkDir(), "remote", nil, nil})
+	_, err := s.Call(c, jujuc.Request{
+		ContextId:   "whatever",
+		Dir:         c.MkDir(),
+		CommandName: "remote",
+	})
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
 func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {
-	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:], nil})
+	resp, err := s.Call(c, jujuc.Request{
+		ContextId:   "validCtx",
+		Dir:         c.MkDir(),
+		CommandName: args[0],
+		Args:        args[1:],
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, code)
 	return resp
@@ -200,7 +242,7 @@ func (s *ServerSuite) TestBrokenCommand(c *gc.C) {
 }
 
 type NewCommandSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&NewCommandSuite{})
@@ -228,7 +270,7 @@ var newCommandTests = []struct {
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	ctx := s.GetHookContext(c, 0, "")
+	ctx, _ := s.newHookContext(0, "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
 		if t.err == "" {

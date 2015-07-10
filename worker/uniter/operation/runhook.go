@@ -24,6 +24,8 @@ type runHook struct {
 
 	name   string
 	runner runner.Runner
+
+	RequiresMachineLock
 }
 
 // String is part of the Operation interface.
@@ -72,12 +74,6 @@ func RunningHookMessage(hookName string) string {
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
 	message := RunningHookMessage(rh.name)
-	unlock, err := rh.callbacks.AcquireExecutionLock(message)
-	if err != nil {
-		return nil, err
-	}
-	defer unlock()
-
 	if err := rh.beforeHook(); err != nil {
 		return nil, err
 	}
@@ -91,7 +87,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	ranHook := true
 	step := Done
 
-	err = rh.runner.RunHook(rh.name)
+	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case runner.IsMissingHookError(cause):
@@ -121,7 +117,6 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
 		return nil, afterHookErr
 	}
-
 	return stateChange{
 		Kind:            RunHook,
 		Step:            step,

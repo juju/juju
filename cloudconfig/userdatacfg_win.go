@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
 )
 
@@ -45,8 +47,6 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`icacls "%s" /grant "jujud:(OI)(CI)(F)" /T`, renderer.FromSlash(baseDir)),
 		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
-		fmt.Sprintf(`%s`, winSetPasswdScript),
-		fmt.Sprintf(`Start-ProcessAsUser -Command $powershell -Arguments "-File C:\juju\bin\save_pass.ps1 $juju_passwd" -Credential $jujuCreds`),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 		fmt.Sprintf(`Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%%PATH%%;C:\Juju\bin"' -Credential $jujuCreds`),
 	)
@@ -83,6 +83,26 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
+
+		// Create a registry key for storing juju related information
+		fmt.Sprintf(`New-Item -Path '%s'`, osenv.JujuRegistryKey),
+		fmt.Sprintf(`$acl = Get-Acl -Path '%s'`, osenv.JujuRegistryKey),
+
+		// Reset the ACL's on it and add administrator access only.
+		`$acl.SetAccessRuleProtection($true, $false)`,
+		`$perm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"`,
+		`$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm`,
+		`$acl.SetAccessRule($rule)`,
+		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, osenv.JujuRegistryKey),
+
+		// Create a JUJU_DEV_FEATURE_FLAGS entry which may or may not be empty.
+		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey),
+		fmt.Sprintf(`Set-ItemProperty -Path '%s' -Name '%s' -Value '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey,
+			featureflag.AsEnvironmentValue()),
 	)
 
 	if w.icfg.Bootstrap == true {

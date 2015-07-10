@@ -25,6 +25,9 @@ type Operation interface {
 	// String returns a short representation of the operation.
 	String() string
 
+	// NeedsGlobalMachineLock returns a bool expressing whether we need to lock the machine.
+	NeedsGlobalMachineLock() bool
+
 	// Prepare ensures that the operation is valid and ready to be executed.
 	// If it returns a non-nil state, that state will be validated and recorded.
 	// If it returns ErrSkipExecute, it indicates that the operation can be
@@ -111,6 +114,10 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as service leader.
 	NewResignLeadership() (Operation, error)
+
+	// NewSendMetrics creates an operation that sends all metrics collected
+	// by the unit.
+	NewSendMetrics() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -133,8 +140,6 @@ type CommandResponseFunc func(*utilexec.ExecResponse, error)
 // It's far from cohesive, and fundamentally represents inappropriate coupling, so
 // it's a prime candidate for future refactoring.
 type Callbacks interface {
-	ExecutionLocker
-
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
 	// RunHook operations.
@@ -152,10 +157,10 @@ type Callbacks interface {
 	NotifyHookCompleted(string, runner.Context)
 	NotifyHookFailed(string, runner.Context)
 
-	// InitializeMetricsCollector ensures that the collect-metrics hook timer is
+	// InitializeMetricsTimers ensures that the collect-metrics hook timer is
 	// up to date given the current deployed charm. It's only used in deploy
 	// operations.
-	InitializeMetricsCollector() error
+	InitializeMetricsTimers() error
 
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.
@@ -186,14 +191,4 @@ type StorageUpdater interface {
 	// UpdateStorage updates local knowledge of the storage attachments
 	// with the specified tags.
 	UpdateStorage([]names.StorageTag) error
-}
-
-// ExecutionLocker is an interface that provides a means of acquiring and
-// releasing a machine-level lock. When acquiring the lock, the caller provides
-// a message which will be recorded to aid in debugging.
-type ExecutionLocker interface {
-	// AcquireExecutionLock acquires the machine-level execution lock, and
-	// returns a func that must be called to unlock it. It's used by all the
-	// operations that execute external code.
-	AcquireExecutionLock(message string) (unlock func(), err error)
 }

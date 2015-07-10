@@ -363,7 +363,20 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.VolumeParamsResults{
 		Results: []params.VolumeParamsResult{
-			{Error: &params.Error{`volume "0/0" is already provisioned`, ""}},
+			{Result: params.VolumeParams{
+				VolumeTag: "volume-0-0",
+				Size:      1024,
+				Provider:  "machinescoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+				Attachment: &params.VolumeAttachmentParams{
+					MachineTag: "machine-0",
+					VolumeTag:  "volume-0-0",
+					Provider:   "machinescoped",
+					InstanceId: "inst-id",
+				},
+			}},
 			{Result: params.VolumeParams{
 				VolumeTag: "volume-1",
 				Size:      2048,
@@ -412,7 +425,14 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.FilesystemParamsResults{
 		Results: []params.FilesystemParamsResult{
-			{Error: &params.Error{`filesystem "0/0" is already provisioned`, ""}},
+			{Result: params.FilesystemParams{
+				FilesystemTag: "filesystem-0-0",
+				Size:          1024,
+				Provider:      "machinescoped",
+				Tags: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+			}},
 			{Result: params.FilesystemParams{
 				FilesystemTag: "filesystem-1",
 				Size:          2048,
@@ -428,9 +448,15 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 
 func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = true
 
-	err := s.State.SetVolumeAttachmentInfo(
+	err := s.State.SetVolumeInfo(names.NewVolumeTag("3"), state.VolumeInfo{
+		HardwareId: "123",
+		VolumeId:   "xyz",
+		Size:       1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("3"),
 		state.VolumeAttachmentInfo{
@@ -465,6 +491,7 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				MachineTag: "machine-0",
 				VolumeTag:  "volume-0-0",
 				InstanceId: "inst-id",
+				VolumeId:   "abc",
 				Provider:   "machinescoped",
 			}},
 			{Result: params.VolumeAttachmentParams{
@@ -477,6 +504,7 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				MachineTag: "machine-0",
 				VolumeTag:  "volume-3",
 				InstanceId: "inst-id",
+				VolumeId:   "xyz",
 				Provider:   "environscoped",
 				ReadOnly:   true,
 			}},
@@ -492,14 +520,18 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 
 func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	s.setupFilesystems(c)
-	s.authorizer.EnvironManager = true
 
-	err := s.State.SetFilesystemAttachmentInfo(
-		names.NewMachineTag("2"),
-		names.NewFilesystemTag("3"),
+	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("1"), state.FilesystemInfo{
+		FilesystemId: "fsid",
+		Size:         1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetFilesystemAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewFilesystemTag("1"),
 		state.FilesystemAttachmentInfo{
-			MountPoint: "/srv",
-			ReadOnly:   true,
+			MountPoint: "/in/the/place",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -526,6 +558,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				MachineTag:    "machine-0",
 				FilesystemTag: "filesystem-0-0",
 				InstanceId:    "inst-id",
+				FilesystemId:  "abc",
 				Provider:      "machinescoped",
 				MountPoint:    "/srv",
 				ReadOnly:      true,
@@ -534,14 +567,14 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				MachineTag:    "machine-0",
 				FilesystemTag: "filesystem-1",
 				InstanceId:    "inst-id",
+				FilesystemId:  "fsid",
 				Provider:      "environscoped",
+				MountPoint:    "/in/the/place",
 			}},
 			{Result: params.FilesystemAttachmentParams{
 				MachineTag:    "machine-2",
 				FilesystemTag: "filesystem-3",
 				Provider:      "environscoped",
-				MountPoint:    "/srv",
-				ReadOnly:      true,
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -550,7 +583,12 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 
 func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = true
+
+	err := s.State.SetVolumeInfo(names.NewVolumeTag("4"), state.VolumeInfo{
+		VolumeId: "whatever",
+		Size:     1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.SetVolumeAttachmentInfo(params.VolumeAttachments{
 		VolumeAttachments: []params.VolumeAttachment{{
@@ -584,8 +622,8 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
-			{}, // TODO(axw) this should fail, since volume is not provisioned
-			{}, // TODO(axw) this should fail, since machine is not provisioned
+			{Error: &params.Error{`cannot set info for volume attachment 1:0: volume "1" not provisioned`, "not provisioned"}},
+			{Error: &params.Error{`cannot set info for volume attachment 4:2: machine 2 not provisioned`, "not provisioned"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -593,7 +631,12 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 
 func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 	s.setupFilesystems(c)
-	s.authorizer.EnvironManager = true
+
+	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("3"), state.FilesystemInfo{
+		FilesystemId: "whatever",
+		Size:         1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.SetFilesystemAttachmentInfo(params.FilesystemAttachments{
 		FilesystemAttachments: []params.FilesystemAttachment{{
@@ -627,8 +670,8 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
-			{}, // TODO(axw) this should fail, since filesystem is not provisioned
-			{}, // TODO(axw) this should fail, since machine is not provisioned
+			{Error: &params.Error{`cannot set info for filesystem attachment 1:0: filesystem "1" not provisioned`, "not provisioned"}},
+			{Error: &params.Error{`cannot set info for filesystem attachment 3:2: machine 2 not provisioned`, "not provisioned"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -956,7 +999,6 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 
 func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = true
 
 	// TODO(axw) test filesystem attachment life
 	// TODO(axw) test Dying
@@ -1024,13 +1066,190 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	s.authorizer.EnvironManager = true
 	stateEnvironConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, params.EnvironConfig(stateEnvironConfig.AllAttrs()))
+}
+
+func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
+	s.setupVolumes(c)
+	args := params.Entities{Entities: []params.Entity{
+		{"volume-1-0"}, {"volume-1"}, {"volume-2"}, {"volume-42"},
+		{"volume-invalid"}, {"machine-0"},
+	}}
+
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyVolume(names.NewVolumeTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.Remove(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: nil},
+			{Error: &params.Error{Message: "removing volume 2: volume is not dead"}},
+			{Error: nil},
+			{Error: &params.Error{Message: `"volume-invalid" is not a valid volume tag`}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
+	s.setupFilesystems(c)
+	args := params.Entities{Entities: []params.Entity{
+		{"filesystem-1-0"}, {"filesystem-1"}, {"filesystem-2"}, {"filesystem-42"},
+		{"filesystem-invalid"}, {"machine-0"},
+	}}
+
+	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyFilesystem(names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.Remove(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: nil},
+			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dead"}},
+			{Error: nil},
+			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = false
+	args := params.Entities{Entities: []params.Entity{
+		{"volume-0-0"}, {"volume-0-42"}, {"volume-42"},
+		{"volume-invalid"}, {"machine-0"},
+	}}
+
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.Remove(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: `"volume-invalid" is not a valid volume tag`}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = false
+	args := params.Entities{Entities: []params.Entity{
+		{"filesystem-0-0"}, {"filesystem-0-42"}, {"filesystem-42"},
+		{"filesystem-invalid"}, {"machine-0"},
+	}}
+
+	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.Remove(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-4",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "removing attachment of volume 0/0 from machine 0: volume attachment is not dying"}},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{`removing attachment of volume 42 from machine 0: volume "42" on machine "0" not found`, "not found"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "filesystem-4",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying"}},
+			{Error: nil},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{`removing attachment of filesystem 42 from machine 0: filesystem "42" on machine "0" not found`, "not found"}},
+		},
+	})
 }
 
 type byMachineAndEntity []params.MachineStorageId

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
@@ -41,7 +40,7 @@ type Server struct {
 	tomb              tomb.Tomb
 	wg                sync.WaitGroup
 	state             *state.State
-	addr              string
+	addr              *net.TCPAddr
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -83,28 +82,12 @@ type changeCertListener struct {
 	certChanged <-chan params.StateServingInfo
 
 	// The config to update with any new certificate.
-	config *tls.Config
+	config tls.Config
 }
 
-// changeCertConn wraps a TLS net.Conn.
-// It allows connection handshakes to be
-// blocked while the TLS certificate is updated.
-type changeCertConn struct {
-	net.Conn
-	m *sync.Mutex
-}
-
-// Handshake runs the client or server handshake
-// protocol if it has not yet been run.
-func (c *changeCertConn) Handshake() error {
-	c.m.Lock()
-	defer c.m.Unlock()
-	return c.Conn.(*tls.Conn).Handshake()
-}
-
-func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config tls.Config) *changeCertListener {
 	cl := &changeCertListener{
-		Listener:    tlsListener,
+		Listener:    lis,
 		certChanged: certChanged,
 		config:      config,
 	}
@@ -116,14 +99,15 @@ func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.S
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (cl *changeCertListener) Accept() (c net.Conn, err error) {
-	if c, err = cl.Listener.Accept(); err != nil {
-		return c, err
+func (cl *changeCertListener) Accept() (net.Conn, error) {
+	conn, err := cl.Listener.Accept()
+	if err != nil {
+		return nil, err
 	}
-	// Create a wrapped connection so we can
-	// control the handshakes.
-	conn := changeCertConn{c, &cl.m}
-	return conn, err
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	config := cl.config
+	return tls.Server(conn, &config), nil
 }
 
 // Close closes the listener.
@@ -145,7 +129,6 @@ func (cl *changeCertListener) processCertChanges() error {
 			return tomb.ErrDying
 		}
 	}
-	return nil
 }
 
 // updateCertificate generates a new TLS certificate and assigns it
@@ -173,18 +156,18 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	l, ok := lis.(*net.TCPListener)
+	if !ok {
+		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
+	}
+	return newServer(s, l, cfg)
+}
+
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
 	logger.Infof("listening on %q", lis.Addr())
-	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
-	if err != nil {
-		return nil, err
-	}
-	_, listeningPort, err := net.SplitHostPort(lis.Addr().String())
-	if err != nil {
-		return nil, err
-	}
 	srv := &Server{
 		state:     s,
-		addr:      net.JoinHostPort("localhost", listeningPort),
+		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
 		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
@@ -196,13 +179,16 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 			2: newAdminApiV2,
 		},
 	}
+	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
+	if err != nil {
+		return nil, err
+	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
 	tlsConfig := tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	}
-	tlsListener := tls.NewListener(lis, &tlsConfig)
-	changeCertListener := newChangeCertListener(tlsListener, cfg.CertChanged, &tlsConfig)
+	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
 	go srv.run(changeCertListener)
 	return srv, nil
 }
@@ -316,12 +302,6 @@ func (srv *Server) run(lis net.Listener) {
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
 	srv.wg.Add(1)
 	go func() {
-		<-srv.tomb.Dying()
-		lis.Close()
-		srv.wg.Done()
-	}()
-	srv.wg.Add(1)
-	go func() {
 		err := srv.mongoPinger()
 		srv.tomb.Kill(err)
 		srv.wg.Done()
@@ -330,18 +310,17 @@ func (srv *Server) run(lis net.Listener) {
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	mux := pat.New()
-	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/environment/:envuuid/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
-	if featureflag.Enabled(feature.DbLog) {
+
+	srvDying := srv.tomb.Dying()
+
+	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			&logSinkHandler{
-				httpHandler: httpHandler{ssState: srv.state},
-			},
-		)
+			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
@@ -376,11 +355,13 @@ func (srv *Server) run(lis net.Listener) {
 			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
+
+	if feature.IsDbLogEnabled() {
+		handleAll(mux, "/log", newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
+	}
+
 	handleAll(mux, "/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
@@ -397,8 +378,14 @@ func (srv *Server) run(lis net.Listener) {
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
-	// The error from http.Serve is not interesting.
-	http.Serve(lis, mux)
+
+	go func() {
+		// The error from http.Serve is not interesting.
+		http.Serve(lis, mux)
+	}()
+
+	<-srv.tomb.Dying()
+	lis.Close()
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
@@ -427,7 +414,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Addr returns the address that the server is listening on.
-func (srv *Server) Addr() string {
+func (srv *Server) Addr() *net.TCPAddr {
 	return srv.addr
 }
 

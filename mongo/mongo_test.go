@@ -11,9 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -30,14 +28,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
-
-func Test(t *stdtesting.T) {
-	//TODO(bogdanteleaga): Fix these on windows
-	if runtime.GOOS == "windows" {
-		t.Skip("bug 1403084: Skipping for now on windows")
-	}
-	gc.TestingT(t)
-}
 
 type MongoSuite struct {
 	coretesting.BaseSuite
@@ -182,7 +172,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
@@ -197,7 +187,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
@@ -214,7 +204,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
@@ -237,8 +227,9 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	testJournalDirs(dbDir, c)
 
 	assertInstalled := func() {
-		c.Assert(s.data.Installed, gc.HasLen, 1)
-		service := s.data.Installed[0]
+		installed := s.data.Installed()
+		c.Assert(installed, gc.HasLen, 1)
+		service := installed[0]
 		c.Assert(service.Name(), gc.Equals, "juju-db-namespace")
 		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
 		if setNumaPolicy {
@@ -328,7 +319,7 @@ func (s *MongoSuite) TestMongoAptGetFails(c *gc.C) {
 	})
 
 	// Verify that EnsureServer continued and started the mongodb service.
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
@@ -343,7 +334,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Installed, gc.HasLen, 0)
+	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 
 	// We still attempt to install mongodb, despite the service existing.
@@ -400,9 +391,10 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService(namespace)
 	c.Assert(err, jc.ErrorIsNil)
 
-	if !c.Check(s.data.Removed, gc.HasLen, 1) {
-		c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
-		c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
+	removed := s.data.Removed()
+	if !c.Check(removed, gc.HasLen, 1) {
+		c.Check(removed[0].Name(), gc.Equals, "juju-db-namespace")
+		c.Check(removed[0].Conf(), jc.DeepEquals, common.Conf{})
 	}
 	s.data.CheckCallNames(c, "Stop", "Remove")
 }

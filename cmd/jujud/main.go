@@ -14,23 +14,19 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-func init() {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
@@ -84,16 +80,11 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 	if err != nil {
 		return
 	}
-	stdin, err := ioutil.ReadAll(ctx.Stdin)
-	if err != nil {
-		return
-	}
 	req := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
-		Stdin:       stdin,
 	}
 	socketPath, err := getenv("JUJU_AGENT_SOCKET")
 	if err != nil {
@@ -106,6 +97,15 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 	defer client.Close()
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
+	if err != nil && err.Error() == jujuc.ErrNoStdin.Error() {
+		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			err = errors.Annotate(err, "cannot read stdin")
+			return
+		}
+		req.StdinSet = true
+		err = client.Call("Jujuc.Main", req, &resp)
+	}
 	if err != nil {
 		return
 	}
@@ -117,6 +117,13 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
+	// Assuming an average of 200 bytes per log message, use up to
+	// 200MB for the log buffer.
+	logCh, err := logsender.InstallBufferedLogWriter(1048576)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
+
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
@@ -128,10 +135,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// MachineAgent type has called out the seperate concerns; the
 	// AgentConf should be split up to follow suite.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logCh)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	jujud.Register(agentcmd.NewUnitAgent(ctx))
+	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

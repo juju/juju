@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -34,6 +35,9 @@ type JujuOSEnvSuite struct {
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
+	regKeyExisted       bool
+	regEntryExisted     bool
+	oldRegEntryValue    string
 }
 
 func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
@@ -58,14 +62,14 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
-	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.setUpFeatureFlags(c)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
+	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
@@ -190,4 +194,26 @@ func diffStrings(c *gc.C, value, expected string) {
 			break
 		}
 	}
+}
+
+// TestCleanup is used to allow DumpTestLogsAfter to take any test suite
+// that supports the standard cleanup function.
+type TestCleanup interface {
+	AddCleanup(testing.CleanupFunc)
+}
+
+// DumpTestLogsAfter will write the test logs to stdout if the timeout
+// is reached.
+func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
+	done := make(chan interface{})
+	go func() {
+		select {
+		case <-time.After(timeout):
+			fmt.Printf(c.GetTestLog())
+		case <-done:
+		}
+	}()
+	cleaner.AddCleanup(func(_ *gc.C) {
+		close(done)
+	})
 }

@@ -30,7 +30,9 @@ func (s *RunHookSuite) testClearResolvedFlagError(c *gc.C, newHook newHook) {
 	callbacks := &PrepareHookCallbacks{
 		MockClearResolvedFlag: &MockNoArgs{err: errors.New("biff")},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,7 +57,9 @@ func (s *RunHookSuite) testPrepareHookError(
 		MockPrepareHook:       &MockPrepareHook{err: errors.New("pow")},
 		MockClearResolvedFlag: &MockNoArgs{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,7 +94,10 @@ func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{err: errors.New("splat")},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,7 +122,10 @@ func (s *RunHookSuite) testPrepareSuccess(
 ) {
 	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
 	callbacks := NewPrepareHookCallbacks()
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -163,41 +173,17 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 	}
 }
 
-func (s *RunHookSuite) testExecuteLockError(c *gc.C, newHook newHook) {
-	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
-	callbacks := &ExecuteHookCallbacks{
-		PrepareHookCallbacks:     NewPrepareHookCallbacks(),
-		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("blart")},
-	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
-	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err := op.Execute(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "blart")
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-}
-
-func (s *RunHookSuite) TestExecuteLockError_Run(c *gc.C) {
-	s.testExecuteLockError(c, (operation.Factory).NewRunHook)
-}
-
-func (s *RunHookSuite) TestExecuteLockError_Retry(c *gc.C) {
-	s.testExecuteLockError(c, (operation.Factory).NewRetryHook)
-}
-
 func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks.Kind, runErr error) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
 	runnerFactory := NewRunHookRunnerFactory(runErr)
 	callbacks := &ExecuteHookCallbacks{
-		PrepareHookCallbacks:     NewPrepareHookCallbacks(),
-		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-		MockNotifyHookCompleted:  &MockNotify{},
-		MockNotifyHookFailed:     &MockNotify{},
+		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
+		MockNotifyHookCompleted: &MockNotify{},
+		MockNotifyHookFailed:    &MockNotify{},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: kind})
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory
@@ -218,8 +204,6 @@ func (s *RunHookSuite) testExecuteMissingHookError(c *gc.C, newHook newHook) {
 			Step: operation.Done,
 			Hook: &hook.Info{Kind: kind},
 		})
-		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
@@ -251,8 +235,6 @@ func (s *RunHookSuite) testExecuteRequeueRebootError(c *gc.C, newHook newHook) {
 		Step: operation.Queued,
 		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
@@ -280,8 +262,6 @@ func (s *RunHookSuite) testExecuteRebootError(c *gc.C, newHook newHook) {
 		Step: operation.Done,
 		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
@@ -305,8 +285,6 @@ func (s *RunHookSuite) testExecuteOtherError(c *gc.C, newHook newHook) {
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
-	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
@@ -498,7 +476,9 @@ func (s *RunHookSuite) testCommitError(c *gc.C, newHook newHook) {
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{nil, errors.New("pow")},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -523,7 +503,9 @@ func (s *RunHookSuite) testCommitSuccess(c *gc.C, newHook newHook, hookInfo hook
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -808,7 +790,9 @@ func (s *RunHookSuite) testCommitSuccess_UpdateStatusTime(c *gc.C, newHook newHo
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.UpdateStatus})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -848,7 +832,9 @@ func (s *RunHookSuite) testCommitSuccess_CollectMetricsTime(c *gc.C, newHook new
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{
+		Callbacks: callbacks,
+	})
 	op, err := newHook(factory, hook.Info{Kind: hooks.CollectMetrics})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -882,4 +868,23 @@ func (s *RunHookSuite) TestCommitSuccess_CollectMetricsTime_Retry(c *gc.C) {
 
 func (s *RunHookSuite) TestCommitSuccess_CollectMetricsTime_Skip(c *gc.C) {
 	s.testCommitSuccess_CollectMetricsTime(c, (operation.Factory).NewSkipHook)
+}
+
+func (s *RunHookSuite) testNeedsGlobalMachineLock(c *gc.C, newHook newHook, expected bool) {
+	factory := operation.NewFactory(operation.FactoryParams{})
+	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), gc.Equals, expected)
+}
+
+func (s *RunHookSuite) TestNeedsGlobalMachineLock_Run(c *gc.C) {
+	s.testNeedsGlobalMachineLock(c, (operation.Factory).NewRunHook, true)
+}
+
+func (s *RunHookSuite) TestNeedsGlobalMachineLock_Retry(c *gc.C) {
+	s.testNeedsGlobalMachineLock(c, (operation.Factory).NewRetryHook, true)
+}
+
+func (s *RunHookSuite) TestNeedsGlobalMachineLock_Skip(c *gc.C) {
+	s.testNeedsGlobalMachineLock(c, (operation.Factory).NewSkipHook, false)
 }

@@ -109,6 +109,14 @@ type machineDoc struct {
 	HasVote       bool
 	PasswordHash  string
 	Clean         bool
+	// TODO(axw) 2015-06-22 #1467379
+	// We need an upgrade step to populate "volumes" and "filesystems"
+	// for entities created in 1.24.
+	//
+	// Volumes contains the names of volumes attached to the machine.
+	Volumes []string `bson:"volumes,omitempty"`
+	// Filesystems contains the names of filesystems attached to the machine.
+	Filesystems []string `bson:"filesystems,omitempty"`
 	// We store 2 different sets of addresses for the machine, obtained
 	// from different sources.
 	// Addresses is the set of addresses obtained by asking the provider.
@@ -490,8 +498,33 @@ func (e *HasContainersError) Error() string {
 	return fmt.Sprintf("machine %s is hosting containers %q", e.MachineId, strings.Join(e.ContainerIds, ","))
 }
 
+// IsHasContainersError reports whether or not the error is a
+// HasContainersError, indicating that an attempt to destroy
+// a machine failed due to it having containers.
 func IsHasContainersError(err error) bool {
-	_, ok := err.(*HasContainersError)
+	_, ok := errors.Cause(err).(*HasContainersError)
+	return ok
+}
+
+// HasAttachmentsError is the error returned by EnsureDead if the machine
+// has attachments to resources that must be cleaned up first.
+type HasAttachmentsError struct {
+	MachineId   string
+	Attachments []names.Tag
+}
+
+func (e *HasAttachmentsError) Error() string {
+	return fmt.Sprintf(
+		"machine %s has attachments %s",
+		e.MachineId, e.Attachments,
+	)
+}
+
+// IsHasAttachmentsError reports whether or not the error is a
+// HasAttachmentsError, indicating that an attempt to destroy
+// a machine failed due to it having storage attachments.
+func IsHasAttachmentsError(err error) bool {
+	_, ok := errors.Cause(err).(*HasAttachmentsError)
 	return ok
 }
 
@@ -538,6 +571,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
+	cleanupOp := m.st.newCleanupOp(cleanupDyingMachine, m.doc.Id)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -629,23 +663,98 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 						{{"children", bson.D{{"$exists", false}}}},
 					}}},
 				}
-				return []txn.Op{op, containerCheck}, nil
+				return []txn.Op{op, containerCheck, cleanupOp}, nil
 			}
 		}
+
 		if len(m.doc.Principals) > 0 {
 			return nil, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
 			}
 		}
+		advanceAsserts = append(advanceAsserts, noUnits)
+
+		if life == Dead {
+			// A machine may not become Dead until it has no more
+			// attachments to inherently machine-bound storage.
+			storageAsserts, err := m.assertNoPersistentStorage()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			advanceAsserts = append(advanceAsserts, storageAsserts...)
+		}
+
 		// Add the additional asserts needed for this transaction.
-		op.Assert = append(advanceAsserts, noUnits)
-		return []txn.Op{op}, nil
+		op.Assert = advanceAsserts
+		return []txn.Op{op, cleanupOp}, nil
 	}
 	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
+}
+
+// assertNoPersistentStorage ensures that there are no persistent volumes or
+// filesystems attached to the machine, and returns any mgo/txn assertions
+// required to ensure that remains true.
+func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
+	attachments := make(set.Tags)
+	for _, v := range m.doc.Volumes {
+		tag := names.NewVolumeTag(v)
+		machineBound, err := isVolumeInherentlyMachineBound(m.st, tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !machineBound {
+			attachments.Add(tag)
+		}
+	}
+	for _, f := range m.doc.Filesystems {
+		tag := names.NewFilesystemTag(f)
+		machineBound, err := isFilesystemInherentlyMachineBound(m.st, tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !machineBound {
+			attachments.Add(tag)
+		}
+	}
+	if len(attachments) > 0 {
+		return nil, &HasAttachmentsError{
+			MachineId:   m.doc.Id,
+			Attachments: attachments.SortedValues(),
+		}
+	}
+	if m.doc.Life == Dying {
+		return nil, nil
+	}
+	// A Dying machine cannot have attachments added to it,
+	// but if we're advancing from Alive to Dead then we
+	// must ensure no concurrent attachments are made.
+	noNewVolumes := bson.DocElem{
+		"volumes", bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", m.doc.Volumes,
+				}},
+			}},
+		}},
+		// There are no volumes that are not in
+		// the set of volumes we previously knew
+		// about => the current set of volumes
+		// is a subset of the previously known set.
+	}
+	noNewFilesystems := bson.DocElem{
+		"filesystems", bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", m.doc.Filesystems,
+				}},
+			}},
+		}},
+	}
+	return bson.D{noNewVolumes, noNewFilesystems}, nil
 }
 
 func (m *Machine) removePortsOps() ([]txn.Op, error) {
@@ -727,9 +836,19 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
+	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	ops = append(ops, filesystemOps...)
+	ops = append(ops, volumeOps...)
 	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
 	if err != nil {
 		return errors.Trace(err)

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -52,9 +53,9 @@ type Factory interface {
 // for a jujuc.Context.
 type StorageContextAccessor interface {
 
-	// Storage returns the jujuc.ContextStorage with the supplied tag if
-	// it was found, and whether it was found.
-	Storage(names.StorageTag) (jujuc.ContextStorage, bool)
+	// Storage returns the jujuc.ContextStorageAttachment with the
+	// supplied tag if it was found, and whether it was found.
+	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, bool)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -199,11 +200,14 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 			return nil, errors.Trace(err)
 		}
 
-		ctx.metricsRecorder, err = NewJSONMetricsRecorder(f.paths.GetMetricsSpoolDir(), chURL.String())
-		if err != nil {
-			return nil, errors.Trace(err)
+		charmMetrics := map[string]charm.Metric{}
+		if ch.Metrics() != nil {
+			charmMetrics = ch.Metrics().Metrics
 		}
-		ctx.metricsReader, err = NewJSONMetricsReader(f.paths.GetMetricsSpoolDir())
+		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
+			f.paths.GetMetricsSpoolDir(),
+			charmMetrics,
+			chURL.String())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

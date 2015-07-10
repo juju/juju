@@ -215,6 +215,7 @@ type VolumeParams struct {
 type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
+	VolumeId   string `json:"volumeid,omitempty"`
 	InstanceId string `json:"instanceid,omitempty"`
 	Provider   string `json:"provider"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
@@ -333,6 +334,7 @@ type FilesystemParams struct {
 type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
+	FilesystemId  string `json:"filesystemid,omitempty"`
 	InstanceId    string `json:"instanceid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`

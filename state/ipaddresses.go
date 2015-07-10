@@ -4,8 +4,12 @@
 package state
 
 import (
+	"net"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -13,6 +17,109 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
+
+// addIPAddress implements the State method to add an IP address.
+func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
+
+	// This checks for a missing value as well as invalid values
+	ip := net.ParseIP(addr.Value)
+	if ip == nil {
+		return nil, errors.NotValidf("address")
+	}
+
+	// Generate the UUID for the new IP address.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	addressID := st.docID(addr.Value)
+	ipDoc := ipaddressDoc{
+		DocID:    addressID,
+		EnvUUID:  st.EnvironUUID(),
+		UUID:     uuid.String(),
+		Life:     Alive,
+		State:    AddressStateUnknown,
+		SubnetId: subnetid,
+		Value:    addr.Value,
+		Type:     string(addr.Type),
+		Scope:    string(addr.Scope),
+	}
+
+	ipaddress = &IPAddress{doc: ipDoc, st: st}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     addressID,
+		Assert: txn.DocMissing,
+		Insert: ipDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.IPAddress(addr.Value); err == nil {
+			return nil, errors.AlreadyExistsf("address")
+		}
+	case nil:
+		return ipaddress, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// ipAddress implements the State method to return an existing IP
+// address by its value.
+func ipAddress(st *State, value string) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.FindId(value).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", value)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
+	}
+	return &IPAddress{st, *doc}, nil
+}
+
+// ipAddressByTag implements the State method to return an existing IP
+// address by its tag.
+func ipAddressByTag(st *State, tag names.IPAddressTag) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.Find(bson.D{{"uuid", tag.Id()}}).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", tag)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", tag)
+	}
+	return &IPAddress{st, *doc}, nil
+}
+
+// fetchIPAddresses is a helper function for finding IP addresses
+func fetchIPAddresses(st *State, query bson.D) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	doc := ipaddressDoc{}
+	iter := addresses.Find(query).Iter()
+	for iter.Next(&doc) {
+		addr := &IPAddress{
+			st:  st,
+			doc: doc,
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
 
 // AddressState represents the states an IP address can be in. They are created
 // in an unknown state and then either become allocated or unavailable if
@@ -52,9 +159,11 @@ type IPAddress struct {
 type ipaddressDoc struct {
 	DocID       string       `bson:"_id"`
 	EnvUUID     string       `bson:"env-uuid"`
+	UUID        string       `bson:"uuid"`
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
+	MACAddress  string       `bson:"macaddress,omitempty"`
 	InstanceId  string       `bson:"instanceid,omitempty"`
 	InterfaceId string       `bson:"interfaceid,omitempty"`
 	Value       string       `bson:"value"`
@@ -71,6 +180,16 @@ func (i *IPAddress) Life() Life {
 // Id returns the ID of the IP address.
 func (i *IPAddress) Id() string {
 	return i.doc.DocID
+}
+
+// UUID returns the globally unique ID of the IP address.
+func (i *IPAddress) UUID() (utils.UUID, error) {
+	return utils.UUIDFromString(i.doc.UUID)
+}
+
+// Tag returns the tag of the IP address.
+func (i *IPAddress) Tag() names.Tag {
+	return names.NewIPAddressTag(i.doc.UUID)
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If
@@ -91,6 +210,12 @@ func (i *IPAddress) MachineId() string {
 // instance.UnknownId).
 func (i *IPAddress) InstanceId() instance.Id {
 	return instance.Id(i.doc.InstanceId)
+}
+
+// MACAddress returns the MAC address of the container NIC the IP address is
+// associated with.
+func (i *IPAddress) MACAddress() string {
+	return i.doc.MACAddress
 }
 
 // InterfaceId returns the ID of the network interface the IP address is
@@ -242,10 +367,10 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 	return nil
 }
 
-// AllocateTo sets the machine ID and interface ID of the IP address.
+// AllocateTo sets the machine ID, MAC address and interface ID of the IP address.
 // It will fail if the state is not AddressStateUnknown. On success,
 // the address state will also change to AddressStateAllocated.
-func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
+func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
 	var instId instance.Id
@@ -284,6 +409,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 				{"machineid", machineId},
 				{"interfaceid", interfaceId},
 				{"instanceid", instId},
+				{"macaddress", macAddress},
 				{"state", string(AddressStateAllocated)},
 			}}},
 		}}, nil
@@ -294,6 +420,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 		return err
 	}
 	i.doc.MachineId = machineId
+	i.doc.MACAddress = macAddress
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
 	i.doc.InstanceId = string(instId)

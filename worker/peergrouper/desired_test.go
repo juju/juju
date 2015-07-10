@@ -413,9 +413,13 @@ func parseDescr(s string) []descr {
 
 func assertMembers(c *gc.C, obtained interface{}, expected []replicaset.Member) {
 	c.Assert(obtained, gc.FitsTypeOf, []replicaset.Member{})
-	sort.Sort(membersById(obtained.([]replicaset.Member)))
+	// Avoid mutating the obtained slice: because it's usually retrieved
+	// directly from the memberWatcher voyeur.Value,
+	// mutation can cause races.
+	obtainedMembers := deepCopy(obtained).([]replicaset.Member)
+	sort.Sort(membersById(obtainedMembers))
 	sort.Sort(membersById(expected))
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtainedMembers, jc.DeepEquals, expected)
 }
 
 type membersById []replicaset.Member

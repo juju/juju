@@ -178,6 +178,13 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	return filesystem, nil
 }
 
+// DestroyFilesystems is defined on the FilesystemSource interface.
+func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+	// DestroyFilesystems is a no-op; we leave the storage directory
+	// in tact for post-mortems and such.
+	return make([]error, len(filesystemIds))
+}
+
 // AttachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	attachments := make([]storage.FilesystemAttachment, len(args))
@@ -222,8 +229,11 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 	}
 
 	mounted, err := s.tryBindMount(fsPath, target)
-	if mounted || err != nil {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if mounted {
+		return nil
 	}
 	// We couldn't bind-mount over the designated directory;
 	// carry on and check if it's on the same filesystem. If
@@ -290,6 +300,10 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 
 // DetachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotImplementedf("DetachFilesystems")
+	for _, arg := range args {
+		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+		}
+	}
+	return nil
 }

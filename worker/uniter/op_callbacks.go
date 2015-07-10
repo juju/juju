@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 	corecharm "gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -22,26 +21,6 @@ import (
 // keep those methods off the Uniter itself.
 type operationCallbacks struct {
 	u *Uniter
-}
-
-// AcquireExecutionLock is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), error) {
-	// We want to make sure we don't block forever when locking, but take the
-	// Uniter's tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-opc.u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
-	message = fmt.Sprintf("%s: %s", opc.u.unit.Name(), message)
-	if err := opc.u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return nil, err
-	}
-	return func() { opc.u.hookLock.Unlock() }, nil
 }
 
 // PrepareHook is part of the operation.Callbacks interface.
@@ -150,9 +129,9 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.f.ClearResolved()
 }
 
-// InitializeMetricsCollector is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsCollector() error {
-	return opc.u.initializeMetricsCollector()
+// InitializeMetricsTimers is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) InitializeMetricsTimers() error {
+	return opc.u.initializeMetricsTimers()
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.

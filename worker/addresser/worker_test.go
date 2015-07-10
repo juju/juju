@@ -62,9 +62,9 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 1 {
-			err = ipAddr.AllocateTo(s.machine2.Id(), "wobble")
+			err = ipAddr.AllocateTo(s.machine2.Id(), "wobble", "")
 		} else {
-			err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
+			err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
@@ -157,7 +157,7 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 	addr := network.NewAddress("0.1.2.9")
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
+	err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The worker must not kill this address.
@@ -211,7 +211,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9"), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr.AllocateTo(machine.Id(), "foo")
+	err = addr.AllocateTo(machine.Id(), "foo", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("foo"))
 	s.State.StartSync()

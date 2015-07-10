@@ -25,8 +25,11 @@ const (
 
 // loopProviders create volume sources which use loop devices.
 type loopProvider struct {
-	// run is a function type used for running commands on the local machine.
+	// run is a function used for running commands on the local machine.
 	run runCommandFunc
+	// runningInsideLXC is a function that determines whether or not
+	// the code is running within an LXC container.
+	runningInsideLXC func() (bool, error)
 }
 
 var _ storage.Provider = (*loopProvider)(nil)
@@ -59,12 +62,17 @@ func (lp *loopProvider) VolumeSource(
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	insideLXC, err := lp.runningInsideLXC()
+	if err != nil {
+		return nil, err
+	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &loopVolumeSource{
 		&osDirFuncs{lp.run},
 		lp.run,
 		storageDir,
+		insideLXC,
 	}, nil
 }
 
@@ -94,9 +102,10 @@ func (*loopProvider) Dynamic() bool {
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
-	dirFuncs   dirFuncs
-	run        runCommandFunc
-	storageDir string
+	dirFuncs         dirFuncs
+	run              runCommandFunc
+	storageDir       string
+	runningInsideLXC bool
 }
 
 var _ storage.VolumeSource = (*loopVolumeSource)(nil)
@@ -116,7 +125,7 @@ func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]stora
 
 func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
 	volumeId := params.Tag.String()
-	loopFilePath := lvs.volumeFilePath(volumeId)
+	loopFilePath := lvs.volumeFilePath(params.Tag)
 	if err := ensureDir(lvs.dirFuncs, filepath.Dir(loopFilePath)); err != nil {
 		return storage.Volume{}, errors.Trace(err)
 	}
@@ -128,12 +137,16 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		storage.VolumeInfo{
 			VolumeId: volumeId,
 			Size:     params.Size,
+			// Loop devices may outlive LXC containers. If we're
+			// running inside an LXC container, mark the volume as
+			// persistent.
+			Persistent: lvs.runningInsideLXC,
 		},
 	}, nil
 }
 
-func (lvs *loopVolumeSource) volumeFilePath(volumeId string) string {
-	return filepath.Join(lvs.storageDir, volumeId)
+func (lvs *loopVolumeSource) volumeFilePath(tag names.VolumeTag) string {
+	return filepath.Join(lvs.storageDir, tag.String())
 }
 
 // DescribeVolumes is defined on the VolumeSource interface.
@@ -154,23 +167,13 @@ func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) []error {
 }
 
 func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
-	if _, err := names.ParseVolumeTag(volumeId); err != nil {
+	tag, err := names.ParseVolumeTag(volumeId)
+	if err != nil {
 		return errors.Errorf("invalid loop volume ID %q", volumeId)
 	}
-	loopFilePath := lvs.volumeFilePath(volumeId)
-	deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
-	if err != nil {
-		return errors.Annotate(err, "locating loop device")
-	}
-	if len(deviceNames) > 1 {
-		logger.Warningf("expected 1 loop device, got %d", len(deviceNames))
-	}
-	for _, deviceName := range deviceNames {
-		if err := detachLoopDevice(lvs.run, deviceName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if err := os.Remove(loopFilePath); err != nil {
+	loopFilePath := lvs.volumeFilePath(tag)
+	err = os.Remove(loopFilePath)
+	if err != nil && !os.IsNotExist(err) {
 		return errors.Annotate(err, "removing loop backing file")
 	}
 	return nil
@@ -198,7 +201,7 @@ func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams
 }
 
 func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
-	loopFilePath := lvs.volumeFilePath(arg.VolumeId)
+	loopFilePath := lvs.volumeFilePath(arg.Volume)
 	deviceName, err := attachLoopDevice(lvs.run, loopFilePath, arg.ReadOnly)
 	if err != nil {
 		os.Remove(loopFilePath)
@@ -215,9 +218,30 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 }
 
 // DetachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DetachVolumes([]storage.VolumeAttachmentParams) error {
-	// TODO(axw)
-	return errors.NotSupportedf("detaching loop devices")
+func (lvs *loopVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
+	for _, arg := range args {
+		if err := lvs.detachVolume(arg.Volume); err != nil {
+			return errors.Annotatef(err, "detaching volume %s", arg.Volume.Id())
+		}
+	}
+	return nil
+}
+
+func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
+	loopFilePath := lvs.volumeFilePath(tag)
+	deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
+	if err != nil {
+		return errors.Annotate(err, "locating loop device")
+	}
+	if len(deviceNames) > 1 {
+		logger.Warningf("expected 1 loop device, got %d", len(deviceNames))
+	}
+	for _, deviceName := range deviceNames {
+		if err := detachLoopDevice(lvs.run, deviceName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // createBlockFile creates a file at the specified path, with the

@@ -165,8 +165,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	lxcLogger.Infof("started lxc container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: hardware,
+		Instance:    inst,
+		Hardware:    hardware,
+		NetworkInfo: network.Interfaces,
 	}, nil
 }
 
@@ -437,9 +438,16 @@ var setupRoutesAndIPTables = func(
 			}
 		}
 
-		_, err := runTemplateCommand(ipRouteAdd, false, data)
-		if err != nil {
+		code, err := runTemplateCommand(ipRouteAdd, false, data)
+		// Ignore errors if the exit code was 2, which signals that the route was not added
+		// because it already exists.
+		if code != 2 && err != nil {
 			return errors.Trace(err)
+		}
+		if code == 2 {
+			logger.Tracef("route already exists - not added")
+		} else {
+			logger.Tracef("route added: container uses host network interface")
 		}
 	}
 	logger.Infof("successfully configured iptables and routes for container interfaces")
@@ -496,11 +504,6 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 	}
 	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
-
-// MACAddressTemplate is used to generate a unique MAC address for a
-// container. Every 'x' is replaced by a random hexadecimal digit,
-// while the rest is kept as-is.
-const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
 // configureContainerNetworking tries to allocate a static IP address
 // for the given containerId using the provisioner API, when
@@ -563,11 +566,16 @@ func configureContainerNetwork(
 		// interface name.
 		finalIfaceInfo[i].DeviceIndex = i
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
-		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
+		if finalIfaceInfo[i].NetworkName == "" {
+			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
+		}
+		if finalIfaceInfo[i].ProviderId == "" {
+			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
+		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
@@ -586,7 +594,13 @@ func configureContainerNetwork(
 // rules to make the container visible to both the host and other machines on the same subnet.
 func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineId := args.InstanceConfig.MachineId
-	lxcLogger.Infof("Running maintenance for lxc container with machineId: %s", machineId)
+	if !environs.AddressAllocationEnabled() {
+		lxcLogger.Debugf("address allocation disabled: Not running maintenance for lxc container with machineId: %s",
+			machineId)
+		return nil
+	}
+
+	lxcLogger.Debugf("running maintenance for lxc container with machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
