@@ -15,7 +15,7 @@ from deploy_stack import (
 
 
 def run_complete_status(client, status):
-    """run the complete set of tests possible for any StatusParser
+    """run the complete set of tests possible for any StatusParser.
 
     :param client: python juju client.
     :type client: jujupy.EnvJujuClient

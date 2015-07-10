@@ -50,16 +50,18 @@ class StatusTester:
 
 
 class ErrNoStatus(Exception):
-    """An exception for missing juju status"""
+    """An exception for missing juju status."""
 
 
 class ErrMalformedStatus(Exception):
-    """An exception for unexpected formats of status"""
+    """An exception for unexpected formats of status."""
 
 
 class ErrUntestedStatusOutput(Exception):
-    """An exception for results returned by status that are known not to be
-    covered by the tests"""
+    """An exception for results returned by status.
+
+    Status that are known not to be covered by the tests should raise
+    this exception. """
 
 
 class BaseStatusParser:
@@ -109,7 +111,7 @@ class BaseStatusParser:
 
     @toUnitTest
     def assert_machines_len(self, tc, expected_len):
-        """Assert that we got as many machines as we where expecting
+        """Assert that we got as many machines as we where expecting.
 
         :param expected_len: expected quantity of machines.
         :type expected_len: int
@@ -118,7 +120,7 @@ class BaseStatusParser:
 
     @toUnitTest
     def assert_machines_ids(self, tc, expected_ids):
-        """Assert that we got the machines we where expecting
+        """Assert that we got the machines we where expecting.
 
         :param expected_ids: expected ids of machines.
         :type expected_ids: tuple
@@ -241,8 +243,9 @@ class BaseStatusParser:
 
 
 class StatusYamlParser(BaseStatusParser):
-    """StatusYamlParser handles parsing of status output in yaml format to be
-    used by status tester.
+    """StatusYamlParser handles parsing of status output in yaml format.
+
+    To be used by status tester.
     """
 
     def __init__(self, yaml=""):
@@ -257,8 +260,9 @@ class StatusYamlParser(BaseStatusParser):
 
 
 class StatusJsonParser(BaseStatusParser):
-    """StatusJSONParser handles parsing of status output in JSON format to be
-    used by status tester.
+    """StatusJSONParser handles parsing of status output in JSON format.
+
+    To be used by status tester.
     """
 
     def __init__(self, json_text=""):
@@ -273,8 +277,9 @@ class StatusJsonParser(BaseStatusParser):
 
 
 class StatusTabularParser(BaseStatusParser):
-    """StatusTabularParser handles parsing of status output in Tabular format
-    to be used by status tester.
+    """StatusTabularParser handles parsing of status output in Tabular format.
+
+    To be used by status tester.
     """
 
     def __init__(self, tabular_text=""):
@@ -283,39 +288,42 @@ class StatusTabularParser(BaseStatusParser):
             raise ErrNoStatus("tabular status was empty")
         super(StatusTabularParser, self).__init__()
 
-    def _normalize_machines(self, header, items):
+    @toUnitTest
+    def _normalize_machines(self, tc, header, items):
         nitems = items[:6]
         nitems.append(" ".join(items[6:]))
-        if header != MACHINE_TAB_HEADERS:
-            raise ErrMalformedStatus("Unexpected headers for machine:\n"
-                                     "wanted: %s"
-                                     "got: %s" % (MACHINE_TAB_HEADERS, header))
+        tc.assertEqual(header, MACHINE_TAB_HEADERS,
+                       "Unexpected headers for machine:\n"
+                       "wanted: %s"
+                       "got: %s" % (MACHINE_TAB_HEADERS, header))
         return nitems[0], dict(zip((AGENT_STATE_KEY, AGENT_VERSION_KEY,
                                     DNS_NAME_KEY, INSTANCE_ID_KEY,
                                     SERIES_KEY, HARDWARE_KEY),
                                nitems[1:]))
 
-    def _normalize_units(self, header, items):
+    @toUnitTest
+    def _normalize_units(self, tc, header, items):
         eid, wlstate, astate, version, machine, paddress = items[:6]
         message = " ".join(items[6:])
         wlstatus = {"current": wlstate, "message": message,
                     "since": "bogus date"}
         astatus = {"current": astate, "message": "", "since": "bogus date"}
-        if header != UNIT_TAB_HEADERS:
-            raise ErrMalformedStatus("Unexpected headers for unit.\n"
-                                     "wanted: %s"
-                                     "got: %s" % (UNIT_TAB_HEADERS, header))
+        tc.assertEqual(header, UNIT_TAB_HEADERS,
+                       "Unexpected headers for unit.\n"
+                       "wanted: %s"
+                       "got: %s" % (UNIT_TAB_HEADERS, header))
         return eid, dict(zip((WORKLOAD_STATUS_KEY, AGENT_STATUS_KEY,
                               AGENT_VERSION_KEY, MACHINE_KEY,
                               PUBLIC_ADDRESS_KEY),
                              (wlstatus, astatus, version, machine, paddress)))
 
-    def _normalize_services(self, header, items):
+    @toUnitTest
+    def _normalize_services(self, tc, header, items):
         name, status, exposed, charm = items
-        if header != SERVICE_TAB_HEADERS:
-            raise ErrMalformedStatus("Unexpected headers for service.\n"
-                                     "wanted: %s"
-                                     "got: %s" % (SERVICE_TAB_HEADERS, header))
+        tc.assertEqual(header, SERVICE_TAB_HEADERS,
+                       "Unexpected headers for service.\n"
+                       "wanted: %s"
+                       "got: %s" % (SERVICE_TAB_HEADERS, header))
 
         return name, dict(zip((CHARM_KEY, EXPOSED_KEY, SERVICE_STATUS_KEY),
                               (charm, exposed == "true", {"current": status,
