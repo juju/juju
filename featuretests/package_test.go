@@ -32,6 +32,7 @@ func init() {
 	gc.Suite(&cmdEnvironmentSuite{})
 	gc.Suite(&cmdStorageSuite{})
 	gc.Suite(&dblogSuite{})
+	initProcessesSuites()
 }
 
 func Test(t *testing.T) {
