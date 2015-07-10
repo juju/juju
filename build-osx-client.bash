@@ -31,5 +31,3 @@ EOT
 workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg temp-config.yaml \
   $USER_AT_HOST "juju-ci/products/version-$revision_build/build-osx-client\
   /build-$attempt_number"
-EXIT_STATUS=$?
-exit $EXIT_STATUS
