@@ -1392,11 +1392,3 @@ func ec2ErrCode(err error) string {
 	}
 	return ec2err.Code
 }
-
-func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	e, ok := env.(*environ)
-	if !ok {
-		return nil, errors.NotSupportedf("non-ec2 environment")
-	}
-	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
-}

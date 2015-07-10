@@ -5,6 +5,7 @@ package azure
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -18,5 +19,5 @@ func init() {
 	registry.RegisterEnvironStorageProviders(providerType)
 
 	// Register cloud local storage as data source
-	environs.RegisterImageDataSourceFunc("cloud local storage", getCustomImageSource)
+	environs.RegisterImageDataSourceFunc("cloud local storage", common.GetCustomImageSource)
 }

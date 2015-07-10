@@ -182,11 +182,3 @@ func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 		Endpoint: env.Ecfg().sdcUrl(),
 	}, nil
 }
-
-func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	e, ok := env.(*joyentEnviron)
-	if !ok {
-		return nil, errors.NotSupportedf("non-joyent environment")
-	}
-	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", e.Storage(), storage.BaseImagesPath), nil
-}
