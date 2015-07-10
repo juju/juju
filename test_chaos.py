@@ -257,19 +257,19 @@ class TestUnleashOnce(TestCase):
                  ): charm_config,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=0'
+                 'enablement-timeout=120'
                  ): 'Action queued with id: abcd',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=abcd'
+                 'enablement-timeout=120', 'monkey-id=abcd'
                  ): 'Action queued with id: efgh',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=0'
+                 'enablement-timeout=120'
                  ): 'Action queued with id: 1234',
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=1234'
+                 'enablement-timeout=120', 'monkey-id=1234'
                  ): 'Action queued with id: 5678',
                 }
             return output[args]
@@ -295,7 +295,7 @@ class TestUnleashOnce(TestCase):
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=0', 'monkey-id=1234'
+                 'enablement-timeout=120', 'monkey-id=1234'
                  ): 'Action queued with id: abcd',
                 }
             return output[args]
@@ -307,12 +307,12 @@ class TestUnleashOnce(TestCase):
         expected = ['abcd', '1234']
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0'),
-            1, True)
+            'chaos-monkey/1', 'start', 'mode=single',
+            'enablement-timeout=120'), 1, True)
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0'),
-            2, True)
+            'chaos-monkey/0', 'start', 'mode=single',
+            'enablement-timeout=120'), 2, True)
         self.assertEqual(['chaos-monkey/1', 'chaos-monkey/0'],
                          monkey_runner.monkey_ids.keys())
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
@@ -323,11 +323,11 @@ class TestUnleashOnce(TestCase):
             monkey_runner.unleash_once()
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=0',
+            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=120',
             'monkey-id=1234'), 1, True)
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=0',
+            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=120',
             'monkey-id=abcd'), 2, True)
         self.assertTrue('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
         # Test monkey_ids.get(unit_name) does not change on second call to
@@ -359,7 +359,7 @@ class TestUnleashOnce(TestCase):
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
                 ('juju', '--show-log', 'action', 'do', '-e', 'foo',
                  'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=0'
+                 'enablement-timeout=120'
                  ): 'Action fail',
                 }
             return output[args]
