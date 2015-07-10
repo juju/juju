@@ -21,8 +21,4 @@ func init() {
 		providerType,
 		storageprovider.HostLoopProviderType,
 	)
-
-	// TODO(anastasiamac 2015-07-09) Is this needed?
-	// Register  local storage as data source
-	environs.RegisterImageDataSourceFunc("local storage", getCustomImageSource)
 }

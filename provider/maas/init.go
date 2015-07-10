@@ -19,7 +19,4 @@ func init() {
 	registry.RegisterProvider(maasStorageProviderType, &maasStorageProvider{})
 
 	registry.RegisterEnvironStorageProviders(providerType, maasStorageProviderType)
-
-	// Register cloud local storage as data source
-	environs.RegisterImageDataSourceFunc("cloud local storage", getCustomImageSource)
 }
