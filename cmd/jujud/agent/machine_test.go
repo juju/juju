@@ -33,6 +33,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	apimachiner "github.com/juju/juju/api/machiner"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -68,6 +69,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -1578,6 +1580,45 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 			c.Fatalf("timed out waiting for the networker to start")
 		}
 		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+	for _, expectedIgnoreValue := range []bool{true, false} {
+		ignoreAddressCh := make(chan bool, 1)
+		s.AgentSuite.PatchValue(&newMachiner, func(
+			st *apimachiner.State,
+			conf agent.Config,
+			ignoreMachineAddresses bool,
+		) worker.Worker {
+			select {
+			case ignoreAddressCh <- ignoreMachineAddresses:
+			default:
+			}
+			return machiner.NewMachiner(st, conf, ignoreMachineAddresses)
+		})
+
+		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
+		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+		a := s.newAgent(c, m)
+		defer a.Stop()
+		doneCh := make(chan error)
+		go func() {
+			doneCh <- a.Run(nil)
+		}()
+
+		select {
+		case ignoreMachineAddresses := <-ignoreAddressCh:
+			if ignoreMachineAddresses != expectedIgnoreValue {
+				c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for the machiner to start")
+		}
+		s.waitStopped(c, state.JobHostUnits, a, doneCh)
 	}
 }
 

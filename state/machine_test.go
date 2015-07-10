@@ -1951,6 +1951,27 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(machine.MachineAddresses(), jc.DeepEquals, expectedAddresses)
 }
 
+func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	// Add some machine addresses initially to make sure they're removed.
+	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
+	err = machine.SetMachineAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make call with empty address list.
+	err = machine.SetMachineAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(machine.MachineAddresses(), gc.HasLen, 0)
+}
+
 func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
