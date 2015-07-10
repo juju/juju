@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
+	"github.com/jujfu/juju/agent"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
@@ -105,16 +105,16 @@ func agentConfig(tag names.Tag) agent.Config {
 }
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, agentConfig(names.NewMachineTag("99")))
+	mr := machiner.NewMachiner(s.machinerState, agentConfig(names.NewMachineTag("99")), false)
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) makeMachiner() worker.Worker {
-	return machiner.NewMachiner(s.machinerState, agentConfig(s.apiMachine.Tag()))
+func (s *MachinerSuite) makeMachiner(ignoreAddresses bool) worker.Worker {
+	return machiner.NewMachiner(s.machinerState, agentConfig(s.apiMachine.Tag()), ignoreAddresses)
 }
 
 func (s *MachinerSuite) TestRunStop(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
 	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
@@ -126,21 +126,21 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 
 	s.waitMachineStatus(c, s.machine, state.StatusStarted)
 }
 
 func (s *MachinerSuite) TestSetsStatusWhenDying(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, state.StatusStopped)
 }
 
 func (s *MachinerSuite) TestSetDead(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
@@ -149,7 +149,39 @@ func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 }
 
-func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
+func (s *MachinerSuite) TestSetDeadWithDyingUnit(c *gc.C) {
+	mr := s.makeMachiner(false)
+	defer worker.Stop(mr)
+
+	// Add a service, assign to machine.
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Service alive, can't destroy machine.
+	err = s.machine.Destroy()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// With dying unit, machine can now be marked as dying.
+	c.Assert(s.machine.Destroy(), gc.IsNil)
+	s.State.StartSync()
+	c.Assert(s.machine.Refresh(), gc.IsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Dying)
+
+	// When the unit is ultimately destroyed, the machine becomes dead.
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+
+}
+
+func (s *MachinerSuite) setupSetMachineAddresses(c *gc.C, ignore bool) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
   # comments ignored
@@ -183,16 +215,25 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(ignore)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
+}
+
+func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
+	s.setupSetMachineAddresses(c, false)
 	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
 		network.NewAddress("2001:db8::1", network.ScopeUnknown),
 		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewAddress("::1", network.ScopeMachineLocal),
 		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
 	})
+}
+
+func (s *MachinerSuite) TestMachineAddressesWithIgnoreFlag(c *gc.C) {
+	s.setupSetMachineAddresses(c, true)
+	c.Assert(s.machine.MachineAddresses(), gc.HasLen, 0)
 }

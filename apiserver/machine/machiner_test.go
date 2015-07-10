@@ -185,6 +185,52 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
 }
 
+func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
+	// Set some addresses so we can ensure they are removed.
+	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
+	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+	}}
+	result, err := s.machiner.SetMachineAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+
+	args.MachineAddresses[0].Addresses = nil
+	result, err = s.machiner.SetMachineAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+
+	err = s.machine1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 0)
+}
+
+func (s *machinerSuite) TestJobs(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
+
+	result, err := s.machiner.Jobs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.JobsResults{
+		Results: []params.JobsResult{
+			{Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *machinerSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 

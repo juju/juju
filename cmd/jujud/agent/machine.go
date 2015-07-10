@@ -100,6 +100,7 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
+	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
@@ -686,8 +687,16 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 	}
 
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	if ignoreMachineAddresses {
+		logger.Infof("machine addresses not used, only addresses from provider")
+	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+		return newMachiner(st.Machiner(), agentConfig, ignoreMachineAddresses), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -712,10 +721,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	// Check if the network management is disabled.
-	envConfig, err := st.Environment().EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
-	}
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
