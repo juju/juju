@@ -1,13 +1,13 @@
 __metaclass__ = type
 
-from unittest import TestCase
 from status import (
     ErrNoStatus,
     StatusYamlParser,
     StatusJsonParser,
     StatusTabularParser
 )
-from base_asses import AssertError, AssertFailed
+
+from unittest import TestCase
 
 SAMPLE_YAML_OUTPUT = """environment: bogusec2
 machines:
@@ -103,69 +103,69 @@ class ReducedTestStatus:
         self.parser.assert_machines_ids(["0", "1"])
 
     def test_assert_machine_ids_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machines_ids(["0", "1", "2"])
 
     def test_assert_machine_len(self):
         self.parser.assert_machines_len(2)
 
     def test_assert_machine_len_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machines_len(3)
 
     def test_machine_agent_state_valid(self):
         self.parser.assert_machine_agent_state("0", "started")
 
     def test_machine_agent_state_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_agent_state("0", "stopped")
 
     def test_machine_agent_state_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_agent_state("3", "stopped")
 
     def test_assert_machine_agent_version(self):
         self.parser.assert_machine_agent_version("0", "1.25-alpha1")
 
     def test_assert_machine_agent_version_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_agent_version("0", "1.25-alpha2")
 
     def test_assert_machine_agent_version_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_agent_version("5", "1.25-alpha1")
 
     def test_assert_machine_dns_name(self):
         self.parser.assert_machine_dns_name("0", "54.82.51.4")
 
     def test_assert_machine_dns_name_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_dns_name("0", "54.82.51.5")
 
     def test_assert_machine_dns_name_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_dns_name("3", "54.82.51.4")
 
     def test_assert_machine_instance_id(self):
         self.parser.assert_machine_instance_id("0", "i-c0dadd10")
 
     def test_assert_machine_instance_id_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_instance_id("0", "i-c0dadd11")
 
     def test_assert_machine_instance_id_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_instance_id("3", "i-c0dadd10")
 
     def test_assert_machine_series(self):
         self.parser.assert_machine_series("0", "trusty")
 
     def test_assert_machine_series_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_series("0", "utopic")
 
     def test_assert_machine_series_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_series("3", "trusty")
 
     def test_assert_machine_hardware(self):
@@ -176,7 +176,7 @@ class ReducedTestStatus:
                                                  "us-east-1c")
 
     def test_assert_machine_hardware_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_hardware("0", "arch=arm cpu-cores=1 "
                                                      "cpu-power=100 mem=1740M "
                                                      "root-disk=8192M "
@@ -184,7 +184,7 @@ class ReducedTestStatus:
                                                      "us-east-1c")
 
     def test_assert_machine_hardware_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_hardware("3", "arch=amd64 cpu-cores=1 "
                                                      "cpu-power=100 mem=1740M "
                                                      "root-disk=8192M "
@@ -196,12 +196,12 @@ class ReducedTestStatus:
                                          "local:trusty/statusstresser-1")
 
     def test_assert_service_charm_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_charm("statusstresser",
                                              "local:trusty/statusstresser-2")
 
     def test_assert_service_charm_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_charm("statusrelaxer",
                                              "local:trusty/statusstresser-1")
 
@@ -209,11 +209,11 @@ class ReducedTestStatus:
         self.parser.assert_service_exposed("statusstresser", False)
 
     def test_assert_service_exposed_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_exposed("statusstresser", True)
 
     def test_assert_service_exposed_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_exposed("statusrelaxer", False)
 
     def test_assert_unit_public_address(self):
@@ -221,12 +221,12 @@ class ReducedTestStatus:
                                                "54.162.95.230")
 
     def test_assert_unit_public_address_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_public_address("statusstresser/0",
                                                    "54.162.95.231")
 
     def test_assert_unit_public_address_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_public_address("statusrelaxer/0",
                                                    "54.162.95.230")
 
@@ -237,11 +237,11 @@ class BaseTestStatus(ReducedTestStatus):
         self.parser.assert_machine_member_status("0", "has-vote")
 
     def test_assert_machine_member_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_member_status("0", "not-voting")
 
     def test_assert_machine_member_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_machine_member_status("3", "has-vote")
 
     def test_assert_service_service_status(self):
@@ -251,14 +251,14 @@ class BaseTestStatus(ReducedTestStatus):
                                                    "config-changed hook"})
 
     def test_assert_service_service_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_service_status("statusstresser",
                                                       {"current": "active",
                                                        "message": "another "
                                                        "message"})
 
     def test_assert_service_service_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_service_status("statusrelaxer",
                                                       {"current": "active",
                                                        "message": "called in "
@@ -271,14 +271,14 @@ class BaseTestStatus(ReducedTestStatus):
                                                  "config-changed hook"})
 
     def test_assert_unit_workload_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_workload_status("statusstresser/0",
                                                     {"current": "active",
                                                      "message": "another "
                                                      "message"})
 
     def test_assert_unit_workload_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_workload_status("statusrelaxer/0",
                                                     {"current": "active",
                                                      "message": "called in "
@@ -290,14 +290,14 @@ class BaseTestStatus(ReducedTestStatus):
                                               "message": ""})
 
     def test_assert_unit_agent_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_status("statusstresser/0",
                                                  {"current": "idle",
                                                   "message": "an unexpected "
                                                   "message"})
 
     def test_assert_unit_agent_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_status("statusrelaxer/0",
                                                  {"current": "idle",
                                                   "message": ""})
@@ -306,11 +306,11 @@ class BaseTestStatus(ReducedTestStatus):
         self.parser.assert_unit_agent_state("statusstresser/0", "started")
 
     def test_assert_unit_agent_state_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_state("statusstresser/0", "stopped")
 
     def test_assert_unit_agent_state_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_state("statusrelaxer/0", "started")
 
     def test_assert_unit_agent_version(self):
@@ -318,12 +318,12 @@ class BaseTestStatus(ReducedTestStatus):
                                               "1.25-alpha1")
 
     def test_assert_unit_agent_version_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_version("statusstresser/0",
                                                   "1.25-alpha2")
 
     def test_assert_unit_agent_version_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_version("statusrelaxer/0",
                                                   "1.25-alpha1")
 
@@ -331,11 +331,11 @@ class BaseTestStatus(ReducedTestStatus):
         self.parser.assert_unit_machine("statusstresser/0", "1")
 
     def test_assert_unit_machine_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_machine("statusstresser/0", "2")
 
     def test_assert_unit_machine_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_machine("statusrelaxer/0", "1")
 
 
@@ -374,14 +374,14 @@ class TestStatusTabular(TestCase, ReducedTestStatus):
                                                    "message": ""})
 
     def test_assert_service_service_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_service_status("statusstresser",
                                                       {"current": "active",
                                                        "message": "another "
                                                        "message"})
 
     def test_assert_service_service_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_service_service_status("statusrelaxer",
                                                       {"current": "active",
                                                        "message": "called in "
@@ -394,14 +394,14 @@ class TestStatusTabular(TestCase, ReducedTestStatus):
                                                  "config-changed hook"})
 
     def test_assert_unit_workload_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_workload_status("statusstresser/0",
                                                     {"current": "active",
                                                      "message": "another "
                                                      "message"})
 
     def test_assert_unit_workload_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_workload_status("statusrelaxer/0",
                                                     {"current": "active",
                                                      "message": "called in "
@@ -413,14 +413,14 @@ class TestStatusTabular(TestCase, ReducedTestStatus):
                                               "message": ""})
 
     def test_assert_unit_agent_status_failed(self):
-        with self.assertRaises(AssertFailed):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_status("statusstresser/0",
                                                  {"current": "idle",
                                                   "message": "an unexpected "
                                                   "message"})
 
     def test_assert_unit_agent_status_error(self):
-        with self.assertRaises(AssertError):
+        with self.assertRaises(AssertionError):
             self.parser.assert_unit_agent_status("statusrelaxer/0",
                                                  {"current": "idle",
                                                   "message": ""})

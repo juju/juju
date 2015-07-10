@@ -3,24 +3,14 @@ from __future__ import print_function
 
 __metaclass__ = type
 
-import logging
-
 from base_asses import get_base_parser
 from status import StatusTester
 from jujupy import (
     make_client,
-    parse_new_state_server_from_error,
-    temp_bootstrap_env,
-)
-from jujuconfig import (
-    get_juju_home,
 )
 from deploy_stack import (
-    dump_env_logs,
-    get_machine_dns_name,
-)
-from utility import (
-    print_now,
+    boot_context,
+    prepare_environment,
 )
 
 
@@ -40,7 +30,8 @@ def run_complete_status(client, status):
         status.s.assert_machine_agent_version(name,
                                               machine.get("agent-version"))
         status.s.assert_machine_dns_name(name, machine.get("dns-name"))
-        status.s.assert_machine_instance_id(name, machine.get("instance-id"))
+        status.s.assert_machine_instance_id(name,
+                                            machine.get("instance-id"))
         status.s.assert_machine_series(name, machine.get("series"))
         status.s.assert_machine_hardware(name, machine.get("hardware"))
         state_server = machine.get("state-server-member-status", None)
@@ -142,29 +133,22 @@ def main():
 
     client = make_client(
         args.juju_path, args.debug, args.env, args.temp_env_name)
-    client.destroy_environment()
-    juju_home = get_juju_home()
-    try:
-        with temp_bootstrap_env(juju_home, client):
-            client.bootstrap()
-        bootstrap_host = get_machine_dns_name(client, 0)
+    # client.destroy_environment()
+    series = args.series
+    if series is None:
+        series = 'precise'
+    with boot_context(args.job_name, client, args.bootstrap_host,
+                      args.machine, series, args.agent_url, args.agent_stream,
+                      log_dir, args.keep_env, args.upload_tools):
+        prepare_environment(
+            client, already_bootstrapped=True, machines=args.machine)
+
         client.get_status(60)
         client.juju("deploy", ('local:trusty/statusstresser',))
         client.wait_for_started()
 
         test_status_set_on_install(client)
 
-    except Exception as e:
-        logging.exception(e)
-        try:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
-        except Exception as e:
-            print_now("exception while dumping logs:\n")
-            logging.exception(e)
-    finally:
-        dump_env_logs(client, bootstrap_host, log_dir)
-        client.destroy_environment()
 
 if __name__ == '__main__':
     main()
