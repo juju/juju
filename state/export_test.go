@@ -6,8 +6,11 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
+	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -421,4 +424,42 @@ func UnitGlobalKey(u *Unit) string {
 
 func UnitAgentGlobalKey(u *UnitAgent) string {
 	return u.globalKey()
+}
+
+// WriteLogWithOplog writes out a log record to the a (probably fake)
+// oplog collection and the logs collection.
+func WriteLogWithOplog(
+	oplog *mgo.Collection,
+	envUUID string,
+	entity names.Tag,
+	t time.Time,
+	module string,
+	location string,
+	level loggo.Level,
+	msg string,
+) error {
+	doc := &logDoc{
+		Id:       bson.NewObjectId(),
+		Time:     t,
+		EnvUUID:  envUUID,
+		Entity:   entity.String(),
+		Module:   module,
+		Location: location,
+		Level:    level,
+		Message:  msg,
+	}
+	err := oplog.Insert(bson.D{
+		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                  // again, a suitable fake
+		{"op", "i"},                                          // this will always be an insert
+		{"ns", "logs.logs"},
+		{"o", doc},
+	})
+	if err != nil {
+		return err
+	}
+
+	session := oplog.Database.Session
+	logs := session.DB("logs").C("logs")
+	return logs.Insert(doc)
 }
