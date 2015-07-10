@@ -16,11 +16,21 @@ revision_build="$2"
 
 set -x
 $SCRIPTS/jujuci.py get-build-vars --summary $revision_build
+if [ -d built ]; then
+  rm -R built
+fi
+mkdir built
+s3cmd -c $JUJU_HOME/juju-qa.s3cfg sync \
+  s3://juju-qa-data/juju-ci/products/version-$revision_build/build-osx-client/\
+  built --exclude '*' --include 'juju-*-osx.tar.gz'
+TARFILE=$(find  built -name 'juju-*-osx.tar.gz')
+echo "Downloaded $TARFILE"
 
 cat > temp-config.yaml <<EOT
 install:
   remote:
     - $SCRIPTS/run-osx-client-remote.bash
-command: [remote/run-osx-client-remote.bash]
+    - "$TARFILE"
+command: [remote/run-osx-client-remote.bash, "remote/$(basename $TARFILE)"]
 EOT
 workspace-run temp-config.yaml $USER_AT_HOST
