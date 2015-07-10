@@ -70,6 +70,10 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
 	// Remove the first environment.
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env1.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 

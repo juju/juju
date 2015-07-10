@@ -172,7 +172,7 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 }
 
 func tryOpenState(info *mongo.MongoInfo) error {
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

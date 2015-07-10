@@ -5,6 +5,8 @@ package provisioner_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -21,11 +23,14 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
+	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
+	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -94,12 +99,21 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+func (s *kvmBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
+	// To isolate the tests from the host's architecture, we override it here.
+	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the <rootfs>/etc/network path exists.
+	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
+	return instanceConfig
+}
+
+func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+	instanceConfig := s.instanceConfig(c, machineId)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -222,6 +236,44 @@ func (s *kvmBrokerSuite) kvmContainerDir(inst instance.Instance) string {
 
 func (s *kvmBrokerSuite) kvmRemovedContainerDir(inst instance.Instance) string {
 	return filepath.Join(s.RemovedDir, string(inst.Id()))
+}
+
+func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
+	})
+	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
+	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
+
+	instanceConfig := s.instanceConfig(c, "42")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	})
 }
 
 type kvmProvisionerSuite struct {

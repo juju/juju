@@ -163,6 +163,7 @@ type ipaddressDoc struct {
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
+	MACAddress  string       `bson:"macaddress,omitempty"`
 	InstanceId  string       `bson:"instanceid,omitempty"`
 	InterfaceId string       `bson:"interfaceid,omitempty"`
 	Value       string       `bson:"value"`
@@ -209,6 +210,12 @@ func (i *IPAddress) MachineId() string {
 // instance.UnknownId).
 func (i *IPAddress) InstanceId() instance.Id {
 	return instance.Id(i.doc.InstanceId)
+}
+
+// MACAddress returns the MAC address of the container NIC the IP address is
+// associated with.
+func (i *IPAddress) MACAddress() string {
+	return i.doc.MACAddress
 }
 
 // InterfaceId returns the ID of the network interface the IP address is
@@ -360,10 +367,10 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 	return nil
 }
 
-// AllocateTo sets the machine ID and interface ID of the IP address.
+// AllocateTo sets the machine ID, MAC address and interface ID of the IP address.
 // It will fail if the state is not AddressStateUnknown. On success,
 // the address state will also change to AddressStateAllocated.
-func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
+func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
 	var instId instance.Id
@@ -402,6 +409,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 				{"machineid", machineId},
 				{"interfaceid", interfaceId},
 				{"instanceid", instId},
+				{"macaddress", macAddress},
 				{"state", string(AddressStateAllocated)},
 			}}},
 		}}, nil
@@ -412,6 +420,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 		return err
 	}
 	i.doc.MachineId = machineId
+	i.doc.MACAddress = macAddress
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
 	i.doc.InstanceId = string(instId)

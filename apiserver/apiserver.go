@@ -18,7 +18,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
@@ -311,18 +310,17 @@ func (srv *Server) run(lis net.Listener) {
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	mux := pat.New()
-	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/environment/:envuuid/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
-	if featureflag.Enabled(feature.DbLog) {
+
+	srvDying := srv.tomb.Dying()
+
+	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			&logSinkHandler{
-				httpHandler: httpHandler{ssState: srv.state},
-			},
-		)
+			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
@@ -357,11 +355,13 @@ func (srv *Server) run(lis net.Listener) {
 			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
+
+	if feature.IsDbLogEnabled() {
+		handleAll(mux, "/log", newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
+	}
+
 	handleAll(mux, "/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
