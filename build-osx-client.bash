@@ -22,9 +22,9 @@ cat > temp-config.yaml <<EOT
 install:
   remote:
     - $SCRIPTS/build-osx-client-remote.bash
-command: [remote/build-osx-client-remote.bash, "$revision_build"]
+command: [remote/build-osx-client-remote.bash]
 artifacts:
-  foo:
+  client:
     [juju-core_*.tar.gz]
 bucket: ws-runner-test
 EOT
