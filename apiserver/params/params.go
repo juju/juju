@@ -200,6 +200,7 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	Placement     []*instance.Placement
 	Networks      []string
 	Storage       map[string]storage.Constraints
 }
@@ -334,6 +335,7 @@ type AddServiceUnits struct {
 	ServiceName   string
 	NumUnits      int
 	ToMachineSpec string
+	Placement     []*instance.Placement
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.

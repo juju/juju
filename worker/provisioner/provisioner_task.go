@@ -342,52 +342,85 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 			logger.Infof("machine %q not found", id)
 			continue
 		}
-		switch machine.Life() {
-		case params.Dying:
-			if _, err := machine.InstanceId(); err == nil {
-				continue
-			} else if !params.IsCodeNotProvisioned(err) {
-				return nil, nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
-			}
-			logger.Infof("killing dying, unprovisioned machine %q", machine)
-			if err := machine.EnsureDead(); err != nil {
-				return nil, nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
-			}
-			fallthrough
-		case params.Dead:
-			dead = append(dead, machine)
-			continue
+		var classification MachineClassification
+		classification, err = classifyMachine(machine)
+		if err != nil {
+			return // return the error
 		}
-		if instId, err := machine.InstanceId(); err != nil {
-			if !params.IsCodeNotProvisioned(err) {
-				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
-				continue
-			}
-			status, _, err := machine.Status()
-			if err != nil {
-				logger.Infof("cannot get machine %q status: %v", machine, err)
-				continue
-			}
-			if status == params.StatusPending {
-				pending = append(pending, machine)
-				logger.Infof("found machine %q pending provisioning", machine)
-				continue
-			}
-		} else {
-			logger.Infof("machine %v already started as instance %q", machine, instId)
-			if err != nil {
-				logger.Infof("Error fetching provisioning info")
-			} else {
-				isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
-				if isLxc.MatchString(machine.Id()) {
-					maintain = append(maintain, machine)
-				}
-			}
+		switch classification {
+		case Pending:
+			pending = append(pending, machine)
+		case Dead:
+			dead = append(dead, machine)
+		case Maintain:
+			maintain = append(maintain, machine)
 		}
 	}
 	logger.Tracef("pending machines: %v", pending)
 	logger.Tracef("dead machines: %v", dead)
 	return
+}
+
+type ClassifiableMachine interface {
+	Life() params.Life
+	InstanceId() (instance.Id, error)
+	EnsureDead() error
+	Status() (params.Status, string, error)
+	Id() string
+}
+
+type MachineClassification string
+
+const (
+	None     MachineClassification = "none"
+	Pending  MachineClassification = "Pending"
+	Dead     MachineClassification = "Dead"
+	Maintain MachineClassification = "Maintain"
+)
+
+func classifyMachine(machine ClassifiableMachine) (
+	MachineClassification, error) {
+	switch machine.Life() {
+	case params.Dying:
+		if _, err := machine.InstanceId(); err == nil {
+			return None, nil
+		} else if !params.IsCodeNotProvisioned(err) {
+			return None, errors.Annotatef(err, "failed to load dying machine id:%s, details:%v", machine.Id(), machine)
+		}
+		logger.Infof("killing dying, unprovisioned machine %q", machine)
+		if err := machine.EnsureDead(); err != nil {
+			return None, errors.Annotatef(err, "failed to ensure machine dead id:%s, details:%v", machine.Id(), machine)
+		}
+		fallthrough
+	case params.Dead:
+		return Dead, nil
+	}
+	if instId, err := machine.InstanceId(); err != nil {
+		if !params.IsCodeNotProvisioned(err) {
+			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
+		}
+		status, _, err := machine.Status()
+		if err != nil {
+			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
+			return None, nil
+		}
+		if status == params.StatusPending {
+			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
+			return Pending, nil
+		}
+	} else {
+		logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
+		if err != nil {
+			logger.Infof("Error fetching provisioning info")
+		} else {
+			isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
+			isKvm := regexp.MustCompile(`\d+/kvm/\d+`)
+			if isLxc.MatchString(machine.Id()) || isKvm.MatchString(machine.Id()) {
+				return Maintain, nil
+			}
+		}
+	}
+	return None, nil
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
