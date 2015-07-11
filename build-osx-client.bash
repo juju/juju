@@ -25,9 +25,9 @@ install:
 command: [remote/build-osx-client-remote.bash]
 artifacts:
   client:
-    [juju-core_*.tar.gz]
+    [juju-*-osx.tar.gz]
 bucket: ws-runner-test
 EOT
+version_prefix=juju-ci/products/version-$revision_build
 workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg temp-config.yaml \
-  $USER_AT_HOST "juju-ci/products/version-$revision_build/build-osx-client\
-  /build-$attempt_number"
+  $USER_AT_HOST "$version_prefix/build-osx-client/build-$attempt_number"
