@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+id = action-get id
+juju-process-myplugin destroy $id

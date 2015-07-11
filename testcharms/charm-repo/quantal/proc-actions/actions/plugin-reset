@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+juju-process-myplugin reset

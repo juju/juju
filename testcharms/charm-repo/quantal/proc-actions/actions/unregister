@@ -1,0 +1,7 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+name = action-get name
+_unregister = action-get unregister
+unregister $name $_unregister

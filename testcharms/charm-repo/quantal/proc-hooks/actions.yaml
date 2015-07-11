@@ -1,0 +1,25 @@
+plugin-prep:
+  description: prepare to launch a process
+  params:
+    name:
+      type: string
+    id:
+      type: string
+    status:
+      type: string
+plugin-setstatus:
+  description: set the proc's status
+  params:
+    id:
+      type: string
+    status:
+      type: string
+plugin-remove:
+  description: eliminate the process from the plugin
+  params:
+    id:
+      type: string
+plugin-dump:
+  description: print out the plugin's history
+plugin-reset:
+  description: clear the plugin's data
