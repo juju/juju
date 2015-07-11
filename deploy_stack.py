@@ -17,6 +17,7 @@ import time
 import json
 import shutil
 
+from chaos import background_chaos
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -363,6 +364,8 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument(
         '--upload-tools', action='store_true', default=False,
         help='upload local version of tools before bootstrapping')
+    parser.add_argument('--with-chaos', default=0, type=int,
+                        help='Deploy and run Chaos Monkey in the background.')
     add_juju_args(parser)
     add_output_args(parser)
     add_path_args(parser)
@@ -385,7 +388,7 @@ def deploy_job():
                        charm_prefix, args.bootstrap_host, args.machine,
                        series, args.logs, args.debug, juju_path,
                        args.agent_url, args.agent_stream,
-                       args.keep_env, args.upload_tools)
+                       args.keep_env, args.upload_tools, args.with_chaos)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -489,7 +492,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                agent_stream, keep_env, upload_tools):
+                agent_stream, keep_env, upload_tools, with_chaos):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -506,7 +509,11 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
             # can bootstrap and call the state-server.
             return
         client.juju('status', ())
-        deploy_dummy_stack(client, charm_prefix)
+        if with_chaos > 0:
+            with background_chaos(job_name, client, log_dir, with_chaos):
+                deploy_dummy_stack(client, charm_prefix)
+        else:
+                deploy_dummy_stack(client, charm_prefix)
         is_windows_charm = charm_prefix.startswith("local:win")
         if not is_windows_charm:
             assess_juju_run(client)

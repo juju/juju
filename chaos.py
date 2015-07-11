@@ -9,19 +9,21 @@ from datetime import (
     timedelta,
 )
 import logging
+import os
 import subprocess
 import sys
 
+from remote import remote_from_unit
 from utility import (
     until_timeout,
 )
 
 
 @contextmanager
-def background_chaos(env, client):
-    monkey = MonkeyRunner(env, client)
+def background_chaos(env, client, log_dir, time):
+    monkey = MonkeyRunner(env, client, enablement_timeout=time)
     monkey.deploy_chaos_monkey()
-    monkey.unleash_once()
+    monkey_ids = monkey.unleash_once()
     monkey.wait_for_chaos(state='start')
     try:
         yield
@@ -29,6 +31,22 @@ def background_chaos(env, client):
     except BaseException as e:
         logging.exception(e)
         sys.exit(1)
+    finally:
+        # Copy the chaos logs to the log directory.
+        # Get the remote machine. Currently the remote machine will always be
+        # ubuntu/0. IF background_chaos() is enhanced to take a target service,
+        # then log collection will also need to be updated.
+        remote = remote_from_unit(client, "ubuntu/0")
+        for id in monkey_ids:
+            monkey_log = ['chaos-monkey/chaos_monkey.{}/log/*'.format(id)]
+            dest_dir = '{}/chaos-monkey-{}'.format(log_dir, id)
+            os.mkdir(dest_dir)
+            try:
+                remote.copy(dest_dir, monkey_log)
+            except subprocess.CalledProcessError as e:
+                logging.warning(
+                    'Could not retrieve Chaos Monkey log for {}:'.format(id))
+                logging.warning(e.output)
 
 
 class MonkeyRunner:
