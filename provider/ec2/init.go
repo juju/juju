@@ -23,5 +23,5 @@ func init() {
 	registry.RegisterEnvironStorageProviders(providerType, EBS_ProviderType)
 
 	// Register cloud local storage as data source
-	environs.RegisterImageDataSourceFunc("cloud local storage", common.GetCustomImageSource)
+	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, common.GetCustomImageSource)
 }

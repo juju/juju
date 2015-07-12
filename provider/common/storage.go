@@ -11,11 +11,13 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-// GetCustomImageSource returns a data source for the cloud local storage.
+const CloudLocalStorageDesc = "cloud local storage"
+
+// GetCustomImageSource returns a simplestreams datasource for image metadata.
 func GetCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	s, ok := env.(storage.Storage)
+	s, ok := env.(environs.EnvironStorage)
 	if !ok {
-		return nil, errors.NotSupportedf("provider does not support storage")
+		return nil, errors.NotSupportedf("provider storage")
 	}
-	return storage.NewStorageSimpleStreamsDataSource("cloud local storage", s, storage.BaseImagesPath), nil
+	return storage.NewStorageSimpleStreamsDataSource(CloudLocalStorageDesc, s.Storage(), storage.BaseImagesPath), nil
 }
