@@ -6,6 +6,8 @@ package uniter
 import (
 	"fmt"
 	"time"
+
+	"github.com/juju/juju/testing"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
@@ -29,7 +31,7 @@ type ManualTicker struct {
 func (t *ManualTicker) Tick() error {
 	select {
 	case t.c <- time.Now():
-	default:
+	case <-time.After(testing.LongWait):
 		return fmt.Errorf("ticker channel blocked")
 	}
 	return nil
@@ -42,7 +44,7 @@ func (t *ManualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duratio
 
 func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
-		c: make(chan time.Time, 1),
+		c: make(chan time.Time),
 	}
 }
 

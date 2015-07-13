@@ -881,11 +881,17 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type collectMetricsTick struct{}
+type collectMetricsTick struct {
+	expectFail bool
+}
 
 func (s collectMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.collectMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type updateStatusHookTick struct{}
@@ -895,11 +901,18 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type sendMetricsTick struct{}
+type sendMetricsTick struct {
+	expectFail bool
+}
 
 func (s sendMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.sendMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type addMetrics struct {
