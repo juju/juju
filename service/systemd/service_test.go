@@ -6,7 +6,6 @@ package systemd_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/juju/juju/paths"
 	"os"
 	"strings"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"

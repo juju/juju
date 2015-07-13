@@ -20,16 +20,14 @@ import (
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
-	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -117,7 +115,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&BootstrapCommand{}))
 	r.Register(wrapEnvCommand(&DeployCommand{}))
 	r.Register(wrapEnvCommand(&AddRelationCommand{}))
-	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
 	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
@@ -130,6 +127,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
+	r.Register(wrapEnvCommand(&StatusHistoryCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -141,7 +139,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
-	r.Register(wrapEnvCommand(&GetCommand{}))
 	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
 	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
@@ -195,6 +192,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
+	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
 	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
 	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
 
@@ -203,15 +202,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 
 	// Manage storage
-	if featureflag.Enabled(feature.Storage) {
-		r.Register(storage.NewSuperCommand())
-	}
-
-	// Manage spaces
-	r.Register(space.NewSuperCommand())
-
-	// Manage subnets
-	r.Register(subnet.NewSuperCommand())
+	r.Register(storage.NewSuperCommand())
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
@@ -236,5 +227,36 @@ func (w envCmdWrapper) Init(args []string) error {
 }
 
 func main() {
-	commands.Main(os.Args)
+	Main(os.Args)
+}
+
+type versionDeprecation struct {
+	replacement string
+	deprecate   version.Number
+	obsolete    version.Number
+}
+
+// Deprecated implements cmd.DeprecationCheck.
+// If the current version is after the deprecate version number,
+// the command is deprecated and the replacement should be used.
+func (v *versionDeprecation) Deprecated() (bool, string) {
+	if version.Current.Number.Compare(v.deprecate) > 0 {
+		return true, v.replacement
+	}
+	return false, ""
+}
+
+// Obsolete implements cmd.DeprecationCheck.
+// If the current version is after the obsolete version number,
+// the command is obsolete and shouldn't be registered.
+func (v *versionDeprecation) Obsolete() bool {
+	return version.Current.Number.Compare(v.obsolete) > 0
+}
+
+func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
+	return &versionDeprecation{
+		replacement: replacement,
+		deprecate:   version.MustParse("2.0-00"),
+		obsolete:    version.MustParse("3.0-00"),
+	}
 }
