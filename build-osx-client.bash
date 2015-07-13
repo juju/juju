@@ -4,44 +4,30 @@ set -eu
 SCRIPTS=$(readlink -f $(dirname $0))
 JUJU_HOME=${JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
 
-SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
-
 usage() {
-    echo "usage: $0 user@host"
+    echo "usage: $0 user@host revision_build attempt_number"
     echo "  user@host: The user and host to ssh to."
     exit 1
 }
 
 
-test $# -eq 1 || usage
+test $# -eq 3 || usage
 USER_AT_HOST="$1"
+revision_build="$2"
+attempt_number="$3"
+
 
 set -x
-ssh $SSH_OPTIONS $USER_AT_HOST "revision_build=$revision_build bash" <<"EOT"
-#!/bin/bash
-set -eu
-RELEASE_SCRIPTS=$HOME/juju-release-tools
-SCRIPTS=$HOME/juju-ci-tools
-GOBASE=$HOME/crossbuild
-WORKSPACE=$HOME/workspace
-JUJU_HOME=$HOME/.juju
-source $HOME/.bashrc
-source $HOME/cloud-city/juju-qa.jujuci
-set -x
-
-cd $WORKSPACE
-$SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
-TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
-echo "Downloaded $TARFILE"
-$RELEASE_SCRIPTS/crossbuild.py -v osx-client -b $GOBASE ./$TARFILE
+cat > temp-config.yaml <<EOT
+install:
+  remote:
+    - $SCRIPTS/build-osx-client-remote.bash
+command: [remote/build-osx-client-remote.bash]
+artifacts:
+  client:
+    [juju-*-osx.tar.gz]
+bucket: juju-qa-data
 EOT
-EXIT_STATUS=$?
-
-if [ $EXIT_STATUS -eq 0 ]; then
-    scp $SSH_OPTIONS \
-        $USER_AT_HOST:~/workspace/juju-*-osx.tar.gz $WORKSPACE/artifacts/
-fi
-
-exit $EXIT_STATUS
+version_prefix=juju-ci/products/version-$revision_build
+workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg temp-config.yaml \
+  $USER_AT_HOST "$version_prefix/build-osx-client/build-$attempt_number"
