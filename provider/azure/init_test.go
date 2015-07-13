@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,11 +24,10 @@ func (s *initSuite) TestImageMetadataDatasourceAdded(c *gc.C) {
 	dss, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := "cloud local storage"
 	found := false
 	for i, ds := range dss {
 		c.Logf("datasource %d: %+v", i, ds)
-		if ds.Description() == expected {
+		if ds.Description() == common.CloudLocalStorageDesc {
 			found = true
 			break
 		}
