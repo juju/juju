@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	
-//	"github.com/juju/juju/environs"
+
+	//	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 )
 
