@@ -130,7 +130,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 			// small price to pay for a safer implementation.
 			var docID interface{}
 			if id, ok := op.Id.(string); ok {
-				docID = addEnvUUID(r.envUUID, id)
+				docID = ensureEnvUUID(r.envUUID, id)
 				ops[i].Id = docID
 			} else {
 				docID = op.Id

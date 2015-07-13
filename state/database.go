@@ -109,7 +109,7 @@ func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Datab
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
-			if err := rawCollection.Create(spec); isNotCollectionExistsError(err) {
+			if err := createCollection(rawCollection, spec); err != nil {
 				message := fmt.Sprintf("cannot create collection %q", name)
 				return nil, maybeUnauthorized(err, message)
 			}
@@ -127,10 +127,15 @@ func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Datab
 	}, nil
 }
 
-func isNotCollectionExistsError(err error) bool {
+// createCollection swallows collection-already-exists errors.
+func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
+	err := raw.Create(spec)
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	return err != nil && err.Error() != "collection already exists"
+	if err == nil || err.Error() == "collection already exists" {
+		return nil
+	}
+	return err
 }
 
 // database implements Database.

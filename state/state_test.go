@@ -143,11 +143,14 @@ func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
-	st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	uuid := utils.MustNewUUID()
+	tag := names.NewEnvironTag(uuid.String())
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	c.Check(err, gc.ErrorMatches, "cannot open environment deadbeef-0bad-400d-8000-4b1d0d06f00d: environment not found")
+	expect := fmt.Sprintf("cannot read environment %s: environment not found", uuid)
+	c.Check(err, gc.ErrorMatches, expect)
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {

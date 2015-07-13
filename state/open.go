@@ -34,9 +34,9 @@ func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	}
 	if _, err := st.Environment(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("error closing state for unknown environment %s", tag.Id())
+			logger.Errorf("error closing state for unreadable environment %s: %v", tag.Id(), err)
 		}
-		return nil, errors.Annotatef(err, "cannot open environment %s", tag.Id())
+		return nil, errors.Annotatef(err, "cannot read environment %s", tag.Id())
 	}
 	st.startPresenceWatcher()
 	return st, nil

@@ -43,20 +43,11 @@ type envStateCollection struct {
 	envUUID string
 }
 
-// Name returns the MongoDB collection name.
-func (c *envStateCollection) Name() string {
-	return c.WriteCollection.Name()
-}
-
 // Writeable is part of the Collection interface.
 func (c *envStateCollection) Writeable() mongo.WriteCollection {
+	// Note that we can't delegate this to the embedded WriteCollection:
+	// that would return a writeable collection without any env-handling.
 	return c
-}
-
-// Underlying returns the mgo Collection that the
-// envStateCollection is ultimately wrapping.
-func (c *envStateCollection) Underlying() *mgo.Collection {
-	return c.WriteCollection.Underlying()
 }
 
 // Count returns the number of documents in the collection that belong
@@ -86,7 +77,7 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 // query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.FindId(addEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.FindId(ensureEnvUUID(c.envUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
 }
@@ -113,7 +104,7 @@ func (c *envStateCollection) Update(query interface{}, update interface{}) error
 // prefix isn't there already.
 func (c *envStateCollection) UpdateId(id interface{}, update interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.UpdateId(addEnvUUID(c.envUUID, sid), update)
+		return c.WriteCollection.UpdateId(ensureEnvUUID(c.envUUID, sid), update)
 	}
 	return c.WriteCollection.UpdateId(bson.D{{"_id", id}}, update)
 }
@@ -129,7 +120,7 @@ func (c *envStateCollection) Remove(query interface{}) error {
 // query will be handled as per Find().
 func (c *envStateCollection) RemoveId(id interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.RemoveId(addEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.RemoveId(ensureEnvUUID(c.envUUID, sid))
 	}
 	return c.Remove(bson.D{{"_id", id}})
 }
@@ -148,7 +139,7 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 			switch elem.Name {
 			case "_id":
 				if id, ok := elem.Value.(string); ok {
-					elem.Value = addEnvUUID(c.envUUID, id)
+					elem.Value = ensureEnvUUID(c.envUUID, id)
 				}
 			case "env-uuid":
 				panic("env-uuid is added automatically and should not be provided")
@@ -164,7 +155,7 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 	return outq
 }
 
-func addEnvUUID(envUUID, id string) string {
+func ensureEnvUUID(envUUID, id string) string {
 	prefix := envUUID + ":"
 	if strings.HasPrefix(id, prefix) {
 		return id

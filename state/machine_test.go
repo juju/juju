@@ -595,7 +595,14 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
 	st, err := state.Open(s.envTag, info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer func() {
+		// Remove the admin password so that the test harness can reset the state.
+		err := st.SetAdminMongoPassword("")
+		c.Check(err, jc.ErrorIsNil)
+		err = st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
 	// Turn on fully-authenticated mode.
 	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, jc.ErrorIsNil)
@@ -611,7 +618,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	// Check that we cannot log in with the wrong password.
 	info.Tag = ent.Tag()
 	info.Password = "bar"
-	err = tryOpenState(st.EnvironTag(), info)
+	err = tryOpenState(s.envTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
@@ -630,22 +637,18 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
-	err = tryOpenState(st.EnvironTag(), info)
+	err = tryOpenState(s.envTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
-	err = tryOpenState(st.EnvironTag(), info)
+	err = tryOpenState(s.envTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the administrator can still log in.
 	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(st.EnvironTag(), info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Remove the admin password so that the test harness can reset the state.
-	err = st.SetAdminMongoPassword("")
+	err = tryOpenState(s.envTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
