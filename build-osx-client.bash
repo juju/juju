@@ -29,5 +29,6 @@ artifacts:
 bucket: juju-qa-data
 EOT
 version_prefix=juju-ci/products/version-$revision_build
-workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg temp-config.yaml \
+workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg\
+  -i $JUJU_HOME/staging-juju-rsa temp-config.yaml \
   $USER_AT_HOST "$version_prefix/build-osx-client/build-$attempt_number"
