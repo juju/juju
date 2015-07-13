@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from deploy_stack import add_juju_args, add_output_args
+from utility import add_basic_testing_arguments
 from unittest import FunctionTestCase
 
 
@@ -13,16 +14,7 @@ def get_base_parser(description=""):
     :rtype: ArgumentParser
     """
     parser = ArgumentParser(description)
-    positional_args = [
-        ('env', 'The juju environment to base the temp test environment on.'),
-        ('juju_bin', 'Full path to the Juju binary.'),
-        ('logs', 'A directory in which to store logs.'),
-        ('temp_env_name', 'A temporary test environment name.'),
-    ]
-    for p_arg in positional_args:
-        name, help_txt = p_arg
-        parser.add_argument(name, help=help_txt)
-
+    add_basic_testing_arguments(parser)
     parser.add_argument(
         'juju_path', help='Directory your juju binary lives in.')
     parser.add_argument(
