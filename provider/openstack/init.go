@@ -18,7 +18,7 @@ func init() {
 	environs.RegisterProvider(providerType, environProvider{})
 
 	// Register cloud local storage as data source
-	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, common.GetCustomImageSource)
+	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, getCustomImageSource)
 
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)

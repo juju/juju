@@ -1298,6 +1298,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	return g, nil
 }
 
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	_, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-ec2 environment")
+	}
+	return common.GetCustomImageSource(env)
+}
+
 // permKey represents a permission for a group or an ip address range
 // to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
