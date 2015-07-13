@@ -788,7 +788,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -798,8 +798,8 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -815,9 +815,12 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	env := s.Open(c)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 2)
+	c.Assert(sources, gc.HasLen, 3)
+
+	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
-	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
+	c.Check(sources[1].Description(), gc.Equals, common.CloudLocalStorageDesc)
+	c.Check(sources[2].Description(), gc.Equals, "default cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -967,10 +970,23 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
+	assertSourcesContains(c, params.Sources, common.CloudLocalStorageDesc)
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
+}
+
+func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
+	found := false
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		if s.Description() == expected {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
@@ -1182,7 +1198,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -1194,8 +1210,15 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Produce map of data sources keyed on description
+	mappedSources := make(map[string]simplestreams.DataSource, len(sources))
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		mappedSources[s.Description()] = s
+	}
+
 	// Read from the Config entry's image-metadata-url
-	contentReader, url, err := sources[0].Fetch(custom)
+	contentReader, url, err := mappedSources["image-metadata-url"].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
@@ -1204,7 +1227,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Check(url[:8], gc.Equals, "https://")
 
 	// Check the entry we got from keystone
-	contentReader, url, err = sources[1].Fetch(metadata)
+	contentReader, url, err = mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
