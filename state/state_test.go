@@ -134,12 +134,12 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestOpenRequiresValidEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
 	st, err := state.Open(names.EnvironTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
-	if !c.Check(st, gc.IsNil) {
-		c.Check(st.Close(), jc.ErrorIsNil)
-	}
-	c.Check(err, gc.ErrorMatches, "invalid environment UUID")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(st.EnvironTag(), gc.Equals, s.envTag)
+	c.Check(st.Close(), jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {

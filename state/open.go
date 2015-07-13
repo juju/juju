@@ -51,6 +51,19 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	}
 	logger.Debugf("connection established")
 
+	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
+	// environment UUID available. In that case we need to infer what it might be;
+	// we depend on the assumption that this is the only circumstance in which
+	// the the UUID might not be known.
+	if tag.Id() == "" {
+		logger.Warningf("creating state without environment tag; inferring bootstrap environment")
+		ssInfo, err := readRawStateServerInfo(session)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		tag = ssInfo.EnvironmentTag
+	}
+
 	st, err := newState(tag, session, info, policy)
 	if err != nil {
 		session.Close()
@@ -162,12 +175,12 @@ func isUnauthorized(err error) bool {
 		return false
 	}
 	// Some unauthorized access errors have no error code,
-	// just a simple error string.
-	if strings.HasPrefix(err.Error(), "auth fail") {
-		return true
-	}
-	if strings.HasPrefix(err.Error(), "not authorized") {
-		return true
+	// just a simple error string; and some do have error codes
+	// but are not of consistent types (LastError/QueryError).
+	for _, prefix := range []string{"auth fail", "not authorized"} {
+		if strings.HasPrefix(err.Error(), prefix) {
+			return true
+		}
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||

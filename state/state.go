@@ -1772,8 +1772,17 @@ type StateServerInfo struct {
 // StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
-	defer closer()
+	session := st.session.Copy()
+	defer session.Close()
+	return readRawStateServerInfo(st.session)
+}
+
+// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
+// falling back to the bootstrap environment document to extract the UUID when
+// required.
+func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+	db := session.DB(jujuDB)
+	stateServers := db.C(stateServersC)
 
 	var doc stateServersDoc
 	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
@@ -1788,8 +1797,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		// upgrade steps have been run. Without this hack environTag
 		// on State ends up empty, breaking basic functionality needed
 		// to run upgrade steps (a chicken-and-egg scenario).
-		environments, closer := st.getCollection(environmentsC)
-		defer closer()
+		environments := db.C(environmentsC)
 
 		var envDoc environmentDoc
 		query := environments.Find(nil)
