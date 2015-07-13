@@ -199,18 +199,13 @@ func CreateContainer(s *JoyentStorage) error {
 	return s.createContainer()
 }
 
-// MakeEnviron creates a functional Environ for a test.
-func MakeEnviron(c *gc.C, attrs testing.Attrs) environs.Environ {
+// MakeConfig creates a functional environConfig for a test.
+func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
-	return env
-}
-
-// MakeConfig creates a functional environConfig for a test.
-func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	return MakeEnviron(c, attrs).(*joyentEnviron).Ecfg()
+	return env.(*joyentEnviron).Ecfg()
 }
 
 // MakeCredentials creates credentials for a test.
