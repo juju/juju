@@ -261,16 +261,12 @@ func (st *State) Close() (err error) {
 	st.session.Close()
 	st.mu.Unlock()
 
-	switch len(errs) {
-	case 0:
-		logger.Debugf("closed state without error")
-		return nil
-	default:
+	if len(errs) > 0 {
 		for _, err := range errs[1:] {
 			logger.Errorf("while closing state: %v", err)
 		}
-		fallthrough
-	case 1:
 		return errs[0]
 	}
+	logger.Debugf("closed state without error")
+	return nil
 }

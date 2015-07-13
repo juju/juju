@@ -142,16 +142,18 @@ func allCollections() collectionSchema {
 		// or tedious state changes are deferred by recording a cleanup doc
 		// for later handling.
 		cleanupsC: {
-			allowInsertWhileEnvironmentDying: true,
+			insertWithoutEnvironment: true,
 		},
 
 		// This collection contains incrementing integers, subdivided by name,
 		// to ensure various IDs aren't reused.
 		sequenceC: {},
 
-		// This collection holds lease data, currently only used to implement
-		// service leadership but available for other uses in future.
+		// This collection holds lease data. It's currently only used to
+		// implement service leadership, but is namespaced and available
+		// for use by other clients in future.
 		leasesC: {
+			insertWithoutEnvironment: true,
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "type"},
 			}, {
@@ -344,7 +346,6 @@ const (
 	networkInterfacesC     = "networkinterfaces"
 	networksC              = "networks"
 	openedPortsC           = "openedPorts"
-	presenceC              = "presence" // note that presenceC is *not* in the juju database.
 	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"

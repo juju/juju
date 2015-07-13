@@ -44,6 +44,7 @@ const (
 
 	// presenceDB is the name of the database used to hold presence pinger data.
 	presenceDB = "presence"
+	presenceC  = "presence"
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
@@ -161,39 +162,49 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 func (st *State) start(serverTag names.EnvironTag) error {
 	st.serverTag = serverTag
 
+	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
-		logger.Infof("creating lease client")
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
 		// the machine that's executing the code -- but there doesn't seem to be
 		// an accessible alternative.
-		clock := lease.SystemClock{}
-		leaseClient, err := lease.NewClient(lease.ClientConfig{
-			Id:         identity.String(),
-			Namespace:  serviceLeadershipNamespace,
-			Collection: leasesC,
-			Mongo:      &environMongo{st},
-			Clock:      clock,
-		})
-		if err != nil {
-			return errors.Annotatef(err, "cannot create lease client")
-		}
-		logger.Infof("starting leadership manager")
-		leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-			Client: leaseClient,
-			Clock:  clock,
-		})
-		if err != nil {
-			return errors.Annotatef(err, "cannot create leadership manager")
-		}
-		st.leadershipManager = leadershipManager
+		clientId = identity.String()
 	} else {
-		logger.Warningf("running state anonymously")
+		// If we're running state anonymously, we can still use the lease
+		// manager; but we need to make sure we use a unique client ID, and
+		// will thus not be very performant.
+		logger.Warningf("running state anonymously; using unique client id")
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		clientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
 
+	logger.Infof("creating lease client as %s", clientId)
+	clock := lease.SystemClock{}
+	leaseClient, err := lease.NewClient(lease.ClientConfig{
+		Id:         clientId,
+		Namespace:  serviceLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create lease client")
+	}
+	logger.Infof("starting leadership manager")
+	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
+		Client: leaseClient,
+		Clock:  clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create leadership manager")
+	}
+	st.leadershipManager = leadershipManager
+
 	logger.Infof("starting presence watcher")
-	presenceCollection := st.session.DB(presenceDB).C(presenceC)
-	st.pwatcher = presence.NewWatcher(presenceCollection, st.environTag)
+	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
 	return nil
 }
 
@@ -252,12 +263,7 @@ func (st *State) EnsureEnvironmentRemoved() error {
 
 // getPresence returns the presence m.
 func (st *State) getPresence() *mgo.Collection {
-	return st.session.DB("presence").C(presenceC)
-}
-
-func (st *State) startPresenceWatcher() {
-	pdb := st.session.DB("presence")
-	st.pwatcher = presence.NewWatcher(pdb.C(presenceC), st.environTag)
+	return st.session.DB(presenceDB).C(presenceC)
 }
 
 // newDB returns a database connection using a new session, along with

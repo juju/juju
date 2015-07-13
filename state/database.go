@@ -70,11 +70,10 @@ type collectionInfo struct {
 	// relevant environment uuid.
 	global bool
 
-	// allowInsertWhileEnvironmentDying allows us to run transactions that
-	// insert to this collection even while the environment is dying. It
-	// applies only to non-global collections; it was essentially created
-	// for the convenience of cleanupsC, and more should probably not exist.
-	allowInsertWhileEnvironmentDying bool
+	// insertWithoutEnvironment allows us to run transactions that insert to
+	// this collection even while the environment is dying or missing. It
+	// applies only to non-global collections.
+	insertWithoutEnvironment bool
 
 	// rawAccess collections can be safely accessed as a mongo.WriteCollection.
 	// Direct database access to txn-aware collections is strongly discouraged:

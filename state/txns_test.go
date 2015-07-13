@@ -42,7 +42,7 @@ func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 			environmentsC:      {global: true},
 			"other":            {global: true},
 			"raw":              {rawAccess: true},
-			"insert":           {allowInsertWhileEnvironmentDying: true},
+			"insert":           {insertWithoutEnvironment: true},
 		},
 	}
 }

@@ -164,7 +164,7 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 settings doc", s.State.EnvironUUID()))
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -2692,7 +2692,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		defer closer()
 		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(n, gc.Equals, 1)
+		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
 	// test that we can find the user:envName unique index
