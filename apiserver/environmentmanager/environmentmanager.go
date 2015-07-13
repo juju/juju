@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -33,7 +32,6 @@ type EnvironmentManager interface {
 	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
 	ListEnvironments(user params.Entity) (params.UserEnvironmentList, error)
-	AllEnvironments() (params.UserEnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -65,20 +63,25 @@ func NewEnvironmentManagerAPI(
 	}, nil
 }
 
-func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error {
-	authTag := em.authorizer.GetAuthTag()
-	apiUser, ok := authTag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+// authCheck checks if the user is acting on their own behalf, or if they
+// are an administrator acting on behalf of another user.
+func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := em.authorizer.GetAuthTag().(names.UserTag)
+	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	if isAdmin {
+		logger.Tracef("%q is a system admin", apiUser.Username())
+		return nil
+	}
+
 	// We can't just compare the UserTags themselves as the provider part
 	// may be unset, and gets replaced with 'local'. We must compare against
 	// the Username of the user tag.
-	apiUsername := apiUser.Username()
-	username := user.Username()
-	adminUsername := adminUser.Username()
-	logger.Tracef("comparing api user %q against owner %q and admin %q", apiUsername, username, adminUsername)
-	if apiUsername == username || apiUsername == adminUsername {
+	if apiUser.Username() == user.Username() {
 		return nil
 	}
 	return common.ErrPerm
@@ -290,7 +293,6 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	adminUser := stateServerEnv.Owner()
 
 	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
@@ -300,7 +302,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	// Any user is able to create themselves an environment (until real fine
 	// grain permissions are available), and admins (the creator of the state
 	// server environment) are able to create environments for other people.
-	err = em.authCheck(ownerTag, adminUser)
+	err = em.authCheck(ownerTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -332,18 +334,12 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.UserEnvironmentList, error) {
 	result := params.UserEnvironmentList{}
 
-	stateServerEnv, err := em.state.StateServerEnvironment()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	adminUser := stateServerEnv.Owner()
-
 	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	err = em.authCheck(userTag, adminUser)
+	err = em.authCheck(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -365,220 +361,5 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}
 
-	return result, nil
-}
-
-// AllEnvironments allows system administrators to get the list of all the
-// environments in the system.
-func (em *EnvironmentManagerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
-	result := params.UserEnvironmentList{}
-
-	authTag := em.authorizer.GetAuthTag()
-	apiUser, ok := authTag.(names.UserTag)
-	if !ok {
-		return result, errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
-	}
-
-	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isAdmin {
-		return result, common.ErrPerm
-	}
-
-	// Get all the environments that the authenticated user can see, and
-	// supplement that with the other environments that exist that the user
-	// cannot see. The reason we do this is to get the LastConnection time for
-	// the environments that the user is able to see, so we have consistent
-	// output when listing with or without --all when an admin user.
-	visibleEnvironments, err := em.ListEnvironments(params.Entity{Tag: apiUser.String()})
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	envs := make(map[string]params.UserEnvironment)
-	for _, env := range visibleEnvironments.UserEnvironments {
-		envs[env.UUID] = env
-	}
-
-	allEnvs, err := em.state.AllEnvironments()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	for _, env := range allEnvs {
-		if _, ok := envs[env.UUID()]; !ok {
-			envs[env.UUID()] = params.UserEnvironment{
-				Environment: params.Environment{
-					Name:     env.Name(),
-					UUID:     env.UUID(),
-					OwnerTag: env.Owner().String(),
-				},
-				// No LastConnection as this user hasn't.
-			}
-		}
-	}
-
-	for _, userEnv := range envs {
-		result.UserEnvironments = append(result.UserEnvironments, userEnv)
-	}
-
-	return result, nil
-}
-
-func (em *EnvironmentManagerAPI) environmentAuthCheck(st stateInterface) error {
-	authTag := em.authorizer.GetAuthTag()
-	apiUserTag, ok := authTag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
-	}
-
-	stateServerEnv, err := st.StateServerEnvironment()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	adminUserTag := stateServerEnv.Owner()
-
-	// The user may modify or query the environment if they are the admin user
-	// or any user with access to the environment.
-	_, err = st.EnvironmentUser(apiUserTag)
-	if err != nil && apiUserTag != adminUserTag {
-		return common.ErrPerm
-	}
-
-	return nil
-}
-
-// DestroyEnvironment destroys all services and non-manager machine
-// instances in the specified environment.
-func (em *EnvironmentManagerAPI) DestroyEnvironment(args params.EnvironmentDestroyArgs) (err error) {
-	st := em.state
-	envUUID := args.EnvUUID
-	if envUUID != em.state.EnvironUUID() {
-		envTag := names.NewEnvironTag(envUUID)
-		if st, err = em.state.ForEnviron(envTag); err != nil {
-			return errors.Trace(err)
-		}
-		defer st.Close()
-	}
-
-	err = em.environmentAuthCheck(st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	check := common.NewBlockChecker(st)
-	if err = check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	env, err := st.Environment()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err = env.Destroy(); err != nil {
-		return errors.Trace(err)
-	}
-
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// We must destroy instances server-side to support JES (Juju Environment
-	// Server), as there's no CLI to fall back on. In that case, we only ever
-	// destroy non-state machines; we leave destroying state servers in non-
-	// hosted environments to the CLI, as otherwise the API server may get cut
-	// off.
-	if err := destroyInstances(st, machines); err != nil {
-		return errors.Trace(err)
-	}
-
-	// If this is not the state server environment, remove all documents from
-	// state associated with the environment.
-	if env.UUID() != env.ServerTag().Id() {
-		return errors.Trace(st.RemoveAllEnvironDocs())
-	}
-
-	// Return to the caller. If it's the CLI, it will finish up
-	// by calling the provider's Destroy method, which will
-	// destroy the state servers, any straggler instances, and
-	// other provider-specific resources.
-	return nil
-}
-
-// destroyInstances directly destroys all non-manager,
-// non-manual machine instances.
-func destroyInstances(st stateInterface, machines []*state.Machine) error {
-	var ids []instance.Id
-	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		if _, isContainer := m.ParentId(); isContainer {
-			continue
-		}
-		manual, err := m.IsManual()
-		if manual {
-			continue
-		} else if err != nil {
-			return err
-		}
-		id, err := m.InstanceId()
-		if err != nil {
-			continue
-		}
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	envcfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env, err := environs.New(envcfg)
-	if err != nil {
-		return err
-	}
-	return env.StopInstances(ids...)
-}
-
-// EnvironmentGet returns the environment config for the system
-// environment.  For information on the current environment, use
-// client.EnvironmentGet
-func (em *EnvironmentManagerAPI) EnvironmentGet() (_ params.EnvironmentConfigResults, err error) {
-	result := params.EnvironmentConfigResults{}
-
-	st := em.state
-	stateServerEnv, err := em.state.StateServerEnvironment()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// We need to obtain the state for the stateServerEnvironment to
-	// determine if the caller is authorized to access the environment.
-	if stateServerEnv.UUID() != st.EnvironUUID() {
-		envTag := names.NewEnvironTag(stateServerEnv.UUID())
-		st, err = em.state.ForEnviron(envTag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		defer st.Close()
-	}
-
-	err = em.environmentAuthCheck(st)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	config, err := stateServerEnv.Config()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	result.Config = config.AllAttrs()
 	return result, nil
 }
