@@ -16,15 +16,47 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/utils"
-	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-const spoolLockName string = "access"
+type metricFile struct {
+	*os.File
+	finalName string
+}
 
-var lockTimeout = time.Second * 5
+func createMetricFile(path string) (*metricFile, error) {
+	dir, base := filepath.Dir(path), filepath.Base(path)
+	if !filepath.IsAbs(dir) {
+		return nil, errors.Errorf("not an absolute path: %q", path)
+	}
+
+	workUUID, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	workName := filepath.Join(dir, fmt.Sprintf(".%s.inc-%s", base, workUUID.String()))
+
+	f, err := os.Create(workName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &metricFile{File: f, finalName: path}, nil
+}
+
+// Close implements io.Closer.
+func (f *metricFile) Close() error {
+	err := f.File.Close()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = os.Rename(f.Name(), f.finalName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
 
 // MetricBatch stores the information relevant to a single metrics batch.
 type MetricBatch struct {
@@ -59,11 +91,13 @@ type MetricsMetadata struct {
 // JSONMetricRecorder implements the MetricsRecorder interface
 // and writes metrics to a spool directory for store-and-forward.
 type JSONMetricRecorder struct {
-	lock sync.Mutex
-
-	path string
-
+	spoolDir     string
 	validMetrics map[string]corecharm.Metric
+	charmURL     string
+	uuid         utils.UUID
+	created      time.Time
+
+	lock sync.Mutex
 
 	file io.Closer
 	enc  *json.Encoder
@@ -73,23 +107,6 @@ type JSONMetricRecorder struct {
 // It checks if the metrics spool directory exists, if it does not - it is created. Then
 // it tries to find an unused metric batch UUID 3 times.
 func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric, charmURL string) (rec *JSONMetricRecorder, rErr error) {
-	lock, err := fslock.NewLock(spoolDir, spoolLockName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := lock.LockWithTimeout(lockTimeout, "initializing recorder"); err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() {
-		err := lock.Unlock()
-		if err != nil && rErr == nil {
-			rErr = errors.Trace(err)
-			rec = nil
-		} else if err != nil {
-			rErr = errors.Annotatef(err, "failed to unlock spool directory %q", spoolDir)
-		}
-	}()
-
 	if err := checkSpoolDir(spoolDir); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -99,27 +116,11 @@ func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric,
 		return nil, errors.Trace(err)
 	}
 
-	metaFile := filepath.Join(spoolDir, fmt.Sprintf("%s.meta", mbUUID.String()))
-	dataFile := filepath.Join(spoolDir, mbUUID.String())
-	if _, err := os.Stat(metaFile); !os.IsNotExist(err) {
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to stat file %s", metaFile)
-		}
-		return nil, errors.Errorf("file %s already exists", metaFile)
-	}
-	if _, err := os.Stat(dataFile); err != nil && !os.IsNotExist(err) {
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to stat file %s", dataFile)
-		}
-		return nil, errors.Errorf("file %s already exists", dataFile)
-	}
-
-	if err := recordMetaData(metaFile, charmURL, mbUUID.String()); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	recorder := &JSONMetricRecorder{
-		path:         dataFile,
+		spoolDir:     spoolDir,
+		uuid:         mbUUID,
+		charmURL:     charmURL,
+		created:      time.Now().UTC(),
 		validMetrics: metrics,
 	}
 	if err := recorder.open(); err != nil {
@@ -132,7 +133,22 @@ func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric,
 func (m *JSONMetricRecorder) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return errors.Trace(m.file.Close())
+
+	err := errors.Trace(m.file.Close())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We have an exclusive lock on this metric batch here, because
+	// metricsFile.Close was able to rename the final filename atomically.
+	//
+	// Now write the meta file so that JSONMetricReader discovers a finished
+	// pair of files.
+	if err := m.recordMetaData(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // AddMetric implements the MetricsRecorder interface.
@@ -140,14 +156,21 @@ func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) err
 	if _, ok := m.validMetrics[key]; !ok {
 		return errors.Errorf("invalid metric key: %v", key)
 	}
-
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
 }
 
 func (m *JSONMetricRecorder) open() error {
-	dataWriter, err := os.Create(m.path)
+	dataFile := filepath.Join(m.spoolDir, m.uuid.String())
+	if _, err := os.Stat(dataFile); err != nil && !os.IsNotExist(err) {
+		if err != nil {
+			return errors.Annotatef(err, "failed to stat file %s", dataFile)
+		}
+		return errors.Errorf("file %s already exists", dataFile)
+	}
+
+	dataWriter, err := createMetricFile(dataFile)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,13 +191,23 @@ func checkSpoolDir(path string) error {
 	return nil
 }
 
-func recordMetaData(path string, charmURL, UUID string) error {
-	metadata := MetricsMetadata{
-		CharmURL: charmURL,
-		UUID:     UUID,
-		Created:  time.Now().UTC(),
+func (m *JSONMetricRecorder) recordMetaData() error {
+	metaFile := filepath.Join(m.spoolDir, fmt.Sprintf("%s.meta", m.uuid.String()))
+	if _, err := os.Stat(metaFile); !os.IsNotExist(err) {
+		if err != nil {
+			return errors.Annotatef(err, "failed to stat file %s", metaFile)
+		}
+		return errors.Errorf("file %s already exists", metaFile)
 	}
-	metaWriter, err := os.Create(path)
+
+	metadata := MetricsMetadata{
+		CharmURL: m.charmURL,
+		UUID:     m.uuid.String(),
+		Created:  m.created,
+	}
+	// The use of a metricFile here ensures that the JSONMetricReader will only
+	// find a fully-written metafile.
+	metaWriter, err := createMetricFile(metaFile)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,8 +222,7 @@ func recordMetaData(path string, charmURL, UUID string) error {
 
 // JSONMetricsReader reads metrics batches stored in the spool directory.
 type JSONMetricReader struct {
-	dir  string
-	lock *fslock.Lock
+	dir string
 }
 
 // NewJSONMetricsReader creates a new JSON metrics reader for the specified spool directory.
@@ -198,13 +230,8 @@ func NewJSONMetricReader(spoolDir string) (*JSONMetricReader, error) {
 	if _, err := os.Stat(spoolDir); err != nil {
 		return nil, errors.Annotatef(err, "failed to open spool directory %q", spoolDir)
 	}
-	lock, err := fslock.NewLock(spoolDir, spoolLockName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &JSONMetricReader{
-		lock: lock,
-		dir:  spoolDir,
+		dir: spoolDir,
 	}, nil
 }
 
@@ -213,10 +240,6 @@ func NewJSONMetricReader(spoolDir string) (*JSONMetricReader, error) {
 // they will be returned in an arbitrary order. This does not affect the behavior.
 func (r *JSONMetricReader) Read() ([]MetricBatch, error) {
 	var batches []MetricBatch
-
-	if err := r.lock.LockWithTimeout(lockTimeout, "reading"); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	walker := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -264,9 +287,6 @@ func (r *JSONMetricReader) Remove(uuid string) error {
 
 // Close implements the MetricsReader interface.
 func (r *JSONMetricReader) Close() error {
-	if r.lock.IsLockHeld() {
-		return r.lock.Unlock()
-	}
 	return nil
 }
 

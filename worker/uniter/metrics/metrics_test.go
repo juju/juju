@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
-	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -112,7 +111,6 @@ var _ = gc.Suite(&MetricsRecorderSuite{})
 func (s *MetricsRecorderSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.paths = newTestPaths(c)
-	s.PatchValue(&metrics.LockTimeout, jujutesting.ShortWait)
 }
 
 func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
@@ -189,21 +187,6 @@ func (s *MetricsReaderSuite) TestTwoSimultaneousReaders(c *gc.C) {
 	c.Assert(r2, gc.NotNil)
 	err = r2.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	err = r.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-}
-
-func (s *MetricsReaderSuite) TestBlockedReaders(c *gc.C) {
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = r.Read()
-	c.Assert(err, jc.ErrorIsNil)
-
-	r2, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = r2.Read()
-	c.Assert(err, gc.ErrorMatches, `lock timeout exceeded`)
 	err = r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
