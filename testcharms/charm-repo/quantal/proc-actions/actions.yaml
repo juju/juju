@@ -43,10 +43,17 @@ status:
   params:
     name:
       type: string
-destroy:
+status:
   description: call the hook command
   params:
     name:
+      type: string
+set-status:
+  description: call the hook command
+  params:
+    name:
+      type: string
+    status:
       type: string
 unregister:
   description: call the hook command

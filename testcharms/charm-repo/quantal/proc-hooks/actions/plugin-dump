@@ -2,5 +2,5 @@
 
 export PATH=$PWD/plugin:$PATH
 
-out = juju-process-myplugin dump
+out=$(juju-process-myplugin dump)
 action-set output=$out

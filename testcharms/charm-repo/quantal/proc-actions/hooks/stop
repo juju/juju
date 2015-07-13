@@ -1,5 +1,0 @@
-#!/bin/bash
-
-export PATH=$PWD/plugin:$PATH
-
-#sudo destroy myproc --unregister

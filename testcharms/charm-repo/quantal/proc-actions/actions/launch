@@ -2,5 +2,5 @@
 
 export PATH=$PWD/plugin:$PATH
 
-name = action-get name
+name=$(action-get name)
 launch $name

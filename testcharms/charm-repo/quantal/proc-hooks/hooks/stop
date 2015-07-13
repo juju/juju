@@ -2,4 +2,4 @@
 
 export PATH=$PWD/plugin:$PATH
 
-#sudo destroy myproc --unregister
+#destroy myproc --unregister

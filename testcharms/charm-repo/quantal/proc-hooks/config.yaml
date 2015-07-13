@@ -1,0 +1,5 @@
+options:
+    status:
+        default:
+        description: The status to set for the proc (<proc-name>:<status>)
+        type: string

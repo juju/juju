@@ -3,4 +3,4 @@
 export PATH=$PWD/plugin:$PATH
 
 # TODO(ericsnow) Use an override for the port.
-sudo launch myproc
+launch myproc

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+status=$(config-get status)
+
+if [ $status != "" ]; then
+    # TODO(ericsnow) Uncomment once set-status is added.
+    #proc-status-set $status
+fi
