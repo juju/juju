@@ -42,7 +42,8 @@ bzr pull -d ~/juju-release-tools
 bzr pull -d ~/repository
 bzr pull -d ~/juju-ci-tools
 if [ ! -e ~/workspace-runnner ]; then
-    bzr branch lp:workspace-runner ~/workspace-runner
+    bzr branch http://bazaar.launchpad.net/~juju-qa/workspace-runner/trunk/\
+      ~/workspace-runner
 fi
 bzr pull -d ~/workspace-runner
 if [[ \$(uname) == "Linux" ]]; then
