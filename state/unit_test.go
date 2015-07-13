@@ -38,6 +38,9 @@ func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *stat
 			StatusInfo: message,
 			Updated:    &updated}
 		sdoc := state.NewStatusDoc(statusDoc)
+		// EnvUUID is added here because the oldDoc we just created will
+		// not have one. EnvUUID is populated by the transaction runner.
+		sdoc.EnvUUID = st.EnvironUUID()
 		err := state.UpdateStatusHistory(sdoc, globalKey, st)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -663,6 +666,11 @@ func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+
+	h, err = state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(h, gc.HasLen, 2)
 
 	err = s.unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
 	c.Assert(err, jc.ErrorIsNil)
