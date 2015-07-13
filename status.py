@@ -296,10 +296,11 @@ class StatusTabularParser(BaseStatusParser):
                        "Unexpected headers for machine:\n"
                        "wanted: %s"
                        "got: %s" % (MACHINE_TAB_HEADERS, header))
-        return nitems[0], dict(zip((AGENT_STATE_KEY, AGENT_VERSION_KEY,
+        normalized = dict(zip((AGENT_STATE_KEY, AGENT_VERSION_KEY,
                                     DNS_NAME_KEY, INSTANCE_ID_KEY,
                                     SERIES_KEY, HARDWARE_KEY),
                                nitems[1:]))
+        return nitems[0], normalized
 
     @toUnitTest
     def _normalize_units(self, tc, header, items):
@@ -312,10 +313,12 @@ class StatusTabularParser(BaseStatusParser):
                        "Unexpected headers for unit.\n"
                        "wanted: %s"
                        "got: %s" % (UNIT_TAB_HEADERS, header))
-        return eid, dict(zip((WORKLOAD_STATUS_KEY, AGENT_STATUS_KEY,
+        normalized = dict(zip((WORKLOAD_STATUS_KEY, AGENT_STATUS_KEY,
                               AGENT_VERSION_KEY, MACHINE_KEY,
                               PUBLIC_ADDRESS_KEY),
                              (wlstatus, astatus, version, machine, paddress)))
+
+        return eid, normalized
 
     @toUnitTest
     def _normalize_services(self, tc, header, items):
@@ -324,10 +327,10 @@ class StatusTabularParser(BaseStatusParser):
                        "Unexpected headers for service.\n"
                        "wanted: %s"
                        "got: %s" % (SERVICE_TAB_HEADERS, header))
-
-        return name, dict(zip((CHARM_KEY, EXPOSED_KEY, SERVICE_STATUS_KEY),
+        normalized = dict(zip((CHARM_KEY, EXPOSED_KEY, SERVICE_STATUS_KEY),
                               (charm, exposed == "true", {"current": status,
                                "message": ""})))
+        return name, normalized
 
     def _parse(self):
         section = re.compile("^\[(\w*)\]")

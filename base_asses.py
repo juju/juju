@@ -53,5 +53,6 @@ def toUnitTest(testCase):
         largs = list(args)
         largs.insert(1, tc)
         args = tuple(largs)
-        testCase(*args, **kwargs)
+        return testCase(*args, **kwargs)
+
     return unitTestify
