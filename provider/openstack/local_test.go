@@ -819,7 +819,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
-	c.Check(sources[1].Description(), gc.Equals, common.CloudLocalStorageDesc)
+	c.Check(sources[1].Description(), gc.Equals, "cloud local storage")
 	c.Check(sources[2].Description(), gc.Equals, "default cloud images")
 }
 
@@ -970,7 +970,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSourcesContains(c, params.Sources, common.CloudLocalStorageDesc)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)

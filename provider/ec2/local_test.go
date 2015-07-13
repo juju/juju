@@ -694,7 +694,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSourcesContains(c, params.Sources, common.CloudLocalStorageDesc)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)

@@ -17,7 +17,7 @@ const (
 func init() {
 	environs.RegisterProvider(providerType, environProvider{})
 
-	// Register cloud local storage as data source
+	// Register cloud local storage as simplestreams image data source.
 	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, getCustomImageSource)
 
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)

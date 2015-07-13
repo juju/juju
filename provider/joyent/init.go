@@ -18,6 +18,6 @@ func init() {
 
 	registry.RegisterEnvironStorageProviders(providerType)
 
-	// Register cloud local storage as data source
+	// Register cloud local storage as simplestreams image data source.
 	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, getCustomImageSource)
 }
