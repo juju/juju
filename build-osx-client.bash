@@ -26,7 +26,7 @@ command: [remote/build-osx-client-remote.bash]
 artifacts:
   client:
     [juju-*-osx.tar.gz]
-bucket: ws-runner-test
+bucket: juju-qa-data
 EOT
 version_prefix=juju-ci/products/version-$revision_build
 workspace-run -v --s3-config $JUJU_HOME/juju-qa.s3cfg temp-config.yaml \
