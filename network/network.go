@@ -59,6 +59,27 @@ type SubnetInfo struct {
 	// allocatable.
 	AllocatableIPLow  net.IP
 	AllocatableIPHigh net.IP
+
+	// AvailabilityZones describes with availability zone(s) this
+	// subnet is in. It can be empty if the provider does not support
+	// availability zones.
+	AvailabilityZones []string
+
+	// SpaceName holds the juju network space associated with this
+	// subnet. Can be empty if not supported.
+	SpaceName string
+}
+
+type SpaceInfo struct {
+	Name  string
+	CIDRs []string
+}
+type BySpaceName []SpaceInfo
+
+func (s BySpaceName) Len() int      { return len(s) }
+func (s BySpaceName) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s BySpaceName) Less(i, j int) bool {
+	return s[i].Name < s[j].Name
 }
 
 // InterfaceConfigType defines valid network interface configuration
