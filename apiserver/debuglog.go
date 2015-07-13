@@ -7,32 +7,53 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
 	"strconv"
-	"strings"
+	"syscall"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/juju/utils/tailer"
 	"golang.org/x/net/websocket"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // debugLogHandler takes requests to watch the debug log.
+//
+// It provides the underlying framework for the 2 debug-log
+// variants. The supplied handle func allows for varied handling of
+// requests.
 type debugLogHandler struct {
 	httpHandler
-	logDir string
+	stop   <-chan struct{}
+	handle debugLogHandlerFunc
 }
 
-var maxLinesReached = fmt.Errorf("max lines reached")
+type debugLogHandlerFunc func(
+	state.LoggingState,
+	*debugLogParams,
+	debugLogSocket,
+	<-chan struct{},
+) error
 
-// ServeHTTP will serve up connections as a websocket.
+func newDebugLogHandler(
+	ssState *state.State,
+	stop <-chan struct{},
+	handle debugLogHandlerFunc,
+) *debugLogHandler {
+	return &debugLogHandler{
+		httpHandler: httpHandler{ssState: ssState},
+		stop:        stop,
+		handle:      handle,
+	}
+}
+
+// ServeHTTP will serve up connections as a websocket for the
+// debug-log API.
+//
 // Args for the HTTP request are as follows:
 //   includeEntity -> []string - lists entity tags to include in the response
 //      - tags may finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2
@@ -50,63 +71,35 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
-		Handler: func(socket *websocket.Conn) {
+		Handler: func(conn *websocket.Conn) {
+			socket := &debugLogSocketImpl{conn}
+			defer socket.Close()
+
 			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
 			stateWrapper, err := h.validateEnvironUUID(req)
 			if err != nil {
-				h.sendError(socket, err)
-				socket.Close()
+				socket.sendError(err)
 				return
 			}
 			defer stateWrapper.cleanup()
-			// TODO (thumper): We need to work out how we are going to filter
-			// logging information based on environment.
 			if err := stateWrapper.authenticateUser(req); err != nil {
-				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
-				socket.Close()
-				return
-			}
-			stream, err := newLogStream(req.URL.Query())
-			if err != nil {
-				h.sendError(socket, err)
-				socket.Close()
-				return
-			}
-			// Open log file.
-			logLocation := filepath.Join(h.logDir, "all-machines.log")
-			logFile, err := os.Open(logLocation)
-			if err != nil {
-				h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
-				socket.Close()
-				return
-			}
-			defer logFile.Close()
-			if err := stream.positionLogFile(logFile); err != nil {
-				h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
-				socket.Close()
+				socket.sendError(fmt.Errorf("auth failed: %v", err))
 				return
 			}
 
-			// If we get to here, no more errors to report, so we report a nil
-			// error.  This way the first line of the socket is always a json
-			// formatted simple error.
-			if err := h.sendError(socket, nil); err != nil {
-				logger.Errorf("could not send good log stream start")
-				socket.Close()
+			params, err := readDebugLogParams(req.URL.Query())
+			if err != nil {
+				socket.sendError(err)
 				return
 			}
 
-			stream.start(logFile, socket)
-			go func() {
-				defer stream.tomb.Done()
-				defer socket.Close()
-				stream.tomb.Kill(stream.loop())
-			}()
-			if err := stream.tomb.Wait(); err != nil {
-				if err != maxLinesReached {
+			if err := h.handle(stateWrapper.state, params, socket, h.stop); err != nil {
+				if isBrokenPipe(err) {
+					logger.Tracef("debug-log handler stopped (client disconnected)")
+				} else {
 					logger.Errorf("debug-log handler error: %v", err)
 				}
 			}
@@ -114,58 +107,40 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server.ServeHTTP(w, req)
 }
 
-func newLogStream(queryMap url.Values) (*logStream, error) {
-	maxLines := uint(0)
-	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("maxLines value %q is not a valid unsigned number", value)
-		}
-		maxLines = uint(num)
+func isBrokenPipe(err error) bool {
+	err = errors.Cause(err)
+	if opErr, ok := err.(*net.OpError); ok {
+		return opErr.Err == syscall.EPIPE
 	}
-
-	fromTheStart := false
-	if value := queryMap.Get("replay"); value != "" {
-		replay, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, fmt.Errorf("replay value %q is not a valid boolean", value)
-		}
-		fromTheStart = replay
-	}
-
-	backlog := uint(0)
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("backlog value %q is not a valid unsigned number", value)
-		}
-		backlog = uint(num)
-	}
-
-	level := loggo.UNSPECIFIED
-	if value := queryMap.Get("level"); value != "" {
-		var ok bool
-		level, ok = loggo.ParseLevel(value)
-		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
-				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
-		}
-	}
-
-	return &logStream{
-		includeEntity: queryMap["includeEntity"],
-		includeModule: queryMap["includeModule"],
-		excludeEntity: queryMap["excludeEntity"],
-		excludeModule: queryMap["excludeModule"],
-		maxLines:      maxLines,
-		fromTheStart:  fromTheStart,
-		backlog:       backlog,
-		filterLevel:   level,
-	}, nil
+	return false
 }
 
-// sendError sends a JSON-encoded error response.
-func (h *debugLogHandler) sendError(w io.Writer, err error) error {
+// debugLogSocket describes the functionality required for the
+// debuglog handlers to send logs to the client.
+type debugLogSocket interface {
+	io.Writer
+
+	// sendOk sends a nil error response, indicating there were no errors.
+	sendOk() error
+
+	// sendError sends a JSON-encoded error response.
+	sendError(err error) error
+}
+
+// debugLogSocketImpl implements the debugLogSocket interface. It
+// wraps a websocket.Conn and provides a few debug-log specific helper
+// methods.
+type debugLogSocketImpl struct {
+	*websocket.Conn
+}
+
+// sendOK implements debugLogSocket.
+func (s *debugLogSocketImpl) sendOk() error {
+	return s.sendError(nil)
+}
+
+// sendErr implements debugLogSocket.
+func (s *debugLogSocketImpl) sendError(err error) error {
 	response := &params.ErrorResult{}
 	if err != nil {
 		response.Error = &params.Error{Message: fmt.Sprint(err)}
@@ -177,196 +152,63 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 		return err
 	}
 	message = append(message, []byte("\n")...)
-	_, err = w.Write(message)
+	_, err = s.Conn.Write(message)
 	return err
 }
 
-type logLine struct {
-	line      string
-	agentTag  string
-	agentName string
-	level     loggo.Level
-	module    string
-}
-
-func parseLogLine(line string) *logLine {
-	const (
-		agentTagIndex = 0
-		levelIndex    = 3
-		moduleIndex   = 4
-	)
-	fields := strings.Fields(line)
-	result := &logLine{
-		line: line,
-	}
-	if len(fields) > agentTagIndex {
-		agentTag := fields[agentTagIndex]
-		// Drop mandatory trailing colon (:).
-		// Since colon is mandatory, agentTag without it is invalid and will be empty ("").
-		if strings.HasSuffix(agentTag, ":") {
-			result.agentTag = agentTag[:len(agentTag)-1]
-		}
-		/*
-		 Drop unit suffix.
-		 In logs, unit information may be prefixed with either a unit_tag by itself or a unit_tag[nnnn].
-		 The code below caters for both scenarios.
-		*/
-		if bracketIndex := strings.Index(agentTag, "["); bracketIndex != -1 {
-			result.agentTag = agentTag[:bracketIndex]
-		}
-		// If, at this stage, result.agentTag is empty,  we could not deduce the tag. No point getting the name...
-		if result.agentTag != "" {
-			// Entity Name deduced from entity tag
-			entityTag, err := names.ParseTag(result.agentTag)
-			if err != nil {
-				/*
-				 Logging error but effectively swallowing it as there is no where to propogate.
-				 We don't expect ParseTag to fail since the tag was generated by juju in the first place.
-				*/
-				logger.Errorf("Could not deduce name from tag %q: %v\n", result.agentTag, err)
-			}
-			result.agentName = entityTag.Id()
-		}
-	}
-	if len(fields) > moduleIndex {
-		if level, valid := loggo.ParseLevel(fields[levelIndex]); valid {
-			result.level = level
-			result.module = fields[moduleIndex]
-		}
-	}
-
-	return result
-}
-
-// logStream runs the tailer to read a log file and stream
-// it via a web socket.
-type logStream struct {
-	tomb          tomb.Tomb
-	logTailer     *tailer.Tailer
+// debugLogParams contains the parsed debuglog API request parameters.
+type debugLogParams struct {
+	maxLines      uint
+	fromTheStart  bool
+	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
-	includeModule []string
 	excludeEntity []string
+	includeModule []string
 	excludeModule []string
-	backlog       uint
-	maxLines      uint
-	lineCount     uint
-	fromTheStart  bool
 }
 
-// positionLogFile will update the internal read position of the logFile to be
-// at the end of the file or somewhere in the middle if backlog has been specified.
-func (stream *logStream) positionLogFile(logFile io.ReadSeeker) error {
-	// Seek to the end, or lines back from the end if we need to.
-	if !stream.fromTheStart {
-		return tailer.SeekLastLines(logFile, stream.backlog, stream.filterLine)
-	}
-	return nil
-}
+func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
+	params := new(debugLogParams)
 
-// start the tailer listening to the logFile, and sending the matching
-// lines to the writer.
-func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
-	stream.logTailer = tailer.NewTailer(logFile, writer, stream.countedFilterLine)
-}
-
-// loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop() error {
-	select {
-	case <-stream.logTailer.Dead():
-		return stream.logTailer.Err()
-	case <-stream.tomb.Dying():
-		stream.logTailer.Stop()
-	}
-	return nil
-}
-
-// filterLine checks the received line for one of the configured tags.
-func (stream *logStream) filterLine(line []byte) bool {
-	log := parseLogLine(string(line))
-	return stream.checkIncludeEntity(log) &&
-		stream.checkIncludeModule(log) &&
-		!stream.exclude(log) &&
-		stream.checkLevel(log)
-}
-
-// countedFilterLine checks the received line for one of the configured tags,
-// and also checks to make sure the stream doesn't send more than the
-// specified number of lines.
-func (stream *logStream) countedFilterLine(line []byte) bool {
-	result := stream.filterLine(line)
-	if result && stream.maxLines > 0 {
-		stream.lineCount++
-		result = stream.lineCount <= stream.maxLines
-		if stream.lineCount == stream.maxLines {
-			stream.tomb.Kill(maxLinesReached)
+	if value := queryMap.Get("maxLines"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
+		params.maxLines = uint(num)
 	}
-	return result
-}
 
-func (stream *logStream) checkIncludeEntity(line *logLine) bool {
-	if len(stream.includeEntity) == 0 {
-		return true
-	}
-	for _, value := range stream.includeEntity {
-		if agentMatchesFilter(line, value) {
-			return true
+	if value := queryMap.Get("replay"); value != "" {
+		replay, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
+		params.fromTheStart = replay
 	}
-	return false
-}
 
-// agentMatchesFilter checks if agentTag tag or agentTag name match given filter
-func agentMatchesFilter(line *logLine, aFilter string) bool {
-	return hasMatch(line.agentName, aFilter) || hasMatch(line.agentTag, aFilter)
-}
-
-// hasMatch determines if value contains filter using regular expressions.
-// All wildcard occurrences are changed to `.*`
-// Currently, all match exceptions are logged and not propagated.
-func hasMatch(value, aFilter string) bool {
-	/* Special handling: out of 12 regexp metacharacters \^$.|?+()[*{
-	   only asterix (*) can be legally used as a wildcard in this context.
-	   Both machine and unit tag and name specifications do not allow any other metas.
-	   Consequently, if aFilter contains wildcard (*), do not escape it -
-	   transform it into a regexp "any character(s)" sequence.
-	*/
-	aFilter = strings.Replace(aFilter, "*", `.*`, -1)
-	matches, err := regexp.MatchString("^"+aFilter+"$", value)
-	if err != nil {
-		// logging errors here... but really should they be swallowed?
-		logger.Errorf("\nCould not match filter %q and regular expression %q\n.%v\n", value, aFilter, err)
-	}
-	return matches
-}
-
-func (stream *logStream) checkIncludeModule(line *logLine) bool {
-	if len(stream.includeModule) == 0 {
-		return true
-	}
-	for _, value := range stream.includeModule {
-		if strings.HasPrefix(line.module, value) {
-			return true
+	if value := queryMap.Get("backlog"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
+		params.backlog = uint(num)
 	}
-	return false
-}
 
-func (stream *logStream) exclude(line *logLine) bool {
-	for _, value := range stream.excludeEntity {
-		if agentMatchesFilter(line, value) {
-			return true
+	if value := queryMap.Get("level"); value != "" {
+		var ok bool
+		level, ok := loggo.ParseLevel(value)
+		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
+		params.filterLevel = level
 	}
-	for _, value := range stream.excludeModule {
-		if strings.HasPrefix(line.module, value) {
-			return true
-		}
-	}
-	return false
-}
 
-func (stream *logStream) checkLevel(line *logLine) bool {
-	return line.level >= stream.filterLevel
+	params.includeEntity = queryMap["includeEntity"]
+	params.excludeEntity = queryMap["excludeEntity"]
+	params.includeModule = queryMap["includeModule"]
+	params.excludeModule = queryMap["excludeModule"]
+
+	return params, nil
 }

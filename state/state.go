@@ -106,6 +106,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}}
 
@@ -137,7 +138,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 // ForEnviron returns a connection to mongo for the specified environment. The
 // connection uses the same credentials and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, mongo.DialOpts{}, st.policy)
+	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

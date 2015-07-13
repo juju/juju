@@ -131,6 +131,12 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
+		txn.Op{
+			C:      stateServersC,
+			Id:     hostedEnvCountKey,
+			Assert: txn.DocMissing,
+			Insert: &envCountDoc{},
+		},
 	)
 
 	if err := st.runTransaction(ops); err != nil {
@@ -156,6 +162,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
 		envUserOp,
+		incEnvironCountOp(),
 	}
 	return ops, nil
 }

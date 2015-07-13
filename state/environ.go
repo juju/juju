@@ -321,11 +321,14 @@ func (e *Environment) finishDestroy() error {
 	// We don't bother adding a cleanup for a non state server environment, as
 	// RemoveAllEnvironDocs() at the end of apiserver/client.Destroy() removes
 	// these documents for us.
+	var ops []txn.Op
 	if e.UUID() == e.doc.ServerUUID {
-		ops := []txn.Op{e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
-		return e.st.runTransaction(ops)
+		ops = []txn.Op{e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
+	} else {
+		ops = []txn.Op{decEnvironCountOp()}
+
 	}
-	return nil
+	return e.st.runTransaction(ops)
 }
 
 func (e *Environment) abortDestroy() error {
@@ -428,6 +431,33 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+const hostedEnvCountKey = "hostedEnvironCount"
+
+type envCountDoc struct {
+
+	// Count is the number of environments in the Juju system. We do not count
+	// the system environment.
+	Count int `bson:"count"`
+}
+
+func incEnvironCountOp() txn.Op {
+	return environCountOp(1)
+}
+
+func decEnvironCountOp() txn.Op {
+	return environCountOp(-1)
+}
+
+func environCountOp(amount int) txn.Op {
+	return txn.Op{
+		C:  stateServersC,
+		Id: hostedEnvCountKey,
+		Update: bson.M{
+			"$inc": bson.M{"count": amount},
+		},
 	}
 }
 

@@ -43,7 +43,6 @@ type leadershipSuite struct {
 }
 
 func (s *leadershipSuite) SetUpTest(c *gc.C) {
-
 	s.AgentSuite.SetUpTest(c)
 
 	leaseManager, err := lease.NewLeaseManager(s.State)
@@ -99,7 +98,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 
 	// Create & start a machine agent so the tests have something to call into.
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, nil)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
 	// See comment in createMockJujudExecutable
@@ -360,7 +359,7 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 
 	// Create & start a machine agent so the tests have something to call into.
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, nil)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
 	// See comment in createMockJujudExecutable

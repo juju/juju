@@ -2708,6 +2708,9 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
+	err = state.SetEnvLifeDying(st, st.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2724,6 +2727,14 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	err := st.RemoveAllEnvironDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
 }
 
 type attrs map[string]interface{}
@@ -2901,7 +2912,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 func tryOpenState(envTag names.EnvironTag, info *mongo.MongoInfo) error {
 	st, err := state.Open(envTag, info, statetesting.NewDialOpts(), state.Policy(nil))
 	if err == nil {
-		st.Close()
+		err = st.Close()
 	}
 	return err
 }

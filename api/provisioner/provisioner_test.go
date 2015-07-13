@@ -644,7 +644,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -833,9 +833,12 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ifaceInfo, gc.HasLen, 1)
+
 	expectInfo := []network.InterfaceInfo{{
 		DeviceIndex:      0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		CIDR:             "0.10.0.0/24",
 		NetworkName:      "juju-private",
 		ProviderId:       "dummy-eth0",
@@ -852,11 +855,10 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		GatewayAddress: network.NewAddress("0.10.0.2"),
 		ExtraConfig:    nil,
 	}}
-	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaceInfo, gc.HasLen, 1)
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
+	c.Assert(ifaceInfo[0].MACAddress, gc.Not(gc.DeepEquals), "")
 	expectInfo[0].Address = ifaceInfo[0].Address
+	expectInfo[0].MACAddress = ifaceInfo[0].MACAddress
 	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
 }
 
@@ -883,7 +885,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "")
+		err = ipaddr.AllocateTo(container.Id(), "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)

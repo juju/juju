@@ -18,7 +18,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
@@ -83,28 +82,12 @@ type changeCertListener struct {
 	certChanged <-chan params.StateServingInfo
 
 	// The config to update with any new certificate.
-	config *tls.Config
+	config tls.Config
 }
 
-// changeCertConn wraps a TLS net.Conn.
-// It allows connection handshakes to be
-// blocked while the TLS certificate is updated.
-type changeCertConn struct {
-	net.Conn
-	m *sync.Mutex
-}
-
-// Handshake runs the client or server handshake
-// protocol if it has not yet been run.
-func (c *changeCertConn) Handshake() error {
-	c.m.Lock()
-	defer c.m.Unlock()
-	return c.Conn.(*tls.Conn).Handshake()
-}
-
-func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config tls.Config) *changeCertListener {
 	cl := &changeCertListener{
-		Listener:    tlsListener,
+		Listener:    lis,
 		certChanged: certChanged,
 		config:      config,
 	}
@@ -116,14 +99,15 @@ func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.S
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (cl *changeCertListener) Accept() (c net.Conn, err error) {
-	if c, err = cl.Listener.Accept(); err != nil {
-		return c, err
+func (cl *changeCertListener) Accept() (net.Conn, error) {
+	conn, err := cl.Listener.Accept()
+	if err != nil {
+		return nil, err
 	}
-	// Create a wrapped connection so we can
-	// control the handshakes.
-	conn := changeCertConn{c, &cl.m}
-	return conn, err
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	config := cl.config
+	return tls.Server(conn, &config), nil
 }
 
 // Close closes the listener.
@@ -204,8 +188,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 	tlsConfig := tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	}
-	tlsListener := tls.NewListener(lis, &tlsConfig)
-	changeCertListener := newChangeCertListener(tlsListener, cfg.CertChanged, &tlsConfig)
+	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
 	go srv.run(changeCertListener)
 	return srv, nil
 }
@@ -327,18 +310,17 @@ func (srv *Server) run(lis net.Listener) {
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	mux := pat.New()
-	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/environment/:envuuid/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
-	if featureflag.Enabled(feature.DbLog) {
+
+	srvDying := srv.tomb.Dying()
+
+	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			&logSinkHandler{
-				httpHandler: httpHandler{ssState: srv.state},
-			},
-		)
+			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/environment/:envuuid/log",
+			newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
@@ -373,11 +355,13 @@ func (srv *Server) run(lis net.Listener) {
 			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log",
-		&debugLogHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			logDir:      srv.logDir},
-	)
+
+	if feature.IsDbLogEnabled() {
+		handleAll(mux, "/log", newDebugLogDBHandler(srv.state, srvDying))
+	} else {
+		handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
+	}
+
 	handleAll(mux, "/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
