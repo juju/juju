@@ -19,10 +19,6 @@ from deploy_stack import (
     get_random_string,
     update_env,
     )
-from upload_hetero_control import (
-    HUploader,
-    get_credentials
-    )
 from jujuci import add_credential_args
 
 
@@ -228,21 +224,11 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def upload_heterogeneous(args):
-    """
-    Uploads the test results to S3. It assumes env variable BUILD_NUMBER is set
-    """
-    cred = get_credentials(args)
-    h_uploader = HUploader.factory(credentials=cred)
-    h_uploader.upload_by_env_build_number()
-
-
 def main():
     args = parse_args()
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
                          args.upload_tools, args.debug, args.agent_url)
-    upload_heterogeneous(args)
 
 
 if __name__ == '__main__':

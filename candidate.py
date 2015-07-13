@@ -24,6 +24,7 @@ from jujuci import (
 from utility import (
     extract_deb,
     get_deb_arch,
+    run_command,
     s3_cmd,
     temp_dir,
 )
@@ -160,16 +161,6 @@ def get_scripts(juju_release_tools=None):
     return assemble_script, publish_script
 
 
-def run_command(command, dry_run=False, verbose=False):
-    """Optionally xecute a command and maybe print the output."""
-    if verbose:
-        print('Executing: %s' % command)
-    if not dry_run:
-        output = subprocess.check_output(command)
-        if verbose:
-            print(output)
-
-
 def publish_candidates(path, streams_path,
                        juju_release_tools=None, dry_run=False, verbose=False):
     """Assemble and publish weekly streams from the candidates."""
@@ -202,9 +193,7 @@ def publish_candidates(path, streams_path,
             assemble_script, '-t', debs_path, 'weekly', 'IGNORE',
             streams_path]
         run_command(command, dry_run=dry_run, verbose=verbose)
-    juju_dist_path = os.path.join(streams_path, 'juju-dist')
-    command = [publish_script, 'weekly', juju_dist_path, 'cpc']
-    run_command(command, dry_run=dry_run, verbose=verbose)
+    publish(streams_path, publish_script, dry_run=dry_run, verbose=verbose)
     # Sync buildvars.json files out to s3.
     url = 's3://juju-qa-data/juju-releases/weekly/'
     s3_path = '{}/weekly/{}'.format(path, timestamp)
@@ -213,6 +202,19 @@ def publish_candidates(path, streams_path,
     if not dry_run:
         s3_cmd(['sync', s3_path, url])
     extract_candidates(path, dry_run=dry_run, verbose=verbose)
+
+
+def publish(streams_path, publish_script, dry_run=False, verbose=False):
+    juju_dist_path = os.path.join(streams_path, 'juju-dist')
+    command = [publish_script, 'weekly', juju_dist_path, 'cpc']
+    for attempt in range(3):
+        try:
+            run_command(command, dry_run=dry_run, verbose=verbose)
+            break
+        except subprocess.CalledProcessError:
+            # Raise an error when the third attempt fails; the cloud is ill.
+            if attempt == 2:
+                raise
 
 
 def parse_args(args=None):

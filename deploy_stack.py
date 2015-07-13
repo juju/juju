@@ -28,11 +28,14 @@ from jujupy import (
     SimpleEnvironment,
     temp_bootstrap_env,
 )
-from remote import Remote
+from remote import (
+    remote_from_address,
+    remote_from_unit,
+)
 from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
-    MAASAccount,
+    resolve_remote_dns_names,
     run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
@@ -94,11 +97,12 @@ def deploy_dummy_stack(client, charm_prefix):
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
-    if client.env.kvm:
+    if client.env.kvm or client.env.maas:
         # A single virtual machine may need up to 30 minutes before
         # "apt-get update" and other initialisation steps are
         # finished; two machines initializing concurrently may
-        # need even 40 minutes.
+        # need even 40 minutes. In addition Windows image blobs or
+        # any system deployment using MAAS requires extra time.
         client.wait_for_started(3600)
     else:
         client.wait_for_started()
@@ -123,10 +127,15 @@ def check_token(client, token):
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    remote = Remote(client, "dummy-sink/0")
+    remote = remote_from_unit(client, "dummy-sink/0")
+    # Update remote with real address if needed.
+    resolve_remote_dns_names(client.env, [remote])
     start = time.time()
     while True:
-        result = remote.run(GET_TOKEN_SCRIPT)
+        if remote.is_windows():
+            result = remote.cat("%ProgramData%\\dummy-sink\\token")
+        else:
+            result = remote.run(GET_TOKEN_SCRIPT)
         result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
@@ -143,14 +152,15 @@ def get_random_string():
 
 
 def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
-    machine_addrs = get_machines_for_logs(client, bootstrap_host)
+    remote_machines = get_remote_machines(client, bootstrap_host)
 
-    for machine_id, addr in machine_addrs.iteritems():
-        logging.info("Retrieving logs for machine-%s", machine_id)
+    for machine_id, remote in remote_machines.iteritems():
+        logging.info("Retrieving logs for machine-%s using %r", machine_id,
+                     remote)
         machine_directory = os.path.join(directory, "machine-%s" % machine_id)
         os.mkdir(machine_directory)
         local_state_server = client.env.local and machine_id == '0'
-        dump_logs(client, addr, machine_directory,
+        dump_logs(client.env, remote, machine_directory,
                   local_state_server=local_state_server)
     retain_jenv(jenv_path, directory)
 
@@ -168,60 +178,56 @@ def retain_jenv(jenv_path, log_directory):
     return False
 
 
-def get_machines_for_logs(client, bootstrap_host):
-    """Return a dict of machine_id and address.
+def get_remote_machines(client, bootstrap_host):
+    """Return a dict of machine_id to remote machines.
 
-    With a maas environment, the maas api will be queried for the real
-    ip addresses. Otherwise, bootstrap_host may be provided to
-    override the address of machine 0.
+    A bootstrap_host address may be provided as a fallback for machine 0 if
+    status fails. For some providers such as MAAS the dns-name will be
+    resolved to a real ip address using the substrate api.
     """
     # Try to get machine details from environment if possible.
-    machine_addrs = dict(get_machine_addrs(client))
-
-    if client.env.config['type'] == 'maas':
-        # Maas hostnames are not resolvable, but we can adapt them to IPs.
-        with MAASAccount.manager_from_config(client.env.config) as account:
-            allocated_ips = account.get_allocated_ips()
-        for machine_id, hostname in machine_addrs.items():
-            machine_addrs[machine_id] = allocated_ips.get(hostname, hostname)
-    elif bootstrap_host:
-        # The bootstrap host overrides the status output if provided in case
-        # status failed.
-        machine_addrs['0'] = bootstrap_host
-    return machine_addrs
+    machines = dict(iter_remote_machines(client))
+    # The bootstrap host is added as a fallback in case status failed.
+    if bootstrap_host and '0' not in machines:
+        machines['0'] = remote_from_address(bootstrap_host)
+    # Update remote machines in place with real addresses if substrate needs.
+    resolve_remote_dns_names(client.env, machines.itervalues())
+    return machines
 
 
-def get_machine_addrs(client):
+def iter_remote_machines(client):
     try:
         status = client.get_status()
     except Exception as err:
         logging.warning("Failed to retrieve status for dumping logs: %s", err)
         return
+
     for machine_id, machine in status.iter_machines():
         hostname = machine.get('dns-name')
         if hostname:
-            yield machine_id, hostname
+            remote = remote_from_address(hostname, machine.get('series'))
+            yield machine_id, remote
 
 
-def dump_logs(client, host, directory, local_state_server=False):
+def dump_logs(env, remote, directory, local_state_server=False):
     try:
         if local_state_server:
-            copy_local_logs(directory, client)
+            copy_local_logs(env, directory)
         else:
-            copy_remote_logs(host, directory)
-        subprocess.check_call(
-            ['gzip', '-f'] +
-            glob.glob(os.path.join(directory, '*.log')))
+            copy_remote_logs(remote, directory)
     except Exception as e:
         print_now("Failed to retrieve logs")
         print_now(str(e))
+    log_files = glob.glob(os.path.join(directory, '*.log'))
+    if log_files:
+        subprocess.check_call(['gzip', '-f'] + log_files)
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
 
 
-def copy_local_logs(directory, client):
-    local = get_local_root(get_juju_home(), client.env)
+def copy_local_logs(env, directory):
+    local = get_local_root(get_juju_home(), env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
     log_names.extend(glob.glob(lxc_template_glob))
@@ -230,28 +236,33 @@ def copy_local_logs(directory, client):
     subprocess.check_call(['cp'] + log_names + [directory])
 
 
-def copy_remote_logs(host, directory):
+def copy_remote_logs(remote, directory):
     """Copy as many logs from the remote host as possible to the directory."""
     # This list of names must be in the order of creation to ensure they
     # are retrieved.
-    log_paths = [
-        '/var/log/cloud-init*.log',
-        '/var/log/juju/*.log',
-    ]
-    remote = Remote(address=host)
+    if remote.is_windows():
+        log_paths = [
+            "%ProgramFiles(x86)%\\Cloudbase Solutions\\Cloudbase-Init\\log\\*",
+            "C:\\Juju\\log\\juju\\*.log",
+        ]
+    else:
+        log_paths = [
+            '/var/log/cloud-init*.log',
+            '/var/log/juju/*.log',
+        ]
 
-    try:
-        wait_for_port(host, 22, timeout=60)
-    except PortTimeoutError:
-        logging.warning("Could not dump logs because port 22 was closed.")
-        return
+        try:
+            wait_for_port(remote.address, 22, timeout=60)
+        except PortTimeoutError:
+            logging.warning("Could not dump logs because port 22 was closed.")
+            return
 
-    try:
-        remote.run('sudo chmod go+r /var/log/juju/*')
-    except subprocess.CalledProcessError as e:
-        # The juju log dir is not created until after cloud-init succeeds.
-        logging.warning("Could not change the permission of the juju logs:")
-        logging.warning(e.output)
+        try:
+            remote.run('sudo chmod go+r /var/log/juju/*')
+        except subprocess.CalledProcessError as e:
+            # The juju log dir is not created until after cloud-init succeeds.
+            logging.warning("Could not allow access to the juju logs:")
+            logging.warning(e.output)
 
     try:
         remote.copy(directory, log_paths)
@@ -277,7 +288,7 @@ def assess_juju_run(client):
     return responses
 
 
-def assess_upgrade(old_client, juju_path):
+def assess_upgrade(old_client, juju_path, skip_juju_run=False):
     client = EnvJujuClient.by_version(old_client.env, juju_path,
                                       old_client.debug)
     upgrade_juju(client)
@@ -286,7 +297,8 @@ def assess_upgrade(old_client, juju_path):
     else:
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
-    assess_juju_run(client)
+    if not skip_juju_run:
+        assess_juju_run(client)
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
     check_token(client, token)
@@ -328,7 +340,7 @@ def get_juju_path(args):
 
 def get_log_level(args):
     log_level = logging.INFO
-    if args.verbose:
+    if 'verbose' in args and args.verbose:
         log_level = logging.DEBUG
     return log_level
 
@@ -365,9 +377,13 @@ def deploy_job():
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
+    # Don't need windows state server to test windows charms, trusty is faster.
+    if series.startswith("win"):
+        logging.info('Setting default series to trusty for windows deploy.')
+        series = 'trusty'
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
-                       args.series, args.logs, args.debug, juju_path,
+                       series, args.logs, args.debug, juju_path,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools)
 
@@ -376,6 +392,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
                agent_url=None, agent_stream=None):
     # Rename to the new name.
     env.environment = new_env_name
+    env.config['name'] = new_env_name
     if series is not None:
         env.config['default-series'] = series
     if bootstrap_host is not None:
@@ -399,7 +416,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        if client.env.config['type'] == 'maas':
+        if client.env.config['type'] == 'maas' and machines:
             for machine in machines:
                 name, URI = machine.split('@')
                 # Record already running domains, so they can be left running,
@@ -490,51 +507,12 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
             return
         client.juju('status', ())
         deploy_dummy_stack(client, charm_prefix)
-        assess_juju_run(client)
+        is_windows_charm = charm_prefix.startswith("local:win")
+        if not is_windows_charm:
+            assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path)
-
-
-def run_deployer():
-    parser = ArgumentParser('Test with deployer')
-    parser.add_argument('bundle_path',
-                        help='URL or path to a bundle')
-    parser.add_argument('env',
-                        help='The juju environment to test')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('job_name', help='Name of the Jenkins job.')
-    parser.add_argument('--bundle-name', default=None,
-                        help='Name of the bundle to deploy.')
-    add_juju_args(parser)
-    add_output_args(parser)
-    add_path_args(parser)
-    args = parser.parse_args()
-    juju_path = get_juju_path(args)
-    configure_logging(get_log_level(args))
-    env = SimpleEnvironment.from_config(args.env)
-    update_env(env, args.job_name, series=args.series,
-               agent_url=args.agent_url, agent_stream=args.agent_stream)
-    client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
-    juju_home = get_juju_home()
-    with temp_bootstrap_env(
-            get_juju_home(), client, set_home=False) as juju_home:
-        client.bootstrap(juju_home=juju_home)
-    host = get_machine_dns_name(client, 0)
-    if host is None:
-        raise Exception('Could not get machine 0 host')
-    try:
-        client.wait_for_started()
-        safe_print_status(client)
-        client.deployer(args.bundle_path, args.bundle_name)
-    except BaseException as e:
-        logging.exception(e)
-        sys.exit(1)
-    finally:
-        safe_print_status(client)
-        if host is not None:
-            dump_env_logs(client, host, args.logs, jenv_path=None)
-        client.destroy_environment()
+            assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
 
 
 def safe_print_status(client):

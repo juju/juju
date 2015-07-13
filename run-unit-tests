@@ -9,6 +9,7 @@ shift; shift
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
+ROBUST="false"
 REVISION_BUILD=${revision_build:-}
 USE_PPA=""
 USE_TMPFS="false"
@@ -23,6 +24,10 @@ while [[ "${1-}" != "" ]]; do
             ;;
         --retry)
             RETRY="true"
+            ;;
+        --robust)
+            ROBUST="true"
+            GOTESTCMD="$GOTESTCMD -p 2"
             ;;
         --safe)
             GOTESTCMD="$GOTESTCMD -p 2"
@@ -166,6 +171,16 @@ fi
 
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
+elif [[ "$ROBUST" == "true" ]]; then
+    JUJUD_PACKAGES=\$(go list github.com/juju/juju/... |
+        grep 'juju/juju/cmd/jujud')
+    OTHER_PACKAGES=\$(go list github.com/juju/juju/... |
+        grep -v 'juju/juju/cmd/jujud')
+    for packages in "\$JUJUD_PACKAGES" "\$OTHER_PACKAGES"; do
+        $GOTESTCMD \$packages
+        sudo killall -SIGABRT /usr/bin/mongod || true
+        sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    done
 elif [[  "$GOTESTCMD" != "go test"  ]]; then
     $GOTESTCMD ./...
 else

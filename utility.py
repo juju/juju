@@ -19,6 +19,14 @@ from time import (
 from tempfile import mkdtemp
 import xml.etree.ElementTree as ET
 
+# Export shell quoting function which has moved in newer python versions
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
+
+quote
+
 
 @contextmanager
 def scoped_environ():
@@ -188,6 +196,15 @@ def check_free_disk_space(path, required, purpose):
             })
 
 
+def get_winrm_certs():
+    """"Returns locations of key and cert files for winrm in cloud-city."""
+    home = os.environ['HOME']
+    return (
+        os.path.join(home, 'cloud-city/winrm_client_cert.key'),
+        os.path.join(home, 'cloud-city/winrm_client_cert.pem'),
+    )
+
+
 def s3_cmd(params, drop_output=False):
     s3cfg_path = os.path.join(
         os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
@@ -269,3 +286,13 @@ def get_deb_arch():
 def extract_deb(package_path, directory):
     """Extract a debian package to a specified directory."""
     subprocess.check_call(['dpkg', '-x', package_path, directory])
+
+
+def run_command(command, dry_run=False, verbose=False):
+    """Optionally execute a command and maybe print the output."""
+    if verbose:
+        print_now('Executing: {}'.format(command))
+    if not dry_run:
+        output = subprocess.check_output(command)
+        if verbose:
+            print_now(output)

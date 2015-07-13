@@ -76,14 +76,22 @@ class MonkeyRunner:
             logging.info('Starting the chaos monkey on: {}'.format(unit_name))
             enablement_arg = ('enablement-timeout={}'.format(
                 self.enablement_timeout))
-            action_out = self.client.get_juju_output(
-                'action do', unit_name, 'start', 'mode=single', enablement_arg)
+            monkey_id = self.monkey_ids.get(unit_name)
+            args = (unit_name,) + ('start',) + ('mode=single',)
+            args = args + (enablement_arg,)
+            if monkey_id is not None:
+                args = args + ('monkey-id={}'.format(monkey_id),)
+            action_out = self.client.get_juju_output('action do', *args)
             if not action_out.startswith('Action queued with id'):
                 raise Exception(
                     'Unexpected output from "juju action do": {}'.format(
                         action_out))
             logging.info(action_out)
-            self.monkey_ids[unit_name] = action_out.split().pop()
+            if not self.monkey_ids.get(unit_name):
+                id = action_out.split().pop()
+                logging.info('Setting the monkey-id for {} to: {}'.format(
+                    unit_name, id))
+                self.monkey_ids[unit_name] = id
         # Allow chaos time to run
         sleep(self.enablement_timeout)
 
