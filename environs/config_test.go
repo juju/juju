@@ -245,7 +245,7 @@ func (s *suite) TestConfigPerm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldPerm := info.Mode().Perm()
 	env := `
-environments:
+environments:.
     only:
         type: dummy
         state-server: false

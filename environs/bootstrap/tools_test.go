@@ -180,7 +180,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 		c.Assert(f.Number.Patch, gc.Equals, 12)
 		findToolsCalled++
 		return []*tools.Tools{
-			&tools.Tools{
+			{
 				Version: currentVersion,
 				URL:     "http://testing.invalid/tools.tar.gz",
 			},

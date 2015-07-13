@@ -262,12 +262,12 @@ func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string, checker 
 		resBody.Res = &types.WaitForUpdatesExResponse{
 			Returnval: &types.UpdateSet{
 				FilterSet: []types.PropertyFilterUpdate{
-					types.PropertyFilterUpdate{
+					{
 						ObjectSet: []types.ObjectUpdate{
-							types.ObjectUpdate{
+							{
 								Obj: powerOnTask,
 								ChangeSet: []types.PropertyChange{
-									types.PropertyChange{
+									{
 										Name: "info",
 										Op:   types.PropertyChangeOpAssign,
 										Val: types.TaskInfo{
@@ -299,7 +299,7 @@ func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string, checker *gc.C
 		resBody.Res = &types.CreateImportSpecResponse{
 			Returnval: types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
-					types.OvfFileItem{
+					{
 						DeviceId: "key1",
 						Path:     "ubuntu-14.04-server-cloudimg-amd64.vmdk",
 					},
@@ -341,23 +341,23 @@ func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string, checker *gc.C
 		resBody.Res = &types.WaitForUpdatesExResponse{
 			Returnval: &types.UpdateSet{
 				FilterSet: []types.PropertyFilterUpdate{
-					types.PropertyFilterUpdate{
+					{
 						ObjectSet: []types.ObjectUpdate{
-							types.ObjectUpdate{
+							{
 								Obj: lease,
 								ChangeSet: []types.PropertyChange{
-									types.PropertyChange{
+									{
 										Name: "info",
 										Val: types.HttpNfcLeaseInfo{
 											DeviceUrl: []types.HttpNfcLeaseDeviceUrl{
-												types.HttpNfcLeaseDeviceUrl{
+												{
 													ImportKey: "key1",
 													Url:       serverUrl + "/disk-device/",
 												},
 											},
 										},
 									},
-									types.PropertyChange{
+									{
 										Name: "state",
 										Val:  types.HttpNfcLeaseStateReady,
 									},

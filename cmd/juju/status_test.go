@@ -3072,9 +3072,9 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	status := formattedStatus{
 		Services: map[string]serviceStatus{
-			"foo": serviceStatus{
+			"foo": {
 				Units: map[string]unitStatus{
-					"foo/0": unitStatus{
+					"foo/0": {
 						AgentStatusInfo: statusInfoContents{
 							Current: params.StatusExecuting,
 							Message: "running config-changed hook",
@@ -3084,7 +3084,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 							Message: "doing some work",
 						},
 					},
-					"foo/1": unitStatus{
+					"foo/1": {
 						AgentStatusInfo: statusInfoContents{
 							Current: params.StatusExecuting,
 							Message: "running action backup database",

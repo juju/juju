@@ -540,7 +540,7 @@ func (v *ebsVolumeSource) instances(instIds []string) (map[string]ec2.Instance, 
 	// TODO(wallyworld) - retry to allow instances to get to running state.
 	if len(instances) < len(instIds) {
 		notRunning := set.NewStrings(instIds...)
-		for id, _ := range instances {
+		for id := range instances {
 			notRunning.Remove(id)
 		}
 		return nil, errors.Errorf(

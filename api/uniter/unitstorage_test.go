@@ -30,8 +30,8 @@ func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesti
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
-			params.StorageConstraints{Count: &count}},
+		"data": {
+			{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{
@@ -62,7 +62,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{Count: &count}},
+		"data": {{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{

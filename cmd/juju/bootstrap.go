@@ -284,7 +284,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 	go func() {
-		for _ = range interrupted {
+		for range interrupted {
 			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
 		}
 	}()
@@ -403,7 +403,7 @@ func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
 	defer ctx.StopInterruptNotify(ch)
 	defer close(ch)
 	go func() {
-		for _ = range ch {
+		for range ch {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()

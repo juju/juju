@@ -1179,8 +1179,8 @@ func (st *State) countEntityStorageInstancesForName(
 	defer closer()
 	criteria := bson.D{{
 		"$and", []bson.D{
-			bson.D{{"owner", tag.String()}},
-			bson.D{{"storagename", name}},
+			{{"owner", tag.String()}},
+			{{"storagename", name}},
 		},
 	}}
 	result, err := storageCollection.Find(criteria).Count()

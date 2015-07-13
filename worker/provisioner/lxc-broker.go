@@ -563,7 +563,7 @@ func configureContainerNetwork(
 		return nil, errors.Trace(err)
 	}
 	// Generate the final configuration for each container interface.
-	for i, _ := range finalIfaceInfo {
+	for i := range finalIfaceInfo {
 		// Always start at the first device index and generate the
 		// interface name based on that. We need to do this otherwise
 		// the container will inherit the host's device index and

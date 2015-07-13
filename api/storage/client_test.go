@@ -49,17 +49,17 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 
 			if results, k := result.(*params.StorageDetailsResults); k {
 				instances := []params.StorageDetailsResult{
-					params.StorageDetailsResult{
+					{
 						Result: params.StorageDetails{StorageTag: oneTag.String()},
 					},
-					params.StorageDetailsResult{
+					{
 						Result: params.StorageDetails{
 							StorageTag: twoTag.String(),
 							Status:     "attached",
 							Persistent: true,
 						},
 					},
-					params.StorageDetailsResult{Error: common.ServerError(errors.New(msg))},
+					{Error: common.ServerError(errors.New(msg))},
 				}
 				results.Results = instances
 			}
@@ -118,11 +118,11 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 
 			if results, k := result.(*params.StorageInfosResult); k {
 				instances := []params.StorageInfo{
-					params.StorageInfo{
+					{
 						params.StorageDetails{StorageTag: oneTag.String()},
 						common.ServerError(errors.New(msg)),
 					},
-					params.StorageInfo{
+					{
 						params.StorageDetails{
 							StorageTag: twoTag.String(),
 							Status:     "attached",
@@ -141,12 +141,12 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 2)
 	expected := []params.StorageInfo{
-		params.StorageInfo{
+		{
 			StorageDetails: params.StorageDetails{
 				StorageTag: "storage-shared-fs-0"},
 			Error: &params.Error{Message: msg},
 		},
-		params.StorageInfo{
+		{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				Status:     "attached",
@@ -179,9 +179,9 @@ func (s *storageMockSuite) TestListFacadeCallError(c *gc.C) {
 
 func (s *storageMockSuite) TestListPools(c *gc.C) {
 	expected := []params.StoragePool{
-		params.StoragePool{Name: "name0", Provider: "type0"},
-		params.StoragePool{Name: "name1", Provider: "type1"},
-		params.StoragePool{Name: "name2", Provider: "type2"},
+		{Name: "name0", Provider: "type0"},
+		{Name: "name1", Provider: "type1"},
+		{Name: "name2", Provider: "type2"},
 	}
 	want := len(expected)
 
@@ -325,7 +325,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 					MachineTag: m}
 			}
 			results.Results = []params.VolumeItem{
-				params.VolumeItem{Attachments: attachments},
+				{Attachments: attachments},
 			}
 			return nil
 		})
@@ -400,9 +400,9 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 
 	errOut := "error"
 	unitStorages := []params.StorageAddParams{
-		params.StorageAddParams{UnitTag: "u-a", StorageName: "one", Constraints: cons},
-		params.StorageAddParams{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
-		params.StorageAddParams{UnitTag: "u-b", StorageName: "nil-constraints"},
+		{UnitTag: "u-a", StorageName: "one", Constraints: cons},
+		{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
+		{UnitTag: "u-b", StorageName: "nil-constraints"},
 	}
 
 	storageN := 3
@@ -454,7 +454,7 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 
 func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	unitStorages := []params.StorageAddParams{
-		params.StorageAddParams{UnitTag: "u-a", StorageName: "one"},
+		{UnitTag: "u-a", StorageName: "one"},
 	}
 
 	msg := "facade failure"

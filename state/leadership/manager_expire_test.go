@@ -24,7 +24,7 @@ var _ = gc.Suite(&ExpireLeadershipSuite{})
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(-time.Second)},
+			"redis": {Expiry: offset(-time.Second)},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",
@@ -40,7 +40,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 	}
 	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *Clock) {
@@ -51,7 +51,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",
@@ -69,7 +69,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",
@@ -88,7 +88,7 @@ func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",
@@ -107,7 +107,7 @@ func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExpire_OtherError(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",
@@ -174,7 +174,7 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -201,7 +201,7 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -234,23 +234,23 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 func (s *ExpireLeadershipSuite) TestExpire_Multiple(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": lease.Info{
+			"store": {
 				Holder: "store/3",
 				Expiry: offset(5 * time.Second),
 			},
-			"tokumx": lease.Info{
+			"tokumx": {
 				Holder: "tokumx/5",
 				Expiry: offset(10 * time.Second), // will not expire.
 			},
-			"ultron": lease.Info{
+			"ultron": {
 				Holder: "ultron/7",
 				Expiry: offset(5 * time.Second),
 			},
-			"vvvvvv": lease.Info{
+			"vvvvvv": {
 				Holder: "vvvvvv/2",
 				Expiry: offset(time.Second), // would expire, but errors first.
 			},

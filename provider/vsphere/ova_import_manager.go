@@ -74,8 +74,8 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: instSpec.machineID,
 		PropertyMapping: []types.KeyValue{
-			types.KeyValue{Key: "public-keys", Value: instSpec.sshKey},
-			types.KeyValue{Key: "user-data", Value: base64.StdEncoding.EncodeToString(instSpec.userData)},
+			{Key: "public-keys", Value: instSpec.sshKey},
+			{Key: "user-data", Value: base64.StdEncoding.EncodeToString(instSpec.userData)},
 		},
 	}
 

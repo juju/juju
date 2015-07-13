@@ -146,7 +146,7 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 		outcmds := out["bootcmd"].([]interface{})
 		confcmds := cloudConf.BootCmds()
 		c.Assert(len(outcmds), gc.Equals, len(confcmds))
-		for i, _ := range outcmds {
+		for i := range outcmds {
 			c.Assert(outcmds[i].(string), gc.Equals, confcmds[i])
 		}
 	} else {

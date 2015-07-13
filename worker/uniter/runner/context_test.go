@@ -321,8 +321,8 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
-			params.StorageConstraints{},
+		"data": {
+			{},
 		},
 	}
 
@@ -335,9 +335,9 @@ var two = uint64(2)
 
 func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
-			params.StorageConstraints{},
-			params.StorageConstraints{Count: &two},
+		"data": {
+			{},
+			{Count: &two},
 		},
 	}
 
@@ -349,9 +349,9 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{}},
-		"diff": []params.StorageConstraints{
-			params.StorageConstraints{Count: &two}},
+		"data": {{}},
+		"diff": {
+			{Count: &two}},
 	}
 
 	ctx := runner.HookContext{}

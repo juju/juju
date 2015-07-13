@@ -98,7 +98,7 @@ func (s *ClaimLeadershipSuite) TestClaimLease_Failure_Error(c *gc.C) {
 func (s *ClaimLeadershipSuite) TestExtendLease_Success(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -117,7 +117,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Success(c *gc.C) {
 func (s *ClaimLeadershipSuite) TestExtendLease_Success_Expired(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -143,7 +143,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Success_Expired(c *gc.C) {
 func (s *ClaimLeadershipSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -169,7 +169,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 func (s *ClaimLeadershipSuite) TestExtendLease_Failure_Error(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -192,7 +192,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Failure_Error(c *gc.C) {
 func (s *ClaimLeadershipSuite) TestOtherHolder_Failure(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/1",
 				Expiry: offset(time.Second),
 			},

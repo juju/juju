@@ -86,12 +86,12 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 				},
 				statusError: nil,
 				unitsStatus: map[string]state.StatusInfo{
-					"unit-x-1": state.StatusInfo{
+					"unit-x-1": {
 						Status:  state.StatusActive,
 						Message: "foo",
 						Since:   &now,
 					},
-					"unit-x-2": state.StatusInfo{
+					"unit-x-2": {
 						Status:  state.StatusActive,
 						Message: "foo 2",
 						Since:   &now,
@@ -104,7 +104,7 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 
 	expected := params.ServiceStatusResults{
 		Results: []params.ServiceStatusResult{
-			params.ServiceStatusResult{
+			{
 				Service: params.StatusResult{
 					Error:  nil,
 					Id:     "",
@@ -115,7 +115,7 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 					Since:  &now,
 				},
 				Units: map[string]params.StatusResult{
-					"unit-x-1": params.StatusResult{
+					"unit-x-1": {
 						Error:  nil,
 						Id:     "",
 						Life:   "",
@@ -124,7 +124,7 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 						Data:   nil,
 						Since:  &now,
 					},
-					"unit-x-2": params.StatusResult{
+					"unit-x-2": {
 						Error:  nil,
 						Id:     "",
 						Life:   "",
@@ -143,7 +143,7 @@ func (*statusGetterSuite) TestServiceStatus(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			params.Entity{
+			{
 				Tag: "unit-x-1",
 			},
 		},
@@ -176,12 +176,12 @@ func (*statusGetterSuite) TestServiceStatusNotLeader(c *gc.C) {
 				},
 				statusError: nil,
 				unitsStatus: map[string]state.StatusInfo{
-					"unit-x-1": state.StatusInfo{
+					"unit-x-1": {
 						Status:  state.StatusActive,
 						Message: "foo",
 						Since:   &now,
 					},
-					"unit-x-2": state.StatusInfo{
+					"unit-x-2": {
 						Status:  state.StatusActive,
 						Message: "foo 2",
 						Since:   &now,
@@ -210,7 +210,7 @@ func (*statusGetterSuite) TestServiceStatusNotLeader(c *gc.C) {
 	}
 	args := params.Entities{
 		Entities: []params.Entity{
-			params.Entity{
+			{
 				Tag: "unit-x-1",
 			},
 		},

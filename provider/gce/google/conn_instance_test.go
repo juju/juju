@@ -264,7 +264,7 @@ func (s *connSuite) TestConnectionRemoveInstancesAPI(c *gc.C) {
 func (s *connSuite) TestConnectionRemoveInstancesMultiple(c *gc.C) {
 	s.FakeConn.Instances = []*compute.Instance{
 		&s.RawInstanceFull,
-		&compute.Instance{
+		{
 			Name: "special",
 			Zone: "a-zone",
 		},
@@ -288,7 +288,7 @@ func (s *connSuite) TestConnectionRemoveInstancesMultiple(c *gc.C) {
 func (s *connSuite) TestConnectionRemoveInstancesPartialMatch(c *gc.C) {
 	s.FakeConn.Instances = []*compute.Instance{
 		&s.RawInstanceFull,
-		&compute.Instance{
+		{
 			Name: "special",
 			Zone: "a-zone",
 		},

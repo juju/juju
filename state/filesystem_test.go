@@ -38,7 +38,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPool(c *gc.C) {
 	cons, err := svc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
 			Pool:  "rootfs",
 			Size:  1024,
 			Count: 1,

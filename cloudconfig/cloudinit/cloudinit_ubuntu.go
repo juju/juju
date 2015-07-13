@@ -198,7 +198,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	var pkgsWithTargetRelease []string
 	pkgs := cfg.Packages()
-	for i, _ := range pkgs {
+	for i := range pkgs {
 		pack := pkgs[i]
 		if pack == "--target-release" || len(pkgsWithTargetRelease) > 0 {
 			// We have --target-release foo/bar package. Accumulate

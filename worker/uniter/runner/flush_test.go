@@ -394,7 +394,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 	size := uint64(1)
 	ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size},
+			"allecto": {Size: &size},
 		})
 
 	// Flush the context with an error.
@@ -417,7 +417,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 	size := uint64(1)
 	ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size},
+			"allecto": {Size: &size},
 		})
 
 	// Flush the context with a success.

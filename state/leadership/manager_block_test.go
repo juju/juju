@@ -32,7 +32,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipNotHeld(c *gc.C) {
 func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -59,7 +59,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -89,7 +89,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -116,11 +116,11 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) 
 func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": lease.Info{
+			"store": {
 				Holder: "store/0",
 				Expiry: offset(time.Second),
 			},
@@ -167,7 +167,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 func (s *BlockUntilLeadershipReleasedSuite) TestKillManager(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},

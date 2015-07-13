@@ -462,7 +462,7 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedDying(c *gc.C) {
 func (s *attachmentsUpdateSuite) TestAttachmentsRefresh(c *gc.C) {
 	// This test combines the above two.
 	s.unitAttachmentIds = map[names.UnitTag][]params.StorageAttachmentId{
-		s.unitTag: []params.StorageAttachmentId{{
+		s.unitTag: {{
 			StorageTag: s.storageTag0.String(),
 			UnitTag:    s.unitTag.String(),
 		}, {

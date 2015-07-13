@@ -93,7 +93,7 @@ func mergeWindowsEnvironment(newEnv, env []string) []string {
 		}
 	}
 
-	for k, _ := range orig {
+	for k := range orig {
 		tmpEnv = append(tmpEnv, k+"="+uppers[strings.ToUpper(k)])
 	}
 

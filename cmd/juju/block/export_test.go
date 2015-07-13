@@ -38,7 +38,7 @@ func (c *MockBlockClient) List() ([]params.Block, error) {
 	}
 
 	return []params.Block{
-		params.Block{
+		{
 			Type:    c.BlockType,
 			Message: c.Msg,
 		},

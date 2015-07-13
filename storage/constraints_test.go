@@ -107,23 +107,23 @@ func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
 func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 	s.testParseStorageConstraints(c,
 		[]string{"data=p,1M,"}, true,
-		map[string]storage.Constraints{"data": storage.Constraints{
+		map[string]storage.Constraints{"data": {
 			Pool:  "p",
 			Count: 1,
 			Size:  1,
 		}})
 	s.testParseStorageConstraints(c,
 		[]string{"data"}, false,
-		map[string]storage.Constraints{"data": storage.Constraints{
+		map[string]storage.Constraints{"data": {
 			Count: 1,
 		}})
 	s.testParseStorageConstraints(c,
 		[]string{"data=3", "cache"}, false,
 		map[string]storage.Constraints{
-			"data": storage.Constraints{
+			"data": {
 				Count: 3,
 			},
-			"cache": storage.Constraints{
+			"cache": {
 				Count: 1,
 			},
 		})

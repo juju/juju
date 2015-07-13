@@ -104,7 +104,7 @@ func (s *volumeSuite) TestGetVolumeItems(c *gc.C) {
 	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.VolumeItem{
-		params.VolumeItem{
+		{
 			Volume:      expectedVolume,
 			Attachments: storage.ConvertStateVolumeAttachmentsToParams(attachments)},
 	}

@@ -25,7 +25,7 @@ var _ = gc.Suite(&CheckLeadershipSuite{})
 func (s *CheckLeadershipSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
-			"redis": lease.Info{
+			"redis": {
 				Holder:   "redis/0",
 				Expiry:   offset(time.Second),
 				AssertOp: txn.Op{C: "fake", Id: "fake"},

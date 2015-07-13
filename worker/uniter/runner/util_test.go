@@ -166,7 +166,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	storageData0 := names.NewStorageTag("data/0")
 	s.storage = &storageContextAccessor{
 		map[names.StorageTag]*contextStorage{
-			storageData0: &contextStorage{
+			storageData0: {
 				storageData0,
 				storage.StorageKindBlock,
 				"/dev/sdb",

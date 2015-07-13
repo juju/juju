@@ -101,12 +101,12 @@ func (s *migrateToolsStorageSuite) testMigrateToolsStorage(c *gc.C, agentConfig 
 	err := upgrades.MigrateToolsStorage(s.State, agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeToolsStorage.stored, gc.DeepEquals, map[version.Binary]toolstorage.Metadata{
-		tools[0].Version: toolstorage.Metadata{
+		tools[0].Version: {
 			Version: tools[0].Version,
 			Size:    tools[0].Size,
 			SHA256:  tools[0].SHA256,
 		},
-		tools[1].Version: toolstorage.Metadata{
+		tools[1].Version: {
 			Version: tools[1].Version,
 			Size:    tools[1].Size,
 			SHA256:  tools[1].SHA256,

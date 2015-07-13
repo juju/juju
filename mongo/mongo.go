@@ -348,7 +348,7 @@ func installMongod(numaCtl bool) error {
 		logger.Infof("installing %s", mongoPkg)
 	}
 
-	for i, _ := range pkgs {
+	for i := range pkgs {
 		// apply release targeting if needed.
 		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
 			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")

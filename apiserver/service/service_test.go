@@ -237,7 +237,7 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
+		"data": {
 			Pool:  "foo",
 			Count: 1,
 			Size:  1024,
@@ -268,7 +268,7 @@ func (s *serviceSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C
 
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
+		"data": {
 			Pool:  "host-loop-pool",
 			Count: 1,
 			Size:  1024,

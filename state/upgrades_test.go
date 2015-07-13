@@ -2738,9 +2738,9 @@ func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
 
 func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
 	expectedDocIDs := s.prepareEnvsForLeadership(c, map[string][]string{
-		"": []string{"mediawiki", "postgresql"},
-		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
-		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+		"": {"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"mysql"},
 	})
 
 	err := AddLeadershipSettingsDocs(s.state)
@@ -2773,9 +2773,9 @@ func (s *upgradesSuite) TestAddLeadershipSettingsMultipleEmpty(c *gc.C) {
 
 func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
 	s.prepareEnvsForLeadership(c, map[string][]string{
-		"": []string{"mediawiki", "postgresql"},
-		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
-		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+		"": {"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"mysql"},
 	})
 
 	originalIDs := s.readDocIDs(c, settingsC, ".+#leader$")
@@ -2832,9 +2832,9 @@ func (s *upgradesSuite) prepareEnvsForMachineBlockDevices(c *gc.C, envs map[stri
 
 func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
 	expectedDocIDs := s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
-		"": []string{"1", "2"},
-		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
-		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"": {"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"1"},
 	})
 
 	err := AddDefaultBlockDevicesDocs(s.state)
@@ -2867,9 +2867,9 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsMultipleEmpty(c *gc.C) {
 
 func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
 	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
-		"": []string{"1", "2"},
-		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
-		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"": {"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": {"1"},
 	})
 
 	originalIDs := s.readDocIDs(c, blockDevicesC, "")

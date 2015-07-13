@@ -326,7 +326,7 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 
 		return map[string]state.StorageConstraints{
-			storageName0: state.StorageConstraints{},
+			storageName0: {},
 		}, nil
 	})
 
@@ -413,12 +413,12 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 
 		return map[string]state.StorageConstraints{
-			storageName0: state.StorageConstraints{
+			storageName0: {
 				Pool:  unitPool,
 				Size:  unitSize,
 				Count: unitCount,
 			},
-			storageName1: state.StorageConstraints{},
+			storageName1: {},
 		}, nil
 	})
 

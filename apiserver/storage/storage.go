@@ -122,7 +122,7 @@ func (api *API) createStorageDetailsResult(
 ) []params.StorageDetailsResult {
 	attachments, err := api.getStorageAttachments(storageTag, instance)
 	if err != nil {
-		return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance, Error: err}}
+		return []params.StorageDetailsResult{{Result: instance, Error: err}}
 	}
 	if len(attachments) > 0 {
 		// If any attachments were found for this storage instance,
@@ -134,7 +134,7 @@ func (api *API) createStorageDetailsResult(
 		return result
 	}
 	// If we are here then this storage instance is unattached.
-	return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance}}
+	return []params.StorageDetailsResult{{Result: instance}}
 }
 
 func (api *API) getStorageAttachments(

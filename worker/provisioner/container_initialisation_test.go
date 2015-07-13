@@ -336,11 +336,11 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		packages [][]string
 	}{
 		{instance.LXC, [][]string{
-			[]string{"--target-release", "precise-updates/cloud-tools", "lxc"},
-			[]string{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+			{"--target-release", "precise-updates/cloud-tools", "lxc"},
+			{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
 		{instance.KVM, [][]string{
-			[]string{"uvtool-libvirt"},
-			[]string{"uvtool"}}},
+			{"uvtool-libvirt"},
+			{"uvtool"}}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages, false)
 	}

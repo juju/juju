@@ -178,13 +178,13 @@ var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 var CommonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, objType, objValue, propName string, propValue interface{}) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
-			types.ObjectContent{
+			{
 				Obj: types.ManagedObjectReference{
 					Type:  objType,
 					Value: objValue,
 				},
 				PropSet: []types.DynamicProperty{
-					types.DynamicProperty{Name: propName, Val: propValue},
+					{Name: propName, Val: propValue},
 				},
 			},
 		},
@@ -198,17 +198,17 @@ var RetrieveDatacenter = func(reqBody, resBody *methods.RetrievePropertiesBody) 
 var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
-			types.ObjectContent{
+			{
 				Obj: types.ManagedObjectReference{
 					Type:  "Datacenter",
 					Value: "FakeDatacenter",
 				},
 				PropSet: []types.DynamicProperty{
-					types.DynamicProperty{Name: "hostFolder", Val: types.ManagedObjectReference{
+					{Name: "hostFolder", Val: types.ManagedObjectReference{
 						Type:  "Folder",
 						Value: "FakeHostFolder",
 					}},
-					types.DynamicProperty{Name: "vmFolder", Val: types.ManagedObjectReference{
+					{Name: "vmFolder", Val: types.ManagedObjectReference{
 						Type:  "Folder",
 						Value: "FakeVmFolder",
 					}},
