@@ -46,6 +46,7 @@ if [ ! -e ~/workspace-runnner ]; then
 fi
 bzr pull -d ~/workspace-runner
 if [[ \$(uname) == "Linux" ]]; then
+    cd ~/juju-ci-tools
     make install-deps
 fi
 if [[ -d ~/ci-director ]]; then
