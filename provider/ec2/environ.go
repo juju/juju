@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -69,7 +69,7 @@ type environ struct {
 	ecfgUnlocked    *environConfig
 	ec2Unlocked     *ec2.EC2
 	s3Unlocked      *s3.S3
-	storageUnlocked storage.Storage
+	storageUnlocked envstorage.Storage
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -189,7 +189,7 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() storage.Storage {
+func (e *environ) Storage() envstorage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
