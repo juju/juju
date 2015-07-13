@@ -7,9 +7,11 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/component/all"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/state"
 )
 
@@ -44,11 +46,77 @@ type processesHookContextSuite struct {
 	processesBaseSuite
 }
 
+func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
+	// start: info, launch, info
+	// config-changed: info, set-status, info
+	// stop: info, destroy, info
+	// TODO(ericsnow) At the moment, only launch happens...
+
+	unitTag := names.NewUnitTag("a-service/0")
+	s.checkState(c, unitTag, nil)
+	s.checkPluginLog(c, []string{
+		"...",
+	})
+
+	s.prepPlugin(c, "myproc", "xyz123", "running")
+	s.checkPluginLog(c, []string{
+		"...",
+	})
+
+	// Add/start the unit.
+
+	_, unit := s.addUnit(c, "proc-hooks", "a-service")
+	c.Assert(unit.UnitTag(), gc.Equals, unitTag)
+
+	s.checkState(c, unitTag, []process.Info{{
+		Process: charm.Process{
+			Name: "myproc",
+			Type: "myplugin",
+		},
+		Details: process.Details{
+			ID: "xyz123",
+			Status: process.PluginStatus{
+				Label: "running",
+			},
+		},
+	}})
+	s.checkPluginLog(c, []string{
+		"...",
+	})
+
+	// Change the config.
+	s.setConfig(c, unitTag, "status", "okay")
+
+	s.checkState(c, unitTag, []process.Info{{
+		Process: charm.Process{
+			Name: "myproc",
+			Type: "myplugin",
+		},
+		Details: process.Details{
+			ID: "xyz123",
+			Status: process.PluginStatus{
+				Label: "okay",
+			},
+		},
+	}})
+	s.checkPluginLog(c, []string{
+		"...",
+	})
+
+	// Stop the unit.
+	s.destroyUnit(c, unitTag)
+
+	s.checkState(c, unitTag, nil)
+	s.checkPluginLog(c, []string{
+		"...",
+	})
+}
+
 // TODO(ericsnow) Add a test specifically for each supported plugin
 // (e.g. docker)?
 
 func (s *processesHookContextSuite) TestRegister(c *gc.C) {
-	//s.addUnit(c, "proc-hooks", "a-service")
+	//s.addUnit(c, "proc-actions", "a-service")
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
