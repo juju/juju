@@ -37,18 +37,19 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
     bzr pull -d ~/cloud-city ~/cloud-city.new
     rm -r ~/cloud-city.new
 fi
-cd ~/juju-release-tools
-bzr pull
-cd ~/repository
-bzr pull
-cd ~/juju-ci-tools
-bzr pull
+
+bzr pull -d ~/juju-release-tools
+bzr pull -d ~/repository
+bzr pull -d ~/juju-ci-tools
+if [ ! -e ~/workspace-runnner ]; then
+    bzr branch lp:workspace-runner ~/workspace-runner
+fi
+bzr pull -d ~/workspace-runner
 if [[ \$(uname) == "Linux" ]]; then
     make install-deps
 fi
 if [[ -d ~/ci-director ]]; then
-    cd ~/ci-director
-    bzr pull
+    bzr pull -d ~/ci-director
 fi
 EOT
 }
