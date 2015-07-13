@@ -22,20 +22,19 @@ import (
 // mockState implements StateInterface and allows inspection of called
 // methods.
 type mockState struct {
-	*testing.Stub
-
-	mu sync.Mutex
-
-	configWatchers    []*mockConfigWatcher
-	ipAddressWatchers []*mockIPAddressWatcher
+	mu   sync.Mutex
+	stub *testing.Stub
 
 	config      *config.Config
 	ipAddresses map[string]*mockIPAddress
+
+	configWatchers    []*mockConfigWatcher
+	ipAddressWatchers []*mockIPAddressWatcher
 }
 
-func NewMockState() *mockState {
+func newMockState() *mockState {
 	mst := &mockState{
-		Stub:        &testing.Stub{},
+		stub:        &testing.Stub{},
 		ipAddresses: make(map[string]*mockIPAddress),
 	}
 	mst.setUpIPAddresses()
@@ -44,40 +43,22 @@ func NewMockState() *mockState {
 
 var _ addresser.StateInterface = (*mockState)(nil)
 
-// CheckFindEntityCall is a helper wrapper aroud
-// testing.Stub.CheckCall for FindEntity.
-func (mst *mockState) CheckFindEntityCall(c *gc.C, index int, id string) {
-	mst.CheckCall(c, index, "FindEntity", interface{}(names.NewIPAddressTag(id)))
-}
-
-// WatchForEnvironConfigChanges implements StateInterface.
-func (mst *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
-	mst.mu.Lock()
-	defer mst.mu.Unlock()
-
-	mst.MethodCall(mst, "WatchForEnvironConfigChanges")
-
-	w := newMockConfigWatcher(mst.NextErr())
-	mst.configWatchers = append(mst.configWatchers, w)
-	return w
-}
-
 // EnvironConfig implements StateInterface.
 func (mst *mockState) EnvironConfig() (*config.Config, error) {
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
-	mst.MethodCall(mst, "EnvironConfig")
+	mst.stub.MethodCall(mst, "EnvironConfig")
 
-	if err := mst.NextErr(); err != nil {
+	if err := mst.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return mst.config, nil
 }
 
-// SetConfig updates the environ config stored internally. Triggers a
+// setConfig updates the environ config stored internally. Triggers a
 // change event for all created config watchers.
-func (mst *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
+func (mst *mockState) setConfig(c *gc.C, newConfig *config.Config) {
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
@@ -89,22 +70,33 @@ func (mst *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
 	}
 }
 
-// WatchIPAddresses implements StateInterface.
-func (mst *mockState) WatchIPAddresses() state.StringsWatcher {
+// WatchForEnvironConfigChanges implements StateInterface.
+func (mst *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
-	mst.MethodCall(mst, "WatchIPAddresses")
+	mst.stub.MethodCall(mst, "WatchForEnvironConfigChanges")
+	mst.stub.NextErr()
+	return mst.nextEnvironConfigChangesWatcher()
+}
 
-	ids := make([]string, 0, len(mst.ipAddresses))
-	// Initial event - all IP address ids, sorted.
-	for id := range mst.ipAddresses {
-		ids = append(ids, id)
+// addEnvironConfigChangesWatcher adds an environment config changes watches.
+func (mst *mockState) addEnvironConfigChangesWatcher(err error) *mockConfigWatcher {
+	w := newMockConfigWatcher(err)
+	mst.configWatchers = append(mst.configWatchers, w)
+	return w
+}
+
+// nextEnvironConfigChangesWatcher returns an environment
+// config changes watcher.
+func (mst *mockState) nextEnvironConfigChangesWatcher() *mockConfigWatcher {
+	if len(mst.configWatchers) == 0 {
+		panic("ran out of watchers")
 	}
-	sort.Strings(ids)
 
-	w := newMockIPAddressWatcher(ids, mst.NextErr())
-	mst.ipAddressWatchers = append(mst.ipAddressWatchers, w)
+	w := mst.configWatchers[0]
+	mst.configWatchers = mst.configWatchers[1:]
+	w.start()
 	return w
 }
 
@@ -113,9 +105,9 @@ func (mst *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
-	mst.MethodCall(mst, "FindEntity", tag)
+	mst.stub.MethodCall(mst, "FindEntity", tag)
 
-	if err := mst.NextErr(); err != nil {
+	if err := mst.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	if tag == nil {
@@ -134,9 +126,9 @@ func (mst *mockState) IPAddress(value string) (addresser.StateIPAddress, error) 
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
-	mst.MethodCall(mst, "IPAddress", value)
+	mst.stub.MethodCall(mst, "IPAddress", value)
 
-	if err := mst.NextErr(); err != nil {
+	if err := mst.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	ipAddress, found := mst.ipAddresses[value]
@@ -144,6 +136,44 @@ func (mst *mockState) IPAddress(value string) (addresser.StateIPAddress, error) 
 		return nil, errors.NotFoundf("IP address %s", value)
 	}
 	return ipAddress, nil
+}
+
+// WatchIPAddresses implements StateInterface.
+func (mst *mockState) WatchIPAddresses() state.StringsWatcher {
+	mst.mu.Lock()
+	defer mst.mu.Unlock()
+
+	mst.stub.MethodCall(mst, "WatchIPAddresses")
+	mst.stub.NextErr()
+	return mst.nextIPAddressWatcher()
+}
+
+// addIPAddressWatcher adds an IP address watcher with the given IDs.
+func (mst *mockState) addIPAddressWatcher(ids ...string) *mockIPAddressWatcher {
+	w := newMockIPAddressWatcher(ids)
+	mst.ipAddressWatchers = append(mst.ipAddressWatchers, w)
+	return w
+}
+
+// nextIPAddressWatcher returns an IP address watcher .
+func (mst *mockState) nextIPAddressWatcher() *mockIPAddressWatcher {
+	if len(mst.ipAddressWatchers) == 0 {
+		panic("ran out of watchers")
+	}
+
+	w := mst.ipAddressWatchers[0]
+	mst.ipAddressWatchers = mst.ipAddressWatchers[1:]
+	if len(w.initial) == 0 {
+		ids := make([]string, 0, len(mst.ipAddresses))
+		// Initial event - all IP address ids, sorted.
+		for id := range mst.ipAddresses {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		w.initial = ids
+	}
+	w.start()
+	return w
 }
 
 // removeIPAddress is used by mockIPAddress.Remove()
@@ -180,7 +210,7 @@ func (mst *mockState) setUpIPAddresses() {
 	}
 	for _, ip := range ips {
 		mst.ipAddresses[ip.value] = &mockIPAddress{
-			Stub:  mst.Stub,
+			stub:  mst.stub,
 			st:    mst,
 			value: ip.value,
 			tag:   names.NewIPAddressTag(ip.uuid),
@@ -191,10 +221,10 @@ func (mst *mockState) setUpIPAddresses() {
 
 // mockIPAddress implements StateIPAddress for testing.
 type mockIPAddress struct {
-	*testing.Stub
 	addresser.StateIPAddress
 
-	mu sync.Mutex
+	mu   sync.Mutex
+	stub *testing.Stub
 
 	st    *mockState
 	value string
@@ -209,8 +239,8 @@ func (mip *mockIPAddress) Tag() names.Tag {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
-	mip.MethodCall(mip, "Tag")
-	mip.NextErr() // Consume the unused error.
+	mip.stub.MethodCall(mip, "Tag")
+	mip.stub.NextErr() // Consume the unused error.
 	return mip.tag
 }
 
@@ -219,8 +249,8 @@ func (mip *mockIPAddress) Life() state.Life {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
-	mip.MethodCall(mip, "Life")
-	mip.NextErr() // Consume the unused error.
+	mip.stub.MethodCall(mip, "Life")
+	mip.stub.NextErr() // Consume the unused error.
 	return mip.life
 }
 
@@ -229,9 +259,12 @@ func (mip *mockIPAddress) EnsureDead() error {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
-	mip.MethodCall(mip, "EnsureDead")
+	if err := mip.stub.NextErr(); err != nil {
+		return err
+	}
+	mip.stub.MethodCall(mip, "EnsureDead")
 	mip.life = state.Dead
-	return mip.NextErr()
+	return nil
 }
 
 // Remove implements StateIPAddress.
@@ -239,11 +272,14 @@ func (mip *mockIPAddress) Remove() error {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
-	mip.MethodCall(mip, "Remove")
-
+	if err := mip.stub.NextErr(); err != nil {
+		return err
+	}
+	mip.stub.MethodCall(mip, "Remove")
 	return mip.st.removeIPAddress(mip.value)
 }
 
+// mockBaseWatcher is a helper for the watcher mocks.
 type mockBaseWatcher struct {
 	err error
 
@@ -296,8 +332,9 @@ func (mbw *mockBaseWatcher) Err() error {
 type mockConfigWatcher struct {
 	*mockBaseWatcher
 
-	incoming chan struct{}
-	changes  chan struct{}
+	wontStart bool
+	incoming  chan struct{}
+	changes   chan struct{}
 }
 
 var _ state.NotifyWatcher = (*mockConfigWatcher)(nil)
@@ -305,14 +342,22 @@ var _ state.NotifyWatcher = (*mockConfigWatcher)(nil)
 func newMockConfigWatcher(err error) *mockConfigWatcher {
 	changes := make(chan struct{})
 	mcw := &mockConfigWatcher{
-		changes:         changes,
+		wontStart:       false,
 		incoming:        make(chan struct{}),
+		changes:         changes,
 		mockBaseWatcher: newMockBaseWatcher(err, func() { close(changes) }),
 	}
-	if err == nil {
-		go mcw.loop()
-	}
 	return mcw
+}
+
+// start starts the backend loop depending on a field setting.
+func (mcw *mockConfigWatcher) start() {
+	if mcw.wontStart {
+		// Set manually by tests that need it.
+		mcw.Stop()
+		return
+	}
+	go mcw.loop()
 }
 
 func (mcw *mockConfigWatcher) loop() {
@@ -340,25 +385,34 @@ func (mcw *mockConfigWatcher) Changes() <-chan struct{} {
 type mockIPAddressWatcher struct {
 	*mockBaseWatcher
 
-	initial  []string
-	incoming chan []string
-	changes  chan []string
+	initial   []string
+	wontStart bool
+	incoming  chan []string
+	changes   chan []string
 }
 
 var _ state.StringsWatcher = (*mockIPAddressWatcher)(nil)
 
-func newMockIPAddressWatcher(initial []string, err error) *mockIPAddressWatcher {
+func newMockIPAddressWatcher(initial []string) *mockIPAddressWatcher {
 	changes := make(chan []string)
 	mipw := &mockIPAddressWatcher{
 		initial:         initial,
+		wontStart:       false,
 		changes:         changes,
 		incoming:        make(chan []string),
-		mockBaseWatcher: newMockBaseWatcher(err, func() { close(changes) }),
-	}
-	if err == nil {
-		go mipw.loop()
+		mockBaseWatcher: newMockBaseWatcher(nil, func() { close(changes) }),
 	}
 	return mipw
+}
+
+// start starts the backend loop depending on a field setting.
+func (mipw *mockIPAddressWatcher) start() {
+	if mipw.wontStart {
+		// Set manually by tests that need it.
+		mipw.Stop()
+		return
+	}
+	go mipw.loop()
 }
 
 func (mipw *mockIPAddressWatcher) loop() {

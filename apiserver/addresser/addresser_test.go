@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -39,7 +39,7 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
-	s.st = NewMockState()
+	s.st = newMockState()
 	addresser.PatchState(s, s.st)
 
 	var err error
@@ -49,7 +49,7 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 
 func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
 	config := coretesting.EnvironConfig(c)
-	s.st.SetConfig(c, config)
+	s.st.setConfig(c, config)
 
 	result, err := s.api.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,17 +57,17 @@ func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
 		Config: config.AllAttrs(),
 	})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.stub.CheckCallNames(c, "EnvironConfig")
 }
 
 func (s *AddresserSuite) TestEnvironConfigFailure(c *gc.C) {
-	s.st.SetErrors(errors.New("ouch"))
+	s.st.stub.SetErrors(errors.New("ouch"))
 
 	result, err := s.api.EnvironConfig()
 	c.Assert(err, gc.ErrorMatches, "ouch")
 	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.stub.CheckCallNames(c, "EnvironConfig")
 }
 
 func (s *AddresserSuite) TestLifeSuccess(c *gc.C) {
@@ -134,6 +134,8 @@ func (s *AddresserSuite) TestRemoveFail(c *gc.C) {
 func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
+	s.st.addIPAddressWatcher("0.1.2.3", "0.1.2.4", "0.1.2.7")
+
 	result, err := s.api.WatchIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.EntityWatchResult{
@@ -141,8 +143,6 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 		Changes: []string{
 			"ipaddress-00000000-1111-2222-3333-0123456789ab",
 			"ipaddress-00000000-1111-2222-4444-0123456789ab",
-			"ipaddress-00000000-1111-2222-5555-0123456789ab",
-			"ipaddress-00000000-1111-2222-6666-0123456789ab",
 			"ipaddress-00000000-1111-2222-7777-0123456789ab",
 		},
 		Error: nil,
