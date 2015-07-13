@@ -1,0 +1,54 @@
+#!/usr/bin/python
+from __future__ import print_function
+
+__metaclass__ = type
+
+from base_asses import get_base_parser
+from status import StatusTester
+from jujupy import (
+    make_client,
+)
+from deploy_stack import (
+    boot_context,
+    prepare_environment,
+)
+
+TEST_HUMAN_NAME="<YOUR TEST HUMAN READABLE HERE>"
+
+
+def parse_args():
+    """Parse all arguments."""
+    parser = get_base_parser(TEST_HUMAN_NAME)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    log_dir = args.logs
+
+    client = make_client(
+        args.juju_path, args.debug, args.env_name, args.temp_env_name)
+    client.destroy_environment()
+    series = args.series
+    if series is None:
+        series = 'precise'
+    with boot_context(args.job_name, client, args.bootstrap_host,
+                      args.machine, series, args.agent_url, args.agent_stream,
+                      log_dir, args.keep_env, args.upload_tools):
+        prepare_environment(
+            client, already_bootstrapped=True, machines=args.machine)
+
+        client.get_status(60)
+        # Deploy charms, there are several under ./repository
+        client.juju("deploy", ('local:trusty/wordpress',))
+        # Wait for the deployment to finish.
+        client.wait_for_started()
+        #----------------- CALL YOUR TESTS HERE
+        # At this point you have a juju bootstraped with a wordpress charm
+        # deployed and active with the agent idle.
+
+        #----------------- TESTS END HERE
+
+
+if __name__ == '__main__':
+    main()

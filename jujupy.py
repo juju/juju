@@ -124,9 +124,9 @@ class JujuClientDevel:
         return self.get_env_client(environment).get_juju_output(
             command, *args, **kwargs)
 
-    def get_status(self, environment, timeout=60):
+    def get_status(self, environment, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
-        return self.get_env_client(environment).get_status(timeout)
+        return self.get_env_client(environment).get_status(timeout, raw, *args)
 
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
@@ -297,10 +297,12 @@ class EnvJujuClient:
                 print('!!! ' + e.stderr)
                 raise
 
-    def get_status(self, timeout=60):
+    def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
         for ignored in until_timeout(timeout):
             try:
+                if raw:
+                    return self.get_juju_output('status', *args)
                 return Status.from_text(self.get_juju_output('status'))
             except subprocess.CalledProcessError as e:
                 pass
@@ -929,8 +931,8 @@ class Environment(SimpleEnvironment):
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
-    def get_status(self, timeout=60):
-        return self.client.get_status(self, timeout)
+    def get_status(self, timeout=60, raw=False, *args):
+        return self.client.get_status(self, timeout, raw, *args)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.
