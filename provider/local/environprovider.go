@@ -94,11 +94,16 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{ContainerKey, NetworkBridgeKey, RootDirKey}
+	return []string{ContainerKey, NetworkBridgeKey, RootDirKey, "proxy-ssh"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return cfg, nil
+}
+
+// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := map[string]interface{}{
 		// We must not proxy SSH through the API server in a
 		// local provider environment. Besides not being useful,
@@ -160,16 +165,6 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	}
 	// Make sure everything is valid.
 	cfg, err = p.Validate(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return cfg, nil
-}
-
-// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

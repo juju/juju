@@ -134,20 +134,23 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestOpenRequiresValidEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
 	st, err := state.Open(names.EnvironTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
-	if !c.Check(st, gc.IsNil) {
-		c.Check(st.Close(), jc.ErrorIsNil)
-	}
-	c.Check(err, gc.ErrorMatches, "invalid environment UUID")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(st.EnvironTag(), gc.Equals, s.envTag)
+	c.Check(st.Close(), jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
-	st, err := state.Open(testing.EnvironmentTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	uuid := utils.MustNewUUID()
+	tag := names.NewEnvironTag(uuid.String())
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	c.Check(err, gc.ErrorMatches, "cannot open environment deadbeef-0bad-400d-8000-4b1d0d06f00d: environment not found")
+	expect := fmt.Sprintf("cannot read environment %s: environment not found", uuid)
+	c.Check(err, gc.ErrorMatches, expect)
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
@@ -2705,6 +2708,9 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
+	err = state.SetEnvLifeDying(st, st.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2721,6 +2727,14 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	err := st.RemoveAllEnvironDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
 }
 
 type attrs map[string]interface{}
@@ -2898,7 +2912,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 func tryOpenState(envTag names.EnvironTag, info *mongo.MongoInfo) error {
 	st, err := state.Open(envTag, info, statetesting.NewDialOpts(), state.Policy(nil))
 	if err == nil {
-		st.Close()
+		err = st.Close()
 	}
 	return err
 }

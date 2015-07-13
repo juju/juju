@@ -116,6 +116,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}}
 
@@ -147,7 +148,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 // ForEnviron returns a connection to mongo for the specified environment. The
 // connection uses the same credentials and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, mongo.DialOpts{}, st.policy)
+	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -173,7 +174,7 @@ func (st *State) start(serverTag names.EnvironTag) error {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
 		// will thus not be very performant.
-		logger.Warningf("running state anonymously; using unique client id")
+		logger.Infof("running state anonymously; using unique client id")
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
@@ -1826,8 +1827,17 @@ type StateServerInfo struct {
 // StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
-	defer closer()
+	session := st.session.Copy()
+	defer session.Close()
+	return readRawStateServerInfo(st.session)
+}
+
+// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
+// falling back to the bootstrap environment document to extract the UUID when
+// required.
+func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+	db := session.DB(jujuDB)
+	stateServers := db.C(stateServersC)
 
 	var doc stateServersDoc
 	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
@@ -1842,8 +1852,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		// upgrade steps have been run. Without this hack environTag
 		// on State ends up empty, breaking basic functionality needed
 		// to run upgrade steps (a chicken-and-egg scenario).
-		environments, closer := st.getCollection(environmentsC)
-		defer closer()
+		environments := db.C(environmentsC)
 
 		var envDoc environmentDoc
 		query := environments.Find(nil)

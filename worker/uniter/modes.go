@@ -71,9 +71,9 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	// If we got this far, we should have an installed charm,
-	// so initialize the metrics collector according to what's
+	// so initialize the metrics timers according to what's
 	// currently deployed.
-	if err := u.initializeMetricsCollector(); err != nil {
+	if err := u.initializeMetricsTimers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -191,8 +191,14 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	defer watcher.Stop(w, &u.tomb)
+
+	// Upon unit termination we attempt to send any leftover metrics one last time. If we fail, there is nothing
+	// else we can do but log the error.
+	sendErr := u.runOperation(newSendMetricsOp())
+	if sendErr != nil {
+		logger.Warningf("failed to send metrics: %v", sendErr)
+	}
 
 	for {
 		select {
@@ -302,6 +308,11 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
 
+		lastSentMetrics := time.Unix(u.operationState().SendMetricsTime, 0)
+		sendMetricsSignal := u.sendMetricsAt(
+			time.Now(), lastSentMetrics, metricsSendInterval,
+		)
+
 		// update-status hook
 		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
 		updateStatusSignal := u.updateStatusAt(
@@ -333,6 +344,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
+		case <-sendMetricsSignal:
+			creator = newSendMetricsOp()
 		case <-updateStatusSignal:
 			creator = newSimpleRunHookOp(hooks.UpdateStatus)
 		case hookInfo := <-u.relations.Hooks():
