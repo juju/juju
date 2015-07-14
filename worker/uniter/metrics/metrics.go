@@ -15,11 +15,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+var logger = loggo.GetLogger("juju.worker.uniter.metrics")
 
 type metricFile struct {
 	*os.File
@@ -51,7 +54,13 @@ func (f *metricFile) Close() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = os.Rename(f.Name(), f.finalName)
+	defer func() {
+		err := os.Remove(f.Name())
+		if err != nil {
+			logger.Errorf("failed to remove temporary file %q: %v", f.Name(), err)
+		}
+	}()
+	err = os.Link(f.Name(), f.finalName)
 	if err != nil {
 		return errors.Trace(err)
 	}
