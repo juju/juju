@@ -143,7 +143,7 @@ func (m *JSONMetricRecorder) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	err := errors.Trace(m.file.Close())
+	err := m.file.Close()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,7 +153,8 @@ func (m *JSONMetricRecorder) Close() error {
 	//
 	// Now write the meta file so that JSONMetricReader discovers a finished
 	// pair of files.
-	if err := m.recordMetaData(); err != nil {
+	err = m.recordMetaData()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
