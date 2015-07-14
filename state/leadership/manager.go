@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state/lease"
 )
 
@@ -154,11 +155,11 @@ func (manager *manager) handleClaim(claim claim) error {
 }
 
 // CheckLeadership is part of the leadership.Manager interface.
-func (manager *manager) CheckLeadership(serviceName, unitName string) (Token, error) {
+func (manager *manager) CheckLeadership(serviceName, unitName string) (leadership.Token, error) {
 	return check{
 		serviceName: serviceName,
 		unitName:    unitName,
-		response:    make(chan Token),
+		response:    make(chan leadership.Token),
 		abort:       manager.tomb.Dying(),
 	}.invoke(manager.checks)
 }
@@ -175,7 +176,7 @@ func (manager *manager) handleCheck(check check) error {
 		}
 		info, found = client.Leases()[check.serviceName]
 	}
-	var result Token
+	var result leadership.Token
 	if found && info.Holder == check.unitName {
 		result = token{info.AssertOp}
 	}
