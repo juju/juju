@@ -36,7 +36,7 @@ type processesBaseSuite struct {
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
-	s.env = newProcsEnv(c, s, "") // TODO(ericsnow) switch to "local"...
+	s.env = newProcsEnv(c, s, "local")
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
