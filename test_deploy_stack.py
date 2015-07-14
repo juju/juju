@@ -18,7 +18,6 @@ import yaml
 from deploy_stack import (
     add_juju_args,
     add_output_args,
-    add_path_args,
     assess_juju_run,
     boot_context,
     copy_local_logs,
@@ -28,7 +27,6 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_logs,
-    get_juju_path,
     get_log_level,
     iter_remote_machines,
     get_remote_machines,
@@ -70,21 +68,6 @@ def make_logs(log_dir):
 
 class ArgParserTestCase(TestCase):
 
-    def test_add_path_args(self):
-        parser = ArgumentParser('proc')
-        add_path_args(parser)
-        cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
-        with patch('sys.argv', cmd_line):
-            args_dict = parser.parse_args().__dict__
-        expected = {'new_juju_bin': '/tmp/juju'}
-        self.assertEqual(args_dict, expected)
-
-    def test_add_path_args_new_juju_bin_default(self):
-        parser = ArgumentParser('foo')
-        add_path_args(parser)
-        args = parser.parse_args([])
-        self.assertIs(args.new_juju_bin, None)
-
     def test_add_output_args(self):
         parser = ArgumentParser('proc')
         add_output_args(parser)
@@ -106,11 +89,6 @@ class ArgParserTestCase(TestCase):
             'agent_stream': 'devel', 'agent_url': 'some_url',
             'series': 'vivid'}
         self.assertEqual(args_dict, expected)
-
-    def test_get_juju_path_new_juju_bin(self):
-        args = Namespace(new_juju_bin='/tmp/juju')
-        juju_path = get_juju_path(args)
-        self.assertEqual(juju_path, '/tmp/juju/juju')
 
     def test_get_log_level_debug(self):
         parser = ArgumentParser('proc')
@@ -812,18 +790,18 @@ class TestBootContext(TestCase):
 class TestDeployJobParseArgs(TestCase):
 
     def test_deploy_job_parse_args(self):
-        args = deploy_job_parse_args(['foo', 'bar', 'baz'])
+        args = deploy_job_parse_args(['foo', 'bar', 'baz', 'qux'])
         self.assertEqual(args, Namespace(
             agent_stream=None,
             agent_url=None,
             bootstrap_host=None,
             debug=False,
             env='foo',
-            temp_env_name='baz',
+            temp_env_name='qux',
             keep_env=False,
-            logs='bar',
+            logs='baz',
             machine=[],
-            new_juju_bin=None,
+            new_juju_bin='bar',
             series=None,
             upgrade=False,
             verbose=False,
@@ -831,10 +809,11 @@ class TestDeployJobParseArgs(TestCase):
         ))
 
     def test_upload_tools(self):
-        args = deploy_job_parse_args(['foo', 'bar', 'baz', '--upload-tools'])
+        args = deploy_job_parse_args(
+            ['foo', 'bar', 'baz', 'qux', '--upload-tools'])
         self.assertEqual(args.upload_tools, True)
 
     def test_agent_stream(self):
         args = deploy_job_parse_args(
-            ['foo', 'bar', 'baz', '--agent-stream', 'wacky'])
+            ['foo', 'bar', 'baz', 'qux', '--agent-stream', 'wacky'])
         self.assertEqual('wacky', args.agent_stream)

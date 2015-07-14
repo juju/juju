@@ -30,5 +30,5 @@ if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
 fi
 
-timeout -s INT $timeout $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
-  --series $series $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
+timeout -s INT $timeout $SCRIPTS/deploy_job.py --series $series\
+   $ENV $JUJU_BIN/juju $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"

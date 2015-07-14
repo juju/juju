@@ -312,11 +312,6 @@ def upgrade_juju(client):
     client.upgrade_juju()
 
 
-def add_path_args(parser):
-    parser.add_argument('--new-juju-bin', default=None,
-                        help='Dirctory containing the new Juju binary.')
-
-
 def add_output_args(parser):
     parser.add_argument('--debug', action="store_true", default=False,
                         help='Use --debug juju logging.')
@@ -333,11 +328,6 @@ def add_juju_args(parser):
                         help='Name of the Ubuntu series to use.')
 
 
-def get_juju_path(args):
-    juju_path = os.path.join(args.new_juju_bin, 'juju')
-    return juju_path
-
-
 def get_log_level(args):
     log_level = logging.INFO
     if 'verbose' in args and args.verbose:
@@ -348,6 +338,8 @@ def get_log_level(args):
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
     parser.add_argument('env', help='Base Juju environment.')
+    parser.add_argument('new_juju_bin',
+                        help='Path to the new Juju binary.')
     parser.add_argument('logs', help='log directory.')
     parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--upgrade', action="store_true", default=False,
@@ -365,14 +357,13 @@ def deploy_job_parse_args(argv=None):
         help='upload local version of tools before bootstrapping')
     add_juju_args(parser)
     add_output_args(parser)
-    add_path_args(parser)
     return parser.parse_args(argv)
 
 
 def deploy_job():
     args = deploy_job_parse_args()
     configure_logging(get_log_level(args))
-    juju_path = get_juju_path(args)
+    juju_path = args.new_juju_bin
     series = args.series
     if series is None:
         series = 'precise'

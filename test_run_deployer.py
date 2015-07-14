@@ -21,10 +21,11 @@ from run_deployer import (
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
-        args = parse_args(['/bundle/path', 'test_env', '/tmp/logs',
-                           'test_job'])
+        args = parse_args(['/bundle/path', 'test_env', 'new/bin/juju',
+                           '/tmp/logs', 'test_job'])
         self.assertEqual(args.bundle_path, '/bundle/path')
         self.assertEqual(args.env, 'test_env')
+        self.assertEqual(args.new_juju_bin, 'new/bin/juju')
         self.assertEqual(args.logs, '/tmp/logs')
         self.assertEqual(args.temp_env_name, 'test_job')
         self.assertEqual(args.bundle_name, None)
@@ -35,7 +36,6 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.series, None)
         self.assertEqual(args.debug, False)
         self.assertEqual(args.verbose, False)
-        self.assertEqual(args.new_juju_bin, None)
 
 
 class TestRunDeployer(TestCase):

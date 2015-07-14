@@ -6,7 +6,6 @@ import subprocess
 from deploy_stack import (
     boot_context,
     get_log_level,
-    get_juju_path,
 )
 from jujupy import (
     EnvJujuClient,
@@ -23,6 +22,8 @@ def parse_args(argv=None):
                         help='URL or path to a bundle')
     parser.add_argument('env',
                         help='The juju environment to test')
+    parser.add_argument('new_juju_bin',
+                        help='Path to the new Juju binary.')
     parser.add_argument('logs', help='log directory.')
     parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--bundle-name', default=None,
@@ -43,9 +44,6 @@ def parse_args(argv=None):
                         help='Use --debug juju logging.')
     parser.add_argument('--verbose', '-v', action="store_true", default=False,
                         help='Increase logging verbosity.')
-
-    parser.add_argument('--new-juju-bin', default=None,
-                        help='Dirctory containing the new Juju binary.')
     return parser.parse_args(argv)
 
 
@@ -70,7 +68,7 @@ def check_health(cmd_path, env_name=''):
 
 def run_deployer():
     args = parse_args()
-    juju_path = get_juju_path(args)
+    juju_path = args.new_juju_bin
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
     client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
