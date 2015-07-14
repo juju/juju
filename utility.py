@@ -240,6 +240,14 @@ def add_basic_testing_arguments(parser):
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
+    parser.add_argument('--bootstrap-host',
+                        help='The host to use for bootstrap.')
+    parser.add_argument('--machine', help='A machine to add or when used with '
+                        'KVM based MaaS, a KVM image to start.',
+                        action='append', default=[])
+    parser.add_argument('--keep-env', action='store_true', default=False,
+                        help='Keep the Juju environment after the test'
+                        ' completes.')
     return parser
 
 
