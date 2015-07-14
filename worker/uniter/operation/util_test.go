@@ -41,8 +41,8 @@ type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
-	MockClearResolvedFlag          *MockNoArgs
-	MockInitializeMetricsCollector *MockNoArgs
+	MockClearResolvedFlag       *MockNoArgs
+	MockInitializeMetricsTimers *MockNoArgs
 }
 
 func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
@@ -57,8 +57,8 @@ func (cb *DeployCallbacks) ClearResolvedFlag() error {
 	return cb.MockClearResolvedFlag.Call()
 }
 
-func (cb *DeployCallbacks) InitializeMetricsCollector() error {
-	return cb.MockInitializeMetricsCollector.Call()
+func (cb *DeployCallbacks) InitializeMetricsTimers() error {
+	return cb.MockInitializeMetricsTimers.Call()
 }
 
 type MockBundleInfo struct {
@@ -390,7 +390,7 @@ func NewDeployCallbacks() *DeployCallbacks {
 
 func NewDeployCommitCallbacks(err error) *DeployCallbacks {
 	return &DeployCallbacks{
-		MockInitializeMetricsCollector: &MockNoArgs{err: err},
+		MockInitializeMetricsTimers: &MockNoArgs{err: err},
 	}
 }
 func NewMockDeployer() *MockDeployer {
