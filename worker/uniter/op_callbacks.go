@@ -129,9 +129,9 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.f.ClearResolved()
 }
 
-// InitializeMetricsCollector is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsCollector() error {
-	return opc.u.initializeMetricsCollector()
+// InitializeMetricsTimers is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) InitializeMetricsTimers() error {
+	return opc.u.initializeMetricsTimers()
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.

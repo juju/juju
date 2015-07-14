@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner
+package metrics
 
 import (
 	"encoding/json"
@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fslock"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -24,6 +26,29 @@ const spoolLockName string = "access"
 
 var lockTimeout = time.Second * 5
 
+// MetricBatch stores the information relevant to a single metrics batch.
+type MetricBatch struct {
+	CharmURL string         `json:"charmurl"`
+	UUID     string         `json:"uuid"`
+	Created  time.Time      `json:"created"`
+	Metrics  []jujuc.Metric `json:"metrics"`
+}
+
+// APIMetricBatch converts the specified MetricBatch to a params.MetricBatch,
+// which can then be sent to the state server.
+func APIMetricBatch(batch MetricBatch) params.MetricBatch {
+	metrics := make([]params.Metric, len(batch.Metrics))
+	for i, metric := range batch.Metrics {
+		metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+	}
+	return params.MetricBatch{
+		UUID:     batch.UUID,
+		CharmURL: batch.CharmURL,
+		Created:  batch.Created,
+		Metrics:  metrics,
+	}
+}
+
 // MetricsMetadata is used to store metadata for the current metric batch.
 type MetricsMetadata struct {
 	CharmURL string    `json:"charmurl"`
@@ -31,21 +56,23 @@ type MetricsMetadata struct {
 	Created  time.Time `json:"created"`
 }
 
-// JSONMetricsRecorder implements the MetricsRecorder interface
+// JSONMetricRecorder implements the MetricsRecorder interface
 // and writes metrics to a spool directory for store-and-forward.
-type JSONMetricsRecorder struct {
-	sync.Mutex
+type JSONMetricRecorder struct {
+	lock sync.Mutex
 
 	path string
+
+	validMetrics map[string]corecharm.Metric
 
 	file io.Closer
 	enc  *json.Encoder
 }
 
-// NewJSONMetricsRecorder creates a new JSON metrics recorder.
+// NewJSONMetricRecorder creates a new JSON metrics recorder.
 // It checks if the metrics spool directory exists, if it does not - it is created. Then
 // it tries to find an unused metric batch UUID 3 times.
-func NewJSONMetricsRecorder(spoolDir string, charmURL string) (rec *JSONMetricsRecorder, rErr error) {
+func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric, charmURL string) (rec *JSONMetricRecorder, rErr error) {
 	lock, err := fslock.NewLock(spoolDir, spoolLockName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,8 +118,9 @@ func NewJSONMetricsRecorder(spoolDir string, charmURL string) (rec *JSONMetricsR
 		return nil, errors.Trace(err)
 	}
 
-	recorder := &JSONMetricsRecorder{
-		path: dataFile,
+	recorder := &JSONMetricRecorder{
+		path:         dataFile,
+		validMetrics: metrics,
 	}
 	if err := recorder.open(); err != nil {
 		return nil, errors.Trace(err)
@@ -101,20 +129,24 @@ func NewJSONMetricsRecorder(spoolDir string, charmURL string) (rec *JSONMetricsR
 }
 
 // Close implements the MetricsRecorder interface.
-func (m *JSONMetricsRecorder) Close() error {
-	m.Lock()
-	defer m.Unlock()
+func (m *JSONMetricRecorder) Close() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	return errors.Trace(m.file.Close())
 }
 
 // AddMetric implements the MetricsRecorder interface.
-func (m *JSONMetricsRecorder) AddMetric(key, value string, created time.Time) error {
-	m.Lock()
-	defer m.Unlock()
+func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
+	if _, ok := m.validMetrics[key]; !ok {
+		return errors.Errorf("invalid metric key: %v", key)
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
 }
 
-func (m *JSONMetricsRecorder) open() error {
+func (m *JSONMetricRecorder) open() error {
 	dataWriter, err := os.Create(m.path)
 	if err != nil {
 		return errors.Trace(err)
@@ -122,7 +154,6 @@ func (m *JSONMetricsRecorder) open() error {
 	m.file = dataWriter
 	m.enc = json.NewEncoder(dataWriter)
 	return nil
-
 }
 
 func checkSpoolDir(path string) error {
@@ -156,22 +187,14 @@ func recordMetaData(path string, charmURL, UUID string) error {
 	return nil
 }
 
-// MetricsBatch stores the information relevant to a single metrics batch.
-type MetricsBatch struct {
-	CharmURL string         `json:"charmurl"`
-	UUID     string         `json:"uuid"`
-	Created  time.Time      `json:"created"`
-	Metrics  []jujuc.Metric `json:"metrics"`
-}
-
 // JSONMetricsReader reads metrics batches stored in the spool directory.
-type JSONMetricsReader struct {
+type JSONMetricReader struct {
 	dir  string
 	lock *fslock.Lock
 }
 
 // NewJSONMetricsReader creates a new JSON metrics reader for the specified spool directory.
-func NewJSONMetricsReader(spoolDir string) (*JSONMetricsReader, error) {
+func NewJSONMetricReader(spoolDir string) (*JSONMetricReader, error) {
 	if _, err := os.Stat(spoolDir); err != nil {
 		return nil, errors.Annotatef(err, "failed to open spool directory %q", spoolDir)
 	}
@@ -179,17 +202,17 @@ func NewJSONMetricsReader(spoolDir string) (*JSONMetricsReader, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &JSONMetricsReader{
+	return &JSONMetricReader{
 		lock: lock,
 		dir:  spoolDir,
 	}, nil
 }
 
-// Open implements the MetricsReader interface.
+// Read implements the MetricsReader interface.
 // Due to the way the batches are stored in the file system,
 // they will be returned in an arbitrary order. This does not affect the behavior.
-func (r *JSONMetricsReader) Open() ([]MetricsBatch, error) {
-	var batches []MetricsBatch
+func (r *JSONMetricReader) Read() ([]MetricBatch, error) {
+	var batches []MetricBatch
 
 	if err := r.lock.LockWithTimeout(lockTimeout, "reading"); err != nil {
 		return nil, errors.Trace(err)
@@ -213,7 +236,9 @@ func (r *JSONMetricsReader) Open() ([]MetricsBatch, error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		batches = append(batches, batch)
+		if len(batch.Metrics) > 0 {
+			batches = append(batches, batch)
+		}
 		return nil
 	}
 	if err := filepath.Walk(r.dir, walker); err != nil {
@@ -223,7 +248,7 @@ func (r *JSONMetricsReader) Open() ([]MetricsBatch, error) {
 }
 
 // Remove implements the MetricsReader interface.
-func (r *JSONMetricsReader) Remove(uuid string) error {
+func (r *JSONMetricReader) Remove(uuid string) error {
 	metaFile := filepath.Join(r.dir, fmt.Sprintf("%s.meta", uuid))
 	dataFile := filepath.Join(r.dir, uuid)
 	err := os.Remove(metaFile)
@@ -238,24 +263,24 @@ func (r *JSONMetricsReader) Remove(uuid string) error {
 }
 
 // Close implements the MetricsReader interface.
-func (r *JSONMetricsReader) Close() error {
+func (r *JSONMetricReader) Close() error {
 	if r.lock.IsLockHeld() {
 		return r.lock.Unlock()
 	}
 	return nil
 }
 
-func decodeBatch(file string) (MetricsBatch, error) {
-	var batch MetricsBatch
+func decodeBatch(file string) (MetricBatch, error) {
+	var batch MetricBatch
 	f, err := os.Open(file)
 	if err != nil {
-		return MetricsBatch{}, errors.Trace(err)
+		return MetricBatch{}, errors.Trace(err)
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
 	err = dec.Decode(&batch)
 	if err != nil {
-		return MetricsBatch{}, errors.Trace(err)
+		return MetricBatch{}, errors.Trace(err)
 	}
 	return batch, nil
 }
