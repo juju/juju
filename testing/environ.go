@@ -195,7 +195,10 @@ type environ struct {
 // NewEnv returns a new Environ implementation wrapping the named
 // environment. If necessary the environment is bootstrapped.
 func NewEnv(c *gc.C, envName string) Environ {
-	// TODO(ericsnow) bootstrap...
+	// TODO(ericsnow) We don't care if this fails when the env is
+	// already boostrapped...
+	_, err := RunCommandString(c, "bootstrap", "-e", envName)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return &environ{
 		name: envName,
@@ -213,7 +216,11 @@ func (env *environ) run(c *gc.C, commandName string, args ...string) string {
 
 // AddService implements Environ.
 func (env *environ) AddService(c *gc.C, charmName, serviceName string) Service {
-	env.run(c, "deploy", "-n", "0", charmName, serviceName)
+	if serviceName == "" {
+		serviceName = charmName
+	}
+	env.run(c, "deploy", charmName, serviceName)
+	env.run(c, "remove-unit", serviceName+"/0")
 
 	// TODO(ericsnow) Wait until done.
 

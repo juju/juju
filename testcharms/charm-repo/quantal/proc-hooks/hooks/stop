@@ -2,4 +2,7 @@
 
 export PATH=$PWD/plugin:$PATH
 
-#destroy myproc --unregister
+name=$(config-get plugin-name)
+if [ $name != "" ]; then
+    #destroy $name --unregister
+fi

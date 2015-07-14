@@ -81,6 +81,7 @@ func FindCommand(c *gc.C, name, sub string) cmd.Command {
 	c.Assert(parts, gc.Not(gc.HasLen), 0)
 
 	// TODO(ericsnow) Instead, use the registry in cmd/juju/main.go...
+	wrap := true
 	var command cmd.Command
 	switch name {
 	case "action":
@@ -90,12 +91,16 @@ func FindCommand(c *gc.C, name, sub string) cmd.Command {
 		case "fetch":
 			command = &actioncmd.FetchCommand{}
 		}
+	case "bootstrap":
+		c.Assert(sub, gc.Equals, "")
+		command = &jujucmd.BootstrapCommand{}
 	case "deploy":
 		c.Assert(sub, gc.Equals, "")
 		command = &jujucmd.DeployCommand{}
 	case "destroy-environment":
 		c.Assert(sub, gc.Equals, "")
 		command = &jujucmd.DestroyEnvironmentCommand{}
+		wrap = false
 	case "destroy-unit":
 		c.Assert(sub, gc.Equals, "")
 		command = &jujucmd.RemoveUnitCommand{}
@@ -109,9 +114,9 @@ func FindCommand(c *gc.C, name, sub string) cmd.Command {
 	}
 	if command == nil {
 		c.Errorf("command not recognized: juju %s %s", name, sub)
-		c.Fail()
+		c.FailNow()
 	}
-	if environCmd, ok := command.(envcmd.EnvironCommand); ok {
+	if environCmd, ok := command.(envcmd.EnvironCommand); ok && wrap {
 		command = envcmd.Wrap(environCmd)
 	}
 	return command

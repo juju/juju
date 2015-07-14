@@ -2,5 +2,8 @@
 
 export PATH=$PWD/plugin:$PATH
 
-# TODO(ericsnow) Use an override for the port.
-launch myproc
+name=$(config-get plugin-name)
+if [ $name != "" ]; then
+    # TODO(ericsnow) Use an override for the port.
+    launch $name
+fi

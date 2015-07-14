@@ -33,14 +33,25 @@ type processesBaseSuite struct {
 	unit *procsUnit
 }
 
-func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+const environConfig = coretesting.SingleEnvConfig + `
+    local:
+        type: local
+        authorized-keys: ` + coretesting.FakeAuthKeys + `
+`
 
-	s.env = newProcsEnv(c, s, "local")
+func (s *processesBaseSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	if s.env == nil {
+		coretesting.WriteEnvironments(c, environConfig, coretesting.SampleCertName)
+		s.env = newProcsEnv(c, s, "local")
+	}
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
-	s.env.destroy(c)
+	if s.env != nil {
+		s.env.destroy(c)
+	}
 
 	s.JujuConnSuite.TearDownSuite(c)
 }

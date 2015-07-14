@@ -42,7 +42,7 @@ func (svc *service) Deploy(c *gc.C) coretesting.Unit {
 		switch status.Status {
 		case state.StatusError:
 			c.Errorf("unit in error state: %#v", status)
-			c.Fail()
+			c.FailNow()
 		case state.StatusActive:
 			break
 		}
