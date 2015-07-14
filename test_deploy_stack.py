@@ -819,7 +819,7 @@ class TestDeployJobParseArgs(TestCase):
             bootstrap_host=None,
             debug=False,
             env='foo',
-            job_name='baz',
+            temp_env_name='baz',
             keep_env=False,
             logs='bar',
             machine=[],

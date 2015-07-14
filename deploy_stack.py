@@ -349,7 +349,7 @@ def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
     parser.add_argument('env', help='Base Juju environment.')
     parser.add_argument('logs', help='log directory.')
-    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
     parser.add_argument('--bootstrap-host',
@@ -381,7 +381,7 @@ def deploy_job():
     if series.startswith("win"):
         logging.info('Setting default series to trusty for windows deploy.')
         series = 'trusty'
-    return _deploy_job(args.job_name, args.env, args.upgrade,
+    return _deploy_job(args.temp_env_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        series, args.logs, args.debug, juju_path,
                        args.agent_url, args.agent_stream,
@@ -404,14 +404,14 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 
 @contextmanager
-def boot_context(job_name, client, bootstrap_host, machines, series,
+def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools):
     created_machines = False
     bootstrap_id = None
     running_domains = dict()
     try:
         if client.env.config['type'] == 'manual' and bootstrap_host is None:
-            instances = run_instances(3, job_name)
+            instances = run_instances(3, temp_env_name)
             created_machines = True
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
@@ -432,7 +432,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             # No further handling of machines down the line is required.
             machines = []
 
-        update_env(client.env, job_name, series=series,
+        update_env(client.env, temp_env_name, series=series,
                    bootstrap_host=bootstrap_host, agent_url=agent_url,
                    agent_stream=agent_stream)
         try:
@@ -471,7 +471,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
                     client.destroy_environment()
         finally:
             if created_machines and not keep_env:
-                destroy_job_instances(job_name)
+                destroy_job_instances(temp_env_name)
     finally:
         if client.env.config['type'] == 'maas' and not keep_env:
             logging.info("Waiting for destroy-environment to complete")
@@ -487,7 +487,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
                 logging.info("%s" % status_msg)
 
 
-def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
+def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
                 agent_stream, keep_env, upload_tools):
     start_juju_path = None if upgrade else juju_path
@@ -496,7 +496,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
-    with boot_context(job_name, client, bootstrap_host, machines,
+    with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
                       upload_tools):
         prepare_environment(

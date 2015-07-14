@@ -18,13 +18,11 @@ def get_base_parser(description=""):
     parser.add_argument(
         'juju_path', help='Directory your juju binary lives in.')
     parser.add_argument(
-        'job_name', help='An arbitrary name for this job.')
+        'temp_env_name', help='An arbitrary name for this job.')
 
     add_juju_args(parser)
     add_output_args(parser)
 
-    parser.add_argument('--upgrade', action="store_true", default=False,
-                        help='Perform an upgrade test.')
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.', default=None)
     parser.add_argument('--machine', help='A machine to add or when used with '

@@ -32,7 +32,7 @@ def main():
     series = args.series
     if series is None:
         series = 'precise'
-    with boot_context(args.job_name, client, args.bootstrap_host,
+    with boot_context(args.temp_env_name, client, args.bootstrap_host,
                       args.machine, series, args.agent_url, args.agent_stream,
                       log_dir, args.keep_env, args.upload_tools):
         prepare_environment(

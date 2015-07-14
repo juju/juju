@@ -24,7 +24,7 @@ def parse_args(argv=None):
     parser.add_argument('env',
                         help='The juju environment to test')
     parser.add_argument('logs', help='log directory.')
-    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--bundle-name', default=None,
                         help='Name of the bundle to deploy.')
     parser.add_argument('--health-cmd', default=None,
@@ -74,11 +74,11 @@ def run_deployer():
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
     client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
-    with boot_context(args.job_name, client, None, [], args.series,
+    with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
                       args.keep_env, False):
         client.deployer(args.bundle_path, args.bundle_name)
         if args.health_cmd:
-            check_health(args.health_cmd, args.job_name)
+            check_health(args.health_cmd, args.temp_env_name)
 if __name__ == '__main__':
     run_deployer()

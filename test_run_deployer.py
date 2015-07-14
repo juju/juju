@@ -26,7 +26,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.bundle_path, '/bundle/path')
         self.assertEqual(args.env, 'test_env')
         self.assertEqual(args.logs, '/tmp/logs')
-        self.assertEqual(args.job_name, 'test_job')
+        self.assertEqual(args.temp_env_name, 'test_job')
         self.assertEqual(args.bundle_name, None)
         self.assertEqual(args.health_cmd, None)
         self.assertEqual(args.keep_env, False)
@@ -48,7 +48,7 @@ class TestRunDeployer(TestCase):
                            return_value=EnvJujuClient(env, '1.234-76', None)):
                     with patch('run_deployer.parse_args',
                                return_value=Namespace(
-                                   job_name='foo', env='bar', series=None,
+                                   temp_env_name='foo', env='bar', series=None,
                                    agent_url=None, agent_stream=None,
                                    new_juju_bin='', logs=None, keep_env=False,
                                    health_cmd=None, debug=False,
@@ -68,7 +68,7 @@ class TestRunDeployer(TestCase):
                            return_value=EnvJujuClient(env, '1.234-76', None)):
                     with patch('run_deployer.parse_args',
                                return_value=Namespace(
-                                   job_name='foo', env='bar', series=None,
+                                   temp_env_name='foo', env='bar', series=None,
                                    agent_url=None, agent_stream=None,
                                    new_juju_bin='', logs=None, keep_env=False,
                                    health_cmd='/tmp/check', debug=False,
