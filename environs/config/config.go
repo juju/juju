@@ -190,6 +190,11 @@ const (
 	// Deprecated by use-clone
 	// LxcUseClone stores the key for this setting.
 	LxcUseClone = "lxc-use-clone"
+
+	// IgnoreMachineAddresses, when true, will cause the
+	// machine worker not to discover any machine addresses
+	// on start up.
+	IgnoreMachineAddresses = "ignore-machine-addresses"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -1145,6 +1150,13 @@ func (c *Config) DisableNetworkManagement() (bool, bool) {
 	return v, ok
 }
 
+// IgnoreMachineAddresses reports whether Juju will discover
+// and store machine addresses on startup.
+func (c *Config) IgnoreMachineAddresses() (bool, bool) {
+	v, ok := c.defined[IgnoreMachineAddresses].(bool)
+	return v, ok
+}
+
 // StorageDefaultBlockSource returns the default block storage
 // source for the environment.
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
@@ -1282,6 +1294,7 @@ var fields = schema.Fields{
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
+	IgnoreMachineAddresses:       schema.Bool(),
 	SetNumaControlPolicyKey:      schema.Bool(),
 	PreventDestroyEnvironmentKey: schema.Bool(),
 	PreventRemoveObjectKey:       schema.Bool(),
@@ -1330,6 +1343,7 @@ var alwaysOptional = schema.Defaults{
 	LxcClone:                     schema.Omit,
 	LXCDefaultMTU:                schema.Omit,
 	"disable-network-management": schema.Omit,
+	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
@@ -1401,6 +1415,7 @@ func allDefaults() schema.Defaults {
 		"proxy-ssh":                  true,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
+		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	}
 	for attr, val := range alwaysOptional {
