@@ -599,8 +599,31 @@ func (context *statusContext) processService(service *state.Service) (status api
 		status.Status.Info = serviceStatus.Message
 		status.Status.Data = serviceStatus.Data
 		status.Status.Since = serviceStatus.Since
+
+		status.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}
 	return status
+}
+
+func isColorStatus(code state.MeterStatusCode) bool {
+	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
+}
+
+func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]api.MeterStatus {
+	unitsMap := make(map[string]api.MeterStatus)
+	for _, unit := range units {
+		status, err := unit.GetMeterStatus()
+		if err != nil {
+			continue
+		}
+		if isColorStatus(status.Code) {
+			unitsMap[unit.Name()] = api.MeterStatus{Color: strings.ToLower(status.Code.String()), Message: status.Info}
+		}
+	}
+	if len(unitsMap) > 0 {
+		return unitsMap
+	}
+	return nil
 }
 
 func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]api.UnitStatus {

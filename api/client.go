@@ -98,12 +98,19 @@ type ServiceStatus struct {
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
+	MeterStatuses map[string]MeterStatus
 	Status        AgentStatus
 }
 
 // UnitStatusHistory holds a slice of statuses.
 type UnitStatusHistory struct {
 	Statuses []AgentStatus
+}
+
+// MeterStatus represents the meter status of a unit.
+type MeterStatus struct {
+	Color   string
+	Message string
 }
 
 // UnitStatus holds status info about a unit.
