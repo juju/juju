@@ -2,7 +2,7 @@
 
 export PATH=$PWD/plugin:$PATH
 
-status=$(config-get status)
+status=$(config-get plugin-status)
 
 if [ $status != "" ]; then
     # TODO(ericsnow) Uncomment once set-status is added.

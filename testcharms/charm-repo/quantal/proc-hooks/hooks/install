@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+name=$(config-get plugin-name)
+id=$(config-get plugin-id)
+status=$(config-get plugin-status)
+juju-process-myplugin init $name $id $status

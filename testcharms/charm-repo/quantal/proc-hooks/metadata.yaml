@@ -1,4 +1,4 @@
-name: test
+name: proc-hooks
 summary: Testing workload processes
 maintainer: juju@canonical.com <Juju>
 description: |
