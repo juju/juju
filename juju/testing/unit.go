@@ -27,17 +27,23 @@ func (u *unit) RunAction(c *gc.C, name string, args map[string]interface{}) map[
 	_, err := st.EnqueueAction(u.unit.Tag(), name, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Wait until done.
-	var actions []*state.Action
-	for i := 0; len(actions) == 0; i++ {
+	// Wait until done...
+	var action *state.Action
+	for i := 0; ; i++ {
+		actions, err := u.unit.CompletedActions()
+		c.Assert(err, jc.ErrorIsNil)
+
+		if len(actions) > 0 {
+			c.Assert(actions, gc.HasLen, 1)
+			action = actions[0]
+			break
+		}
+
 		if i > 100 {
 			panic("timed out")
 		}
-		actions, err = u.unit.CompletedActions()
-		c.Assert(err, jc.ErrorIsNil)
+		// sleep...
 	}
-	c.Assert(actions, gc.HasLen, 1)
-	action := actions[0]
 
 	results, msg := action.Results()
 	c.Assert(msg, gc.Equals, "")

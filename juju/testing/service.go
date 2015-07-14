@@ -34,7 +34,24 @@ func (svc *service) Deploy(c *gc.C) coretesting.Unit {
 	err = svc.env.suite.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Wait until done.
+	// Wait until done....
+	for i := 0; ; i++ {
+		status, err := u.Status()
+		c.Assert(err, jc.ErrorIsNil)
+
+		switch status.Status {
+		case state.StatusError:
+			c.Errorf("unit in error state: %#v", status)
+			c.Fail()
+		case state.StatusActive:
+			break
+		}
+
+		if i > 100 {
+			panic("timed out")
+		}
+		// sleep...
+	}
 
 	return &unit{
 		svc:  svc,
