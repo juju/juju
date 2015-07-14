@@ -366,6 +366,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
+var _ environs.InstanceTagger = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -1670,4 +1671,12 @@ func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error
 		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return common.GetCustomImageSource(env)
+}
+
+// TagInstance implements environs.InstanceTagger.
+func (e *environ) TagInstance(id instance.Id, tags map[string]string) error {
+	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
+		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
 }

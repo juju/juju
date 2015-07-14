@@ -1641,3 +1641,45 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		},
 	)
 }
+
+func (t *localServerSuite) TestTagInstance(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMetadata := func(extraKey, extraValue string) {
+		// Refresh instance
+		instances, err := env.AllInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(instances, gc.HasLen, 1)
+		c.Assert(
+			openstack.InstanceServerDetail(instances[0]).Metadata,
+			jc.DeepEquals,
+			map[string]string{
+				"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+				"juju-is-state": "true",
+				extraKey:        extraValue,
+			},
+		)
+	}
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	extraKey := "extra-k"
+	extraValue := "extra-v"
+	err = env.(environs.InstanceTagger).TagInstance(
+		instances[0].Id(), map[string]string{extraKey: extraValue},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMetadata(extraKey, extraValue)
+
+	// Ensure that a second call updates existing tags.
+	extraValue = "extra-v2"
+	err = env.(environs.InstanceTagger).TagInstance(
+		instances[0].Id(), map[string]string{extraKey: extraValue},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMetadata(extraKey, extraValue)
+}
