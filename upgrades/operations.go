@@ -60,6 +60,10 @@ var upgradeOperations = func() []Operation {
 			version.MustParse("1.23.0"),
 			stepsFor123(),
 		},
+		upgradeToVersion{
+			version.MustParse("1.24.0"),
+			stepsFor124(),
+		},
 	}
 	return steps
 }

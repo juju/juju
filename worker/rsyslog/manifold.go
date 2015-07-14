@@ -42,5 +42,6 @@ var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker
 		tag,
 		namespace,
 		addrs,
+		agentConfig.DataDir(),
 	)
 }

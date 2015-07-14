@@ -18,6 +18,7 @@ var (
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
+	OsRemove       = &osRemove
 
 	// 118 upgrade functions
 	StepsFor118                            = stepsFor118
@@ -42,4 +43,8 @@ var (
 	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
 	AddDefaultStoragePools          = addDefaultStoragePools
 	MoveBlocksFromEnvironToState    = moveBlocksFromEnvironToState
+
+	// 124 upgrade functions
+	MoveSyslogConfig = moveSyslogConfig
+	CopyFile         = copyFile
 )
