@@ -360,3 +360,59 @@ func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.
 func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
 	return w.out
 }
+
+// entityWatcher will send events when something changes.
+// The content of the changes is a list of entity tags as strings.
+type entityWatcher struct {
+	commonWatcher
+	caller           base.APICaller
+	entityWatcherId string
+	out              chan []string
+}
+
+func NewEntityWatcher(caller base.APICaller, result params.EntityWatchResult) EntityWatcher {
+	w := &entityWatcher{
+		caller:          caller,
+		entityWatcherId: result.EntityWatcherId,
+		out:             make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(result.Changes))
+	}()
+	return w
+}
+
+func (w *entityWatcher) loop(initialChanges []string) error {
+	changes := initialChanges
+	w.newResult = func() interface{} { return new(params.EntityWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "EntityWatcher", w.entityWatcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		select {
+		// Send the initial event or subsequent change.
+		case w.out <- changes:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		// Read the next change.
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error
+			// at this point, so just return.
+			return nil
+		}
+		// Changes have been transformed at the server side already.
+		changes = data.(*params.EntityWatchResult).Changes
+	}
+}
+
+// Changes returns a channel that receives a list of changes
+// as tags (converted to strings) of the watched entities
+// with changes.
+func (w *entityWatcher) Changes() <-chan []string {
+	return w.out
+}
