@@ -226,16 +226,21 @@ func (m *leaseManager) loop() error {
 		return errors.Annotate(err, "expiring leases")
 	}
 
+	// Ensure release notification channels are always closed on exit
+	// so that subscribers are not left blocked.
+	defer func() {
+		// Close any outstanding subscribers, to inform them
+		// that the worker is dying.
+		for _, subs := range releaseSubs {
+			for _, sub := range subs {
+				close(sub)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-m.tomb.Dying():
-			// Close any outstanding subscribers, to inform them
-			// that the worker is dying.
-			for _, subs := range releaseSubs {
-				for _, sub := range subs {
-					close(sub)
-				}
-			}
 			return tomb.ErrDying
 		case claim := <-m.claimLease:
 			lease := claimLease(leaseCache, claim.Token)
