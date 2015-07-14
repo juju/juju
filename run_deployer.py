@@ -22,8 +22,7 @@ def parse_args(argv=None):
                         help='URL or path to a bundle')
     parser.add_argument('env',
                         help='The juju environment to test')
-    parser.add_argument('new_juju_bin',
-                        help='Path to the new Juju binary.')
+    parser.add_argument('juju_bin', help='Path to the new Juju binary.')
     parser.add_argument('logs', help='log directory.')
     parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--bundle-name', default=None,
@@ -68,10 +67,9 @@ def check_health(cmd_path, env_name=''):
 
 def run_deployer():
     args = parse_args()
-    juju_path = args.new_juju_bin
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
-    client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
+    client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
     with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
                       args.keep_env, False):

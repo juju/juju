@@ -801,7 +801,7 @@ class TestDeployJobParseArgs(TestCase):
             keep_env=False,
             logs='baz',
             machine=[],
-            new_juju_bin='bar',
+            juju_bin='bar',
             series=None,
             upgrade=False,
             verbose=False,

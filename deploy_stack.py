@@ -338,8 +338,7 @@ def get_log_level(args):
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
     parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('new_juju_bin',
-                        help='Path to the new Juju binary.')
+    parser.add_argument('juju_bin', help='Path to the new Juju binary.')
     parser.add_argument('logs', help='log directory.')
     parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
     parser.add_argument('--upgrade', action="store_true", default=False,
@@ -363,7 +362,6 @@ def deploy_job_parse_args(argv=None):
 def deploy_job():
     args = deploy_job_parse_args()
     configure_logging(get_log_level(args))
-    juju_path = args.new_juju_bin
     series = args.series
     if series is None:
         series = 'precise'
@@ -374,7 +372,7 @@ def deploy_job():
         series = 'trusty'
     return _deploy_job(args.temp_env_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
-                       series, args.logs, args.debug, juju_path,
+                       series, args.logs, args.debug, args.juju_bin,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools)
 
