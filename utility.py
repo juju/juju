@@ -240,6 +240,8 @@ def add_basic_testing_arguments(parser):
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
+    parser.add_argument('--upload-tools', action='store_true', default=False,
+                        help='upload local version of tools to bootstrap.')
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
     parser.add_argument('--machine', help='A machine to add or when used with '
