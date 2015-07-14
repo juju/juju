@@ -176,3 +176,53 @@ func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
+
+// Environ exposes the functionality of a Juju environment as needed by tests.
+type Environ interface {
+	// AddService adds the charm and service to the environment. If no
+	// service name is provided then it is derived from the charm name.
+	// The local charm repo in the "testcharms" directory is used. No
+	// units are actually deployed (use Service.Deploy).
+	AddService(c *gc.C, charmName, serviceName string) Service
+	// Destroy performs any necessary cleanup of the environment.
+	Destroy(c *gc.C)
+}
+
+type environ struct {
+	name string
+}
+
+// NewEnv returns a new Environ implementation wrapping the named
+// environment. If necessary the environment is bootstrapped.
+func NewEnv(c *gc.C, envName string) Environ {
+	// XXX bootstrap...
+
+	return &environ{
+		name: envName,
+	}
+}
+
+func (env *environ) run(c *gc.C, commandName string, args ...string) string {
+	args = append([]string{"-e", env.name}, args...)
+
+	context, err := RunCommandString(c, commandName, args...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return Stdout(context)
+}
+
+// AddService implements Environ.
+func (env *environ) AddService(c *gc.C, charmName, serviceName string) Service {
+	env.run(c, "deploy", "-n", "0", charmName, serviceName)
+
+	// TODO(ericsnow) Wait until done.
+
+	return newService(env, charmName, serviceName)
+}
+
+// Destroy implements Environ.
+func (env *environ) Destroy(c *gc.C) {
+	env.run(c, "destroy-environment", "-f")
+
+	// TODO(ericsnow) Wait until done.
+}

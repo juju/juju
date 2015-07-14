@@ -9,6 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/envcmd"
+	jujucmd "github.com/juju/juju/cmd/juju"
+	actioncmd "github.com/juju/juju/cmd/juju/action"
+	servicecmd "github.com/juju/juju/cmd/juju/service"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
@@ -67,6 +72,51 @@ func Stderr(ctx *cmd.Context) string {
 	return ctx.Stderr.(*bytes.Buffer).String()
 }
 
+// FindCommand returns the appropriate juju command for the provided
+// command name. If a subcommand name is provided then it is looked up
+// relative to the named command. Environment-based commands are
+// appropriately wrapped.
+func FindCommand(c *gc.C, name, sub string) cmd.Command {
+	parts := strings.Fields(name)
+	c.Assert(parts, gc.Not(gc.HasLen), 0)
+
+	// TODO(ericsnow) Instead, use the registry in cmd/juju/main.go...
+	var command cmd.Command
+	switch name {
+	case "action":
+		switch sub {
+		case "do":
+			command = &actioncmd.DoCommand{}
+		case "fetch":
+			command = &actioncmd.FetchCommand{}
+		}
+	case "deploy":
+		c.Assert(sub, gc.Equals, "")
+		command = &jujucmd.DeployCommand{}
+	case "destroy-environment":
+		c.Assert(sub, gc.Equals, "")
+		command = &jujucmd.DestroyEnvironmentCommand{}
+	case "destroy-unit":
+		c.Assert(sub, gc.Equals, "")
+		command = &jujucmd.RemoveUnitCommand{}
+	case "service":
+		switch sub {
+		case "add":
+			command = &servicecmd.AddUnitCommand{}
+		case "set":
+			command = &servicecmd.SetCommand{}
+		}
+	}
+	if command == nil {
+		c.Errorf("command not recognized: juju %s %s", name, sub)
+		c.Fail()
+	}
+	if environCmd, ok := command.(envcmd.EnvironCommand); ok {
+		command = envcmd.Wrap(environCmd)
+	}
+	return command
+}
+
 // RunCommand runs a command with the specified args.  The returned error
 // may come from either the parsing of the args, the command initialisation, or
 // the actual running of the command.  Access to the resulting output streams
@@ -77,6 +127,22 @@ func RunCommand(c *gc.C, com cmd.Command, args ...string) (*cmd.Context, error) 
 	}
 	var context = Context(c)
 	return context, com.Run(context)
+}
+
+// RunCommandString runs a command with the specified args. The only
+// difference from RunCommand is that the command to run is derived from
+// the provided command name. The command name may be a single name or
+// a super command and a sub-command.
+func RunCommandString(c *gc.C, commandName string, args ...string) (*cmd.Context, error) {
+	parts := strings.SplitN(commandName, " ", 2)
+	commandName = parts[0]
+	subName := ""
+	if len(parts) == 2 {
+		subName = parts[1]
+	}
+	command := FindCommand(c, commandName, subName)
+
+	return RunCommand(c, command, args...)
 }
 
 // RunCommandInDir works like RunCommand, but runs with a context that uses dir.
