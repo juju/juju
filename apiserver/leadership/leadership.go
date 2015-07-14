@@ -85,7 +85,7 @@ func NewLeadershipService(
 	}, nil
 }
 
-// LeadershipService implements the LeadershipService interface and
+// leadershipService implements the LeadershipService interface and
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
 	state      *state.State

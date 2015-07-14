@@ -51,9 +51,13 @@ type Token interface {
 // Checker exposes leadership testing capabilities.
 type Checker interface {
 
-	// LeadershipCheck verifies that the named unit is leader of the named
-	// service, and returns a Token attesting to that fact for use building
-	// mgo/txn transactions that depend upon it.
+	// LeadershipCheck returns a Token representing the supplied unit's
+	// service leadership. The existence of the token does not imply
+	// its accuracy; you need to Check() it.
+	//
+	// This method returns a token that accepts a *[]txn.Op, into which
+	// it will (on success) copy mgo/txn operations that can be used to
+	// verify the unit's continued leadership as part of another txn.
 	LeadershipCheck(serviceName, unitName string) Token
 }
 
