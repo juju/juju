@@ -166,6 +166,9 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	)
 	err = machine.SetMachineAddresses(setAddresses)
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.MachineAddresses(), gc.HasLen, 3)
 
 	err = machine.SetMachineAddresses(nil)
 	c.Assert(err, jc.ErrorIsNil)

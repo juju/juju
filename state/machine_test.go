@@ -1962,6 +1962,7 @@ func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.MachineAddresses(), gc.HasLen, 2)
 
 	// Make call with empty address list.
 	err = machine.SetMachineAddresses()

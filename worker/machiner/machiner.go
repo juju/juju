@@ -47,6 +47,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	mr.machine = m
 
 	if mr.ignoreAddressesOnStart {
+		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
 		if err := m.SetMachineAddresses(nil); err != nil {
 			return nil, errors.Annotate(err, "reseting machine addresses")
 		}
