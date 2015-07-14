@@ -65,7 +65,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		&params.Error{Code: params.CodeMachineHasAttachedStorage},
 	)
 
-	worker := machiner.NewMachiner(s.accessor, s.agentConfig)
+	worker := machiner.NewMachiner(s.accessor, s.agentConfig, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	worker.Kill()
 	c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -194,19 +194,21 @@ func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 	mr := machiner.NewMachiner(
 		machiner.APIMachineAccessor{s.machinerState},
 		agentConfig(names.NewMachineTag("99")),
+		false,
 	)
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *MachinerStateSuite) makeMachiner() worker.Worker {
+func (s *MachinerStateSuite) makeMachiner(ignoreAddresses bool) worker.Worker {
 	return machiner.NewMachiner(
 		machiner.APIMachineAccessor{s.machinerState},
 		agentConfig(s.apiMachine.Tag()),
+		ignoreAddresses,
 	)
 }
 
 func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
 	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
@@ -218,21 +220,21 @@ func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 
 	s.waitMachineStatus(c, s.machine, state.StatusStarted)
 }
 
 func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, state.StatusStopped)
 }
 
 func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
@@ -242,7 +244,7 @@ func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
 }
 
 func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(false)
 	defer worker.Stop(mr)
 
 	// Add a service, assign to machine.
@@ -273,7 +275,7 @@ func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 
 }
 
-func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
+func (s *MachinerStateSuite) setupSetMachineAddresses(c *gc.C, ignore bool) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
   # comments ignored
@@ -307,16 +309,25 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	mr := s.makeMachiner()
+	mr := s.makeMachiner(ignore)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
+}
+
+func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
+	s.setupSetMachineAddresses(c, false)
 	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
 		network.NewAddress("2001:db8::1"),
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
 		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 	})
+}
+
+func (s *MachinerStateSuite) TestMachineAddressesWithIgnoreFlag(c *gc.C) {
+	s.setupSetMachineAddresses(c, true)
+	c.Assert(s.machine.MachineAddresses(), gc.HasLen, 0)
 }
