@@ -221,8 +221,8 @@ func (m *leaseManager) loop() error {
 	// Ensure release notification channels are always closed on exit
 	// so that subscribers are not left blocked.
 	defer func() {
-		// notifyOfRelease spins off go routines to send updates to the subscriber
-		// channels in order for method to not block on the reciever of the
+		// notifyOfRelease spins off goroutines to send updates to the subscriber
+		// channels in order for method to not block on the receiver of the
 		// information to retrieve it before continuing. However if we close the
 		// subscriber channels before the select block is done, the process will
 		// panic.
@@ -371,8 +371,6 @@ func (m *leaseManager) notifyOfRelease(subscribers []chan<- struct{}, namespace 
 				// We're done.
 			case subscriber <- struct{}{}:
 			case <-time.After(notificationTimeout):
-				// TODO(kate): Remove this bad-citizen from the
-				// notifier's list.
 				logger.Warningf("A notification timed out after %s.", notificationTimeout)
 			}
 			m.wg.Done()
