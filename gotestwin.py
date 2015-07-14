@@ -14,16 +14,17 @@ import subprocess
 def main():
     scripts = dirname(__file__)
     parser = ArgumentParser()
-    parser.add_argument('host')
-    parser.add_argument('revision')
-    parser.add_argument('package', nargs='?', default='github.com/juju/juju')
+    parser.add_argument('host', help='The machine to test on.')
+    parser.add_argument('revision', help='The revision-build to test.')
+    parser.add_argument('package', nargs='?', default='github.com/juju/juju',
+                        help='The package to test.')
     args = parser.parse_args()
 
     juju_ci_path = join(scripts, 'jujuci.py')
     downloaded = subprocess.check_output([
         juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*', './'])
     (tarfile,) = [basename(l) for l in downloaded.splitlines()
-                  if re.search(r'tar\.gz', l)]
+                  if re.search(r'tar\.gz$', l)]
 
     subprocess.check_call([
         juju_ci_path, 'get-build-vars', '--summary', args.revision])
@@ -45,6 +46,7 @@ def main():
         'workspace-run', '-v', '-i', join(juju_home, 'staging-juju-rsa'),
         'temp-config.yaml', 'Administrator@{}'.format(args.host)
         ])
+
 
 if __name__ == '__main__':
     main()
