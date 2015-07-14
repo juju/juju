@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -89,7 +90,6 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
-
 	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
 	lxcHost := s.MakeMachineNested(c, host.Id(), nil)
 	machines := map[string][]*state.Machine{
@@ -107,4 +107,60 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 	hostContainer := statuses[host.Id()].Containers
 	c.Check(hostContainer, gc.HasLen, 2)
 	c.Check(hostContainer[lxcHost.Id()].Containers, gc.HasLen, 1)
+}
+
+var testUnits = []struct {
+	unitName       string
+	setStatus      *state.MeterStatus
+	expectedStatus *api.MeterStatus
+}{{
+	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
+	expectedStatus: &api.MeterStatus{Color: "green", Message: "test information"},
+}, {
+	setStatus:      &state.MeterStatus{Code: state.MeterAmber, Info: "test information"},
+	expectedStatus: &api.MeterStatus{Color: "amber", Message: "test information"},
+}, {
+	setStatus:      &state.MeterStatus{Code: state.MeterRed, Info: "test information"},
+	expectedStatus: &api.MeterStatus{Color: "red", Message: "test information"},
+}, {
+	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
+	expectedStatus: &api.MeterStatus{Color: "green", Message: "test information"},
+}, {},
+}
+
+func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
+	service := s.MakeService(c, nil)
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+
+	for i, unit := range testUnits {
+		u, err := service.AddUnit()
+		testUnits[i].unitName = u.Name()
+		c.Assert(err, jc.ErrorIsNil)
+		if unit.setStatus != nil {
+			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Services[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
+	for _, unit := range testUnits {
+		unitStatus, ok := serviceStatus.MeterStatuses[unit.unitName]
+
+		if unit.expectedStatus != nil {
+			c.Assert(ok, gc.Equals, true)
+			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
+		} else {
+			c.Assert(ok, gc.Equals, false)
+		}
+	}
 }
