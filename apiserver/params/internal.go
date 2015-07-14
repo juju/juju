@@ -496,6 +496,20 @@ type StringsWatchResults struct {
 	Results []StringsWatchResult
 }
 
+// EntityWatchResult holds a EntityWatcher id, changes and an error
+// (if any).
+type EntityWatchResult struct {
+	EntityWatcherId string   `json:"EntityWatcherId"`
+	Changes         []string `json:"Changes"`
+	Error           *Error   `json:"Error"`
+}
+
+// EntityWatchResults holds the results for any API call which ends up
+// returning a list of EntityWatchers.
+type EntityWatchResults struct {
+	Results []EntityWatchResult
+}
+
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
 // and an error (if any).
 type RelationUnitsWatchResult struct {
