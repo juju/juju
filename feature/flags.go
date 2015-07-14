@@ -4,6 +4,10 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
+import (
+	"github.com/juju/utils/featureflag"
+)
+
 // TODO (anastasiamac 2015-03-02)
 // Features that have commands that can be blocked,
 // command list for "juju block" and "juju unblock"
@@ -37,9 +41,19 @@ const LegacyUpstart = "legacy-upstart"
 // use statically allocated IP addresses.
 const AddressAllocation = "address-allocation"
 
-// DbLog is the the feature which has Juju's logs go to
-// MongoDB instead of to all-machines.log using rsyslog.
-const DbLog = "db-log"
+// dbLog indicates that Juju's logs go to MongoDB. It is not exported
+// because it should be checked for using IsDbLogEnabled.
+const dbLog = "db-log"
+
+// IsDbLogEnabled returns true if logging to MongoDB should be enabled
+// based on the dbLog or JES feature flags.
+func IsDbLogEnabled() bool {
+	return featureflag.Enabled(dbLog) || featureflag.Enabled(JES)
+}
+
+// DisableRsyslog will stop the writing of the rsyslog accumulation and
+// forwarding configuration files by stopping the rsyslog workers.
+const DisableRsyslog = "disable-rsyslog"
 
 // CloudSigma enables the CloudSigma provider.
 const CloudSigma = "cloudsigma"

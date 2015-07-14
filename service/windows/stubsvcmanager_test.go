@@ -80,6 +80,18 @@ func (s *StubSvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	return false, nil
 }
 
+// For now this doesn't do much since it doesn't help us test anything
+// but we need it to implement the interface
+func (s *StubSvcManager) ChangeServicePassword(name, newPassword string) error {
+	s.Stub.AddCall("ChangeServicePassword", name, newPassword)
+
+	if _, ok := MgrServices[name]; !ok {
+		return c_ERROR_SERVICE_DOES_NOT_EXIST
+	}
+
+	return nil
+}
+
 func (s *StubSvcManager) ListServices() ([]string, error) {
 	s.Stub.AddCall("listServices")
 

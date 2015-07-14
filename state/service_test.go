@@ -1881,6 +1881,15 @@ storage:
     location: /srv
 `
 
+const oneMultipleLocationStorageMeta = `
+storage:
+  data0:
+    type: filesystem
+    location: /srv
+    multiple:
+      range: 1-
+`
+
 func storageRange(min, max int) string {
 	var minStr, maxStr string
 	if min > 0 {
@@ -1989,4 +1998,12 @@ func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c *gc.C) {
+	err := s.setCharmFromMeta(c,
+		mysqlBaseMeta+oneRequiredLocationStorageMeta,
+		mysqlBaseMeta+oneMultipleLocationStorageMeta,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
 }

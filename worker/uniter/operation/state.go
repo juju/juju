@@ -97,6 +97,10 @@ type State struct {
 	// because the yaml encoder cannot encode the time.Time struct.
 	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
 
+	// SendMetricsTime records the time when metrics were last sent to the
+	// state server (see also CollectMetricsTime).
+	SendMetricsTime int64 `yaml:"sendmetricstime,omitempty"`
+
 	// UpdateStatusTime records the time the update status hook was last run.
 	// It's set to nil if the hook was not run at all.
 	UpdateStatusTime int64 `yaml:"updatestatustime,omitempty"`

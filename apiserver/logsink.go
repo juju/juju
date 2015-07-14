@@ -7,19 +7,55 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
+func newLogSinkHandler(h httpHandler, logDir string) http.Handler {
+
+	logPath := filepath.Join(logDir, "logsink.log")
+	if err := primeLogFile(logPath); err != nil {
+		// This isn't a fatal error so log and continue if priming
+		// fails.
+		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
+	}
+
+	return &logSinkHandler{
+		httpHandler: h,
+		fileLogger: &lumberjack.Logger{
+			Filename:   logPath,
+			MaxSize:    500, // MB
+			MaxBackups: 1,
+		},
+	}
+}
+
+// primeLogFile ensures the logsink log file is created with the
+// correct mode and ownership.
+func primeLogFile(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	f.Close()
+	err = utils.ChownPath(path, "syslog")
+	return errors.Trace(err)
+}
+
 type logSinkHandler struct {
 	httpHandler
-	st *state.State
+	fileLogger io.WriteCloser
 }
 
 // LogMessage is used to transmit log messages to the logsink API
@@ -70,18 +106,30 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			dbLogger := state.NewDbLogger(stateWrapper.state, tag)
+			st := stateWrapper.state
+			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
+			dbLogger := state.NewDbLogger(st, tag)
 			defer dbLogger.Close()
-			var m LogMessage
+			m := new(LogMessage)
 			for {
-				if err := websocket.JSON.Receive(socket, &m); err != nil {
+				if err := websocket.JSON.Receive(socket, m); err != nil {
 					if err != io.EOF {
 						logger.Errorf("error while receiving logs: %v", err)
 					}
 					break
 				}
-				if err := dbLogger.Log(m.Time, m.Module, m.Location, m.Level, m.Message); err != nil {
+
+				fileErr := h.logToFile(filePrefix, m)
+				if fileErr != nil {
+					logger.Errorf("logging to logsink.log failed: %v", fileErr)
+				}
+
+				dbErr := dbLogger.Log(m.Time, m.Module, m.Location, m.Level, m.Message)
+				if dbErr != nil {
 					logger.Errorf("logging to DB failed: %v", err)
+				}
+
+				if fileErr != nil || dbErr != nil {
 					break
 				}
 			}
@@ -104,4 +152,17 @@ func (h *logSinkHandler) sendError(w io.Writer, err error) error {
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
 	return errors.Trace(err)
+}
+
+// logToFile writes a single log message to the logsink log file.
+func (h *logSinkHandler) logToFile(prefix string, m *LogMessage) error {
+	_, err := h.fileLogger.Write([]byte(strings.Join([]string{
+		prefix,
+		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
+		m.Level.String(),
+		m.Module,
+		m.Location,
+		m.Message,
+	}, " ") + "\n"))
+	return err
 }
