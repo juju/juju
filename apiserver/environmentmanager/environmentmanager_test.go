@@ -155,7 +155,7 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			provider: "local",
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
-				"container", "network-bridge", "root-dir"},
+				"container", "network-bridge", "root-dir", "proxy-ssh"},
 		}, {
 			provider: "maas",
 			expected: []string{
@@ -367,6 +367,10 @@ type fakeProvider struct {
 }
 
 func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+	return cfg, nil
+}
+
+func (*fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

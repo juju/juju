@@ -26,6 +26,7 @@ var (
 	NewBackups            = &newBackups
 	ParseLogLine          = parseLogLine
 	AgentMatchesFilter    = agentMatchesFilter
+	NewLogTailer          = &newLogTailer
 )
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -170,12 +171,12 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	return newAboutToRestoreRoot(r)
 }
 
-// LogLineAgentTag gives tests access to an internal logLine attribute
-func (logLine *logLine) LogLineAgentTag() string {
-	return logLine.agentTag
+// LogLineAgentTag gives tests access to an internal logFileLine attribute
+func (logFileLine *logFileLine) LogLineAgentTag() string {
+	return logFileLine.agentTag
 }
 
-// LogLineAgentName gives tests access to an internal logLine attribute
-func (logLine *logLine) LogLineAgentName() string {
-	return logLine.agentName
+// LogLineAgentName gives tests access to an internal logFileLine attribute
+func (logFileLine *logFileLine) LogLineAgentName() string {
+	return logFileLine.agentName
 }

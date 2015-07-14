@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	logger            = loggo.GetLogger("juju.cmd.jujud.util")
 	DataDir           = paths.MustSucceed(paths.DataDir(version.Current.Series))
 	EnsureMongoServer = mongo.EnsureServer
 )

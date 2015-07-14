@@ -5,6 +5,7 @@ package logsender
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,21 +19,13 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// LogRecord represents a log message in an agent which is to be
-// transmitted to the JES.
-type LogRecord struct {
-	Time     time.Time
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
-}
+const loggerName = "juju.worker.logsender"
 
-var logger = loggo.GetLogger("juju.worker.logsender")
+var logger = loggo.GetLogger(loggerName)
 
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
-func New(logs chan *LogRecord, apiInfo *api.Info) worker.Worker {
+func New(logs LogRecordCh, apiInfo *api.Info) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
 		logger.Debugf("starting logsender worker")
 
@@ -45,20 +38,33 @@ func New(logs chan *LogRecord, apiInfo *api.Info) worker.Worker {
 		for {
 			select {
 			case rec := <-logs:
-				err := websocket.JSON.Send(conn, &apiserver.LogMessage{
-					Time:     rec.Time,
-					Module:   rec.Module,
-					Location: rec.Location,
-					Level:    rec.Level,
-					Message:  rec.Message,
-				})
+				err := sendLogRecord(conn, rec.Time, rec.Module, rec.Location, rec.Level, rec.Message)
 				if err != nil {
-					// Note: due to the fire-and-forget nature of the
-					// logsink API, it is possible that when the
-					// connection dies, any logs that were "in-flight"
-					// will not be recorded on the server side.
-					return errors.Annotate(err, "logsink connection failed")
+					return errors.Trace(err)
 				}
+				if rec.DroppedAfter > 0 {
+					// If messages were dropped after this one, report
+					// the count (the source of the log messages -
+					// BufferedLogWriter - handles the actual dropping
+					// and counting).
+					//
+					// Any logs indicated as dropped here are will
+					// never end up in the logs DB in the JES
+					// (although will still be in the local agent log
+					// file). Message dropping by the
+					// BufferedLogWriter is last resort protection
+					// against memory exhaustion and should only
+					// happen if API connectivity is lost for extended
+					// periods. The maximum in-memory log buffer is
+					// quite large (see the InstallBufferedLogWriter
+					// call in jujuDMain).
+					err := sendLogRecord(conn, rec.Time, loggerName, "", loggo.WARNING,
+						fmt.Sprintf("%d log messages dropped due to lack of API connectivity", rec.DroppedAfter))
+					if err != nil {
+						return errors.Trace(err)
+					}
+				}
+
 			case <-stop:
 				return nil
 			}
@@ -72,7 +78,7 @@ func dialLogsinkAPI(apiInfo *api.Info) (*websocket.Conn, error) {
 	// connections to both /log (debuglog) and /logsink.
 	header := utils.BasicAuthHeader(apiInfo.Tag.String(), apiInfo.Password)
 	header.Set("X-Juju-Nonce", apiInfo.Nonce)
-	conn, err := api.Connect(apiInfo, "/logsink", header, api.DefaultDialOpts())
+	conn, err := api.Connect(apiInfo, "/logsink", header, api.DialOpts{})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to connect to logsink API")
 	}
@@ -97,4 +103,19 @@ func dialLogsinkAPI(apiInfo *api.Info) (*websocket.Conn, error) {
 	}
 
 	return conn, nil
+}
+
+func sendLogRecord(conn *websocket.Conn, ts time.Time, module, location string, level loggo.Level, msg string) error {
+	err := websocket.JSON.Send(conn, &apiserver.LogMessage{
+		Time:     ts,
+		Module:   module,
+		Location: location,
+		Level:    level,
+		Message:  msg,
+	})
+	// Note: due to the fire-and-forget nature of the
+	// logsink API, it is possible that when the
+	// connection dies, any logs that were "in-flight"
+	// will not be recorded on the server side.
+	return errors.Annotate(err, "logsink connection failed")
 }
