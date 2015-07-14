@@ -97,6 +97,10 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 }
 
 func (s *StorageStateSuiteBase) createStorageCharm(c *gc.C, charmName string, storageMeta charm.Storage) *state.Charm {
+	return s.createStorageCharmRev(c, charmName, storageMeta, 1)
+}
+
+func (s *StorageStateSuiteBase) createStorageCharmRev(c *gc.C, charmName string, storageMeta charm.Storage, rev int) *state.Charm {
 	meta := fmt.Sprintf(`
 name: %s
 summary: A charm for testing storage
@@ -125,7 +129,7 @@ storage:
 		}
 		meta += "\n"
 	}
-	ch := s.AddMetaCharm(c, charmName, meta, 1)
+	ch := s.AddMetaCharm(c, charmName, meta, rev)
 	return ch
 }
 
