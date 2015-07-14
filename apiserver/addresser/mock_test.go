@@ -259,10 +259,10 @@ func (mip *mockIPAddress) EnsureDead() error {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
+	mip.stub.MethodCall(mip, "EnsureDead")
 	if err := mip.stub.NextErr(); err != nil {
 		return err
 	}
-	mip.stub.MethodCall(mip, "EnsureDead")
 	mip.life = state.Dead
 	return nil
 }
@@ -272,10 +272,10 @@ func (mip *mockIPAddress) Remove() error {
 	mip.mu.Lock()
 	defer mip.mu.Unlock()
 
+	mip.stub.MethodCall(mip, "Remove")
 	if err := mip.stub.NextErr(); err != nil {
 		return err
 	}
-	mip.stub.MethodCall(mip, "Remove")
 	return mip.st.removeIPAddress(mip.value)
 }
 
