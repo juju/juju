@@ -82,7 +82,7 @@ type volumeDoc struct {
 	EnvUUID   string `bson:"env-uuid"`
 	Life      Life   `bson:"life"`
 	StorageId string `bson:"storageid,omitempty"`
-	// TODO(axw) 2015-06-22 #1467379
+	// TODO(axw, perrito666) 2015-06-22 #1467379
 	// upgrade step to set "attachmentcount" and "binding"
 	// for 1.24 environments.
 	AttachmentCount int           `bson:"attachmentcount"`

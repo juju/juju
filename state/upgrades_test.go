@@ -3252,4 +3252,69 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 		{EnvUUID: "uuid0"},
 		{EnvUUID: "uuid1"},
 	})
+
+func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
+	testAttachmentVolumes(s, c, false)
+}
+
+func (s *upgradesSuite) TestAddAttachmentToVolumesIdempotent(c *gc.C) {
+	testAttachmentVolumes(s, c, true)
+}
+
+func testAttachmentVolumes(s *upgradesSuite, c *gc.C, idempotent bool) {
+	doc1 := bson.M{
+		"_id":  "volume1",
+		"name": "1",
+		"life": "alive",
+	}
+	doc2 := bson.M{
+		"_id":  "volume2",
+		"name": "2",
+		"life": "alive",
+	}
+	expectedVol1 := 2
+	expectedVol2 := 3
+	if idempotent {
+		doc1["attachmentcount"] = 5
+		doc2["attachmentcount"] = 6
+		expectedVol1 = 5
+		expectedVol2 = 6
+	}
+
+	ops := []txn.Op{
+		{
+			C:      volumesC,
+			Id:     "volume1",
+			Assert: txn.DocMissing,
+			Insert: doc1,
+		},
+		{
+			C:      volumesC,
+			Id:     "volume2",
+			Assert: txn.DocMissing,
+			Insert: doc2,
+		},
+	}
+	logger.Debugf("%v", doc1)
+	logger.Debugf("%v", doc2)
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments := map[names.VolumeTag]int{}
+	attachments[names.NewVolumeTag("1")] = 2
+	attachments[names.NewVolumeTag("2")] = 3
+	err = addVolumeAttachmentCount(s.state, attachments)
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll, closer := s.state.getRawCollection(volumesC)
+	defer closer()
+	var vDoc volumeDoc
+	err = coll.FindId("volume1").One(&vDoc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(vDoc.AttachmentCount, gc.Equals, expectedVol1)
+
+	err = coll.FindId("volume2").One(&vDoc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(vDoc.AttachmentCount, gc.Equals, expectedVol2)
 }
