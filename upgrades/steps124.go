@@ -40,7 +40,7 @@ func stateStepsFor124() []Step {
 
 // stepsFor124 returns upgrade steps for Juju 1.24 that only need the API.
 func stepsFor124() []Step {
-	return steps
+	return []Step{
 		&upgradeStep{
 			description: "move syslog config from LogDir to DataDir",
 			targets:     []Target{AllMachines},
