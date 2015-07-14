@@ -10,7 +10,7 @@ PACKAGE=${3:-github.com/juju/juju}
 CYG_CI_DIR="/cygdrive/c/Users/Administrator/ci"
 CYG_PYTHON_CMD="/cygdrive/c/python27/python"
 CI_DIR='\\Users\\Administrator\\ci'
-GO_CMD='\\go\\bin\\go.exe'
+GO_CMD='go.exe'
 SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -20,15 +20,15 @@ TARFILE=$(basename $(echo "$DOWNLOADED" | grep -F tar.gz))
 $SCRIPTS/jujuci.py get-build-vars --summary --env $HOST $REVISION
 
 
-scp $SSH_OPTIONS ./$TARFILE $SCRIPTS/gotesttarfile.py \
-    Administrator@$HOST:$CYG_CI_DIR/
-if [ $? -ne 0 ]; then
-    exit 1
-fi
+cat > temp-config.yaml <<EOT
+install:
+  ci:
+    - ./$TARFILE
+    - $SCRIPTS/gotesttarfile.py
+    - $SCRIPTS/utility.py
+command: [$CYG_PYTHON_CMD, "ci/gotesttarfile.py", -v, -g, "$GO_CMD", "-p",
+          "$PACKAGE", "--remove", "ci/$TARFILE"]
+EOT
 
-ssh $SSH_OPTIONS Administrator@$HOST \
-    $CYG_PYTHON_CMD $CI_DIR'\\gotesttarfile.py' -v -g $GO_CMD -p $PACKAGE \
-    --remove $CI_DIR'\\'$TARFILE
-EXIT_STATUS=$?
-
-exit $EXIT_STATUS
+workspace-run -v -i $JUJU_HOME/staging-juju-rsa temp-config.yaml \
+    Administrator@$HOST
