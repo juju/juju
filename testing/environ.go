@@ -195,7 +195,7 @@ type environ struct {
 // NewEnv returns a new Environ implementation wrapping the named
 // environment. If necessary the environment is bootstrapped.
 func NewEnv(c *gc.C, envName string) Environ {
-	// XXX bootstrap...
+	// TODO(ericsnow) bootstrap...
 
 	return &environ{
 		name: envName,
