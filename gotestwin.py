@@ -7,7 +7,6 @@ from os.path import (
     dirname,
     join,
 )
-import re
 import subprocess
 
 
@@ -22,9 +21,9 @@ def main():
 
     juju_ci_path = join(scripts, 'jujuci.py')
     downloaded = subprocess.check_output([
-        juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*', './'])
-    (tarfile,) = [basename(l) for l in downloaded.splitlines()
-                  if re.search(r'tar\.gz$', l)]
+        juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*.tar.gz',
+        './'])
+    (tarfile,) = [basename(l) for l in downloaded.splitlines()]
 
     subprocess.check_call([
         juju_ci_path, 'get-build-vars', '--summary', args.revision])
