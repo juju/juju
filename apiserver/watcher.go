@@ -38,10 +38,12 @@ func init() {
 		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
-	common.RegisterFacade(
-		"EntityWatcher", 0, newEntityWatcher,
-		reflect.TypeOf((*srvEntityWatcher)(nil)),
-	)
+	// TODO(mue) Uncomment when client API is done and watcher is registered
+	// there too.
+	//	common.RegisterFacade(
+	//		"EntityWatcher", 0, newEntityWatcher,
+	//		reflect.TypeOf((*srvEntityWatcher)(nil)),
+	//	)
 }
 
 func newClientAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {

@@ -15,8 +15,7 @@ import (
 )
 
 func init() {
-	// TODO(mue) Remove comment when client is implemented.
-	// common.RegisterStandardFacade("Addresser", 1, NewAddresserAPI)
+	common.RegisterStandardFacade("Addresser", 1, NewAddresserAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.addresser")
