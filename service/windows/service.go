@@ -30,6 +30,10 @@ var (
 	// we are trying to create, already exists
 	c_ERROR_SERVICE_EXISTS syscall.Errno = 0x431
 
+	// c_ERROR_ACCESS_DENIED is returned by the operating system if access is denied
+	// to that service.
+	c_ERROR_ACCESS_DENIED syscall.Errno = 0x5
+
 	// This is the user under which juju services start. We chose to use a
 	// normal user for this purpose because some installers require a normal
 	// user with a proper user profile to actually run. This user is created
@@ -38,10 +42,6 @@ var (
 	// SeAssignPrimaryTokenPrivilege
 	// SeServiceLogonRight
 	jujudUser = ".\\jujud"
-
-	// File containing encrypted password for jujud user.
-	// TODO (gabriel-samfira): migrate this to a registry key
-	jujuPasswdFile = "C:\\Juju\\Jujud.pass"
 )
 
 // IsRunning returns whether or not windows is the local init system.
@@ -75,6 +75,9 @@ type ServiceManager interface {
 	// Exists checks whether the config of the installed service matches the
 	// config supplied to this function
 	Exists(name string, conf common.Conf) (bool, error)
+	// ChangeServicePassword can change the password of a service
+	// as long as it belongs to the user defined in this package
+	ChangeServicePassword(name, newPassword string) error
 }
 
 // Service represents a service running on the current system
@@ -95,7 +98,7 @@ func newService(name string, conf common.Conf, manager ServiceManager) *Service 
 
 // NewService returns a new Service type
 func NewService(name string, conf common.Conf) (*Service, error) {
-	m, err := newServiceManager()
+	m, err := NewServiceManager()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

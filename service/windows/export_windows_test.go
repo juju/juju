@@ -10,10 +10,6 @@ import (
 	"github.com/juju/testing"
 )
 
-var (
-	NewServiceManager = newServiceManager
-)
-
 func PatchMgrConnect(patcher patcher, stub *testing.Stub) *StubMgr {
 	conn := &StubMgr{Stub: stub}
 	patcher.PatchValue(&newManager, func() (windowsManager, error) { return conn, nil })

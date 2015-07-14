@@ -21,12 +21,14 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
@@ -45,6 +47,7 @@ type UnitAgent struct {
 	AgentConf
 	UnitName         string
 	runner           worker.Runner
+	bufferedLogs     logsender.LogRecordCh
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
 	ctx              *cmd.Context
@@ -58,11 +61,12 @@ type UnitAgent struct {
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
-func NewUnitAgent(ctx *cmd.Context) *UnitAgent {
+func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
 	return &UnitAgent{
 		AgentConf: NewAgentConf(""),
 		ctx:       ctx,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
+		bufferedLogs:                     bufferedLogs,
 	}
 }
 
@@ -194,10 +198,16 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	}
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+
 	// start proxyupdater first to ensure proxy settings are correct
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
+	if feature.IsDbLogEnabled() {
+		runner.StartWorker("logsender", func() (worker.Worker, error) {
+			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+		})
+	}
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
@@ -234,9 +244,11 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		}
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
-	})
+	if !featureflag.Enabled(feature.DisableRsyslog) {
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+		})
+	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 

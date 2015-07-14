@@ -5,17 +5,19 @@
 package windows
 
 import (
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"syscall"
 	"unsafe"
 
+	// https://bugs.launchpad.net/juju-core/+bug/1470820
 	"github.com/gabriel-samfira/sys/windows"
+	"github.com/gabriel-samfira/sys/windows/registry"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows/securestring"
 )
@@ -75,6 +77,7 @@ type windowsService interface {
 	Delete() error
 	Query() (svc.Status, error)
 	Start(...string) error
+	UpdateConfig(mgr.Config) error
 }
 
 // manager is meant to help stub out winsvc for testing
@@ -129,36 +132,18 @@ var newManager = func() (windowsManager, error) {
 	return &manager{}, nil
 }
 
-// enumServices casts the bytes returned by enumServicesStatus into an array of
-// enumService with all the services on the current system
-func enumServices(h windows.Handle) ([]enumService, error) {
-	var needed uint32
-	var returned uint32
-	var resume uint32
-	var all []enumService
-
-	for {
-		var buf [256]enumService
-		err := enumServicesStatus(h, windows.SERVICE_WIN32,
-			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
-		if err != nil {
-			if err == windows.ERROR_MORE_DATA {
-				all = append(all, buf[:returned]...)
-				continue
-			}
-			return []enumService{}, err
-		}
-		all = append(all, buf[:returned]...)
-		return all, nil
-	}
-}
-
 // getPassword attempts to read the password for the jujud user. We define it as
 // a variable to allow us to mock it out for testing
 var getPassword = func() (string, error) {
-	f, err := ioutil.ReadFile(jujuPasswdFile)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, osenv.JujuRegistryKey[6:], registry.QUERY_VALUE)
 	if err != nil {
-		return "", errors.Annotate(err, "Failed to read password file")
+		return "", errors.Annotate(err, "Failed to open juju registry key")
+	}
+	defer k.Close()
+
+	f, _, err := k.GetBinaryValue(osenv.JujuRegistryPasswordKey)
+	if err != nil {
+		return "", errors.Annotate(err, "Failed to read password registry entry")
 	}
 	encryptedPasswd := strings.TrimSpace(string(f))
 	passwd, err := securestring.Decrypt(encryptedPasswd)
@@ -182,14 +167,32 @@ var listServices = func() (services []string, err error) {
 		}
 	}()
 	if err != nil {
-		return services, err
+		return nil, err
 	}
-	enum, err := enumServices(sc)
-	if err != nil {
-		return services, err
+
+	var needed uint32
+	var returned uint32
+	var resume uint32 = 0
+	var enum []enumService
+
+	for {
+		var buf [512]enumService
+		err := enumServicesStatus(sc, windows.SERVICE_WIN32,
+			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
+		if err != nil {
+			if err == windows.ERROR_MORE_DATA {
+				enum = append(enum, buf[:returned]...)
+				continue
+			}
+			return nil, err
+		}
+		enum = append(enum, buf[:returned]...)
+		break
 	}
-	for _, v := range enum {
-		services = append(services, v.Name())
+
+	services = make([]string, len(enum))
+	for i, v := range enum {
+		services[i] = v.Name()
 	}
 	return services, nil
 }
@@ -428,7 +431,39 @@ func (s *SvcManager) ensureRestartOnFailure(name string) (err error) {
 	return nil
 }
 
-var newServiceManager = func() (ServiceManager, error) {
+// ChangeServicePassword can change the password of a service
+// as long as it belongs to the user defined in this package
+func (s *SvcManager) ChangeServicePassword(svcName, newPassword string) error {
+	currentConfig, err := s.Config(svcName)
+	if err != nil {
+		// If access is denied when accessing the service it means
+		// we can't own it, so there's no reason to return an error
+		// since we only want to change the password on services started
+		// by us.
+		if errors.Cause(err) == syscall.ERROR_ACCESS_DENIED {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if currentConfig.ServiceStartName == jujudUser {
+		currentConfig.Password = newPassword
+		service, err := s.getService(svcName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer service.Close()
+		err = service.UpdateConfig(currentConfig)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+var NewServiceManager = func() (ServiceManager, error) {
 	m, err := newManager()
 	if err != nil {
 		return nil, errors.Trace(err)
