@@ -132,25 +132,31 @@ func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, erro
 }
 
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
-	var outq bson.D
+	outq := bson.D{{"env-uuid", c.envUUID}}
+	var add = func(name string, value interface{}) {
+		switch name {
+		case "_id":
+			if id, ok := value.(string); ok {
+				value = ensureEnvUUID(c.envUUID, id)
+			}
+		case "env-uuid":
+			panic("env-uuid is added automatically and should not be provided")
+		}
+		outq = append(outq, bson.DocElem{name, value})
+	}
+
 	switch inq := inq.(type) {
 	case bson.D:
 		for _, elem := range inq {
-			switch elem.Name {
-			case "_id":
-				if id, ok := elem.Value.(string); ok {
-					elem.Value = ensureEnvUUID(c.envUUID, id)
-				}
-			case "env-uuid":
-				panic("env-uuid is added automatically and should not be provided")
-			}
-			outq = append(outq, elem)
+			add(elem.Name, elem.Value)
 		}
-		outq = append(outq, bson.DocElem{"env-uuid", c.envUUID})
+	case bson.M:
+		for name, value := range inq {
+			add(name, value)
+		}
 	case nil:
-		outq = bson.D{{"env-uuid", c.envUUID}}
 	default:
-		panic("query must either be bson.D or nil")
+		panic("query must be bson.D, bson.M, or nil")
 	}
 	return outq
 }

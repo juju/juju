@@ -150,7 +150,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
-				if !info.ignoreInsertRestrictions {
+				if !info.insertWithoutEnvironment {
 					insertsEnvironSpecificDocs = true
 				}
 			}
@@ -173,6 +173,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		// benefits for the bulk of an environment's lifetime.)
 		ops = append(ops, assertEnvAliveOp(r.envUUID))
 	}
+	logger.Tracef("rewrote transaction: %#v", ops)
 	return ops, nil
 }
 

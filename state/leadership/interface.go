@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/worker"
 )
 
 // Token exposes mgo/txn operations that can be added to a transaction in order
@@ -41,10 +39,13 @@ type Manager interface {
 	BlockUntilLeadershipReleased(serviceName string) error
 }
 
-// ManagerWorker implements Manager and worker.Worker.
+// ManagerWorker implements Manager and worker.Worker. We don't import worker
+// because it pulls in a lot of dependencies and causes import cycles when you
+// try to use leadership in state.
 type ManagerWorker interface {
-	worker.Worker
 	Manager
+	Kill()
+	Wait() error
 }
 
 // errStopped is returned to clients when an operation cannot complete because

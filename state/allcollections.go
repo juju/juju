@@ -142,12 +142,24 @@ func allCollections() collectionSchema {
 		// or tedious state changes are deferred by recording a cleanup doc
 		// for later handling.
 		cleanupsC: {
-			ignoreInsertRestrictions: true,
+			insertWithoutEnvironment: true,
 		},
 
 		// This collection contains incrementing integers, subdivided by name,
 		// to ensure various IDs aren't reused.
 		sequenceC: {},
+
+		// This collection holds lease data. It's currently only used to
+		// implement service leadership, but is namespaced and available
+		// for use by other clients in future.
+		leasesC: {
+			insertWithoutEnvironment: true,
+			indexes: []mgo.Index{{
+				Key: []string{"env-uuid", "type"},
+			}, {
+				Key: []string{"env-uuid", "namespace"},
+			}},
+		},
 
 		// -----
 
@@ -325,6 +337,7 @@ const (
 	instanceDataC          = "instanceData"
 	ipaddressesC           = "ipaddresses"
 	leaseC                 = "lease"
+	leasesC                = "leases"
 	machinesC              = "machines"
 	meterStatusC           = "meterStatus"
 	metricsC               = "metrics"
@@ -333,7 +346,6 @@ const (
 	networkInterfacesC     = "networkinterfaces"
 	networksC              = "networks"
 	openedPortsC           = "openedPorts"
-	presenceC              = "presence"
 	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"

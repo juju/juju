@@ -38,7 +38,12 @@ func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 		}
 		return nil, errors.Annotatef(err, "cannot read environment %s", tag.Id())
 	}
-	st.startPresenceWatcher()
+
+	// State should only be Opened on behalf of a state server environ; all
+	// other *States should be created via ForEnviron.
+	if err := st.start(tag); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return st, nil
 }
 
@@ -75,20 +80,21 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial state server environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid, ok := cfg.UUID()
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 	envTag := names.NewEnvironTag(uuid)
-
 	st, err := open(envTag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
-			st.Close()
+			if closeErr := st.Close(); closeErr != nil {
+				logger.Errorf("error closing state while aborting Initialize: %v", closeErr)
+			}
 		}
 	}()
 
@@ -100,11 +106,10 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("starting presence watcher")
-	st.startPresenceWatcher()
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
+	logger.Infof("initializing state server environment %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -140,6 +145,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	)
 
 	if err := st.runTransaction(ops); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := st.start(envTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -197,6 +205,9 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
+// newState creates an incomplete *State, with a configured watcher but no
+// pwatcher, leadershipManager, or serverTag. You must start() the returned
+// *State before it will function correctly.
 func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
 	if mongoInfo.Tag != nil {
@@ -222,7 +233,6 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 	// Create State.
 	st := &State{
 		environTag: environTag,
-		serverTag:  environTag,
 		mongoInfo:  mongoInfo,
 		session:    session,
 		database:   database,
@@ -245,31 +255,38 @@ func (st *State) CACert() string {
 
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
-	err1 := st.watcher.Stop()
-	var err2 error
+
+	// TODO(fwereade): we have no defence against these components failing
+	// and leaving other parts of state going. They should be managed by a
+	// dependency.Engine (or perhaps worker.Runner).
+	var errs []error
+	handle := func(name string, err error) {
+		if err != nil {
+			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
+		}
+	}
+
+	handle("transaction watcher", st.watcher.Stop())
 	if st.pwatcher != nil {
-		err2 = st.pwatcher.Stop()
+		handle("presence watcher", st.pwatcher.Stop())
+	}
+	if st.leadershipManager != nil {
+		st.leadershipManager.Kill()
+		handle("leadership manager", st.leadershipManager.Wait())
 	}
 	st.mu.Lock()
-	var err3 error
 	if st.allManager != nil {
-		err3 = st.allManager.Stop()
+		handle("multiwatcher backing", st.allManager.Stop())
 	}
 	st.session.Close()
 	st.mu.Unlock()
-	var i int
-	for i, err = range []error{err1, err2, err3} {
-		if err != nil {
-			switch i {
-			case 0:
-				err = errors.Annotatef(err, "failed to stop state watcher")
-			case 1:
-				err = errors.Annotatef(err, "failed to stop presence watcher")
-			case 2:
-				err = errors.Annotatef(err, "failed to stop all manager")
-			}
-			return err
+
+	if len(errs) > 0 {
+		for _, err := range errs[1:] {
+			logger.Errorf("while closing state: %v", err)
 		}
+		return errs[0]
 	}
+	logger.Debugf("closed state without error")
 	return nil
 }
