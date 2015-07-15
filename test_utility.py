@@ -245,7 +245,8 @@ class TestAddBasicTestingArguments(TestCase):
         expected = Namespace(
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
-            verbose=logging.INFO)
+            verbose=logging.INFO, agent_stream=None, keep_env=False,
+            upload_tools=False, bootstrap_host=None, machine=[])
         self.assertEqual(args, expected)
 
     def test_debug(self):
