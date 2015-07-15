@@ -33,11 +33,11 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
 
-func (s *steps124Suite) TestStepsFor124(c *gc.C) {
+func (s *steps124Suite) TestStepsFor1243(c *gc.C) {
 	expected := []string{
-		"move syslog config from LogDir to ConfDir",
+		"move syslog config from LogDir/DataDir to ConfDir",
 	}
-	assertSteps(c, version.MustParse("1.24.0"), expected)
+	assertSteps(c, version.MustParse("1.24.3"), expected)
 }
 
 func (s *steps124Suite) TestCopyFileNew(c *gc.C) {
@@ -93,7 +93,9 @@ type steps124SyslogSuite struct {
 	testing.BaseSuite
 	data    string
 	logDir  string
+	dataDir string
 	confDir string
+	oldDir  string
 	ctx     fakeContext
 }
 
@@ -103,24 +105,32 @@ func (s *steps124SyslogSuite) SetUpTest(c *gc.C) {
 	s.data = "data!"
 
 	logDir := c.MkDir()
+	dataDir := c.MkDir()
 	confDir := c.MkDir()
-	s.setPaths(logDir, confDir)
+	s.setPaths(logDir, dataDir, confDir)
 }
 
-func (s *steps124SyslogSuite) setPaths(logDir, confDir string) {
+func (s *steps124SyslogSuite) setPaths(logDir, dataDir, confDir string) {
 	s.logDir = logDir
+	s.dataDir = dataDir
+	s.oldDir = dataDir // default to logDir for old; override in tests
 	s.confDir = confDir
 	s.ctx = fakeContext{
 		cfg: fakeConfig{
-			logdir: logDir,
+			logdir:  logDir,
+			datadir: dataDir,
 		},
 	}
 
 	s.PatchValue(&agent.DefaultConfDir, confDir)
 }
 
+func (s *steps124SyslogSuite) dataDirFile(filename string) testFile {
+	return newTestFile(s.dataDir, filename, s.data)
+}
+
 func (s *steps124SyslogSuite) oldFile(filename string) testFile {
-	return newTestFile(s.logDir, filename, s.data)
+	return newTestFile(s.oldDir, filename, s.data)
 }
 
 func (s *steps124SyslogSuite) newFile(filename string) testFile {
@@ -141,6 +151,33 @@ func (s *steps124SyslogSuite) checkFiles(c *gc.C, files []string) {
 	for _, f := range files {
 		s.oldFile(f).checkMissing(c)
 		s.newFile(f).checkExists(c)
+	}
+}
+
+func (s *steps124SyslogSuite) TestMoveSyslogConfigFromDataDir(c *gc.C) {
+	files := []string{
+		"ca-cert.pem",
+		"rsyslog-cert.pem",
+		"rsyslog-key.pem",
+		"logrotate.conf",
+		"logrotate.run",
+	}
+	// Write files to logDir and dataDir. The files in dataDir should
+	// be migrated, the ones in logDir ignored. This simulates the
+	// scenario where we upgraded from 1.24.0 to 1.24.3.
+	s.oldDir = s.logDir
+	s.writeOldFiles(c, files)
+	s.oldDir = s.dataDir
+	s.writeOldFiles(c, files)
+
+	err := upgrades.MoveSyslogConfig(s.ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkFiles(c, files)
+
+	s.oldDir = s.logDir
+	for _, f := range files {
+		s.oldFile(f).checkExists(c)
 	}
 }
 
