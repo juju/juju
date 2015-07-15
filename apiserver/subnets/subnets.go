@@ -15,9 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/spaces"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -28,15 +26,6 @@ var logger = loggo.GetLogger("juju.apiserver.subnets")
 func init() {
 	// TODO(dimitern): Uncomment once *state.State implements Backing.
 	//common.RegisterStandardFacade("Subnets", 1, NewAPI)
-}
-
-// BackingSubnet defines the methods supported by a Subnet entity
-// stored persistently.
-//
-// TODO(dimitern): Once the state backing is implemented, remove this
-// and just use *state.Subnet.
-type BackingSubnet interface {
-	// no methods needed yet.
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
@@ -85,23 +74,14 @@ type BackingSubnetInfo struct {
 // Backing defines the methods needed by the API facade to store and
 // retrieve information from the underlying persistency layer (state
 // DB).
-type Backing interface {
-	// EnvironConfig returns the current environment config.
-	EnvironConfig() (*config.Config, error)
-
-	// AvailabilityZones returns all cached availability zones (i.e.
-	// not from the provider, but in state).
-	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
-
-	// SetAvailabilityZones replaces the cached list of availability
-	// zones with the given zones.
-	SetAvailabilityZones(zones []providercommon.AvailabilityZone) error
+type SubnetBacking interface {
+	common.NetworkBacking
 
 	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]spaces.BackingSpace, error)
+	AllSpaces() ([]common.BackingSpace, error)
 
 	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(subnetInfo BackingSubnetInfo) (BackingSubnet, error)
+	AddSubnet(subnetInfo BackingSubnetInfo) (common.BackingSubnet, error)
 }
 
 // API defines the methods the Subnets API facade implements.
@@ -120,7 +100,7 @@ type API interface {
 
 // subnetsAPI implements the API interface.
 type subnetsAPI struct {
-	backing    Backing
+	backing    SubnetBacking
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
@@ -128,7 +108,7 @@ type subnetsAPI struct {
 var _ API = (*subnetsAPI)(nil)
 
 // NewAPI creates a new server-side Subnets API facade.
-func NewAPI(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func NewAPI(backing SubnetBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

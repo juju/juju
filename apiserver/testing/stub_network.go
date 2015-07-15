@@ -6,7 +6,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/spaces"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/subnets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -103,35 +104,31 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 	environs.RegisterProvider(StubProviderType, ProviderInstance)
 }
 
-// FakeSpace implements spaces.BackingSpace for testing.
+// FakeSpace implements common.BackingSpace for testing.
 type FakeSpace struct {
 	SpaceName string
 }
 
-var _ spaces.BackingSpace = (*FakeSpace)(nil)
+var _ common.BackingSpace = (*FakeSpace)(nil)
 
 func (f *FakeSpace) Name() string {
 	return f.SpaceName
 }
 
-func (f *FakeSpace) CIDRs() []string {
-	return []string{"1.1.1.0/24"}
+func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
+	return
 }
 
-func (f *FakeSpace) Type() string {
-	return "IPv4"
-}
-
-func (f *FakeSpace) ProviderID() string {
-	return ""
+func (f *FakeSpace) ProviderId() (netID network.Id) {
+	return
 }
 
 func (f *FakeSpace) Zones() []string {
 	return []string{""}
 }
 
-func (f *FakeSpace) Status() string {
-	return "InUse"
+func (f *FakeSpace) Life() (life params.Life) {
+	return
 }
 
 // GoString implements fmt.GoStringer.
@@ -239,12 +236,12 @@ func (f *FakeZone) GoString() string {
 	return fmt.Sprintf("&FakeZone{%q, %v}", f.ZoneName, f.ZoneAvailable)
 }
 
-// FakeSubnet implements subnets.BackingSubnet for testing.
+// FakeSubnet implements common.BackingSubnet for testing.
 type FakeSubnet struct {
 	info subnets.BackingSubnetInfo
 }
 
-var _ subnets.BackingSubnet = (*FakeSubnet)(nil)
+var _ common.BackingSubnet = (*FakeSubnet)(nil)
 
 // GoString implements fmt.GoStringer.
 func (f *FakeSubnet) GoString() string {
@@ -256,7 +253,7 @@ func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
 }
 
-// StubBacking implements subnets.Backing and records calls to its
+// StubBacking implements common.NetworkBacking and records calls to its
 // methods.
 type StubBacking struct {
 	*testing.Stub
@@ -264,11 +261,11 @@ type StubBacking struct {
 	EnvConfig *config.Config
 
 	Zones   []providercommon.AvailabilityZone
-	Spaces  []spaces.BackingSpace
-	Subnets []subnets.BackingSubnet
+	Spaces  []common.BackingSpace
+	Subnets []common.BackingSubnet
 }
 
-var _ subnets.Backing = (*StubBacking)(nil)
+var _ common.NetworkBacking = (*StubBacking)(nil)
 
 type SetUpFlag bool
 
@@ -299,16 +296,16 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		sb.Zones = make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
 		copy(sb.Zones, ProviderInstance.Zones)
 	}
-	sb.Spaces = []spaces.BackingSpace{}
+	sb.Spaces = []common.BackingSpace{}
 	if withSpaces {
-		sb.Spaces = []spaces.BackingSpace{
+		sb.Spaces = []common.BackingSpace{
 			&FakeSpace{"default"},
 			&FakeSpace{"dmz"},
 			&FakeSpace{"private"},
 			&FakeSpace{"private"}, // duplicates are ignored when caching spaces.
 		}
 	}
-	sb.Subnets = []subnets.BackingSubnet{}
+	sb.Subnets = []common.BackingSubnet{}
 	if withSubnets {
 		info0 := subnets.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
@@ -325,7 +322,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			SpaceName:         "dmz",
 		}
 
-		sb.Subnets = []subnets.BackingSubnet{
+		sb.Subnets = []common.BackingSubnet{
 			&FakeSubnet{info0},
 			&FakeSubnet{info1},
 		}
@@ -353,7 +350,7 @@ func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZ
 	return sb.NextErr()
 }
 
-func (sb *StubBacking) AllSpaces() ([]spaces.BackingSpace, error) {
+func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {
 	sb.MethodCall(sb, "AllSpaces")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
@@ -361,7 +358,7 @@ func (sb *StubBacking) AllSpaces() ([]spaces.BackingSpace, error) {
 	return sb.Spaces, nil
 }
 
-func (sb *StubBacking) AddSubnet(subnetInfo subnets.BackingSubnetInfo) (subnets.BackingSubnet, error) {
+func (sb *StubBacking) AddSubnet(subnetInfo subnets.BackingSubnetInfo) (common.BackingSubnet, error) {
 	sb.MethodCall(sb, "AddSubnet", subnetInfo)
 	if err := sb.NextErr(); err != nil {
 		return nil, err

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/spaces"
 	"github.com/juju/juju/apiserver/subnets"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
@@ -33,6 +32,11 @@ var _ = gc.Suite(&SubnetsSuite{})
 
 func (s *SubnetsSuite) SetUpSuite(c *gc.C) {
 	s.StubNetwork.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *SubnetsSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
@@ -69,7 +73,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 }
 
 // AssertAllSpacesResult makes it easier to verify AllSpaces results.
-func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []spaces.BackingSpace) {
+func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []common.BackingSpace) {
 	results := make([]params.SpaceResult, len(expected))
 	for i, space := range expected {
 		results[i].Tag = names.NewSpaceTag(space.Name()).String()
@@ -430,33 +434,33 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	}}}
 	apiservertesting.SharedStub.SetErrors(
 		// caching subnets (1st attempt): fails
-		errors.NotFoundf("config"), // apiservertesting.BackingInstance.EnvironConfig (1st call)
+		errors.NotFoundf("config"), // BackingInstance.EnvironConfig (1st call)
 
 		// caching subnets (2nd attepmt): fails
-		nil, // apiservertesting.BackingInstance.EnvironConfig (2nd call)
-		errors.NotFoundf("provider"), // apiservertesting.ProviderInstance.Open (1st call)
+		nil, // BackingInstance.EnvironConfig (2nd call)
+		errors.NotFoundf("provider"), // ProviderInstance.Open (1st call)
 
 		// caching subnets (3rd attempt): fails
-		nil, // apiservertesting.BackingInstance.EnvironConfig (3rd call)
-		nil, // apiservertesting.ProviderInstance.Open (2nd call)
+		nil, // BackingInstance.EnvironConfig (3rd call)
+		nil, // ProviderInstance.Open (2nd call)
 		errors.NotFoundf("subnets"), // NetworkingEnvironInstance.Subnets (1st call)
 
 		// caching subnets (4th attempt): succeeds
-		nil, // apiservertesting.BackingInstance.EnvironConfig (4th call)
-		nil, // apiservertesting.ProviderInstance.Open (3rd call)
+		nil, // BackingInstance.EnvironConfig (4th call)
+		nil, // ProviderInstance.Open (3rd call)
 		nil, // NetworkingEnvironInstance.Subnets (2nd call)
 
 		// caching spaces (1st and 2nd attempts)
-		errors.NotFoundf("spaces"), // apiservertesting.BackingInstance.AllSpaces (1st call)
-		nil, // apiservertesting.BackingInstance.AllSpaces (2nd call)
+		errors.NotFoundf("spaces"), // BackingInstance.AllSpaces (1st call)
+		nil, // BackingInstance.AllSpaces (2nd call)
 
 		// cacing zones (1st and 2nd attempts)
-		errors.NotFoundf("zones"), // apiservertesting.BackingInstance.AvailabilityZones (1st call)
-		nil, // apiservertesting.BackingInstance.AvailabilityZones (2nd call)
+		errors.NotFoundf("zones"), // BackingInstance.AvailabilityZones (1st call)
+		nil, // BackingInstance.AvailabilityZones (2nd call)
 
 		// validation done; adding subnets to backing store
-		errors.NotFoundf("state"), // apiservertesting.BackingInstance.AddSubnet (1st call)
-		// the next 3 apiservertesting.BackingInstance.AddSubnet calls succeed(2nd call)
+		errors.NotFoundf("state"), // BackingInstance.AddSubnet (1st call)
+		// the next 3 BackingInstance.AddSubnet calls succeed(2nd call)
 	)
 
 	expectedErrors := []struct {

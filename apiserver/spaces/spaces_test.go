@@ -27,6 +27,11 @@ var _ = gc.Suite(&SpacesSuite{})
 
 func (s *SpacesSuite) SetUpSuite(c *gc.C) {
 	s.StubNetwork.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *SpacesSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
