@@ -18,6 +18,9 @@ import (
 	"github.com/juju/utils"
 )
 
+type StubNetwork struct {
+}
+
 var (
 	// SharedStub records all method calls to any of the stubs.
 	SharedStub = &testing.Stub{}
@@ -38,7 +41,7 @@ const (
 	StubZonedNetworkingEnvironName = "stub-zoned-networking-environ"
 )
 
-func InitStubNetwork() {
+func (s StubNetwork) SetUpSuite(c *gc.C) {
 	ProviderInstance.Zones = []providercommon.AvailabilityZone{
 		&FakeZone{"zone1", true},
 		&FakeZone{"zone2", false},
