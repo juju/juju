@@ -133,14 +133,14 @@ func (p Plugin) Status(id string) (process.Status, error) {
 
 // run runs the given subcommand of the plugin with the given args.
 func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
-	return runCmd(p.Name, p.Executable, subcommand, args...)
+	cmd := exec.Command(p.Executable, append([]string{subcommand}, args...)...)
+	return runCmd(p.Name, cmd)
 }
 
 // runCmd runs the executable at path with the subcommand as the first argument
 // and any args in args as further arguments.  It logs to loggo using the name
 // as a namespace.
-var runCmd = func(name, path, subcommand string, args ...string) ([]byte, error) {
-	cmd := exec.Command(path, append([]string{subcommand}, args...)...)
+var runCmd = func(name string, cmd *exec.Cmd) ([]byte, error) {
 	log := getLogger("juju.process.plugin." + name)
 	stdout := &bytes.Buffer{}
 	cmd.Stdout = stdout
