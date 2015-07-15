@@ -4,6 +4,7 @@
 package upgrades
 
 import (
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 )
 
@@ -128,7 +129,12 @@ func stateStepsFor121() []Step {
 			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return migrateCharmStorage(context.State(), context.AgentConfig())
+				agentConf := context.AgentConfig()
+				return state.MigrateCharmStorage(
+					context.State(),
+					agentConf.Value(agent.ProviderType),
+					agentConf.Value(agent.StorageDir),
+				)
 			},
 		},
 		&upgradeStep{

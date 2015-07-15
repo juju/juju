@@ -4,13 +4,19 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -18,6 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/state/storage"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -942,4 +949,108 @@ func FixSequenceFields(st *State) error {
 		return err
 	}
 	return st.runRawTransaction(ops)
+}
+
+// Patched for testing.
+var (
+	charmBundleURL            = (*Charm).BundleURL
+	charmStoragePath          = (*Charm).StoragePath
+	stateAddCharmStoragePaths = AddCharmStoragePaths
+)
+
+// MigrateCharmStorage copies uploaded charms from provider storage
+// to environment storage, and then adds the storage path into the
+// charm's document in state.
+func MigrateCharmStorage(st *State, providerType, storageDir string) error {
+	logger.Debugf("migrating charms to environment storage")
+	// Load the charms from a raw collection as this step is done
+	// before the env UUID migration.
+	charmsCollection, closer := st.getRawCollection(charmsC)
+	defer closer()
+
+	var charms []*Charm
+	var cdoc charmDoc
+	iter := charmsCollection.Find(nil).Iter()
+	for iter.Next(&cdoc) {
+		charms = append(charms, newCharm(st, &cdoc))
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	storage := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+
+	// Local and manual provider host storage on the state server's
+	// filesystem, and serve via HTTP storage. The storage worker
+	// doesn't run yet, so we just open the files directly.
+	fetchCharmArchive := fetchCharmArchive
+	if providerType == provider.Local || provider.IsManual(providerType) {
+		fetchCharmArchive = localstorage{storageDir}.fetchCharmArchive
+	}
+
+	storagePaths := make(map[*charm.URL]string)
+	for _, ch := range charms {
+		if ch.IsPlaceholder() {
+			logger.Debugf("skipping %s, placeholder charm", ch.URL())
+			continue
+		}
+		if !ch.IsUploaded() {
+			logger.Debugf("skipping %s, not uploaded to provider storage", ch.URL())
+			continue
+		}
+		if charmStoragePath(ch) != "" {
+			logger.Debugf("skipping %s, already in environment storage", ch.URL())
+			continue
+		}
+		url := charmBundleURL(ch)
+		if url == nil {
+			logger.Debugf("skipping %s, has no bundle URL", ch.URL())
+			continue
+		}
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return err
+		}
+		data, err := fetchCharmArchive(url)
+		if err != nil {
+			return err
+		}
+
+		curl := ch.URL()
+		storagePath := fmt.Sprintf("charms/%s-%s", curl, uuid)
+		logger.Debugf("uploading %s to %q in environment storage", curl, storagePath)
+		err = storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		if err != nil {
+			return errors.Annotatef(err, "failed to upload %s to storage", curl)
+		}
+		storagePaths[curl] = storagePath
+	}
+
+	return stateAddCharmStoragePaths(st, storagePaths)
+}
+
+func fetchCharmArchive(url *url.URL) ([]byte, error) {
+	client := utils.GetNonValidatingHTTPClient()
+	resp, err := client.Get(url.String())
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get %q", url)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read charm archive")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("cannot get %q: %s %s", url, resp.Status, body)
+	}
+	return body, nil
+}
+
+type localstorage struct {
+	storageDir string
+}
+
+func (s localstorage) fetchCharmArchive(url *url.URL) ([]byte, error) {
+	path := filepath.Join(s.storageDir, url.Path)
+	return ioutil.ReadFile(path)
 }
