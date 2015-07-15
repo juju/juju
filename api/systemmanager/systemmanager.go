@@ -80,3 +80,8 @@ func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error
 	err := c.facade.FacadeCall("ListBlockedEnvironments", nil, &result)
 	return result.Environments, err
 }
+
+// RemoveBlocks removes all the blocks in the system.
+func (c *Client) RemoveBlocks() error {
+	return c.facade.FacadeCall("RemoveBlocks", nil, nil)
+}
