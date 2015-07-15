@@ -201,6 +201,11 @@ func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error
 
 // TearDown is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) TearDown() error {
-	close(c.certChanged)
+	select {
+	case <-c.certChanged:
+		// already closed
+	default:
+		close(c.certChanged)
+	}
 	return nil
 }
