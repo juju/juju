@@ -44,6 +44,7 @@ func NewSuperCommand() cmd.Command {
 	systemCmd.Register(&DestroyCommand{})
 	systemCmd.Register(envcmd.WrapSystem(&EnvironmentsCommand{}))
 	systemCmd.Register(envcmd.WrapSystem(&CreateEnvironmentCommand{}))
+	systemCmd.Register(envcmd.WrapSystem(&RemoveBlocksCommand{}))
 	systemCmd.Register(envcmd.WrapSystem(&UseEnvironmentCommand{}))
 
 	return systemCmd
