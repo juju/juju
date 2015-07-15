@@ -279,6 +279,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	prereqOps = append(prereqOps, assertEnvAliveOp(st.EnvironUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -300,6 +301,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
+
 	return mdoc, append(prereqOps, machineOp), nil
 }
 
