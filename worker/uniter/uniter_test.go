@@ -1384,8 +1384,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			verifyCharm{},
 			collectMetricsTick{},
 			waitHooks{"collect-metrics"},
-		),
-		ut(
+		), ut(
 			"collect-metrics resumed after hook error",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1393,7 +1392,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
@@ -1403,7 +1402,9 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			verifyRunning{},
 		),
 		ut(
@@ -1414,7 +1415,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
@@ -1426,13 +1427,14 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			waitHooks{},
 		),
 	})
@@ -1453,8 +1455,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 			addMetrics{[]string{"15", "17"}},
 			sendMetricsTick{},
 			checkStateMetrics{number: 1, values: []string{"17", "15"}},
-		),
-		ut(
+		), ut(
 			"send-metrics resumed after hook error",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1463,7 +1464,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 				},
 			},
 			addMetrics{[]string{"15"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitHooks{"config-changed", "start"},
@@ -1471,8 +1472,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 			sendMetricsTick{},
 			checkStateMetrics{number: 2, values: []string{"15", "17"}},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"send-metrics state maintained during uniter restart",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1480,25 +1480,26 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			addMetrics{[]string{"13"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
 			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			addMetrics{[]string{"21"}},
 			sendMetricsTick{},
 			checkStateMetrics{number: 2, values: []string{"13", "21"}},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			addMetrics{[]string{"21"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			waitHooks{},
 			checkStateMetrics{number: 0},
 		),
