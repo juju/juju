@@ -94,3 +94,5 @@ func init() {
 		return setupRoutesAndIPTables(nic, addr, bridge, ifinfo, enableNAT)
 	}
 }
+
+var ClassifyMachine = classifyMachine
