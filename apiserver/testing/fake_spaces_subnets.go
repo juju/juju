@@ -30,6 +30,21 @@ var (
 	ZonedNetworkingEnvironInstance = &StubZonedNetworkingEnviron{Stub: SharedStub}
 )
 
+/*
+
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	This is causing problems.
+
+	The "stub-provider" is being picked up by environs and then iterated
+	through in boilerplate_config.go such that it panics when it encounters
+	a nil pointer. Bother.
+
+	It looks like everything else is an instance, not a pointer, so perhaps
+	that is the only change that is needed. Mostly looks like we are poluting
+	the testing package with something we shouldn't.
+
+*/
+
 const (
 	StubProviderType               = "stub-provider"
 	StubEnvironName                = "stub-environ"

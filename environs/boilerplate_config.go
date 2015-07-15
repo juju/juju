@@ -10,6 +10,7 @@ import (
 	"io"
 	"text/template"
 
+	"github.com/dooferlad/here"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -95,9 +96,10 @@ func randomKey() string {
 // BoilerplateConfig returns a sample juju configuration.
 func BoilerplateConfig() string {
 	configBuff := new(bytes.Buffer)
-
 	configBuff.WriteString(configHeader)
 	for name, p := range providers {
+		here.Is(name)
+		here.Is(p)
 		t, err := parseTemplate(p.BoilerplateConfig())
 		if err != nil {
 			panic(fmt.Errorf("cannot parse boilerplate from %s: %v", name, err))

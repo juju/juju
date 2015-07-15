@@ -6,9 +6,10 @@ package systemd_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/juju/juju/paths"
 	"os"
 	"strings"
+
+	"github.com/juju/juju/juju/paths"
 
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
