@@ -4,7 +4,8 @@
 package cloudimagemetadata
 
 var (
-	StreamKey     = streamKey
-	Key           = key
-	SearchClauses = searchClauses
+	BuildKey           = buildKey
+	BuildSearchClauses = buildSearchClauses
+	AreSameAttributes  = areSameAttributes
+	IsSameMetadata     = isSameMetadata
 )

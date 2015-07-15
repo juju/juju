@@ -11,103 +11,10 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
-
-type funcMetadataSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&funcMetadataSuite{})
-
-var keyTestData = []struct {
-	about       string
-	stream      string
-	expectedKey string
-}{{
-	`non empty stream`,
-	"stream",
-	"stream",
-}, {
-	"empty stream",
-	"",
-	"released",
-}}
-
-func (s *funcMetadataSuite) TestCreateMetadataKey(c *gc.C) {
-	for i, t := range keyTestData {
-		c.Logf("%d: %v", i, t.about)
-		key := cloudimagemetadata.StreamKey(t.stream)
-		c.Assert(key, gc.Equals, t.expectedKey)
-	}
-}
-
-var searchTestData = []struct {
-	about    string
-	criteria cloudimagemetadata.MetadataAttributes
-	expected bson.D
-}{{
-	`empty criteria`,
-	cloudimagemetadata.MetadataAttributes{},
-	nil,
-}, {
-	`only stream supplied`,
-	cloudimagemetadata.MetadataAttributes{Stream: "stream-value"},
-	bson.D{{"stream", "stream-value"}},
-}, {
-	`only region supplied`,
-	cloudimagemetadata.MetadataAttributes{Region: "region-value"},
-	bson.D{{"region", "region-value"}},
-}, {
-	`only series supplied`,
-	cloudimagemetadata.MetadataAttributes{Series: "series-value"},
-	bson.D{{"series", "series-value"}},
-}, {
-	`only arch supplied`,
-	cloudimagemetadata.MetadataAttributes{Arch: "arch-value"},
-	bson.D{{"arch", "arch-value"}},
-}, {
-	`only virtual type supplied`,
-	cloudimagemetadata.MetadataAttributes{VirtualType: "vtype-value"},
-	bson.D{{"virtual_type", "vtype-value"}},
-}, {
-	`only root storage type supplied`,
-	cloudimagemetadata.MetadataAttributes{RootStorageType: "rootstorage-value"},
-	bson.D{{"root_storage_type", "rootstorage-value"}},
-}, {
-	`two search criteria supplied`,
-	cloudimagemetadata.MetadataAttributes{RootStorageType: "rootstorage-value", Series: "series-value"},
-	bson.D{{"root_storage_type", "rootstorage-value"}, {"series", "series-value"}},
-}, {
-	`all serach criteria supplied`,
-	cloudimagemetadata.MetadataAttributes{
-		RootStorageType: "rootstorage-value",
-		Series:          "series-value",
-		Stream:          "stream-value",
-		Region:          "region-value",
-		Arch:            "arch-value",
-		VirtualType:     "vtype-value",
-	},
-	bson.D{
-		{"root_storage_type", "rootstorage-value"},
-		{"series", "series-value"},
-		{"stream", "stream-value"},
-		{"region", "region-value"},
-		{"arch", "arch-value"},
-		{"virtual_type", "vtype-value"},
-	},
-}}
-
-func (s *funcMetadataSuite) TestSearchCriteria(c *gc.C) {
-	for i, t := range searchTestData {
-		c.Logf("%d: %v", i, t.about)
-		clause := cloudimagemetadata.SearchClauses(t.criteria)
-		c.Assert(clause, jc.SameContents, t.expected)
-	}
-}
 
 type cloudImageMetadataSuite struct {
 	testing.BaseSuite
@@ -150,21 +57,23 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
 	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
 	s.assertSaveMetadata(c, "stream", "region-test", "series",
-		"arch", "virtual-type-test", "root-storage-type-test")
+		"arch", "virtual-type-test",
+		"root-storage-type-test", "root-storage-size-test")
 }
 
 func (s *cloudImageMetadataSuite) assertSaveMetadataWithDefaults(c *gc.C, stream, series, arch string) {
-	s.assertSaveMetadata(c, stream, "region", series, arch, "virtType", "rootType")
+	s.assertSaveMetadata(c, stream, "region", series, arch, "virtType", "rootType", "rootSize")
 }
 
-func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, series, arch, virtType, rootStorageType string) {
+func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, series, arch, virtType, rootStorageType, rootStorageSize string) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          stream,
 		Region:          region,
 		Series:          series,
 		Arch:            arch,
 		VirtualType:     virtType,
-		RootStorageType: rootStorageType}
+		RootStorageType: rootStorageType,
+		RootStorageSize: rootStorageSize}
 
 	added := cloudimagemetadata.Metadata{attrs, "1"}
 	err := s.storage.SaveMetadata(added)
@@ -185,7 +94,8 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 			Series:          "series",
 			Arch:            "arch",
 			VirtualType:     "virtualType",
-			RootStorageType: "rootStorageType"},
+			RootStorageType: "rootStorageType",
+			RootStorageSize: "rootStorageSize"},
 		"1",
 	}
 
@@ -214,7 +124,8 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType"}
+		RootStorageType: "rootStorageType",
+		RootStorageSize: "rootStorageSize"}
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 
@@ -234,24 +145,22 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	s.assertMetadata(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicate(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataNoUpdates(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
-		Arch:   "arch"}
-	metadata := cloudimagemetadata.Metadata{attrs, "1"}
-
-	for i := 0; i < 2; i++ {
-		err := s.storage.SaveMetadata(metadata)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertMetadata(c, attrs, metadata)
+		Arch:   "arch",
 	}
-	all, err := s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 1)
-	expected := []cloudimagemetadata.Metadata{metadata}
-	c.Assert(all, jc.SameContents, expected)
+	metadata0 := cloudimagemetadata.Metadata{attrs, "1"}
+	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 
+	err := s.storage.SaveMetadata(metadata0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storage.SaveMetadata(metadata1)
+	c.Assert(err, gc.ErrorMatches, ".*no changes were made.*")
+
+	s.assertMetadata(c, attrs, metadata0)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
@@ -283,7 +192,7 @@ func (s *cloudImageMetadataSuite) addMetadataDoc(c *gc.C, m cloudimagemetadata.M
 
 func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
 	var docs []testMetadataDoc
-	searchCriteria := cloudimagemetadata.SearchClauses(criteria)
+	searchCriteria := cloudimagemetadata.BuildSearchClauses(criteria)
 	c.Logf("looking for cloud image metadata with id %v", criteria)
 	err := s.metadataCollection.Find(searchCriteria).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,6 +207,7 @@ func (s *cloudImageMetadataSuite) assertMetadata(c *gc.C, criteria cloudimagemet
 				Arch:            m.Arch,
 				VirtualType:     m.VirtualType,
 				RootStorageType: m.RootStorageType,
+				RootStorageSize: m.RootStorageSize,
 			}, m.ImageId}
 	}
 	c.Assert(metadata, jc.SameContents, expected)
@@ -312,10 +222,11 @@ type testMetadataDoc struct {
 	ImageId         string `bson:"image_id"`
 	VirtualType     string `bson:"virtual_type,omitempty"`
 	RootStorageType string `bson:"root_storage_type,omitempty"`
+	RootStorageSize string `bson:"root_storage_size,omitempty"`
 }
 
 func createTestDoc(m cloudimagemetadata.Metadata) testMetadataDoc {
-	key := cloudimagemetadata.Key(&m)
+	key := cloudimagemetadata.BuildKey(&m)
 	return testMetadataDoc{
 		Id:              key,
 		Stream:          m.Stream,
@@ -324,6 +235,7 @@ func createTestDoc(m cloudimagemetadata.Metadata) testMetadataDoc {
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
+		RootStorageSize: m.RootStorageSize,
 		ImageId:         m.ImageId,
 	}
 }

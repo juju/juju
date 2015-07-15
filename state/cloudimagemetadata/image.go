@@ -12,8 +12,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/environs/imagemetadata"
 )
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
@@ -40,25 +38,39 @@ func NewStorage(
 	}
 }
 
-// SaveMetadata implements Storage.SaveMetadata.
+var emptyMetadata = Metadata{}
+
+// SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update:
+// if desired metadata does not exist - we insert it; if it exists - we update.
+// It throws an error if metadata did not change.
 func (s *storage) SaveMetadata(metadata Metadata) error {
 	newDoc := metadata.mongoDoc()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+
+		existing, err := s.getMetadata(newDoc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		op := txn.Op{
 			C:  s.metadataCollection.Name,
 			Id: newDoc.Id,
 		}
-		if attempt == 0 {
-			// On the first attempt we assume we're adding new cloud image metadata.
+		if existing == emptyMetadata {
 			op.Assert = txn.DocMissing
 			op.Insert = &newDoc
 			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
 		} else {
-			// Subsequent attempts to add metadata will update the fields.
+			same := isSameMetadata(existing, metadata)
+			if same {
+				logger.Debugf("cloud image metadata for %v has not changed", newDoc.Id)
+				return []txn.Op{}, errors.Annotate(jujutxn.ErrNoOperations, "no changes were made")
+			}
 			op.Assert = txn.DocExists
 			op.Update = bson.D{{"$set", newDoc.updates()}}
 			logger.Debugf("updating cloud image metadata for %v", newDoc.Id)
 		}
+
 		return []txn.Op{op}, nil
 	}
 
@@ -69,6 +81,33 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 	return nil
 }
 
+func (s *storage) getMetadata(id string) (Metadata, error) {
+	var old imagesMetadataDoc
+	err := s.metadataCollection.Find(bson.D{{"_id", id}}).One(&old)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return emptyMetadata, nil
+		}
+		return emptyMetadata, errors.Trace(err)
+	}
+	return old.metadata(), nil
+}
+
+func isSameMetadata(old, new Metadata) bool {
+	return old.ImageId == new.ImageId &&
+		areSameAttributes(old.MetadataAttributes, new.MetadataAttributes)
+}
+
+func areSameAttributes(old, new MetadataAttributes) bool {
+	return old.Arch == new.Arch &&
+		old.Region == new.Region &&
+		old.RootStorageType == new.RootStorageType &&
+		old.RootStorageSize == new.RootStorageSize &&
+		old.Series == new.Series &&
+		old.Stream == new.Stream &&
+		old.VirtualType == new.VirtualType
+}
+
 // AllMetadata implements Storage.AllMetadata.
 func (s *storage) AllMetadata() ([]Metadata, error) {
 	return s.FindMetadata(MetadataAttributes{})
@@ -76,7 +115,7 @@ func (s *storage) AllMetadata() ([]Metadata, error) {
 
 // FindMetadata implements Storage.FindMetadata.
 func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
-	searchCriteria := searchClauses(criteria)
+	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := s.metadataCollection.Find(searchCriteria).All(&docs); err != nil {
 		return nil, errors.Trace(err)
@@ -92,7 +131,7 @@ func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) 
 	return metadata, nil
 }
 
-func searchClauses(criteria MetadataAttributes) bson.D {
+func buildSearchClauses(criteria MetadataAttributes) bson.D {
 	all := bson.D{}
 
 	if criteria.Stream != "" {
@@ -117,6 +156,10 @@ func searchClauses(criteria MetadataAttributes) bson.D {
 
 	if criteria.RootStorageType != "" {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
+	}
+
+	if criteria.RootStorageSize != "" {
+		all = append(all, bson.DocElem{"root_storage_size", criteria.RootStorageSize})
 	}
 
 	if len(all.Map()) == 0 {
@@ -150,6 +193,9 @@ type imagesMetadataDoc struct {
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
+
+	// RootStorageSize contains size of root storage, for e.g. "30GB", "8GB".
+	RootStorageSize string `bson:"root_storage_size,omitempty"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
@@ -160,6 +206,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
+			RootStorageSize: m.RootStorageSize,
 			VirtualType:     m.VirtualType},
 		m.ImageId,
 	}
@@ -173,37 +220,32 @@ func (m imagesMetadataDoc) updates() bson.D {
 		{"arch", m.Arch},
 		{"virtual_type", m.VirtualType},
 		{"root_storage_type", m.RootStorageType},
+		{"root_storage_size", m.RootStorageSize},
 		{"image_id", m.ImageId},
 	}
 }
 
 func (m *Metadata) mongoDoc() imagesMetadataDoc {
 	return imagesMetadataDoc{
-		Id:              key(m),
+		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
 		Series:          m.Series,
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
+		RootStorageSize: m.RootStorageSize,
 		ImageId:         m.ImageId,
 	}
 }
 
-func streamKey(stream string) string {
-	if stream != "" {
-		return stream
-	}
-	// Since stream is optional,when omitted, assume "released" is desired.
-	return imagemetadata.ReleasedStream
-}
-
-func key(m *Metadata) string {
-	return fmt.Sprintf("%s:%s:%s:%s:%s:%s",
-		streamKey(m.Stream),
+func buildKey(m *Metadata) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+		m.Stream,
 		m.Region,
 		m.Series,
 		m.Arch,
 		m.VirtualType,
-		m.RootStorageType)
+		m.RootStorageType,
+		m.RootStorageSize)
 }

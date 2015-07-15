@@ -11,6 +11,7 @@ type MetadataAttributes struct {
 	Arch            string
 	VirtualType     string
 	RootStorageType string
+	RootStorageSize string
 }
 
 // Metadata describes a cloud image metadata.
