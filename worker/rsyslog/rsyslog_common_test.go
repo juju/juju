@@ -106,8 +106,9 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
 	s.mu.Lock()
-	s.mu.Unlock() // assert read barrier before accessing s.dialTags
-	for _, dialTag := range s.dialTags {
+	tags := s.dialTags
+	s.mu.Unlock()
+	for _, dialTag := range tags {
 		c.Check(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
 	}
 }
@@ -132,7 +133,10 @@ func (s *RsyslogSuite) TestNoNamespace(c *gc.C) {
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
-	for _, dialTag := range s.dialTags {
+	s.mu.Lock()
+	tags := s.dialTags
+	s.mu.Unlock()
+	for _, dialTag := range tags {
 		c.Check(dialTag, gc.Equals, "juju-"+m.Tag().String())
 	}
 }
