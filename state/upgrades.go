@@ -958,9 +958,9 @@ var (
 	stateAddCharmStoragePaths = AddCharmStoragePaths
 )
 
-// MigrateCharmStorage copies uploaded charms from provider storage
-// to environment storage, and then adds the storage path into the
-// charm's document in state.
+// MigrateCharmStorage is an upgrade step only which copies uploaded
+// charms from provider storage to environment storage, and then adds
+// the storage path into the charm's document in state.
 func MigrateCharmStorage(st *State, providerType, storageDir string) error {
 	logger.Debugf("migrating charms to environment storage")
 	// Load the charms from a raw collection as this step is done
