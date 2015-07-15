@@ -177,14 +177,6 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func assertEnvAliveOp(envUUID string) txn.Op {
-	return txn.Op{
-		C:      environmentsC,
-		Id:     envUUID,
-		Assert: isEnvAliveDoc,
-	}
-}
-
 func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}) (bson.D, error) {
 	idSeen := false
 	envUUIDSeen := false

@@ -490,9 +490,15 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
+	return assertEnvAliveOp(e.UUID())
+}
+
+// assertEnvAliveOp returns a txn.Op that asserts the given
+// environment UUID refers to an Alive environment.
+func assertEnvAliveOp(envUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
-		Id:     e.UUID(),
+		Id:     envUUID,
 		Assert: isEnvAliveDoc,
 	}
 }
@@ -502,6 +508,9 @@ func (e *Environment) assertAliveOp() txn.Op {
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
 // be considered to have the value Alive.
+//
+// TODO(mjs) - this should be removed with existing uses replaced with
+// isAliveDoc. A DB migration should convert nil to Alive.
 var isEnvAliveDoc = bson.D{
 	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
 }
