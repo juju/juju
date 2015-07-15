@@ -3,9 +3,9 @@
 package machiner
 
 import (
-	"fmt"
 	"net"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -20,16 +20,17 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	st      MachineAccessor
-	tag     names.MachineTag
-	machine Machine
+	st                     MachineAccessor
+	tag                    names.MachineTag
+	machine                Machine
+	ignoreAddressesOnStart bool
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st MachineAccessor, agentConfig agent.Config) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag)}
+func NewMachiner(st MachineAccessor, agentConfig agent.Config, ignoreAddressesOnStart bool) worker.Worker {
+	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag), ignoreAddressesOnStart: ignoreAddressesOnStart}
 	return worker.NewNotifyWorker(mr)
 }
 
@@ -39,18 +40,25 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	mr.machine = m
 
-	// Set the addresses in state to the host's addresses.
-	if err := setMachineAddresses(mr.tag, m); err != nil {
-		return nil, err
+	if mr.ignoreAddressesOnStart {
+		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
+		if err := m.SetMachineAddresses(nil); err != nil {
+			return nil, errors.Annotate(err, "reseting machine addresses")
+		}
+	} else {
+		// Set the addresses in state to the host's addresses.
+		if err := setMachineAddresses(mr.tag, m); err != nil {
+			return nil, errors.Annotate(err, "setting machine addresses")
+		}
 	}
 
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
-		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
+		return nil, errors.Annotatef(err, "%s failed to set status started", mr.tag)
 	}
 	logger.Infof("%q started", mr.tag)
 
@@ -105,7 +113,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	}
 	logger.Debugf("%q is now %s", mr.tag, life)
 	if err := mr.machine.SetStatus(params.StatusStopped, "", nil); err != nil {
-		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
+		return errors.Annotatef(err, "%s failed to set status stopped", mr.tag)
 	}
 
 	// Attempt to mark the machine Dead. If the machine still has units
@@ -121,7 +129,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			logger.Tracef("machine still has storage attached")
 			return nil
 		}
-		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)
+		return errors.Annotatef(err, "%s failed to set machine to dead", mr.tag)
 	}
 	return worker.ErrTerminateAgent
 }

@@ -657,6 +657,16 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	// Change is reported for machine addresses.
+	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set machine addresses to empty is reported.
+	err = s.wordpressMachine.SetMachineAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
 	// NOTE: This test is not as exhaustive as the one in state,
 	// because the watcher is already tested there. Here we just
 	// ensure we get the events when we expect them and don't get

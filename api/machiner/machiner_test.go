@@ -155,6 +155,28 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, expectAddresses)
 }
 
+func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	setAddresses := network.NewAddresses(
+		"8.8.8.8",
+		"127.0.0.1",
+		"10.0.0.1",
+	)
+	err = machine.SetMachineAddresses(setAddresses)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.MachineAddresses(), gc.HasLen, 3)
+
+	err = machine.SetMachineAddresses(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.MachineAddresses(), gc.HasLen, 0)
+}
+
 func (s *machinerSuite) TestWatch(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)

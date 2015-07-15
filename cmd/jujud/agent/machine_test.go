@@ -69,6 +69,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -1610,6 +1611,45 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 			c.Fatalf("timed out waiting for the networker to start")
 		}
 		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+	for _, expectedIgnoreValue := range []bool{true, false} {
+		ignoreAddressCh := make(chan bool, 1)
+		s.AgentSuite.PatchValue(&newMachiner, func(
+			accessor machiner.MachineAccessor,
+			conf agent.Config,
+			ignoreMachineAddresses bool,
+		) worker.Worker {
+			select {
+			case ignoreAddressCh <- ignoreMachineAddresses:
+			default:
+			}
+			return machiner.NewMachiner(accessor, conf, ignoreMachineAddresses)
+		})
+
+		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
+		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+		a := s.newAgent(c, m)
+		defer a.Stop()
+		doneCh := make(chan error)
+		go func() {
+			doneCh <- a.Run(nil)
+		}()
+
+		select {
+		case ignoreMachineAddresses := <-ignoreAddressCh:
+			if ignoreMachineAddresses != expectedIgnoreValue {
+				c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for the machiner to start")
+		}
+		s.waitStopped(c, state.JobHostUnits, a, doneCh)
 	}
 }
 
