@@ -25,8 +25,9 @@ func (s *rsyslogPortSuite) SetUpTest(c *gc.C) {
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{
-			dataDir:   s.DataDir(),
-			mongoInfo: s.MongoInfo(c),
+			dataDir:    s.DataDir(),
+			mongoInfo:  s.MongoInfo(c),
+			environTag: s.State.EnvironTag(),
 		},
 		apiState: apiState,
 		state:    s.State,

@@ -27,32 +27,44 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
-	st, err := open(info, opts, policy)
+func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+	st, err := open(tag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ssInfo, err := st.StateServerInfo()
-	if err != nil {
-		st.Close()
-		return nil, errors.Annotate(err, "could not access state server info")
+	if _, err := st.Environment(); err != nil {
+		if err := st.Close(); err != nil {
+			logger.Errorf("error closing state for unreadable environment %s: %v", tag.Id(), err)
+		}
+		return nil, errors.Annotatef(err, "cannot read environment %s", tag.Id())
 	}
-	st.environTag = ssInfo.EnvironmentTag
-	st.serverTag = ssInfo.EnvironmentTag
 	st.startPresenceWatcher()
 	return st, nil
 }
 
-func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, maybeUnauthorized(err, "cannot connect to mongodb")
 	}
 	logger.Debugf("connection established")
 
-	st, err := newState(session, info, policy)
+	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
+	// environment UUID available. In that case we need to infer what it might be;
+	// we depend on the assumption that this is the only circumstance in which
+	// the the UUID might not be known.
+	if tag.Id() == "" {
+		logger.Warningf("creating state without environment tag; inferring bootstrap environment")
+		ssInfo, err := readRawStateServerInfo(session)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		tag = ssInfo.EnvironmentTag
+	}
+
+	st, err := newState(tag, session, info, policy)
 	if err != nil {
 		session.Close()
 		return nil, errors.Trace(err)
@@ -64,7 +76,13 @@ func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 // This needs to be performed only once for the initial state server environment.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
-	st, err := open(info, opts, policy)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
+	}
+	envTag := names.NewEnvironTag(uuid)
+
+	st, err := open(envTag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,13 +91,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			st.Close()
 		}
 	}()
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
-	}
-	envTag := names.NewEnvironTag(uuid)
-	st.environTag = envTag
-	st.serverTag = envTag
 
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -128,7 +139,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransactionNoEnvAliveAssert(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -156,48 +167,6 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	return ops, nil
 }
 
-var indexes = []struct {
-	collection string
-	key        []string
-	unique     bool
-	sparse     bool
-}{
-
-	// Create an upgrade step to remove old indexes when editing or removing
-	// items from this slice.
-	{relationsC, []string{"env-uuid", "endpoints.relationname"}, false, false},
-	{relationsC, []string{"env-uuid", "endpoints.servicename"}, false, false},
-	{unitsC, []string{"env-uuid", "service"}, false, false},
-	{unitsC, []string{"env-uuid", "principal"}, false, false},
-	{unitsC, []string{"env-uuid", "machineid"}, false, false},
-	// TODO(thumper): schema change to remove this index.
-	{usersC, []string{"name"}, false, false},
-	{networksC, []string{"env-uuid", "providerid"}, true, false},
-	{networkInterfacesC, []string{"env-uuid", "interfacename", "machineid"}, true, false},
-	{networkInterfacesC, []string{"env-uuid", "macaddress", "networkname"}, true, false},
-	{networkInterfacesC, []string{"env-uuid", "networkname"}, false, false},
-	{networkInterfacesC, []string{"env-uuid", "machineid"}, false, false},
-	{blockDevicesC, []string{"env-uuid", "machineid"}, false, false},
-	{subnetsC, []string{"providerid"}, true, true},
-	{ipaddressesC, []string{"uuid"}, false, false},
-	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
-	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
-	{storageInstancesC, []string{"env-uuid", "owner"}, false, false},
-	{storageAttachmentsC, []string{"env-uuid", "storageid"}, false, false},
-	{storageAttachmentsC, []string{"env-uuid", "unitid"}, false, false},
-	{volumesC, []string{"env-uuid", "storageid"}, false, false},
-	{filesystemsC, []string{"env-uuid", "storageid"}, false, false},
-	{statusesHistoryC, []string{"env-uuid", "entityid"}, false, false},
-}
-
-// The capped collection used for transaction logs defaults to 10MB.
-// It's tweaked in export_test.go to 1MB to avoid the overhead of
-// creating and deleting the large file repeatedly in tests.
-var (
-	txnLogSize      = 10000000
-	txnLogSizeTests = 1000000
-)
-
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
 		return nil
@@ -205,7 +174,7 @@ func maybeUnauthorized(err error, msg string) error {
 	if isUnauthorized(err) {
 		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
-	return errors.Annotatef(err, "%s: %v", msg, err)
+	return errors.Annotatef(err, msg)
 }
 
 func isUnauthorized(err error) bool {
@@ -213,20 +182,22 @@ func isUnauthorized(err error) bool {
 		return false
 	}
 	// Some unauthorized access errors have no error code,
-	// just a simple error string.
-	if strings.HasPrefix(err.Error(), "auth fail") {
-		return true
+	// just a simple error string; and some do have error codes
+	// but are not of consistent types (LastError/QueryError).
+	for _, prefix := range []string{"auth fail", "not authorized"} {
+		if strings.HasPrefix(err.Error(), prefix) {
+			return true
+		}
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized" ||
-			strings.HasPrefix(err.Message, "not authorized")
+			err.Message == "unauthorized"
 	}
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
+func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
 	if mongoInfo.Tag != nil {
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
@@ -238,56 +209,28 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 		}
 	}
 
-	db := session.DB("juju")
-
-	// Create collections used to track client-side transactions (mgo/txn).
-	txnLog := db.C(txnLogC)
-	txnLogInfo := mgo.CollectionInfo{Capped: true, MaxBytes: txnLogSize}
-	err := txnLog.Create(&txnLogInfo)
-	if isCollectionExistsError(err) {
-		return nil, maybeUnauthorized(err, "cannot create transaction log collection")
+	// Set up database.
+	rawDB := session.DB(jujuDB)
+	database, err := allCollections().Load(rawDB, environTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	txns := db.C(txnsC)
-	err = txns.Create(new(mgo.CollectionInfo))
-	if isCollectionExistsError(err) {
-		return nil, maybeUnauthorized(err, "cannot create transaction collection")
-	}
-
-	// Create and set up State.
-	st := &State{
-		mongoInfo: mongoInfo,
-		policy:    policy,
-		db:        db,
-		watcher:   watcher.New(txnLog),
-	}
-	defer func() {
-		if resultErr != nil {
-			if err := st.watcher.Stop(); err != nil {
-				logger.Errorf("failed to stop watcher: %v", err)
-			}
-		}
-	}()
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
-
-	// Create DB indexes.
-	for _, item := range indexes {
-		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
-		if err := db.C(item.collection).EnsureIndex(index); err != nil {
-			return nil, errors.Annotate(err, "cannot create database index")
-		}
-	}
-
 	if err := InitDbLogs(session); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// Create State.
+	st := &State{
+		environTag: environTag,
+		serverTag:  environTag,
+		mongoInfo:  mongoInfo,
+		session:    session,
+		database:   database,
+		policy:     policy,
+		watcher:    watcher.New(rawDB.C(txnLogC)),
+	}
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
 	return st, nil
-}
-
-func isCollectionExistsError(err error) bool {
-	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
-	return err != nil && err.Error() != "collection already exists"
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
@@ -312,8 +255,8 @@ func (st *State) Close() (err error) {
 	if st.allManager != nil {
 		err3 = st.allManager.Stop()
 	}
+	st.session.Close()
 	st.mu.Unlock()
-	st.db.Session.Close()
 	var i int
 	for i, err = range []error{err1, err2, err3} {
 		if err != nil {

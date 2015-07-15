@@ -128,14 +128,33 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+		st, err := state.Open(s.envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
+func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
+	st, err := state.Open(names.EnvironTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(st.EnvironTag(), gc.Equals, s.envTag)
+	c.Check(st.Close(), jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	tag := names.NewEnvironTag(uuid.String())
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	if !c.Check(st, gc.IsNil) {
+		c.Check(st.Close(), jc.ErrorIsNil)
+	}
+	expect := fmt.Sprintf("cannot read environment %s: environment not found", uuid)
+	c.Check(err, gc.ErrorMatches, expect)
+}
+
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
-	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -2289,7 +2308,7 @@ func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	//     Service.WatchRelations
 	//     State.WatchEnviron
 	//     Machine.WatchContainers
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		w := st.WatchServices()
 		<-w.Changes()
 		return w
@@ -2656,7 +2675,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
-	for collName := range state.MultiEnvCollections {
+	for _, collName := range state.MultiEnvCollections() {
 		// skip adding constraints, envuser and settings as they were added when the
 		// environment was created
 		if collName == "constraints" || collName == "envusers" || collName == "settings" {
@@ -2671,7 +2690,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can find each doc in state
-	for collName := range state.MultiEnvCollections {
+	for _, collName := range state.MultiEnvCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
 		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
@@ -2701,7 +2720,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(n, gc.Equals, 0)
 
 	// ensure all docs for all multiEnvCollections are removed
-	for collName := range state.MultiEnvCollections {
+	for _, collName := range state.MultiEnvCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
 		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
@@ -2758,7 +2777,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		w := st.WatchEnvironConfig()
 		<-w.Changes()
 		return w
@@ -2890,10 +2909,10 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *mongo.MongoInfo) error {
-	st, err := state.Open(info, statetesting.NewDialOpts(), state.Policy(nil))
+func tryOpenState(envTag names.EnvironTag, info *mongo.MongoInfo) error {
+	st, err := state.Open(envTag, info, statetesting.NewDialOpts(), state.Policy(nil))
 	if err == nil {
-		st.Close()
+		err = st.Close()
 	}
 	return err
 }
@@ -2901,28 +2920,30 @@ func tryOpenState(info *mongo.MongoInfo) error {
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
-	err := tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err := tryOpenState(s.envTag, info)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = names.NewUserTag("arble"), ""
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err = tryOpenState(s.envTag, info)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = nil, ""
-	err = tryOpenState(info)
-	c.Assert(err, jc.ErrorIsNil)
+	err = tryOpenState(s.envTag, info)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(info, mongo.DialOpts{
+	st, err := state.Open(testing.EnvironmentTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "no reachable servers")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
@@ -2932,13 +2953,13 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(info, mongo.DialOpts{
+	st, err := state.Open(testing.EnvironmentTag, info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "no reachable servers")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
 	// tryOpenState should have delayed for at least retryDelay
 	if t1 := time.Since(t0); t1 < retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
@@ -3258,7 +3279,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		w := st.WatchCleanups()
 		<-w.Changes()
 		return w
@@ -3381,7 +3402,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
 		<-w.Changes()
 		return w
@@ -3673,8 +3694,8 @@ type waiter interface {
 // event, otherwise the watcher's initialisation logic may
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
-func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+func testWatcherDiesWhenStateCloses(c *gc.C, envTag names.EnvironTag, startWatcher func(c *gc.C, st *state.State) waiter) {
+	st, err := state.Open(envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3722,7 +3743,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.envTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4427,17 +4448,20 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = st.MongoSession().DB("admin").Login("admin", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = tryOpenState(mongoInfo)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err = tryOpenState(st.EnvironTag(), mongoInfo)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	// note: collections are set up in arbitrary order, proximate cause of
+	// failure may differ.
+	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)
 
 	mongoInfo.Password = "foo"
-	err = tryOpenState(mongoInfo)
+	err = tryOpenState(st.EnvironTag(), mongoInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAdminMongoPassword("")
 	c.Assert(err, jc.ErrorIsNil)
 
 	mongoInfo.Password = ""
-	err = tryOpenState(mongoInfo)
+	err = tryOpenState(st.EnvironTag(), mongoInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }

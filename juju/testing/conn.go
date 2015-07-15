@@ -328,21 +328,27 @@ var redialStrategy = utils.AttemptStrategy{
 // newState returns a new State that uses the given environment.
 // The environment must have already been bootstrapped.
 func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
-	password := environ.Config().AdminSecret()
+	config := environ.Config()
+	password := config.AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
+	environUUID, ok := config.UUID()
+	if !ok {
+		return nil, fmt.Errorf("cannot connect without environment UUID")
+	}
+	environTag := names.NewEnvironTag(environUUID)
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(mongoInfo, opts, environs.NewStatePolicy())
-	if errors.IsUnauthorized(err) {
+	st, err := state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(mongoInfo, opts, environs.NewStatePolicy())
-			if !errors.IsUnauthorized(err) {
+			st, err = state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
 		}

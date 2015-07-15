@@ -71,8 +71,8 @@ var ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive su
 func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	db, closer := ru.st.newDB()
 	defer closer()
-	envUUID := ru.st.EnvironUUID()
-	relationScopes := getCollectionFromDB(db, relationScopesC, envUUID)
+	relationScopes, closer := db.GetCollection(relationScopesC)
+	defer closer()
 
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
@@ -108,7 +108,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
-	settingsColl := getCollectionFromDB(db, settingsC, envUUID)
+	settingsColl, closer := db.GetCollection(settingsC)
+	defer closer()
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
@@ -155,8 +156,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		return nil
 	}
 
-	units := getCollectionFromDB(db, unitsC, envUUID)
-	relations := getCollectionFromDB(db, relationsC, envUUID)
+	units, closer := db.GetCollection(unitsC)
+	defer closer()
+	relations, closer := db.GetCollection(relationsC)
+	defer closer()
 
 	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate

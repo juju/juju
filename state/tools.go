@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/blobstore"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state/toolstorage"
@@ -21,12 +22,12 @@ var (
 // TODO(axw) remove this, add a constructor function in toolstorage.
 func (st *State) ToolsStorage() (toolstorage.StorageCloser, error) {
 	uuid := st.EnvironUUID()
-	session := st.db.Session.Copy()
-	txnRunner := st.txnRunner(session)
+	session := st.session.Copy()
 	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
-	db := st.db.With(session)
+	db := session.DB(jujuDB)
+	metadataCollection := db.C(toolsmetadataC)
+	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	managedStorage := blobstore.NewManagedStorage(db, rs)
-	metadataCollection := st.db.With(session).C(toolsmetadataC)
 	storage := toolstorageNewStorage(uuid, managedStorage, metadataCollection, txnRunner)
 	return &toolsStorageCloser{storage, session}, nil
 }

@@ -160,6 +160,7 @@ type mockAgentConfig struct {
 	values       map[string]string
 	mongoInfo    *mongo.MongoInfo
 	servingInfo  params.StateServingInfo
+	environTag   names.EnvironTag
 }
 
 func (mock *mockAgentConfig) Tag() names.Tag {
@@ -200,6 +201,10 @@ func (mock *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) 
 
 func (mock *mockAgentConfig) SetStateServingInfo(info params.StateServingInfo) {
 	mock.servingInfo = info
+}
+
+func (mock *mockAgentConfig) Environment() names.EnvironTag {
+	return mock.environTag
 }
 
 func stateUpgradeOperations() []upgrades.Operation {

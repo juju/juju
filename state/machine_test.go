@@ -593,9 +593,16 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.envTag, info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer func() {
+		// Remove the admin password so that the test harness can reset the state.
+		err := st.SetAdminMongoPassword("")
+		c.Check(err, jc.ErrorIsNil)
+		err = st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
 	// Turn on fully-authenticated mode.
 	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, jc.ErrorIsNil)
@@ -611,12 +618,13 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	// Check that we cannot log in with the wrong password.
 	info.Tag = ent.Tag()
 	info.Password = "bar"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err = tryOpenState(s.envTag, info)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.envTag, info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -629,21 +637,18 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err = tryOpenState(s.envTag, info)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
-	err = tryOpenState(info)
+	err = tryOpenState(s.envTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the administrator can still log in.
 	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Remove the admin password so that the test harness can reset the state.
-	err = st.SetAdminMongoPassword("")
+	err = tryOpenState(s.envTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1367,7 +1372,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Unit.Watch
 	//  State.WatchForEnvironConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1475,7 +1480,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1579,7 +1584,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()
@@ -2454,7 +2459,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchInterfaces()

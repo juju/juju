@@ -157,7 +157,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(env.UUID(), gc.Equals, uuid)
 
 	// Check that initial admin user has been set up correctly.
-	s.assertCanLogInAsAdmin(c, pwHash)
+	envTag := env.Tag().(names.EnvironTag)
+	s.assertCanLogInAsAdmin(c, envTag, pwHash)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -211,7 +212,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st1, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -319,7 +320,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.EnvironTag, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -328,7 +329,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(environTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

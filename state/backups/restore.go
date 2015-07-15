@@ -119,7 +119,7 @@ var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsNewStatePolicy = environs.NewStatePolicy
 
 // newStateConnection tries to connect to the newly restored state server.
-func newStateConnection(info *mongo.MongoInfo) (*state.State, error) {
+func newStateConnection(environTag names.EnvironTag, info *mongo.MongoInfo) (*state.State, error) {
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
@@ -133,7 +133,7 @@ func newStateConnection(info *mongo.MongoInfo) (*state.State, error) {
 	)
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(info, mongoDefaultDialOpts(), environsNewStatePolicy())
+		st, err = state.Open(environTag, info, mongoDefaultDialOpts(), environsNewStatePolicy())
 		if err == nil {
 			return st, nil
 		}

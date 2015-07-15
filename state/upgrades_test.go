@@ -2154,7 +2154,9 @@ func (s *upgradesSuite) tearDownJobManageNetworking(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Reset machine sequence.
-	query := s.state.db.C(sequenceC).FindId(s.state.docID("machine"))
+	sequences, closer := s.state.getCollection(sequenceC)
+	defer closer()
+	query := sequences.FindId(s.state.docID("machine"))
 	set := mgo.Change{
 		Update: bson.M{"$set": bson.M{"counter": 0}},
 		Upsert: true,

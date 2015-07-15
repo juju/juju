@@ -342,11 +342,7 @@ func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
 }
 
 func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
-	// ForEnviron doens't validate the UUID so there's no need to
-	// actually create another env for this test.
-	otherState, err := s.State.ForEnviron(names.NewEnvironTag("uuid"))
-	c.Assert(err, jc.ErrorIsNil)
-
+	otherState := s.Factory.MakeEnvironment(c, nil)
 	s.checkApiHandlerTeardown(c, s.State, otherState)
 }
 

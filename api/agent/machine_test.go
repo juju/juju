@@ -149,8 +149,8 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	err = tryOpenState(s.State.EnvironTag(), info)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 }
 
 func (s *machineSuite) TestClearReboot(c *gc.C) {
@@ -171,8 +171,8 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	c.Assert(rFlag, jc.IsFalse)
 }
 
-func tryOpenState(info *mongo.MongoInfo) error {
-	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+func tryOpenState(envTag names.EnvironTag, info *mongo.MongoInfo) error {
+	st, err := state.Open(envTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

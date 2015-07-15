@@ -18,7 +18,9 @@ type sequenceDoc struct {
 }
 
 func (s *State) sequence(name string) (int, error) {
-	query := s.db.C(sequenceC).FindId(s.docID(name))
+	sequences, closer := s.getCollection(sequenceC)
+	defer closer()
+	query := sequences.FindId(name)
 	inc := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{

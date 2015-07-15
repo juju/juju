@@ -4,12 +4,10 @@
 package state
 
 import (
-	"fmt"
 	"reflect"
 
+	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -19,89 +17,61 @@ const (
 	txnAssertEnvIsNotAlive = false
 )
 
-// txnRunner returns a jujutxn.Runner instance.
-//
-// If st.transactionRunner is non-nil, then that will be
-// returned and the session argument will be ignored. This
-// is the case in tests only, when we want to test concurrent
-// operations.
-//
-// If st.transactionRunner is nil, then we create a new
-// transaction runner with the provided session and return
-// that.
-func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsAlive)
-}
-
-// txnRunnerNoEnvAliveAssert returns a jujutxn.Runner instance that does not
-// add an assertion for a live environment to the transaction. It was
-// introduced only to allow the initial environment to be created and should
-// be used rarely.
-func (st *State) txnRunnerNoEnvAliveAssert(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsNotAlive)
-}
-
-// runTransactionNoEnvAliveAssert is a convenience method delegating to txnRunnerNoEnvAliveAssert.
-func (st *State) runTransactionNoEnvAliveAssert(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunnerNoEnvAliveAssert(session).RunTransaction(ops)
-}
-
-// runTransaction is a convenience method delegating to transactionRunner.
+// runTransaction is a convenience method delegating to the state's Database.
 func (st *State) runTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).RunTransaction(ops)
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
 }
 
-// run is a convenience method delegating to transactionRunner.
+// runRawTransaction is a convenience method that will run a single
+// transaction using a "raw" transaction runner that won't perform
+// environment filtering.
+func (st *State) runRawTransaction(ops []txn.Op) error {
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiEnvRunner); ok {
+		runner = multiRunner.rawRunner
+	}
+	return runner.RunTransaction(ops)
+}
+
+// run is a convenience method delegating to the state's Database.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).Run(transactions)
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).ResumeTransactions()
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.ResumeTransactions()
 }
 
 // MaybePruneTransactions removes data for completed transactions.
 func (st *State) MaybePruneTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
 	// Prune txns only when txn count has doubled since last prune.
-	return st.txnRunner(session).MaybePruneTransactions(2.0)
-}
-
-func newMultiEnvRunner(envUUID string, db *mgo.Database, assertEnvAlive bool) jujutxn.Runner {
-	return &multiEnvRunner{
-		rawRunner:      jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
-		envUUID:        envUUID,
-		assertEnvAlive: assertEnvAlive,
-	}
+	return runner.MaybePruneTransactions(2.0)
 }
 
 type multiEnvRunner struct {
-	rawRunner      jujutxn.Runner
-	envUUID        string
-	assertEnvAlive bool
+	rawRunner jujutxn.Runner
+	schema    collectionSchema
+	envUUID   string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
 // that affect multi-environment collections will be modified in-place
 // to ensure correct interaction with these collections.
 func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
-	ops = r.updateOps(ops)
+	ops, err := r.updateOps(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return r.rawRunner.RunTransaction(ops)
 }
 
@@ -117,7 +87,10 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 			// and won't deal correctly with some returned errors.
 			return nil, err
 		}
-		ops = r.updateOps(ops)
+		ops, err = r.updateOps(ops)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return ops, nil
 	})
 }
@@ -132,43 +105,75 @@ func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
 	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
-func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
-	var opsNeedEnvAlive bool
+func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
+	var referencesEnviron bool
+	var insertsEnvironSpecificDocs bool
 	for i, op := range ops {
-		if multiEnvCollections.Contains(op.C) {
+		info, found := r.schema[op.C]
+		if !found {
+			return nil, errors.Errorf("forbidden transaction: references unknown collection %q", op.C)
+		}
+		if info.rawAccess {
+			return nil, errors.Errorf("forbidden transaction: references raw-access collection %q", op.C)
+		}
+		if !info.global {
+			// TODO(fwereade): this interface implies we're returning a copy
+			// of the transactions -- as I think we should be -- rather than
+			// rewriting them in place (which IMO breaks client expectations
+			// pretty hard, not to mention rendering us unable to accept any
+			// structs passed by value, or which lack an env-uuid field).
+			//
+			// The counterargument is that it's convenient to use rewritten
+			// docs directly to construct entities; I think that's suboptimal,
+			// because the cost of a DB read to just grab the actual data pales
+			// in the face of the transaction operation itself, and it's a
+			// small price to pay for a safer implementation.
 			var docID interface{}
 			if id, ok := op.Id.(string); ok {
-				docID = addEnvUUID(r.envUUID, id)
+				docID = ensureEnvUUID(r.envUUID, id)
 				ops[i].Id = docID
 			} else {
 				docID = op.Id
 			}
-
 			if op.Insert != nil {
+				var err error
 				switch doc := op.Insert.(type) {
 				case bson.D:
-					ops[i].Insert = r.updateBsonD(doc, docID, op.C)
+					ops[i].Insert, err = r.updateBsonD(doc, docID)
 				case bson.M:
-					r.updateBsonM(doc, docID, op.C)
+					err = r.updateBsonM(doc, docID)
 				case map[string]interface{}:
-					r.updateBsonM(bson.M(doc), docID, op.C)
+					err = r.updateBsonM(bson.M(doc), docID)
 				default:
-					if !r.updateStruct(doc, docID, op.C) {
-						panic(fmt.Sprintf("unsupported document type for multi-environment collection "+
-							"(must be bson.D, bson.M or struct). Got %T for insert into %s.", doc, op.C))
-					}
-
+					err = r.updateStruct(doc, docID)
 				}
-				if r.assertEnvAlive && !opsNeedEnvAlive && envAliveColls.Contains(op.C) {
-					opsNeedEnvAlive = true
+				if err != nil {
+					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
+				}
+				if !info.ignoreInsertRestrictions {
+					insertsEnvironSpecificDocs = true
 				}
 			}
 		}
+		if op.C == environmentsC {
+			if op.Id == r.envUUID {
+				referencesEnviron = true
+			}
+		}
 	}
-	if opsNeedEnvAlive {
+	if insertsEnvironSpecificDocs && !referencesEnviron {
+		// TODO(fwereade): This serializes a large proportion of operations
+		// that could otherwise run in parallel. it's quite nice to be able
+		// to run more than one transaction per environment at once...
+		//
+		// Consider representing environ life with a collection of N docs,
+		// and selecting different ones per transaction, so as to claw back
+		// parallelism of up to N. (Environ dying would update all docs and
+		// thus end up serializing everything, but at least we get some
+		// benefits for the bulk of an environment's lifetime.)
 		ops = append(ops, assertEnvAliveOp(r.envUUID))
 	}
-	return ops
+	return ops, nil
 }
 
 func assertEnvAliveOp(envUUID string) txn.Op {
@@ -179,18 +184,7 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 	}
 }
 
-var envAliveColls = newEnvAliveColls()
-
-// newEnvAliveColls returns a copy of multiEnvCollections minus cleanupsC.
-// This set is used to check if a txn needs to assert that there is a live
-// environment be inserting docs.
-func newEnvAliveColls() set.Strings {
-	e := set.NewStrings(multiEnvCollections.Values()...)
-	e.Remove(cleanupsC)
-	return e
-}
-
-func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName string) bson.D {
+func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}) (bson.D, error) {
 	idSeen := false
 	envUUIDSeen := false
 	for i, elem := range doc {
@@ -201,8 +195,7 @@ func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName str
 		case "env-uuid":
 			envUUIDSeen = true
 			if elem.Value != r.envUUID {
-				panic(fmt.Sprintf("environment UUID for document to insert into "+
-					"%s does not match state", collName))
+				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, elem.Value)
 			}
 		}
 	}
@@ -212,10 +205,10 @@ func (r *multiEnvRunner) updateBsonD(doc bson.D, docID interface{}, collName str
 	if !envUUIDSeen {
 		doc = append(doc, bson.DocElem{"env-uuid", r.envUUID})
 	}
-	return doc
+	return doc, nil
 }
 
-func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName string) {
+func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}) error {
 	idSeen := false
 	envUUIDSeen := false
 	for key, value := range doc {
@@ -226,8 +219,7 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName str
 		case "env-uuid":
 			envUUIDSeen = true
 			if value != r.envUUID {
-				panic(fmt.Sprintf("environment UUID for document to insert into "+
-					"%s does not match state", collName))
+				return errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, value)
 			}
 		}
 	}
@@ -237,9 +229,10 @@ func (r *multiEnvRunner) updateBsonM(doc bson.M, docID interface{}, collName str
 	if !envUUIDSeen {
 		doc["env-uuid"] = r.envUUID
 	}
+	return nil
 }
 
-func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) bool {
+func (r *multiEnvRunner) updateStruct(doc, docID interface{}) error {
 	v := reflect.ValueOf(doc)
 	t := v.Type()
 
@@ -249,74 +242,44 @@ func (r *multiEnvRunner) updateStruct(doc, docID interface{}, collName string) b
 	}
 
 	if t.Kind() != reflect.Struct {
-		return false
+		return errors.Errorf("unknown type %s", t)
 	}
 
 	envUUIDSeen := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		var err error
 		switch f.Tag.Get("bson") {
 		case "_id":
-			r.updateStructField(v, f.Name, docID, collName, overrideField)
+			err = r.updateStructField(v, f.Name, docID, overrideField)
 		case "env-uuid":
-			r.updateStructField(v, f.Name, r.envUUID, collName, fieldMustMatch)
+			err = r.updateStructField(v, f.Name, r.envUUID, fieldMustMatch)
 			envUUIDSeen = true
+		}
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	if !envUUIDSeen {
-		panic(fmt.Sprintf("struct for insert into %s is missing an env-uuid field", collName))
+		return errors.Errorf(`struct lacks field with bson:"env-uuid" tag`)
 	}
-
-	return true
+	return nil
 }
 
 const overrideField = "override"
 const fieldMustMatch = "mustmatch"
 
-func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValue interface{}, collName, updateType string) {
+func (r *multiEnvRunner) updateStructField(v reflect.Value, name string, newValue interface{}, updateType string) error {
 	fv := v.FieldByName(name)
 	if fv.Interface() != newValue {
 		if updateType == fieldMustMatch && fv.String() != "" {
-			panic(fmt.Sprintf("%s for insert into %s does not match expected value",
-				name, collName))
+			return errors.Errorf("bad %q field value: expected %s, got %s", name, newValue, fv.String())
 		}
 		if fv.CanSet() {
 			fv.Set(reflect.ValueOf(newValue))
 		} else {
-			panic(fmt.Sprintf("struct for insert into %s requires "+
-				"%s change but was passed by value", collName, name))
+			return errors.Errorf("cannot set %q field: struct passed by value", name)
 		}
 	}
-}
-
-// rawTxnRunner returns a transaction runner that won't perform
-// automatic addition of environment UUIDs into transaction
-// operations, even for collections that contain documents for
-// multiple environments. It should be used rarely.
-func (st *State) rawTxnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return getRawRunner(st.transactionRunner)
-	}
-	return jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: st.db.With(session),
-	})
-}
-
-// runRawTransaction is a convenience method that will run a single
-// transaction using a "raw" transaction runner, as returned by
-// rawTxnRunner.
-func (st *State) runRawTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	runner := st.rawTxnRunner(session)
-	return runner.RunTransaction(ops)
-}
-
-// getRawRunner returns the underlying "raw" transaction runner from
-// the passed transaction runner.
-func getRawRunner(runner jujutxn.Runner) jujutxn.Runner {
-	if runner, ok := runner.(*multiEnvRunner); ok {
-		return runner.rawRunner
-	}
-	return runner
+	return nil
 }
