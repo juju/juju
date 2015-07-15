@@ -37,7 +37,7 @@ type DestroyCommand struct {
 }
 
 var destroyDoc = `Destroys the specified system`
-var destroyEnvMsg = `
+var destroySysMsg = `
 WARNING! This command will destroy the %q system.
 This includes all machines, services, data and other resources.
 
@@ -137,7 +137,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
-	// need to use the system force-destroy command if we can't connect.
+	// need to use the system kill command if we can't connect.
 	api, err := c.getSystemAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
@@ -155,7 +155,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.
-		return c.destroyEnvironmentViaClient(ctx, cfgInfo, systemEnviron, store)
+		return c.destroySystemViaClient(ctx, cfgInfo, systemEnviron, store)
 	}
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"))
@@ -170,6 +170,9 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 func (c *DestroyCommand) getSystemEnviron(info configstore.EnvironInfo, sysAPI destroySystemAPI) (_ environs.Environ, err error) {
 	bootstrapCfg := info.BootstrapConfig()
 	if bootstrapCfg == nil {
+		if sysAPI == nil {
+			return nil, errors.New("unable to get bootstrap information from API")
+		}
 		bootstrapCfg, err = sysAPI.EnvironmentConfig()
 		if params.IsCodeNotImplemented(err) {
 			// Fallback to the client API. Better to encapsulate the logic for
@@ -195,9 +198,9 @@ func (c *DestroyCommand) getSystemEnviron(info configstore.EnvironInfo, sysAPI d
 	return environs.New(cfg)
 }
 
-// destroyEnvironmentViaClient attempts to destroy the environment using the client
-// endpoint for older juju systems which do not implement environmentmanager.DestroyEnvironment
-func (c *DestroyCommand) destroyEnvironmentViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
+// destroySystemViaClient attempts to destroy the system using the client
+// endpoint for older juju systems which do not implement systemmanager.DestroySystem
+func (c *DestroyCommand) destroySystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
@@ -231,7 +234,7 @@ To remove all blocks in the system, please run:
 
 func confirmDestruction(ctx *cmd.Context, systemName string) error {
 	// Get confirmation from the user that they want to continue
-	fmt.Fprintf(ctx.Stdout, destroyEnvMsg, systemName)
+	fmt.Fprintf(ctx.Stdout, destroySysMsg, systemName)
 
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()

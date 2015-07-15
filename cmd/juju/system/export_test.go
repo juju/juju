@@ -85,12 +85,24 @@ func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
 	return c.confValues
 }
 
-// NewDestroyCommand returns a DestroyCommand with the the environmentmanager and client
+// NewDestroyCommand returns a DestroyCommand with the the systemmanager and client
 // endpoints mocked out.
 func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *DestroyCommand {
 	return &DestroyCommand{
 		api:       api,
 		clientapi: clientapi,
 		apierr:    apierr,
+	}
+}
+
+// NewKillCommand returns a KillCommand with the the systemmanager and client
+// endpoints mocked out.
+func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *KillCommand {
+	return &KillCommand{
+		DestroyCommand{
+			api:       api,
+			clientapi: clientapi,
+			apierr:    apierr,
+		},
 	}
 }
