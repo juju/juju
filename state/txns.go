@@ -171,14 +171,6 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 	return ops
 }
 
-func assertEnvAliveOp(envUUID string) txn.Op {
-	return txn.Op{
-		C:      environmentsC,
-		Id:     envUUID,
-		Assert: isEnvAliveDoc,
-	}
-}
-
 var envAliveColls = newEnvAliveColls()
 
 // newEnvAliveColls returns a copy of multiEnvCollections minus cleanupsC.

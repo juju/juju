@@ -441,9 +441,15 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
+	return assertEnvAliveOp(e.UUID())
+}
+
+// assertAliveOp returns a txn.Op that asserts the given environment
+// UUID refers to an alive environment.
+func assertEnvAliveOp(envUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
-		Id:     e.UUID(),
+		Id:     envUUID,
 		Assert: isEnvAliveDoc,
 	}
 }
