@@ -253,10 +253,6 @@ def add_basic_testing_arguments(parser):
     return parser
 
 
-def add_boostrap_context_arguments(parser):
-    add_basic_testing_arguments(parser)
-
-
 def configure_logging(log_level):
     logging.basicConfig(
         level=log_level, format='%(asctime)s %(levelname)s %(message)s',
