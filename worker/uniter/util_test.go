@@ -82,7 +82,7 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
-	leader                 leadership.LeadershipManager
+	leader                 *leadership.Manager
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -464,7 +464,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	uniterParams := uniter.UniterParams{
 		St:                ctx.api,
 		UnitTag:           tag,
-		LeadershipManager: ctx.leader,
+		LeadershipClaimer: ctx.leader,
 		DataDir:           ctx.dataDir,
 		HookLock:          lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(

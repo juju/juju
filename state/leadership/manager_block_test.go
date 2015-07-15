@@ -187,7 +187,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestKillManager(c *gc.C) {
 // fails if it's used more than a second after creation (which should be
 // *plenty* of time).
 type blockTest struct {
-	manager     leadership.Manager
+	manager     leadership.ManagerWorker
 	serviceName string
 	done        chan error
 	abort       <-chan time.Time
@@ -195,7 +195,7 @@ type blockTest struct {
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // leaderlessness of the named service.
-func newBlockTest(manager leadership.Manager, serviceName string) *blockTest {
+func newBlockTest(manager leadership.ManagerWorker, serviceName string) *blockTest {
 	bt := &blockTest{
 		manager:     manager,
 		serviceName: serviceName,
