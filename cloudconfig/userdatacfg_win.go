@@ -51,7 +51,6 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
-		fmt.Sprintf(`Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%%PATH%%;C:\Juju\bin"' -Credential $jujuCreds`),
 	)
 	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
@@ -73,11 +72,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
 	}
-	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
 	renderer := w.conf.ShellRenderer()
 	w.conf.AddScripts(
 		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.icfg.JujuTools())),
-		`$tmpBinDir=$binDir.Replace('\', '\\')`,
 		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.icfg.LogDir)),
 		`mkdir $binDir`,
 		`$WebClient = New-Object System.Net.WebClient`,
@@ -88,7 +85,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 			w.icfg.Tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
 			w.icfg.Tools.SHA256),
-		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
+		fmt.Sprintf(`GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir`),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
 	)
