@@ -2,10 +2,11 @@ package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"runtime"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -41,11 +42,11 @@ func (s *suite) TestLaunch(c *gc.C) {
 	})
 
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Executable)
-	c.Assert(f.subcommand, gc.Equals, "launch")
-	c.Assert(f.args, gc.HasLen, 1)
+	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
+	c.Assert(f.cmd.Args[1], gc.Equals, "launch")
+	c.Assert(f.cmd.Args[2:], gc.HasLen, 1)
 	// fix this to be more stringent when we fix json serialization for charm.Process
-	c.Assert(f.args[0], gc.Matches, `.*"Image":"img".*`)
+	c.Assert(f.cmd.Args[2], gc.Matches, `.*"Image":"img".*`)
 }
 
 func (s *suite) TestLaunchBadOutput(c *gc.C) {
@@ -112,9 +113,9 @@ func (s *suite) TestStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, process.Status{Label: "status!"})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Executable)
-	c.Assert(f.subcommand, gc.Equals, "status")
-	c.Assert(f.args, gc.DeepEquals, []string{"id"})
+	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
+	c.Assert(f.cmd.Args[1], gc.Equals, "status")
+	c.Assert(f.cmd.Args[2:], gc.DeepEquals, []string{"id"})
 }
 
 func (s *suite) TestStatusErr(c *gc.C) {
@@ -138,9 +139,9 @@ func (s *suite) TestDestroy(c *gc.C) {
 	err := p.Destroy("id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.path, gc.Equals, p.Executable)
-	c.Assert(f.subcommand, gc.Equals, "destroy")
-	c.Assert(f.args, gc.DeepEquals, []string{"id"})
+	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
+	c.Assert(f.cmd.Args[1], gc.Equals, "destroy")
+	c.Assert(f.cmd.Args[2:], gc.DeepEquals, []string{"id"})
 }
 
 func (s *suite) TestDestroyErr(c *gc.C) {
@@ -159,70 +160,27 @@ func (s *suite) TestRunCmd(c *gc.C) {
 	f := &fakeLogger{c: c}
 	s.PatchValue(&getLogger, f.getLogger)
 	m := maker{
-		c:      c,
 		stdout: "foo!",
+		stderr: "bar!\nbaz!",
 	}
-	path := m.make()
-	out, err := runCmd("name", path, "subcommand", "arg1", "arg2")
+	cmd := m.make()
+	out, err := runCmd("name", cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.TrimSpace(string(out)), gc.DeepEquals, m.stdout)
 	c.Assert(f.name, gc.Equals, "juju.process.plugin.name")
-	c.Assert(f.logs, gc.DeepEquals, []string{"subcommand arg1 arg2"})
+	c.Assert(f.logs, gc.DeepEquals, []string{"bar!", "baz!"})
 }
 
 func (s *suite) TestRunCmdErr(c *gc.C) {
 	f := &fakeLogger{c: c}
 	s.PatchValue(&getLogger, f.getLogger)
 	m := maker{
-		c:      c,
 		exit:   1,
 		stdout: "foo!",
 	}
-	path := m.make()
-	_, err := runCmd("name", path, "command", "arg1", "arg2")
+	cmd := m.make()
+	_, err := runCmd("name", cmd)
 	c.Assert(err, gc.ErrorMatches, "exit status 1: foo!")
-}
-
-// maker makes a script that outputs the arguments passed to it as stderr and
-// the string in stdout to stdout.
-type maker struct {
-	stdout string
-	exit   int
-	c      *gc.C
-}
-
-func (m maker) make() string {
-	if runtime.GOOS == "windows" {
-		return m.winCmd()
-	}
-	return m.nixCmd()
-}
-
-func (m maker) winCmd() string {
-	data := fmt.Sprintf(`
-echo %* 1>&2
-echo "%s"
-exit %d`[1:], m.stdout, m.exit)
-
-	path := filepath.Join(m.c.MkDir(), "foo.bat")
-	err := ioutil.WriteFile(path, []byte(data), 0744)
-	m.c.Assert(err, jc.ErrorIsNil)
-	return path
-}
-
-func (m maker) nixCmd() string {
-	data := fmt.Sprintf(`
-#!/bin/sh
->&2 echo $@
-echo '%s'
-exit %d
-`[1:], m.stdout, m.exit)
-
-	path := filepath.Join(m.c.MkDir(), "foo.sh")
-	err := ioutil.WriteFile(path, []byte(data), 0744)
-	m.c.Assert(err, jc.ErrorIsNil)
-	return path
-
 }
 
 type fakeLogger struct {
@@ -242,18 +200,58 @@ func (f *fakeLogger) Infof(s string, args ...interface{}) {
 }
 
 type fakeRunner struct {
-	name       string
-	path       string
-	subcommand string
-	args       []string
-	out        []byte
-	err        error
+	name string
+	cmd  *exec.Cmd
+	out  []byte
+	err  error
 }
 
-func (f *fakeRunner) runCmd(name, path, subcommand string, args ...string) ([]byte, error) {
+func (f *fakeRunner) runCmd(name string, cmd *exec.Cmd) ([]byte, error) {
 	f.name = name
-	f.path = path
-	f.subcommand = subcommand
-	f.args = args
+	f.cmd = cmd
 	return f.out, f.err
+}
+
+const (
+	isHelperProc = "GO_HELPER_PROCESS_OK"
+	helperStdout = "GO_HELPER_PROCESS_STDOUT"
+	helperStderr = "GO_HELPER_PROCESS_STDERR"
+	helperExit   = "GO_HELPER_PROCESS_EXIT_CODE"
+)
+
+type maker struct {
+	stdout string
+	stderr string
+	exit   int
+}
+
+func (m maker) make() *exec.Cmd {
+	cmd := exec.Command(os.Args[0], "-test.run=TestHelperProcess")
+	cmd.Env = []string{
+		fmt.Sprintf("%s=%s", isHelperProc, "1"),
+		fmt.Sprintf("%s=%s", helperStdout, m.stdout),
+		fmt.Sprintf("%s=%s", helperStderr, m.stderr),
+		fmt.Sprintf("%s=%d", helperExit, m.exit),
+	}
+	return cmd
+}
+
+func TestHelperProcess(*stdtesting.T) {
+	if os.Getenv(isHelperProc) != "1" {
+		return
+	}
+	exit, err := strconv.Atoi(os.Getenv(helperExit))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error converting exit code: %s", err)
+		os.Exit(2)
+	}
+	defer os.Exit(exit)
+
+	if stderr := os.Getenv(helperStderr); stderr != "" {
+		fmt.Fprint(os.Stderr, stderr)
+	}
+
+	if stdout := os.Getenv(helperStdout); stdout != "" {
+		fmt.Fprint(os.Stdout, stdout)
+	}
 }
