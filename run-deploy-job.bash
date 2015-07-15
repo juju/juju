@@ -22,9 +22,14 @@ series=$2
 timeout=$4
 shift 4
 $SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
-JUJU_BIN=$(dirname $($SCRIPTS/jujuci.py get-juju-bin))
-$SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $revision_build)
+package=$($SCRIPTS/jujuci.py get-package-name $VERSION)
+s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
+  s3://juju-qa-data/juju-ci/products/version-$revision_build . \
+  --exclude '*' --include $package
+dpkg -x $(find . -name $package) extracted-bin
+JUJU_BIN=$(dirname $(find extracted-bin -name 'juju'))
+$SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     echo "Setting the defaul juju to 1.20.11."
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
