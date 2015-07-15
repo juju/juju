@@ -42,11 +42,11 @@ func stateStepsFor124() []Step {
 	}
 }
 
-// stepsFor124 returns upgrade steps for Juju 1.24 that only need the API.
-func stepsFor124() []Step {
+// stepsFor1243 returns upgrade steps for Juju 1.24.3 that only need the API.
+func stepsFor1243() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "move syslog config from LogDir to ConfDir",
+			description: "move syslog config from LogDir/DataDir to ConfDir",
 			targets:     []Target{AllMachines},
 			run:         moveSyslogConfig,
 		},
@@ -57,6 +57,7 @@ func moveSyslogConfig(context Context) error {
 	config := context.AgentConfig()
 	namespace := config.Value(agent.Namespace)
 	logdir := config.LogDir()
+	datadir := config.DataDir()
 
 	confdir := agent.DefaultConfDir
 	if namespace != "" {
@@ -80,18 +81,26 @@ func moveSyslogConfig(context Context) error {
 	}
 	var errs []string
 	for _, f := range files {
-		oldpath := filepath.Join(logdir, f)
-		newpath := filepath.Join(confdir, f)
-		if err := copyFile(newpath, oldpath); errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			errs = append(errs, err.Error())
-			continue
-		}
-		if err := osRemove(oldpath); err != nil {
-			// Don't fail the step if we can't get rid of the old files.
-			// We don't actually care if they still exist or not.
-			logger.Warningf("Can't delete old config file %q: %s", oldpath, err)
+		// Version 1.24.{0,1} migrated files to datadir; we want to
+		// migrate them to confdir if they exist there, otherwise
+		// from logdir.
+		oldpathPre124 := filepath.Join(logdir, f)
+		oldpath124 := filepath.Join(datadir, f)
+		for _, oldpath := range []string{oldpath124, oldpathPre124} {
+			newpath := filepath.Join(confdir, f)
+			if err := copyFile(newpath, oldpath); errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				errs = append(errs, err.Error())
+				continue
+			}
+			if err := osRemove(oldpath); err != nil {
+				// Don't fail the step if we can't get rid of the old files.
+				// We don't actually care if they still exist or not.
+				logger.Warningf("Can't delete old config file %q: %s", oldpath, err)
+			}
+			// Stop once we've found one.
+			break
 		}
 	}
 	if len(errs) > 0 {
