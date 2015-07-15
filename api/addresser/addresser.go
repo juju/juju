@@ -44,23 +44,24 @@ func (api *API) IPAddress(tag names.IPAddressTag) (*IPAddress, error) {
 	return &IPAddress{api.facade, tag, life}, nil
 }
 
+var newEntityWatcher = watcher.NewEntityWatcher
+
 // WatchIPAddresses returns a EntityWatcher for observing the
 // tags of IP addresses with changes in life cycle.
 // The initial event will contain the tags of any IP addresses
 // which are no longer Alive.
 func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
-	var results params.EntityWatchResult
-	err := api.st.facade.FacadeCall("WatchIPAddresses", nil, &results)
+	var result params.EntityWatchResult
+	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	if err != nil {
+		return nil, err
 	}
-	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewEntityWatcher(api.st.facade.RawAPICaller(), result)
+	w := newEntityWatcher(api.facade.RawAPICaller(), result)
 	return w, nil
 }

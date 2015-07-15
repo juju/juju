@@ -361,8 +361,8 @@ func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
 	return w.out
 }
 
-// entityWatcher will send events when something changes.
-// The content of the changes is a list of entity tags as strings.
+// EntityWatcher will send events when something changes.
+// The content for the changes is a list of tag strings.
 type entityWatcher struct {
 	commonWatcher
 	caller           base.APICaller
