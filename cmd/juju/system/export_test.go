@@ -57,6 +57,14 @@ func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APIC
 	}
 }
 
+// NewRemoveBlocksCommand returns a RemoveBlocksCommand with the function used
+// to open the API connection mocked out.
+func NewRemoveBlocksCommand(api removeBlocksAPI) *RemoveBlocksCommand {
+	return &RemoveBlocksCommand{
+		api: api,
+	}
+}
+
 // Name makes the private name attribute accessible for tests.
 func (c *CreateEnvironmentCommand) Name() string {
 	return c.name
