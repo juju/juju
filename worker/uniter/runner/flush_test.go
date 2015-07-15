@@ -4,6 +4,8 @@
 package runner_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,19 +14,18 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type FlushContextSuite struct {
 	HookContextSuite
-	testing.Stub
+	stub testing.Stub
 }
 
 var _ = gc.Suite(&FlushContextSuite{})
 
 func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.context(c)
 
 	// Mess with multiple relation settings.
 	relCtx0, ok := ctx.Relation(0)
@@ -52,10 +53,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 }
 
 func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
-	// Create a charm with a working hook, and mess with settings again.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.context(c)
 
 	// Mess with multiple relation settings.
 	relCtx0, ok := ctx.Relation(0)
@@ -115,10 +113,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 		{100, 200, "tcp"},
 	})
 
-	// Get the context.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.context(c)
 
 	// Try opening some ports via the context.
 	err = ctx.OpenPorts("tcp", 100, 200)
@@ -169,10 +164,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 }
 
 func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
-	// Get the context.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.context(c)
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 
 	size := uint64(1)
@@ -183,7 +175,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 
 	// Flush the context with an error.
 	msg := "test fail run hook"
-	err = ctx.FlushContext("test fail run hook", errors.New(msg))
+	err := ctx.FlushContext("test fail run hook", errors.New(msg))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 
 	all, err := s.State.AllStorageInstances()
@@ -192,10 +184,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 }
 
 func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
-	// Get the context.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.context(c)
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 
 	size := uint64(1)
@@ -205,10 +194,35 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 		})
 
 	// Flush the context with a success.
-	err = ctx.FlushContext("success", nil)
+	err := ctx.FlushContext("success", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
 
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
+
+	runner.PatchMetricsRecorder(ctx, StubMetricsRecorder{&s.stub})
+
+	err := ctx.AddMetric("key", "value", time.Now())
+
+	// Flush the context with a success.
+	err = ctx.FlushContext("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCalls(c,
+		[]testing.StubCall{{
+			FuncName: "Close",
+		}})
+
+}
+
+func (s *HookContextSuite) context(c *gc.C) *runner.HookContext {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.getHookContext(c, uuid.String(), -1, "", noProxies)
 }
