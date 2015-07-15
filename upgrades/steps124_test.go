@@ -29,6 +29,7 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 		"move service.UnitSeq to sequence collection",
 		"add instance id field to IP addresses",
 		"add UUID field to IP addresses",
+		"migrate charm archives into environment storage",
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
