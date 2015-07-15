@@ -167,10 +167,15 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.RemoveBlocks()
+	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	blocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
+}
+
+func (s *systemManagerSuite) TestRemoveBlocksNotAll(c *gc.C) {
+	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{})
+	c.Assert(err, gc.ErrorMatches, "not supported")
 }

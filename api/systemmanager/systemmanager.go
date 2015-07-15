@@ -83,5 +83,6 @@ func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error
 
 // RemoveBlocks removes all the blocks in the system.
 func (c *Client) RemoveBlocks() error {
-	return c.facade.FacadeCall("RemoveBlocks", nil, nil)
+	args := params.RemoveBlocksArgs{All: true}
+	return c.facade.FacadeCall("RemoveBlocks", args, nil)
 }
