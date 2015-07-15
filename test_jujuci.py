@@ -287,6 +287,15 @@ class JujuCITestCase(TestCase):
         self.assertIn(
             'Expected --summary or one or more of:', stderr.getvalue())
 
+    def test_parse_arg_get_package_name(self):
+        with parse_error(self) as stderr:
+            parse_args(['get-package-name'])
+        self.assertIn('error: too few arguments', stderr.getvalue())
+        args = parse_args(['get-package-name', '1.22.1'])
+        expected = Namespace(command='get-package-name', version='1.22.1',
+                             dry_run=False, verbose=False)
+        self.assertEqual(args, (expected, None))
+
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
         json_io = StringIO(json.dumps(expected_data))

@@ -380,6 +380,10 @@ def parse_args(args=None):
     parser_get_buildvars.add_argument(
         'build', help='The build-revision build number')
     add_credential_args(parser_get_buildvars)
+    parser_get_package_name = subparsers.add_parser(
+        'get-package-name',
+        help='Determine the package name for the current machine.')
+    parser_get_package_name.add_argument('version', help='The version to use.')
     parsed_args = parser.parse_args(args)
     if parsed_args.command == 'get-build-vars' and True not in (
             parsed_args.summary, parsed_args.revision_build,
@@ -477,6 +481,9 @@ def main(argv):
                 short_revision=args.short_revision,
                 branch=args.branch, revision=args.revision)
             print(text)
+        elif args.command == 'get-package-name':
+            print(PackageNamer.factory().get_release_package(args.version))
+
     except Exception as e:
         print(e)
         if args.verbose:
