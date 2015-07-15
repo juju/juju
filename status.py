@@ -297,9 +297,9 @@ class StatusTabularParser(BaseStatusParser):
                        "wanted: %s"
                        "got: %s" % (MACHINE_TAB_HEADERS, header))
         normalized = dict(zip((AGENT_STATE_KEY, AGENT_VERSION_KEY,
-                                    DNS_NAME_KEY, INSTANCE_ID_KEY,
-                                    SERIES_KEY, HARDWARE_KEY),
-                               nitems[1:]))
+                               DNS_NAME_KEY, INSTANCE_ID_KEY,
+                               SERIES_KEY, HARDWARE_KEY),
+                              nitems[1:]))
         return nitems[0], normalized
 
     @toUnitTest
@@ -316,7 +316,7 @@ class StatusTabularParser(BaseStatusParser):
         normalized = dict(zip((WORKLOAD_STATUS_KEY, AGENT_STATUS_KEY,
                               AGENT_VERSION_KEY, MACHINE_KEY,
                               PUBLIC_ADDRESS_KEY),
-                             (wlstatus, astatus, version, machine, paddress)))
+                              (wlstatus, astatus, version, machine, paddress)))
 
         return eid, normalized
 
