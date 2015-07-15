@@ -5,6 +5,9 @@ package state
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,13 +20,15 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
-type upgradesSuite struct {
+type baseUpgradesSuite struct {
 	gitjujutesting.CleanupSuite
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
@@ -31,19 +36,19 @@ type upgradesSuite struct {
 	owner names.UserTag
 }
 
-func (s *upgradesSuite) SetUpSuite(c *gc.C) {
+func (s *baseUpgradesSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.CleanupSuite.SetUpSuite(c)
 }
 
-func (s *upgradesSuite) TearDownSuite(c *gc.C) {
+func (s *baseUpgradesSuite) TearDownSuite(c *gc.C) {
 	s.CleanupSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *upgradesSuite) SetUpTest(c *gc.C) {
+func (s *baseUpgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.CleanupSuite.SetUpTest(c)
@@ -53,13 +58,17 @@ func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *upgradesSuite) TearDownTest(c *gc.C) {
+func (s *baseUpgradesSuite) TearDownTest(c *gc.C) {
 	if s.state != nil {
 		s.state.Close()
 	}
 	s.CleanupSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+}
+
+type upgradesSuite struct {
+	baseUpgradesSuite
 }
 
 var _ = gc.Suite(&upgradesSuite{})
@@ -2017,4 +2026,111 @@ func (s *upgradesSuite) TestFixSequenceFields(c *gc.C) {
 		EnvUUID: uuid,
 		Counter: 4,
 	}})
+}
+
+type migrateCharmStorageSuite struct {
+	baseUpgradesSuite
+	bundleURLs map[string]*url.URL
+}
+
+var _ = gc.Suite(&migrateCharmStorageSuite{})
+
+func (s *migrateCharmStorageSuite) SetUpTest(c *gc.C) {
+	s.baseUpgradesSuite.SetUpTest(c)
+	s.bundleURLs = make(map[string]*url.URL)
+
+	s.PatchValue(&charmBundleURL, func(ch *Charm) *url.URL {
+		return s.bundleURLs[ch.URL().String()]
+	})
+	s.PatchValue(&charmStoragePath, func(ch *Charm) string {
+		// pretend none of the charms have storage paths
+		return ""
+	})
+}
+
+func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
+	// Make a fake storage for the charms and add a charm.
+	dir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(dir, "somewhere"), []byte("abc"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	stor, err := filestorage.NewFileStorageReader(dir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dummyCharm := AddTestingCharm(c, s.state, "dummy")
+	dummyCharmURL, err := stor.URL("somewhere")
+	c.Assert(err, jc.ErrorIsNil)
+	url, err := url.Parse(dummyCharmURL)
+	c.Assert(err, jc.ErrorIsNil)
+	s.bundleURLs[dummyCharm.URL().String()] = url
+
+	s.testMigrateCharmStorage(c, dummyCharm.URL(), "", "")
+}
+
+func (s *migrateCharmStorageSuite) TestMigrateCharmStorageLocalstorage(c *gc.C) {
+	storageDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(storageDir, "somewhere"), []byte("abc"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dummyCharm := AddTestingCharm(c, s.state, "dummy")
+	url := &url.URL{Scheme: "https", Host: "localhost:8040", Path: "/somewhere"}
+	c.Assert(err, jc.ErrorIsNil)
+	s.bundleURLs[dummyCharm.URL().String()] = url
+
+	s.testMigrateCharmStorage(c, dummyCharm.URL(), "local", storageDir)
+}
+
+func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.URL, providerType, storageDir string) {
+	curlPlaceholder := charm.MustParseURL("cs:quantal/dummy-1")
+	err := s.state.AddStoreCharmPlaceholder(curlPlaceholder)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curlPending := charm.MustParseURL("cs:quantal/missing-123")
+	_, err = s.state.PrepareStoreCharmUpload(curlPending)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var storagePath string
+	var called bool
+	s.PatchValue(&stateAddCharmStoragePaths, func(st *State, storagePaths map[*charm.URL]string) error {
+		c.Assert(storagePaths, gc.HasLen, 1)
+		for k, v := range storagePaths {
+			c.Assert(k.String(), gc.Equals, curl.String())
+			storagePath = v
+		}
+		called = true
+		return nil
+	})
+	err = MigrateCharmStorage(s.state, providerType, storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+
+	storage := storage.NewStorage(s.state.EnvironUUID(), s.state.MongoSession())
+	r, length, err := storage.Get(storagePath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.NotNil)
+	defer r.Close()
+	c.Assert(length, gc.Equals, int64(3))
+	data, err := ioutil.ReadAll(r)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, "abc")
+}
+
+func (s *migrateCharmStorageSuite) TestMigrateCharmStorageIdempotency(c *gc.C) {
+	// If MigrateCharmStorage is called a second time, it will
+	// leave alone the charms that have already been migrated.
+	// The final step of migration is a transactional update
+	// of the charm document in state, which is what we base
+	// the decision on.
+	s.PatchValue(&charmStoragePath, func(ch *Charm) string {
+		return "alreadyset"
+	})
+	AddTestingCharm(c, s.state, "dummy")
+	var called bool
+	s.PatchValue(&stateAddCharmStoragePaths, func(st *State, storagePaths map[*charm.URL]string) error {
+		c.Assert(storagePaths, gc.HasLen, 0)
+		called = true
+		return nil
+	})
+	err := MigrateCharmStorage(s.state, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
