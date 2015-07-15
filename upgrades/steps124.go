@@ -32,6 +32,13 @@ func stateStepsFor124() []Step {
 				return state.AddInstanceIdFieldOfIPAddresses(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "migrate charm archives into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateCharmStorage(context.State(), context.AgentConfig())
+			},
+		},
 	}
 }
 
