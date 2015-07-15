@@ -567,11 +567,19 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // updateStatusOp returns the operations needed to update the given
 // status document associated with the given globalKey.
 func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
+	// never $set the actual doc it will destroy pre-existing fields for
+	// envuuid and txn
+	updateFields := bson.D{
+		{"status", doc.Status},
+		{"statusinfo", doc.StatusInfo},
+		{"statusdata", doc.StatusData},
+		{"updated", doc.Updated},
+	}
 	return txn.Op{
 		C:      statusesC,
 		Id:     st.docID(globalKey),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", doc}},
+		Update: bson.D{{"$set", updateFields}},
 	}
 }
 
