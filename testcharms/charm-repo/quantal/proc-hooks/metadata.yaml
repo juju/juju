@@ -9,10 +9,10 @@ subordinate: false
 provides:
   website:
     interface: http
-storage:
-  store0:
-    type: filesystem
-    location: /var/some-server/data
+#storage:
+#  store0:
+#    type: filesystem
+#    location: /var/some-server/data
 processes:
   myproc:
     type: myplugin
