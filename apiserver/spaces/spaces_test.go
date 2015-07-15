@@ -24,6 +24,10 @@ type SpacesSuite struct {
 
 var _ = gc.Suite(&SpacesSuite{})
 
+func init() {
+	ast.InitStubNetwork()
+}
+
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	ast.BackingInstance.SetUp(c, ast.StubZonedEnvironName, ast.WithZones, ast.WithSpaces, ast.WithSubnets)

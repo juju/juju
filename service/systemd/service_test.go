@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/juju/juju/paths"
-
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"

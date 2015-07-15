@@ -30,6 +30,10 @@ type SubnetsSuite struct {
 
 var _ = gc.Suite(&SubnetsSuite{})
 
+func init() {
+	ast.InitStubNetwork()
+}
+
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	ast.BackingInstance.SetUp(c, ast.StubZonedEnvironName, ast.WithZones, ast.WithSpaces, ast.WithSubnets)
