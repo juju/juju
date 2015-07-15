@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -220,7 +219,11 @@ func (c *DestroyCommand) ensureUserFriendlyErrorLog(err error) error {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		return block.ProcessBlockedError(err, block.BlockDestroy)
+		logger.Errorf(`there are blocks preventing system destruction
+To remove all blocks in the system, please run:
+    juju system remove-blocks
+`)
+		return cmd.ErrSilent
 	}
 	logger.Errorf(stdFailureMsg, c.systemName)
 	return err
