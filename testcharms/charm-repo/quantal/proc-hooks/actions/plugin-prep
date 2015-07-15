@@ -5,4 +5,4 @@ export PATH=$PWD/plugin:$PATH
 name=$(action-get name)
 id=$(action-get id)
 status=$(action-get status)
-juju-process-myplugin init $name $id $status
+juju-process-myplugin init "$name" "$id" "$status"

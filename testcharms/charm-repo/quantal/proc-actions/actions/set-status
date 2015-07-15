@@ -4,4 +4,4 @@ export PATH=$PWD/plugin:$PATH
 
 name=$(action-get name)
 status=$(action-get status)
-proc-status-set $name $status
+proc-status-set "$name" "$status"

@@ -3,6 +3,7 @@
 export PATH=$PWD/plugin:$PATH
 
 name=$(config-get plugin-name)
-if [ $name != "" ]; then
+if [ -n "$name" ]; then
+    echo -n
     #destroy $name --unregister
 fi

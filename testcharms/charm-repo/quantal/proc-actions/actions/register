@@ -5,4 +5,4 @@ export PATH=$PWD/plugin:$PATH
 name=$(action-get name)
 id=$(action-get id)
 status=$(action-get status)
-register $name '{"id":"'"$id"'", "status":{"label":"'"$status"'"}}"
+register "$name" '{"id":"'"$id"'", "status":{"label":"'"$status"'"}}"
