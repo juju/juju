@@ -21,8 +21,7 @@ func dumpAll(ctx *cmd.Context, values ...interface{}) error {
 		return errors.Trace(err)
 	}
 	for _, value := range values[1:] {
-		// TODO(ericsnow) Use a different separator or dump as a YAML list?
-		fmt.Fprintln(ctx.Stdout, "")
+		// TODO(ericsnow) Separate each entry or dump as a YAML list?
 		if err := dump(ctx, value); err != nil {
 			return errors.Trace(err)
 		}
