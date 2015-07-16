@@ -54,15 +54,12 @@ func (f *metricFile) Close() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() {
-		err := os.Remove(f.Name())
-		if err != nil {
-			logger.Errorf("failed to remove temporary file %q: %v", f.Name(), err)
-		}
-	}()
-	err = os.Link(f.Name(), f.finalName)
+	ok, err := utils.MoveFile(f.Name(), f.finalName)
 	if err != nil {
-		return errors.Trace(err)
+		if !ok {
+			return errors.Trace(err)
+		}
+		logger.Errorf("failed to remove temporary file %q: %v", f.Name(), err)
 	}
 	return nil
 }
