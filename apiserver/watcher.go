@@ -39,7 +39,7 @@ func init() {
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"EntityWatcher", 0, newEntityWatcher,
+		"EntityWatcher", 1, newEntityWatcher,
 		reflect.TypeOf((*srvEntityWatcher)(nil)),
 	)
 }
