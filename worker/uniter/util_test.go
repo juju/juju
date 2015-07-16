@@ -114,7 +114,7 @@ func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Unlock()
 }
 
-func (ctx *context) OperationFailed(err string) {
+func (ctx *context) setExpectedError(err string) {
 	ctx.mu.Lock()
 	ctx.err = err
 	ctx.mu.Unlock()
@@ -1689,10 +1689,10 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
 
-type operationError struct {
+type expectError struct {
 	err string
 }
 
-func (s operationError) step(c *gc.C, ctx *context) {
-	ctx.OperationFailed(s.err)
+func (s expectError) step(c *gc.C, ctx *context) {
+	ctx.setExpectedError(s.err)
 }

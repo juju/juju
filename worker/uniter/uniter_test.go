@@ -2116,11 +2116,11 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			createUniter{},
-			operationError{".*some error occurred.*"},
 			waitUnitAgent{
 				status: params.StatusFailed,
-				info:   "run install hook: some error occurred",
+				info:   "run install hook",
 			},
+			expectError{".*some error occurred.*"},
 		),
 	})
 }
