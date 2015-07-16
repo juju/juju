@@ -51,7 +51,9 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := s.getMetadata(newDoc.Id)
 		if err != nil {
-			return nil, errors.Trace(err)
+			if err != mgo.ErrNotFound {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		op := txn.Op{
@@ -90,10 +92,7 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	var old imagesMetadataDoc
 	err := coll.Find(bson.D{{"_id", id}}).One(&old)
 	if err != nil {
-		if err == mgo.ErrNotFound {
-			return emptyMetadata, nil
-		}
-		return emptyMetadata, errors.Trace(err)
+		return emptyMetadata, err
 	}
 	return old.metadata(), nil
 }
