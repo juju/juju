@@ -69,15 +69,16 @@ class TestBuildJobs(TestCase):
                                         jobs = []
                                         for job in calculate_jobs(root):
                                             jobs.append(job)
+        release_path = os.path.split(releases)[1]
         expected = [{'new_to_old': 'true',
-                     'old_version': os.path.split(releases)[1],
+                     'old_version': release_path,
                      'candidate': u'1.24.3'},
                     {'new_to_old': 'false',
-                     'old_version': os.path.split(releases)[1],
+                     'old_version': release_path,
                      'candidate': u'1.24.3'}]
         self.assertItemsEqual(jobs, expected)
         calls = [call(root, 'old-juju'),
-                 call(old_juju_dir, os.path.split(releases)[1]),
+                 call(old_juju_dir, release_path),
                  call(root, 'candidate'),
                  call(candidate_dir, 'buildvars.json')]
         self.assertEqual(g_mock.mock_calls, calls)
