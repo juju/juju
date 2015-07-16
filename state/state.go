@@ -1320,10 +1320,7 @@ func (st *State) AddService(
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-			return nil, errors.Errorf("environment is no longer alive")
-		} else if err != nil {
+		if err := checkEnvLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
