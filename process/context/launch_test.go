@@ -74,6 +74,7 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(*s.proc)
 	cmd.ReadMetadata = s.readMetadata
+	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
