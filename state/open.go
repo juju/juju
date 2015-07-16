@@ -140,7 +140,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			C:      stateServersC,
 			Id:     hostedEnvCountKey,
 			Assert: txn.DocMissing,
-			Insert: &envCountDoc{},
+			Insert: &hostedEnvCountDoc{},
 		},
 	)
 
@@ -167,10 +167,10 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		incHostedEnvironCountOp(),
 		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
 		envUserOp,
-		incEnvironCountOp(),
 	}
 	return ops, nil
 }

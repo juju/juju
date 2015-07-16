@@ -346,14 +346,10 @@ func SetEnvLifeDying(st *State, envUUID string) error {
 	return st.runTransaction(ops)
 }
 
-func EnvironCount(c *gc.C, st *State) int {
-	var doc envCountDoc
-	stateServers, closer := st.getCollection(stateServersC)
-	defer closer()
-
-	err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc)
+func HostedEnvironCount(c *gc.C, st *State) int {
+	count, err := hostedEnvironCount(st)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.Count
+	return count
 }
 
 type MockGlobalEntity struct {
