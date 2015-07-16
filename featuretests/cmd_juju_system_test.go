@@ -142,3 +142,17 @@ func (s *cmdSystemSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }
+
+func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "foo",
+	})
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.Close()
+
+	s.run(c, "kill", "dummyenv", "-y")
+
+	store, err := configstore.Default()
+	_, err = store.ReadInfo("dummyenv")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
