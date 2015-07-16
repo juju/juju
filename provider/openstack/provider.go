@@ -33,12 +33,12 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -366,6 +366,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
+var _ environs.InstanceTagger = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -723,7 +724,22 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	// Find all instances tagged with tags.JujuStateServer.
+	instances, err := e.AllInstances()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ids := make([]instance.Id, 0, 1)
+	for _, instance := range instances {
+		detail := instance.(*openstackInstance).getServerDetail()
+		if detail.Metadata[tags.JujuStateServer] == "true" {
+			ids = append(ids, instance.Id())
+		}
+	}
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	return ids, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -788,10 +804,9 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	e.novaUnlocked = nova.New(e.client)
 
-	// create new control storage instance, existing instances continue
-	// to reference their existing configuration.
-	// public storage instance creation is deferred until needed since authenticated
-	// access to the identity service is required so that any juju-tools endpoint can be used.
+	// To support upgrading from old environments, we continue to interface
+	// with Swift object storage. We do not use it except for upgrades, so
+	// new environments will work with OpenStack deployments that lack Swift.
 	e.storageUnlocked = &openstackstorage{
 		containerName: ecfg.controlBucket(),
 		// this is possibly just a hack - if the ACL is swift.Private,
@@ -1100,11 +1115,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
-		}
-	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
@@ -1145,7 +1155,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	if securityGroupNames != nil {
 		return e.deleteSecurityGroups(securityGroupNames)
 	}
-	return common.RemoveStateInstances(e.Storage(), ids...)
+	return nil
 }
 
 func (e *environ) isAliveServer(server nova.ServerDetail) bool {
@@ -1295,9 +1305,6 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := e.Storage().RemoveAll(); err != nil {
 		return errors.Trace(err)
 	}
 	novaClient := e.nova()
@@ -1664,4 +1671,12 @@ func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error
 		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return common.GetCustomImageSource(env)
+}
+
+// TagInstance implements environs.InstanceTagger.
+func (e *environ) TagInstance(id instance.Id, tags map[string]string) error {
+	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
+		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
 }

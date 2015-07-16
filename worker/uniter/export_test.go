@@ -15,10 +15,10 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	ActiveCollectMetricsTimer = &activeCollectMetricsTimer
-	ActiveSendMetricsTimer    = &activeSendMetricsTimer
-	IdleWaitTime              = &idleWaitTime
-	LeadershipGuarantee       = &leadershipGuarantee
+	LoopIsIdleCheckTime    = &loopIsStillIdleCheckInterval
+	EnterLoopIsIdleTime    = &enterLoopIsIdleWaitTime
+	ActiveSendMetricsTimer = &activeSendMetricsTimer
+	LeadershipGuarantee    = &leadershipGuarantee
 )
 
 // manualTicker will be used to generate collect-metrics events
