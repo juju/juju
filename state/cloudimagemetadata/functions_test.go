@@ -9,11 +9,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/testing"
+	"github.com/juju/testing"
 )
 
 type funcMetadataSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&funcMetadataSuite{})

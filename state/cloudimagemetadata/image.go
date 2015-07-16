@@ -12,14 +12,17 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	envUUID            string
-	metadataCollection *mgo.Collection
-	txnRunner          jujutxn.Runner
+	envuuid        string
+	collection     string
+	runTransaction func(jujutxn.TransactionSource) error
+	getCollection  func(string) (_ mongo.Collection, closer func())
 }
 
 var _ Storage = (*storage)(nil)
@@ -27,15 +30,12 @@ var _ Storage = (*storage)(nil)
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided collection using the provided transaction runner.
 func NewStorage(
-	envUUID string,
-	metadataCollection *mgo.Collection,
-	runner jujutxn.Runner,
+	envuuid string,
+	collectionName string,
+	runTransaction func(jujutxn.TransactionSource) error,
+	getCollection func(string) (_ mongo.Collection, closer func()),
 ) Storage {
-	return &storage{
-		envUUID:            envUUID,
-		metadataCollection: metadataCollection,
-		txnRunner:          runner,
-	}
+	return &storage{envuuid, collectionName, runTransaction, getCollection}
 }
 
 var emptyMetadata = Metadata{}
@@ -44,16 +44,18 @@ var emptyMetadata = Metadata{}
 // if desired metadata does not exist - we insert it; if it exists - we update.
 // It throws an error if metadata did not change.
 func (s *storage) SaveMetadata(metadata Metadata) error {
-	newDoc := metadata.mongoDoc()
-	buildTxn := func(attempt int) ([]txn.Op, error) {
+	newDoc := s.mongoDoc(metadata)
+	all, closeAll := s.getCollection(s.collection)
+	defer closeAll()
 
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := s.getMetadata(newDoc.Id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		op := txn.Op{
-			C:  s.metadataCollection.Name,
+			C:  all.Name(),
 			Id: newDoc.Id,
 		}
 		if existing == emptyMetadata {
@@ -74,7 +76,7 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 		return []txn.Op{op}, nil
 	}
 
-	err := s.txnRunner.Run(buildTxn)
+	err := s.runTransaction(buildTxn)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add cloud image metadata for %v", newDoc.Id)
 	}
@@ -82,8 +84,11 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 }
 
 func (s *storage) getMetadata(id string) (Metadata, error) {
+	coll, closer := s.getCollection(s.collection)
+	defer closer()
+
 	var old imagesMetadataDoc
-	err := s.metadataCollection.Find(bson.D{{"_id", id}}).One(&old)
+	err := coll.Find(bson.D{{"_id", id}}).One(&old)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return emptyMetadata, nil
@@ -115,9 +120,12 @@ func (s *storage) AllMetadata() ([]Metadata, error) {
 
 // FindMetadata implements Storage.FindMetadata.
 func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
+	coll, closer := s.getCollection(s.collection)
+	defer closer()
+
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
-	if err := s.metadataCollection.Find(searchCriteria).All(&docs); err != nil {
+	if err := coll.Find(searchCriteria).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if searchCriteria != nil && len(docs) == 0 {
@@ -169,6 +177,9 @@ func buildSearchClauses(criteria MetadataAttributes) bson.D {
 }
 
 type imagesMetadataDoc struct {
+	// EnvUUID is the environment identifier.
+	EnvUUID string `bson:"env-uuid"`
+
 	// Id contains unique natural key for cloud image metadata
 	Id string `bson:"_id"`
 
@@ -225,8 +236,9 @@ func (m imagesMetadataDoc) updates() bson.D {
 	}
 }
 
-func (m *Metadata) mongoDoc() imagesMetadataDoc {
+func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	return imagesMetadataDoc{
+		EnvUUID:         s.envuuid,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
@@ -239,7 +251,7 @@ func (m *Metadata) mongoDoc() imagesMetadataDoc {
 	}
 }
 
-func buildKey(m *Metadata) string {
+func buildKey(m Metadata) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
 		m.Stream,
 		m.Region,

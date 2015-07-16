@@ -303,6 +303,13 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// This collection holds information about custom cloud image metadata.
+		cloudimagemetadataC: {
+			indexes: []mgo.Index{{
+				Key: []string{"env-uuid"},
+			}},
+		},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -325,6 +332,7 @@ const (
 	blocksC                = "blocks"
 	charmsC                = "charms"
 	cleanupsC              = "cleanups"
+	cloudimagemetadataC    = "cloudimagemetadata"
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
 	envUsersC              = "envusers"

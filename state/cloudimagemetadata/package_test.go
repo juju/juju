@@ -4,12 +4,11 @@
 package cloudimagemetadata_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	gc "gopkg.in/check.v1"
+	coretesting "github.com/juju/juju/testing"
 )
 
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+func Test(t *testing.T) {
+	coretesting.MgoTestPackage(t)
 }

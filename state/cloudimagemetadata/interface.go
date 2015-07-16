@@ -34,9 +34,3 @@ type Storage interface {
 	// criteria or a "not found" error if none match.
 	FindMetadata(MetadataAttributes) ([]Metadata, error)
 }
-
-// StorageCloser extends the Storage interface with a Close method.
-type StorageCloser interface {
-	Storage
-	Close() error
-}
