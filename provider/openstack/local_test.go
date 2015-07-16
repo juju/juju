@@ -749,21 +749,21 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that the state holds the id of the bootstrap machine.
-	stor := env.(environs.EnvironStorage).Storage()
-	stateData, err := common.LoadState(stor)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateData.StateInstances, gc.HasLen, 1)
-
-	// Check that StateServerInstances returns the same.
+	// Check that StateServerInstances returns the ID of the bootstrap machine.
 	ids, err := env.StateServerInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, jc.SameContents, stateData.StateInstances)
+	c.Assert(ids, gc.HasLen, 1)
+
+	// Storage should be empty; it is not used anymore.
+	stor := env.(environs.EnvironStorage).Storage()
+	entries, err := stor.List("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entries, gc.HasLen, 0)
 
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, ids[0])
 
 	addresses, err := insts[0].Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1640,4 +1640,46 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 			"juju-is-state": "true",
 		},
 	)
+}
+
+func (t *localServerSuite) TestTagInstance(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMetadata := func(extraKey, extraValue string) {
+		// Refresh instance
+		instances, err := env.AllInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(instances, gc.HasLen, 1)
+		c.Assert(
+			openstack.InstanceServerDetail(instances[0]).Metadata,
+			jc.DeepEquals,
+			map[string]string{
+				"juju-env-uuid": coretesting.EnvironmentTag.Id(),
+				"juju-is-state": "true",
+				extraKey:        extraValue,
+			},
+		)
+	}
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	extraKey := "extra-k"
+	extraValue := "extra-v"
+	err = env.(environs.InstanceTagger).TagInstance(
+		instances[0].Id(), map[string]string{extraKey: extraValue},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMetadata(extraKey, extraValue)
+
+	// Ensure that a second call updates existing tags.
+	extraValue = "extra-v2"
+	err = env.(environs.InstanceTagger).TagInstance(
+		instances[0].Id(), map[string]string{extraKey: extraValue},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMetadata(extraKey, extraValue)
 }
