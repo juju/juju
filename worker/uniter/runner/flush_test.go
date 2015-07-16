@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -23,6 +24,11 @@ type FlushContextSuite struct {
 }
 
 var _ = gc.Suite(&FlushContextSuite{})
+
+func (s *FlushContextSuite) SetUpTest(c *gc.C) {
+	s.HookContextSuite.SetUpTest(c)
+	s.stub.ResetCalls()
+}
 
 func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	ctx := s.context(c)
@@ -204,9 +210,9 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 
 func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
 	uuid := utils.MustNewUUID()
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), NewRealPaths(c))
 
-	runner.PatchMetricsRecorder(ctx, StubMetricsRecorder{&s.stub})
+	runner.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
 
 	err := ctx.AddMetric("key", "value", time.Now())
 
@@ -214,15 +220,55 @@ func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
 	err = ctx.FlushContext("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCalls(c,
-		[]testing.StubCall{{
-			FuncName: "Close",
-		}})
-
+	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
 }
 
 func (s *HookContextSuite) context(c *gc.C) *runner.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, uuid.String(), -1, "", noProxies)
+}
+
+func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	paths := NewRealPaths(c)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
+	reader, err := metrics.NewJSONMetricReader(
+		paths.GetMetricsSpoolDir(),
+	)
+
+	err = ctx.FlushContext("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	batches, err := reader.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(batches, gc.HasLen, 1)
+	c.Assert(batches[0].Metrics, gc.HasLen, 1)
+	c.Assert(batches[0].Metrics[0].Key, gc.Equals, "juju-units")
+	c.Assert(batches[0].Metrics[0].Value, gc.Equals, "1")
+}
+
+func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	paths := NewRealPaths(c)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"), paths)
+	reader, err := metrics.NewJSONMetricReader(
+		paths.GetMetricsSpoolDir(),
+	)
+
+	err = ctx.FlushContext("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	batches, err := reader.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(batches, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	paths := NewRealPaths(c)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
+	runner.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
+
+	err := ctx.FlushContext("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
 }
