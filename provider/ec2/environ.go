@@ -589,7 +589,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
-// with the given tags.
+// with the given tags. tagResources will retry for a short period of time
+// if it receives a *.NotFound error response from EC2.
 func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) error {
 	if len(tags) == 0 {
 		return nil
@@ -598,7 +599,13 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 	for k, v := range tags {
 		ec2Tags = append(ec2Tags, ec2.Tag{k, v})
 	}
-	_, err := e.CreateTags(resourceIds, ec2Tags)
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.CreateTags(resourceIds, ec2Tags)
+		if err == nil || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+			return err
+		}
+	}
 	return err
 }
 
