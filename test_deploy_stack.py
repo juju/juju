@@ -1,5 +1,4 @@
 from argparse import (
-    ArgumentParser,
     Namespace,
 )
 from contextlib import contextmanager
@@ -16,7 +15,6 @@ from mock import (
 import yaml
 
 from deploy_stack import (
-    add_juju_args,
     assess_juju_run,
     boot_context,
     copy_local_logs,
@@ -62,22 +60,6 @@ def make_logs(log_dir):
         with open(os.path.join(log_dir, 'extra'), 'w') as l:
             l.write('not compressed')
     return write_dumped_files
-
-
-class ArgParserTestCase(TestCase):
-
-    def test_add_juju_args(self):
-        parser = ArgumentParser('proc')
-        add_juju_args(parser)
-        cmd_line = [
-            'proc', '--agent-stream', 'devel', '--agent-url', 'some_url',
-            '--series', 'vivid']
-        with patch('sys.argv', cmd_line):
-            args_dict = parser.parse_args().__dict__
-        expected = {
-            'agent_stream': 'devel', 'agent_url': 'some_url',
-            'series': 'vivid'}
-        self.assertEqual(args_dict, expected)
 
 
 class DeployStackTestCase(TestCase):
