@@ -56,6 +56,11 @@ func (f *metricFile) Close() error {
 	}
 	ok, err := utils.MoveFile(f.Name(), f.finalName)
 	if err != nil {
+		// ok can be true even when there is an error completing the move, on
+		// platforms that implement it in multiple steps that can fail
+		// separately. POSIX for example, uses link(2) to claim the new
+		// location atomically, followed by an unlink(2) to release the old
+		// location.
 		if !ok {
 			return errors.Trace(err)
 		}
