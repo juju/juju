@@ -49,14 +49,14 @@ class TestBuildJobs(TestCase):
 
     def test_calculate_jobs(self):
         with temp_dir() as root:
-                release_path = os.path.join(root, 'old-juju', '1.20.11')
-                os.makedirs(release_path)
-                candidate_path = os.path.join(root, 'candidate', '1.22')
-                os.makedirs(candidate_path)
-                jobs = []
-                self.make_build_var_file(candidate_path)
-                for job in calculate_jobs(root):
-                    jobs.append(job)
+            release_path = os.path.join(root, 'old-juju', '1.20.11')
+            os.makedirs(release_path)
+            candidate_path = os.path.join(root, 'candidate', '1.22')
+            os.makedirs(candidate_path)
+            jobs = []
+            self.make_build_var_file(candidate_path)
+            for job in calculate_jobs(root):
+                jobs.append(job)
         expected = [{'new_to_old': 'true',
                      'old_version': '1.20.11',
                      'candidate': '1.24.3'},
