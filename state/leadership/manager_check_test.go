@@ -34,8 +34,7 @@ func (s *CheckLeadershipSuite) TestSuccess(c *gc.C) {
 		},
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Assert(err, jc.ErrorIsNil)
+		token := manager.LeadershipCheck("redis", "redis/0")
 		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
@@ -56,8 +55,7 @@ func (s *CheckLeadershipSuite) TestMissingRefresh_Success(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Assert(err, jc.ErrorIsNil)
+		token := manager.LeadershipCheck("redis", "redis/0")
 		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
@@ -78,8 +76,7 @@ func (s *CheckLeadershipSuite) TestOtherHolderRefresh_Success(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Assert(err, jc.ErrorIsNil)
+		token := manager.LeadershipCheck("redis", "redis/0")
 		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
@@ -93,9 +90,8 @@ func (s *CheckLeadershipSuite) TestRefresh_Failure_Missing(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Check(err, gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
-		c.Check(token, gc.IsNil)
+		token := manager.LeadershipCheck("redis", "redis/0")
+		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
 	})
 }
 
@@ -113,9 +109,8 @@ func (s *CheckLeadershipSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Check(err, gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
-		c.Check(token, gc.IsNil)
+		token := manager.LeadershipCheck("redis", "redis/0")
+		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
 	})
 }
 
@@ -128,16 +123,15 @@ func (s *CheckLeadershipSuite) TestRefresh_Error(c *gc.C) {
 		expectDirty: true,
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("redis", "redis/0")
-		c.Check(err, gc.ErrorMatches, "leadership manager stopped")
-		c.Check(token, gc.IsNil)
-		err = manager.Wait()
+		token := manager.LeadershipCheck("redis", "redis/0")
+		c.Check(token.Check(nil), gc.ErrorMatches, "leadership manager stopped")
+		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "crunch squish")
 	})
 }
 
 func assertOps(c *gc.C, token coreleadership.Token) (out []txn.Op) {
-	err := token.Read(&out)
+	err := token.Check(&out)
 	c.Check(err, jc.ErrorIsNil)
 	return out
 }
