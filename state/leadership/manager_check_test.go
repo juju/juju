@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
 )
@@ -35,7 +36,7 @@ func (s *CheckLeadershipSuite) TestSuccess(c *gc.C) {
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
 		token, err := manager.CheckLeadership("redis", "redis/0")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(token.AssertOps(), jc.DeepEquals, []txn.Op{{
+		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
 	})
@@ -57,7 +58,7 @@ func (s *CheckLeadershipSuite) TestMissingRefresh_Success(c *gc.C) {
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
 		token, err := manager.CheckLeadership("redis", "redis/0")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(token.AssertOps(), jc.DeepEquals, []txn.Op{{
+		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
 	})
@@ -79,7 +80,7 @@ func (s *CheckLeadershipSuite) TestOtherHolderRefresh_Success(c *gc.C) {
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
 		token, err := manager.CheckLeadership("redis", "redis/0")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(token.AssertOps(), jc.DeepEquals, []txn.Op{{
+		c.Check(assertOps(c, token), jc.DeepEquals, []txn.Op{{
 			C: "fake", Id: "fake",
 		}})
 	})
@@ -133,4 +134,10 @@ func (s *CheckLeadershipSuite) TestRefresh_Error(c *gc.C) {
 		err = manager.Wait()
 		c.Check(err, gc.ErrorMatches, "crunch squish")
 	})
+}
+
+func assertOps(c *gc.C, token coreleadership.Token) (out []txn.Op) {
+	err := token.Read(&out)
+	c.Check(err, jc.ErrorIsNil)
+	return out
 }

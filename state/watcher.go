@@ -2581,7 +2581,7 @@ func (w *rebootWatcher) loop() error {
 // WatchLeadershipSettings returns a LeadershipSettingsWatcher for
 // watching -- wait for it -- leadership settings.
 func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWatcher {
-	return NewLeadershipSettingsWatcher(st, LeadershipSettingsDocId(serviceId))
+	return NewLeadershipSettingsWatcher(st, leadershipSettingsDocId(serviceId))
 }
 
 // NewLeadershipSettingsWatcher returns a new
