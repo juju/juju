@@ -155,13 +155,13 @@ func (manager *manager) handleClaim(claim claim) error {
 }
 
 // CheckLeadership is part of the leadership.Manager interface.
-func (manager *manager) CheckLeadership(serviceName, unitName string) (leadership.Token, error) {
-	return check{
+func (manager *manager) LeadershipCheck(serviceName, unitName string) leadership.Token {
+	return token{
 		serviceName: serviceName,
 		unitName:    unitName,
-		response:    make(chan leadership.Token),
+		checks:      manager.checks,
 		abort:       manager.tomb.Dying(),
-	}.invoke(manager.checks)
+	}
 }
 
 // handleCheck processes and responds to the supplied check. It will only return
@@ -176,11 +176,11 @@ func (manager *manager) handleCheck(check check) error {
 		}
 		info, found = client.Leases()[check.serviceName]
 	}
-	var result leadership.Token
 	if found && info.Holder == check.unitName {
-		result = token{info.AssertOp}
+		check.succeed(info.AssertOp)
+	} else {
+		check.fail()
 	}
-	check.respond(result)
 	return nil
 }
 
