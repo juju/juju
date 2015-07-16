@@ -37,6 +37,8 @@ func NewAPI(caller base.APICaller) *API {
 // IPAddress provides access to methods of a state.IPAddress through the
 // facade.
 func (api *API) IPAddress(tag names.IPAddressTag) (*IPAddress, error) {
+	// TODO(mue) Change approach to use bulk requests for retrieval
+	// and later removal.
 	life, err := common.Life(api.facade, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
