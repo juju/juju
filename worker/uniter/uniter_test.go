@@ -134,7 +134,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			// (and hence unit) name.
 			createCharm{},
 			createServiceAndUnit{serviceName: "w"},
-			startUniter{"unit-u-0"},
+			startUniter{unitTag: "unit-u-0"},
 			waitUniterDead{`failed to initialize uniter for "unit-u-0": permission denied`},
 		),
 	})
@@ -2104,18 +2104,17 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	originalExecutorFunc := *uniter.NewExecutor
-	s.PatchValue(uniter.NewExecutor, func(u *uniter.Uniter) (operation.Executor, error) {
-		e, err := originalExecutorFunc(u)
+	executorFunc := func(u *uniter.Uniter) (operation.Executor, error) {
+		e, err := uniter.NewExecutor(u)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
-	})
+	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"error running operations are reported",
 			createCharm{},
 			serveCharm{},
-			createUniter{},
+			createUniter{executorFunc: executorFunc},
 			waitUnitAgent{
 				status: params.StatusFailed,
 				info:   "run install hook",

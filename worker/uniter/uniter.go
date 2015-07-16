@@ -66,9 +66,10 @@ type Uniter struct {
 	lastReportedStatus  params.Status
 	lastReportedMessage string
 
-	deployer          *deployerProxy
-	operationFactory  operation.Factory
-	operationExecutor operation.Executor
+	deployer              *deployerProxy
+	operationFactory      operation.Factory
+	operationExecutor     operation.Executor
+	operationExecutorFunc executorFunc
 
 	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
@@ -88,6 +89,8 @@ type Uniter struct {
 	collectMetricsAt CollectMetricsSignal
 }
 
+type executorFunc func(*Uniter) (operation.Executor, error)
+
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
@@ -97,13 +100,18 @@ func NewUniter(
 	leadershipManager coreleadership.LeadershipManager,
 	dataDir string,
 	machineLock *fslock.Lock,
+	operationExecutorFunc executorFunc,
 ) *Uniter {
 	u := &Uniter{
-		st:                st,
-		paths:             NewPaths(dataDir, unitTag),
-		machineLock:       machineLock,
-		leadershipManager: leadershipManager,
-		collectMetricsAt:  inactiveMetricsTimer,
+		st:                    st,
+		paths:                 NewPaths(dataDir, unitTag),
+		machineLock:           machineLock,
+		leadershipManager:     leadershipManager,
+		collectMetricsAt:      inactiveMetricsTimer,
+		operationExecutorFunc: operationExecutorFunc,
+	}
+	if u.operationExecutorFunc == nil {
+		u.operationExecutorFunc = newOperationExecutor
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -203,8 +211,7 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-// Override for testing.
-var newExecutor = func(u *Uniter) (operation.Executor, error) {
+func newOperationExecutor(u *Uniter) (operation.Executor, error) {
 	return operation.NewExecutor(
 		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
 	)
@@ -268,7 +275,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.tomb.Dying(),
 	)
 
-	operationExecutor, err := newExecutor(u)
+	operationExecutor, err := u.operationExecutorFunc(u)
 	if err != nil {
 		return err
 	}

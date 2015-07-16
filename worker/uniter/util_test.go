@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // worstCase is used for timeouts when timing out
@@ -401,7 +402,8 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 }
 
 type createUniter struct {
-	minion bool
+	minion       bool
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -410,7 +412,7 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{executorFunc: s.executorFunc})
 	step(c, ctx, waitAddresses{})
 }
 
@@ -443,7 +445,8 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 }
 
 type startUniter struct {
-	unitTag string
+	unitTag      string
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -463,7 +466,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock, s.executorFunc)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
