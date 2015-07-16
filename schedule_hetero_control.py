@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import json
 import os
 
 from jenkins import Jenkins
@@ -33,6 +34,11 @@ def get_releases(root):
         yield entry
 
 
+def get_candidate_version(candidate_path):
+    with open(os.path.join(candidate_path, 'buildvars.json')) as fp:
+        return json.load(fp)['version']
+
+
 def calculate_jobs(root):
     releases = list(get_releases(root))
     candidates_path = get_candidates_path(root)
@@ -40,17 +46,18 @@ def calculate_jobs(root):
         parent, candidate = os.path.split(candidate_path)
         if parent != candidates_path:
             raise ValueError('Wrong path')
+        candidate_version = get_candidate_version(candidate_path)
         for release in releases:
             if release == candidate:
                 continue
             yield {
                 'old_version': release,
-                'candidate': candidate,
+                'candidate': candidate_version,
                 'new_to_old': 'true'
             }
             yield {
                 'old_version': release,
-                'candidate': candidate,
+                'candidate': candidate_version,
                 'new_to_old': 'false'
             }
 
