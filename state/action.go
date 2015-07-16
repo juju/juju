@@ -187,6 +187,7 @@ type ActionResults struct {
 // It asserts that the action is currently pending.
 func (a *Action) Begin() (*Action, error) {
 	err := a.st.runTransaction([]txn.Op{
+		assertEnvAliveOp(a.st.EnvironUUID()),
 		{
 			C:      actionsC,
 			Id:     a.doc.DocId,
@@ -195,9 +196,15 @@ func (a *Action) Begin() (*Action, error) {
 				{"status", ActionRunning},
 				{"started", nowToTheSecond()},
 			}}},
-		}})
-	if err != nil {
-		return nil, err
+		},
+	})
+	if err == txn.ErrAborted {
+		if err := checkEnvLife(a.st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.New("action is not pending")
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return a.st.Action(a.Id())
 }
@@ -344,23 +351,28 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 		return nil, errors.Trace(err)
 	}
 
-	ops := []txn.Op{{
-		C:      receiverCollectionName,
-		Id:     receiverId,
-		Assert: notDeadDoc,
-	}, {
-		C:      actionsC,
-		Id:     doc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     ndoc.DocId,
-		Assert: txn.DocMissing,
-		Insert: ndoc,
-	}}
-
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      receiverCollectionName,
+			Id:     receiverId,
+			Assert: notDeadDoc,
+		}, {
+			C:      actionsC,
+			Id:     doc.DocId,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}, {
+			C:      actionNotificationsC,
+			Id:     ndoc.DocId,
+			Assert: txn.DocMissing,
+			Insert: ndoc,
+		},
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if notDead, err := isNotDead(st, receiverCollectionName, receiverId); err != nil {
 			return nil, err
 		} else if !notDead {
