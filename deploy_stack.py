@@ -313,13 +313,6 @@ def upgrade_juju(client):
     client.upgrade_juju()
 
 
-def add_output_args(parser):
-    parser.add_argument('--debug', action="store_true", default=False,
-                        help='Use --debug juju logging.')
-    parser.add_argument('--verbose', '-v', action="store_true", default=False,
-                        help='Increase logging verbosity.')
-
-
 def add_juju_args(parser):
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')

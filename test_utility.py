@@ -255,7 +255,7 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.debug, True)
 
-    def test_verbose(self):
+    def test_verbose_logging(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
@@ -274,12 +274,6 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
-
-    def test_verbose_debug(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
-        parser = add_basic_testing_arguments(ArgumentParser())
-        args = parser.parse_args(cmd_line)
-        self.assertEqual(args.verbose, logging.DEBUG)
 
 
 class TestRunCommand(TestCase):

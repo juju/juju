@@ -17,7 +17,6 @@ import yaml
 
 from deploy_stack import (
     add_juju_args,
-    add_output_args,
     assess_juju_run,
     boot_context,
     copy_local_logs,
@@ -66,15 +65,6 @@ def make_logs(log_dir):
 
 
 class ArgParserTestCase(TestCase):
-
-    def test_add_output_args(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--debug', '--verbose']
-        with patch('sys.argv', cmd_line):
-            args_dict = parser.parse_args().__dict__
-        expected = {'debug': True, 'verbose': True}
-        self.assertEqual(args_dict, expected)
 
     def test_add_juju_args(self):
         parser = ArgumentParser('proc')
