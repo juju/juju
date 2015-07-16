@@ -514,3 +514,13 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 var isEnvAliveDoc = bson.D{
 	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
 }
+
+func checkEnvLife(st *State) error {
+	env, err := st.Environment()
+	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
+		return errors.New("environment is no longer alive")
+	} else if err != nil {
+		return errors.Annotate(err, "unable to read environment")
+	}
+	return nil
+}
