@@ -5,20 +5,45 @@ package cloudimagemetadata_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/testing"
-	jujutxn "github.com/juju/txn"
 )
 
 type cloudImageMetadataSuite struct {
-	testing.StateSuite
+	testing.IsolatedMgoSuite
+
+	runner  txn.Runner
+	storage cloudimagemetadata.Storage
 }
 
 var _ = gc.Suite(&cloudImageMetadataSuite{})
+
+const (
+	envName        = "test-env"
+	collectionName = "test-collection"
+)
+
+func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.IsolatedMgoSuite.SetUpTest(c)
+
+	db := s.MgoSuite.Session.DB("juju")
+	collectionAccessor := func(name string) (_ mongo.Collection, closer func()) {
+		return mongo.WrapCollection(db.C(name)), func() {}
+	}
+
+	s.runner = txn.NewRunner(txn.RunnerParams{Database: db})
+	runTransaction := func(transactions txn.TransactionSource) error {
+		return s.runner.Run(transactions)
+	}
+
+	s.storage = cloudimagemetadata.NewStorage(envName, collectionName, runTransaction, collectionAccessor)
+}
 
 func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
@@ -51,7 +76,7 @@ func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, se
 }
 
 func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
-	metadata, err := s.State.Storage.AllMetadata()
+	metadata, err := s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 
@@ -69,7 +94,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 
 	s.assertRecordMetadata(c, m)
 
-	metadata, err = s.State.Storage.AllMetadata()
+	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 1)
 	expected := []cloudimagemetadata.Metadata{m}
@@ -78,7 +103,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	m.Series = "series2"
 	s.assertRecordMetadata(c, m)
 
-	metadata, err = s.State.Storage.AllMetadata()
+	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 2)
 	expected = append(expected, m)
@@ -97,7 +122,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 
-	_, err := s.State.Storage.FindMetadata(attrs)
+	_, err := s.storage.FindMetadata(attrs)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertRecordMetadata(c, m)
@@ -124,14 +149,13 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoUpdates(c *gc.C) {
 
 	s.assertRecordMetadata(c, metadata0)
 
-	err := s.State.Storage.SaveMetadata(metadata1)
+	err := s.storage.SaveMetadata(metadata1)
 	c.Assert(err, gc.ErrorMatches, ".*no changes were made.*")
 
 	s.assertMetadataRecorded(c, attrs, metadata0)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.StateSuite.MgoSuite.Session.DB("juju")})
+func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
@@ -144,19 +168,26 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrent(c *gc.C) {
 		s.assertRecordMetadata(c, metadata0)
 	}
 
-	defer txntesting.SetBeforeHooks(c, runner, addMetadata).Check()
+	defer txntesting.SetBeforeHooks(c, s.runner, addMetadata).Check()
 
 	s.assertRecordMetadata(c, metadata1)
-	s.assertMetadataRecorded(c, attrs, metadata1)
+
+	all, err := s.storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 2)
+	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
+		metadata0,
+		metadata1,
+	})
 }
 
 func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemetadata.Metadata) {
-	err := s.State.Storage.SaveMetadata(m)
+	err := s.storage.SaveMetadata(m)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
-	metadata, err := s.State.Storage.FindMetadata(criteria)
+	metadata, err := s.storage.FindMetadata(criteria)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(metadata, jc.SameContents, expected)
