@@ -19,6 +19,7 @@ var _ = gc.Suite(&steps125Suite{})
 func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 	expected := []string{
 		"set hosted environment count to number of hosted environments",
+		"tag machine instances",
 	}
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)
 }

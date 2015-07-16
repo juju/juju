@@ -47,4 +47,7 @@ var (
 	// 124 upgrade functions
 	MoveSyslogConfig = moveSyslogConfig
 	CopyFile         = copyFile
+
+	// 125 upgrade functions
+	AddInstanceTags = addInstanceTags
 )
