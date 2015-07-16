@@ -303,6 +303,7 @@ func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
 func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(*s.proc)
 	s.init(c, s.proc.Name, "abc123", "running")
+	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	s.checkRun(c, "", "")
 	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
@@ -313,6 +314,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{"description:foo"}
 	s.init(c, s.proc.Name, "abc123", "running")
+	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	s.checkRun(c, "", "")
 
