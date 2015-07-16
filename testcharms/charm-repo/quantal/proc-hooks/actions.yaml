@@ -23,3 +23,6 @@ plugin-dump:
   description: print out the plugin's history
 plugin-reset:
   description: clear the plugin's data
+
+list:
+  description: print out the registered processes 

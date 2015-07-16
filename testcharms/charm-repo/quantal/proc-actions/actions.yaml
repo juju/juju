@@ -24,6 +24,9 @@ plugin-dump:
 plugin-reset:
   description: clear the plugin's data
 
+list:
+  description: print out the registered processes 
+
 launch:
   description: call the hook command
   params:

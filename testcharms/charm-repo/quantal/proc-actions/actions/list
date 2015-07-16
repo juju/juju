@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export PATH=$PWD/plugin:$PATH
+
+out=$(info)
+action-set output="$out"
