@@ -139,7 +139,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			1,
 			"",
-			"error: juju-key is in the builtin metric namespace\n",
+			"error: juju-key uses a reserved prefix\n",
 			nil,
 		}}
 	for i, t := range testCases {

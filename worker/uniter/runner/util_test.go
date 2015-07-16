@@ -430,8 +430,8 @@ func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) err
 	return nil
 }
 
-func (mr *StubMetricsRecorder) IsValidMetric(key string) bool {
-	mr.MethodCall(mr, "IsValidMetric", key)
+func (mr *StubMetricsRecorder) IsDeclaredMetric(key string) bool {
+	mr.MethodCall(mr, "IsDeclaredMetric", key)
 	return true
 }
 

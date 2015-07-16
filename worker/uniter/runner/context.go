@@ -36,7 +36,7 @@ type meterStatus struct {
 // MetricsRecorder is used to store metrics supplied by the add-metric command.
 type MetricsRecorder interface {
 	AddMetric(key, value string, created time.Time) error
-	IsValidMetric(key string) bool
+	IsDeclaredMetric(key string) bool
 	Close() error
 }
 
@@ -557,8 +557,8 @@ func (ctx *HookContext) handleReboot(err *error) {
 // addJujuUnitsMetric adds the juju-units built in metric if it
 // is defined for this context.
 func (ctx *HookContext) addJujuUnitsMetric() error {
-	if ctx.metricsRecorder.IsValidMetric("juju-units") {
-		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now())
+	if ctx.metricsRecorder.IsDeclaredMetric("juju-units") {
+		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now().UTC())
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -220,7 +220,7 @@ func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
 	err = ctx.FlushContext("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "IsValidMetric", "AddMetric", "Close")
+	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
 }
 
 func (s *HookContextSuite) context(c *gc.C) *runner.HookContext {
@@ -239,12 +239,12 @@ func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
 
 	err = ctx.FlushContext("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	metrics, err := reader.Read()
+	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Metrics[0].Key, gc.Equals, "juju-units")
-	c.Assert(metrics[0].Metrics[0].Value, gc.Equals, "1")
+	c.Assert(batches, gc.HasLen, 1)
+	c.Assert(batches[0].Metrics, gc.HasLen, 1)
+	c.Assert(batches[0].Metrics[0].Key, gc.Equals, "juju-units")
+	c.Assert(batches[0].Metrics[0].Value, gc.Equals, "1")
 }
 
 func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
@@ -257,9 +257,9 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 
 	err = ctx.FlushContext("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	metrics, err := reader.Read()
+	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 0)
+	c.Assert(batches, gc.HasLen, 0)
 }
 
 func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
@@ -270,5 +270,5 @@ func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
 
 	err := ctx.FlushContext("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "IsValidMetric", "AddMetric", "Close")
+	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
 }
