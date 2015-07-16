@@ -6,7 +6,7 @@ import json
 import os
 from unittest import TestCase
 
-from mock import patch, call
+from mock import patch
 
 from jujuci import Credentials
 from schedule_hetero_control import (
@@ -48,41 +48,22 @@ class TestBuildJobs(TestCase):
         self.assertEqual(version, '1.24.3')
 
     def test_calculate_jobs(self):
-        find_candidates = 'schedule_hetero_control.find_candidates'
         with temp_dir() as root:
-            with temp_dir(parent=root) as old_juju_dir:
-                with temp_dir(parent=root) as candidates_dir:
-                    with temp_dir(parent=old_juju_dir) as releases:
-                        with temp_dir(parent=candidates_dir) as candidate_dir:
-                            self.make_build_var_file(candidate_dir)
-                            build_vars = os.path.join(
-                                candidate_dir, 'buildvars.json')
-                            with patch(
-                                'schedule_hetero_control.os.path.join',
-                                    autospec=True,
-                                    side_effect=[
-                                        old_juju_dir, old_juju_dir,
-                                        candidates_dir, build_vars]) as g_mock:
-                                    with patch(
-                                            find_candidates, autospec=True,
-                                            return_value=[candidate_dir]) as c:
-                                        jobs = []
-                                        for job in calculate_jobs(root):
-                                            jobs.append(job)
-        release_path = os.path.split(releases)[1]
+                release_path = os.path.join(root, 'old-juju', '1.20.11')
+                os.makedirs(release_path)
+                candidate_path = os.path.join(root, 'candidate', '1.22')
+                os.makedirs(candidate_path)
+                jobs = []
+                self.make_build_var_file(candidate_path)
+                for job in calculate_jobs(root):
+                    jobs.append(job)
         expected = [{'new_to_old': 'true',
-                     'old_version': release_path,
-                     'candidate': u'1.24.3'},
+                     'old_version': '1.20.11',
+                     'candidate': '1.24.3'},
                     {'new_to_old': 'false',
-                     'old_version': release_path,
-                     'candidate': u'1.24.3'}]
+                     'old_version': '1.20.11',
+                     'candidate': '1.24.3'}]
         self.assertItemsEqual(jobs, expected)
-        calls = [call(root, 'old-juju'),
-                 call(old_juju_dir, release_path),
-                 call(root, 'candidate'),
-                 call(candidate_dir, 'buildvars.json')]
-        self.assertEqual(g_mock.mock_calls, calls)
-        c.assert_called_once_with(root)
 
     def make_build_var_file(self, dir_path):
         build_vars = {"version": "1.24.3", "revision_build": "2870"}
