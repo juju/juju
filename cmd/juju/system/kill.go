@@ -20,15 +20,26 @@ import (
 )
 
 var (
-	killDoc         = `Forcefully destroys the specified system`
 	DialAPI         = juju.NewAPIFromName
 	apiTimeout      = 10 * time.Second
 	ErrConnTimedOut = errors.New("connection to state server timed out")
 )
 
+const killDoc = `
+Forcibly destroy the specified system.  If the API server is accessible,
+this command will attempt to destroy the state server environment and all
+hosted environments and their resources.
+
+If the API server is unreachable, the machines of the state server environment
+will be destroyed through the cloud provisioner.  If there are additional
+machines, including machines within hosted environments, these machines
+will not be destroyed and will never be reconnected to the Juju system being
+destroyed.
+`
+
 // KillCommand kills the specified system.
 type KillCommand struct {
-	DestroyCommand
+	DestroyCommandBase
 }
 
 // Info implements Command.Info.
@@ -36,7 +47,7 @@ func (c *KillCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill",
 		Args:    "<system name>",
-		Purpose: "forcefully terminate all machines and other associated resources for a system environment",
+		Purpose: "forcibly terminate all machines and other associated resources for a system environment",
 		Doc:     killDoc,
 	}
 }
@@ -107,12 +118,11 @@ func (c *KillCommand) Run(ctx *cmd.Context) error {
 		defer api.Close()
 	case errors.Cause(err) == common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy system")
-	case errors.IsNotFound(err):
-		// TODO (cherylj) display message about how to clean up jenv / cache file
-		// once a command is created to do so?
-		return errors.Annotate(err, "cannot destroy system")
 	default:
-		logger.Infof("Unable to open API: %s\n", err)
+		if err != ErrConnTimedOut {
+			logger.Debugf("unable to open api: %s", err)
+		}
+		ctx.Infof("Unable to open API: %s\n", err)
 		api = nil
 	}
 
@@ -137,7 +147,7 @@ func (c *KillCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err != nil {
-		logger.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+		ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
 	}
 
 	return environs.Destroy(systemEnviron, store)
@@ -154,7 +164,7 @@ func (c *KillCommand) killSystemViaClient(ctx *cmd.Context, info configstore.Env
 	if api != nil {
 		err = api.DestroyEnvironment()
 		if err != nil {
-			logger.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+			ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
 		}
 	}
 

@@ -65,18 +65,11 @@ func (s *KillSuite) TestKillNonSystemEnvFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a system; use juju environment destroy to destroy it")
 }
 
-func (s *KillSuite) TestDestroySystemNotFoundNotRemovedFromStore(c *gc.C) {
-	s.apierror = errors.NotFoundf("test1")
-	_, err := s.runKillCommand(c, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot destroy system: test1 not found")
-	checkSystemExistsInStore(c, "test1", s.store)
-}
-
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	s.apierror = errors.New("connection refused")
-	_, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "Unable to open API: connection refused")
+	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
 	checkSystemRemovedFromStore(c, "test1", s.store)
 
 	// Check that we didn't call the API
@@ -118,18 +111,18 @@ func (s *KillSuite) TestKillFallsBackToClient(c *gc.C) {
 func (s *KillSuite) TestClientKillDestroysSystemWithAPIError(c *gc.C) {
 	s.api.err = &params.Error{"DestroySystem", params.CodeNotImplemented}
 	s.clientapi.err = errors.New("some destroy error")
-	_, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "Unable to destroy system through the API: some destroy error.  Destroying through provider.")
+	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy system through the API: some destroy error.  Destroying through provider.")
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillDestroysSystemWithAPIError(c *gc.C) {
 	s.api.err = errors.New("some destroy error")
-	_, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "Unable to destroy system through the API: some destroy error.  Destroying through provider.")
+	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy system through the API: some destroy error.  Destroying through provider.")
 	c.Assert(s.api.ignoreBlocks, jc.IsTrue)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test1", s.store)
@@ -176,9 +169,9 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 	s.PatchValue(&system.DialAPI, testDialer)
 
 	cmd := system.NewKillCommand(nil, nil, nil)
-	_, err := testing.RunCommand(c, cmd, "test1", "-y")
+	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "Unable to open API: connection to state server timed out")
+	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkSystemRemovedFromStore(c, "test1", s.store)

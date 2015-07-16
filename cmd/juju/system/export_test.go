@@ -89,9 +89,11 @@ func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
 // endpoints mocked out.
 func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *DestroyCommand {
 	return &DestroyCommand{
-		api:       api,
-		clientapi: clientapi,
-		apierr:    apierr,
+		DestroyCommandBase: DestroyCommandBase{
+			api:       api,
+			clientapi: clientapi,
+			apierr:    apierr,
+		},
 	}
 }
 
@@ -99,7 +101,7 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 // endpoints mocked out.
 func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *KillCommand {
 	return &KillCommand{
-		DestroyCommand{
+		DestroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
