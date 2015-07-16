@@ -107,7 +107,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) 
 
 		// Induce a refresh by making an unexpected check; it turns out the
 		// lease had already been expired by someone else.
-		manager.CheckLeadership("redis", "redis/99")
+		manager.LeadershipCheck("redis", "redis/99").Check(nil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})

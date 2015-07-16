@@ -8,8 +8,10 @@ import (
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/leadership"
+	"github.com/juju/juju/state/lease"
 )
 
 type ValidationSuite struct {
@@ -61,18 +63,36 @@ func (s *ValidationSuite) TestClaimLeadership_Duration(c *gc.C) {
 func (s *ValidationSuite) TestCheckLeadership_ServiceName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("foo/0", "bar/0")
-		c.Check(err, gc.ErrorMatches, `cannot check leadership: invalid service name "foo/0"`)
-		c.Check(token, gc.IsNil)
+		token := manager.LeadershipCheck("foo/0", "bar/0")
+		c.Check(token.Check(nil), gc.ErrorMatches, `cannot check leadership: invalid service name "foo/0"`)
 	})
 }
 
 func (s *ValidationSuite) TestCheckLeadership_UnitName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
-		token, err := manager.CheckLeadership("foo", "bar")
-		c.Check(err, gc.ErrorMatches, `cannot check leadership: invalid unit name "bar"`)
-		c.Check(token, gc.IsNil)
+		token := manager.LeadershipCheck("foo", "bar")
+		c.Check(token.Check(nil), gc.ErrorMatches, `cannot check leadership: invalid unit name "bar"`)
+	})
+}
+
+func (s *ValidationSuite) TestCheckLeadership_OutPtr(c *gc.C) {
+	fix := &Fixture{
+		expectCalls: []call{{
+			method: "Refresh",
+			callback: func(leases map[string]lease.Info) {
+				leases["redis"] = lease.Info{
+					Holder:   "redis/0",
+					Expiry:   offset(time.Second),
+					AssertOp: txn.Op{C: "fake", Id: "fake"},
+				}
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+		bad := "bad"
+		token := manager.LeadershipCheck("redis", "redis/0")
+		c.Check(token.Check(&bad), gc.ErrorMatches, `expected pointer to \[\]txn.Op`)
 	})
 }
 
