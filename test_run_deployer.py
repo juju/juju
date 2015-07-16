@@ -1,4 +1,5 @@
 from argparse import Namespace
+import logging
 import os
 import stat
 import subprocess
@@ -35,7 +36,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.agent_stream, None)
         self.assertEqual(args.series, None)
         self.assertEqual(args.debug, False)
-        self.assertEqual(args.verbose, False)
+        self.assertEqual(args.verbose, logging.INFO)
 
 
 class TestRunDeployer(TestCase):
@@ -52,7 +53,8 @@ class TestRunDeployer(TestCase):
                                    agent_url=None, agent_stream=None,
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd=None, debug=False,
-                                   bundle_path='', bundle_name='')):
+                                   bundle_path='', bundle_name='',
+                                   verbose=logging.INFO)):
                         with patch(
                                 'run_deployer.EnvJujuClient.deployer') as dm:
                             with patch('run_deployer.check_health') as hm:
@@ -72,7 +74,8 @@ class TestRunDeployer(TestCase):
                                    agent_url=None, agent_stream=None,
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd='/tmp/check', debug=False,
-                                   bundle_path='', bundle_name='')):
+                                   bundle_path='', bundle_name='',
+                                   verbose=logging.INFO)):
                         with patch('run_deployer.EnvJujuClient.deployer'):
                             with patch('run_deployer.check_health') as hm:
                                 run_deployer()

@@ -5,13 +5,13 @@ import subprocess
 
 from deploy_stack import (
     boot_context,
-    get_log_level,
 )
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
 )
 from utility import (
+    add_basic_testing_arguments,
     configure_logging,
 )
 
@@ -20,29 +20,12 @@ def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument('bundle_path',
                         help='URL or path to a bundle')
-    parser.add_argument('env',
-                        help='The juju environment to test')
-    parser.add_argument('juju_bin', help='Path to the new Juju binary.')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
+    add_basic_testing_arguments(parser)
     parser.add_argument('--bundle-name', default=None,
                         help='Name of the bundle to deploy.')
     parser.add_argument('--health-cmd', default=None,
                         help='A binary for checking the health of the'
                         ' deployed bundle.')
-    parser.add_argument('--keep-env', action='store_true', default=False,
-                        help='Keep the Juju environment after the test'
-                        ' completes.')
-    parser.add_argument('--agent-url', default=None,
-                        help='URL to use for retrieving agent binaries.')
-    parser.add_argument('--agent-stream', default=None,
-                        help='stream name for retrieving agent binaries.')
-    parser.add_argument('--series',
-                        help='Name of the Ubuntu series to use.')
-    parser.add_argument('--debug', action="store_true", default=False,
-                        help='Use --debug juju logging.')
-    parser.add_argument('--verbose', '-v', action="store_true", default=False,
-                        help='Increase logging verbosity.')
     return parser.parse_args(argv)
 
 
@@ -67,7 +50,7 @@ def check_health(cmd_path, env_name=''):
 
 def run_deployer():
     args = parse_args()
-    configure_logging(get_log_level(args))
+    configure_logging(args.verbose)
     env = SimpleEnvironment.from_config(args.env)
     client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
     with boot_context(args.temp_env_name, client, None, [], args.series,
