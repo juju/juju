@@ -882,6 +882,34 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 	}
 }
 
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c *gc.C) {
+	// this creates a filesystem mounted at "/srv".
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: 1,
+		CountMax: 1,
+		Location: "/not/in/srv",
+	})
+	service := s.AddTestingService(c, "storage-filesystem", ch)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveFilesystemAttachment(
+			machine.MachineTag(), filesystem.FilesystemTag(),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(c *gc.C) {
 	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
 		Name:     "data",
