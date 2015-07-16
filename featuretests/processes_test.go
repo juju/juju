@@ -107,8 +107,6 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	unit.checkPluginLog(c, []string{
 		"...",
 	})
-
-	c.Fail()
 }
 
 // TODO(ericsnow) Add a test specifically for each supported plugin
@@ -162,15 +160,6 @@ func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
-
-//newProcsEnviron
-//env.bootstrap
-//env.addService
-//svc.deploy
-//unit.checkState
-//unit.checkPluginLog
-//unit.setStatus
-//unit.destroy
 
 type procsEnviron struct {
 	name    string
@@ -252,6 +241,8 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 
 	svc.env.run(c, "service add-unit", "--to="+svc.env.machine, svc.name)
 
+	// TODO(ericsnow) wait until ready...
+
 	svc.lastUnit += 1
 	return &procsUnit{
 		svc: svc,
@@ -275,6 +266,8 @@ func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
 
 func (u *procsUnit) destroy(c *gc.C) {
 	u.svc.env.run(c, "destroy-unit", u.id)
+
+	// TODO(ericsnow) wait until ready...
 }
 
 func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]interface{}) map[string]string {
