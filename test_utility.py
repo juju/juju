@@ -275,6 +275,12 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
 
+    def test_verbose_debug(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.verbose, logging.DEBUG)
+
 
 class TestRunCommand(TestCase):
 

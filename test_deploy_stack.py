@@ -27,7 +27,6 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_logs,
-    get_log_level,
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
@@ -89,24 +88,6 @@ class ArgParserTestCase(TestCase):
             'agent_stream': 'devel', 'agent_url': 'some_url',
             'series': 'vivid'}
         self.assertEqual(args_dict, expected)
-
-    def test_get_log_level_debug(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--debug']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
-        log_level = get_log_level(args)
-        self.assertEqual(log_level, 20)
-
-    def test_get_log_level_verbose(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--verbose']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
-        log_level = get_log_level(args)
-        self.assertEqual(log_level, 10)
 
 
 class DeployStackTestCase(TestCase):

@@ -329,13 +329,6 @@ def add_juju_args(parser):
                         help='Name of the Ubuntu series to use.')
 
 
-def get_log_level(args):
-    log_level = logging.INFO
-    if 'verbose' in args and args.verbose:
-        log_level = logging.DEBUG
-    return log_level
-
-
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
     add_basic_testing_arguments(parser)
