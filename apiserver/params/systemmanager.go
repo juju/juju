@@ -29,3 +29,10 @@ type EnvironmentBlockInfo struct {
 type EnvironmentBlockInfoList struct {
 	Environments []EnvironmentBlockInfo `json:"environments,omitempty"`
 }
+
+// RemoveBlocksArgs holds the arguments for the RemoveBlocks command. It is a
+// struct to facilitate the easy addition of being able to remove blocks for
+// individual environments at a later date.
+type RemoveBlocksArgs struct {
+	All bool `json:"all"`
+}

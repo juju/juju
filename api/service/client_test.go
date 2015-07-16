@@ -95,7 +95,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		return nil
 	})
 	err := s.client.ServiceDeploy("charmURL", "serviceA", 2, "configYAML", constraints.MustParse("mem=4G"),
-		"machineSpec", []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

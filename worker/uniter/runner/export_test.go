@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -23,7 +24,6 @@ var (
 	ValidatePortRange       = validatePortRange
 	TryOpenPorts            = tryOpenPorts
 	TryClosePorts           = tryClosePorts
-	LockTimeout             = lockTimeout
 )
 
 func RunnerPaths(rnr Runner) Paths {
@@ -98,17 +98,6 @@ func PatchCachedStatus(ctx Context, status, info string, data map[string]interfa
 	}
 }
 
-// PatchMetricsReader patches the metrics reader used by the context with a new
-// object.
-func PatchMetricsReader(ctx Context, reader MetricsReader) func() {
-	hctx := ctx.(*HookContext)
-	oldReader := hctx.metricsReader
-	hctx.metricsReader = reader
-	return func() {
-		hctx.metricsReader = oldReader
-	}
-}
-
 func NewHookContext(
 	unit *uniter.Unit,
 	state *uniter.State,
@@ -122,7 +111,7 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
-	metrics *charm.Metrics,
+	charmMetrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 	paths Paths,
@@ -141,8 +130,7 @@ func NewHookContext(
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
 		metricsRecorder:    nil,
-		definedMetrics:     metrics,
-		metricsSender:      unit,
+		definedMetrics:     charmMetrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
@@ -152,11 +140,10 @@ func NewHookContext(
 		if err != nil {
 			return nil, err
 		}
-		ctx.metricsRecorder, err = NewJSONMetricsRecorder(paths.GetMetricsSpoolDir(), charmURL.String())
-		if err != nil {
-			return nil, err
-		}
-		ctx.metricsReader, err = NewJSONMetricsReader(paths.GetMetricsSpoolDir())
+		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
+			paths.GetMetricsSpoolDir(),
+			charmMetrics.Metrics,
+			charmURL.String())
 		if err != nil {
 			return nil, err
 		}
@@ -233,22 +220,4 @@ func SetEnvironmentHookContextRelation(
 
 func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
 	return ctx.storageAddConstraints
-}
-
-// PatchMetricsSender patches the metricsSender used by the context to use the provided function.
-func PatchMetricsSender(ctx Context, send func(batches []params.MetricBatch) (map[string]error, error)) func() {
-	hctx := ctx.(*HookContext)
-	oldSender := hctx.metricsSender
-	hctx.metricsSender = &mockMetricsSender{send: send}
-	return func() {
-		hctx.metricsSender = oldSender
-	}
-}
-
-type mockMetricsSender struct {
-	send func(batches []params.MetricBatch) (map[string]error, error)
-}
-
-func (m mockMetricsSender) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
-	return m.send(batches)
 }

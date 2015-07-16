@@ -886,6 +886,60 @@ func (s *clientSuite) TestClientAddServiceUnitsToNewContainer(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
 }
 
+var clientAddServiceUnitsWithPlacementTests = []struct {
+	about      string
+	service    string // if not set, defaults to 'dummy'
+	expected   []string
+	machineIds []string
+	placement  []*instance.Placement
+	err        string
+}{
+	{
+		about:      "valid placement directives",
+		expected:   []string{"dummy/0"},
+		placement:  []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"}},
+		machineIds: []string{"1"},
+	}, {
+		about:      "direct machine assignment placement directive",
+		expected:   []string{"dummy/1", "dummy/2"},
+		placement:  []*instance.Placement{{"#", "1"}, {"lxc", "1"}},
+		machineIds: []string{"1", "1/lxc/0"},
+	}, {
+		about:     "invalid placement directive",
+		err:       ".* invalid placement is invalid",
+		expected:  []string{"dummy/3"},
+		placement: []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"}},
+	},
+}
+
+func (s *clientSuite) TestClientAddServiceUnitsWithPlacement(c *gc.C) {
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	// Add a machine for the units to be placed on.
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	for i, t := range clientAddServiceUnitsWithPlacementTests {
+		c.Logf("test %d. %s", i, t.about)
+		serviceName := t.service
+		if serviceName == "" {
+			serviceName = "dummy"
+		}
+		units, err := s.APIState.Client().AddServiceUnitsWithPlacement(serviceName, len(t.expected), t.placement)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(units, gc.DeepEquals, t.expected)
+		for i, unitName := range units {
+			u, err := s.BackingState.Unit(unitName)
+			c.Assert(err, jc.ErrorIsNil)
+			assignedMachine, err := u.AssignedMachineId()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(assignedMachine, gc.Equals, t.machineIds[i])
+		}
+	}
+}
+
 func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
 	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
 	c.Assert(err, jc.ErrorIsNil)

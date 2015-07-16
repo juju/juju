@@ -31,6 +31,7 @@ type SystemManager interface {
 	DestroySystem(args params.DestroySystemArgs) error
 	EnvironmentConfig() (params.EnvironmentConfigResults, error)
 	ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error)
+	RemoveBlocks(args params.RemoveBlocksArgs) error
 }
 
 // SystemManagerAPI implements the environment manager interface and is
@@ -242,6 +243,14 @@ func (s *SystemManagerAPI) EnvironmentConfig() (params.EnvironmentConfigResults,
 
 	result.Config = config.AllAttrs()
 	return result, nil
+}
+
+// RemoveBlocks removes all the blocks in the system.
+func (s *SystemManagerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+	if !args.All {
+		return errors.New("not supported")
+	}
+	return errors.Trace(s.state.RemoveAllBlocksForSystem())
 }
 
 type orderedBlockInfo []params.EnvironmentBlockInfo

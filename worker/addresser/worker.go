@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.addresser")
 type releaser interface {
 	// ReleaseAddress has the same signature as the same method in the
 	// environs.Networking interface.
-	ReleaseAddress(instance.Id, network.Id, network.Address) error
+	ReleaseAddress(instance.Id, network.Id, network.Address, string) error
 }
 
 // stateAddresser defines the State methods used by the addresserHandler
@@ -105,7 +105,7 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 
 	subnetId := network.Id(addr.SubnetId())
 	for attempt := common.ShortAttempt.Start(); attempt.Next(); {
-		err = a.releaser.ReleaseAddress(addr.InstanceId(), subnetId, addr.Address())
+		err = a.releaser.ReleaseAddress(addr.InstanceId(), subnetId, addr.Address(), addr.MACAddress())
 		if err == nil {
 			return nil
 		}

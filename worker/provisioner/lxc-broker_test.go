@@ -234,6 +234,7 @@ func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 	s.api.fakeContainerConfig.AllowLXCLoopMounts = true
 	s.SetFeatureFlags(feature.AddressAllocation)
+
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
@@ -324,6 +325,44 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 		"lxc.network.link = br0",
 	}
 	AssertFileContains(c, lxc_conf, expect...)
+}
+
+func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
+	})
+	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
+	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
+
+	instanceConfig := s.instanceConfig(c, "42")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	})
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
@@ -857,17 +896,44 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	// When it's not empty, result should be populated as expected.
 	s.api.ResetCalls()
 	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     provisioner.MACAddressTemplate,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
 	}})
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "GetContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("42")},
+	}})
+
+	s.api.ResetCalls()
+	result, err = provisioner.ConfigureContainerNetwork("42", "bridge", s.api, ifaceInfo, false, false)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy"),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
+		NetworkName:    network.DefaultPrivate,
+		ProviderId:     network.DefaultProviderId,
+	}})
+
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("42")},

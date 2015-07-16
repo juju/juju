@@ -19,7 +19,7 @@ type UpdateRelationsSuite struct {
 var _ = gc.Suite(&UpdateRelationsSuite{})
 
 func (s *UpdateRelationsSuite) TestPrepare(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateRelations(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Prepare(operation.State{})
@@ -31,7 +31,7 @@ func (s *UpdateRelationsSuite) TestExecuteError(c *gc.C) {
 	callbacks := &UpdateRelationsCallbacks{
 		MockUpdateRelations: &MockUpdateRelations{err: errors.New("quack")},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
 	op, err := factory.NewUpdateRelations([]int{3, 2, 1})
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Prepare(operation.State{})
@@ -48,7 +48,7 @@ func (s *UpdateRelationsSuite) TestExecuteSuccess(c *gc.C) {
 	callbacks := &UpdateRelationsCallbacks{
 		MockUpdateRelations: &MockUpdateRelations{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
 	op, err := factory.NewUpdateRelations([]int{3, 2, 1})
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Prepare(operation.State{})
@@ -62,7 +62,7 @@ func (s *UpdateRelationsSuite) TestExecuteSuccess(c *gc.C) {
 }
 
 func (s *UpdateRelationsSuite) TestCommit(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateRelations(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Commit(operation.State{})
@@ -71,7 +71,7 @@ func (s *UpdateRelationsSuite) TestCommit(c *gc.C) {
 }
 
 func (s *UpdateRelationsSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateRelations(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)

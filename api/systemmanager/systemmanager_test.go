@@ -99,3 +99,16 @@ func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
 		},
 	})
 }
+
+func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	sysManager := s.OpenAPI(c)
+	err := sysManager.RemoveBlocks()
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocks, gc.HasLen, 0)
+}

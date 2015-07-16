@@ -803,17 +803,3 @@ $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 
 `
-
-var winSetPasswdScript = `
-
-Set-Content "C:\juju\bin\save_pass.ps1" @"
-Param (
-	[Parameter(Mandatory=` + "`$true" + `)]
-	[string]` + "`$pass" + `
-)
-
-` + "`$secpasswd" + ` = ConvertTo-SecureString ` + "`$pass" + ` -AsPlainText -Force
-` + "`$secpasswd" + ` | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass
-"@
-
-`

@@ -410,6 +410,13 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits < 1 {
 		return nil, fmt.Errorf("must add at least one unit")
 	}
+
+	// New API uses placement directives.
+	if len(args.Placement) > 0 {
+		return jjj.AddUnitsWithPlacement(state, service, args.NumUnits, args.Placement)
+	}
+
+	// Otherwise we use the older machine spec.
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
@@ -425,6 +432,11 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+	return c.AddServiceUnitsWithPlacement(args)
+}
+
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnitsWithPlacement(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.AddServiceUnitsResults{}, errors.Trace(err)
 	}

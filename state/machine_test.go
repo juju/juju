@@ -472,22 +472,22 @@ func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
 
 	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1"), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr1.AllocateTo(s.machine.Id(), "bar")
+	err = addr1.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr2, err := s.State.AddIPAddress(network.NewAddress("10.0.0.2"), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr2.AllocateTo(s.machine.Id(), "bar")
+	err = addr2.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3"), "bar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr3.AllocateTo(s.machine0.Id(), "bar")
+	err = addr3.AllocateTo(s.machine0.Id(), "bar", "01:23:45:67:89:ab")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4"), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr4.AllocateTo(s.machine.Id(), "bar")
+	err = addr4.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr4.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

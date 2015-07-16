@@ -63,6 +63,7 @@ func (c *DestroyCommand) Init(args []string) error {
 		return errors.New("no environment specified")
 	case 1:
 		c.envName = args[0]
+		c.SetEnvName(c.envName)
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])

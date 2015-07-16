@@ -196,7 +196,7 @@ func (runner *runner) run() error {
 			logger.Debugf("%q started", info.id)
 			workerInfo := workers[info.id]
 			workerInfo.worker = info.worker
-			if isDying {
+			if isDying || workerInfo.stopping {
 				killWorker(info.id, workerInfo)
 			}
 		case info := <-runner.donec:

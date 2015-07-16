@@ -13,30 +13,27 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
+// FactoryParams holds all the necessary parameters for a new operation factory.
+type FactoryParams struct {
+	Deployer       charm.Deployer
+	RunnerFactory  runner.Factory
+	Callbacks      Callbacks
+	StorageUpdater StorageUpdater
+	Abort          <-chan struct{}
+	MetricSender   apiMetricSender
+	MetricSpoolDir string
+}
+
 // NewFactory returns a Factory that creates Operations backed by the supplied
 // parameters.
-func NewFactory(
-	deployer charm.Deployer,
-	runnerFactory runner.Factory,
-	callbacks Callbacks,
-	storageUpdater StorageUpdater,
-	abort <-chan struct{},
-) Factory {
+func NewFactory(params FactoryParams) Factory {
 	return &factory{
-		deployer:       deployer,
-		runnerFactory:  runnerFactory,
-		callbacks:      callbacks,
-		storageUpdater: storageUpdater,
-		abort:          abort,
+		config: params,
 	}
 }
 
 type factory struct {
-	deployer       charm.Deployer
-	runnerFactory  runner.Factory
-	callbacks      Callbacks
-	storageUpdater StorageUpdater
-	abort          <-chan struct{}
+	config FactoryParams
 }
 
 // newResolved wraps the supplied operation such that it will clear the uniter
@@ -47,7 +44,7 @@ func (f *factory) newResolved(wrapped Operation) (Operation, error) {
 	}
 	return &resolvedOperation{
 		Operation: wrapped,
-		callbacks: f.callbacks,
+		callbacks: f.config.Callbacks,
 	}, nil
 }
 
@@ -63,9 +60,9 @@ func (f *factory) newDeploy(kind Kind, charmURL *corecharm.URL, revert, resolved
 		charmURL:  charmURL,
 		revert:    revert,
 		resolved:  resolved,
-		callbacks: f.callbacks,
-		deployer:  f.deployer,
-		abort:     f.abort,
+		callbacks: f.config.Callbacks,
+		deployer:  f.config.Deployer,
+		abort:     f.config.Abort,
 	}, nil
 }
 
@@ -104,8 +101,8 @@ func (f *factory) NewRunHook(hookInfo hook.Info) (Operation, error) {
 	}
 	return &runHook{
 		info:          hookInfo,
-		callbacks:     f.callbacks,
-		runnerFactory: f.runnerFactory,
+		callbacks:     f.config.Callbacks,
+		runnerFactory: f.config.RunnerFactory,
 	}, nil
 }
 
@@ -134,8 +131,8 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}
 	return &runAction{
 		actionId:      actionId,
-		callbacks:     f.callbacks,
-		runnerFactory: f.runnerFactory,
+		callbacks:     f.config.Callbacks,
+		runnerFactory: f.config.RunnerFactory,
 	}, nil
 }
 
@@ -156,8 +153,8 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 	return &runCommands{
 		args:          args,
 		sendResponse:  sendResponse,
-		callbacks:     f.callbacks,
-		runnerFactory: f.runnerFactory,
+		callbacks:     f.config.Callbacks,
+		runnerFactory: f.config.RunnerFactory,
 	}, nil
 }
 
@@ -165,7 +162,7 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
 	return &updateRelations{
 		ids:       ids,
-		callbacks: f.callbacks,
+		callbacks: f.config.Callbacks,
 	}, nil
 }
 
@@ -173,7 +170,7 @@ func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
 func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
 	return &updateStorage{
 		tags:           tags,
-		storageUpdater: f.storageUpdater,
+		storageUpdater: f.config.StorageUpdater,
 	}, nil
 }
 
@@ -185,4 +182,12 @@ func (f *factory) NewResignLeadership() (Operation, error) {
 // NewAcceptLeadership is part of the Factory interface.
 func (f *factory) NewAcceptLeadership() (Operation, error) {
 	return &acceptLeadership{}, nil
+}
+
+// NewSendMetrics is part of the Factory interface.
+func (f *factory) NewSendMetrics() (Operation, error) {
+	return &sendMetrics{
+		sender:   f.config.MetricSender,
+		spoolDir: f.config.MetricSpoolDir,
+	}, nil
 }

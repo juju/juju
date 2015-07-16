@@ -57,10 +57,10 @@ machine be running Ubuntu, that it be accessible via SSH, and be running on
 the same network as the API server.
 
 It is possible to override or augment constraints by passing provider-specific
-"placement directives" with "--to"; these give the provider additional
+"placement directives" as an argument; these give the provider additional
 information about how to allocate the machine. For example, one can direct the
-MAAS provider to acquire a particular node by specifying its hostname with
-"--to". For more information on placement directives, see "juju help placement".
+MAAS provider to acquire a particular node by specifying its hostname.
+For more information on placement directives, see "juju help placement".
 
 Examples:
    juju machine add                      (starts a new machine)
@@ -70,7 +70,8 @@ Examples:
    juju machine add lxc:4                (starts a new lxc container on machine 4)
    juju machine add --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju machine add ssh:user@10.10.0.3   (manually provisions a machine with ssh)
-   juju machine add zone=us-east-1a
+   juju machine add zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
+   juju machine add maas2.name           (acquire machine maas2.name on MAAS)
 
 See Also:
    juju help constraints

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -128,4 +129,16 @@ func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *cmdSystemSuite) TestRemoveBlocks(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	s.run(c, "remove-blocks")
+
+	blocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocks, gc.HasLen, 0)
 }

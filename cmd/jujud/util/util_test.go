@@ -5,10 +5,8 @@ package util
 
 import (
 	stderrors "errors"
-	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,16 +17,11 @@ import (
 )
 
 var (
-	_      = gc.Suite(&toolSuite{})
-	logger = loggo.GetLogger("juju.cmd.jujud")
+	_ = gc.Suite(&toolSuite{})
 )
 
 type toolSuite struct {
 	coretesting.BaseSuite
-}
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
 }
 
 func (*toolSuite) TestErrorImportance(c *gc.C) {

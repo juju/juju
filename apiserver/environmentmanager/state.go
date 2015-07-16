@@ -15,19 +15,9 @@ var getState = func(st *state.State) stateInterface {
 }
 
 type stateInterface interface {
-	AllEnvironments() ([]*state.Environment, error)
-	AllMachines() ([]*state.Machine, error)
-	Close() error
-	Environment() (*state.Environment, error)
 	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
-	EnvironmentUser(names.UserTag) (*state.EnvironmentUser, error)
-	EnvironConfig() (*config.Config, error)
-	EnvironUUID() string
-	ForEnviron(names.EnvironTag) (*state.State, error)
-	GetBlockForType(state.BlockType) (state.Block, bool, error)
 	IsSystemAdministrator(user names.UserTag) (bool, error)
 	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
-	RemoveAllEnvironDocs() error
 	StateServerEnvironment() (*state.Environment, error)
 }
 

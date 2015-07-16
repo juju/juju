@@ -4,8 +4,6 @@
 package runner_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,8 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type FlushContextSuite struct {
@@ -24,30 +20,6 @@ type FlushContextSuite struct {
 }
 
 var _ = gc.Suite(&FlushContextSuite{})
-
-// StubMetricsReader is a stub implementation of the metrics reader.
-type StubMetricsReader struct {
-	*testing.Stub
-	Batches []runner.MetricsBatch
-}
-
-// Open implements the MetricsReader interface.
-func (mr *StubMetricsReader) Open() ([]runner.MetricsBatch, error) {
-	mr.MethodCall(mr, "Open")
-	return mr.Batches, mr.NextErr()
-}
-
-// Remove implements the MetricsReader interface.
-func (mr *StubMetricsReader) Remove(uuid string) error {
-	mr.MethodCall(mr, "Remove", uuid)
-	return mr.NextErr()
-}
-
-// Close implements the MetricsReader interface.
-func (mr *StubMetricsReader) Close() error {
-	mr.MethodCall(mr, "Close")
-	return mr.NextErr()
-}
 
 func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	uuid, err := utils.NewUUID()
@@ -114,194 +86,6 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 		"relation-name": "db1",
 		"qux":           "4",
 	})
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingSuccess(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
-
-	now := time.Now()
-	err = ctx.AddMetric("pings", "50", now)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	metrics := metricBatches[0].Metrics()
-	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Key, gc.Equals, "pings")
-	c.Assert(metrics[0].Value, gc.Equals, "50")
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingGetDuplicate(c *gc.C) {
-	uuid := utils.MustNewUUID()
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
-
-	// Send batches once.
-	batches := []runner.MetricsBatch{
-		{
-			CharmURL: s.meteredCharm.URL().String(),
-			UUID:     utils.MustNewUUID().String(),
-			Created:  time.Now(),
-			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
-		}, {
-			CharmURL: s.meteredCharm.URL().String(),
-			UUID:     utils.MustNewUUID().String(),
-			Created:  time.Now(),
-			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
-		},
-	}
-
-	reader := &StubMetricsReader{
-		Stub:    &s.Stub,
-		Batches: batches,
-	}
-
-	runner.PatchMetricsReader(ctx, reader)
-
-	// Flush the context with a success.
-	err := ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check stub calls.
-	s.Stub.CheckCallNames(c, "Open", "Remove", "Remove", "Close")
-	s.Stub.ResetCalls()
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 2)
-
-	// Create a new context with a duplicate metrics batch.
-	uuid = utils.MustNewUUID()
-	ctx = s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
-	runner.PatchMetricsReader(ctx, reader)
-
-	newBatches := []runner.MetricsBatch{
-		batches[0],
-		{
-			CharmURL: s.meteredCharm.URL().String(),
-			UUID:     utils.MustNewUUID().String(),
-			Created:  time.Now(),
-			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
-		},
-	}
-	reader.Batches = newBatches
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check stub calls.
-	s.Stub.CheckCallNames(c, "Open", "Remove", "Remove", "Close")
-
-	metricBatches, err = s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	// Only one additional metric has been recorded.
-	c.Assert(metricBatches, gc.HasLen, 3)
-
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingFailedByServer(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
-
-	// Send batches once.
-	batches := []runner.MetricsBatch{
-		{
-			CharmURL: s.meteredCharm.URL().String(),
-			UUID:     utils.MustNewUUID().String(),
-			Created:  time.Now(),
-			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
-		}, {
-			CharmURL: s.meteredCharm.URL().String(),
-			UUID:     utils.MustNewUUID().String(),
-			Created:  time.Now(),
-			Metrics:  []jujuc.Metric{{Key: "pings", Value: "1", Time: time.Now()}},
-		},
-	}
-
-	reader := &StubMetricsReader{
-		Stub:    &s.Stub,
-		Batches: batches,
-	}
-
-	restoreRunner := runner.PatchMetricsReader(ctx, reader)
-	defer restoreRunner()
-
-	restoreSender := runner.PatchMetricsSender(ctx, func(batches []params.MetricBatch) (map[string]error, error) {
-		responses := make(map[string]error, len(batches))
-		for i := range responses {
-			responses[i] = errors.New("failed to store")
-		}
-		return responses, nil
-	})
-	defer restoreSender()
-
-	// Flush the context.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check stub calls, metrics should not be removed.
-	s.Stub.CheckCallNames(c, "Open", "Close")
-	s.Stub.ResetCalls()
-}
-
-func (s *FlushContextSuite) TestRunHookNoMetricSendingOnFailure(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
-
-	now := time.Now()
-	ctx.AddMetric("key", "50", now)
-
-	// Flush the context with an error.
-	err = ctx.FlushContext("some badge", errors.New("boom squelch"))
-	c.Assert(err, gc.ErrorMatches, "boom squelch")
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, false, s.metricsDefinition("key"))
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *FlushContextSuite) TestRunHookMetricSendingUndeclared(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, nil)
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
 }
 
 func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {

@@ -135,7 +135,7 @@ func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
 func (s *systemManagerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
 	list, err := s.systemManager.ListBlockedEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(list.Environments), gc.Equals, 0)
+	c.Assert(list.Environments, gc.HasLen, 0)
 }
 
 func (s *systemManagerSuite) TestEnvironmentConfig(c *gc.C) {
@@ -155,4 +155,27 @@ func (s *systemManagerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
 	env, err := systemManager.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+}
+
+func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test"})
+	defer st.Close()
+
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{All: true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	blocks, err := s.State.AllBlocksForSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocks, gc.HasLen, 0)
+}
+
+func (s *systemManagerSuite) TestRemoveBlocksNotAll(c *gc.C) {
+	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{})
+	c.Assert(err, gc.ErrorMatches, "not supported")
 }

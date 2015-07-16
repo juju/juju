@@ -9,6 +9,11 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
+var (
+	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
+	UserCurrent                  = &userCurrent
+)
+
 // NewListCommand returns a ListCommand with the configstore provided as specified.
 func NewListCommand(cfgStore configstore.Storage) *ListCommand {
 	return &ListCommand{
@@ -49,6 +54,14 @@ func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APIC
 		api:       api,
 		userCreds: userCreds,
 		endpoint:  endpoint,
+	}
+}
+
+// NewRemoveBlocksCommand returns a RemoveBlocksCommand with the function used
+// to open the API connection mocked out.
+func NewRemoveBlocksCommand(api removeBlocksAPI) *RemoveBlocksCommand {
+	return &RemoveBlocksCommand{
+		api: api,
 	}
 }
 

@@ -83,6 +83,12 @@ func (api *API) SetMetricCredentials(args params.ServiceMetricCredentials) (para
 
 // ServicesDeploy fetches the charms from the charm store and deploys them.
 func (api *API) ServicesDeploy(args params.ServicesDeploy) (params.ErrorResults, error) {
+	return api.ServicesDeployWithPlacement(args)
+}
+
+// ServicesDeployWithPlacement fetches the charms from the charm store and deploys them
+// using the specified placement directives.
+func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Services)),
 	}
@@ -109,7 +115,8 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Errorf("charm url must include revision")
 	}
 
-	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
+	// Do a quick but not complete validation check before going any further.
+	if len(args.Placement) == 0 && args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = st.Machine(args.ToMachineSpec)
 		if err != nil {
 			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
@@ -159,6 +166,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			ConfigSettings: settings,
 			Constraints:    args.Constraints,
 			ToMachineSpec:  args.ToMachineSpec,
+			Placement:      args.Placement,
 			Networks:       requestedNetworks,
 			Storage:        args.Storage,
 		})

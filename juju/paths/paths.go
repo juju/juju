@@ -15,24 +15,27 @@ const (
 	tmpDir osVarType = iota
 	logDir
 	dataDir
+	storageDir
 	jujuRun
 	certDir
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:  "/tmp",
-	logDir:  "/var/log",
-	dataDir: "/var/lib/juju",
-	jujuRun: "/usr/bin/juju-run",
-	certDir: "/etc/juju/certs.d",
+	tmpDir:     "/tmp",
+	logDir:     "/var/log",
+	dataDir:    "/var/lib/juju",
+	storageDir: "/var/lib/juju/storage",
+	jujuRun:    "/usr/bin/juju-run",
+	certDir:    "/etc/juju/certs.d",
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:  "C:/Juju/tmp",
-	logDir:  "C:/Juju/log",
-	dataDir: "C:/Juju/lib/juju",
-	jujuRun: "C:/Juju/bin/juju-run.exe",
-	certDir: "C:/Juju/certs",
+	tmpDir:     "C:/Juju/tmp",
+	logDir:     "C:/Juju/log",
+	dataDir:    "C:/Juju/lib/juju",
+	storageDir: "C:/Juju/lib/juju/storage",
+	jujuRun:    "C:/Juju/bin/juju-run.exe",
+	certDir:    "C:/Juju/certs",
 }
 
 // osVal will lookup the value of the key valname
@@ -77,8 +80,14 @@ func CertDir(series string) (string, error) {
 	return osVal(series, certDir)
 }
 
+// StorageDir returns a filesystem path to the folder used by juju to
+// mount machine-level storage.
+func StorageDir(series string) (string, error) {
+	return osVal(series, storageDir)
+}
+
 // JujuRun returns the absolute path to the juju-run binary for
-// a particula series
+// a particular series
 func JujuRun(series string) (string, error) {
 	return osVal(series, jujuRun)
 }
