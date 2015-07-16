@@ -12,11 +12,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-const (
-	txnAssertEnvIsAlive    = true
-	txnAssertEnvIsNotAlive = false
-)
-
 // runTransaction is a convenience method delegating to the state's Database.
 func (st *State) runTransaction(ops []txn.Op) error {
 	runner, closer := st.database.TransactionRunner()
@@ -106,8 +101,6 @@ func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
-	var referencesEnviron bool
-	var insertsEnvironSpecificDocs bool
 	for i, op := range ops {
 		info, found := r.schema[op.C]
 		if !found {
@@ -150,28 +143,8 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
-				if !info.insertWithoutEnvironment {
-					insertsEnvironSpecificDocs = true
-				}
 			}
 		}
-		if op.C == environmentsC {
-			if op.Id == r.envUUID {
-				referencesEnviron = true
-			}
-		}
-	}
-	if insertsEnvironSpecificDocs && !referencesEnviron {
-		// TODO(fwereade): This serializes a large proportion of operations
-		// that could otherwise run in parallel. it's quite nice to be able
-		// to run more than one transaction per environment at once...
-		//
-		// Consider representing environ life with a collection of N docs,
-		// and selecting different ones per transaction, so as to claw back
-		// parallelism of up to N. (Environ dying would update all docs and
-		// thus end up serializing everything, but at least we get some
-		// benefits for the bulk of an environment's lifetime.)
-		ops = append(ops, assertEnvAliveOp(r.envUUID))
 	}
 	logger.Tracef("rewrote transaction: %#v", ops)
 	return ops, nil
