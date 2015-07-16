@@ -132,7 +132,6 @@ func (s *LeadershipCheckSuite) TestRefresh_Error(c *gc.C) {
 
 func assertOps(c *gc.C, token coreleadership.Token) (out []txn.Op) {
 	err := token.Check(&out)
-	err := token.Read(&out)
 	c.Check(err, jc.ErrorIsNil)
 	return out
 }
