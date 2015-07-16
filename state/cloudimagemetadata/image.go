@@ -68,7 +68,7 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 			same := isSameMetadata(existing, metadata)
 			if same {
 				logger.Debugf("cloud image metadata for %v has not changed", newDoc.Id)
-				return []txn.Op{}, errors.Annotate(jujutxn.ErrNoOperations, "no changes were made")
+				return nil, jujutxn.ErrNoOperations
 			}
 			op.Assert = txn.DocExists
 			op.Update = bson.D{{"$set", newDoc.updates()}}

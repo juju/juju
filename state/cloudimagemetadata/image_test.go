@@ -148,9 +148,8 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoUpdates(c *gc.C) {
 	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 
 	s.assertRecordMetadata(c, metadata0)
-
-	err := s.storage.SaveMetadata(metadata1)
-	c.Assert(err, gc.ErrorMatches, ".*no changes were made.*")
+	// is a no op
+	s.assertRecordMetadata(c, metadata1)
 
 	s.assertMetadataRecorded(c, attrs, metadata0)
 }
