@@ -16,6 +16,7 @@ var (
 	ActiveMetricsTimer  = &activeMetricsTimer
 	IdleWaitTime        = &idleWaitTime
 	LeadershipGuarantee = &leadershipGuarantee
+	NewExecutor         = &newExecutor
 )
 
 // manualTicker will be used to generate collect-metrics events

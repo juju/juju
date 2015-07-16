@@ -93,6 +93,7 @@ type context struct {
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
 	ticker        *uniter.ManualTicker
+	err           string
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -113,6 +114,12 @@ func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Unlock()
 }
 
+func (ctx *context) OperationFailed(err string) {
+	ctx.mu.Lock()
+	ctx.err = err
+	ctx.mu.Unlock()
+}
+
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
 	lease, err := lease.NewLeaseManager(ctx.st)
@@ -125,7 +132,11 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
-			c.Assert(err, jc.ErrorIsNil)
+			if ctx.err == "" {
+				c.Assert(err, jc.ErrorIsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, ctx.err)
+			}
 		}
 	}()
 	for i, s := range steps {
@@ -1676,4 +1687,12 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type operationError struct {
+	err string
+}
+
+func (s operationError) step(c *gc.C, ctx *context) {
+	ctx.OperationFailed(s.err)
 }

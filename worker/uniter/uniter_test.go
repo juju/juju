@@ -11,9 +11,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type UniterSuite struct {
@@ -2084,5 +2087,40 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 		// storage attachments before upgrade-charm is run. This
 		// requires additions to state to add storage when a charm
 		// is upgraded.
+	})
+}
+
+type mockExecutor struct {
+	operation.Executor
+}
+
+func (m *mockExecutor) Run(op operation.Operation) error {
+	// want to allow charm unpacking to occur
+	if strings.HasPrefix(op.String(), "install") {
+		return m.Executor.Run(op)
+	}
+	// but hooks should error
+	return errors.New("some error occurred")
+}
+
+func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
+	originalExecutorFunc := *uniter.NewExecutor
+	s.PatchValue(uniter.NewExecutor, func(u *uniter.Uniter) (operation.Executor, error) {
+		e, err := originalExecutorFunc(u)
+		c.Assert(err, jc.ErrorIsNil)
+		return &mockExecutor{e}, nil
+	})
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"error running operations are reported",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			operationError{".*some error occurred.*"},
+			waitUnitAgent{
+				status: params.StatusFailed,
+				info:   "run install hook: some error occurred",
+			},
+		),
 	})
 }
