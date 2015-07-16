@@ -644,7 +644,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

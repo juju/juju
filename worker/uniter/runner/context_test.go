@@ -7,8 +7,11 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -22,6 +25,7 @@ import (
 
 type InterfaceSuite struct {
 	HookContextSuite
+	stub testing.Stub
 }
 
 var _ = gc.Suite(&InterfaceSuite{})
@@ -71,6 +75,29 @@ func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
 	name, found := ctx.RemoteUnitName()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(name, gc.Equals, "u/123")
+}
+
+func (s *InterfaceSuite) TestAddingMetricsWhenNotEnabledFails(c *gc.C) {
+	ctx := s.GetContext(c, 1, "u/123")
+	err := ctx.AddMetric("key", "123", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+}
+
+func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {
+	uuid := utils.MustNewUUID()
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
+	cleanup := runner.PatchMetricsRecorder(ctx, StubMetricsRecorder{&s.stub})
+	defer cleanup()
+
+	now := time.Now()
+	err := ctx.AddMetric("key", "123", now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCalls(c,
+		[]testing.StubCall{{
+			FuncName: "AddMetric",
+			Args:     []interface{}{"key", "123", now},
+		}})
 }
 
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {

@@ -255,7 +255,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 
 	r.PatchValue(&mongoDefaultDialOpts, statetesting.NewDialOpts)
 	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
-	st, err = newStateConnection(statetesting.NewMongoInfo())
+	st, err = newStateConnection(st.EnvironTag(), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

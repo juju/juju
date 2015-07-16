@@ -125,13 +125,6 @@ func stateStepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "migrate charm archives into environment storage",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return migrateCharmStorage(context.State(), context.AgentConfig())
-			},
-		},
-		&upgradeStep{
 			description: "migrate custom image metadata into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
