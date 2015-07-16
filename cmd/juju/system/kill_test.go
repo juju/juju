@@ -162,17 +162,33 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
+	stop := make(chan bool)
 	testDialer := func(sysName string) (*api.State, error) {
-		time.Sleep(5 * time.Minute)
+		<-stop
 		return nil, errors.New("kill command waited too long")
 	}
 	s.PatchValue(&system.DialAPI, testDialer)
 
-	cmd := system.NewKillCommand(nil, nil, nil)
-	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	var ctx *cmd.Context
+	var err error
+	done := make(chan bool, 1)
+	go func() {
+		cmd := system.NewKillCommand(nil, nil, nil)
+		ctx, err = testing.RunCommand(c, cmd, "test1", "-y")
+		done <- true
+	}()
+	select {
+	case <-time.After(5 * time.Minute):
+		// Timed out, fail the test.
+		c.Errorf("Kill command waited too long to open the API")
+	case <-done:
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
+		c.Assert(s.api.ignoreBlocks, jc.IsFalse)
+		c.Assert(s.api.destroyAll, jc.IsFalse)
+		checkSystemRemovedFromStore(c, "test1", s.store)
+	}
+
+	// Stop the testDialer
+	stop <- true
 }
