@@ -263,8 +263,12 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 			return errors.Annotatef(err, "cannot get machine %q instance ID", machineId)
 		}
 	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := checkEnvLife(i.st); err != nil {
+				return nil, errors.Trace(err)
+			}
 			if err := i.Refresh(); errors.IsNotFound(err) {
 				return nil, err
 			} else if i.Life() == Dead {
@@ -276,17 +280,21 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 			}
 
 		}
-		return []txn.Op{{
-			C:      ipaddressesC,
-			Id:     i.doc.DocID,
-			Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
-			Update: bson.D{{"$set", bson.D{
-				{"machineid", machineId},
-				{"interfaceid", interfaceId},
-				{"instanceid", instId},
-				{"state", string(AddressStateAllocated)},
-			}}},
-		}}, nil
+		return []txn.Op{
+			assertEnvAliveOp(i.st.EnvironUUID()),
+			{
+				C:      ipaddressesC,
+				Id:     i.doc.DocID,
+				Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
+				Update: bson.D{{"$set", bson.D{
+					{"machineid", machineId},
+					{"interfaceid", interfaceId},
+					{"instanceid", instId},
+					{"state", string(AddressStateAllocated)},
+				},
+				}},
+			},
+		}, nil
 	}
 
 	err = i.st.run(buildTxn)
