@@ -6,11 +6,10 @@ package upgrades
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
@@ -23,21 +22,7 @@ var (
 	rootSpoolDir = "/var/spool/rsyslog"
 )
 
-var chownPath = func(path, username string) error {
-	user, err := user.Lookup(username)
-	if err != nil {
-		return fmt.Errorf("cannot lookup %q user id: %v", username, err)
-	}
-	uid, err := strconv.Atoi(user.Uid)
-	if err != nil {
-		return fmt.Errorf("invalid user id %q: %v", user.Uid, err)
-	}
-	gid, err := strconv.Atoi(user.Gid)
-	if err != nil {
-		return fmt.Errorf("invalid group id %q: %v", user.Gid, err)
-	}
-	return os.Chown(path, uid, gid)
-}
+var chownPath = utils.ChownPath
 
 var isLocalEnviron = func(envConfig *config.Config) bool {
 	return envConfig.Type() == "local"

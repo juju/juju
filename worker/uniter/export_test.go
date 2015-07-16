@@ -6,6 +6,8 @@ package uniter
 import (
 	"fmt"
 	"time"
+
+	"github.com/juju/juju/testing"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
@@ -13,8 +15,10 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	IdleWaitTime        = &idleWaitTime
-	LeadershipGuarantee = &leadershipGuarantee
+	LoopIsIdleCheckTime    = &loopIsStillIdleCheckInterval
+	EnterLoopIsIdleTime    = &enterLoopIsIdleWaitTime
+	ActiveSendMetricsTimer = &activeSendMetricsTimer
+	LeadershipGuarantee    = &leadershipGuarantee
 )
 
 // manualTicker will be used to generate collect-metrics events
@@ -27,7 +31,7 @@ type ManualTicker struct {
 func (t *ManualTicker) Tick() error {
 	select {
 	case t.c <- time.Now():
-	default:
+	case <-time.After(testing.LongWait):
 		return fmt.Errorf("ticker channel blocked")
 	}
 	return nil
@@ -40,14 +44,15 @@ func (t *ManualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duratio
 
 func NewManualTicker() *ManualTicker {
 	return &ManualTicker{
-		c: make(chan time.Time, 1),
+		c: make(chan time.Time),
 	}
 }
 
-func NewTestingMetricsTimerChooser(active TimedSignal) *timerChooser {
+func NewTestingMetricsTimerChooser(collector TimedSignal, sender TimedSignal) *timerChooser {
 	return &timerChooser{
-		active:   active,
-		inactive: inactiveMetricsTimer,
+		collector: collector,
+		sender:    sender,
+		inactive:  inactiveMetricsTimer,
 	}
 }
 
@@ -55,6 +60,6 @@ func UpdateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-cha
 	return updateStatusSignal(now, lastSignal, interval)
 }
 
-func ActiveMetricsSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
-	return activeMetricsTimer(now, lastSignal, interval)
+func ActiveCollectMetricsSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	return activeCollectMetricsTimer(now, lastSignal, interval)
 }

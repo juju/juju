@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -199,11 +200,14 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 			return nil, errors.Trace(err)
 		}
 
-		ctx.metricsRecorder, err = NewJSONMetricsRecorder(f.paths.GetMetricsSpoolDir(), chURL.String())
-		if err != nil {
-			return nil, errors.Trace(err)
+		charmMetrics := map[string]charm.Metric{}
+		if ch.Metrics() != nil {
+			charmMetrics = ch.Metrics().Metrics
 		}
-		ctx.metricsReader, err = NewJSONMetricsReader(f.paths.GetMetricsSpoolDir())
+		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
+			f.paths.GetMetricsSpoolDir(),
+			charmMetrics,
+			chURL.String())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -284,7 +288,6 @@ func (f *factory) coreContext() (*HookContext, error) {
 		relationId:         -1,
 		metricsRecorder:    nil,
 		definedMetrics:     nil,
-		metricsSender:      f.unit,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 	}

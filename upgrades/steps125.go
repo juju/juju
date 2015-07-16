@@ -4,6 +4,8 @@
 package upgrades
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -15,6 +17,27 @@ func stateStepsFor125() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.SetHostedEnvironCount(context.State())
-			}},
+			},
+		},
+		&upgradeStep{
+			description: "tag machine instances",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				st := context.State()
+				machines, err := st.AllMachines()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				cfg, err := st.EnvironConfig()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				env, err := environs.New(cfg)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				return addInstanceTags(env, machines)
+			},
+		},
 	}
 }

@@ -28,7 +28,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	// verifying that inadequate args to the factory methods will produce
 	// the expected errors; and that the results of same get a string
 	// representation that does not depend on the factory attributes.
-	s.factory = operation.NewFactory(nil, nil, nil, nil, nil)
+	s.factory = operation.NewFactory(operation.FactoryParams{})
 }
 
 func (s *FactorySuite) testNewDeployError(c *gc.C, newDeploy newDeploy) {

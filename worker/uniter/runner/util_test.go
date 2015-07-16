@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -416,3 +418,22 @@ func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 func (s *BlockHelper) Close() {
 	s.blockClient.Close()
 }
+
+// StubMetricsRecorder implements the MetricsRecorder interface.
+type StubMetricsRecorder struct {
+	*jujutesting.Stub
+}
+
+// AddMetric implements the MetricsRecorder interface.
+func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) error {
+	s.AddCall("AddMetric", key, value, created)
+	return nil
+}
+
+// Close implements the MetricsRecorder interface.
+func (s StubMetricsRecorder) Close() error {
+	s.AddCall("Close")
+	return nil
+}
+
+var _ runner.MetricsRecorder = (*StubMetricsRecorder)(nil)

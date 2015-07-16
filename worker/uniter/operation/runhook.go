@@ -117,7 +117,6 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
 		return nil, afterHookErr
 	}
-
 	return stateChange{
 		Kind:            RunHook,
 		Step:            step,

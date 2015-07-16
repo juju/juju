@@ -808,20 +808,6 @@ $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $
 icacls "C:\Juju" /grant "jujud:(OI)(CI)(F)" /T
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
-
-
-Set-Content "C:\juju\bin\save_pass.ps1" @"
-Param (
- [Parameter(Mandatory=` + "`" + `$true)]
- [string]` + "`" + `$pass
-)
-
-` + "`" + `$secpasswd = ConvertTo-SecureString ` + "`" + `$pass -AsPlainText -Force
-` + "`" + `$secpasswd | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass
-"@
-
-
-Start-ProcessAsUser -Command $powershell -Arguments "-File C:\juju\bin\save_pass.ps1 $juju_passwd" -Credential $jujuCreds
 mkdir "C:\Juju\lib\juju\locks"
 Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%PATH%` + ";" + `C:\Juju\bin"' -Credential $jujuCreds
 Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"

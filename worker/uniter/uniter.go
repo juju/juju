@@ -91,6 +91,10 @@ type Uniter struct {
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
 
+	// sendMetricsAt defines a function that will be used to generate signals
+	// to send metrics to the state server.
+	sendMetricsAt TimedSignal
+
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
@@ -118,6 +122,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		leadershipManager:   uniterParams.LeadershipManager,
 		metricsTimerChooser: uniterParams.MetricsTimerChooser,
 		collectMetricsAt:    uniterParams.MetricsTimerChooser.inactive,
+		sendMetricsAt:       uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:      uniterParams.UpdateStatusSignal,
 	}
 	go func() {
@@ -199,6 +204,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 	}
+
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -268,13 +274,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	u.operationFactory = operation.NewFactory(
-		u.deployer,
-		runnerFactory,
-		&operationCallbacks{u},
-		u.storage,
-		u.tomb.Dying(),
-	)
+	u.operationFactory = operation.NewFactory(operation.FactoryParams{
+		Deployer:       u.deployer,
+		RunnerFactory:  runnerFactory,
+		Callbacks:      &operationCallbacks{u},
+		StorageUpdater: u.storage,
+		Abort:          u.tomb.Dying(),
+		MetricSender:   u.unit,
+		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
+	})
 
 	operationExecutor, err := operation.NewExecutor(
 		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
@@ -332,14 +340,15 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// initializeMetricsCollector enables the periodic collect-metrics hook
-// for charms that declare metrics.
-func (u *Uniter) initializeMetricsCollector() error {
+// initializeMetricsTimers enables the periodic collect-metrics hook
+// and periodic sending of collected metrics for charms that declare metrics.
+func (u *Uniter) initializeMetricsTimers() error {
 	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = u.metricsTimerChooser.getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
+	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
 	return nil
 }
 

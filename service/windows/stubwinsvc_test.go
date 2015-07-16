@@ -45,8 +45,9 @@ func (s *StubService) Close() error {
 	return s.NextErr()
 }
 
-func (s *StubService) SetConfig(c mgr.Config) {
+func (s *StubService) UpdateConfig(c mgr.Config) error {
 	s.config = c
+	return s.NextErr()
 }
 
 func (s *StubService) SetStatus(status svc.Status) {

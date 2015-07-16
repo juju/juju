@@ -20,7 +20,7 @@ type UpdateStorageSuite struct {
 var _ = gc.Suite(&UpdateStorageSuite{})
 
 func (s *UpdateStorageSuite) TestPrepare(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateStorage(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Prepare(operation.State{})
@@ -30,7 +30,7 @@ func (s *UpdateStorageSuite) TestPrepare(c *gc.C) {
 
 func (s *UpdateStorageSuite) TestExecuteError(c *gc.C) {
 	updater := &mockStorageUpdater{err: errors.New("meep")}
-	factory := operation.NewFactory(nil, nil, nil, updater, nil)
+	factory := operation.NewFactory(operation.FactoryParams{StorageUpdater: updater})
 
 	tag0 := names.NewStorageTag("data/0")
 	tag1 := names.NewStorageTag("data/1")
@@ -49,7 +49,7 @@ func (s *UpdateStorageSuite) TestExecuteError(c *gc.C) {
 
 func (s *UpdateStorageSuite) TestExecuteSuccess(c *gc.C) {
 	updater := &mockStorageUpdater{}
-	factory := operation.NewFactory(nil, nil, nil, updater, nil)
+	factory := operation.NewFactory(operation.FactoryParams{StorageUpdater: updater})
 
 	tag0 := names.NewStorageTag("data/0")
 	tag1 := names.NewStorageTag("data/1")
@@ -67,7 +67,7 @@ func (s *UpdateStorageSuite) TestExecuteSuccess(c *gc.C) {
 }
 
 func (s *UpdateStorageSuite) TestCommit(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateStorage(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	state, err := op.Commit(operation.State{})
@@ -76,7 +76,7 @@ func (s *UpdateStorageSuite) TestCommit(c *gc.C) {
 }
 
 func (s *UpdateStorageSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
-	factory := operation.NewFactory(nil, nil, nil, nil, nil)
+	factory := operation.NewFactory(operation.FactoryParams{})
 	op, err := factory.NewUpdateStorage(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)

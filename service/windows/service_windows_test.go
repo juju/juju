@@ -7,6 +7,8 @@
 package windows_test
 
 import (
+	"syscall"
+
 	win "github.com/gabriel-samfira/sys/windows"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/juju/errors"
@@ -198,6 +200,79 @@ func (s *serviceManagerSuite) TestStop(c *gc.C) {
 	running, err = s.mgr.Running(s.name)
 	c.Assert(err, gc.IsNil)
 	c.Assert(running, jc.IsFalse)
+}
+
+func (s *serviceManagerSuite) TestChangePassword(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	exists := s.conn.Exists(s.name)
+	c.Assert(exists, jc.IsTrue)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.IsNil)
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "obviously-better-password")
+
+}
+
+func (s *serviceManagerSuite) TestChangePasswordAccessDenied(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	s.stub.SetErrors(syscall.ERROR_ACCESS_DENIED)
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.IsNil)
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+}
+
+func (s *serviceManagerSuite) TestChangePasswordErrorOut(c *gc.C) {
+	s.getPasswd.SetPasswd("fake")
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.getPasswd.Calls(), gc.HasLen, 1)
+
+	m, ok := s.mgr.(*windows.SvcManager)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg, err := m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
+	s.stub.SetErrors(errors.New("poof"))
+
+	err = s.mgr.ChangeServicePassword(s.name, "obviously-better-password")
+	c.Assert(err, gc.ErrorMatches, "poof")
+
+	cfg, err = m.Config(s.name)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Password, gc.Equals, "fake")
+
 }
 
 func (s *serviceManagerSuite) TestDelete(c *gc.C) {

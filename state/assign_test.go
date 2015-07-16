@@ -29,8 +29,6 @@ type AssignSuite struct {
 }
 
 var _ = gc.Suite(&AssignSuite{})
-var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignCleanEmpty, nil})
-var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -673,6 +671,9 @@ type assignCleanSuite struct {
 	policy    state.AssignmentPolicy
 	wordpress *state.Service
 }
+
+var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignCleanEmpty, nil})
+var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *assignCleanSuite) SetUpTest(c *gc.C) {
 	c.Logf("assignment policy for this test: %q", s.policy)
