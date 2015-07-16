@@ -48,8 +48,6 @@ def calculate_jobs(root):
             raise ValueError('Wrong path')
         candidate_version = get_candidate_version(candidate_path)
         for release in releases:
-            if release == candidate:
-                continue
             yield {
                 'old_version': release,
                 'candidate': candidate_version,
