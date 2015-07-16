@@ -42,6 +42,7 @@ from substrate import (
     verify_libvirt_domain,
 )
 from utility import (
+    add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
     PortTimeoutError,
@@ -337,31 +338,15 @@ def get_log_level(args):
 
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
-    parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('juju_bin', help='Path to the new Juju binary.')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
+    add_basic_testing_arguments(parser)
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
-    parser.add_argument('--bootstrap-host',
-                        help='The host to use for bootstrap.')
-    parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.',
-                        action='append', default=[])
-    parser.add_argument('--keep-env', action='store_true', default=False,
-                        help='Keep the Juju environment after the test'
-                        ' completes.')
-    parser.add_argument(
-        '--upload-tools', action='store_true', default=False,
-        help='upload local version of tools before bootstrapping')
-    add_juju_args(parser)
-    add_output_args(parser)
     return parser.parse_args(argv)
 
 
 def deploy_job():
     args = deploy_job_parse_args()
-    configure_logging(get_log_level(args))
+    configure_logging(args.verbose)
     series = args.series
     if series is None:
         series = 'precise'

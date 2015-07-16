@@ -804,7 +804,7 @@ class TestDeployJobParseArgs(TestCase):
             juju_bin='bar',
             series=None,
             upgrade=False,
-            verbose=False,
+            verbose=logging.INFO,
             upload_tools=False,
         ))
 
