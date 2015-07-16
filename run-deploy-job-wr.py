@@ -5,6 +5,7 @@ import subprocess
 import sys
 from tempfile import NamedTemporaryFile
 
+
 def main():
     command = [
         '$HOME/juju-ci-tools/run-deploy-job-remote.bash',
