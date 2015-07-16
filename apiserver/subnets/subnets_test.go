@@ -21,6 +21,7 @@ import (
 
 type SubnetsSuite struct {
 	coretesting.BaseSuite
+	apiservertesting.StubNetwork
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -29,9 +30,18 @@ type SubnetsSuite struct {
 
 var _ = gc.Suite(&SubnetsSuite{})
 
+func (s *SubnetsSuite) SetUpSuite(c *gc.C) {
+	s.StubNetwork.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *SubnetsSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+}
+
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithZones, WithSpaces, WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -40,7 +50,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.facade, err = subnets.NewAPI(BackingInstance, s.resources, s.authorizer)
+	s.facade, err = subnets.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
 }
@@ -63,7 +73,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 }
 
 // AssertAllSpacesResult makes it easier to verify AllSpaces results.
-func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []subnets.BackingSpace) {
+func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []common.BackingSpace) {
 	results := make([]params.SpaceResult, len(expected))
 	for i, space := range expected {
 		results[i].Tag = names.NewSpaceTag(space.Name()).String()
@@ -73,24 +83,24 @@ func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, e
 
 func (s *SubnetsSuite) TestNewAPI(c *gc.C) {
 	// Clients are allowed.
-	facade, err := subnets.NewAPI(BackingInstance, s.resources, s.authorizer)
+	facade, err := subnets.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
 	// No calls so far.
-	CheckMethodCalls(c, SharedStub)
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 
 	// Agents are not allowed
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
-	facade, err = subnets.NewAPI(BackingInstance, s.resources, agentAuthorizer)
+	facade, err = subnets.NewAPI(apiservertesting.BackingInstance, s.resources, agentAuthorizer)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
-	CheckMethodCalls(c, SharedStub)
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 }
 
 func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
-	SharedStub.SetErrors(errors.NotSupportedf("zones"))
+	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
@@ -98,40 +108,40 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 	results, err := s.facade.AllZones()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertAllZonesResult(c, results, BackingInstance.Zones)
+	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithoutZones, WithSpaces, WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertAllZonesResult(c, results, ProviderInstance.Zones)
+	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
-		ZonedEnvironCall("AvailabilityZones"),
-		BackingCall("SetAvailabilityZones", ProviderInstance.Zones),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithoutZones, WithSpaces, WithSubnets)
-	SharedStub.SetErrors(
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
 		nil, // Provider.Open
@@ -147,18 +157,18 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
-		ZonedEnvironCall("AvailabilityZones"),
-		BackingCall("SetAvailabilityZones", ProviderInstance.Zones),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithoutZones, WithSpaces, WithSubnets)
-	SharedStub.SetErrors(
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
 		nil, // Provider.Open
@@ -173,17 +183,17 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
-		ZonedEnvironCall("AvailabilityZones"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithoutZones, WithSpaces, WithSubnets)
-	SharedStub.SetErrors(
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		errors.NotFoundf("config"), // Backing.EnvironConfig
 	)
@@ -196,15 +206,15 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithoutZones, WithSpaces, WithSubnets)
-	SharedStub.SetErrors(
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
 		errors.NotValidf("config"), // Provider.Open
@@ -218,15 +228,15 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.C) {
-	BackingInstance.SetUp(c, StubEnvironName, WithoutZones, WithSpaces, WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
 
 	results, err := s.facade.AllZones()
@@ -237,35 +247,35 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AvailabilityZones"),
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	)
 }
 
 func (s *SubnetsSuite) TestAllSpacesWithExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, WithSpaces)
+	s.testAllSpacesSuccess(c, apiservertesting.WithSpaces)
 }
 
 func (s *SubnetsSuite) TestAllSpacesNoExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, WithoutSpaces)
+	s.testAllSpacesSuccess(c, apiservertesting.WithoutSpaces)
 }
 
-func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces SetUpFlag) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, WithZones, withBackingSpaces, WithSubnets)
+func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiservertesting.SetUpFlag) {
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, withBackingSpaces, apiservertesting.WithSubnets)
 
 	results, err := s.facade.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertAllSpacesResult(c, results, BackingInstance.Spaces)
+	s.AssertAllSpacesResult(c, results, apiservertesting.BackingInstance.Spaces)
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AllSpaces"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AllSpaces"),
 	)
 }
 
 func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
-	SharedStub.SetErrors(errors.NotFoundf("boom"))
+	apiservertesting.SharedStub.SetErrors(errors.NotFoundf("boom"))
 
 	results, err := s.facade.AllSpaces()
 	c.Assert(err, gc.ErrorMatches, "boom not found")
@@ -273,13 +283,13 @@ func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(results, jc.DeepEquals, params.SpaceResults{})
 
-	CheckMethodCalls(c, SharedStub,
-		BackingCall("AllSpaces"),
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AllSpaces"),
 	)
 }
 
 func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
-	BackingInstance.SetUp(c, StubNetworkingEnvironName, WithZones, WithSpaces, WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	args := params.AddSubnetsParams{Subnets: []params.AddSubnetParams{{
 	// nothing set; early exit: no calls
@@ -422,7 +432,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SpaceTag:         "space-private",
 		Zones:            []string{"zone1"},
 	}}}
-	SharedStub.SetErrors(
+	apiservertesting.SharedStub.SetErrors(
 		// caching subnets (1st attempt): fails
 		errors.NotFoundf("config"), // BackingInstance.EnvironConfig (1st call)
 
@@ -546,39 +556,39 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		}
 	}
 
-	CheckMethodCalls(c, SharedStub,
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		// caching subnets (1st attempt): fails
-		BackingCall("EnvironConfig"),
+		apiservertesting.BackingCall("EnvironConfig"),
 
 		// caching subnets (2nd attepmt): fails
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 
 		// caching subnets (3rd attempt): fails
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
-		NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 
 		// caching subnets (4th attempt): succeeds
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
-		NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 
 		// caching spaces (1st and 2nd attempts)
-		BackingCall("AllSpaces"),
-		BackingCall("AllSpaces"),
+		apiservertesting.BackingCall("AllSpaces"),
+		apiservertesting.BackingCall("AllSpaces"),
 
 		// cacing zones (1st and 2nd attempts)
-		BackingCall("AvailabilityZones"),
-		BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("AvailabilityZones"),
+		apiservertesting.BackingCall("AvailabilityZones"),
 
 		// validation done; adding subnets to backing store
-		BackingCall("AddSubnet", expectedBackingInfos[0]),
-		BackingCall("AddSubnet", expectedBackingInfos[0]),
-		BackingCall("AddSubnet", expectedBackingInfos[1]),
-		BackingCall("AddSubnet", expectedBackingInfos[2]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[0]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[0]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[1]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[2]),
 	)
-	ResetStub(SharedStub)
+	apiservertesting.ResetStub(apiservertesting.SharedStub)
 
 	// Finally, check that no params yields no results.
 	results, err = s.facade.AddSubnets(params.AddSubnetsParams{})
@@ -586,49 +596,49 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	c.Assert(results.Results, gc.NotNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 
-	CheckMethodCalls(c, SharedStub)
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 }
 
 func (s *SubnetsSuite) CheckAddSubnetsFails(
 	c *gc.C, envName string,
-	withZones, withSpaces, withSubnets SetUpFlag,
+	withZones, withSpaces, withSubnets apiservertesting.SetUpFlag,
 	expectedError string,
 ) {
 
-	BackingInstance.SetUp(c, envName, withZones, withSpaces, withSubnets)
+	apiservertesting.BackingInstance.SetUp(c, envName, withZones, withSpaces, withSubnets)
 
 	// These calls always happen.
-	expectedCalls := []StubMethodCall{
-		BackingCall("EnvironConfig"),
-		ProviderCall("Open", BackingInstance.EnvConfig),
+	expectedCalls := []apiservertesting.StubMethodCall{
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 	}
 
 	// Subnets is also always called. but the receiver is different.
 	switch envName {
-	case StubNetworkingEnvironName:
+	case apiservertesting.StubNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+			apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 		)
-	case StubZonedNetworkingEnvironName:
+	case apiservertesting.StubZonedNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			ZonedNetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+			apiservertesting.ZonedNetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
 		)
 	}
 
 	if !withSubnets {
 		// Set provider subnets to empty for this test.
-		originalSubnets := make([]network.SubnetInfo, len(ProviderInstance.Subnets))
-		copy(originalSubnets, ProviderInstance.Subnets)
-		ProviderInstance.Subnets = []network.SubnetInfo{}
+		originalSubnets := make([]network.SubnetInfo, len(apiservertesting.ProviderInstance.Subnets))
+		copy(originalSubnets, apiservertesting.ProviderInstance.Subnets)
+		apiservertesting.ProviderInstance.Subnets = []network.SubnetInfo{}
 
 		defer func() {
-			ProviderInstance.Subnets = make([]network.SubnetInfo, len(originalSubnets))
-			copy(ProviderInstance.Subnets, originalSubnets)
+			apiservertesting.ProviderInstance.Subnets = make([]network.SubnetInfo, len(originalSubnets))
+			copy(apiservertesting.ProviderInstance.Subnets, originalSubnets)
 		}()
 
-		if envName == StubEnvironName || envName == StubNetworkingEnvironName {
+		if envName == apiservertesting.StubEnvironName || envName == apiservertesting.StubNetworkingEnvironName {
 			// networking is either not supported or no subnets are
 			// defined, so expected the same calls for each of the two
 			// arguments to AddSubnets() below.
@@ -636,56 +646,56 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 		}
 	} else {
 		// Having subnets implies spaces will be cached as well.
-		expectedCalls = append(expectedCalls, BackingCall("AllSpaces"))
+		expectedCalls = append(expectedCalls, apiservertesting.BackingCall("AllSpaces"))
 	}
 
 	if withSpaces && withSubnets {
 		// Having both subnets and spaces means we'll also cache zones.
-		expectedCalls = append(expectedCalls, BackingCall("AvailabilityZones"))
+		expectedCalls = append(expectedCalls, apiservertesting.BackingCall("AvailabilityZones"))
 	}
 
 	if !withZones && withSpaces {
 		// Set provider zones to empty for this test.
-		originalZones := make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
-		copy(originalZones, ProviderInstance.Zones)
-		ProviderInstance.Zones = []providercommon.AvailabilityZone{}
+		originalZones := make([]providercommon.AvailabilityZone, len(apiservertesting.ProviderInstance.Zones))
+		copy(originalZones, apiservertesting.ProviderInstance.Zones)
+		apiservertesting.ProviderInstance.Zones = []providercommon.AvailabilityZone{}
 
 		defer func() {
-			ProviderInstance.Zones = make([]providercommon.AvailabilityZone, len(originalZones))
-			copy(ProviderInstance.Zones, originalZones)
+			apiservertesting.ProviderInstance.Zones = make([]providercommon.AvailabilityZone, len(originalZones))
+			copy(apiservertesting.ProviderInstance.Zones, originalZones)
 		}()
 
 		// updateZones tries to constructs a ZonedEnviron with these calls.
-		zoneCalls := append([]StubMethodCall{},
-			BackingCall("EnvironConfig"),
-			ProviderCall("Open", BackingInstance.EnvConfig),
+		zoneCalls := append([]apiservertesting.StubMethodCall{},
+			apiservertesting.BackingCall("EnvironConfig"),
+			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		)
 		// Receiver can differ according to envName, but
 		// AvailabilityZones() will be called on either receiver.
 		switch envName {
-		case StubZonedEnvironName:
+		case apiservertesting.StubZonedEnvironName:
 			zoneCalls = append(
 				zoneCalls,
-				ZonedEnvironCall("AvailabilityZones"),
+				apiservertesting.ZonedEnvironCall("AvailabilityZones"),
 			)
-		case StubZonedNetworkingEnvironName:
+		case apiservertesting.StubZonedNetworkingEnvironName:
 			zoneCalls = append(
 				zoneCalls,
-				ZonedNetworkingEnvironCall("AvailabilityZones"),
+				apiservertesting.ZonedNetworkingEnvironCall("AvailabilityZones"),
 			)
 		}
 		// Finally after caching provider zones backing zones are
 		// updated.
 		zoneCalls = append(
 			zoneCalls,
-			BackingCall("SetAvailabilityZones", ProviderInstance.Zones),
+			apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 		)
 
 		// Now, because we have 2 arguments to AddSubnets() below, we
 		// need to expect the same zoneCalls twice, with a
 		// AvailabilityZones backing lookup between them.
 		expectedCalls = append(expectedCalls, zoneCalls...)
-		expectedCalls = append(expectedCalls, BackingCall("AvailabilityZones"))
+		expectedCalls = append(expectedCalls, apiservertesting.BackingCall("AvailabilityZones"))
 		expectedCalls = append(expectedCalls, zoneCalls...)
 	}
 
@@ -710,37 +720,37 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 		c.Check(result.Error.Code, gc.Equals, "")
 	}
 
-	CheckMethodCalls(c, SharedStub, expectedCalls...)
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, expectedCalls...)
 }
 
 func (s *SubnetsSuite) TestAddSubnetsWithNoProviderSubnetsFails(c *gc.C) {
 	s.CheckAddSubnetsFails(
-		c, StubNetworkingEnvironName,
-		WithoutZones, WithoutSpaces, WithoutSubnets,
+		c, apiservertesting.StubNetworkingEnvironName,
+		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
 		"no subnets defined",
 	)
 }
 
 func (s *SubnetsSuite) TestAddSubnetsWithNoBackingSpacesFails(c *gc.C) {
 	s.CheckAddSubnetsFails(
-		c, StubNetworkingEnvironName,
-		WithoutZones, WithoutSpaces, WithSubnets,
+		c, apiservertesting.StubNetworkingEnvironName,
+		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithSubnets,
 		"no spaces defined",
 	)
 }
 
 func (s *SubnetsSuite) TestAddSubnetsWithNoProviderZonesFails(c *gc.C) {
 	s.CheckAddSubnetsFails(
-		c, StubZonedNetworkingEnvironName,
-		WithoutZones, WithSpaces, WithSubnets,
+		c, apiservertesting.StubZonedNetworkingEnvironName,
+		apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets,
 		"no zones defined",
 	)
 }
 
 func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) {
 	s.CheckAddSubnetsFails(
-		c, StubEnvironName,
-		WithoutZones, WithoutSpaces, WithoutSubnets,
+		c, apiservertesting.StubEnvironName,
+		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
 		"environment networking features not supported",
 	)
 }

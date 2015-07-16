@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package subnets_test
+package spaces_test
 
 import (
 	stdtesting "testing"

@@ -95,7 +95,6 @@ func randomKey() string {
 // BoilerplateConfig returns a sample juju configuration.
 func BoilerplateConfig() string {
 	configBuff := new(bytes.Buffer)
-
 	configBuff.WriteString(configHeader)
 	for name, p := range providers {
 		t, err := parseTemplate(p.BoilerplateConfig())
