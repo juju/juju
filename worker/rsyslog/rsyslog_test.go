@@ -5,6 +5,8 @@
 package rsyslog_test
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -163,6 +165,42 @@ func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 
 	c.Assert(strings.Contains(string(rendered), stateServer1Config), jc.IsTrue)
 	c.Assert(strings.Contains(string(rendered), stateServer2Config), jc.IsTrue)
+}
+
+// TestModeAccumulateCertsExist is a regression test for
+// https://bugs.launchpad.net/juju-core/+bug/1464335,
+// where the CA certs existing (in local provider) at
+// bootstrap caused the worker to not publish to state.
+func (s *RsyslogSuite) TestModeAccumulateCertsExistOnDisk(c *gc.C) {
+	dirname := filepath.Join(s.ConfDir(), "rsyslog")
+	err := os.MkdirAll(dirname, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(dirname, "ca-cert.pem"), nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, m := s.st, s.machine
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil, s.ConfDir())
+	c.Assert(err, jc.ErrorIsNil)
+	// The worker should create certs and publish to state during setup,
+	// so we can kill and wait and be confident that the task is done.
+	worker.Kill()
+	c.Assert(worker.Wait(), jc.ErrorIsNil)
+
+	// The CA cert and key should have been published to state.
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["rsyslog-ca-cert"], gc.NotNil)
+	c.Assert(cfg.AllAttrs()["rsyslog-ca-key"], gc.NotNil)
+
+	// ca-cert.pem isn't updated on disk until the worker reacts to the
+	// state change. Let's just ensure that rsyslog-ca-cert is a valid
+	// certificate, and no the zero-length string we wrote to ca-cert.pem.
+	caCertPEM := cfg.AllAttrs()["rsyslog-ca-cert"].(string)
+	c.Assert(err, jc.ErrorIsNil)
+	block, _ := pem.Decode([]byte(caCertPEM))
+	c.Assert(block, gc.NotNil)
+	_, err = x509.ParseCertificate(block.Bytes)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {
