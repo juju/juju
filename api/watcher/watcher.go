@@ -365,9 +365,9 @@ func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
 // The content for the changes is a list of tag strings.
 type entityWatcher struct {
 	commonWatcher
-	caller           base.APICaller
+	caller          base.APICaller
 	entityWatcherId string
-	out              chan []string
+	out             chan []string
 }
 
 func NewEntityWatcher(caller base.APICaller, result params.EntityWatchResult) EntityWatcher {
