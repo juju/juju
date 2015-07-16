@@ -120,7 +120,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
-	err = newState.runTransactionNoEnvAliveAssert(ops)
+	err = newState.runTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
