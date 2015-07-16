@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
 import os
+from os.path import join
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -22,13 +23,16 @@ def main():
     with NamedTemporaryFile() as config_file:
         json.dump({
             'command': command, 'install': {},
-            'artifacts': {'artifacts': ['*']},
+            'artifacts': {'artifacts': [
+                'artifacts/machine*/*log*',
+                'artifacts/*.jenv',
+                ]},
             'bucket': 'juju-qa-data',
             }, config_file)
         config_file.flush()
         subprocess.check_call([
             'workspace-run', config_file.name, sys.argv[1], prefix,
-            '--s3-config', s3_config,
+            '--s3-config', s3_config, '-v',
             ])
 
 if __name__ == '__main__':
