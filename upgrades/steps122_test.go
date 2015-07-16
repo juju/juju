@@ -45,3 +45,10 @@ func (s *steps122Suite) TestStepsFor122(c *gc.C) {
 	}
 	assertSteps(c, version.MustParse("1.22.0"), expected)
 }
+
+func (s *steps122Suite) TestStateStepsFor1227(c *gc.C) {
+	expected := []string{
+		"migrate charm archives into environment storage",
+	}
+	assertStateSteps(c, version.MustParse("1.22.7"), expected)
+}

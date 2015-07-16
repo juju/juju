@@ -116,3 +116,17 @@ func stepsFor122() []Step {
 		},
 	}
 }
+
+// stateStepsFor1227 returns upgrade steps form Juju 1.22.7 that manipulate state directly.
+func stateStepsFor1227() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "migrate charm archives into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				agentConf := context.AgentConfig()
+				return migrateCharmStorage(context.State(), agentConf)
+			},
+		},
+	}
+}
