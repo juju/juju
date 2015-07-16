@@ -4,14 +4,17 @@
 package upgrades
 
 var (
-	UpgradeOperations      = &upgradeOperations
-	StateUpgradeOperations = &stateUpgradeOperations
-	UbuntuHome             = &ubuntuHome
-	RootLogDir             = &rootLogDir
-	RootSpoolDir           = &rootSpoolDir
-	NewStateStorage        = &newStateStorage
-	StateToolsStorage      = &stateToolsStorage
-	AddAZToInstData        = &addAZToInstData
+	UpgradeOperations         = &upgradeOperations
+	StateUpgradeOperations    = &stateUpgradeOperations
+	UbuntuHome                = &ubuntuHome
+	RootLogDir                = &rootLogDir
+	RootSpoolDir              = &rootSpoolDir
+	CharmBundleURL            = &charmBundleURL
+	CharmStoragePath          = &charmStoragePath
+	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
+	NewStateStorage           = &newStateStorage
+	StateToolsStorage         = &stateToolsStorage
+	AddAZToInstData           = &addAZToInstData
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
@@ -33,4 +36,5 @@ var (
 	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
 	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
 	AddAvaililityZoneToInstanceData       = addAvaililityZoneToInstanceData
+	MigrateCharmStorage                   = migrateCharmStorage
 )
