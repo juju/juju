@@ -4,16 +4,19 @@
 package featuretests
 
 import (
+	"fmt"
+	"os/exec"
 	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/component/all"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/process"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 )
 
 func initProcessesSuites() {
@@ -27,33 +30,22 @@ func initProcessesSuites() {
 }
 
 type processesBaseSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 
-	env  *procsEnviron
-	unit *procsUnit
+	env *procsEnviron
 }
 
-const environConfig = coretesting.SingleEnvConfig + `
-    local:
-        type: local
-        authorized-keys: ` + coretesting.FakeAuthKeys + `
-`
+func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
 
-func (s *processesBaseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	if s.env == nil {
-		coretesting.WriteEnvironments(c, environConfig, coretesting.SampleCertName)
-		s.env = newProcsEnv(c, s, "local")
-	}
+	s.env = newProcsEnv(c, "local")
+	s.env.bootstrap(c)
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
-	if s.env != nil {
-		s.env.destroy(c)
-	}
+	s.env.destroy(c)
 
-	s.JujuConnSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
 }
 
 type processesHookContextSuite struct {
@@ -89,7 +81,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 
 	// Change the config.
 
-	unit.setStatus(c, "okay")
+	unit.setConfigStatus(c, "okay")
 
 	unit.checkState(c, []process.Info{{
 		Process: charm.Process{
@@ -115,6 +107,8 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	unit.checkPluginLog(c, []string{
 		"...",
 	})
+
+	c.Fail()
 }
 
 // TODO(ericsnow) Add a test specifically for each supported plugin
@@ -169,33 +163,83 @@ func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
 	c.Skip("not finished")
 }
 
+//newProcsEnviron
+//env.bootstrap
+//env.addService
+//svc.deploy
+//unit.checkState
+//unit.checkPluginLog
+//unit.setStatus
+//unit.destroy
+
 type procsEnviron struct {
-	base coretesting.Environ
+	name    string
+	machine string
+	exec    func(cmd string, args ...string) (string, error)
 }
 
-func newProcsEnv(c *gc.C, s *processesBaseSuite, envName string) *procsEnviron {
-	base := jujutesting.NewEnv(&s.JujuConnSuite)
-	if envName != "" {
-		base = coretesting.NewEnv(c, envName)
+func newProcsEnv(c *gc.C, envName string) *procsEnviron {
+	return &procsEnviron{
+		name:    envName,
+		machine: "1",
+		exec: func(cmd string, args ...string) (string, error) {
+			c.Logf("running %s %s", cmd, strings.Join(args, " "))
+			return "", nil
+			command := exec.Command(cmd, args...)
+			out, err := command.CombinedOutput()
+			return string(out), err
+		},
 	}
-	return &procsEnviron{base: base}
+}
+
+func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
+	args = append(append(strings.Fields(cmd), "--environment="+env.name), args...)
+
+	// TODO(ericsnow) This isn't ideal...
+	out, err := env.exec("juju", args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return out
+}
+
+func (env *procsEnviron) bootstrap(c *gc.C) {
+	env.run(c, "bootstrap")
 }
 
 func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *procsService {
-	svc := env.base.AddService(c, charmName, serviceName)
-	return &procsService{base: svc}
+	if serviceName == "" {
+		serviceName = charmName
+	}
+	charmURL := "local:quantal/" + charmName
+	repoDir := testcharms.Repo.Path()
+
+	env.run(c, "add-machine")
+	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
+	env.run(c, "destroy-unit", serviceName+"/0")
+
+	return &procsService{
+		env:       env,
+		charmName: charmName,
+		name:      serviceName,
+	}
 }
 
 func (env *procsEnviron) destroy(c *gc.C) {
-	env.base.Destroy(c)
+	env.run(c, "destroy-environment", "-f")
 }
 
 type procsService struct {
-	base coretesting.Service
+	env       *procsEnviron
+	charmName string
+	name      string
+	lastUnit  int
 }
 
 func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
-	svc.base.SetConfig(c, settings)
+	var args []string
+	for k, v := range settings {
+		args = append(args, fmt.Sprintf("%s=%q", k, v))
+	}
+	svc.env.run(c, "service set", args...)
 }
 
 func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *procsUnit {
@@ -206,21 +250,57 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 	}
 	svc.setConfig(c, settings)
 
-	unit := svc.base.Deploy(c)
-	return &procsUnit{base: unit, svc: svc}
+	svc.env.run(c, "service add-unit", "--to="+svc.env.machine, svc.name)
+
+	svc.lastUnit += 1
+	return &procsUnit{
+		svc: svc,
+		id:  fmt.Sprintf("%s/%d", svc.name, svc.lastUnit),
+	}
 }
 
 type procsUnit struct {
-	base coretesting.Unit
-	svc  *procsService
+	svc *procsService
+	id  string
 }
 
 func (u *procsUnit) setConfig(c *gc.C, settings map[string]string) {
-	u.base.SetConfig(c, settings)
+	u.svc.setConfig(c, settings)
 }
 
-func (u *procsUnit) runAction(c *gc.C, name string, args map[string]interface{}) map[string]string {
-	rawResults := u.base.RunAction(c, name, args)
+func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
+	settings := map[string]string{"plugin-status": status}
+	u.setConfig(c, settings)
+}
+
+func (u *procsUnit) destroy(c *gc.C) {
+	u.svc.env.run(c, "destroy-unit", u.id)
+}
+
+func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]interface{}) map[string]string {
+	// Send the command.
+	args := []string{
+		u.id,
+		action,
+	}
+	for k, v := range actionArgs {
+		args = append(args, fmt.Sprintf("%s=%q", k, v))
+	}
+	doOut := u.svc.env.run(c, "action do", args...)
+	c.Assert(strings.Fields(doOut), gc.HasLen, 2)
+	actionID := strings.Fields(doOut)[1]
+
+	// Get the results.
+	fetchOut := u.svc.env.run(c, "action fetch", "--wait", actionID)
+	result := struct {
+		Result map[string]interface{}
+	}{}
+	err := goyaml.Unmarshal([]byte(fetchOut), &result)
+	c.Assert(err, jc.ErrorIsNil)
+	rawResults := result.Result
+
+	// Check and coerce the results.
+	c.Check(rawResults["status"].(string), gc.Equals, "success")
 	delete(rawResults, "status")
 	results := make(map[string]string, len(rawResults))
 	for k, v := range rawResults {
@@ -229,13 +309,12 @@ func (u *procsUnit) runAction(c *gc.C, name string, args map[string]interface{})
 	return results
 }
 
-func (u *procsUnit) destroy(c *gc.C) {
-	u.base.Destroy(c)
-}
-
-func (u *procsUnit) setStatus(c *gc.C, status string) {
-	settings := map[string]string{"plugin-status": status}
-	u.setConfig(c, settings)
+func (u *procsUnit) injectStatus(c *gc.C, pluginID, status string) {
+	args := map[string]interface{}{
+		"id":     pluginID,
+		"status": status,
+	}
+	u.runAction(c, "plugin-setstatus", args)
 }
 
 func (u *procsUnit) prepPlugin(c *gc.C, procName, pluginID, status string) {
@@ -248,7 +327,8 @@ func (u *procsUnit) prepPlugin(c *gc.C, procName, pluginID, status string) {
 }
 
 func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
-	procs := u.base.Procs(c)
+	var procs []process.Info
+	// TODO(ericsnow) finish!
 	c.Check(procs, jc.DeepEquals, expected)
 }
 
@@ -258,6 +338,7 @@ func (u *procsUnit) checkPluginLog(c *gc.C, expected []string) {
 	output, ok := results["output"]
 	c.Assert(ok, jc.IsTrue)
 	lines := strings.Split(output, "\n")
+	// TODO(ericsnow) strip header...
 
 	c.Check(lines, jc.DeepEquals, expected)
 }
