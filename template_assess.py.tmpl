@@ -3,8 +3,8 @@ from __future__ import print_function
 
 __metaclass__ = type
 
-from base_asses import get_base_parser
-from status import StatusTester
+from argparse import ArgumentParser
+
 from jujupy import (
     make_client,
 )
@@ -12,13 +12,20 @@ from deploy_stack import (
     boot_context,
     prepare_environment,
 )
+from utility import (
+    add_basic_testing_arguments
+)
+
 
 TEST_HUMAN_NAME="<YOUR TEST HUMAN READABLE HERE>"
 
 
 def parse_args():
     """Parse all arguments."""
-    parser = get_base_parser(TEST_HUMAN_NAME)
+    parser = ArgumentParser(TEST_HUMAN_NAME)
+    # Add your positional arguments
+    add_basic_testing_arguments(parser)
+    # Add your optional arguments.
     return parser.parse_args()
 
 
@@ -40,13 +47,13 @@ def main():
 
         client.get_status(60)
         # Deploy charms, there are several under ./repository
-        client.juju("deploy", ('local:trusty/wordpress',))
+        client.juju("deploy", ('local:trusty/my-charm',))
         # Wait for the deployment to finish.
         client.wait_for_started()
-        #----------------- CALL YOUR TESTS HERE
-        # At this point you have a juju bootstraped with a wordpress charm
-        # deployed and active with the agent idle.
 
+        #----------------- CALL YOUR TESTS HERE
+        # At this point you have a juju bootstraped with my-charm
+        # deployed and active with the agent idle.
         #----------------- TESTS END HERE
 
 

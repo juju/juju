@@ -17,6 +17,7 @@ from time import (
     time,
     )
 from tempfile import mkdtemp
+from unittest import FunctionTestCase
 import xml.etree.ElementTree as ET
 
 # Export shell quoting function which has moved in newer python versions
@@ -322,3 +323,15 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+
+
+def to_unit_test(test_function):
+
+    def unit_testify(*args, **kwargs):
+        tc = FunctionTestCase(test_function)
+        largs = list(args)
+        largs.insert(1, tc)
+        args = tuple(largs)
+        return test_function(*args, **kwargs)
+
+    return unit_testify
