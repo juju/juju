@@ -25,6 +25,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+var repoDir = testcharms.Repo.Path()
+
 func initProcessesSuites() {
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
@@ -233,7 +235,6 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 		serviceName = charmName
 	}
 	charmURL := "local:quantal/" + charmName
-	repoDir := testcharms.Repo.Path()
 
 	env.run(c, "add-machine", "--series=quantal")
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
