@@ -42,8 +42,9 @@ func (c workloadProcesses) registerHookContext() {
 
 	runner.RegisterComponentFunc(process.ComponentName,
 		func(caller base.APICaller, authTag names.Tag) (jujuc.ContextComponent, error) {
-			facadeCaller := base.NewFacadeCallerForVersion(caller, authTag.String(), 0)
+			facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
 			hctxClient := client.NewHookContextClient(facadeCaller)
+			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient)
 			if err != nil {
 				return nil, errors.Trace(err)
