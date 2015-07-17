@@ -342,7 +342,7 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 
 	// Check and coerce the results.
 	if !c.Check(result.Status, gc.Equals, "completed") {
-		c.Logf(" " + fetchOut)
+		c.Logf(" got:\n" + fetchOut)
 	}
 	results := make(map[string]string, len(result.Results))
 	for k, v := range result.Results {
@@ -372,12 +372,14 @@ func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
 	var procs []process.Info
 
 	results := u.runAction(c, "list", nil)
-	out := results["out"]
-	for _, section := range strings.Split(strings.TrimSpace(out), "\n\n") {
-		var proc process.Info
-		err := goyaml.Unmarshal([]byte(section), &proc)
-		c.Assert(err, jc.ErrorIsNil)
-		procs = append(procs, proc)
+	out := strings.TrimSpace(results["out"])
+	if out != " [no processes registered]" {
+		for _, section := range strings.Split(out, "\n\n") {
+			var proc process.Info
+			err := goyaml.Unmarshal([]byte(section), &proc)
+			c.Assert(err, jc.ErrorIsNil)
+			procs = append(procs, proc)
+		}
 	}
 
 	c.Check(procs, jc.DeepEquals, expected)
