@@ -236,7 +236,7 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 
 	env.run(c, "add-machine", "--series=quantal")
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
-	env.run(c, "destroy-unit", serviceName+"/0")
+	// We leave unit /0 alive to keep the machine alive.
 
 	return &procsService{
 		env:       env,
