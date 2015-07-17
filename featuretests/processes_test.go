@@ -240,11 +240,16 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
 	// We leave unit /0 alive to keep the machine alive.
 
-	return &procsService{
+	svc := &procsService{
 		env:       env,
 		charmName: charmName,
 		name:      serviceName,
 	}
+	svc.dummy = procsUnit{
+		svc: svc,
+		id:  serviceName + "/0",
+	}
+	return svc
 }
 
 func (env *procsEnviron) destroy(c *gc.C) {
@@ -255,10 +260,18 @@ type procsService struct {
 	env       *procsEnviron
 	charmName string
 	name      string
+	dummy     procsUnit
 	lastUnit  int
 }
 
+func (svc *procsService) block(c *gc.C) {
+	svc.dummy.runAction(c, "noop", nil)
+}
+
 func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
+	// Try to force at least a little sequentiality on Juju.
+	svc.block(c)
+
 	args := []string{svc.name}
 	for k, v := range settings {
 		args = append(args, fmt.Sprintf("%s=%q", k, v))
