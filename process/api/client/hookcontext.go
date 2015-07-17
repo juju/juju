@@ -35,6 +35,9 @@ func (c HookContextClient) RegisterProcesses(processes ...api.Process) ([]api.Pr
 	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if result.Error != nil {
+		return nil, errors.Errorf(result.Error.GoString())
+	}
 
 	return result.Results, nil
 }
