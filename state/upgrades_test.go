@@ -3174,7 +3174,7 @@ func (s *upgradesSuite) TestSetHostedEnvironCount(c *gc.C) {
 
 	//While there are 4 environments, the system environment should not be
 	//counted.
-	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+	c.Assert(HostedEnvironCount(c, s.state), gc.Equals, 3)
 }
 
 func (s *upgradesSuite) TestSetHostedEnvironCountIdempotent(c *gc.C) {
@@ -3186,7 +3186,7 @@ func (s *upgradesSuite) TestSetHostedEnvironCountIdempotent(c *gc.C) {
 	SetHostedEnvironCount(s.state)
 	SetHostedEnvironCount(s.state)
 
-	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+	c.Assert(HostedEnvironCount(c, s.state), gc.Equals, 3)
 }
 
 var index uint32

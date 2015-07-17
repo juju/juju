@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,6 +25,8 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.container.testing")
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
@@ -72,7 +75,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 
 	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
 		name := "test-" + names.NewMachineTag(instanceConfig.MachineId).String()
-		EnsureRootFSEtcNetwork(c, name)
+		EnsureLXCRootFSEtcNetwork(c, name)
 	}
 	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", networkConfig, storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,11 +84,12 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	return inst
 }
 
-func EnsureRootFSEtcNetwork(c *gc.C, containerName string) {
+func EnsureLXCRootFSEtcNetwork(c *gc.C, containerName string) {
 	// Pre-create the mock rootfs dir for the container and
 	// /etc/network/ inside it, where the interfaces file will be
 	// pre-rendered (unless AUFS is used).
 	etcNetwork := filepath.Join(lxc.LxcContainerDir, containerName, "rootfs", "etc", "network")
+	logger.Debugf("ensuring root fs /etc/network in %s", etcNetwork)
 	err := os.MkdirAll(etcNetwork, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(etcNetwork, "interfaces"), []byte("#empty"), 0644)

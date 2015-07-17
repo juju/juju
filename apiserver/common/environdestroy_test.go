@@ -257,7 +257,7 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
 	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())

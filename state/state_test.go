@@ -2190,6 +2190,9 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 
 	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env2.Destroy(), jc.ErrorIsNil)
 	err = state.RemoveEnvironment(s.State, st2.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 

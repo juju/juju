@@ -143,7 +143,7 @@ func (s *MetricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	err = w.AddMetric("pings", "5", time.Now())
-	c.Assert(err, gc.ErrorMatches, "invalid metric key: pings")
+	c.Assert(err, gc.ErrorMatches, `metric key "pings" not declared by the charm`)
 	err = w.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
