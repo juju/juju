@@ -274,7 +274,7 @@ func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
 
 	args := []string{svc.name}
 	for k, v := range settings {
-		args = append(args, fmt.Sprintf("%s=%q", k, v))
+		args = append(args, fmt.Sprintf("'%s=%s'", k, v))
 	}
 	svc.env.run(c, "service set", args...)
 }
@@ -325,7 +325,7 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 		action,
 	}
 	for k, v := range actionArgs {
-		args = append(args, fmt.Sprintf("%s=%q", k, v))
+		args = append(args, fmt.Sprintf("'%s=%s'", k, v))
 	}
 	doOut := u.svc.env.run(c, "action do", args...)
 	c.Assert(strings.Split(doOut, ": "), gc.HasLen, 2)
