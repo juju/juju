@@ -341,7 +341,7 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check and coerce the results.
-	if !c.Check(result.Status, gc.Equals, "success") {
+	if !c.Check(result.Status, gc.Equals, "completed") {
 		c.Logf(" " + fetchOut)
 	}
 	results := make(map[string]string, len(result.Results))
