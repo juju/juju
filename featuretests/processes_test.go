@@ -5,18 +5,24 @@ package featuretests
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
-	"github.com/juju/testing"
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
+	cmdjuju "github.com/juju/juju/cmd/juju"
+	cmdaction "github.com/juju/juju/cmd/juju/action"
+	cmdmachine "github.com/juju/juju/cmd/juju/machine"
+	cmdservice "github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/component/all"
+	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func initProcessesSuites() {
@@ -30,22 +36,24 @@ func initProcessesSuites() {
 }
 
 type processesBaseSuite struct {
-	testing.IsolationSuite
-
-	env *procsEnviron
+	initialized bool
+	env         *procsEnviron
 }
 
-func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
+func (s *processesBaseSuite) SetUpTest(c *gc.C) {
+	if !s.initialized {
+		initJuju(c)
+		s.env = newProcsEnv(c, "local")
 
-	s.env = newProcsEnv(c, "local")
-	s.env.bootstrap(c)
+		s.env.bootstrap(c)
+		s.initialized = true
+	}
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
-	s.env.destroy(c)
-
-	s.IsolationSuite.TearDownSuite(c)
+	if s.initialized {
+		s.env.destroy(c)
+	}
 }
 
 type processesHookContextSuite struct {
@@ -164,30 +172,55 @@ func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
 type procsEnviron struct {
 	name    string
 	machine string
-	exec    func(cmd string, args ...string) (string, error)
 }
 
 func newProcsEnv(c *gc.C, envName string) *procsEnviron {
 	return &procsEnviron{
 		name:    envName,
 		machine: "1",
-		exec: func(cmd string, args ...string) (string, error) {
-			c.Logf("running %s %s", cmd, strings.Join(args, " "))
-			return "", nil
-			command := exec.Command(cmd, args...)
-			out, err := command.CombinedOutput()
-			return string(out), err
-		},
 	}
 }
 
 func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
-	args = append(append(strings.Fields(cmd), "--environment="+env.name), args...)
+	args = append([]string{"--environment=" + env.name}, args...)
 
-	// TODO(ericsnow) This isn't ideal...
-	out, err := env.exec("juju", args...)
+	command := lookUpCommand(cmd)
+	ctx, err := coretesting.RunCommand(c, command, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	return out
+
+	return coretesting.Stdout(ctx)
+}
+
+func initJuju(c *gc.C) {
+	err := jjj.InitJujuHome()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TODO(ericsnow) Instead, directly access the command registry...
+func lookUpCommand(cmd string) cmd.Command {
+	switch cmd {
+	case "bootstrap":
+		return envcmd.Wrap(&cmdjuju.BootstrapCommand{})
+	case "destroy-environment":
+		return &cmdjuju.DestroyEnvironmentCommand{}
+	case "add-machine":
+		return envcmd.Wrap(&cmdmachine.AddCommand{})
+	case "deploy":
+		return envcmd.Wrap(&cmdjuju.DeployCommand{})
+	case "service set":
+		return envcmd.Wrap(&cmdservice.SetCommand{})
+	case "service add-unit":
+		return envcmd.Wrap(&cmdservice.AddUnitCommand{})
+	case "destroy-unit":
+		return envcmd.Wrap(&cmdjuju.RemoveUnitCommand{})
+	case "action do":
+		return envcmd.Wrap(&cmdaction.DoCommand{})
+	case "action fetch":
+		return envcmd.Wrap(&cmdaction.FetchCommand{})
+	default:
+		panic("unknown command: " + cmd)
+	}
+	return nil
 }
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
@@ -201,7 +234,7 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	charmURL := "local:quantal/" + charmName
 	repoDir := testcharms.Repo.Path()
 
-	env.run(c, "add-machine")
+	env.run(c, "add-machine", "--series=quantal")
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
 	env.run(c, "destroy-unit", serviceName+"/0")
 
@@ -213,7 +246,7 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 }
 
 func (env *procsEnviron) destroy(c *gc.C) {
-	env.run(c, "destroy-environment", "-f")
+	env.run(c, "destroy-environment", "--force")
 }
 
 type procsService struct {
@@ -224,7 +257,7 @@ type procsService struct {
 }
 
 func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
-	var args []string
+	args := []string{svc.name}
 	for k, v := range settings {
 		args = append(args, fmt.Sprintf("%s=%q", k, v))
 	}
@@ -321,7 +354,16 @@ func (u *procsUnit) prepPlugin(c *gc.C, procName, pluginID, status string) {
 
 func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
 	var procs []process.Info
-	// TODO(ericsnow) finish!
+
+	results := u.runAction(c, "list", nil)
+	out := results["out"]
+	for _, section := range strings.Split(strings.TrimSpace(out), "\n\n") {
+		var proc process.Info
+		err := goyaml.Unmarshal([]byte(section), &proc)
+		c.Assert(err, jc.ErrorIsNil)
+		procs = append(procs, proc)
+	}
+
 	c.Check(procs, jc.DeepEquals, expected)
 }
 
