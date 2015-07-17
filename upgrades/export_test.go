@@ -50,4 +50,5 @@ var (
 
 	// 125 upgrade functions
 	AddInstanceTags = addInstanceTags
+	RemoveJujudpass = removeJujudpass
 )
