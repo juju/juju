@@ -797,7 +797,11 @@ $juju_user = "$hostname\jujud"
 SetUserLogonAsServiceRights $juju_user
 SetAssignPrimaryTokenPrivilege $juju_user
 
-New-ItemProperty "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" -Name "jujud" -Value 0 -PropertyType "DWord"
+$path = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList"
+if(!(Test-Path $path)){
+	New-Item -Path $path -force
+}
+New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
 
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
