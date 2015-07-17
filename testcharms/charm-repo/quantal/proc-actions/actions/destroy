@@ -3,4 +3,12 @@
 export PATH=$PWD/plugin:$PATH
 
 name=$(action-get name)
-destroy "$name"
+_unregister=$(action-get unregister)
+status-set maintenance "destroy: destroying $name and removing it from Juju's state"
+
+result=$(destroy "$name" "$_unregister" 2>&1)
+#result=$(juju-process-myplugin destroy "$id" 2>&1)
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "destroy: [$name] failed ($rc - $result)"
+fi

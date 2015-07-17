@@ -2,5 +2,12 @@
 
 export PATH=$PWD/plugin:$PATH
 
-out=$(juju-process-myplugin dump --no-header)
-action-set output="$out"
+status-set maintenance "plugin-dump: dumping plugin logs"
+
+result=$(juju-process-myplugin dump --no-header 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "plugin-dump: failed ($rc - $result)"
+fi

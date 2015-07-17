@@ -4,4 +4,10 @@ export PATH=$PWD/plugin:$PATH
 
 id=$(action-get id)
 status=$(action-get status)
-juju-process-myplugin setstatus "$id" "$status"
+status-set maintenance "plugin-setstatus: setting plugin status of $id to $status"
+
+result=$(juju-process-myplugin setstatus "$id" "$status" 2>&1)
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "plugin-setstatus: [$id, $status] failed ($rc - $result)"
+fi

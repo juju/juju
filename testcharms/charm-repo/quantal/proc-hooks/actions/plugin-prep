@@ -5,4 +5,10 @@ export PATH=$PWD/plugin:$PATH
 name=$(action-get name)
 id=$(action-get id)
 status=$(action-get status)
-juju-process-myplugin init "$name" "$id" "$status"
+status-set maintenance "plugin-prep: initializing plugin ($name, $id, $status)"
+
+result=$(juju-process-myplugin init "$name" "$id" "$status")
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "plugin-prep: [$name, $id, $status] failed ($rc - $result)"
+fi

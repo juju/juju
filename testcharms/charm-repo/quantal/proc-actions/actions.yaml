@@ -49,11 +49,6 @@ status:
   params:
     name:
       type: string
-status:
-  description: call the hook command
-  params:
-    name:
-      type: string
 set-status:
   description: call the hook command
   params:
@@ -61,10 +56,15 @@ set-status:
       type: string
     status:
       type: string
-unregister:
+destroy:
   description: call the hook command
   params:
     name:
       type: string
     unregister:
+      type: string
+unregister:
+  description: call the hook command
+  params:
+    name:
       type: string

@@ -3,4 +3,12 @@
 export PATH=$PWD/plugin:$PATH
 
 name=$(action-get name)
-status "$name"
+status-set maintenance "status: getting status for $name"
+
+result=$(status "$name" 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "status: [$name] failed ($rc - $result)"
+fi

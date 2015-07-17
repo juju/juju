@@ -2,4 +2,8 @@
 
 export PATH=$PWD/plugin:$PATH
 
-juju-process-myplugin reset
+result=$(juju-process-myplugin reset 2>&1)
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "plugin-reset: failed ($rc - $result)"
+fi

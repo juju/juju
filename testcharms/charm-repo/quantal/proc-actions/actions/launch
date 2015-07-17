@@ -3,4 +3,12 @@
 export PATH=$PWD/plugin:$PATH
 
 name=$(action-get name)
-launch "$name"
+status-set maintenance "launch: launching $name"
+
+result=$(launch "$name" 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "launch: [$name] failed ($rc - $result)"
+fi

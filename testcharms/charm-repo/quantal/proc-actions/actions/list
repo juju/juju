@@ -2,5 +2,12 @@
 
 export PATH=$PWD/plugin:$PATH
 
-out=$(info)
-action-set output="$out"
+status-set maintenance "list: listing workload processes in state"
+
+result=$(info 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "plugin-remove: failed ($rc - $result)"
+fi

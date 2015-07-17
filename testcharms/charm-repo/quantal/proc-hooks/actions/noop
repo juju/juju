@@ -2,4 +2,5 @@
 
 export PATH=$PWD/plugin:$PATH
 
+status-set maintenance "noop: doing nothing"
 # do nothing

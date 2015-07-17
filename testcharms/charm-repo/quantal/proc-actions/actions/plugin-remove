@@ -3,4 +3,10 @@
 export PATH=$PWD/plugin:$PATH
 
 id=$(action-get id)
-juju-process-myplugin destroy "$id"
+status-set maintenance "plugin-remove: removing $id from plugin"
+
+result=$(juju-process-myplugin destroy "$id" 2>&1)
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "plugin-remove: [$id] failed ($rc - $result)"
+fi
