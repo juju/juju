@@ -4,6 +4,8 @@
 package persistence_test
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -700,6 +702,9 @@ func (s *procsPersistenceSuite) TestListAllOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "All", "All", "All")
 	c.Check(s.state.ops, gc.HasLen, 0)
+	sort.Sort(byName(procs))
+	sort.Sort(byName(existing))
+
 	c.Check(procs, jc.DeepEquals, existing)
 }
 
@@ -735,8 +740,16 @@ func (s *procsPersistenceSuite) TestListAllIncludeCharmDefined(c *gc.C) {
 			Type: "docker",
 		},
 	})
+	sort.Sort(byName(procs))
+	sort.Sort(byName(existing))
 	c.Check(procs, jc.DeepEquals, existing)
 }
+
+type byName []process.Info
+
+func (b byName) Len() int           { return len(b) }
+func (b byName) Less(i, j int) bool { return b[i].Name < b[j].Name }
+func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
 func (s *procsPersistenceSuite) TestListAllInconsistent(c *gc.C) {
 	existing := s.newProcesses("docker", "procA/xyz", "procB/abc")
