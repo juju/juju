@@ -26,3 +26,4 @@ if [ -n "$name" ]; then
 else
     status-set blocked 'not configured; skipping...'
 fi
+exit 0

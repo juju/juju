@@ -21,3 +21,4 @@ if [ -e $ACTIVE_FILE ]; then
 else
     status-set blocked 'not active; skipping...'
 fi
+exit 0
