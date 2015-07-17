@@ -178,9 +178,11 @@ class DataFile:
                 return row
         raise KeyError(name)
 
-    def dump(self):
+    def dump(self, *, showheader=True):
         out = '\n'.join(row.as_line() for row in self._iter_rows())
-        return Row.HEADER() + '\n' + out
+        if showheader:
+            out = Row.HEADER() + '\n' + out
+        return out
 
     def add(self, name, id, status):
         if id in self._data:
@@ -235,9 +237,9 @@ def handle_datafile():
         return datafile.filename
 
 
-def handle_dump():
+def handle_dump(showheader=True):
     with DataFile() as datafile:
-        return datafile.dump()
+        return datafile.dump(showheader=showheader)
 
 
 def handle_launch(definition):
@@ -283,14 +285,16 @@ def parse_args():
     setstatus.add_argument('status')
     setstatus.set_defaults(command='setstatus')
 
-    setstatus = subs.add_parser('reset')
-    setstatus.set_defaults(command='reset')
+    reset = subs.add_parser('reset')
+    reset.set_defaults(command='reset')
 
-    setstatus = subs.add_parser('datafile')
-    setstatus.set_defaults(command='datafile')
+    datafile = subs.add_parser('datafile')
+    datafile.set_defaults(command='datafile')
 
-    setstatus = subs.add_parser('dump')
-    setstatus.set_defaults(command='dump')
+    dump = subs.add_parser('dump')
+    dump.add_argument('--no-header', dest='showheader', action='store_false',
+                      default=True)
+    dump.set_defaults(command='dump')
 
     launch = subs.add_parser('launch')
     launch.add_argument('definition')
