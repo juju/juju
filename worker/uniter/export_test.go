@@ -19,6 +19,7 @@ var (
 	EnterLoopIsIdleTime    = &enterLoopIsIdleWaitTime
 	ActiveSendMetricsTimer = &activeSendMetricsTimer
 	LeadershipGuarantee    = &leadershipGuarantee
+	NewExecutor            = newOperationExecutor
 )
 
 // manualTicker will be used to generate collect-metrics events
