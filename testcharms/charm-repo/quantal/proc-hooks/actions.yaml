@@ -1,3 +1,6 @@
+noop:
+  description: do nothing (may be waited on to serialize calls)
+
 plugin-prep:
   description: prepare to launch a process
   params:
