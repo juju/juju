@@ -76,14 +76,13 @@ func (c *ProcLaunchCommand) init(name string) error {
 // Run implements cmd.Command.
 func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 
-	plugin, err := c.findPlugin(c.Name)
-	if err != nil {
-		return err
-	}
-
 	info, err := c.findValidInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	plugin, err := c.findPlugin(info.Type)
+	if err != nil {
+		return err
 	}
 
 	// The plugin is responsible for validating that the launch was
