@@ -4,7 +4,7 @@ __metaclass__ = type
 
 import json
 import re
-from base_asses import toUnitTest
+from utility import to_unit_test
 from jujupy import yaml_loads
 
 # Machine and unit, deprecated in unit
@@ -79,7 +79,7 @@ class BaseStatusParser:
     def parse(self):
         return self._parse()
 
-    @toUnitTest
+    @to_unit_test
     def store(self, tc, parsed):
         # Either there are less items than expected and therefore status
         # is returning a subset of what it should or there are more and
@@ -109,7 +109,7 @@ class BaseStatusParser:
                                "status " % unit_name)
                 self._units[unit_name] = unit
 
-    @toUnitTest
+    @to_unit_test
     def assert_machines_len(self, tc, expected_len):
         """Assert that we got as many machines as we where expecting.
 
@@ -118,7 +118,7 @@ class BaseStatusParser:
         """
         tc.assertEqual(len(self._machines), expected_len)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machines_ids(self, tc, expected_ids):
         """Assert that we got the machines we where expecting.
 
@@ -135,37 +135,37 @@ class BaseStatusParser:
                     (key, machine_id))
         return self._machines[machine_id][key]
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_agent_state(self, tc, machine_id, state):
         value = self._machine_key_get(tc, machine_id, AGENT_STATE_KEY)
         tc.assertEqual(value, state)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_agent_version(self, tc, machine_id, version):
         value = self._machine_key_get(tc, machine_id, AGENT_VERSION_KEY)
         tc.assertEqual(value, version)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_dns_name(self, tc, machine_id, dns_name):
         value = self._machine_key_get(tc, machine_id, DNS_NAME_KEY)
         tc.assertEqual(value, dns_name)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_instance_id(self, tc, machine_id, instance_id):
         value = self._machine_key_get(tc, machine_id, INSTANCE_ID_KEY)
         tc.assertEqual(value, instance_id)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_series(self, tc, machine_id, series):
         value = self._machine_key_get(tc, machine_id, SERIES_KEY)
         tc.assertEqual(value, series)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_hardware(self, tc, machine_id, hardware):
         value = self._machine_key_get(tc, machine_id, HARDWARE_KEY)
         tc.assertEqual(value, hardware)
 
-    @toUnitTest
+    @to_unit_test
     def assert_machine_member_status(self, tc, machine_id, member_status):
         value = self._machine_key_get(tc, machine_id,
                                       STATE_SERVER_MEMBER_STATUS_KEY)
@@ -180,17 +180,17 @@ class BaseStatusParser:
         return self._services[service_name][key]
 
     # Service status
-    @toUnitTest
+    @to_unit_test
     def assert_service_charm(self, tc, service_name, charm):
         value = self._service_key_get(tc, service_name, CHARM_KEY)
         tc.assertEqual(value, charm)
 
-    @toUnitTest
+    @to_unit_test
     def assert_service_exposed(self, tc, service_name, exposed):
         value = self._service_key_get(tc, service_name, EXPOSED_KEY)
         tc.assertEqual(value, exposed)
 
-    @toUnitTest
+    @to_unit_test
     def assert_service_service_status(self, tc, service_name,
                                       status={"current": "", "message": ""}):
         value = self._service_key_get(tc, service_name, SERVICE_STATUS_KEY)
@@ -206,14 +206,14 @@ class BaseStatusParser:
         return self._units[unit_name][key]
 
     # Units status
-    @toUnitTest
+    @to_unit_test
     def assert_unit_workload_status(self, tc, unit_name,
                                     status={"current": "", "message": ""}):
         value = self._unit_key_get(tc, unit_name, WORKLOAD_STATUS_KEY)
         tc.assertEqual(value["current"], status["current"])
         tc.assertEqual(value["message"], status["message"])
 
-    @toUnitTest
+    @to_unit_test
     def assert_unit_agent_status(self, tc, unit_name,
                                  status={"current": "", "message": ""}):
         value = self._unit_key_get(tc, unit_name, AGENT_STATUS_KEY)
@@ -221,22 +221,22 @@ class BaseStatusParser:
         # Message is optional for unit agents.
         tc.assertEqual(value.get("message", ""), status["message"])
 
-    @toUnitTest
+    @to_unit_test
     def assert_unit_agent_state(self, tc, unit_name, state):
         value = self._unit_key_get(tc, unit_name, AGENT_STATE_KEY)
         tc.assertEqual(value, state)
 
-    @toUnitTest
+    @to_unit_test
     def assert_unit_agent_version(self, tc, unit_name, version):
         value = self._unit_key_get(tc, unit_name, AGENT_VERSION_KEY)
         tc.assertEqual(value, version)
 
-    @toUnitTest
+    @to_unit_test
     def assert_unit_machine(self, tc, unit_name, machine):
         value = self._unit_key_get(tc, unit_name, MACHINE_KEY)
         tc.assertEqual(value, machine)
 
-    @toUnitTest
+    @to_unit_test
     def assert_unit_public_address(self, tc, unit_name, address):
         value = self._unit_key_get(tc, unit_name, PUBLIC_ADDRESS_KEY)
         tc.assertEqual(value, address)
@@ -288,7 +288,7 @@ class StatusTabularParser(BaseStatusParser):
             raise ErrNoStatus("tabular status was empty")
         super(StatusTabularParser, self).__init__()
 
-    @toUnitTest
+    @to_unit_test
     def _normalize_machines(self, tc, header, items):
         nitems = items[:6]
         nitems.append(" ".join(items[6:]))
@@ -302,7 +302,7 @@ class StatusTabularParser(BaseStatusParser):
                               nitems[1:]))
         return nitems[0], normalized
 
-    @toUnitTest
+    @to_unit_test
     def _normalize_units(self, tc, header, items):
         eid, wlstate, astate, version, machine, paddress = items[:6]
         message = " ".join(items[6:])
@@ -320,7 +320,7 @@ class StatusTabularParser(BaseStatusParser):
 
         return eid, normalized
 
-    @toUnitTest
+    @to_unit_test
     def _normalize_services(self, tc, header, items):
         name, status, exposed, charm = items
         tc.assertEqual(header, SERVICE_TAB_HEADERS,
