@@ -364,23 +364,23 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     will be destroyed when the test completes or there is an unrecoverable
     error.
 
-    The temporary environment is create by updating a EnvJujuClient's config
+    The temporary environment is created by updating a EnvJujuClient's config
     with series, agent_url, agent_stream.
 
-    :param temp_env_name: a unique name for the juju env, such as a Jenkin's
+    :param temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
     :param client: an EnvJujuClient.
     :param bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
-    :param machine: [] or a list of machine addresses to use add to a manual
-        env before deploying services.
+    :param machine: [] or a list of machines to use add to a manual env
+        before deploying services.
     :param series: None or the default-series for the temp config.
     :param agent_url: None or the agent-metadata-url for the temp config.
     :param agent_stream: None or the agent-stream for the temp config.
     :param log_dir: The path to the directory to store logs.
-    :param keep_env: False or True and do not destroy the environment, Keep
+    :param keep_env: False or True to not destroy the environment and keep
         it alive to do an autopsy.
-    :param upload_tools: False or True and upload the local agent instead of
+    :param upload_tools: False or True to upload the local agent instead of
         using streams.
     """
     created_machines = False
