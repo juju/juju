@@ -5,6 +5,8 @@ package featuretests
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -269,14 +271,19 @@ func (svc *procsService) block(c *gc.C) {
 }
 
 func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
+	if len(settings) == 0 {
+		return
+	}
 	// Try to force at least a little sequentiality on Juju.
 	svc.block(c)
 
 	args := []string{svc.name}
 	for k, v := range settings {
-		args = append(args, fmt.Sprintf("'%s=%s'", k, v))
+		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	svc.env.run(c, "service set", args...)
+	//filename := procsYAMLFile(c, map[string]interface{}{svc.name: settings})
+	//svc.env.run(c, "service set", "--config="+filename, svc.name)
 }
 
 func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *procsUnit {
@@ -325,9 +332,11 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 		action,
 	}
 	for k, v := range actionArgs {
-		args = append(args, fmt.Sprintf("'%s=%s'", k, v))
+		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	doOut := u.svc.env.run(c, "action do", args...)
+	//filename := procsYAMLFile(c, actionArgs)
+	//doOut := u.svc.env.run(c, "action do", "--params="+filename, u.id, action)
 	c.Assert(strings.Split(doOut, ": "), gc.HasLen, 2)
 	actionID := strings.Split(doOut, ": ")[1]
 
@@ -394,4 +403,13 @@ func (u *procsUnit) checkPluginLog(c *gc.C, expected []string) {
 	// TODO(ericsnow) strip header...
 
 	c.Check(lines, jc.DeepEquals, expected)
+}
+
+func procsYAMLFile(c *gc.C, value interface{}) string {
+	filename := filepath.Join(c.MkDir(), "data.yaml")
+	data, err := goyaml.Marshal(value)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filename, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	return filename
 }
