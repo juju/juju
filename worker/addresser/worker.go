@@ -7,13 +7,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
+	apiaddresser "github.com/juju/juju/api/addresser"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
 
@@ -25,24 +25,15 @@ type releaser interface {
 	ReleaseAddress(instance.Id, network.Id, network.Address, string) error
 }
 
-// stateAddresser defines the State methods used by the addresserHandler
-type stateAddresser interface {
-	DeadIPAddresses() ([]*state.IPAddress, error)
-	EnvironConfig() (*config.Config, error)
-	IPAddress(string) (*state.IPAddress, error)
-	Machine(string) (*state.Machine, error)
-	WatchIPAddresses() state.StringsWatcher
-}
-
 type addresserHandler struct {
-	st       stateAddresser
+	api *apiaddresser.API
 	releaser releaser
 }
 
 // NewWorker returns a worker that keeps track of
 // IP address lifecycles, releaseing and removing Dead addresses.
-func NewWorker(st stateAddresser) (worker.Worker, error) {
-	config, err := st.EnvironConfig()
+func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
+	config, err := api.EnvironConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -53,13 +44,15 @@ func NewWorker(st stateAddresser) (worker.Worker, error) {
 	// If netEnviron is nil the worker will start but won't do anything as
 	// no IP addresses will be created or destroyed.
 	netEnviron, _ := environs.SupportsNetworking(environ)
-	a := newWorkerWithReleaser(st, netEnviron)
-	return a, nil
+	aw := newWorkerWithReleaser(api, netEnviron)
+	return aw, nil
 }
 
-func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
+// newWorkerWithReleaser creates a worker with the addresser handler.
+// It's an own helper function to be exported for tests.
+func newWorkerWithReleaser(api *apiaddresser.API, releaser releaser) worker.Worker {
 	a := &addresserHandler{
-		st:       st,
+		api:       api,
 		releaser: releaser,
 	}
 	w := worker.NewStringsWorker(a)
