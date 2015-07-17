@@ -4,6 +4,8 @@
 package context
 
 import (
+	"os"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/process"
@@ -80,6 +82,13 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO(ericsnow) Move the plugin lookup over to a method in baseCommand.
+	// TODO(ericsnow) Fix this to support Windows.
+	envPath := ctx.Getenv("PATH") + ":" + os.Getenv("PATH")
+	if err := os.Setenv("PATH", envPath); err != nil {
+		return errors.Trace(err)
+	}
 	plugin, err := c.findPlugin(info.Type)
 	if err != nil {
 		return err
@@ -91,7 +100,7 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 	// purposes.
 	procDetails, err := c.launchPlugin(*plugin, info.Process)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c.Details = procDetails
 
