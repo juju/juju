@@ -11,7 +11,7 @@ def main():
     revision_build = os.environ['revision_build']
     job_name = os.environ['JOB_NAME']
     build_number = os.environ['BUILD_NUMBER']
-    prefix='juju-ci/products/version-{}/{}/build-{}'.format(
+    prefix = 'juju-ci/products/version-{}/{}/build-{}'.format(
         revision_build, job_name, build_number)
     s3_config = join(os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
     command = [
