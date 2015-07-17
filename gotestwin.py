@@ -38,7 +38,7 @@ def main():
                 'python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
                 args.package, '--remove', 'ci/{}'.format(tarfile)
                 ]},
-            temp_file)
+             temp_file)
     juju_home = os.environ.get('JUJU_HOME',
                                join(dirname(scripts), 'cloud-city'))
     subprocess.check_call([
