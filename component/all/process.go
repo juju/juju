@@ -75,7 +75,7 @@ func (c workloadProcesses) registerHookContextFacade() {
 		process.ComponentName,
 		0,
 		newHookContextApi,
-		reflect.TypeOf(server.HookContextAPI{}),
+		reflect.TypeOf(&server.HookContextAPI{}),
 	)
 }
 
