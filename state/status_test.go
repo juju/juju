@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -35,15 +34,16 @@ func (s *statusSuite) TestPruneStatusHistory(c *gc.C) {
 		timestamp := state.NowToTheSecond()
 		oldDoc.Updated = &timestamp
 
-		hDoc := state.NewHistoricalStatusDoc(oldDoc, globalKey)
+		hDoc := state.NewHistoricalStatusDoc(changeno, oldDoc, globalKey)
+		// EnvUUID is added here because the oldDoc we just created will
+		// not have one. EnvUUID is populated by the transaction runner.
+		hDoc.EnvUUID = st.EnvironUUID()
 
-		h := txn.Op{
-			C:      state.StatusesHistoryC,
-			Id:     changeno,
-			Insert: hDoc,
-		}
+		history, closer := state.GetCollection(st, state.StatusesHistoryC)
+		historyW := history.Writeable()
+		err = historyW.Insert(hDoc)
+		closer()
 
-		err = state.RunTransaction(st, []txn.Op{h})
 		c.Logf("Adding a history entry attempt n: %d", changeno)
 		c.Assert(err, jc.ErrorIsNil)
 	}
