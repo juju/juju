@@ -1,9 +1,13 @@
 #!/bin/bash
 
 export PATH=$PWD/plugin:$PATH
+ACTIVE_FILE=$PWD/.active
 
-name=$(config-get plugin-name)
-if [ -n "$name" ]; then
+if [ -e $ACTIVE_FILE ]; then
+    status-set maintenance "reading active file ($ACTIVE_FILE)"
+    name=$(cat $ACTIVE_FILE)
+    rm $ACTIVE_FILE
+
     status-set waiting "destroy ${name} not supported yet"
     #status-set active "cleaning up workload process ${name}..."
     #result=$(destroy "$name" --unregister 2>&1)
@@ -15,5 +19,5 @@ if [ -n "$name" ]; then
     #    exit $rc
     #fi
 else
-    status-set maintenance 'not configured; skipping...'
+    status-set blocked 'not active; skipping...'
 fi
