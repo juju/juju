@@ -34,16 +34,44 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-// IPAddress provides access to methods of a state.IPAddress through the
-// facade.
-func (api *API) IPAddress(tag names.IPAddressTag) (*IPAddress, error) {
-	// TODO(mue) Change approach to use bulk requests for retrieval
-	// and later removal.
-	life, err := common.Life(api.facade, tag)
-	if err != nil {
+// IPAddresses retrieves the IP addresses with the given tags.
+func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
+	var results params.LifeResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
+	}
+	if err := api.facade.FacadeCall("Life", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &IPAddress{api.facade, tag, life}, nil
+	if len(results.Results) != len(tags) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	ipAddresses := make([]*IPAddress, len(tags))
+	for i, result := range results.Results {
+		if result.Error != nil {
+			return nil, errors.Trace(result.Error)
+		}
+		ipAddresses[i] = &IPAddress{api.facade, tags[i], result.Life}
+	}
+	return ipAddresses, nil
+}
+
+// Remove deletes the given IP addresses.
+func (api *API) Remove(ipAddresses ...*IPAddress) error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(ipAddresses)),
+	}
+	for i, ipAddress := range ipAddresses {
+		args.Entities[i].Tag = ipAddress.Tag().String()
+	}
+	if err := api.facade.FacadeCall("Remove", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.Combine()
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher
