@@ -183,12 +183,13 @@ func newProcsEnv(c *gc.C, envName string) *procsEnviron {
 
 func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
 	args = append([]string{"--environment=" + env.name}, args...)
+	c.Logf(" COMMAND: juju %s %s", cmd, strings.Join(args, " "))
 
 	command := lookUpCommand(cmd)
 	ctx, err := coretesting.RunCommand(c, command, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return coretesting.Stdout(ctx)
+	return strings.TrimSpace(coretesting.Stdout(ctx))
 }
 
 func initJuju(c *gc.C) {
@@ -313,11 +314,11 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 		args = append(args, fmt.Sprintf("%s=%q", k, v))
 	}
 	doOut := u.svc.env.run(c, "action do", args...)
-	c.Assert(strings.Fields(doOut), gc.HasLen, 2)
-	actionID := strings.Fields(doOut)[1]
+	c.Assert(strings.Split(doOut, ": "), gc.HasLen, 2)
+	actionID := strings.Split(doOut, ": ")[1]
 
 	// Get the results.
-	fetchOut := u.svc.env.run(c, "action fetch", "--wait", actionID)
+	fetchOut := u.svc.env.run(c, "action fetch", "--wait=0", actionID)
 	result := struct {
 		Result map[string]interface{}
 	}{}
