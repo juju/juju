@@ -4,11 +4,13 @@
 package spaces_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/spaces"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -73,4 +75,107 @@ func (s *SpacesSuite) TestNewAPI(c *gc.C) {
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+}
+
+type checkCreateSpaceParams struct {
+	Name      string
+	Subnets   []string
+	Error     string
+	MakesCall bool
+}
+
+func (s *SpacesSuite) checkCreateSpace(c *gc.C, p checkCreateSpaceParams) {
+	args := params.CreateSpaceParams{}
+	if p.Name != "" {
+		args.SpaceTag = "space-" + p.Name
+	}
+	if len(p.Subnets) > 0 {
+		for _, cidr := range p.Subnets {
+			args.SubnetTags = append(args.SubnetTags, "subnet-"+cidr)
+		}
+	}
+
+	results := s.facade.CreateSpace(args)
+	if p.Error == "" {
+		c.Assert(results.Error, gc.IsNil)
+	} else {
+		c.Assert(results.Error, gc.NotNil)
+		c.Assert(results.Error, gc.ErrorMatches, p.Error)
+	}
+
+	if p.Error == "" || p.MakesCall {
+		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+			apiservertesting.BackingCall("CreateSpace", spaces.BackingSpaceInfo{Name: p.Name, Subnets: p.Subnets}),
+		)
+	} else {
+		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+	}
+
+}
+
+func (s *SpacesSuite) TestCreateNoSpace(c *gc.C) {
+	// Try calling CreateSpace with no arguments. We expect this to do nothing.
+	args := params.CreateSpaceParams{}
+	results := s.facade.CreateSpace(args)
+	c.Assert(results.Error, gc.IsNil)
+
+	// No spaces created because the subnets list was empty, so no API calls
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+
+	// Now try with a space name, no subnets; should still do nothing.
+	args.SpaceTag = "space-foo"
+	results = s.facade.CreateSpace(args)
+	c.Assert(results.Error, gc.IsNil)
+
+	// Even with a space name, no spaces created because the subnets list
+	// was empty, so no API calls
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+}
+
+func (s *SpacesSuite) TestCreateSpaceOneSubnet(c *gc.C) {
+	p := checkCreateSpaceParams{
+		Name:    "foo",
+		Subnets: []string{"10.0.0.0/24"}}
+	s.checkCreateSpace(c, p)
+}
+
+func (s *SpacesSuite) TestCreateSpaceTwoSubnets(c *gc.C) {
+	p := checkCreateSpaceParams{
+		Name:    "foo",
+		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24"}}
+	s.checkCreateSpace(c, p)
+}
+
+func (s *SpacesSuite) TestCreateSpaceManySubnets(c *gc.C) {
+	p := checkCreateSpaceParams{
+		Name: "foo",
+		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
+			"10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"}}
+	s.checkCreateSpace(c, p)
+}
+
+func (s *SpacesSuite) TestCreateSpaceAPIError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(errors.AlreadyExistsf("space-foo"))
+	p := checkCreateSpaceParams{
+		Name:      "foo",
+		Subnets:   []string{"10.0.0.0/24"},
+		MakesCall: true,
+		Error:     "cannot add space: space-foo already exists"}
+	s.checkCreateSpace(c, p)
+}
+
+func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
+	p := checkCreateSpaceParams{
+		Name:    "-",
+		Subnets: []string{"10.0.0.0/24"},
+		Error:   "given SpaceTag is invalid: \"space--\" is not a valid space tag"}
+	s.checkCreateSpace(c, p)
+}
+
+func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
+	p := checkCreateSpaceParams{
+		Name:    "foo",
+		Subnets: []string{"bar"},
+		Error:   "given SubnetTag is invalid: \"subnet-bar\" is not a valid subnet tag"}
+	s.checkCreateSpace(c, p)
 }

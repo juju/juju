@@ -508,3 +508,8 @@ type AddSubnetParams struct {
 	SpaceTag         string   `json:"SpaceTag"`
 	Zones            []string `json:"Zones,omitempty"`
 }
+
+type CreateSpaceParams struct {
+	SubnetTags []string `json:"SubnetTags"`
+	SpaceTag   string   `json:"SpaceTag"`
+}
