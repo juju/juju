@@ -3,7 +3,7 @@ from __future__ import print_function
 
 __metaclass__ = type
 
-from base_asses import get_base_parser
+from argparse import ArgumentParser
 from status import StatusTester
 from jujupy import (
     make_client,
@@ -12,6 +12,7 @@ from deploy_stack import (
     boot_context,
     prepare_environment,
 )
+from utility import add_basic_testing_arguments
 
 
 def run_complete_status(client, status):
@@ -123,7 +124,8 @@ def test_status_set_on_install(client):
 
 def parse_args():
     """Parse all arguments."""
-    parser = get_base_parser('Test status outputs')
+    parser = ArgumentParser('Test status outputs')
+    add_basic_testing_arguments(parser)
     return parser.parse_args()
 
 
