@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // worstCase is used for timeouts when timing out
@@ -93,6 +94,7 @@ type context struct {
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
 	ticker        *uniter.ManualTicker
+	err           string
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -113,6 +115,12 @@ func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Unlock()
 }
 
+func (ctx *context) setExpectedError(err string) {
+	ctx.mu.Lock()
+	ctx.err = err
+	ctx.mu.Unlock()
+}
+
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
 	lease, err := lease.NewLeaseManager(ctx.st)
@@ -125,7 +133,11 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
-			c.Assert(err, jc.ErrorIsNil)
+			if ctx.err == "" {
+				c.Assert(err, jc.ErrorIsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, ctx.err)
+			}
 		}
 	}()
 	for i, s := range steps {
@@ -390,7 +402,8 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 }
 
 type createUniter struct {
-	minion bool
+	minion       bool
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -399,7 +412,7 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{executorFunc: s.executorFunc})
 	step(c, ctx, waitAddresses{})
 }
 
@@ -432,7 +445,8 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 }
 
 type startUniter struct {
-	unitTag string
+	unitTag      string
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -452,7 +466,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock, s.executorFunc)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1676,4 +1690,12 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type expectError struct {
+	err string
+}
+
+func (s expectError) step(c *gc.C, ctx *context) {
+	ctx.setExpectedError(s.err)
 }
