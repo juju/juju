@@ -42,6 +42,7 @@ from substrate import (
     verify_libvirt_domain,
 )
 from utility import (
+    add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
     PortTimeoutError,
@@ -312,56 +313,17 @@ def upgrade_juju(client):
     client.upgrade_juju()
 
 
-def add_output_args(parser):
-    parser.add_argument('--debug', action="store_true", default=False,
-                        help='Use --debug juju logging.')
-    parser.add_argument('--verbose', '-v', action="store_true", default=False,
-                        help='Increase logging verbosity.')
-
-
-def add_juju_args(parser):
-    parser.add_argument('--agent-url', default=None,
-                        help='URL to use for retrieving agent binaries.')
-    parser.add_argument('--agent-stream', default=None,
-                        help='stream name for retrieving agent binaries.')
-    parser.add_argument('--series',
-                        help='Name of the Ubuntu series to use.')
-
-
-def get_log_level(args):
-    log_level = logging.INFO
-    if 'verbose' in args and args.verbose:
-        log_level = logging.DEBUG
-    return log_level
-
-
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
-    parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('juju_bin', help='Path to the new Juju binary.')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('temp_env_name', help='Name of the Jenkins job.')
+    add_basic_testing_arguments(parser)
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
-    parser.add_argument('--bootstrap-host',
-                        help='The host to use for bootstrap.')
-    parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.',
-                        action='append', default=[])
-    parser.add_argument('--keep-env', action='store_true', default=False,
-                        help='Keep the Juju environment after the test'
-                        ' completes.')
-    parser.add_argument(
-        '--upload-tools', action='store_true', default=False,
-        help='upload local version of tools before bootstrapping')
-    add_juju_args(parser)
-    add_output_args(parser)
     return parser.parse_args(argv)
 
 
 def deploy_job():
     args = deploy_job_parse_args()
-    configure_logging(get_log_level(args))
+    configure_logging(args.verbose)
     series = args.series
     if series is None:
         series = 'precise'
@@ -395,6 +357,32 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools):
+    """Create a temporary environment in a context manager to run tests in.
+
+    Bootstrap a new environment from a temporary config that is suitable to
+    run tests in. Logs will be collected from the machines. The environment
+    will be destroyed when the test completes or there is an unrecoverable
+    error.
+
+    The temporary environment is created by updating a EnvJujuClient's config
+    with series, agent_url, agent_stream.
+
+    :param temp_env_name: a unique name for the juju env, such as a Jenkins
+        job name.
+    :param client: an EnvJujuClient.
+    :param bootstrap_host: None, or the address of a manual or MAAS host to
+        bootstrap on.
+    :param machine: [] or a list of machines to use add to a manual env
+        before deploying services.
+    :param series: None or the default-series for the temp config.
+    :param agent_url: None or the agent-metadata-url for the temp config.
+    :param agent_stream: None or the agent-stream for the temp config.
+    :param log_dir: The path to the directory to store logs.
+    :param keep_env: False or True to not destroy the environment and keep
+        it alive to do an autopsy.
+    :param upload_tools: False or True to upload the local agent instead of
+        using streams.
+    """
     created_machines = False
     bootstrap_id = None
     running_domains = dict()

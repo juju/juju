@@ -1,5 +1,4 @@
 from argparse import (
-    ArgumentParser,
     Namespace,
 )
 from contextlib import contextmanager
@@ -16,8 +15,6 @@ from mock import (
 import yaml
 
 from deploy_stack import (
-    add_juju_args,
-    add_output_args,
     assess_juju_run,
     boot_context,
     copy_local_logs,
@@ -27,7 +24,6 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_logs,
-    get_log_level,
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
@@ -64,49 +60,6 @@ def make_logs(log_dir):
         with open(os.path.join(log_dir, 'extra'), 'w') as l:
             l.write('not compressed')
     return write_dumped_files
-
-
-class ArgParserTestCase(TestCase):
-
-    def test_add_output_args(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--debug', '--verbose']
-        with patch('sys.argv', cmd_line):
-            args_dict = parser.parse_args().__dict__
-        expected = {'debug': True, 'verbose': True}
-        self.assertEqual(args_dict, expected)
-
-    def test_add_juju_args(self):
-        parser = ArgumentParser('proc')
-        add_juju_args(parser)
-        cmd_line = [
-            'proc', '--agent-stream', 'devel', '--agent-url', 'some_url',
-            '--series', 'vivid']
-        with patch('sys.argv', cmd_line):
-            args_dict = parser.parse_args().__dict__
-        expected = {
-            'agent_stream': 'devel', 'agent_url': 'some_url',
-            'series': 'vivid'}
-        self.assertEqual(args_dict, expected)
-
-    def test_get_log_level_debug(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--debug']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
-        log_level = get_log_level(args)
-        self.assertEqual(log_level, 20)
-
-    def test_get_log_level_verbose(self):
-        parser = ArgumentParser('proc')
-        add_output_args(parser)
-        cmd_line = ['proc', '--verbose']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
-        log_level = get_log_level(args)
-        self.assertEqual(log_level, 10)
 
 
 class DeployStackTestCase(TestCase):
@@ -804,7 +757,7 @@ class TestDeployJobParseArgs(TestCase):
             juju_bin='bar',
             series=None,
             upgrade=False,
-            verbose=False,
+            verbose=logging.INFO,
             upload_tools=False,
         ))
 

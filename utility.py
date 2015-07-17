@@ -217,7 +217,21 @@ def s3_cmd(params, drop_output=False):
 
 
 def add_basic_testing_arguments(parser):
-    """Returns the parser loaded with basic testing arguments."""
+    """Returns the parser loaded with basic testing arguments.
+
+    The basic testing arguments, used in conjuction with boot_context ensures
+    a test can be run in any supported substrate in parallel.
+
+    This helper adds 4 positional arguments that define the minimum needed
+    to run a test script: env, juju_bin, logs, and temp_env_name.
+
+    There are many optional args that either update the env's config or
+    manipulate the juju command line options to test in controlled situations
+    or in uncommon substrates: --debug, --verbose, --agent-url, --agent-stream,
+    --series ,--upload-tools, --bootstrap-host, --machine, --keep-env.
+
+    :param parser: an ArgumentParser.
+    """
     # Required positional arguments.
     # (name, help)
     positional_args = [

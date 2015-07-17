@@ -255,7 +255,7 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.debug, True)
 
-    def test_verbose(self):
+    def test_verbose_logging(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
@@ -268,12 +268,47 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_url, 'http://example.org')
 
+    def test_agent_stream(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--agent-stream', 'testing']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.agent_stream, 'testing')
+
     def test_series(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--series',
                     'vivid']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
+
+    def test_upload_tools(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--upload-tools']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertTrue(args.upload_tools)
+
+    def test_bootstrap_host(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--bootstrap-host', 'bar']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.bootstrap_host, 'bar')
+
+    def test_machine(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--machine', 'bar', '--machine', 'baz']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.machine, ['bar', 'baz'])
+
+    def test_keep_env(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--keep-env']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertTrue(args.keep_env)
 
 
 class TestRunCommand(TestCase):
