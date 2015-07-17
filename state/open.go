@@ -122,7 +122,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransactionNoEnvAliveAssert(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil

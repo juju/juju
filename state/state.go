@@ -1320,10 +1320,7 @@ func (st *State) AddService(
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-			return nil, errors.Errorf("environment is no longer alive")
-		} else if err != nil {
+		if err := checkEnvLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1362,16 +1359,22 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     addressID,
-		Assert: txn.DocMissing,
-		Insert: ipDoc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      ipaddressesC,
+			Id:     addressID,
+			Assert: txn.DocMissing,
+			Insert: ipDoc,
+		},
+	}
 
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if _, err = st.IPAddress(addr.Value); err == nil {
 			return nil, errors.AlreadyExistsf("address")
 		}
@@ -1452,16 +1455,22 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	if err != nil {
 		return nil, err
 	}
-	ops := []txn.Op{{
-		C:      subnetsC,
-		Id:     subnetID,
-		Assert: txn.DocMissing,
-		Insert: subDoc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      subnetsC,
+			Id:     subnetID,
+			Assert: txn.DocMissing,
+			Insert: subDoc,
+		},
+	}
 
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
 			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 		} else if err != nil {
@@ -1518,15 +1527,21 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
 	doc := st.newNetworkDoc(args)
-	ops := []txn.Op{{
-		C:      networksC,
-		Id:     doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      networksC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		},
+	}
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if _, err = st.Network(args.Name); err == nil {
 			return nil, errors.AlreadyExistsf("network %q", args.Name)
 		} else if err != nil {

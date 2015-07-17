@@ -120,7 +120,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
-	err = newState.runTransactionNoEnvAliveAssert(ops)
+	err = newState.runTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
@@ -441,9 +441,15 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
+	return assertEnvAliveOp(e.UUID())
+}
+
+// assertAliveOp returns a txn.Op that asserts the given environment
+// UUID refers to an alive environment.
+func assertEnvAliveOp(envUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
-		Id:     e.UUID(),
+		Id:     envUUID,
 		Assert: isEnvAliveDoc,
 	}
 }
@@ -455,4 +461,14 @@ func (e *Environment) assertAliveOp() txn.Op {
 // be considered to have the value Alive.
 var isEnvAliveDoc = bson.D{
 	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
+}
+
+func checkEnvLife(st *State) error {
+	env, err := st.Environment()
+	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
+		return errors.New("environment is no longer alive")
+	} else if err != nil {
+		return errors.Annotate(err, "unable to read environment")
+	}
+	return nil
 }

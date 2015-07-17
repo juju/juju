@@ -14,11 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-const (
-	txnAssertEnvIsAlive    = true
-	txnAssertEnvIsNotAlive = false
-)
-
 // txnRunner returns a jujutxn.Runner instance.
 //
 // If st.transactionRunner is non-nil, then that will be
@@ -33,25 +28,7 @@ func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
 	if st.transactionRunner != nil {
 		return st.transactionRunner
 	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsAlive)
-}
-
-// txnRunnerNoEnvAliveAssert returns a jujutxn.Runner instance that does not
-// add an assertion for a live environment to the transaction. It was
-// introduced only to allow the initial environment to be created and should
-// be used rarely.
-func (st *State) txnRunnerNoEnvAliveAssert(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session), txnAssertEnvIsNotAlive)
-}
-
-// runTransactionNoEnvAliveAssert is a convenience method delegating to txnRunnerNoEnvAliveAssert.
-func (st *State) runTransactionNoEnvAliveAssert(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunnerNoEnvAliveAssert(session).RunTransaction(ops)
+	return newMultiEnvRunner(st.EnvironUUID(), st.db.With(session))
 }
 
 // runTransaction is a convenience method delegating to transactionRunner.
@@ -83,18 +60,16 @@ func (st *State) MaybePruneTransactions() error {
 	return st.txnRunner(session).MaybePruneTransactions(2.0)
 }
 
-func newMultiEnvRunner(envUUID string, db *mgo.Database, assertEnvAlive bool) jujutxn.Runner {
+func newMultiEnvRunner(envUUID string, db *mgo.Database) jujutxn.Runner {
 	return &multiEnvRunner{
-		rawRunner:      jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
-		envUUID:        envUUID,
-		assertEnvAlive: assertEnvAlive,
+		rawRunner: jujutxn.NewRunner(jujutxn.RunnerParams{Database: db}),
+		envUUID:   envUUID,
 	}
 }
 
 type multiEnvRunner struct {
-	rawRunner      jujutxn.Runner
-	envUUID        string
-	assertEnvAlive bool
+	rawRunner jujutxn.Runner
+	envUUID   string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
@@ -133,7 +108,6 @@ func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
 }
 
 func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
-	var opsNeedEnvAlive bool
 	for i, op := range ops {
 		if multiEnvCollections.Contains(op.C) {
 			var docID interface{}
@@ -159,24 +133,10 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
 					}
 
 				}
-				if r.assertEnvAlive && !opsNeedEnvAlive && envAliveColls.Contains(op.C) {
-					opsNeedEnvAlive = true
-				}
 			}
 		}
 	}
-	if opsNeedEnvAlive {
-		ops = append(ops, assertEnvAliveOp(r.envUUID))
-	}
 	return ops
-}
-
-func assertEnvAliveOp(envUUID string) txn.Op {
-	return txn.Op{
-		C:      environmentsC,
-		Id:     envUUID,
-		Assert: isEnvAliveDoc,
-	}
 }
 
 var envAliveColls = newEnvAliveColls()
