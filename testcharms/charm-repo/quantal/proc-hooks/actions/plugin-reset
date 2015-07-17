@@ -1,9 +1,12 @@
 #!/bin/bash
 
 export PATH=$PWD/plugin:$PATH
+unitstatus=$(status-get)
+
+status-set $unitstatus "plugin-reset: resetting the plugin log"
 
 result=$(juju-process-myplugin reset 2>&1)
 rc=$?
 if [ "$rc" != "0" ]; then
-    status-set maintenance "plugin-reset: failed ($rc - $result)"
+    status-set $unitstatus "plugin-reset: failed ($rc - $result)"
 fi

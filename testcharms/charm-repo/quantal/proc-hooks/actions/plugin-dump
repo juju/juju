@@ -1,13 +1,14 @@
 #!/bin/bash
 
 export PATH=$PWD/plugin:$PATH
+unitstatus=$(status-get)
 
-status-set maintenance "plugin-dump: dumping plugin logs"
+status-set $unitstatus "plugin-dump: dumping plugin logs"
 
 result=$(juju-process-myplugin dump --no-header 2>&1)
 rc=$?
 if [ "$rc" == "0" ]; then
     action-set output="$result"
 else
-    status-set maintenance "plugin-dump: failed ($rc - $result)"
+    status-set $unitstatus "plugin-dump: failed ($rc - $result)"
 fi
