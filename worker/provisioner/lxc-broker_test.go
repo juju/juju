@@ -118,7 +118,7 @@ func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the <rootfs>/etc/network path exists.
-	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
+	containertesting.EnsureLXCRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
 	return instanceConfig
 }
 
@@ -1092,7 +1092,7 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 	container := s.addContainer(c)
 	name := "juju-" + container.Tag().String()
-	containertesting.EnsureRootFSEtcNetwork(c, name)
+	containertesting.EnsureLXCRootFSEtcNetwork(c, name)
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
