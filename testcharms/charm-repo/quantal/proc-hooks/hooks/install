@@ -3,8 +3,19 @@
 export PATH=$PWD/plugin:$PATH
 
 name=$(config-get plugin-name)
-id=$(config-get plugin-id)
-status=$(config-get plugin-status)
 if [ -n "$name" ]; then
-    juju-process-myplugin init $name $id $status
+    id=$(config-get plugin-id)
+    status=$(config-get plugin-status)
+
+    status-set maintenance "initializing plugin ($name, $id, $status)..."
+    result=$(juju-process-myplugin init "$name" "$id" "$status" 2>&1)
+    rc=$?
+    if [ "$rc" = "0" ]; then
+        status-set maintenance "plugin initialized ($result)"
+    else
+        status-set waiting "plugin failed to initialize ($rc - $result)"
+        exit $rc
+    fi
+else
+    status-set maintenance 'not configured; skipping...'
 fi

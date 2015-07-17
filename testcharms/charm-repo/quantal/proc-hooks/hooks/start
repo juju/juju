@@ -5,5 +5,15 @@ export PATH=$PWD/plugin:$PATH
 name=$(config-get plugin-name)
 if [ -n "$name" ]; then
     # TODO(ericsnow) Use an override for the port.
-    launch $name
+    status-set maintenance "launching ${name}..."
+    result=$(launch "$name" 2>&1)
+    rc=$?
+    if [ "$rc" = "0" ]; then
+        status-set active "workload process ${name} launched ($result)"
+    else
+        status-set blocked "workload process ${name} failed to launch ($rc - $result)"
+        exit $rc
+    fi
+else
+    status-set maintenance 'not configured; skipping...'
 fi

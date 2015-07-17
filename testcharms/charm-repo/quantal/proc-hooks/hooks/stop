@@ -4,6 +4,16 @@ export PATH=$PWD/plugin:$PATH
 
 name=$(config-get plugin-name)
 if [ -n "$name" ]; then
-    echo -n
-    #destroy $name --unregister
+    status-set waiting "destroy ${name} not supported yet"
+    #status-set active "cleaning up workload process ${name}..."
+    #result=$(destroy "$name" --unregister 2>&1)
+    #rc=$?
+    #if [ "$rc" = "0" ]; then
+    #    status-set waiting "workload process ${name} cleaned up ($result)"
+    #else
+    #    status-set waiting "workload process ${name} failed to clean up ($rc - $result)"
+    #    exit $rc
+    #fi
+else
+    status-set maintenance 'not configured; skipping...'
 fi
