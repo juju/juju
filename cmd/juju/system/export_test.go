@@ -6,6 +6,7 @@ package system
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -99,12 +100,13 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 
 // NewKillCommand returns a KillCommand with the the systemmanager and client
 // endpoints mocked out.
-func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *KillCommand {
+func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (*api.State, error)) *KillCommand {
 	return &KillCommand{
 		DestroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
+		dialFunc,
 	}
 }
