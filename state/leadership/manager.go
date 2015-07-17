@@ -112,7 +112,7 @@ func (manager *manager) choose(blocks blocks) error {
 	}
 }
 
-// ClaimLeadership is part of the leadership.Manager interface.
+// ClaimLeadership is part of the leadership.Claimer interface.
 func (manager *manager) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
 	return claim{
 		serviceName: serviceName,
@@ -154,7 +154,11 @@ func (manager *manager) handleClaim(claim claim) error {
 	return nil
 }
 
-// CheckLeadership is part of the leadership.Manager interface.
+// LeadershipCheck is part of the leadership.Checker interface.
+//
+// The token returned will accept a `*[]txn.Op` passed to Check, and will
+// populate it with transaction operations that will fail if the unit is
+// not leader of the service.
 func (manager *manager) LeadershipCheck(serviceName, unitName string) leadership.Token {
 	return token{
 		serviceName: serviceName,
@@ -184,7 +188,7 @@ func (manager *manager) handleCheck(check check) error {
 	return nil
 }
 
-// BlockUntilLeadershipReleased is part of the leadership.Manager interface.
+// BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
 	return block{
 		serviceName: serviceName,
