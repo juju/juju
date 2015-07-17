@@ -46,7 +46,7 @@ func almostSeconds(seconds int) time.Duration {
 	return (time.Second * time.Duration(seconds)) - time.Nanosecond
 }
 
-// Fixture allows us to test a leadership.Manager with a usefully-mocked
+// Fixture allows us to test a leadership.ManagerWorker with a usefully-mocked
 // lease.Clock and lease.Client.
 type Fixture struct {
 
