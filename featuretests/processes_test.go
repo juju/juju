@@ -88,7 +88,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 		},
 	}})
 	unit.checkPluginLog(c, []string{
-		"...",
+		`myproc	xyz123	running		added`,
 	})
 
 	// Change the config.
@@ -108,7 +108,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 		},
 	}})
 	unit.checkPluginLog(c, []string{
-		"...",
+		`myproc	xyz123	running		added`,
 	})
 
 	// Stop the unit.
@@ -117,7 +117,8 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 
 	unit.checkState(c, nil)
 	unit.checkPluginLog(c, []string{
-		"...",
+		`myproc	xyz123	running		added`,
+		`myproc	xyz123	running		removed`,
 	})
 }
 
