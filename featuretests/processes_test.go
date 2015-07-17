@@ -321,17 +321,18 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 	// Get the results.
 	fetchOut := u.svc.env.run(c, "action fetch", "--wait=0", actionID)
 	result := struct {
-		Result map[string]interface{}
+		Status  string
+		Results map[string]interface{}
 	}{}
 	err := goyaml.Unmarshal([]byte(fetchOut), &result)
 	c.Assert(err, jc.ErrorIsNil)
-	rawResults := result.Result
 
 	// Check and coerce the results.
-	c.Check(rawResults["status"].(string), gc.Equals, "success")
-	delete(rawResults, "status")
-	results := make(map[string]string, len(rawResults))
-	for k, v := range rawResults {
+	if !c.Check(result.Status, gc.Equals, "success") {
+		c.Logf(" " + fetchOut)
+	}
+	results := make(map[string]string, len(result.Results))
+	for k, v := range result.Results {
 		results[k] = v.(string)
 	}
 	return results
