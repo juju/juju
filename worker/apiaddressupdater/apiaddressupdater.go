@@ -50,7 +50,7 @@ func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
 	return c.addresser.WatchAPIHostPorts()
 }
 
-func (c *APIAddressUpdater) Handle() error {
+func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	addresses, err := c.addresser.APIHostPorts()
 	if err != nil {
 		return fmt.Errorf("error getting addresses: %v", err)

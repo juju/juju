@@ -28,7 +28,7 @@ func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {
 	return c.st.WatchCleanups(), nil
 }
 
-func (c *Cleaner) Handle() error {
+func (c *Cleaner) Handle(_ <-chan struct{}) error {
 	if err := c.st.Cleanup(); err != nil {
 		logger.Errorf("cannot cleanup state: %v", err)
 	}

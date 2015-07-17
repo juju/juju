@@ -70,7 +70,7 @@ func (s Suite) TestHandle(c *gc.C) {
 	conv := &converter{machiner: mr, agent: a}
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
+	err = conv.Handle(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(a.didRestart, jc.IsTrue)
 }
@@ -85,7 +85,7 @@ func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 	conv := &converter{machiner: mr, agent: a}
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
+	err = conv.Handle(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(a.didRestart, jc.IsFalse)
 }
@@ -101,7 +101,7 @@ func (Suite) TestHandleJobsError(c *gc.C) {
 	conv := &converter{machiner: mr, agent: a}
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
+	err = conv.Handle(nil)
 	c.Assert(errors.Cause(err), gc.Equals, m.jobsErr)
 	c.Assert(a.didRestart, jc.IsFalse)
 }
@@ -119,7 +119,7 @@ func (s Suite) TestHandleRestartError(c *gc.C) {
 	conv := &converter{machiner: mr, agent: a}
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
+	err = conv.Handle(nil)
 	c.Assert(errors.Cause(err), gc.Equals, a.restartErr)
 
 	// We set this to true whenver the function is called, even though we're

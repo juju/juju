@@ -106,7 +106,7 @@ func (g *mockAPIHostGetter) APIHostPorts() ([][]network.HostPort, error) {
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	var initialAddresses []string
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		// Only care about first time called.
 		if len(initialAddresses) > 0 {
 			return nil
@@ -133,7 +133,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		s.stateServingInfo = info
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
@@ -186,7 +186,7 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
 		close(updated)
 		return nil
 	}
