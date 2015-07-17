@@ -62,8 +62,8 @@ var newManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, guaran
 	if !ok {
 		return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
 	}
-	leadershipManager := leadership.NewClient(apiCaller)
-	return NewTrackerWorker(unitTag, leadershipManager, guarantee), nil
+	claimer := leadership.NewClient(apiCaller)
+	return NewTrackerWorker(unitTag, claimer, guarantee), nil
 }
 
 // outputFunc extracts the Tracker from a *tracker passed in as a Worker.

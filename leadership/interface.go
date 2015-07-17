@@ -30,15 +30,21 @@ type Claimer interface {
 }
 
 // Token represents a unit's leadership of its service.
+//
+// It seems to be generic enough (it could easily represent any fact) that it
+// should find a more general home.
 type Token interface {
 
 	// Check returns an error if the condition it embodies no longer holds.
 	// If you pass a non-nil value into Check, it must be a pointer to data
-	// of the correct type (which you are expected to know by magic), into
-	// which the token's content will be copied.
+	// of the correct type, into which the token's content will be copied.
 	//
-	// In practice, most implementations will likely expect *[]txn.Op, so
-	// that they can be used to gate mgo/txn-based state changes.
+	// The "correct type" is implementation-specific, and no implementation
+	// is obliged to accept any non-nil parameter; but methods that return
+	// Tokens should explain whether, and how, they will expose their content.
+	//
+	// In practice, most Token implementations will likely expect *[]txn.Op,
+	// so that they can be used to gate mgo/txn-based state changes.
 	Check(interface{}) error
 }
 
@@ -51,6 +57,8 @@ type Checker interface {
 	LeadershipCheck(serviceName, unitName string) Token
 }
 
+// LeadershipLeaseManager exposes lease management capabilities for the
+// convenience of the Manager type in this package.
 type LeadershipLeaseManager interface {
 
 	// Claimlease claims a lease for the given duration for the given

@@ -60,7 +60,7 @@ func (s *ValidationSuite) TestClaimLeadership_Duration(c *gc.C) {
 	})
 }
 
-func (s *ValidationSuite) TestCheckLeadership_ServiceName(c *gc.C) {
+func (s *ValidationSuite) TestLeadershipCheck_ServiceName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
 		token := manager.LeadershipCheck("foo/0", "bar/0")
@@ -68,7 +68,7 @@ func (s *ValidationSuite) TestCheckLeadership_ServiceName(c *gc.C) {
 	})
 }
 
-func (s *ValidationSuite) TestCheckLeadership_UnitName(c *gc.C) {
+func (s *ValidationSuite) TestLeadershipCheck_UnitName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
 		token := manager.LeadershipCheck("foo", "bar")
@@ -76,7 +76,7 @@ func (s *ValidationSuite) TestCheckLeadership_UnitName(c *gc.C) {
 	})
 }
 
-func (s *ValidationSuite) TestCheckLeadership_OutPtr(c *gc.C) {
+func (s *ValidationSuite) TestLeadershipCheck_OutPtr(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",

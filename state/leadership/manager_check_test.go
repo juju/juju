@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/state/lease"
 )
 
-type CheckLeadershipSuite struct {
+type LeadershipCheckSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CheckLeadershipSuite{})
+var _ = gc.Suite(&LeadershipCheckSuite{})
 
-func (s *CheckLeadershipSuite) TestSuccess(c *gc.C) {
+func (s *LeadershipCheckSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
 			"redis": lease.Info{
@@ -41,7 +41,7 @@ func (s *CheckLeadershipSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-func (s *CheckLeadershipSuite) TestMissingRefresh_Success(c *gc.C) {
+func (s *LeadershipCheckSuite) TestMissingRefresh_Success(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
@@ -62,7 +62,7 @@ func (s *CheckLeadershipSuite) TestMissingRefresh_Success(c *gc.C) {
 	})
 }
 
-func (s *CheckLeadershipSuite) TestOtherHolderRefresh_Success(c *gc.C) {
+func (s *LeadershipCheckSuite) TestOtherHolderRefresh_Success(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
@@ -83,7 +83,7 @@ func (s *CheckLeadershipSuite) TestOtherHolderRefresh_Success(c *gc.C) {
 	})
 }
 
-func (s *CheckLeadershipSuite) TestRefresh_Failure_Missing(c *gc.C) {
+func (s *LeadershipCheckSuite) TestRefresh_Failure_Missing(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
@@ -95,7 +95,7 @@ func (s *CheckLeadershipSuite) TestRefresh_Failure_Missing(c *gc.C) {
 	})
 }
 
-func (s *CheckLeadershipSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
+func (s *LeadershipCheckSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
@@ -114,7 +114,7 @@ func (s *CheckLeadershipSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
 	})
 }
 
-func (s *CheckLeadershipSuite) TestRefresh_Error(c *gc.C) {
+func (s *LeadershipCheckSuite) TestRefresh_Error(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
