@@ -314,12 +314,17 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 
 // removeSettings removes the Settings for key.
 func removeSettings(st *State, key string) error {
-	settings, closer := st.getCollection(settingsC)
-	defer closer()
-
-	err := settings.RemoveId(key)
-	if err == mgo.ErrNotFound {
+	ops := []txn.Op{{
+		C:      settingsC,
+		Id:     st.docID(key),
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
 		return errors.NotFoundf("settings")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

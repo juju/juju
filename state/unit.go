@@ -325,12 +325,17 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	unit, closer := u.st.getCollection(statusesHistoryC)
+	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	historyW := history.Writeable()
+
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
 		return err
 	}
-	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
+	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
 		return err
 	}
 	return nil
