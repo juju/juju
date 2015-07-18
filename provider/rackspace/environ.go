@@ -5,6 +5,7 @@ package rackspace
 
 import (
 	"github.com/juju/errors"
+<<<<<<< HEAD
 	"time"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -39,10 +40,28 @@ func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.Bootst
 
 func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
+=======
+
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+)
+
+type environ struct {
+	openstackEnviron environs.Environ
+}
+
+// Bootstrap implements environs.Environ.
+func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	return e.openstackEnviron.Bootstrap(ctx, params)
+>>>>>>> modifications to opestack provider applied
 }
 
 // StartInstance implements environs.Environ.
 func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+<<<<<<< HEAD
 	os, err := version.GetOSFromSeries(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -115,10 +134,24 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 		time.Sleep(5 * time.Second)
 	}
 	return errors.Trace(lastError)
+=======
+	r, err := e.openstackEnviron.StartInstance(args)
+	if err != nil {
+		return nil, err
+	}
+	r.Instance = environInstance{openstackInstance: r.Instance}
+	return r, nil
+}
+
+// StopInstances implements environs.Environ.
+func (e environ) StopInstances(ids ...instance.Id) error {
+	return e.openstackEnviron.StopInstances(ids...)
+>>>>>>> modifications to opestack provider applied
 }
 
 // AllInstances implements environs.Environ.
 func (e environ) AllInstances() ([]instance.Instance, error) {
+<<<<<<< HEAD
 	instances, err := e.Environ.AllInstances()
 	res, err := e.convertInstances(instances, err)
 	return res, errors.Trace(err)
@@ -134,13 +167,60 @@ func (e environ) convertInstances(instances []instance.Instance, err error) ([]i
 		res = append(res, environInstance{inst})
 	}
 	return res, nil
+=======
+	return e.openstackEnviron.AllInstances()
+}
+
+// MaintainInstance implements environs.Environ.
+func (e environ) MaintainInstance(args environs.StartInstanceParams) error {
+	return e.openstackEnviron.MaintainInstance(args)
+}
+
+// Config implements environs.Environ.
+func (e environ) Config() *config.Config {
+	return e.openstackEnviron.Config()
+}
+
+// SupportedArchitectures implements environs.Environ.
+func (e environ) SupportedArchitectures() ([]string, error) {
+	return e.openstackEnviron.SupportedArchitectures()
+}
+
+// SupportsUnitPlacement implements environs.Environ.
+func (e environ) SupportsUnitPlacement() error {
+	return e.openstackEnviron.SupportsUnitPlacement()
+}
+
+// ConstraintsValidator implements environs.Environ.
+func (e environ) ConstraintsValidator() (constraints.Validator, error) {
+	return e.openstackEnviron.ConstraintsValidator()
+}
+
+// SetConfig implements environs.Environ.
+func (e environ) SetConfig(cfg *config.Config) error {
+	return e.openstackEnviron.SetConfig(cfg)
+>>>>>>> modifications to opestack provider applied
 }
 
 // Instances implements environs.Environ.
 func (e environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+<<<<<<< HEAD
 	instances, err := e.Environ.Instances(ids)
 	res, err := e.convertInstances(instances, err)
 	return res, errors.Trace(err)
+=======
+	return e.openstackEnviron.Instances(ids)
+}
+
+// StateServerInstances implements environs.Environ.
+func (e environ) StateServerInstances() ([]instance.Id, error) {
+	return e.openstackEnviron.StateServerInstances()
+}
+
+// Destroy implements environs.Environ.
+func (e environ) Destroy() error {
+	return e.openstackEnviron.Destroy()
+>>>>>>> modifications to opestack provider applied
 }
 
 // OpenPorts implements environs.Environ.
@@ -160,5 +240,14 @@ func (e environ) Ports() ([]network.PortRange, error) {
 
 // Provider implements environs.Environ.
 func (e environ) Provider() environs.EnvironProvider {
+<<<<<<< HEAD
 	return &providerInstance
+=======
+	return e.openstackEnviron.Provider()
+}
+
+// PrecheckInstance implements environs.Environ.
+func (e environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	return e.openstackEnviron.PrecheckInstance(series, cons, placement)
+>>>>>>> modifications to opestack provider applied
 }

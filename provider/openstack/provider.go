@@ -46,7 +46,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.openstack")
 
-type environProvider struct{}
+type environProvider struct {
+}
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
 
@@ -366,11 +367,25 @@ type Environ struct {
 	configurator           OpenstackProviderConfigurator
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
+var _ state.Prechecker = (*environ)(nil)
+var _ state.InstanceDistributor = (*environ)(nil)
+var _ environs.InstanceTagger = (*environ)(nil)
+=======
+>>>>>>> modifications to opestack provider applied
 var _ environs.Environ = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ state.Prechecker = (*Environ)(nil)
 var _ state.InstanceDistributor = (*Environ)(nil)
+<<<<<<< HEAD
 var _ environs.InstanceTagger = (*Environ)(nil)
+=======
+>>>>>>> modifications to opestack provider applied
+>>>>>>> modifications to opestack provider applied
 
 type openstackInstance struct {
 	e        *Environ
@@ -722,7 +737,11 @@ func (e *Environ) Storage() storage.Storage {
 	return stor
 }
 
+<<<<<<< HEAD
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+=======
+func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+>>>>>>> modifications to opestack provider applied
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -732,7 +751,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
+<<<<<<< HEAD
 func (e *Environ) StateServerInstances() ([]instance.Id, error) {
+=======
+<<<<<<< HEAD
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
+>>>>>>> modifications to opestack provider applied
 	// Find all instances tagged with tags.JujuStateServer.
 	instances, err := e.AllInstances()
 	if err != nil {
@@ -749,6 +773,10 @@ func (e *Environ) StateServerInstances() ([]instance.Id, error) {
 		return nil, environs.ErrNoInstances
 	}
 	return ids, nil
+=======
+func (e *Environ) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(e, e.Storage())
+>>>>>>> modifications to opestack provider applied
 }
 
 func (e *Environ) Config() *config.Config {
@@ -873,9 +901,20 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	return *datasource, nil
 }
 
+<<<<<<< HEAD
 // resolveNetwork takes either a network id or label and returns a network id
 func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	if utils.IsValidUUIDString(networkName) {
+=======
+// TODO(gz): Move this somewhere more reusable
+const uuidPattern = "^([a-fA-F0-9]{8})-([a-fA-f0-9]{4})-([a-fA-f0-9]{4})-([a-fA-f0-9]{4})-([a-fA-F0-9]{12})$"
+
+var uuidRegexp = regexp.MustCompile(uuidPattern)
+
+// resolveNetwork takes either a network id or label and returns a network id
+func (e *Environ) resolveNetwork(networkName string) (string, error) {
+	if uuidRegexp.MatchString(networkName) {
+>>>>>>> modifications to opestack provider applied
 		// Network id supplied, assume valid as boot will fail if not
 		return networkName, nil
 	}
@@ -1628,7 +1667,48 @@ func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
 	return nil
 }
 
+<<<<<<< HEAD
 func (e *Environ) terminateInstances(ids []instance.Id) error {
+=======
+<<<<<<< HEAD
+// deleteSecurityGroup attempts to delete the security group. Should it fail,
+// the deletion is retried due to timing issues in openstack. A security group
+// cannot be deleted while it is in use. Theoretically we terminate all the
+// instances before we attempt to delete the associated security groups, but
+// in practice nova hasn't always finished with the instance before it
+// returns, so there is a race condition where we think the instance is
+// terminated and hence attempt to delete the security groups but nova still
+// has it around internally. To attempt to catch this timing issue, deletion
+// of the groups is tried multiple times.
+func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
+	attempts := utils.AttemptStrategy{
+		Total: 30 * time.Second,
+		Delay: time.Second,
+	}
+	logger.Debugf("deleting security group %q", name)
+	i := 0
+	for attempt := attempts.Start(); attempt.Next(); {
+		err := novaclient.DeleteSecurityGroup(id)
+		if err == nil {
+			return
+		}
+		i++
+		if i%4 == 0 {
+			message := fmt.Sprintf("waiting to delete security group %q", name)
+			if i != 4 {
+				message = "still " + message
+			}
+			logger.Debugf(message)
+		}
+	}
+	logger.Warningf("cannot delete security group %q. Used by another environment?", name)
+}
+
+func (e *environ) terminateInstances(ids []instance.Id) error {
+=======
+func (e *Environ) terminateInstances(ids []instance.Id) error {
+>>>>>>> modifications to opestack provider applied
+>>>>>>> modifications to opestack provider applied
 	if len(ids) == 0 {
 		return nil
 	}

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // Copyright 2015 Canonical Ltd.
+=======
+// Copyright 2012, 2013 Canonical Ltd.
+>>>>>>> modifications to opestack provider applied
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Stub provider for OpenStack, using goose will be implemented here
@@ -7,6 +11,7 @@ package openstack
 
 import (
 	"gopkg.in/goose.v1/nova"
+<<<<<<< HEAD
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
@@ -29,20 +34,35 @@ type OpenstackProviderConfigurator interface {
 	// This method provides default cloud config.
 	// This config can be defferent for different providers.
 	GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error)
+=======
+)
+
+type OpenstackProviderConfigurator interface {
+	UseSecurityGroups() bool
+	InitialNetworks() []nova.ServerNetworks
+	ModifyRunServerOptions(options *nova.RunServerOpts)
+>>>>>>> modifications to opestack provider applied
 }
 
 type defaultProviderConfigurator struct{}
 
+<<<<<<< HEAD
 // UseSecurityGroups implements OpenstackProviderConfigurator interface.
+=======
+>>>>>>> modifications to opestack provider applied
 func (c *defaultProviderConfigurator) UseSecurityGroups() bool {
 	return true
 }
 
+<<<<<<< HEAD
 // InitialNetworks implements OpenstackProviderConfigurator interface.
+=======
+>>>>>>> modifications to opestack provider applied
 func (c *defaultProviderConfigurator) InitialNetworks() []nova.ServerNetworks {
 	return []nova.ServerNetworks{}
 }
 
+<<<<<<< HEAD
 // ModifyRunServerOptions implements OpenstackProviderConfigurator interface.
 func (c *defaultProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
 }
@@ -51,3 +71,7 @@ func (c *defaultProviderConfigurator) ModifyRunServerOptions(options *nova.RunSe
 func (c *defaultProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
 	return nil, nil
 }
+=======
+func (c *defaultProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
+}
+>>>>>>> modifications to opestack provider applied
