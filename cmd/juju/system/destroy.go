@@ -5,9 +5,11 @@ package system
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -41,6 +44,7 @@ type destroySystemAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
 	DestroySystem(destroyEnvs bool, ignoreBlocks bool) error
+	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -107,7 +111,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	// need to use the system kill command if we can't connect.
 	api, err := c.getSystemAPI()
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
 
@@ -125,7 +129,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 		return c.destroySystemViaClient(ctx, cfgInfo, systemEnviron, store)
 	}
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"))
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"), ctx, api)
 	}
 
 	return environs.Destroy(systemEnviron, store)
@@ -136,13 +140,13 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 func (c *DestroyCommand) destroySystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"))
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
 
 	err = api.DestroyEnvironment()
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"))
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"), ctx, nil)
 	}
 
 	return environs.Destroy(systemEnviron, store)
@@ -150,15 +154,20 @@ func (c *DestroyCommand) destroySystemViaClient(ctx *cmd.Context, info configsto
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
 // in a user-friendly manner with readable and digestable error message.
-func (c *DestroyCommand) ensureUserFriendlyErrorLog(err error) error {
+func (c *DestroyCommand) ensureUserFriendlyErrorLog(err error, ctx *cmd.Context, api destroySystemAPI) error {
 	if err == nil {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
 		logger.Errorf(`there are blocks preventing system destruction
 To remove all blocks in the system, please run:
+
     juju system remove-blocks
+
 `)
+		if api != nil {
+			printBlockedEnvs(ctx, api)
+		}
 		return cmd.ErrSilent
 	}
 	logger.Errorf(stdFailureMsg, c.systemName)
@@ -175,6 +184,43 @@ to forcibly destroy the system. Upon doing so, review
 your environment provider console for any resources that need
 to be cleaned up.
 `
+
+func printBlockedEnvs(ctx *cmd.Context, api destroySystemAPI) {
+	envs, err := api.ListBlockedEnvironments()
+	if err != nil {
+		fmt.Fprintf(ctx.Stdout, "Unable to list blocked environments: %s", err)
+		return
+	}
+
+	var out bytes.Buffer
+	const (
+		// To format things into columns.
+		minwidth = 0
+		tabwidth = 1
+		padding  = 2
+		padchar  = ' '
+		flags    = 0
+	)
+	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	fmt.Fprintf(tw, "NAME\tENVIRONMENT UUID\tOWNER\tBLOCKS\n")
+	for _, env := range envs {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", env.Name, env.UUID, env.OwnerTag, blocksToStr(env.Blocks))
+	}
+	tw.Flush()
+
+	fmt.Fprint(ctx.Stdout, out.String())
+}
+
+func blocksToStr(blocks []string) string {
+	result := ""
+	sep := ""
+	for _, blk := range blocks {
+		result = result + sep + block.OperationFromType(blk)
+		sep = ","
+	}
+
+	return result
+}
 
 // DestroyCommandBase provides common attributes and methods that both the system
 // destroy and system kill commands require.
