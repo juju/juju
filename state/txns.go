@@ -146,6 +146,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 			}
 		}
 	}
+	logger.Tracef("rewrote transaction: %#v", ops)
 	return ops, nil
 }
 

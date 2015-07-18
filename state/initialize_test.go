@@ -52,9 +52,8 @@ func (s *InitializeSuite) openState(c *gc.C, environTag names.EnvironTag) {
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
 	if s.State != nil {
-		s.State.Close()
-	} else {
-		c.Logf("skipping State.Close() due to previous error")
+		err := s.State.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -116,13 +115,17 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := statetesting.NewDialOpts()
-
 	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	err = st.Close()
+	c.Check(err, jc.ErrorIsNil)
 
-	_, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
-	c.Assert(err, gc.ErrorMatches, "already initialized")
+	st, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	c.Check(err, gc.ErrorMatches, "already initialized")
+	if !c.Check(st, gc.IsNil) {
+		err = st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
