@@ -46,7 +46,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.openstack")
 
-type environProvider struct{}
+type environProvider struct {
+}
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
 
@@ -243,7 +244,8 @@ hpcloud:
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
-	e := new(environ)
+	e := new(Environ)
+	e.configurator = new(defaultProviderConfigurator)
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -280,7 +282,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		return nil, err
 	}
 	// Verify credentials.
-	if err := authenticateClient(e.(*environ)); err != nil {
+	if err := authenticateClient(e.(*Environ)); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -335,7 +337,7 @@ func retryGet(uri string) (data []byte, err error) {
 	return
 }
 
-type environ struct {
+type Environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -362,16 +364,17 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+	configurator           OpenstackProviderConfigurator
 }
 
-var _ environs.Environ = (*environ)(nil)
-var _ simplestreams.HasRegion = (*environ)(nil)
-var _ state.Prechecker = (*environ)(nil)
-var _ state.InstanceDistributor = (*environ)(nil)
-var _ environs.InstanceTagger = (*environ)(nil)
+var _ environs.Environ = (*Environ)(nil)
+var _ simplestreams.HasRegion = (*Environ)(nil)
+var _ state.Prechecker = (*Environ)(nil)
+var _ state.InstanceDistributor = (*Environ)(nil)
+var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
-	e        *environ
+	e        *Environ
 	instType *instances.InstanceType
 	arch     *string
 
@@ -541,22 +544,27 @@ func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, err
 	return portRanges, nil
 }
 
-func (e *environ) ecfg() *environConfig {
+func (e *Environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	ecfg := e.ecfgUnlocked
 	e.ecfgMutex.Unlock()
 	return ecfg
 }
 
-func (e *environ) nova() *nova.Client {
+func (e *Environ) nova() *nova.Client {
 	e.ecfgMutex.Lock()
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
 }
 
+//SetProviderConfigurator
+func (e *Environ) SetProviderConfigurator(configurator OpenstackProviderConfigurator) {
+	e.configurator = configurator
+}
+
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *environ) SupportedArchitectures() ([]string, error) {
+func (e *Environ) SupportedArchitectures() ([]string, error) {
 	e.archMutex.Lock()
 	defer e.archMutex.Unlock()
 	if e.supportedArchitectures != nil {
@@ -581,7 +589,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
+func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
@@ -620,7 +628,7 @@ func (z *openstackAvailabilityZone) Available() bool {
 }
 
 // AvailabilityZones returns a slice of availability zones.
-func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -641,7 +649,7 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	instances, err := e.Instances(ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -660,7 +668,7 @@ type openstackPlacement struct {
 	availabilityZone nova.AvailabilityZone
 }
 
-func (e *environ) parsePlacement(placement string) (*openstackPlacement, error) {
+func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, fmt.Errorf("unknown placement directive: %v", placement)
@@ -685,7 +693,7 @@ func (e *environ) parsePlacement(placement string) (*openstackPlacement, error) 
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		if _, err := e.parsePlacement(placement); err != nil {
 			return err
@@ -708,7 +716,7 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
-func (e *environ) Storage() storage.Storage {
+func (e *Environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
@@ -725,7 +733,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+func (e *Environ) StateServerInstances() ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuStateServer.
 	instances, err := e.AllInstances()
 	if err != nil {
@@ -744,7 +752,7 @@ func (e *environ) StateServerInstances() ([]instance.Id, error) {
 	return ids, nil
 }
 
-func (e *environ) Config() *config.Config {
+func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
@@ -779,7 +787,7 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	return client
 }
 
-var authenticateClient = func(e *environ) error {
+var authenticateClient = func(e *Environ) error {
 	err := e.client.Authenticate()
 	if err != nil {
 		// Log the error in case there are any useful hints,
@@ -795,7 +803,7 @@ for tenant-name in your environment configuration.`)
 	return nil
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func (e *Environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
@@ -825,7 +833,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 // getKeystoneImageSource is an imagemetadata.ImageDataSourceFunc that
 // returns a DataSource using the "product-streams" keystone URL.
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	e, ok := env.(*environ)
+	e, ok := env.(*Environ)
 	if !ok {
 		return nil, errors.NotSupportedf("non-openstack environment")
 	}
@@ -835,14 +843,14 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 // getKeystoneToolsSource is a tools.ToolsDataSourceFunc that
 // returns a DataSource using the "juju-tools" keystone URL.
 func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
-	e, ok := env.(*environ)
+	e, ok := env.(*Environ)
 	if !ok {
 		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
 
-func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestreams.DataSource, keystoneName string) (simplestreams.DataSource, error) {
+func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestreams.DataSource, keystoneName string) (simplestreams.DataSource, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if *datasource != nil {
@@ -867,12 +875,12 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 }
 
 // TODO(gz): Move this somewhere more reusable
-const uuidPattern = "^([a-fA-F0-9]{8})-([a-fA-f0-9]{4})-([1-5][a-fA-f0-9]{3})-([a-fA-f0-9]{4})-([a-fA-f0-9]{12})$"
+const uuidPattern = "^([a-fA-F0-9]{8})-([a-fA-f0-9]{4})-([a-fA-f0-9]{4})-([a-fA-f0-9]{4})-([a-fA-F0-9]{12})$"
 
 var uuidRegexp = regexp.MustCompile(uuidPattern)
 
 // resolveNetwork takes either a network id or label and returns a network id
-func (e *environ) resolveNetwork(networkName string) (string, error) {
+func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	if uuidRegexp.MatchString(networkName) {
 		// Network id supplied, assume valid as boot will fail if not
 		return networkName, nil
@@ -899,7 +907,7 @@ func (e *environ) resolveNetwork(networkName string) (string, error) {
 
 // allocatePublicIP tries to find an available floating IP address, or
 // allocates a new one, returning it, or an error
-func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
+func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
 	fips, err := e.nova().ListFloatingIPs()
 	if err != nil {
 		return nil, err
@@ -930,7 +938,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 
 // assignPublicIP tries to assign the given floating IP address to the
 // specified server, or returns an error.
-func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
+func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
 	if fip == nil {
 		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
 	}
@@ -950,19 +958,19 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+func (e *Environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -1035,7 +1043,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	var networks = []nova.ServerNetworks{}
+	var networks = e.configurator.InitialNetworks()
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
@@ -1058,15 +1066,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
-	if err != nil {
-		return nil, fmt.Errorf("cannot set up groups: %v", err)
-	}
-	var groupNames = make([]nova.SecurityGroupName, len(groups))
-	for i, g := range groups {
-		groupNames[i] = nova.SecurityGroupName{g.Name}
-	}
+	var groupNames = make([]nova.SecurityGroupName, 0)
+	if e.configurator.UseSecurityGroups() {
+		groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
+		if err != nil {
+			return nil, fmt.Errorf("cannot set up groups: %v", err)
+		}
 
+		for _, g := range groups {
+			groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
+		}
+	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		e.Config().Name(),
@@ -1084,6 +1094,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			AvailabilityZone:   availZone,
 			Metadata:           args.InstanceConfig.Tags,
 		}
+		e.configurator.ModifyRunServerOptions(&opts)
 		for a := shortAttempt.Start(); a.Next(); {
 			server, err = e.nova().RunServer(opts)
 			if err == nil || !gooseerrors.IsNotFound(err) {
@@ -1132,7 +1143,7 @@ func isNoValidHostsError(err error) bool {
 	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
 }
 
-func (e *environ) StopInstances(ids ...instance.Id) error {
+func (e *Environ) StopInstances(ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
 	var securityGroupNames []string
 	if e.Config().FirewallMode() == config.FwInstance {
@@ -1164,7 +1175,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	return nil
 }
 
-func (e *environ) isAliveServer(server nova.ServerDetail) bool {
+func (e *Environ) isAliveServer(server nova.ServerDetail) bool {
 	switch server.Status {
 	// HPCloud uses "BUILD(spawning)" as an intermediate BUILD state
 	// once networking is available.
@@ -1174,7 +1185,7 @@ func (e *environ) isAliveServer(server nova.ServerDetail) bool {
 	return false
 }
 
-func (e *environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
+func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 	wantedServers := make([]nova.ServerDetail, 0, len(ids))
 	if len(ids) == 1 {
 		// Common case, single instance, may return NotFound
@@ -1210,7 +1221,7 @@ func (e *environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
-func (e *environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
+func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
 	fips, err := e.nova().ListFloatingIPs()
 	if err != nil {
 		return err
@@ -1227,7 +1238,7 @@ func (e *environ) updateFloatingIPAddresses(instances map[string]instance.Instan
 	return nil
 }
 
-func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1282,7 +1293,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
-func (e *environ) AllInstances() (insts []instance.Instance, err error) {
+func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
 		return nil, err
@@ -1308,7 +1319,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy() error {
+func (e *Environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
 		return errors.Trace(err)
@@ -1331,15 +1342,15 @@ func (e *environ) Destroy() error {
 	return nil
 }
 
-func (e *environ) globalGroupName() string {
+func (e *Environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
 
-func (e *environ) machineGroupName(machineId string) string {
+func (e *Environ) machineGroupName(machineId string) string {
 	return fmt.Sprintf("%s-%s", e.jujuGroupName(), machineId)
 }
 
-func (e *environ) jujuGroupName() string {
+func (e *Environ) jujuGroupName() string {
 	return fmt.Sprintf("juju-%s", e.name)
 }
 
@@ -1348,7 +1359,7 @@ func resourceName(tag names.Tag, envName string) string {
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.
-func (e *environ) machinesFilter() *nova.Filter {
+func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
 	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Config().Name()))
 	return filter
@@ -1369,7 +1380,7 @@ func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo 
 	return rules
 }
 
-func (e *environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
+func (e *Environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
@@ -1396,7 +1407,7 @@ func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRan
 		*rule.ToPort == portRange.ToPort
 }
 
-func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
+func (e *Environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
 	if len(portRanges) == 0 {
 		return nil
 	}
@@ -1421,7 +1432,7 @@ func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange)
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (portRanges []network.PortRange, err error) {
+func (e *Environ) portsInGroup(name string) (portRanges []network.PortRange, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
@@ -1439,7 +1450,7 @@ func (e *environ) portsInGroup(name string) (portRanges []network.PortRange, err
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *Environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -1451,7 +1462,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *Environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -1463,7 +1474,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]network.PortRange, error) {
+func (e *Environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -1471,11 +1482,11 @@ func (e *environ) Ports() ([]network.PortRange, error) {
 	return e.portsInGroup(e.globalGroupName())
 }
 
-func (e *environ) Provider() environs.EnvironProvider {
+func (e *Environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
+func (e *Environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
@@ -1519,7 +1530,7 @@ func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.Security
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+func (e *Environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
 	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
 	if err != nil {
 		return nil, err
@@ -1551,7 +1562,7 @@ var zeroGroup nova.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+func (e *Environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
 	// First attempt to look up an existing group by name.
 	group, err := novaClient.SecurityGroupByName(name)
@@ -1600,7 +1611,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 // deleteSecurityGroups deletes the given security groups. If a security
 // group is also used by another environment (see bug #1300755), an attempt
 // to delete this group fails. A warning is logged in this case.
-func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
+func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
 	novaclient := e.nova()
 	allSecurityGroups, err := novaclient.ListSecurityGroups()
 	if err != nil {
@@ -1617,40 +1628,7 @@ func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
 	return nil
 }
 
-// deleteSecurityGroup attempts to delete the security group. Should it fail,
-// the deletion is retried due to timing issues in openstack. A security group
-// cannot be deleted while it is in use. Theoretically we terminate all the
-// instances before we attempt to delete the associated security groups, but
-// in practice nova hasn't always finished with the instance before it
-// returns, so there is a race condition where we think the instance is
-// terminated and hence attempt to delete the security groups but nova still
-// has it around internally. To attempt to catch this timing issue, deletion
-// of the groups is tried multiple times.
-func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
-	logger.Debugf("deleting security group %q", name)
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			return novaclient.DeleteSecurityGroup(id)
-		},
-		NotifyFunc: func(err error, attempt int) {
-			if attempt%4 == 0 {
-				message := fmt.Sprintf("waiting to delete security group %q", name)
-				if attempt != 4 {
-					message = "still " + message
-				}
-				logger.Debugf(message)
-			}
-		},
-		Attempts: 30,
-		Delay:    time.Second,
-		Clock:    clock.WallClock,
-	})
-	if err != nil {
-		logger.Warningf("cannot delete security group %q. Used by another environment?", name)
-	}
-}
-
-func (e *environ) terminateInstances(ids []instance.Id) error {
+func (e *Environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1670,7 +1648,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
-func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		region = e.ecfg().region()
 	}
@@ -1687,11 +1665,11 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 }
 
 // Region is specified in the HasRegion interface.
-func (e *environ) Region() (simplestreams.CloudSpec, error) {
+func (e *Environ) Region() (simplestreams.CloudSpec, error) {
 	return e.cloudSpec(e.ecfg().region())
 }
 
-func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
+func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: e.ecfg().authURL(),
