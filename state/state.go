@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/leadership"
+	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -37,87 +39,19 @@ import (
 var logger = loggo.GetLogger("juju.state")
 
 const (
-	// The following define the mongo collections used to record the Juju environment state.
-	environmentsC      = "environments"
-	charmsC            = "charms"
-	machinesC          = "machines"
-	containerRefsC     = "containerRefs"
-	instanceDataC      = "instanceData"
-	relationsC         = "relations"
-	relationScopesC    = "relationscopes"
-	servicesC          = "services"
-	requestedNetworksC = "requestednetworks"
-	networksC          = "networks"
-	networkInterfacesC = "networkinterfaces"
-	minUnitsC          = "minunits"
-	settingsC          = "settings"
-	settingsrefsC      = "settingsrefs"
-	constraintsC       = "constraints"
-	unitsC             = "units"
-	subnetsC           = "subnets"
-	ipaddressesC       = "ipaddresses"
+	// jujuDB is the name of the main juju database.
+	jujuDB = "juju"
 
-	// actionsC and related collections store state of Actions that
-	// have been enqueued.
-	actionsC = "actions"
-	// actionNotificationsC are only used for notification of newly
-	// enqueued Actions.
-	actionNotificationsC = "actionnotifications"
-	// actionResultsC is deprecated and will soon be folded into
-	// actionsC.
-	actionresultsC = "actionresults"
-
-	usersC                 = "users"
-	envUsersC              = "envusers"
-	presenceC              = "presence"
-	cleanupsC              = "cleanups"
-	annotationsC           = "annotations"
-	statusesC              = "statuses"
-	statusesHistoryC       = "statuseshistory"
-	stateServersC          = "stateServers"
-	openedPortsC           = "openedPorts"
-	metricsC               = "metrics"
-	metricsManagerC        = "metricsmanager"
-	upgradeInfoC           = "upgradeInfo"
-	rebootC                = "reboot"
-	blockDevicesC          = "blockdevices"
-	storageAttachmentsC    = "storageattachments"
-	storageConstraintsC    = "storageconstraints"
-	storageInstancesC      = "storageinstances"
-	volumesC               = "volumes"
-	volumeAttachmentsC     = "volumeattachments"
-	filesystemsC           = "filesystems"
-	filesystemAttachmentsC = "filesystemAttachments"
-
-	// leaseC is used to store lease tokens
-	leaseC = "lease"
-
-	// sequenceC is used to generate unique identifiers.
-	sequenceC = "sequence"
-
-	// meterStatusC is the collection used to store meter status information.
-	meterStatusC = "meterStatus"
-
-	// toolsmetadataC is the collection used to store tools metadata.
-	toolsmetadataC = "toolsmetadata"
-
-	// These collections are used by the mgo transaction runner.
-	txnLogC = "txns.log"
-	txnsC   = "txns"
+	// presenceDB is the name of the database used to hold presence pinger data.
+	presenceDB = "presence"
+	presenceC  = "presence"
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 
-	// restoreInfoC is used to track restore progress
-	restoreInfoC = "restoreInfo"
-
-	// blocksC is used to identify collection of environment blocks.
-	blocksC = "blocks"
-
-	// The following mongo collections are used as unique key restraints. The
-	// _id field of each collection is a concatenation of multiple fields
-	// that form a compound index.
-	userenvnameC = "userenvname"
+	// serviceLeadershipNamespace is the name of the lease.Client namespace
+	// used by the leadership manager.
+	serviceLeadershipNamespace = "service-leadership"
 )
 
 // State represents the state of an environment
@@ -125,21 +59,23 @@ const (
 type State struct {
 	// TODO(katco-): As state gets broken up, remove this.
 	*LeasePersistor
-	// transactionRunner is normally nil, which means that a new one
-	// will be created for each operation, ensuring a fresh mgo.Session
-	// is used. However, for tests, a value may be assigned and this will
-	// be used instead of creating a new runnner each time.
-	transactionRunner jujutxn.Runner
-	mongoInfo         *mongo.MongoInfo
-	policy            Policy
-	db                *mgo.Database
+
+	environTag names.EnvironTag
+	serverTag  names.EnvironTag
+	mongoInfo  *mongo.MongoInfo
+	session    *mgo.Session
+	database   Database
+	policy     Policy
+
+	// TODO(fwereade): move these out of state and make them independent
+	// workers on which state depends.
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
+	leadershipManager leadership.ManagerWorker
+
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *storeManager
-	environTag names.EnvironTag
-	serverTag  names.EnvironTag
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -183,40 +119,93 @@ func (st *State) RemoveAllEnvironDocs() error {
 		Remove: true,
 	}}
 
-	// add all multiEnv docs to the txn
-	var ids []bson.M
-	for collName := range multiEnvCollections {
-		coll, closer := st.getCollection(collName)
+	// Add all per-environment docs to the txn.
+	for name, info := range st.database.Schema() {
+		if info.global {
+			continue
+		}
+		coll, closer := st.getCollection(name)
 		defer closer()
+
+		var ids []bson.M
 		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for _, id := range ids {
 			ops = append(ops, txn.Op{
-				C:      collName,
+				C:      name,
 				Id:     id["_id"],
 				Remove: true,
 			})
 		}
-		ids = nil
 	}
 
 	return st.runTransaction(ops)
 }
 
-// ForEnviron returns a connection to mongo for the specified
-// environment. The connection uses the same credentials and policy as
-// the existing connection.
+// ForEnviron returns a connection to mongo for the specified environment. The
+// connection uses the same credentials and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
+	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newState.environTag = env
-	newState.serverTag = st.serverTag
-	newState.startPresenceWatcher()
+	if err := newState.start(st.serverTag); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return newState, nil
+}
+
+// start starts the presence watcher and leadership manager, and fills in the
+// serverTag field with the supplied value.
+func (st *State) start(serverTag names.EnvironTag) error {
+	st.serverTag = serverTag
+
+	var clientId string
+	if identity := st.mongoInfo.Tag; identity != nil {
+		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
+		// think it's just coincidental that the mongodb user happens to map to
+		// the machine that's executing the code -- but there doesn't seem to be
+		// an accessible alternative.
+		clientId = identity.String()
+	} else {
+		// If we're running state anonymously, we can still use the lease
+		// manager; but we need to make sure we use a unique client ID, and
+		// will thus not be very performant.
+		logger.Infof("running state anonymously; using unique client id")
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		clientId = fmt.Sprintf("anon-%s", uuid.String())
+	}
+
+	logger.Infof("creating lease client as %s", clientId)
+	clock := lease.SystemClock{}
+	leaseClient, err := lease.NewClient(lease.ClientConfig{
+		Id:         clientId,
+		Namespace:  serviceLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create lease client")
+	}
+	logger.Infof("starting leadership manager")
+	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
+		Client: leaseClient,
+		Clock:  clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create leadership manager")
+	}
+	st.leadershipManager = leadershipManager
+
+	logger.Infof("starting presence watcher")
+	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
+	return nil
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by
@@ -236,24 +225,25 @@ func userEnvNameIndex(username, envName string) string {
 	return strings.ToLower(username) + ":" + envName
 }
 
-// EnsureEnvironmentRemoved returns an error if any multi-enviornment
+// EnsureEnvironmentRemoved returns an error if any multi-environment
 // documents for this environment are found. It is intended only to be used in
 // tests and exported so it can be used in the tests of other packages.
 func (st *State) EnsureEnvironmentRemoved() error {
-	colls := multiEnvCollections
-	colls.Remove(cleanupsC)
 	found := map[string]int{}
 	var foundOrdered []string
-	for collName := range colls {
-		coll, closer := st.getCollection(collName)
+	for name, info := range st.database.Schema() {
+		if info.global {
+			continue
+		}
+		coll, closer := st.getCollection(name)
 		defer closer()
 		n, err := coll.Find(nil).Count()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if n != 0 {
-			found[collName] = n
-			foundOrdered = append(foundOrdered, collName)
+			found[name] = n
+			foundOrdered = append(foundOrdered, name)
 		}
 	}
 
@@ -273,27 +263,21 @@ func (st *State) EnsureEnvironmentRemoved() error {
 
 // getPresence returns the presence m.
 func (st *State) getPresence() *mgo.Collection {
-	return st.db.Session.DB("presence").C(presenceC)
-}
-
-func (st *State) startPresenceWatcher() {
-	pdb := st.db.Session.DB("presence")
-	st.pwatcher = presence.NewWatcher(pdb.C(presenceC), st.environTag)
+	return st.session.DB(presenceDB).C(presenceC)
 }
 
 // newDB returns a database connection using a new session, along with
 // a closer function for the session. This is useful where you need to work
 // with various collections in a single session, so don't want to call
 // getCollection multiple times.
-func (st *State) newDB() (*mgo.Database, func()) {
-	session := st.db.Session.Copy()
-	return st.db.With(session), session.Close
+func (st *State) newDB() (Database, func()) {
+	return st.database.CopySession()
 }
 
 // Ping probes the state's database connection to ensure
 // that it is still alive.
 func (st *State) Ping() error {
-	return st.db.Session.Ping()
+	return st.session.Ping()
 }
 
 // MongoSession returns the underlying mongodb session
@@ -301,7 +285,7 @@ func (st *State) Ping() error {
 // can maintain the mongo replica set and should not
 // otherwise be used.
 func (st *State) MongoSession() *mgo.Session {
-	return st.db.Session
+	return st.session
 }
 
 type closeFunc func()
@@ -383,7 +367,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection := db.C(name)
+		collection, closer := db.GetCollection(name)
+		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
 		}
@@ -553,17 +538,6 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 		return errors.Trace(err)
 	}
 	return writeConstraints(st, environGlobalKey, cons)
-}
-
-var ErrDead = fmt.Errorf("not found or dead")
-var errNotAlive = fmt.Errorf("not found or not alive")
-
-func onAbort(txnErr, err error) error {
-	if txnErr == txn.ErrAborted ||
-		errors.Cause(txnErr) == txn.ErrAborted {
-		return errors.Trace(err)
-	}
-	return errors.Trace(txnErr)
 }
 
 // AllMachines returns all machines in the environment
@@ -781,35 +755,28 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
-	// The charm may already exist in state as a placeholder, so we
-	// check for that situation and update the existing charm record
-	// if necessary, otherwise add a new record.
-	var existing charmDoc
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
-	if err == mgo.ErrNotFound {
-		cdoc := &charmDoc{
-			DocID:        st.docID(curl.String()),
-			URL:          curl,
-			EnvUUID:      st.EnvironTag().Id(),
-			Meta:         ch.Meta(),
-			Config:       ch.Config(),
-			Metrics:      ch.Metrics(),
-			Actions:      ch.Actions(),
-			BundleSha256: bundleSha256,
-			StoragePath:  storagePath,
+	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var placeholderDoc struct {
+			Placeholder bool `bson:"placeholder"`
 		}
-		err = charms.Insert(cdoc)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot add charm %q", curl)
+		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
+			return insertCharmOps(st, ch, curl, storagePath, bundleSha256)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else if placeholderDoc.Placeholder {
+			return updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPlaceholder)
 		}
-		return newCharm(st, cdoc), nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.AlreadyExistsf("charm %q", curl)
 	}
-	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPlaceholder)
+	if err = st.run(buildTxn); err == nil {
+		return st.Charm(curl)
+	}
+	return nil, errors.Trace(err)
 }
 
 // AllCharms returns all charms in state.
@@ -920,20 +887,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			chosenRevision = maxRevision + 1
 		}
 		chosenUrl = curl.WithRevision(chosenRevision)
-
-		uploadedCharm := &charmDoc{
-			DocID:         st.docID(chosenUrl.String()),
-			EnvUUID:       st.EnvironTag().Id(),
-			URL:           chosenUrl,
-			PendingUpload: true,
-		}
-		ops := []txn.Op{{
-			C:      charmsC,
-			Id:     uploadedCharm.DocID,
-			Assert: txn.DocMissing,
-			Insert: uploadedCharm,
-		}}
-		return ops, nil
+		return insertPendingCharmOps(st, chosenUrl)
 	}
 	if err = st.run(buildTxn); err == nil {
 		return chosenUrl, nil
@@ -944,7 +898,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 // PrepareStoreCharmUpload must be called before a charm store charm
 // is uploaded to the provider storage in order to create a charm
 // document in state. If a charm with the same URL is already in
-// state, it will be returned as a *state.Charm (is can be still
+// state, it will be returned as a *state.Charm (it can be still
 // pending or already uploaded). Otherwise, a new charm document is
 // added in state with just the given charm URL and
 // PendingUpload=true, which is then returned as a *state.Charm.
@@ -969,55 +923,28 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
 		err := charms.FindId(curl.String()).One(&uploadedCharm)
-		if err != nil && err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		} else if err == nil && !uploadedCharm.Placeholder {
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		} else if err == mgo.ErrNotFound {
-			// Prepare the pending charm document for insertion.
+		switch {
+		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
 				EnvUUID:       st.EnvironTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
-				Placeholder:   false,
 			}
-		}
-
-		var ops []txn.Op
-		if uploadedCharm.Placeholder {
-			// Convert the placeholder to a pending charm, while
-			// asserting the fields updated after an upload have not
-			// changed yet.
-			ops = []txn.Op{{
-				C:  charmsC,
-				Id: uploadedCharm.DocID,
-				Assert: bson.D{
-					{"bundlesha256", ""},
-					{"pendingupload", false},
-					{"placeholder", true},
-				},
-				Update: bson.D{{"$set", bson.D{
-					{"pendingupload", true},
-					{"placeholder", false},
-				}}},
-			}}
+			return insertAnyCharmOps(&uploadedCharm)
+		case err != nil:
+			return nil, errors.Trace(err)
+		case uploadedCharm.Placeholder:
 			// Update the fields of the document we're returning.
 			uploadedCharm.PendingUpload = true
 			uploadedCharm.Placeholder = false
-		} else {
-			// No charm document with this curl yet, insert it.
-			ops = []txn.Op{{
-				C:      charmsC,
-				Id:     uploadedCharm.DocID,
-				Assert: txn.DocMissing,
-				Insert: uploadedCharm,
-			}}
+			return convertPlaceholderCharmOps(uploadedCharm.DocID)
+		default:
+			// The charm exists and it's either uploaded or still
+			// pending, but it's not a placeholder. In any case,
+			// there's nothing to do.
+			return nil, jujutxn.ErrNoOperations
 		}
-		return ops, nil
 	}
 	if err = st.run(buildTxn); err == nil {
 		return newCharm(st, &uploadedCharm), nil
@@ -1056,89 +983,19 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
-		ops, err := st.deleteOldPlaceholderCharmsOps(curl)
+		deleteOps, err := deleteOldPlaceholderCharmsOps(st, charms, curl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Add the new charm doc.
-		placeholderCharm := &charmDoc{
-			DocID:       st.docID(curl.String()),
-			EnvUUID:     st.EnvironTag().Id(),
-			URL:         curl,
-			Placeholder: true,
+		insertOps, err := insertPlaceholderCharmOps(st, curl)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
-			Id:     placeholderCharm.DocID,
-			Assert: txn.DocMissing,
-			Insert: placeholderCharm,
-		})
+		ops := append(deleteOps, insertOps...)
 		return ops, nil
 	}
 	return errors.Trace(st.run(buildTxn))
 }
-
-// deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
-// records older than the specified charm URL.
-func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
-	// Get a regex with the charm URL and no revision.
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	var docs []charmDoc
-	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
-	err := charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var ops []txn.Op
-	for _, doc := range docs {
-		if doc.URL.Revision >= curl.Revision {
-			continue
-		}
-		ops = append(ops, txn.Op{
-			C:      charmsC,
-			Id:     doc.DocID,
-			Assert: stillPlaceholder,
-			Remove: true,
-		})
-	}
-	return ops, nil
-}
-
-// ErrCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
-// the given charm is already uploaded and marked as not pending in
-// state.
-type ErrCharmAlreadyUploaded struct {
-	curl *charm.URL
-}
-
-func (e *ErrCharmAlreadyUploaded) Error() string {
-	return fmt.Sprintf("charm %q already uploaded", e.curl)
-}
-
-// IsCharmAlreadyUploadedError returns if the given error is
-// ErrCharmAlreadyUploaded.
-func IsCharmAlreadyUploadedError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*ErrCharmAlreadyUploaded)
-	return ok
-}
-
-// ErrCharmRevisionAlreadyModified is returned when a pending or
-// placeholder charm is no longer pending or a placeholder, signaling
-// the charm is available in state with its full information.
-var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
@@ -1158,40 +1015,10 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
 	}
 
-	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPending)
-}
-
-// updateCharmDoc updates the charm with specified URL with the given
-// data, and resets the placeholder and pendingupdate flags.  If the
-// charm is no longer a placeholder or pending (depending on preReq),
-// it returns ErrCharmRevisionAlreadyModified.
-func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
-
-	// Make sure we escape any "$" and "." in config option names
-	// first. See http://pad.lv/1308146.
-	cfg := ch.Config()
-	escapedConfig := charm.NewConfig()
-	for optionName, option := range cfg.Options {
-		escapedName := escapeReplacer.Replace(optionName)
-		escapedConfig.Options[escapedName] = option
+	ops, err := updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPending)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	updateFields := bson.D{{"$set", bson.D{
-		{"meta", ch.Meta()},
-		{"config", escapedConfig},
-		{"actions", ch.Actions()},
-		{"metrics", ch.Metrics()},
-		{"storagepath", storagePath},
-		{"bundlesha256", bundleSha256},
-		{"pendingupload", false},
-		{"placeholder", false},
-	}}}
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: preReq,
-		Update: updateFields,
-	}}
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
@@ -2038,7 +1865,7 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	err := mongo.SetAdminMongoPassword(st.db.Session, mongo.AdminUser, password)
+	err := mongo.SetAdminMongoPassword(st.session, mongo.AdminUser, password)
 	return errors.Trace(err)
 }
 
@@ -2071,8 +1898,17 @@ type StateServerInfo struct {
 // StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
-	defer closer()
+	session := st.session.Copy()
+	defer session.Close()
+	return readRawStateServerInfo(st.session)
+}
+
+// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
+// falling back to the bootstrap environment document to extract the UUID when
+// required.
+func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+	db := session.DB(jujuDB)
+	stateServers := db.C(stateServersC)
 
 	var doc stateServersDoc
 	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
@@ -2087,8 +1923,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		// upgrade steps have been run. Without this hack environTag
 		// on State ends up empty, breaking basic functionality needed
 		// to run upgrade steps (a chicken-and-egg scenario).
-		environments, closer := st.getCollection(environmentsC)
-		defer closer()
+		environments := db.C(environmentsC)
 
 		var envDoc environmentDoc
 		query := environments.Find(nil)

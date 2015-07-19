@@ -243,15 +243,20 @@ var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC
 func (u *User) UpdateLastLogin() error {
 	users, closer := u.st.getCollection(usersC)
 	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	usersW := users.Writeable()
+
 	// Update the safe mode of the underlying session to be not require
 	// write majority, nor sync to disk.
-	session := users.Underlying().Database.Session
+	session := usersW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
 	timestamp := nowToTheSecond()
 	update := bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}}
 
-	if err := users.UpdateId(u.Name(), update); err != nil {
+	if err := usersW.UpdateId(u.Name(), update); err != nil {
 		return errors.Annotatef(err, "cannot update last login timestamp for user %q", u.Name())
 	}
 

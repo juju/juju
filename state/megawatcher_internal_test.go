@@ -51,17 +51,17 @@ type storeManagerStateSuite struct {
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
-
 	s.OtherState = s.newState(c)
-	s.AddCleanup(func(*gc.C) { s.OtherState.Close() })
+	s.AddCleanup(func(c *gc.C) {
+		err := s.OtherState.Close()
+		c.Check(err, jc.ErrorIsNil)
+	})
 }
 
 func (s *storeManagerStateSuite) newState(c *gc.C) *State {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": "newtestenv",
-		"uuid": uuid.String(),
+		"uuid": utils.MustNewUUID().String(),
 	})
 	_, st, err := s.state.NewEnvironment(cfg, s.owner)
 	c.Assert(err, jc.ErrorIsNil)

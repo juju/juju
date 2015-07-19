@@ -114,15 +114,15 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 
 	// As long as we don't wait too long, the connection stays open
 	resetCount = 0
+	const shortTimeout = 10 * time.Millisecond
 	for i := 0; i < 10; i++ {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(shortTimeout / 4)
 		err = st.Ping()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Check(resetCount, gc.Equals, 10)
 
 	// However, once we stop pinging for too long, the connection dies
-	const shortTimeout = 10 * time.Millisecond
 	timer.Reset(shortTimeout)
 	time.Sleep(2 * shortTimeout) // Exceed the timeout.
 	err = st.Ping()
