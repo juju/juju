@@ -4,16 +4,13 @@ host=$1
 RELEASE=$(ssh $host lsb_release -sr)
 SERIES=$(ssh $host lsb_release -sc)
 ARCH=$(ssh $host dpkg --print-architecture)
+PATH=$SCRIPTS:$PATH
 
-$SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
 # We need a way to lookup the build-source-packages number from the br number.
-$SCRIPTS/jujuci.py get -b lastBuild build-source-packages "*$RELEASE*"\
-  $WORKSPACE
-$SCRIPTS/jujuci.py get -b lastBuild build-source-packages '*orig.tar.gz'\
-  $WORKSPACE
 
-export RELEASE SERIES ARCH host
-python - *$RELEASE* *.orig.tar.gz <<"EOT"
+export RELEASE SERIES ARCH host PATH
+python - <<"EOT"
+from glob import glob
 import json
 import os
 from os.path import join
@@ -27,8 +24,19 @@ build_number = os.environ['BUILD_NUMBER']
 prefix = 'juju-ci/products/version-{}/{}/build-{}'.format(
     revision_build, job_name, build_number)
 s3_config = join(os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
+release = os.environ['RELEASE']
 
-(dsc_file,) = [x for x in sys.argv[1:] if x.endswith('.dsc')]
+subprocess.check_call(['jujuci.py', '-v', 'setup-workspace', os.environ['WORKSPACE']])
+release_glob = '*{}*'.format(release)
+subprocess.check_call([
+  'jujuci.py', 'get', '-b', 'lastBuild', 'build-source-packages', release_glob,
+  os.environ['WORKSPACE']])
+packages = glob(release_glob)
+(dsc_file,) = [x for x in packages if x.endswith('.dsc')]
+subprocess.check_call(
+  ['jujuci.py', 'get', '-b', 'lastBuild', 'build-source-packages',
+   '*orig.tar.gz', os.environ['WORKSPACE']])
+packages.extend(glob('*.orig.tar.gz'))
 command = [
     'mv', 'packages/*', '.', ';', 'pwd', ';', 'ls', '-l', ';'
     '/home/ubuntu/juju-release-tools/build_package.py', '-v', 'binary',
@@ -36,7 +44,7 @@ command = [
 with NamedTemporaryFile() as config_file:
     json.dump({
         'command': command,
-        'install': {'packages': sys.argv[1:]},
+        'install': {'packages': packages},
         'artifacts': {'packages': ['*.deb']},
         'bucket': 'juju-qa-data',
         }, config_file)
