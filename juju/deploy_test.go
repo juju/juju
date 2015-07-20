@@ -214,6 +214,74 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	c.Assert(machineCons, gc.DeepEquals, *unitCons)
 }
 
+func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	c.Assert(err, jc.ErrorIsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Constraints: serviceCons,
+			NumUnits:    3,
+			Placement: []*instance.Placement{
+				{Scope: s.State.EnvironUUID(), Directive: "valid"},
+				{Scope: "#", Directive: "0"},
+				{Scope: "lxc", Directive: "1"},
+			},
+			ToMachineSpec: "will be ignored",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertConstraints(c, service, serviceCons)
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 3)
+
+	// Check each of the newly added units.
+	s.assertAssignedUnit(c, units[0], "1", constraints.MustParse("mem=2G cpu-cores=2"))
+	s.assertAssignedUnit(c, units[1], "0", constraints.Value{})
+	s.assertAssignedUnit(c, units[2], "1/lxc/0", constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	c.Assert(err, jc.ErrorIsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Constraints: serviceCons,
+			NumUnits:    3,
+			Placement: []*instance.Placement{
+				{Scope: s.State.EnvironUUID(), Directive: "valid"},
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertConstraints(c, service, serviceCons)
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 3)
+
+	// Check each of the newly added units.
+	s.assertAssignedUnit(c, units[0], "0", constraints.MustParse("mem=2G cpu-cores=2"))
+	s.assertAssignedUnit(c, units[1], "1", constraints.MustParse("mem=2G cpu-cores=2"))
+	s.assertAssignedUnit(c, units[2], "2", constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string, cons constraints.Value) {
+	id, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+	machineCons, err := machine.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineCons, gc.DeepEquals, cons)
+}
+
 func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Service, expect *charm.URL) {
 	curl, force := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, expect)

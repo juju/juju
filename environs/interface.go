@@ -28,6 +28,8 @@ type EnvironProvider interface {
 	// additional configuration attributes are added to the config passed in
 	// and returned.  This allows providers to add additional required config
 	// for new environments that may be created in an existing juju server.
+	// Note that this is not called in a client context, so environment variables,
+	// local files, etc are not available.
 	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
 
 	// PrepareForBootstrap prepares an environment for use. Any additional
@@ -193,6 +195,15 @@ type Environ interface {
 	Provider() EnvironProvider
 
 	state.Prechecker
+}
+
+// InstanceTagger is an interface that can be used for tagging instances.
+type InstanceTagger interface {
+	// TagInstance tags the given instance with the specified tags.
+	//
+	// The specified tags will replace any existing ones with the
+	// same names, but other existing tags will be left alone.
+	TagInstance(id instance.Id, tags map[string]string) error
 }
 
 // BootstrapContext is an interface that is passed to

@@ -4,6 +4,8 @@
 package environment
 
 import (
+	"os"
+	"os/user"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -15,9 +17,9 @@ import (
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	localProvider "github.com/juju/juju/provider/local"
 )
 
 // CreateCommand calls the API to create a new environment.
@@ -186,24 +188,37 @@ func (c *CreateCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.
 	}
 	configValues["name"] = c.Name
 
+	if err := setConfigSpecialCaseDefaults(c.Name, configValues); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO: allow version to be specified on the command line and add here.
 	cfg, err := config.New(config.UseDefaults, configValues)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
+	return cfg.AllAttrs(), nil
+}
+
+var userCurrent = user.Current
+
+func setConfigSpecialCaseDefaults(envName string, cfg map[string]interface{}) error {
+	// As a special case, the local provider's namespace value
+	// comes from the user's name and the environment name.
+	switch cfg["type"] {
+	case "local":
+		if _, ok := cfg[localProvider.NamespaceKey]; ok {
+			return nil
+		}
+		username := os.Getenv("USER")
+		if username == "" {
+			u, err := userCurrent()
+			if err != nil {
+				return errors.Annotatef(err, "failed to determine username for namespace")
+			}
+			username = u.Username
+		}
+		cfg[localProvider.NamespaceKey] = username + "-" + envName
 	}
-
-	cfg, err = provider.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	attrs := cfg.AllAttrs()
-	delete(attrs, "agent-version")
-	// TODO: allow version to be specified on the command line and add here.
-
-	return attrs, nil
+	return nil
 }

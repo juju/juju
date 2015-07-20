@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -478,10 +479,10 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		// Prepare the environment.
 		provider, err := environs.Provider(cfg.Type())
 		c.Assert(err, jc.ErrorIsNil)
-		cfg, err = provider.PrepareForCreateEnvironment(cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
-		err = st.UpdateEnvironConfig(cfg.AllAttrs(), nil, nil)
+		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return st

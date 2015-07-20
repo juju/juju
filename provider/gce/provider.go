@@ -41,16 +41,6 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Make any necessary updates to the config. This needs to happen
-	// before any defaults are applied.
-	updates, err := parseOSEnv()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err = cfg.Apply(updates)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return cfg, nil
 }
 

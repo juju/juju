@@ -5,15 +5,18 @@ package state
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/storage"
 )
 
@@ -933,4 +936,36 @@ func setFilesystemAttachmentInfoOps(
 		Assert: asserts,
 		Update: update,
 	}}
+}
+
+// filesystemMountPoint returns a mount point to use for the given charm
+// storage. For stores with potentially multiple instances, the instance
+// name is appended to the location.
+func filesystemMountPoint(
+	meta charm.Storage,
+	tag names.StorageTag,
+	series string,
+) (string, error) {
+	storageDir, err := paths.StorageDir(series)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if strings.HasPrefix(meta.Location, storageDir) {
+		return "", errors.Errorf(
+			"invalid location %q: must not fall within %q",
+			meta.Location, storageDir,
+		)
+	}
+	if meta.Location != "" && meta.CountMax == 1 {
+		// The location is specified and it's a singleton
+		// store, so just use the location as-is.
+		return meta.Location, nil
+	}
+	// If the location is unspecified then we use
+	// <storage-dir>/<storage-id> as the location.
+	// Otherwise, we use <location>/<storage-id>.
+	if meta.Location != "" {
+		storageDir = meta.Location
+	}
+	return path.Join(storageDir, tag.Id()), nil
 }

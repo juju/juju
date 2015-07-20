@@ -196,6 +196,10 @@ func (em *EnvironmentManagerAPI) validConfig(attrs map[string]interface{}) (*con
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cfg, err = provider.PrepareForCreateEnvironment(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cfg, err = provider.Validate(cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "provider validation failed")

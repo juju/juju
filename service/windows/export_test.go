@@ -20,7 +20,7 @@ type patcher interface {
 
 func PatchServiceManager(patcher patcher, stub *testing.Stub) *StubSvcManager {
 	manager := &StubSvcManager{Stub: stub}
-	patcher.PatchValue(&newServiceManager, func() (ServiceManager, error) { return manager, nil })
+	patcher.PatchValue(&NewServiceManager, func() (ServiceManager, error) { return manager, nil })
 	patcher.PatchValue(&listServices, manager.ListServices)
 	return manager
 }

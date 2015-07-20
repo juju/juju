@@ -44,10 +44,16 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 	return false, nil
 }
 
+// ChangeServicePassword can change the password of a service
+// as long as it belongs to the user defined in this package
+func (s *SvcManager) ChangeServicePassword(name, newPassword string) error {
+	return nil
+}
+
 var listServices = func() ([]string, error) {
 	return []string{}, nil
 }
 
-var newServiceManager = func() (ServiceManager, error) {
+var NewServiceManager = func() (ServiceManager, error) {
 	return &SvcManager{}, nil
 }

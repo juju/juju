@@ -42,10 +42,10 @@ import (
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -68,6 +68,8 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -106,6 +108,8 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	// We're not interested in whether EnsureJujudPassword works here since we test it somewhere else
+	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -117,7 +121,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 
 	os.Remove(JujuRun) // ignore error; may not exist
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
@@ -214,7 +218,9 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf)
+	logsCh, err := logsender.InstallBufferedLogWriter(1024)
+	c.Assert(err, jc.ErrorIsNil)
+	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf, logsCh)
 	return machineAgentFactory(m.Id())
 }
 
@@ -223,7 +229,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, &agentConf),
+			MachineAgentFactoryFn(&agentConf, &agentConf, nil),
 			&agentConf,
 			&agentConf,
 		)
@@ -298,7 +304,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf),
+		MachineAgentFactoryFn(agentConf, agentConf, nil),
 		agentConf,
 		agentConf,
 	)
@@ -324,7 +330,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf),
+		MachineAgentFactoryFn(agentConf, agentConf, nil),
 		agentConf,
 		agentConf,
 	)
@@ -709,7 +715,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
-	s.SetFeatureFlags(feature.DbLog)
+	s.SetFeatureFlags("db-log")
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
@@ -1414,7 +1420,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1438,7 +1444,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1497,7 +1503,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
@@ -1605,6 +1611,45 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 			c.Fatalf("timed out waiting for the networker to start")
 		}
 		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+	for _, expectedIgnoreValue := range []bool{true, false} {
+		ignoreAddressCh := make(chan bool, 1)
+		s.AgentSuite.PatchValue(&newMachiner, func(
+			accessor machiner.MachineAccessor,
+			conf agent.Config,
+			ignoreMachineAddresses bool,
+		) worker.Worker {
+			select {
+			case ignoreAddressCh <- ignoreMachineAddresses:
+			default:
+			}
+			return machiner.NewMachiner(accessor, conf, ignoreMachineAddresses)
+		})
+
+		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
+		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+		a := s.newAgent(c, m)
+		defer a.Stop()
+		doneCh := make(chan error)
+		go func() {
+			doneCh <- a.Run(nil)
+		}()
+
+		select {
+		case ignoreMachineAddresses := <-ignoreAddressCh:
+			if ignoreMachineAddresses != expectedIgnoreValue {
+				c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for the machiner to start")
+		}
+		s.waitStopped(c, state.JobHostUnits, a, doneCh)
 	}
 }
 

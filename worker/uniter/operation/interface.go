@@ -114,6 +114,10 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as service leader.
 	NewResignLeadership() (Operation, error)
+
+	// NewSendMetrics creates an operation that sends all metrics collected
+	// by the unit.
+	NewSendMetrics() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -153,10 +157,10 @@ type Callbacks interface {
 	NotifyHookCompleted(string, runner.Context)
 	NotifyHookFailed(string, runner.Context)
 
-	// InitializeMetricsCollector ensures that the collect-metrics hook timer is
+	// InitializeMetricsTimers ensures that the collect-metrics hook timer is
 	// up to date given the current deployed charm. It's only used in deploy
 	// operations.
-	InitializeMetricsCollector() error
+	InitializeMetricsTimers() error
 
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.

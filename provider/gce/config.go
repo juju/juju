@@ -126,11 +126,6 @@ var osEnvFields = map[string]string{
 	google.OSEnvImageEndpoint: cfgImageEndpoint,
 }
 
-func parseOSEnv() (map[string]interface{}, error) {
-	// TODO(ericsnow) Support pulling ID/PK from shell environment variables.
-	return nil, nil
-}
-
 // handleInvalidField converts a google.InvalidConfigValue into a new
 // error, translating a {provider/gce/google}.OSEnvVar* value into a
 // GCE config key in the new error.

@@ -3,6 +3,11 @@
 
 package environment
 
+var (
+	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
+	UserCurrent                  = &userCurrent
+)
+
 // NewGetCommand returns a GetCommand with the api provided as specified.
 func NewGetCommand(api GetEnvironmentAPI) *GetCommand {
 	return &GetCommand{
