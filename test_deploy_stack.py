@@ -759,6 +759,7 @@ class TestDeployJobParseArgs(TestCase):
             upgrade=False,
             verbose=logging.INFO,
             upload_tools=False,
+            with_chaos=0,
         ))
 
     def test_upload_tools(self):

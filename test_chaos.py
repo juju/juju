@@ -1,19 +1,24 @@
 import os
+from shutil import rmtree
 import stat
-from tempfile import NamedTemporaryFile
+from tempfile import (
+    NamedTemporaryFile,
+    mkdtemp,
+    )
 from unittest import TestCase
 
 from mock import patch
 import yaml
 
-from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
-    )
 from chaos import (
     background_chaos,
     MonkeyRunner,
     )
+from jujupy import (
+    EnvJujuClient,
+    SimpleEnvironment,
+    )
+from remote import SSHRemote
 from test_jujupy import (
     assert_juju_call,
     )
@@ -34,13 +39,21 @@ class TestBackgroundChaos(TestCase):
         with patch('chaos.MonkeyRunner.deploy_chaos_monkey',
                    autospec=True) as d_mock:
             with patch('chaos.MonkeyRunner.unleash_once',
-                       autospec=True) as u_mock:
+                       return_value=['1'], autospec=True) as u_mock:
                 with patch('chaos.MonkeyRunner.wait_for_chaos',
                            autospec=True) as w_mock:
-                    with background_chaos('foo', client):
-                        pass
+                    with patch('chaos.remote_from_unit',
+                               return_value=SSHRemote(None, None, 'foo')
+                               ) as ru_mock:
+                        with patch('remote.SSHRemote.copy') as rc_mock:
+                            log_dir = mkdtemp()
+                            with background_chaos('foo', client, log_dir, 1):
+                                pass
+                            rmtree(log_dir)
         self.assertEqual(1, d_mock.call_count)
         self.assertEqual(1, u_mock.call_count)
+        self.assertEqual(1, ru_mock.call_count)
+        self.assertEqual(1, rc_mock.call_count)
         self.assertEqual({'state': 'start'}, w_mock.mock_calls[0][2])
         self.assertEqual({'state': 'complete'}, w_mock.mock_calls[1][2])
 
@@ -52,12 +65,17 @@ class TestBackgroundChaos(TestCase):
                        autospec=True):
                 with patch('chaos.MonkeyRunner.wait_for_chaos',
                            autospec=True):
-                    with patch('logging.exception') as le_mock:
-                        with patch('sys.exit', autospec=True) as se_mock:
-                            with background_chaos('foo', client):
-                                raise Exception()
+                    with patch('chaos.remote_from_unit'):
+                        with patch('remote.SSHRemote.copy'):
+                            with patch('logging.exception') as le_mock:
+                                with patch('sys.exit', autospec=True) as sm:
+                                    log_dir = mkdtemp()
+                                    with background_chaos('foo', client,
+                                                          log_dir, 1):
+                                        raise Exception()
+                            rmtree(log_dir)
         self.assertEqual(1, le_mock.call_count)
-        se_mock.assert_called_once_with(1)
+        sm.assert_called_once_with(1)
 
 
 class TestRunChaosMonkey(TestCase):
