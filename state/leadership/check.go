@@ -6,6 +6,8 @@ package leadership
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/leadership"
 )
 
 // check is used to deliver leadership-check requests to a manager's loop
@@ -13,7 +15,7 @@ import (
 type check struct {
 	serviceName string
 	unitName    string
-	response    chan Token
+	response    chan leadership.Token
 	abort       <-chan struct{}
 }
 
@@ -37,7 +39,7 @@ func (c check) validate() error {
 // invoke sends the check on the supplied channel, waits for a response, and
 // returns either a Token that can be used to assert continued leadership in
 // the future, or an error.
-func (c check) invoke(ch chan<- check) (Token, error) {
+func (c check) invoke(ch chan<- check) (leadership.Token, error) {
 	if err := c.validate(); err != nil {
 		return nil, errors.Annotatef(err, "cannot check leadership")
 	}
@@ -57,7 +59,7 @@ func (c check) invoke(ch chan<- check) (Token, error) {
 }
 
 // respond causes the supplied token to be sent back to invoke.
-func (c check) respond(token Token) {
+func (c check) respond(token leadership.Token) {
 	select {
 	case <-c.abort:
 	case c.response <- token:

@@ -82,7 +82,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
-	leader        leadership.LeadershipManager
+	leader        *leadership.Manager
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
