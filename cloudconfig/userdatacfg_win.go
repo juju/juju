@@ -89,17 +89,6 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		w.conf.AddRunCmd(cmd)
 	}
 
-	w.conf.AddScripts(
-		// Create a JUJU_DEV_FEATURE_FLAGS entry which may or may not be empty.
-		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
-			osenv.JujuRegistryKey,
-			osenv.JujuFeatureFlagEnvKey),
-		fmt.Sprintf(`Set-ItemProperty -Path '%s' -Name '%s' -Value '%s'`,
-			osenv.JujuRegistryKey,
-			osenv.JujuFeatureFlagEnvKey,
-			featureflag.AsEnvironmentValue()),
-	)
-
 	if w.icfg.Bootstrap == true {
 		// Bootstrap machine not supported on windows
 		return errors.Errorf("bootstrapping is not supported on windows")
@@ -128,5 +117,13 @@ func CreateJujuRegistryKeyCmds() []string {
 		`$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm`,
 		`$acl.SetAccessRule($rule)`,
 		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, osenv.JujuRegistryKey),
+		// Create a JUJU_DEV_FEATURE_FLAGS entry which may or may not be empty.
+		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey),
+		fmt.Sprintf(`Set-ItemProperty -Path '%s' -Name '%s' -Value '%s'`,
+			osenv.JujuRegistryKey,
+			osenv.JujuFeatureFlagEnvKey,
+			featureflag.AsEnvironmentValue()),
 	}
 }
