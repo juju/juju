@@ -2715,7 +2715,7 @@ func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]stri
 			"name":     name,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		expectedDocIDs = append(expectedDocIDs, envUUID+":"+LeadershipSettingsDocId(name))
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+leadershipSettingsDocId(name))
 	}
 
 	// Use the helpers to set up the environments.

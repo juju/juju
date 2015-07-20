@@ -71,7 +71,7 @@ type Uniter struct {
 	operationExecutor     operation.Executor
 	operationExecutorFunc executorFunc
 
-	leadershipManager coreleadership.LeadershipManager
+	leadershipClaimer coreleadership.Claimer
 	leadershipTracker leadership.Tracker
 
 	machineLock *fslock.Lock
@@ -97,7 +97,7 @@ type executorFunc func(*Uniter) (operation.Executor, error)
 func NewUniter(
 	st *uniter.State,
 	unitTag names.UnitTag,
-	leadershipManager coreleadership.LeadershipManager,
+	leadershipClaimer coreleadership.Claimer,
 	dataDir string,
 	machineLock *fslock.Lock,
 	operationExecutorFunc executorFunc,
@@ -106,7 +106,7 @@ func NewUniter(
 		st:                    st,
 		paths:                 NewPaths(dataDir, unitTag),
 		machineLock:           machineLock,
-		leadershipManager:     leadershipManager,
+		leadershipClaimer:     leadershipClaimer,
 		collectMetricsAt:      inactiveMetricsTimer,
 		operationExecutorFunc: operationExecutorFunc,
 	}
@@ -140,7 +140,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// with a clean way to reference one (lineage of a...) worker from another,
 	// so for now the tracker is accessible only to its unit.
 	leadershipTracker := leadership.NewTrackerWorker(
-		unitTag, u.leadershipManager, leadershipGuarantee,
+		unitTag, u.leadershipClaimer, leadershipGuarantee,
 	)
 	u.addCleanup(func() error {
 		return worker.Stop(leadershipTracker)
