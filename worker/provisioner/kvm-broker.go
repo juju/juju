@@ -124,8 +124,9 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	kvmLogger.Infof("started kvm container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: hardware,
+		Instance:    inst,
+		Hardware:    hardware,
+		NetworkInfo: network.Interfaces,
 	}, nil
 }
 

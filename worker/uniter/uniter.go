@@ -66,9 +66,10 @@ type Uniter struct {
 	lastReportedStatus  params.Status
 	lastReportedMessage string
 
-	deployer          *deployerProxy
-	operationFactory  operation.Factory
-	operationExecutor operation.Executor
+	deployer             *deployerProxy
+	operationFactory     operation.Factory
+	operationExecutor    operation.Executor
+	newOperationExecutor newExecutorFunc
 
 	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
@@ -91,6 +92,10 @@ type Uniter struct {
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
 
+	// sendMetricsAt defines a function that will be used to generate signals
+	// to send metrics to the state server.
+	sendMetricsAt TimedSignal
+
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
@@ -98,27 +103,35 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	St                  *uniter.State
-	UnitTag             names.UnitTag
-	LeadershipManager   coreleadership.LeadershipManager
-	DataDir             string
-	HookLock            *fslock.Lock
-	MetricsTimerChooser *timerChooser
-	UpdateStatusSignal  TimedSignal
+	St                   *uniter.State
+	UnitTag              names.UnitTag
+	LeadershipManager    coreleadership.LeadershipManager
+	DataDir              string
+	HookLock             *fslock.Lock
+	MetricsTimerChooser  *timerChooser
+	UpdateStatusSignal   TimedSignal
+	NewOperationExecutor newExecutorFunc
 }
+
+type newExecutorFunc func(*Uniter) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                  uniterParams.St,
-		paths:               NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:            uniterParams.HookLock,
-		leadershipManager:   uniterParams.LeadershipManager,
-		metricsTimerChooser: uniterParams.MetricsTimerChooser,
-		collectMetricsAt:    uniterParams.MetricsTimerChooser.inactive,
-		updateStatusAt:      uniterParams.UpdateStatusSignal,
+		st:                   uniterParams.St,
+		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		hookLock:             uniterParams.HookLock,
+		leadershipManager:    uniterParams.LeadershipManager,
+		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
+		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
+		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
+		updateStatusAt:       uniterParams.UpdateStatusSignal,
+		newOperationExecutor: uniterParams.NewOperationExecutor,
+	}
+	if u.newOperationExecutor == nil {
+		u.newOperationExecutor = newOperationExecutor
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -199,6 +212,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 	}
+
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -216,6 +230,12 @@ func (u *Uniter) setupLocks() (err error) {
 		}
 	}
 	return nil
+}
+
+func newOperationExecutor(u *Uniter) (operation.Executor, error) {
+	return operation.NewExecutor(
+		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
+	)
 }
 
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
@@ -268,17 +288,17 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	u.operationFactory = operation.NewFactory(
-		u.deployer,
-		runnerFactory,
-		&operationCallbacks{u},
-		u.storage,
-		u.tomb.Dying(),
-	)
+	u.operationFactory = operation.NewFactory(operation.FactoryParams{
+		Deployer:       u.deployer,
+		RunnerFactory:  runnerFactory,
+		Callbacks:      &operationCallbacks{u},
+		StorageUpdater: u.storage,
+		Abort:          u.tomb.Dying(),
+		MetricSender:   u.unit,
+		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
+	})
 
-	operationExecutor, err := operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
-	)
+	operationExecutor, err := u.newOperationExecutor(u)
 	if err != nil {
 		return err
 	}
@@ -332,14 +352,15 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// initializeMetricsCollector enables the periodic collect-metrics hook
-// for charms that declare metrics.
-func (u *Uniter) initializeMetricsCollector() error {
+// initializeMetricsTimers enables the periodic collect-metrics hook
+// and periodic sending of collected metrics for charms that declare metrics.
+func (u *Uniter) initializeMetricsTimers() error {
 	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}
-	u.collectMetricsAt = u.metricsTimerChooser.getMetricsTimer(charm)
+	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
+	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
 	return nil
 }
 
@@ -405,11 +426,16 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 //       * this can't be done quite yet, though, because relation changes are
 //         not yet encapsulated in operations, and that needs to happen before
 //         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator) error {
+func (u *Uniter) runOperation(creator creator) (err error) {
+	errorMessage := "creating operation to run"
+	defer func() {
+		reportAgentError(u, errorMessage, err)
+	}()
 	op, err := creator(u.operationFactory)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
 	}
+	errorMessage = op.String()
 	before := u.operationState()
 	defer func() {
 		// Check that if we lose leadership as a result of this

@@ -396,8 +396,10 @@ var urlReplacementTests = []testURL{{
 	port:         ":8877",
 	expectChange: true,
 }, {
-	message:      "replace ::1 with bridge ip in proxy url",
-	url:          "::1",
+	// Note that http//::1 (without the square brackets)
+	// is not a legal URL. See https://www.ietf.org/rfc/rfc2732.txt.
+	message:      "replace [::1] with bridge ip in proxy url",
+	url:          "[::1]",
 	port:         "",
 	expectChange: true,
 }, {

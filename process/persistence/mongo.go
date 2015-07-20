@@ -22,6 +22,7 @@ const (
 
 // Collections is the list of names of the mongo collections where state
 // is stored for workload processes.
+// TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
 var Collections = []string{
 	workloadProcessesC,
 }

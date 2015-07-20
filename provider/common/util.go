@@ -10,7 +10,7 @@ import (
 )
 
 // EnvFullName returns a string based on the provided environment
-// that is suitable for identifying the env on a provider. The resuling
+// that is suitable for identifying the env on a provider. The resulting
 // string clearly associates the value with juju, whereas the
 // environment's UUID alone isn't very distinctive for humans. This
 // benefits users by helping them quickly identify in their hosting

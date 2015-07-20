@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -77,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
@@ -109,6 +111,7 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
+	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -258,12 +261,14 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			apiAddressSetter,
+			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 		)
@@ -275,16 +280,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 ) *MachineAgent {
-
 	return &MachineAgent{
 		machineId:            machineId,
 		AgentConfigWriter:    agentConfWriter,
 		apiAddressSetter:     apiAddressSetter,
-		workersStarted:       make(chan struct{}),
+		bufferedLogs:         bufferedLogs,
 		upgradeWorkerContext: upgradeWorkerContext,
+		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 	}
@@ -306,6 +312,7 @@ type MachineAgent struct {
 	previousAgentVersion version.Number
 	apiAddressSetter     apiaddressupdater.APIAddressSetter
 	runner               worker.Runner
+	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
 	restoreMode          bool
@@ -431,6 +438,17 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.upgradeCertificateDNSNames(); err != nil {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
+
+	// For windows clients we need to make sure we set a random password in a
+	// registry file and use that password for the jujud user and its services
+	// before starting anything else.
+	// Services on windows need to know the user's password to start up. The only
+	// way to store that password securely is if the user running the services
+	// sets the password. This cannot be done during cloud-init so it is done here.
+	if err := password.EnsureJujudPassword(); err != nil {
+		return errors.Annotate(err, "Could not ensure jujud password")
+	}
+
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
@@ -703,12 +721,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 	}
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	if isEnvironManager {
-		rsyslogMode = rsyslog.RsyslogModeAccumulate
-	}
-
 	runner := newConnRunner(st)
+
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
@@ -727,9 +741,23 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
+	if feature.IsDbLogEnabled() {
+		runner.StartWorker("logsender", func() (worker.Worker, error) {
+			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+		})
+	}
+
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	if ignoreMachineAddresses {
+		logger.Infof("machine addresses not used, only addresses from provider")
+	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return machiner.NewMachiner(accessor, agentConfig), nil
+		return newMachiner(accessor, agentConfig, ignoreMachineAddresses), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -749,9 +777,16 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
+	if !featureflag.Enabled(feature.DisableRsyslog) {
+		rsyslogMode := rsyslog.RsyslogModeForwarding
+		if isEnvironManager {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+		}
+
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		})
+	}
 
 	if !isEnvironManager {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
@@ -774,10 +809,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	// Check if the network management is disabled.
-	envConfig, err := st.Environment().EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
-	}
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
@@ -1037,10 +1068,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
 			})
 
-			if featureflag.Enabled(feature.DbLog) {
+			if feature.IsDbLogEnabled() {
 				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
@@ -1440,7 +1471,9 @@ func (a *MachineAgent) ensureMongoSharedSecret(agentConfig agent.Config) error {
 	// Note: we set Direct=true in the mongo options because it's
 	// possible that we've previously upgraded the mongo server's
 	// configuration to form a replicaset, but failed to initiate it.
-	st, _, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, _, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return err
 	}
@@ -1485,7 +1518,9 @@ func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 // network addresses.
 func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
 	logger.Debugf("opening state to get machine addresses")
-	st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
+	dialOpts := mongo.DefaultDialOpts()
+	dialOpts.Direct = true
+	st, m, err := openState(agentConfig, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
 	}
@@ -1521,7 +1556,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Environment(), info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}

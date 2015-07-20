@@ -39,17 +39,21 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 }
 
-func (s *InitializeSuite) openState(c *gc.C) {
-	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+func (s *InitializeSuite) openState(c *gc.C, environTag names.EnvironTag) {
+	st, err := state.Open(
+		environTag,
+		statetesting.NewMongoInfo(),
+		statetesting.NewDialOpts(),
+		state.Policy(nil),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
 	if s.State != nil {
-		s.State.Close()
-	} else {
-		c.Logf("skipping State.Close() due to previous error")
+		err := s.State.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -68,7 +72,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.openState(c)
+	s.openState(c, envTag)
 
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,13 +115,17 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := statetesting.NewDialOpts()
-
 	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	err = st.Close()
+	c.Check(err, jc.ErrorIsNil)
 
-	_, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
-	c.Assert(err, gc.ErrorMatches, "already initialized")
+	st, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	c.Check(err, gc.ErrorMatches, "already initialized")
+	if !c.Check(st, gc.IsNil) {
+		err = st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
@@ -134,7 +142,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	st := statetesting.Initialize(c, owner, good, nil)
 	st.Close()
 
-	s.openState(c)
+	s.openState(c, st.EnvironTag())
 	err = s.State.UpdateEnvironConfig(badUpdateAttrs, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
@@ -160,7 +168,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	// yay side effects
 	st.Close()
 
-	s.openState(c)
+	s.openState(c, st.EnvironTag())
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{}, []string{"agent-version"}, nil)
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 

@@ -409,7 +409,7 @@ var openStateForUpgrade = func(
 	if !ok {
 		return nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return nil, err
 	}

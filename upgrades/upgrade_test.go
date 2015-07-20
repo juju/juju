@@ -160,6 +160,7 @@ type mockAgentConfig struct {
 	values       map[string]string
 	mongoInfo    *mongo.MongoInfo
 	servingInfo  params.StateServingInfo
+	environTag   names.EnvironTag
 }
 
 func (mock *mockAgentConfig) Tag() names.Tag {
@@ -200,6 +201,10 @@ func (mock *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) 
 
 func (mock *mockAgentConfig) SetStateServingInfo(info params.StateServingInfo) {
 	mock.servingInfo = info
+}
+
+func (mock *mockAgentConfig) Environment() names.EnvironTag {
+	return mock.environTag
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -666,12 +671,12 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0"})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.22.0", "1.23.0"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.22.0", "1.23.0", "1.24.0"})
 }
 
 func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {

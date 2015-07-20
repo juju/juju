@@ -780,7 +780,7 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -818,7 +818,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1296,6 +1296,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	return g, nil
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	_, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-ec2 environment")
+	}
+	return common.GetCustomImageSource(env)
 }
 
 // permKey represents a permission for a group or an ip address range

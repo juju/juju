@@ -142,7 +142,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, m, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, m, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -157,7 +157,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(env.UUID(), gc.Equals, uuid)
 
 	// Check that initial admin user has been set up correctly.
-	s.assertCanLogInAsAdmin(c, pwHash)
+	envTag := env.Tag().(names.EnvironTag)
+	s.assertCanLogInAsAdmin(c, envTag, pwHash)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -211,7 +212,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st1, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -233,7 +234,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	c.Assert(available, jc.IsFalse)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agent.InitializeState(adminUser, cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{}, environs.NewStatePolicy())
+	_, _, err = agent.InitializeState(adminUser, cfg, nil, agent.BootstrapMachineConfig{}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -277,11 +278,11 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, _, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, _, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	st, _, err = agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -319,7 +320,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.EnvironTag, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -328,7 +329,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(environTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

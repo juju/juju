@@ -1506,3 +1506,37 @@ func AddDefaultBlockDevicesDocs(st *State) error {
 	}
 	return nil
 }
+
+// SetHostedEnvironCount is an upgrade step that sets hostedEnvCountDoc.Count
+// to the number of hosted environments.
+func SetHostedEnvironCount(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	envCount, err := environments.Find(nil).Count()
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
+	count, err := stateServers.FindId(hostedEnvCountKey).Count()
+	if err != nil {
+		return errors.Annotate(err, "failed to read state server")
+	}
+
+	hostedCount := envCount - 1 // -1 as we don't count the system environment
+	op := txn.Op{
+		C:  stateServersC,
+		Id: hostedEnvCountKey,
+	}
+	if count == 0 {
+		op.Assert = txn.DocMissing
+		op.Insert = &hostedEnvCountDoc{hostedCount}
+	} else {
+		op.Update = bson.D{{"$set", bson.D{{"refcount", hostedCount}}}}
+	}
+
+	return st.runTransaction([]txn.Op{op})
+}

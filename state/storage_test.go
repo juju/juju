@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -91,6 +94,39 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return service, unit, storageTag
+}
+
+func (s *StorageStateSuiteBase) createStorageCharm(c *gc.C, charmName string, storageMeta charm.Storage) *state.Charm {
+	meta := fmt.Sprintf(`
+name: %s
+summary: A charm for testing storage
+description: ditto
+storage:
+  %s:
+    type: %s
+`, charmName, storageMeta.Name, storageMeta.Type)
+	if storageMeta.ReadOnly {
+		meta += "    read-only: true\n"
+	}
+	if storageMeta.Shared {
+		meta += "    shared: true\n"
+	}
+	if storageMeta.MinimumSize > 0 {
+		meta += fmt.Sprintf("    minimum-size: %dM\n", storageMeta.MinimumSize)
+	}
+	if storageMeta.Location != "" {
+		meta += "    location: " + storageMeta.Location + "\n"
+	}
+	if storageMeta.CountMin != 1 || storageMeta.CountMax != 1 {
+		meta += "    multiple:\n"
+		meta += fmt.Sprintf("      range: %d-", storageMeta.CountMin)
+		if storageMeta.CountMax >= 0 {
+			meta += fmt.Sprint(storageMeta.CountMax)
+		}
+		meta += "\n"
+	}
+	ch := s.AddMetaCharm(c, charmName, meta, 1)
+	return ch
 }
 
 func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Service {

@@ -198,10 +198,10 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {
 	return errors.NotSupportedf("AllocateAddress")
 }
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address, macAddress string) error {
 	return errors.NotSupportedf("ReleaseAddress")
 }
 func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
