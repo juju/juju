@@ -142,6 +142,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.T
 	if namespace != "" {
 		syslogConfig.LogDir += "-" + namespace
 	}
+
 	return &RsyslogConfigHandler{
 		st:           st,
 		mode:         mode,
@@ -152,7 +153,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.T
 
 func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 	if h.mode == RsyslogModeAccumulate {
-		if err := h.ensureCertificates(); err != nil {
+		if err := h.ensureCA(); err != nil {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
 
@@ -354,49 +355,30 @@ func (h *RsyslogConfigHandler) rsyslogHosts() ([]string, error) {
 	return hosts, nil
 }
 
-// ensureCertificates ensures that a CA certificate,
-// server certificate, and private key exist in the log
-// directory, and writes them if not. The CA certificate
-// is entered into the environment configuration to be
-// picked up by other agents.
-func (h *RsyslogConfigHandler) ensureCertificates() error {
-	// We write ca-cert.pem last, after propagating into state.
-	// If it's there, then there's nothing to do. Otherwise,
-	// start over.
-	caCertPEM := h.syslogConfig.CACertPath()
-	if _, err := os.Stat(caCertPEM); err == nil {
+// ensureCA ensures that a CA certificate and key exist in state,
+// to be picked up by all rsyslog workers in the environment.
+func (h *RsyslogConfigHandler) ensureCA() error {
+	// We never write the CA key to local disk, so
+	// we must check state to know whether or not
+	// we need to generate new certs and keys.
+	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
+	if err != nil {
+		return errors.Annotate(err, "cannot get environ config")
+	}
+	if cfg.CACert != "" && cfg.CAKey != "" {
 		return nil
 	}
 
-	// Generate a new CA and server cert/key pairs.
-	// The CA key will be discarded after the server
-	// cert has been generated.
+	// Generate a new CA and server cert/key pairs, and
+	// publish to state. Rsyslog workers will observe
+	// this and generate certificates and keys for
+	// rsyslog in response.
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
 	caCertPEM, caKeyPEM, err := cert.NewCA("rsyslog", expiry)
 	if err != nil {
 		return err
 	}
-
-	// Update the environment config with the CA cert,
-	// so clients can configure rsyslog.
-	if err := h.st.SetRsyslogCert(caCertPEM, caKeyPEM); err != nil {
-		return err
-	}
-
-	rsyslogCertPEM, rsyslogKeyPEM, err := h.rsyslogServerCerts(caCertPEM, caKeyPEM)
-	if err != nil {
-		return err
-	}
-
-	if err := writeCertificates([]certPair{
-		{h.syslogConfig.ServerCertPath(), rsyslogCertPEM},
-		{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEM},
-		{h.syslogConfig.CACertPath(), caCertPEM},
-	}); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return h.st.SetRsyslogCert(caCertPEM, caKeyPEM)
 }
 
 // writeCertificates persists any certPair to disk. If any
