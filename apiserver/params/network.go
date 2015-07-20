@@ -509,7 +509,15 @@ type AddSubnetParams struct {
 	Zones            []string `json:"Zones,omitempty"`
 }
 
-type CreateSpaceParams struct {
+// AddSpacesParams olds the arguments of the AddSpaces API call.
+type AddSpacesParams struct {
+	Spaces []AddSpaceParams `json:"Spaces"`
+}
+
+// CreateSpaceParams holds the space tag and at least one subnet
+// tag required to create a new space.
+type AddSpaceParams struct {
 	SubnetTags []string `json:"SubnetTags"`
 	SpaceTag   string   `json:"SpaceTag"`
+	Public     bool     `json:"Public"`
 }

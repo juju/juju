@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/spaces"
-	"github.com/juju/juju/apiserver/subnets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -107,8 +105,9 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 
 // FakeSpace implements common.BackingSpace for testing.
 type FakeSpace struct {
-	SpaceName    string
-	SpaceSubnets []string
+	SpaceName string
+	SubnetIds []string
+	Public    bool
 }
 
 var _ common.BackingSpace = (*FakeSpace)(nil)
@@ -240,7 +239,7 @@ func (f *FakeZone) GoString() string {
 
 // FakeSubnet implements common.BackingSubnet for testing.
 type FakeSubnet struct {
-	info subnets.BackingSubnetInfo
+	info common.BackingSubnetInfo
 }
 
 var _ common.BackingSubnet = (*FakeSubnet)(nil)
@@ -301,15 +300,23 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	sb.Spaces = []common.BackingSpace{}
 	if withSpaces {
 		sb.Spaces = []common.BackingSpace{
-			&FakeSpace{"default", []string{"192.168.0.0/24"}},
-			&FakeSpace{"dmz", []string{"192.168.1.0/24"}},
-			&FakeSpace{"private", []string{"192.168.2.0/24"}},
-			&FakeSpace{"private", []string{"192.168.2.0/24"}}, // duplicates are ignored when caching spaces.
+			&FakeSpace{
+				SpaceName: "default",
+				SubnetIds: []string{"192.168.0.0/24"}},
+			&FakeSpace{
+				SpaceName: "dmz",
+				SubnetIds: []string{"192.168.1.0/24"}},
+			&FakeSpace{
+				SpaceName: "private",
+				SubnetIds: []string{"192.168.2.0/24"}},
+			&FakeSpace{
+				SpaceName: "private",
+				SubnetIds: []string{"192.168.2.0/24"}}, // duplicates are ignored when caching spaces.
 		}
 	}
 	sb.Subnets = []common.BackingSubnet{}
 	if withSubnets {
-		info0 := subnets.BackingSubnetInfo{
+		info0 := common.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
 			ProviderId:        string(ProviderInstance.Subnets[0].ProviderId),
 			AllocatableIPLow:  ProviderInstance.Subnets[0].AllocatableIPLow.String(),
@@ -317,7 +324,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
 			SpaceName:         "private",
 		}
-		info1 := subnets.BackingSubnetInfo{
+		info1 := common.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[1].CIDR,
 			ProviderId:        string(ProviderInstance.Subnets[1].ProviderId),
 			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
@@ -360,7 +367,7 @@ func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {
 	return sb.Spaces, nil
 }
 
-func (sb *StubBacking) AddSubnet(subnetInfo subnets.BackingSubnetInfo) (common.BackingSubnet, error) {
+func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.BackingSubnet, error) {
 	sb.MethodCall(sb, "AddSubnet", subnetInfo)
 	if err := sb.NextErr(); err != nil {
 		return nil, err
@@ -370,12 +377,12 @@ func (sb *StubBacking) AddSubnet(subnetInfo subnets.BackingSubnetInfo) (common.B
 	return fs, nil
 }
 
-func (sb *StubBacking) CreateSpace(spaceInfo spaces.BackingSpaceInfo) error {
-	sb.MethodCall(sb, "CreateSpace", spaceInfo)
+func (sb *StubBacking) AddSpace(name string, subnets []string, public bool) error {
+	sb.MethodCall(sb, "AddSpace", name, subnets, public)
 	if err := sb.NextErr(); err != nil {
 		return err
 	}
-	fs := &FakeSpace{SpaceName: spaceInfo.Name, SpaceSubnets: spaceInfo.Subnets}
+	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets, Public: public}
 	sb.Spaces = append(sb.Spaces, fs)
 	return nil
 }

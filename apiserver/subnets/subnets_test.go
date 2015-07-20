@@ -507,7 +507,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{"", nil},
 		{"", nil},
 	}
-	expectedBackingInfos := []subnets.BackingSubnetInfo{{
+	expectedBackingInfos := []common.BackingSubnetInfo{{
 		ProviderId:        "sn-ipv6",
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,
