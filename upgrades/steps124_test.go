@@ -33,6 +33,13 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
 
+func (s *steps124Suite) TestStateStepsFor1243(c *gc.C) {
+	expected := []string{
+		"add missing env-uuid to statuses",
+	}
+	assertStateSteps(c, version.MustParse("1.24.3"), expected)
+}
+
 func (s *steps124Suite) TestStepsFor1243(c *gc.C) {
 	expected := []string{
 		"move syslog config from LogDir/DataDir to ConfDir",

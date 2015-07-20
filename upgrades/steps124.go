@@ -42,6 +42,19 @@ func stateStepsFor124() []Step {
 	}
 }
 
+// stateStepsFor1243 returns upgrade steps for Juju 1.24.3 that manipulate state directly.
+func stateStepsFor1243() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "add missing env-uuid to statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingEnvUUIDOnStatuses(context.State())
+			},
+		},
+	}
+}
+
 // stepsFor1243 returns upgrade steps for Juju 1.24.3 that only need the API.
 func stepsFor1243() []Step {
 	return []Step{
