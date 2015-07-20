@@ -267,16 +267,6 @@ func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
 			waitUnitAgent{status: params.StatusIdle},
 			waitHooks{"start"},
 		),
-	})
-}
-
-func (s *UniterSuite) TestUniterUpdateStatusHookContinued(c *gc.C) {
-	// Additional tests here only to disable for windows:
-	// FIXME: bug 1476060, 2015-07-20, thumper
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1476060: startUpgradeError{} fails for windows")
-	}
-	s.runUniterTests(c, []uniterTest{
 		ust(
 			"timer ignored when in upgrade conflict state",
 			startUpgradeError{},
