@@ -51,7 +51,12 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
 		numLaunchPluginCalls++
 		c.Check(p, gc.DeepEquals, *mockPlugin)
-		return process.Details{ID: "id", Status: process.Status{Label: "foo"}}, nil
+		return process.Details{
+			ID: "id",
+			Status: process.PluginStatus{
+				Label: "foo",
+			},
+		}, nil
 	}
 
 	numFindPluginCalls := 0
@@ -67,6 +72,8 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "launch", cmd)
+	s.setMetadata(*s.proc)
+	cmd.ReadMetadata = s.readMetadata
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,6 +113,8 @@ func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
 	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "launch", cmd)
+	s.setMetadata(*s.proc)
+	cmd.ReadMetadata = s.readMetadata
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)

@@ -35,6 +35,10 @@ processes:
     type: docker
     command: do-something cool
     image: spam/eggs
+    ports:
+      - 8080:80
+    volumes:
+      - /var/nginx/html:/usr/share/nginx/html:ro
     env:
       IMPORTANT: YES
 `
@@ -59,18 +63,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 
 	procs, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			EnvVars: map[string]string{
-				// TODO(erisnow) YAML coerces YES into true...
-				"IMPORTANT": "true",
-			},
-		},
-	}})
+	c.Check(procs, gc.HasLen, 0)
 
 	info := process.Info{
 		Process: charm.Process{
@@ -78,29 +71,70 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
+			EnvVars: map[string]string{
+				// TODO(erisnow) YAML coerces YES into true...
+				"IMPORTANT": "true",
+			},
+		},
+		Details: process.Details{
+			ID: "xyz",
+			Status: process.PluginStatus{
+				Label: "running",
+			},
+		},
+	}
+	err = st.Add(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	procs, err = st.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(procs, jc.DeepEquals, []process.Info{{
+		Process: charm.Process{
+			Name:    "procA",
+			Type:    "docker",
+			Command: "do-something cool",
+			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
 			EnvVars: map[string]string{
 				"IMPORTANT": "true",
 			},
 		},
 		Details: process.Details{
 			ID: "xyz",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "running",
 			},
 		},
-	}
-	err = st.Register(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	procs, err = st.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{info})
+	}})
 
 	procs, err = st.List("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(procs, jc.DeepEquals, []process.Info{info})
 
-	err = st.SetStatus("procA/xyz", process.Status{Label: "still running"})
+	err = st.SetStatus("procA/xyz", process.PluginStatus{
+		Label: "still running",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err = st.List("procA/xyz")
@@ -111,32 +145,33 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/nginx/html",
+				InternalMount: "/usr/share/nginx/html",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "website",
+			}},
 			EnvVars: map[string]string{
 				"IMPORTANT": "true",
 			},
 		},
 		Details: process.Details{
 			ID: "xyz",
-			Status: process.Status{
+			Status: process.PluginStatus{
 				Label: "still running",
 			},
 		},
 	}})
 
-	err = st.Unregister("procA/xyz")
+	err = st.Remove("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
-		},
-	}})
+	c.Check(procs, gc.HasLen, 0)
 }

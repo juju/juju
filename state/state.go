@@ -119,9 +119,7 @@ const (
 	// that form a compound index.
 	userenvnameC = "userenvname"
 
-	// workloadProcessesC is the name of the collection holding info
-	// about workload processes.
-	workloadProcessesC = "workloadprocesses" // TODO(ericsnow) Alias the const?
+	// "workloadprocesses" (see process/persistence/mongo.go)
 )
 
 // State represents the state of an environment

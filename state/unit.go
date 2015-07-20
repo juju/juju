@@ -1049,13 +1049,21 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 }
 
 func (u *Unit) charm() (*Charm, error) {
-	s, err := u.Service()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+	if u.doc.CharmURL == nil {
+		s, err := u.Service()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+		}
+		ch, _, err := s.Charm()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+		}
+		return ch, nil
 	}
-	ch, _, err := s.Charm()
+
+	ch, err := u.st.Charm(u.doc.CharmURL)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+		return nil, errors.Trace(err)
 	}
 	return ch, nil
 }

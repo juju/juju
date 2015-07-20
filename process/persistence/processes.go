@@ -6,17 +6,16 @@ package persistence
 // TODO(ericsnow) Eliminate the mongo-related imports here.
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/process"
 )
+
+var logger = loggo.GetLogger("juju.process.persistence")
 
 // TODO(ericsnow) Implement persistence using a TXN abstraction (used
 // in the business logic) with ops factories available from the
@@ -39,82 +38,16 @@ type PersistenceBase interface {
 // Persistence exposes the high-level persistence functionality
 // related to workload processes in Juju.
 type Persistence struct {
-	st    PersistenceBase
-	charm names.CharmTag
-	unit  names.UnitTag
+	st   PersistenceBase
+	unit names.UnitTag
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, charm *names.CharmTag, unit *names.UnitTag) *Persistence {
-	pp := &Persistence{
-		st: st,
+func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
+	return &Persistence{
+		st:   st,
+		unit: unit,
 	}
-	if charm != nil {
-		pp.charm = *charm
-	}
-	if unit != nil {
-		pp.unit = *unit
-	}
-	return pp
-}
-
-// EnsureDefinitions checks persistence to see if records for the
-// definitions are already there. If not then they are added. If so then
-// they are checked to be sure they match those provided. The lists of
-// names for those that already exist and that don't match are returned.
-func (pp Persistence) EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error) {
-	var found []string
-	var mismatched []string
-
-	if len(definitions) == 0 {
-		return found, mismatched, nil
-	}
-
-	var ids []string
-	var ops []txn.Op
-	for _, definition := range definitions {
-		ids = append(ids, pp.definitionID(definition.Name))
-		ops = append(ops, pp.newInsertDefinitionOp(definition))
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// The last attempt aborted so clear out any ops that failed
-			// the DocMissing assertion and try again.
-			found = []string{}
-			mismatched = []string{}
-			indexed, err := pp.indexDefinitionDocs(ids)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var okOps []txn.Op
-			for _, op := range ops {
-				if existing, ok := indexed[op.Id]; !ok {
-					okOps = append(okOps, op)
-				} else { // Otherwise the op is dropped.
-					id := fmt.Sprintf("%s", op.Id)
-					found = append(found, id)
-					requested, ok := op.Insert.(*ProcessDefinitionDoc)
-					if !ok {
-						return nil, errors.Errorf("inserting invalid type %T", op.Insert)
-					}
-					if !reflect.DeepEqual(requested.definition(), existing.definition()) {
-						mismatched = append(mismatched, id)
-					}
-				}
-			}
-			if len(okOps) == 0 {
-				return nil, jujutxn.ErrNoOperations
-			}
-			ops = okOps
-		}
-		return ops, nil
-	}
-	if err := pp.st.Run(buildTxn); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return found, mismatched, nil
 }
 
 // Insert adds records for the process to persistence. If the process
@@ -124,11 +57,9 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	// TODO(ericsnow) Add pp.newEnsureDefinitionOp(info.Process)?
 	ops = append(ops, pp.newInsertProcessOps(info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			// One of the records already exists.
 			okay = false
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -145,22 +76,14 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The process is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id string, status process.Status) (bool, error) {
+func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			_, err := pp.proc(id)
-			if errors.IsNotFound(err) {
-				found = false
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// We ignore the request since the proc is dying.
-			// TODO(ericsnow) Ensure that procDoc.Status != state.Alive?
+			found = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true
@@ -174,32 +97,20 @@ func (pp Persistence) SetStatus(id string, status process.Status) (bool, error) 
 
 // List builds the list of processes found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
-// returned. Inconsistent records result in errors.NotValid.
+// returned.
 func (pp Persistence) List(ids ...string) ([]process.Info, []string, error) {
-	var missing []string
-
 	// TODO(ericsnow) Ensure that the unit is Alive?
-	// TODO(ericsnow) fix race that exists between the 3 calls
-	definitionDocs, err := pp.definitions(ids)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	launchDocs, err := pp.launches(ids)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+
 	procDocs, err := pp.procs(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	var results []process.Info
+	var missing []string
 	for _, id := range ids {
-		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if missingCount > 0 {
-			if missingCount < 7 {
-				return nil, nil, errors.Errorf("found inconsistent records for process %q", id)
-			}
+		proc, ok := pp.extractProc(id, procDocs)
+		if !ok {
 			missing = append(missing, id)
 			continue
 		}
@@ -212,52 +123,24 @@ func (pp Persistence) List(ids ...string) ([]process.Info, []string, error) {
 // Inconsistent records result in errors.NotValid.
 func (pp Persistence) ListAll() ([]process.Info, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
-	// TODO(ericsnow) fix race that exists between the 3 calls
-	definitionDocs, err := pp.allDefinitions()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	launchDocs, err := pp.allLaunches()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	procDocs, err := pp.allProcs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(launchDocs) > len(procDocs) {
-		return nil, errors.Errorf("found inconsistent records (extra launch docs)")
-	}
-
 	var results []process.Info
 	for id := range procDocs {
-		proc, missingCount := pp.extractProc(id, definitionDocs, launchDocs, procDocs)
-		if missingCount > 0 {
-			return nil, errors.Errorf("found inconsistent records for process %q", id)
-		}
+		proc, _ := pp.extractProc(id, procDocs)
 		results = append(results, *proc)
-	}
-	for name, doc := range definitionDocs {
-		matched := false
-		for _, proc := range results {
-			if name == proc.Name {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			results = append(results, process.Info{
-				Process: doc.definition(),
-			})
-		}
 	}
 	return results, nil
 }
 
 // TODO(ericsnow) Add procs to state/cleanup.go.
 
-// TODO(ericsnow) How to ensure they are completely removed from state?
+// TODO(ericsnow) How to ensure they are completely removed from state
+// (when you factor in status stored in a separate collection)?
 
 // Remove removes all records associated with the identified process
 // from persistence. Also returned is whether or not the process was
@@ -270,12 +153,7 @@ func (pp Persistence) Remove(id string) (bool, error) {
 	ops = append(ops, pp.newRemoveProcessOps(id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			okay, err := pp.checkRecords(id)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// If okay is true, it must be dying.
-			found = okay
+			found = false
 			return nil, jujutxn.ErrNoOperations
 		}
 		found = true

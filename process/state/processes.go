@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/persistence"
@@ -16,13 +15,10 @@ import (
 
 // TODO(ericsnow) We need a worker to clean up dying procs.
 
-// TODO(ericsnow) Export ProcessesPersistence?
-
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
-	EnsureDefinitions(definitions ...charm.Process) ([]string, []string, error)
 	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.Status) (bool, error)
+	SetStatus(id string, status process.PluginStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
 	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
@@ -37,36 +33,26 @@ type UnitProcesses struct {
 	Unit names.UnitTag
 }
 
-// NewUnitProcesses builds a UnitProcesses for a charm/unit.
-func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, charm *names.CharmTag) *UnitProcesses {
-	persist := persistence.NewPersistence(st, charm, &unit)
+// NewUnitProcesses builds a UnitProcesses for a unit.
+func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag) *UnitProcesses {
+	persist := persistence.NewPersistence(st, unit)
 	return &UnitProcesses{
 		Persist: persist,
 		Unit:    unit,
 	}
 }
 
-// Register adds the provided process info to state.
-func (ps UnitProcesses) Register(info process.Info) error {
+// Add registers the provided process info in state.
+func (ps UnitProcesses) Add(info process.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad process info")
 	}
 
-	_, mismatched, err := ps.Persist.EnsureDefinitions(info.Process)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(mismatched) > 0 {
-		return errors.NotValidf("mismatched definition for %q", info.Name)
-	}
-
 	ok, err := ps.Persist.Insert(info)
 	if err != nil {
-		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.Trace(err)
 	}
 	if !ok {
-		// TODO(ericsnow) Remove the definition we may have just added?
 		return errors.NotValidf("process %s (already in state)", info.ID())
 	}
 
@@ -75,7 +61,7 @@ func (ps UnitProcesses) Register(info process.Info) error {
 
 // SetStatus updates the raw status for the identified process to the
 // provided value.
-func (ps UnitProcesses) SetStatus(id string, status process.Status) error {
+func (ps UnitProcesses) SetStatus(id string, status process.PluginStatus) error {
 	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)
@@ -103,19 +89,16 @@ func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(ericsnow) Ensure that the number returned matches the
-	// number expected.
 	return results, nil
 }
 
-// Unregister removes the identified process from state. It does not
+// Remove removes the identified process from state. It does not
 // trigger the actual destruction of the process.
-func (ps UnitProcesses) Unregister(id string) error {
+func (ps UnitProcesses) Remove(id string) error {
 	// If the record wasn't found then we're already done.
 	_, err := ps.Persist.Remove(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Remove unit-based definition when no procs left.
 	return nil
 }

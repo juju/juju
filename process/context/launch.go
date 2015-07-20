@@ -81,11 +81,16 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
+	info, err := c.findValidInfo(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// The plugin is responsible for validating that the launch was
 	// successful and returning an err if not. If err is not set, we
 	// assume success, and that the procDetails are for informational
 	// purposes.
-	procDetails, err := c.launchPlugin(*plugin, c.baseCommand.info.Process)
+	procDetails, err := c.launchPlugin(*plugin, info.Process)
 	if err != nil {
 		return err
 	}

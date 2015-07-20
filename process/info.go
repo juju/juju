@@ -26,20 +26,6 @@ type Info struct {
 	Details Details
 }
 
-// TODO(ericsnow) Eliminate NewInfoUnvalidated.
-
-// NewInfoUnvalidated builds a new Info object with the provided
-// values. The returned Info may be invalid if the given values cause
-// that result. The Validate method can be used to check.
-func NewInfoUnvalidated(name, procType string) *Info {
-	return &Info{
-		Process: charm.Process{
-			Name: name,
-			Type: procType,
-		},
-	}
-}
-
 // ID composes a unique ID for the process (relative to the unit/charm).
 func (info Info) ID() string {
 	id := info.Process.Name

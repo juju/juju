@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/state"
@@ -19,65 +18,55 @@ type unitProcessesSuite struct {
 	baseProcessesSuite
 }
 
-func (s *unitProcessesSuite) TestRegisterOkay(c *gc.C) {
+func (s *unitProcessesSuite) TestAddOkay(c *gc.C) {
 	procs := s.newProcesses("docker", "procA")
 	proc := procs[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
+	err := ps.Add(proc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "EnsureDefinitions", "Insert")
+	s.stub.CheckCallNames(c, "Insert")
 	s.persist.checkProcesses(c, procs)
 }
 
-func (s *unitProcessesSuite) TestRegisterInvalid(c *gc.C) {
+func (s *unitProcessesSuite) TestAddInvalid(c *gc.C) {
 	proc := s.newProcesses("", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
+	err := ps.Add(proc)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitProcessesSuite) TestRegisterEnsureDefinitionFailed(c *gc.C) {
+func (s *unitProcessesSuite) TestAddEnsureDefinitionFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
+	err := ps.Add(proc)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestRegisterMismatchedDefinition(c *gc.C) {
-	s.persist.setDefinitions(&charm.Process{Name: "procA", Type: "kvm"})
-	proc := s.newProcesses("docker", "procA")[0]
-
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *unitProcessesSuite) TestRegisterInsertFailed(c *gc.C) {
+func (s *unitProcessesSuite) TestAddInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
-	s.stub.SetErrors(nil, failure)
+	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
+	err := ps.Add(proc)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
+func (s *unitProcessesSuite) TestAddAlreadyExists(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Register(proc)
+	err := ps.Add(proc)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -85,7 +74,7 @@ func (s *unitProcessesSuite) TestRegisterAlreadyExists(c *gc.C) {
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 
@@ -102,7 +91,7 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 
@@ -113,7 +102,7 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := process.Status{
+	status := process.PluginStatus{
 		Label: "okay",
 	}
 
@@ -177,33 +166,33 @@ func (s *unitProcessesSuite) TestListMissing(c *gc.C) {
 	c.Check(procs, jc.DeepEquals, []process.Info{proc})
 }
 
-func (s *unitProcessesSuite) TestUnregisterOkay(c *gc.C) {
+func (s *unitProcessesSuite) TestRemoveOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Unregister(proc.ID())
+	err := ps.Remove(proc.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Remove")
 	c.Check(s.persist.procs, gc.HasLen, 0)
 }
 
-func (s *unitProcessesSuite) TestUnregisterMissing(c *gc.C) {
+func (s *unitProcessesSuite) TestRemoveMissing(c *gc.C) {
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Unregister("procA/xyz")
+	err := ps.Remove("procA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Remove")
 	c.Check(s.persist.procs, gc.HasLen, 0)
 }
 
-func (s *unitProcessesSuite) TestUnregisterFailed(c *gc.C) {
+func (s *unitProcessesSuite) TestRemoveFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Unregister("procA/xyz")
+	err := ps.Remove("procA/xyz")
 
 	s.stub.CheckCallNames(c, "Remove")
 	c.Check(errors.Cause(err), gc.Equals, failure)
