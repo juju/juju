@@ -21,6 +21,9 @@ def get_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
         'root_dir', help='Directory containing releases and candidates dir')
+    parser.add_argument(
+        '--all', action='store_true', default=False,
+        help='Schedule all candidates for client-server testing.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     return args, get_credentials(args)
@@ -39,10 +42,10 @@ def get_candidate_version(candidate_path):
         return json.load(fp)['version']
 
 
-def calculate_jobs(root):
+def calculate_jobs(root, schedule_all=False):
     releases = list(get_releases(root))
     candidates_path = get_candidates_path(root)
-    for candidate_path in find_candidates(root):
+    for candidate_path in find_candidates(root, schedule_all):
         parent, candidate = os.path.split(candidate_path)
         if parent != candidates_path:
             raise ValueError('Wrong path')
@@ -51,12 +54,14 @@ def calculate_jobs(root):
             yield {
                 'old_version': release,
                 'candidate': candidate_version,
-                'new_to_old': 'true'
+                'new_to_old': 'true',
+                'candidate_path': candidate
             }
             yield {
                 'old_version': release,
                 'candidate': candidate_version,
-                'new_to_old': 'false'
+                'new_to_old': 'false',
+                'candidate_path': candidate
             }
 
 
@@ -69,7 +74,8 @@ def build_jobs(credentials, root, jobs):
 
 def main():
     args, credentials = get_args()
-    build_jobs(credentials, args.root_dir, calculate_jobs(args.root_dir))
+    build_jobs(
+        credentials, args.root_dir, calculate_jobs(args.root_dir, args.all))
 
 
 if __name__ == '__main__':
