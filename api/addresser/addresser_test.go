@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -131,20 +132,30 @@ func (s *AddresserSuite) TestIPAddressesClientError(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestIPAddressesServerError(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+
 	var called int
-	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+		},
 	}
 	results := params.LifeResults{
-		Results: []params.LifeResult{{"", apiservertesting.ServerError("server boom!")}},
+		Results: []params.LifeResult{
+			{params.Alive, nil},
+			{"", apiservertesting.ServerError("server failure")},
+		},
 	}
 	apiCaller := successAPICaller(c, "Life", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddresses, err := api.IPAddresses(tag)
-	c.Assert(ipAddresses, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "server boom!")
+	ipAddresses, err := api.IPAddresses(tag1, tag2)
+	c.Assert(len(ipAddresses), gc.Equals, 2)
+	c.Assert(ipAddresses[0].Tag().String(), gc.Equals, tag1.String())
+	c.Assert(ipAddresses[1], gc.IsNil)
+	c.Assert(err, gc.Equals, common.ErrPartialResults)
 	c.Assert(called, gc.Equals, 1)
 }
 
