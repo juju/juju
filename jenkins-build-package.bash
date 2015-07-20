@@ -1,8 +1,9 @@
 #!/bin/bash
 set -eux
-RELEASE=$(ssh ubuntu@vivid-slave.vapour.ws lsb_release -sr)
-SERIES=$(ssh ubuntu@vivid-slave.vapour.ws lsb_release -sc)
-ARCH=$(ssh ubuntu@vivid-slave.vapour.ws dpkg --print-architecture)
+host=$1
+RELEASE=$(ssh $host lsb_release -sr)
+SERIES=$(ssh $host lsb_release -sc)
+ARCH=$(ssh $host dpkg --print-architecture)
 
 $SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
 # We need a way to lookup the build-source-packages number from the br number.
@@ -11,7 +12,7 @@ $SCRIPTS/jujuci.py get -b lastBuild build-source-packages "*$RELEASE*"\
 $SCRIPTS/jujuci.py get -b lastBuild build-source-packages '*orig.tar.gz'\
   $WORKSPACE
 
-export RELEASE SERIES ARCH
+export RELEASE SERIES ARCH host
 python - *$RELEASE* *.orig.tar.gz <<"EOT"
 import json
 import os
@@ -44,7 +45,7 @@ with NamedTemporaryFile() as config_file:
         join(os.environ['HOME'], 'workspace-runner', 'workspace-run'),
         '-v',
         config_file.name,
-        'ubuntu@vivid-slave.vapour.ws',
+        os.environ['host'],
         prefix,
         '--s3-config', s3_config,
         '-i', join(os.environ['JUJU_HOME'], 'staging-juju-rsa'),
