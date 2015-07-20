@@ -180,10 +180,10 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		defer close(done)
 		cmd := system.NewKillCommand(nil, nil, nil, testDialer)
 		ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
-		c.Assert(s.api.ignoreBlocks, jc.IsFalse)
-		c.Assert(s.api.destroyAll, jc.IsFalse)
+		c.Check(s.api.ignoreBlocks, jc.IsFalse)
+		c.Check(s.api.destroyAll, jc.IsFalse)
 		checkSystemRemovedFromStore(c, "test1", s.store)
 	}()
 	select {

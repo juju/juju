@@ -38,6 +38,9 @@ destroyed.
 // KillCommand kills the specified system.
 type KillCommand struct {
 	DestroyCommandBase
+	// TODO (cherylj) If timeouts for dialing the API are added to new or
+	// existing commands later, the dialer should be pulled into a common
+	// base and made to be an interface rather than a function.
 	apiDialerFunc func(string) (*api.State, error)
 }
 
