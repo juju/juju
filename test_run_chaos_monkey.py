@@ -46,7 +46,7 @@ class TestRunChaosMonkey(TestCase):
         with patch.object(runner, 'is_healthy', autospec=True,
                           return_value=True):
             with patch.object(runner, 'unleash_once', autospec=True) as u_mock:
-                with patch.object(runner, 'wait_for_chaos_complete',
+                with patch.object(runner, 'wait_for_chaos',
                                   autospec=True) as wait_mock:
                     run_while_healthy_or_timeout(runner)
         u_mock.assert_called_once_with()

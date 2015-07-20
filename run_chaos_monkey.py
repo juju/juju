@@ -20,7 +20,7 @@ def run_while_healthy_or_timeout(monkey):
     while monkey.is_healthy():
         logging.debug('Unleashing chaos.')
         monkey.unleash_once()
-        monkey.wait_for_chaos_complete()
+        monkey.wait_for_chaos()
         if datetime.now() > monkey.expire_time:
             logging.debug(
                 'Reached run timeout, all done running chaos.')

@@ -3,12 +3,12 @@ __metaclass__ = type
 
 
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
 )
 import logging
-from time import sleep
 import subprocess
 import sys
 
@@ -17,12 +17,31 @@ from utility import (
 )
 
 
+@contextmanager
+def background_chaos(env, client):
+    monkey = MonkeyRunner(env, client)
+    monkey.deploy_chaos_monkey()
+    monkey.unleash_once()
+    monkey.wait_for_chaos(state='start')
+    try:
+        yield
+        monkey.wait_for_chaos(state='complete')
+    except BaseException as e:
+        logging.exception(e)
+        sys.exit(1)
+
+
 class MonkeyRunner:
 
-    def __init__(self, env, service, health_checker, client,
-                 enablement_timeout=0, pause_timeout=0, total_timeout=0):
+    def __init__(self, env, client, service='0', health_checker=None,
+                 enablement_timeout=120, pause_timeout=0, total_timeout=0):
         self.env = env
-        self.service = service
+        if service == '0':
+            self.service = 'ubuntu'
+            self.machine = '0'
+        else:
+            self.service = service
+            self.machine = None
         self.health_checker = health_checker
         self.client = client
         self.enablement_timeout = enablement_timeout
@@ -37,6 +56,10 @@ class MonkeyRunner:
         JUJU_REPOSITORY must be set in the OS environment so a local
         chaos-monkey charm can be found.
         """
+        if self.machine:
+            logging.debug(
+                'Deploying ubuntu to machine {}.'.format(self.machine))
+            self.client.deploy('ubuntu', to=self.machine)
         logging.debug('Deploying local:chaos-monkey.')
         self.client.deploy('local:chaos-monkey')
         logging.debug('Relating chaos-monkey to {}.'.format(self.service))
@@ -73,24 +96,24 @@ class MonkeyRunner:
                 logging.info('Setting the monkey-id for {} to: {}'.format(
                     unit_name, id))
                 self.monkey_ids[unit_name] = id
-        # Allow chaos time to run
-        sleep(self.enablement_timeout)
+        return self.monkey_ids.values()
 
     def is_healthy(self):
         """Returns a boolean after running the health_checker."""
-        try:
-            sub_output = subprocess.check_output(self.health_checker)
-            logging.info('Health check output: {}'.format(sub_output))
-        except OSError as e:
-            logging.error(
-                'The health check failed to execute with: {}'.format(
-                    e))
-            raise
-        except subprocess.CalledProcessError as e:
-            logging.error('Non-zero exit code returned from {}: {}'.format(
-                self.health_checker, e))
-            logging.error(e.output)
-            return False
+        if self.health_checker:
+            try:
+                sub_output = subprocess.check_output(self.health_checker)
+                logging.info('Health check output: {}'.format(sub_output))
+            except OSError as e:
+                logging.error(
+                    'The health check failed to execute with: {}'.format(
+                        e))
+                raise
+            except subprocess.CalledProcessError as e:
+                logging.error('Non-zero exit code returned from {}: {}'.format(
+                    self.health_checker, e))
+                logging.error(e.output)
+                return False
         return True
 
     def get_unit_status(self, unit_name):
@@ -108,34 +131,20 @@ class MonkeyRunner:
             return 'done'
         return 'running'
 
-    def wait_for_chaos_complete(self, timeout=300):
+    def wait_for_chaos(self, state='complete', timeout=300):
+        if not ('complete' in state or 'start' in state):
+            raise Exception('Unexpected state value: {}'.format(state))
         for ignored in until_timeout(timeout):
             locks = defaultdict(list)
             for unit_name, unit in self.iter_chaos_monkey_units():
                 locks[self.get_unit_status(unit_name)].append(unit_name)
-            if locks.keys() == ['done']:
+            if state == 'complete' and locks.keys() == ['done']:
                 logging.debug(
-                    'All lock files have been removed: {}'.format(locks))
+                    'All lock files removed, chaos complete: {}'.format(locks))
+                break
+            if state == 'start' and locks.keys() == ['running']:
+                logging.debug(
+                    'All lock files found, chaos started: {}'.format(locks))
                 break
         else:
-            raise Exception('Chaos operations did not complete.')
-
-    def run_while_healthy_or_timeout(self):
-        logging.debug('run_while_healthy_or_timeout')
-        while self.is_healthy():
-            logging.debug('Unleashing chaos.')
-            self.unleash_once()
-            self.wait_for_chaos_complete()
-            if datetime.now() > self.expire_time:
-                logging.debug(
-                    'Reached run timeout, all done running chaos.')
-                break
-            if self.pause_timeout:
-                logging.debug(
-                    'Pausing {} seconds after running chaos.'.format(
-                        self.pause_timeout))
-                sleep(self.pause_timeout)
-        else:
-            logging.error('The health check reported an error: {}'.format(
-                self.health_checker))
-            sys.exit(1)
+            raise Exception('Chaos operations did not {}.'.format(state))
