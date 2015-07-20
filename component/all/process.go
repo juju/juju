@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/base"
+	jujuServerClient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api/client"
@@ -65,7 +66,7 @@ func (c workloadProcesses) registerHookContextFacade() {
 			return nil, errors.NewNotValid(nil, "st is nil")
 		}
 
-		up, err := st.UnitProcesses(unit)
+		up, err := st.UnitProcesses(unit.UnitTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -142,4 +143,22 @@ func (c workloadProcesses) registerState() {
 		return procstate.NewUnitProcesses(persist, unit, getMetadata), nil
 	}
 	state.SetProcessesComponent(newUnitProcesses)
+}
+
+func (c workloadProcesses) registerStatusAPI() {
+
+	statusAdapter := func(st *state.State, unitTag names.UnitTag) (map[string]string, error) {
+		unitTagToProcessList := func(unitTag names.UnitTag) ([]process.Info, error) {
+			unitProcesses, err := st.UnitProcesses(unitTag)
+			if err != nil {
+				return nil, err
+			}
+
+			return unitProcesses.List()
+		}
+
+		return server.BuildStatus(unitTagToProcessList, unitTag)
+	}
+
+	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, statusAdapter)
 }

@@ -127,6 +127,9 @@ type UnitStatus struct {
 	PublicAddress string
 	Charm         string
 	Subordinates  map[string]UnitStatus
+
+	// ComponentStatus: Label -> Group -> Status
+	ComponentStatus map[string]map[string]string
 }
 
 // RelationStatus holds status info about a relation.
@@ -165,6 +168,11 @@ type Status struct {
 	Services        map[string]ServiceStatus
 	Networks        map[string]NetworkStatus
 	Relations       []RelationStatus
+
+	// StructuredStatus is a map of status type (e.g. process,
+	// machine, network, etc.) to structured status string. It is up
+	// to the server/client to agree upon what that structure is.
+	StructuredStatus map[string]string
 }
 
 // Status returns the status of the juju environment.

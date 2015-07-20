@@ -201,7 +201,7 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	return api.Status{
 		EnvironmentName: cfg.Name(),
 		Machines:        processMachines(context.machines),
-		Services:        context.processServices(),
+		Services:        context.processServices(c.api.state),
 		Networks:        context.processNetworks(),
 		Relations:       context.processRelations(),
 	}, nil
@@ -540,15 +540,19 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processServices() map[string]api.ServiceStatus {
+func (context *statusContext) processServices(st *state.State) map[string]api.ServiceStatus {
 	servicesMap := make(map[string]api.ServiceStatus)
 	for _, s := range context.services {
-		servicesMap[s.Name()] = context.processService(s)
+		servicesMap[s.Name()] = context.processService(st, s)
 	}
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) (status api.ServiceStatus) {
+func (context *statusContext) processService(
+	st *state.State,
+	service *state.Service,
+) (status api.ServiceStatus) {
+
 	serviceCharmURL, _ := service.CharmURL()
 	status.Charm = serviceCharmURL.String()
 	status.Exposed = service.IsExposed()
@@ -589,7 +593,12 @@ func (context *statusContext) processService(service *state.Service) (status api
 		}
 	}
 	if service.IsPrincipal() {
-		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
+		unitStatus, err := context.processUnits(st, context.units[service.Name()], serviceCharmURL.String())
+		if err != nil {
+			status.Err = err
+			return
+		}
+		status.Units = unitStatus
 		serviceStatus, err := service.Status()
 		if err != nil {
 			status.Err = err
@@ -603,15 +612,15 @@ func (context *statusContext) processService(service *state.Service) (status api
 	return status
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]api.UnitStatus {
+func (context *statusContext) processUnits(st *state.State, units map[string]*state.Unit, serviceCharm string) (map[string]api.UnitStatus, error) {
 	unitsMap := make(map[string]api.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
+		unitsMap[unit.Name()] = context.processUnit(st, unit, serviceCharm)
 	}
-	return unitsMap
+	return unitsMap, nil
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {
+func (context *statusContext) processUnit(st *state.State, unit *state.Unit, serviceCharm string) api.UnitStatus {
 	var result api.UnitStatus
 	result.PublicAddress, _ = unit.PublicAddress()
 	unitPorts, _ := unit.OpenedPorts()
@@ -633,10 +642,24 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
+				result.Subordinates[name] = context.processUnit(st, subUnit, serviceCharm)
 			}
 		}
 	}
+
+	// Grab structured statuses from all the registered status providers.
+	result.ComponentStatus = make(map[string]map[string]string, len(statusProvidersForUnits))
+	for statusType, getStatus := range statusProvidersForUnits {
+		status, err := getStatus(st, unit.UnitTag())
+		if err != nil {
+			result.Err = err
+			// TODO(katco): Errs should be per status provider
+			break
+		}
+
+		result.ComponentStatus[statusType] = status
+	}
+
 	return result
 }
 
