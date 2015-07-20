@@ -67,7 +67,7 @@ func (api *spacesAPI) CreateSpaces(args params.AddSpacesParams) (params.ErrorRes
 
 func (api *spacesAPI) createOneSpace(args params.AddSpaceParams) error {
 	if len(args.SubnetTags) == 0 {
-		return errors.NotValidf("calling CreateSpaces with zero subnets is")
+		return errors.NotValidf("calling CreateSpaces with zero subnets is") // ... not valid.
 	}
 
 	// Validate the args, assemble information for api.backing.AddSpaces
