@@ -311,13 +311,9 @@ type procsUnit struct {
 	id  string
 }
 
-func (u *procsUnit) setConfig(c *gc.C, settings map[string]string) {
-	u.svc.setConfig(c, settings)
-}
-
 func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
 	settings := map[string]string{"plugin-status": status}
-	u.setConfig(c, settings)
+	u.svc.setConfig(c, settings)
 }
 
 func (u *procsUnit) destroy(c *gc.C) {
