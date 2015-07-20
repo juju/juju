@@ -1540,3 +1540,45 @@ func SetHostedEnvironCount(st *State) error {
 
 	return st.runTransaction([]txn.Op{op})
 }
+
+// AddMissingEnvUUIDOnStatuses populates the env-uuid field where it
+// is missing due to LP #1474606.
+func AddMissingEnvUUIDOnStatuses(st *State) error {
+	statuses, closer := st.getRawCollection(statusesC)
+	defer closer()
+
+	sel := bson.M{"$or": []bson.M{
+		{"env-uuid": bson.M{"$exists": false}},
+		{"env-uuid": ""},
+	}}
+	var docs []bson.M
+	err := statuses.Find(sel).Select(bson.M{"_id": 1}).All(&docs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read statuses")
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+
+		idParts := strings.SplitN(id, ":", 2)
+		if len(idParts) != 2 {
+			return errors.Errorf("unexpected id format: %v", id)
+		}
+
+		ops = append(ops, txn.Op{
+			C:      statusesC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"env-uuid": idParts[0]}},
+		})
+	}
+
+	if err := st.runRawTransaction(ops); err != nil {
+		return errors.Annotate(err, "statuses update failed")
+	}
+	return nil
+}
