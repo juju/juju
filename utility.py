@@ -286,7 +286,7 @@ def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 
 
-def find_candidates(root_dir):
+def find_candidates(root_dir, find_all=False):
     candidates_path = get_candidates_path(root_dir)
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
@@ -300,7 +300,7 @@ def find_candidates(root_dir):
             if e.errno in (errno.ENOENT, errno.ENOTDIR):
                 continue
             raise
-        if stat.st_mtime < a_week_ago:
+        if not find_all and stat.st_mtime < a_week_ago:
             continue
         yield candidate_path
 
