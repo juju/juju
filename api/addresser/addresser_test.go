@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
