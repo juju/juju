@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
-	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -107,8 +106,6 @@ func (s *kvmBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure the <rootfs>/etc/network path exists.
-	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
 	return instanceConfig
 }
 

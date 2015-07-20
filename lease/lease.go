@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -66,6 +67,7 @@ type copyTokensMsg struct {
 
 type leaseManager struct {
 	tomb             tomb.Tomb
+	wg               sync.WaitGroup
 	leasePersistor   leasePersistor
 	claimLease       chan claimLeaseMsg
 	releaseLease     chan releaseLeaseMsg
@@ -216,6 +218,24 @@ func (m *leaseManager) loop() error {
 
 	releaseSubs := make(map[string][]chan<- struct{}, 0)
 
+	// Ensure release notification channels are always closed on exit
+	// so that subscribers are not left blocked.
+	defer func() {
+		// notifyOfRelease spins off goroutines to send updates to the subscriber
+		// channels in order for method to not block on the receiver of the
+		// information to retrieve it before continuing. However if we close the
+		// subscriber channels before the select block is done, the process will
+		// panic.
+		m.wg.Wait()
+		// Close any outstanding subscribers, to inform them
+		// that the worker is dying.
+		for _, subs := range releaseSubs {
+			for _, sub := range subs {
+				close(sub)
+			}
+		}
+	}()
+
 	// Pull everything off our data-store & check for expirations.
 	leaseCache, err := populateTokenCache(m.leasePersistor)
 	if err != nil {
@@ -229,13 +249,6 @@ func (m *leaseManager) loop() error {
 	for {
 		select {
 		case <-m.tomb.Dying():
-			// Close any outstanding subscribers, to inform them
-			// that the worker is dying.
-			for _, subs := range releaseSubs {
-				for _, sub := range subs {
-					close(sub)
-				}
-			}
 			return tomb.ErrDying
 		case claim := <-m.claimLease:
 			lease := claimLease(leaseCache, claim.Token)
@@ -259,7 +272,7 @@ func (m *leaseManager) loop() error {
 				if err := m.leasePersistor.RemoveToken(namespace); err != nil {
 					return errors.Annotate(err, "removing lease token")
 				}
-				notifyOfRelease(releaseSubs[namespace], namespace)
+				m.notifyOfRelease(releaseSubs[namespace], namespace)
 			}
 			select {
 			case <-m.tomb.Dying():
@@ -308,7 +321,7 @@ func (m *leaseManager) expireLeases(
 		if err := releaseLease(cache, token); err != nil {
 			return time.Time{}, errors.Annotatef(err, "releasing expired lease for namespace %q", token.Namespace)
 		} else {
-			notifyOfRelease(subscribers[token.Namespace], token.Namespace)
+			m.notifyOfRelease(subscribers[token.Namespace], token.Namespace)
 		}
 	}
 
@@ -346,19 +359,21 @@ func subscribe(subMap map[string][]chan<- struct{}, subscription leaseReleasedMs
 	subMap[subscription.ForNamespace] = subList
 }
 
-func notifyOfRelease(subscribers []chan<- struct{}, namespace string) {
+func (m *leaseManager) notifyOfRelease(subscribers []chan<- struct{}, namespace string) {
 	logger.Infof(`Notifying namespace %q subscribers that its lease has been released.`, namespace)
 	for _, subscriber := range subscribers {
 		// Spin off into go-routine so we don't rely on listeners to
 		// not block.
+		m.wg.Add(1)
 		go func(subscriber chan<- struct{}) {
 			select {
+			case <-m.tomb.Dying():
+				// We're done.
 			case subscriber <- struct{}{}:
 			case <-time.After(notificationTimeout):
-				// TODO(kate): Remove this bad-citizen from the
-				// notifier's list.
 				logger.Warningf("A notification timed out after %s.", notificationTimeout)
 			}
+			m.wg.Done()
 		}(subscriber)
 	}
 }

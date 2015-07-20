@@ -270,10 +270,10 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "Find panics if query type is unsupported",
 			test: func() (int, error) {
-				machines0.Find(bson.M{"foo": "bar"})
+				machines0.Find(map[string]string{"foo": "bar"})
 				return 0, nil
 			},
-			expectedPanic: "query must either be bson.D or nil",
+			expectedPanic: "query must be bson.D, bson.M, or nil",
 		},
 		{
 			label: "FindId adds env UUID prefix",
@@ -424,10 +424,10 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll panics if query type is unsupported",
 			test: func() (int, error) {
-				machines0.Writeable().RemoveAll(bson.M{"foo": "bar"})
+				machines0.Writeable().RemoveAll(map[string]string{"foo": "bar"})
 				return 0, nil
 			},
-			expectedPanic: "query must either be bson.D or nil",
+			expectedPanic: "query must be bson.D, bson.M, or nil",
 		},
 		{
 			label: "Update",

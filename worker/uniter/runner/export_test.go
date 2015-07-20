@@ -221,3 +221,14 @@ func SetEnvironmentHookContextRelation(
 func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
 	return ctx.storageAddConstraints
 }
+
+// PatchMetricsRecorder patches the metrics writer used by the context with a new
+// object.
+func PatchMetricsRecorder(ctx jujuc.Context, writer MetricsRecorder) func() {
+	hctx := ctx.(*HookContext)
+	oldRecorder := hctx.metricsRecorder
+	hctx.metricsRecorder = writer
+	return func() {
+		hctx.metricsRecorder = oldRecorder
+	}
+}
