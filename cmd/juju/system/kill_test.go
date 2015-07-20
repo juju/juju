@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/system"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -32,12 +33,12 @@ func (s *KillSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := system.NewKillCommand(s.api, s.clientapi, s.apierror)
+	cmd := system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
 	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *KillSuite) newKillCommand() *system.KillCommand {
-	return system.NewKillCommand(s.api, s.clientapi, s.apierror)
+	return system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
 }
 
 func (s *KillSuite) TestKillNoSystemNameError(c *gc.C) {
@@ -53,6 +54,12 @@ func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
 	_, err := s.runKillCommand(c, "environment", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+}
+
+func (s *KillSuite) TestKillNoDialer(c *gc.C) {
+	cmd := system.NewKillCommand(nil, nil, nil, nil)
+	_, err := testing.RunCommand(c, cmd, "test1", "-y")
+	c.Assert(err, gc.ErrorMatches, "no api dialer specified")
 }
 
 func (s *KillSuite) TestKillUnknownSystem(c *gc.C) {
@@ -152,9 +159,8 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(sysName string) (*api.State, error) {
 		return nil, common.ErrPerm
 	}
-	s.PatchValue(&system.DialAPI, testDialer)
 
-	cmd := system.NewKillCommand(nil, nil, nil)
+	cmd := system.NewKillCommand(nil, nil, nil, testDialer)
 	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy system: permission denied")
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
@@ -162,17 +168,27 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
+	stop := make(chan struct{})
+	defer close(stop)
 	testDialer := func(sysName string) (*api.State, error) {
-		time.Sleep(5 * time.Minute)
+		<-stop
 		return nil, errors.New("kill command waited too long")
 	}
-	s.PatchValue(&system.DialAPI, testDialer)
 
-	cmd := system.NewKillCommand(nil, nil, nil)
-	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cmd := system.NewKillCommand(nil, nil, nil, testDialer)
+		ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to state server timed out")
+		c.Check(s.api.ignoreBlocks, jc.IsFalse)
+		c.Check(s.api.destroyAll, jc.IsFalse)
+		checkSystemRemovedFromStore(c, "test1", s.store)
+	}()
+	select {
+	case <-done:
+	case <-time.After(1 * time.Minute):
+		c.Fatalf("Kill command waited too long to open the API")
+	}
 }

@@ -16,11 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 var (
-	DialAPI         = juju.NewAPIFromName
 	apiTimeout      = 10 * time.Second
 	ErrConnTimedOut = errors.New("connection to state server timed out")
 )
@@ -40,6 +38,10 @@ destroyed.
 // KillCommand kills the specified system.
 type KillCommand struct {
 	DestroyCommandBase
+	// TODO (cherylj) If timeouts for dialing the API are added to new or
+	// existing commands later, the dialer should be pulled into a common
+	// base and made to be an interface rather than a function.
+	apiDialerFunc func(string) (*api.State, error)
 }
 
 // Info implements Command.Info.
@@ -58,6 +60,16 @@ func (c *KillCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
+// Init implements Command.Init.
+func (c *KillCommand) Init(args []string) error {
+	if c.apiDialerFunc == nil {
+		// This should never happen, but check here instead of panicking later.
+		return errors.New("no api dialer specified")
+	}
+
+	return c.DestroyCommandBase.Init(args)
+}
+
 func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
@@ -67,7 +79,7 @@ func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 	apic := make(chan *api.State)
 	errc := make(chan error)
 	go func() {
-		api, dialErr := DialAPI(c.systemName)
+		api, dialErr := c.apiDialerFunc(c.systemName)
 		if dialErr != nil {
 			errc <- dialErr
 			return

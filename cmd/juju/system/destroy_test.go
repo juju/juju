@@ -146,12 +146,12 @@ func (s *DestroySuite) newDestroyCommand() *system.DestroyCommand {
 
 func checkSystemExistsInStore(c *gc.C, name string, store configstore.Storage) {
 	_, err := store.ReadInfo(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func checkSystemRemovedFromStore(c *gc.C, name string, store configstore.Storage) {
 	_, err := store.ReadInfo(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DestroySuite) TestDestroyNoSystemNameError(c *gc.C) {
