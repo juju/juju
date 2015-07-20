@@ -83,18 +83,13 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
+	)
 
-		// Create a registry key for storing juju related information
-		fmt.Sprintf(`New-Item -Path '%s'`, osenv.JujuRegistryKey),
-		fmt.Sprintf(`$acl = Get-Acl -Path '%s'`, osenv.JujuRegistryKey),
+	for _, cmd := range CreateJujuRegistryKeyCmds() {
+		w.conf.AddRunCmd(cmd)
+	}
 
-		// Reset the ACL's on it and add administrator access only.
-		`$acl.SetAccessRuleProtection($true, $false)`,
-		`$perm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"`,
-		`$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm`,
-		`$acl.SetAccessRule($rule)`,
-		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, osenv.JujuRegistryKey),
-
+	w.conf.AddScripts(
 		// Create a JUJU_DEV_FEATURE_FLAGS entry which may or may not be empty.
 		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
 			osenv.JujuRegistryKey,
@@ -116,4 +111,22 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 	return w.addMachineAgentToBoot()
+}
+
+// CreateJujuRegistryKey is going to create a juju registry key and set
+// permissions on it such that it's only accessible to administrators
+// It is exported because it is used in an upgrade step
+func CreateJujuRegistryKeyCmds() []string {
+	return []string{
+		// Create a registry key for storing juju related information
+		fmt.Sprintf(`New-Item -Path '%s'`, osenv.JujuRegistryKey),
+		fmt.Sprintf(`$acl = Get-Acl -Path '%s'`, osenv.JujuRegistryKey),
+
+		// Reset the ACL's on it and add administrator access only.
+		`$acl.SetAccessRuleProtection($true, $false)`,
+		`$perm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"`,
+		`$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm`,
+		`$acl.SetAccessRule($rule)`,
+		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, osenv.JujuRegistryKey),
+	}
 }
