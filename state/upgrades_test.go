@@ -2972,3 +2972,37 @@ func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
 		}
 	}
 }
+
+func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
+	statuses, closer := s.state.getRawCollection(statusesC)
+	defer closer()
+
+	err := statuses.Insert(
+		// This record should be left untouched.
+		bson.D{
+			{"_id", "uuid0:bar"},
+			{"env-uuid", "uuid0"},
+		},
+		// These records should have their env-uuid fields set.
+		bson.D{
+			{"_id", "uuid0:foo"},
+			{"env-uuid", ""},
+		},
+		bson.D{
+			{"_id", "uuid1:foo"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddMissingEnvUUIDOnStatuses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var docs []statusDoc
+	err = statuses.Find(nil).Sort("_id").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.DeepEquals, []statusDoc{
+		{EnvUUID: "uuid0"},
+		{EnvUUID: "uuid0"},
+		{EnvUUID: "uuid1"},
+	})
+}
