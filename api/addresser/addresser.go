@@ -5,6 +5,7 @@ package addresser
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
@@ -12,6 +13,8 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
+
+var logger = loggo.GetLogger("juju.api.addresser")
 
 const addresserFacade = "Addresser"
 
@@ -49,14 +52,18 @@ func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
+	var err error
 	ipAddresses := make([]*IPAddress, len(tags))
 	for i, result := range results.Results {
 		if result.Error != nil {
-			return nil, errors.Trace(result.Error)
+			logger.Warningf("error retieving IP address %v: %v", tags[i], result.Error)
+			ipAddresses[i] = nil
+			err = common.ErrPartialResults
+		} else {
+			ipAddresses[i] = &IPAddress{api.facade, tags[i], result.Life}
 		}
-		ipAddresses[i] = &IPAddress{api.facade, tags[i], result.Life}
 	}
-	return ipAddresses, nil
+	return ipAddresses, err
 }
 
 // Remove deletes the given IP addresses.
