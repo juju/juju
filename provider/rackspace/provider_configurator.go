@@ -5,14 +5,20 @@ package rackspace
 
 import (
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> working version of rackspace provider
 	"github.com/juju/errors"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
+<<<<<<< HEAD
 =======
 	"gopkg.in/goose.v1/nova"
 >>>>>>> modifications to opestack provider applied
+=======
+>>>>>>> working version of rackspace provider
 )
 
 type rackspaceProviderConfigurator struct{}
@@ -61,4 +67,16 @@ func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstan
 func (c *rackspaceProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
 	options.ConfigDrive = true
 }
+<<<<<<< HEAD
 >>>>>>> modifications to opestack provider applied
+=======
+
+func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudcfg.AddPackage("iptables-persistent")
+	return cloudcfg, nil
+}
+>>>>>>> working version of rackspace provider

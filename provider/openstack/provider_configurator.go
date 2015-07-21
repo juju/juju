@@ -12,6 +12,9 @@ package openstack
 import (
 	"gopkg.in/goose.v1/nova"
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> working version of rackspace provider
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
@@ -30,6 +33,7 @@ type OpenstackProviderConfigurator interface {
 
 	// This method allows to adjust defult RunServerOptions, before new server is actually created.
 	ModifyRunServerOptions(options *nova.RunServerOpts)
+<<<<<<< HEAD
 
 	// This method provides default cloud config.
 	// This config can be defferent for different providers.
@@ -42,6 +46,9 @@ type OpenstackProviderConfigurator interface {
 	InitialNetworks() []nova.ServerNetworks
 	ModifyRunServerOptions(options *nova.RunServerOpts)
 >>>>>>> modifications to opestack provider applied
+=======
+	GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error)
+>>>>>>> working version of rackspace provider
 }
 
 type defaultProviderConfigurator struct{}
@@ -74,4 +81,11 @@ func (c *defaultProviderConfigurator) GetCloudConfig(args environs.StartInstance
 =======
 func (c *defaultProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
 }
+<<<<<<< HEAD
 >>>>>>> modifications to opestack provider applied
+=======
+
+func (c *defaultProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
+	return nil, nil
+}
+>>>>>>> working version of rackspace provider

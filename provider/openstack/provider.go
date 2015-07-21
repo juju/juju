@@ -1070,11 +1070,22 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, OpenstackRenderer{})
+=======
+>>>>>>> working version of rackspace provider
 	cloudcfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+<<<<<<< HEAD
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
+=======
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+>>>>>>> working version of rackspace provider
+>>>>>>> working version of rackspace provider
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1364,6 +1375,7 @@ func (e *Environ) Destroy() error {
 		return errors.Trace(err)
 	}
 	novaClient := e.nova()
+<<<<<<< HEAD
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
 		return errors.Annotate(err, "cannot list security groups")
@@ -1376,6 +1388,25 @@ func (e *Environ) Destroy() error {
 	for _, group := range securityGroups {
 		if re.MatchString(group.Name) || group.Name == globalGroupName {
 			deleteSecurityGroup(novaClient, group.Name, group.Id)
+=======
+	if e.configurator.UseSecurityGroups() {
+		securityGroups, err := novaClient.ListSecurityGroups()
+		if err != nil {
+			return errors.Annotate(err, "cannot list security groups")
+		}
+		re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		globalGroupName := e.globalGroupName()
+		for _, group := range securityGroups {
+			if re.MatchString(group.Name) || group.Name == globalGroupName {
+				err = novaClient.DeleteSecurityGroup(group.Id)
+				if err != nil {
+					logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
+				}
+			}
+>>>>>>> working version of rackspace provider
 		}
 	}
 	return nil
