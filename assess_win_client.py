@@ -22,7 +22,7 @@ def win_test(script_dir, address, juju_home):
 
     ci = [os.path.join(script_dir, f) for f in [
         'deploy_stack.py', 'jujupy.py', 'jujuconfig.py', 'remote.py',
-        'substrate.py', 'utility.py', 'get_ami.py',
+        'substrate.py', 'utility.py', 'get_ami.py', 'chaos.py'
         ]]
     ci.extend([install_file, 'run-file'])
     with open('foo.yaml', 'w') as config:
