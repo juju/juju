@@ -35,6 +35,9 @@ func (c HookContextClient) RegisterProcesses(processes ...api.Process) ([]api.Pr
 	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if result.Error != nil {
+		return nil, errors.Errorf(result.Error.GoString())
+	}
 
 	return result.Results, nil
 }
@@ -87,10 +90,19 @@ func (c HookContextClient) Get(ids ...string) ([]*process.Info, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var notFound []string
 	procs := make([]*process.Info, len(results))
 	for i, presult := range results {
+		if presult.NotFound {
+			notFound = append(notFound, presult.ID)
+			continue
+		}
 		pp := api.API2Proc(presult.Info)
 		procs[i] = &pp
+	}
+	if len(notFound) > 0 {
+		return procs, errors.NotFoundf("%v", notFound)
 	}
 	return procs, nil
 }

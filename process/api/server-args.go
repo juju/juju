@@ -57,6 +57,8 @@ type ListProcessResult struct {
 	ID string
 	// Info holds the details of the process.
 	Info Process
+	// NotFound indicates that the process was not found in state.
+	NotFound bool
 	// Error holds the error retrieving this information (if any).
 	Error *params.Error
 }

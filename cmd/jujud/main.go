@@ -89,6 +89,7 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 	req := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
+		EnvPath:     os.Getenv("PATH"),
 		CommandName: commandName,
 		Args:        args[1:],
 	}

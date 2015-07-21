@@ -65,7 +65,9 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
 	out := badrun(c, 0, "--help")
-	lines := strings.Split(out, "\n")
+	parts := strings.Split(out, "\ncommands:\n")
+	c.Assert(parts, gc.HasLen, 2)
+	lines := strings.Split(parts[1], "\n")
 	var names []string
 	for _, line := range lines {
 		f := strings.Fields(line)
