@@ -61,6 +61,11 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
+	if w.icfg.Bootstrap == true {
+		// Bootstrap machine not supported on windows
+		return errors.Errorf("bootstrapping is not supported on windows")
+	}
+
 	toolsJson, err := json.Marshal(w.icfg.Tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
@@ -87,11 +92,6 @@ func (w *windowsConfigure) ConfigureJuju() error {
 
 	for _, cmd := range CreateJujuRegistryKeyCmds() {
 		w.conf.AddRunCmd(cmd)
-	}
-
-	if w.icfg.Bootstrap == true {
-		// Bootstrap machine not supported on windows
-		return errors.Errorf("bootstrapping is not supported on windows")
 	}
 
 	machineTag := names.NewMachineTag(w.icfg.MachineId)
