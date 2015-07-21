@@ -4,7 +4,11 @@
 package rackspace
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/goose.v1/nova"
+
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/environs"
 )
 
 type rackspaceProviderConfigurator struct{}
@@ -22,4 +26,13 @@ func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks 
 
 func (c *rackspaceProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
 	options.ConfigDrive = true
+}
+
+func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudcfg.AddPackage("iptables-persistent")
+	return cloudcfg, nil
 }

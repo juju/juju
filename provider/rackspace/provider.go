@@ -20,14 +20,21 @@ type environProvider struct {
 
 var providerInstance environProvider
 
-// Open implements environs.EnvironProvider.
-func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := p.openstackProvider.Open(cfg)
+func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if os, ok := env.(*openstack.Environ); ok {
 		os.SetProviderConfigurator(new(rackspaceProviderConfigurator))
 		return environ{env}, errors.Trace(err)
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
+}
+
+// Open implements environs.EnvironProvider.
+func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+	env, err := p.openstackProvider.Open(cfg)
+	return p.setConfigurator(env, err)
 }
 
 // RestrictedConfigAttributes implements environs.EnvironProvider.
@@ -42,7 +49,8 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	return p.openstackProvider.PrepareForBootstrap(ctx, cfg)
+	env, err := p.openstackProvider.PrepareForBootstrap(ctx, cfg)
+	return p.setConfigurator(env, err)
 }
 
 // Validate implements environs.EnvironProvider.

@@ -1037,7 +1037,11 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, OpenstackRenderer{})
+	cloudcfg, err := e.configurator.GetCloudConfig(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1146,23 +1150,25 @@ func isNoValidHostsError(err error) bool {
 func (e *Environ) StopInstances(ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
 	var securityGroupNames []string
-	if e.Config().FirewallMode() == config.FwInstance {
-		instances, err := e.Instances(ids)
-		if err == environs.ErrNoInstances {
-			return nil
-		}
-		securityGroupNames = make([]string, 0, len(ids))
-		for _, inst := range instances {
-			if inst == nil {
-				continue
+	if e.configurator.UseSecurityGroups() {
+		if e.Config().FirewallMode() == config.FwInstance {
+			instances, err := e.Instances(ids)
+			if err == environs.ErrNoInstances {
+				return nil
 			}
-			openstackName := inst.(*openstackInstance).getServerDetail().Name
-			lastDashPos := strings.LastIndex(openstackName, "-")
-			if lastDashPos == -1 {
-				return fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
+			securityGroupNames = make([]string, 0, len(ids))
+			for _, inst := range instances {
+				if inst == nil {
+					continue
+				}
+				openstackName := inst.(*openstackInstance).getServerDetail().Name
+				lastDashPos := strings.LastIndex(openstackName, "-")
+				if lastDashPos == -1 {
+					return fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
+				}
+				securityGroupName := e.machineGroupName(openstackName[lastDashPos+1:])
+				securityGroupNames = append(securityGroupNames, securityGroupName)
 			}
-			securityGroupName := e.machineGroupName(openstackName[lastDashPos+1:])
-			securityGroupNames = append(securityGroupNames, securityGroupName)
 		}
 	}
 	logger.Debugf("terminating instances %v", ids)

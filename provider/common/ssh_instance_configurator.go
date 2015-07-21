@@ -3,7 +3,7 @@
 
 // +build !gccgo
 
-package vsphere
+package common
 
 import (
 	"fmt"
@@ -16,26 +16,43 @@ import (
 	"github.com/juju/juju/network"
 )
 
-type sshClient struct {
+type SshInstanceConfigurator struct {
 	client  ssh.Client
 	host    string
 	options *ssh.Options
 }
 
-func newSshClient(host string) *sshClient {
+func NewSshInstanceConfigurator(host string) *SshInstanceConfigurator {
 	options := ssh.Options{}
 	options.SetIdentities("/var/lib/juju/system-identity")
-	return &sshClient{
+	return &SshInstanceConfigurator{
 		client:  ssh.DefaultClient,
 		host:    "ubuntu@" + host,
 		options: &options,
 	}
 }
 
-func (c *sshClient) configureExternalIpAddress(apiPort int) error {
+func (c *SshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
+	cmd := fmt.Sprintf("sudo iptables -d %s -I INPUT -m state --state NEW -j DROP", addr)
+
+	for _, port := range exceptPorts {
+		cmd += fmt.Sprintf("\nsudo iptables -I INPUT -p tcp --dport %d -j ACCEPT", port)
+	}
+
+	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
+	command.Stdin = strings.NewReader(cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return errors.Errorf("failed to drop all ports: %s", output)
+	}
+	logger.Tracef("drop all ports output: %s", output)
+	return nil
+}
+
+func (c *SshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
 	cmd := `printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg
 sudo ifup eth1
-sudo iptables -i eth1 -I INPUT -j DROP`
+sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
 
 	if apiPort > 0 {
 		cmd += fmt.Sprintf("\nsudo iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort)
@@ -51,7 +68,7 @@ sudo iptables -i eth1 -I INPUT -j DROP`
 	return nil
 }
 
-func (c *sshClient) changePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+func (c *SshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
 	cmd := ""
 	insertArg := "-I"
 	if !insert {
@@ -76,7 +93,7 @@ func (c *sshClient) changePorts(ipAddress string, insert bool, ports []network.P
 	return nil
 }
 
-func (c *sshClient) findOpenPorts() ([]network.PortRange, error) {
+func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	cmd := "sudo iptables -L INPUT -n"
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -145,7 +162,7 @@ func (c *sshClient) findOpenPorts() ([]network.PortRange, error) {
 	return res, nil
 }
 
-func (c *sshClient) addIpAddress(nic string, addr string) error {
+func (c *SshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
 	cmd := fmt.Sprintf("ls /etc/network/interfaces.d | grep %s: | sed 's/%s://' | sed 's/.cfg//' | tail -1", nic, nic)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -170,7 +187,7 @@ func (c *sshClient) addIpAddress(nic string, addr string) error {
 	return nil
 }
 
-func (c *sshClient) releaseIpAddress(_ string, addr string) error {
+func (c *SshInstanceConfigurator) ReleaseIpAddress(_ string, addr string) error {
 	cmd := fmt.Sprintf("ip addr show | grep %s | awk '{print $7}'", addr)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
