@@ -6,10 +6,10 @@ set -eux
 
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
-    utopic-slave-a.vapour.ws utopic-slave-b.vapour.ws \
-    vivid-slave.vapour.ws vivid-slave-b.vapour.ws wily-slave.vapour.ws \
+    vivid-slave.vapour.ws wily-slave.vapour.ws \
     ppc64el-slave.vapour.ws i386-slave.vapour.ws kvm-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
+    cloud-health.vapour.ws certification-slave.vapour.ws \
     charm-bundle-slave.vapour.ws osx-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
