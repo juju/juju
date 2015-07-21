@@ -161,4 +161,15 @@ func (c workloadProcesses) registerStatusAPI() {
 	}
 
 	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, statusAdapter)
+
+	// TODO: uncomment when we move the status stuff out of the cmd/juju/commands package
+	// since this would cause an import cycle.
+	//commands.RegisterUnitComponentFormatter("processes", convertAPItoCLI)
+}
+
+// for now, since we're just using a map[string]string for our status, we can
+// just return that map.  If we change the status to be strongly typed, we'd do
+// the adaptation here.
+func convertAPItoCLI(apiObj interface{}) (cliObj interface{}) {
+	return apiObj
 }

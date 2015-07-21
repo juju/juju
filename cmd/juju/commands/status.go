@@ -468,10 +468,8 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		Components:         map[string]interface{}{},
 	}
 
-	for component, val := range unit.ComponentStatus {
-		if fn, ok := unitComponentFormatters[component]; ok {
-			out.Components[component] = fn(val)
-		}
+	for k, v := range unit.ComponentStatus {
+		out.Components[k] = v
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
