@@ -27,10 +27,10 @@ while [[ "${1-}" != "" ]]; do
             ;;
         --robust)
             ROBUST="true"
-            GOTESTCMD="$GOTESTCMD -p 2"
+            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
             ;;
         --safe)
-            GOTESTCMD="$GOTESTCMD -p 2"
+            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
             ;;
         --local)
             IS_LOCAL="true"

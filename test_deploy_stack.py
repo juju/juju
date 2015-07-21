@@ -20,6 +20,7 @@ from deploy_stack import (
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
+    _deploy_job,
     deploy_job_parse_args,
     destroy_environment,
     dump_env_logs,
@@ -500,6 +501,47 @@ class TestDeployDummyStack(TestCase):
             'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
             GET_TOKEN_SCRIPT), 2, assign_stderr=True)
         self.assertEqual(co_mock.call_count, 3)
+
+
+def fake_SimpleEnvironment(name):
+    return SimpleEnvironment(name, {})
+
+
+def fake_EnvJujuClient(env, path=None, debug=None):
+    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
+
+
+class TestDeployJob(TestCase):
+
+    @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
+    @patch('jujupy.SimpleEnvironment.from_config',
+           side_effect=fake_SimpleEnvironment)
+    @patch('deploy_stack.boot_context', autospec=True)
+    @patch('deploy_stack.prepare_environment', autospec=True)
+    @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
+    def test_background_chaos_used(self, *args):
+        with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
+            with patch('deploy_stack.deploy_dummy_stack', autospec=True):
+                with patch('deploy_stack.assess_juju_run', autospec=True):
+                    _deploy_job('foo', None, None, '', None, None, None, 'log',
+                                None, None, None, None, None, None, 1)
+        self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
+        self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
+        self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
+
+    @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
+    @patch('jujupy.SimpleEnvironment.from_config',
+           side_effect=fake_SimpleEnvironment)
+    @patch('deploy_stack.boot_context', autospec=True)
+    @patch('deploy_stack.prepare_environment', autospec=True)
+    @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
+    def test_background_chaos_not_used(self, *args):
+        with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
+            with patch('deploy_stack.deploy_dummy_stack', autospec=True):
+                with patch('deploy_stack.assess_juju_run', autospec=True):
+                    _deploy_job('foo', None, None, '', None, None, None, None,
+                                None, None, None, None, None, None, 0)
+        self.assertEqual(bc_mock.call_count, 0)
 
 
 class TestTestUpgrade(TestCase):
