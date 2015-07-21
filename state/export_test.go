@@ -406,9 +406,9 @@ func NewStatusDoc(s StatusDoc) statusDoc {
 	return statusDoc(s)
 }
 
-func NewHistoricalStatusDoc(s StatusDoc, key string) *historicalStatusDoc {
+func NewHistoricalStatusDoc(id int, s StatusDoc, key string) *historicalStatusDoc {
 	sdoc := statusDoc(s)
-	return newHistoricalStatusDoc(sdoc, key)
+	return newHistoricalStatusDoc(id, sdoc, key)
 }
 
 var StatusHistory = statusHistory
