@@ -39,8 +39,9 @@ func initProcessesSuites() {
 }
 
 var (
-	repoDir  = testcharms.Repo.Path()
-	procsEnv *procsEnviron
+	repoDir         = testcharms.Repo.Path()
+	procsEnv        *procsEnviron
+	procsSuiteCount = 3
 )
 
 type processesBaseSuite struct {
@@ -48,14 +49,12 @@ type processesBaseSuite struct {
 }
 
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
-	s.env = newProcsEnv(c, "local")
-	s.env.addRef(c, s)
+	s.env = newProcsEnv(c, "local", procsSuiteCount)
 	s.env.bootstrap(c)
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
 	if s.env != nil {
-		s.env.removeRef(c, s)
 		s.env.destroy(c)
 	}
 }
@@ -84,7 +83,6 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 
 	unit := svc.deploy(c, "myproc", "xyz123", "running")
 
-	c.FailNow()
 	unit.checkState(c, []process.Info{{
 		Process: charm.Process{
 			Name: "myproc",
@@ -193,26 +191,15 @@ type procsEnviron struct {
 	refCount int
 }
 
-func newProcsEnv(c *gc.C, envName string) *procsEnviron {
+func newProcsEnv(c *gc.C, envName string, suiteCount int) *procsEnviron {
 	if procsEnv != nil {
 		c.Assert(procsEnv.name, gc.Equals, envName)
 		return procsEnv
 	}
 	return &procsEnviron{
-		name:    envName,
-		machine: "1",
-	}
-}
-
-func (env *procsEnviron) addRef(c *gc.C, s interface{}) {
-	if env.refCount > 0 {
-		env.refCount += 1
-	}
-}
-
-func (env *procsEnviron) removeRef(c *gc.C, s interface{}) {
-	if env.refCount > 0 {
-		env.refCount -= 1
+		name:     envName,
+		machine:  "1",
+		refCount: suiteCount,
 	}
 }
 
@@ -274,7 +261,6 @@ func (env *procsEnviron) bootstrap(c *gc.C) {
 		c.Assert(env, gc.Equals, procsEnv)
 		return
 	}
-	// TODO(ericsnow) possible race...
 	procsEnv = env
 
 	initJuju(c)
@@ -306,6 +292,9 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 }
 
 func (env *procsEnviron) destroy(c *gc.C) {
+	if env.refCount > 0 {
+		env.refCount -= 1
+	}
 	if env.refCount != 0 || procsEnv == nil {
 		return
 	}
