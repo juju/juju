@@ -7,10 +7,14 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/juju/arch"
 )
+
+var logger = loggo.GetLogger("juju.environs.instances")
 
 // InstanceConstraint constrains the possible instances that may be
 // chosen by the environment provider.
@@ -83,6 +87,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	}
 	if len(specs) > 0 {
 		sort.Sort(byArch(specs))
+		logger.Infof("find instance - using image with id: %v", specs[0].Image.Id)
 		return specs[0], nil
 	}
 

@@ -819,8 +819,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
-	c.Check(sources[1].Description(), gc.Equals, "cloud local storage")
-	c.Check(sources[2].Description(), gc.Equals, "default cloud images")
+	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -970,23 +969,25 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSourcesContains(c, params.Sources, "cloud local storage")
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
 }
 
-func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
-	found := false
-	for i, s := range sources {
-		c.Logf("datasource %d: %+v", i, s)
-		if s.Description() == expected {
-			found = true
-			break
-		}
+func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
+	src := func(env environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("my datasource", "bar", false), nil
 	}
-	c.Assert(found, jc.IsTrue)
+	environs.RegisterUserImageDataSourceFunc("my func", src)
+	env := s.Open(c)
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	var sourceIds []string
+	for _, s := range sources {
+		sourceIds = append(sourceIds, s.Description())
+	}
+	c.Assert(sourceIds, jc.DeepEquals, []string{"image-metadata-url", "my datasource", "keystone catalog", "default cloud images"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {

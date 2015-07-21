@@ -1657,11 +1657,3 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 		Endpoint: e.ecfg().authURL(),
 	}, nil
 }
-
-func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	_, ok := env.(*environ)
-	if !ok {
-		return nil, errors.NotSupportedf("non-openstack environment")
-	}
-	return common.GetCustomImageSource(env)
-}
