@@ -12,6 +12,18 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+// readTxnRevno is a convenience method delegating to the state's Database.
+func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, error) {
+	collection, closer := st.database.GetCollection(collectionName)
+	defer closer()
+	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
+	var result struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}
+	err := query.One(&result)
+	return result.TxnRevno, errors.Trace(err)
+}
+
 // runTransaction is a convenience method delegating to the state's Database.
 func (st *State) runTransaction(ops []txn.Op) error {
 	runner, closer := st.database.TransactionRunner()

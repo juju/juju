@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/leadership"
 )
 
 // Service represents the state of a service.
@@ -948,6 +949,92 @@ func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 	}
 	_, err = node.Write()
 	return err
+}
+
+// LeaderSettings returns a service's leader settings. If nothing has been set
+// yet, it will return an empty map; this is not an error.
+//
+// This method returns the correct type, and should be preferred over the
+// ReadLeadershipSettings method on State.
+func (s *Service) LeaderSettings() (map[string]string, error) {
+	// There's no compelling reason to have these methods on Service -- and
+	// thus require an extra db read to access them -- but it stops the State
+	// type getting even more cluttered.
+
+	docId := leadershipSettingsDocId(s.doc.Name)
+	rawMap, _, err := readSettingsDoc(s.st, docId)
+	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("service")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[string]string)
+	for escapedKey, interfaceValue := range rawMap {
+		key := unescapeReplacer.Replace(escapedKey)
+		if value, _ := interfaceValue.(string); value != "" {
+			// Empty strings are technically bad data -- when set, they clear.
+			result[key] = value
+		} else {
+			// Some bad data isn't reason enough to obscure the good data.
+			logger.Warningf("unexpected leader settings value for %s: %#v", key, interfaceValue)
+		}
+	}
+	return result, nil
+}
+
+// UpdateLeaderSettings updates the service's leader settings with the supplied
+// values, but will fail (with a suitable error) if the supplied Token loses
+// validity. Empty values in the supplied map will be cleared in the database.
+//
+// This method makes use of the Tokens supplied by state's LeadershipChecker
+// to gate leadership, and should be preferred over the WriteLeadershipSettings
+// method on State.
+func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
+	// There's no compelling reason to have these methods on Service -- and
+	// thus require an extra db read to access them -- but it stops the State
+	// type getting even more cluttered.
+
+	// We can calculate the actual update ahead of time; it's not dependent
+	// upon the current state of the document. (*Writing* it should depend
+	// on document state, but that's handled below.)
+	docId := leadershipSettingsDocId(s.doc.Name)
+	sets := bson.M{}
+	unsets := bson.M{}
+	for unescapedKey, value := range updates {
+		key := escapeReplacer.Replace(unescapedKey)
+		if value == "" {
+			unsets[key] = 1
+		} else {
+			sets[key] = value
+		}
+	}
+	update := setUnsetUpdate(sets, unsets)
+	buildTxn := func(_ int) ([]txn.Op, error) {
+
+		// First check leadership is still valid, and store the ops that will
+		// fail should it not remain so.
+		var prereqs []txn.Op
+		if err := token.Check(&prereqs); err != nil {
+			return nil, errors.Annotatef(err, "prerequisites failed")
+		}
+
+		// Then read the txn-revno of the settings doc, so as to create an
+		// assert that will protect us from overwriting more recent changes
+		// in the event of this transaction being missed and resumed late.
+		txnRevno, err := s.st.readTxnRevno(settingsC, docId)
+		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("service")
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "cannot check latest settings")
+		}
+		return append(prereqs, txn.Op{
+			C:      settingsC,
+			Id:     docId,
+			Assert: bson.D{{"txn-revno", txnRevno}},
+			Update: update,
+		}), nil
+	}
+	return s.st.run(buildTxn)
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
