@@ -788,7 +788,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(sources, gc.HasLen, 3)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -798,8 +798,8 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -815,7 +815,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	env := s.Open(c)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
@@ -1199,7 +1199,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(sources, gc.HasLen, 3)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
