@@ -56,7 +56,7 @@ func (s *processesBaseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
-	if s.initialized {
+	if s.initialized && !c.Failed() {
 		s.env.destroy(c)
 	}
 }
@@ -114,6 +114,9 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 
 	// Stop the unit.
 
+	if c.Failed() {
+		return
+	}
 	unit.destroy(c)
 
 	unit.checkState(c, nil)
