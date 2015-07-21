@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-var logger = loggo.GetLogger("juju.api.space")
+var logger = loggo.GetLogger("juju.api.spaces")
 
 const spacesFacade = "Spaces"
 
@@ -25,7 +25,6 @@ func NewAPI(caller base.APICaller) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, spacesFacade)
 	return &API{
-		//EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 		facade: facadeCaller,
 	}
 }
