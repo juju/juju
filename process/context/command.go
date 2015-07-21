@@ -301,6 +301,8 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 
 	info.Details = c.Details
 
+	logger.Debugf("registering %#v", info)
+
 	if err := c.compCtx.Set(*info); err != nil {
 		return errors.Trace(err)
 	}
