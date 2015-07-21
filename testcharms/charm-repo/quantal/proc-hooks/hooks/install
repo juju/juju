@@ -14,13 +14,16 @@ if [ -n "$name" ]; then
     status=$(config-get plugin-status)
 
     status-set maintenance "initializing plugin ($name, $id, $status)..."
-    result=$(juju-process-myplugin init "$name" "$id" "$status" 2>&1)
+    output=$(juju-process-myplugin init "$name" "$id" "$status" 2>&1)
     rc=$?
+    if [ -z "$output" ]; then
+        output='<no output>'
+    fi
     if [ "$rc" = "0" ]; then
         echo $name > $ACTIVE_FILE
-        status-set maintenance "plugin initialized ($result)"
+        status-set maintenance "plugin initialized ($output)"
     else
-        status-set waiting "plugin failed to initialize ($rc - $result)"
+        status-set waiting "plugin failed to initialize ($rc - $output)"
         exit $rc
     fi
 else

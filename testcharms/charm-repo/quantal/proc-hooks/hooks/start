@@ -8,12 +8,15 @@ if [ -e $ACTIVE_FILE ]; then
     name=$(cat $ACTIVE_FILE)
 
     status-set maintenance "launching ${name}..."
-    result=$(launch "$name" 2>&1)
+    output=$(launch "$name" 2>&1)
     rc=$?
+    if [ -z "$output" ]; then
+        output='<no output>'
+    fi
     if [ "$rc" = "0" ]; then
-        status-set active "workload process ${name} launched ($result)"
+        status-set active "workload process ${name} launched ($output)"
     else
-        status-set waiting "workload process ${name} failed to launch ($rc - $result)"
+        status-set waiting "workload process ${name} failed to launch ($rc - $output)"
         rm $ACTIVE_FILE
         exit $rc
     fi
