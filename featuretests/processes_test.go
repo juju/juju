@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	cmdaction "github.com/juju/juju/cmd/juju/action"
 	cmdjuju "github.com/juju/juju/cmd/juju/commands"
+	cmdenv "github.com/juju/juju/cmd/juju/environment"
 	cmdmachine "github.com/juju/juju/cmd/juju/machine"
 	cmdservice "github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/component/all"
@@ -207,6 +208,8 @@ func lookUpCommand(cmd string) cmd.Command {
 	switch cmd {
 	case "bootstrap":
 		return envcmd.Wrap(&cmdjuju.BootstrapCommand{})
+	case "environment set":
+		return envcmd.Wrap(&cmdenv.SetCommand{})
 	case "destroy-environment":
 		return &cmdjuju.DestroyEnvironmentCommand{}
 	case "add-machine":
@@ -231,6 +234,7 @@ func lookUpCommand(cmd string) cmd.Command {
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
 	env.run(c, "bootstrap")
+	env.run(c, "environment set", "logging-config=<root>=DEBUG")
 }
 
 func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *procsService {
