@@ -31,6 +31,22 @@ var (
 // any other error will be cause ImageMetadataSources to fail.
 type ImageDataSourceFunc func(Environ) (simplestreams.DataSource, error)
 
+// RegisterUserImageDataSourceFunc registers an ImageDataSourceFunc
+// with the specified id at the start of the search path, overwriting
+// any function previously registered with the same id.
+func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
+	datasourceFuncsMu.Lock()
+	defer datasourceFuncsMu.Unlock()
+	for i := range datasourceFuncs {
+		if datasourceFuncs[i].id == id {
+			datasourceFuncs[i].f = f
+			return
+		}
+	}
+	logger.Debugf("new user image datasource registered: %v", id)
+	datasourceFuncs = append([]datasourceFuncId{datasourceFuncId{id, f}}, datasourceFuncs...)
+}
+
 // RegisterImageDataSourceFunc registers an ImageDataSourceFunc
 // with the specified id, overwriting any function previously registered
 // with the same id.
@@ -43,6 +59,7 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
+	logger.Debugf("new environment image datasource registered: %v", id)
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
@@ -91,6 +108,9 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		sources = append(sources,
 			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
 	}
+	for _, ds := range sources {
+		logger.Debugf("using image datasource %q", ds.Description())
+	}
 	return sources, nil
 }
 
@@ -102,7 +122,6 @@ func environmentDataSources(env Environ) ([]simplestreams.DataSource, error) {
 	defer datasourceFuncsMu.RUnlock()
 	var datasources []simplestreams.DataSource
 	for _, f := range datasourceFuncs {
-		logger.Debugf("trying datasource %q", f.id)
 		datasource, err := f.f(env)
 		if err != nil {
 			if errors.IsNotSupported(err) {
