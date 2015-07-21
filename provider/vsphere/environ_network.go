@@ -37,9 +37,9 @@ func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr net
 		interfaceName = "eth1"
 	}
 	if add {
-		err = client.addIpAddress(interfaceName, addr.Value)
+		err = client.AddIpAddress(interfaceName, addr.Value)
 	} else {
-		err = client.releaseIpAddress(interfaceName, addr.Value)
+		err = client.ReleaseIpAddress(interfaceName, addr.Value)
 	}
 
 	return errors.Trace(err)
