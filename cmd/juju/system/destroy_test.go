@@ -37,6 +37,8 @@ type fakeDestroyAPI struct {
 	env          map[string]interface{}
 	destroyAll   bool
 	ignoreBlocks bool
+	blocks       []params.EnvironmentBlockInfo
+	blocksErr    error
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -52,6 +54,10 @@ func (f *fakeDestroyAPI) DestroySystem(destroyAll bool, ignoreBlocks bool) error
 	f.destroyAll = destroyAll
 	f.ignoreBlocks = ignoreBlocks
 	return f.err
+}
+
+func (f *fakeDestroyAPI) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
+	return f.blocks, f.blocksErr
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -315,4 +321,42 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the system, please run:")
 	c.Check(testLog, jc.Contains, "juju system remove-blocks")
+}
+
+func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
+	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.blocksErr = errors.New("unexpected api error")
+	s.runDestroyCommand(c, "test1", "-y")
+	testLog := c.GetTestLog()
+	c.Check(testLog, jc.Contains, "To remove all blocks in the system, please run:")
+	c.Check(testLog, jc.Contains, "juju system remove-blocks")
+	c.Check(testLog, jc.Contains, "Unable to list blocked environments: unexpected api error")
+}
+
+func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
+	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.blocks = []params.EnvironmentBlockInfo{
+		params.EnvironmentBlockInfo{
+			Name:     "test1",
+			UUID:     "test1-uuid",
+			OwnerTag: "cheryl@local",
+			Blocks: []string{
+				"BlockDestroy",
+			},
+		},
+		params.EnvironmentBlockInfo{
+			Name:     "test2",
+			UUID:     "test2-uuid",
+			OwnerTag: "bob@local",
+			Blocks: []string{
+				"BlockDestroy",
+				"BlockChange",
+			},
+		},
+	}
+	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-environments")
+	c.Assert(testing.Stderr(ctx), gc.Equals, ""+
+		"NAME   ENVIRONMENT UUID  OWNER         BLOCKS\n"+
+		"test1  test1-uuid        cheryl@local  destroy-environment\n"+
+		"test2  test2-uuid        bob@local     destroy-environment,all-changes\n")
 }
