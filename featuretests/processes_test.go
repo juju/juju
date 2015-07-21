@@ -191,7 +191,11 @@ func newProcsEnv(c *gc.C, envName string) *procsEnviron {
 }
 
 func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
-	args = append([]string{"--environment=" + env.name}, args...)
+	envArg := "--environment=" + env.name
+	if cmd == "destroy-environment" {
+		envArg = env.name
+	}
+	args = append([]string{envArg}, args...)
 	c.Logf(" COMMAND: juju %s %s", cmd, strings.Join(args, " "))
 
 	command := lookUpCommand(cmd)
