@@ -5,11 +5,14 @@ package client
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
 )
+
+var logger = loggo.GetLogger("juju.process.api.client")
 
 type facadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
@@ -125,6 +128,8 @@ func (c HookContextClient) Get(ids ...string) ([]*process.Info, error) {
 }
 
 func (c HookContextClient) Set(procs ...*process.Info) error {
+	logger.Debugf("pushing to API: %v", procs)
+
 	procArgs := make([]api.Process, len(procs))
 	for i, proc := range procs {
 		procArgs[i] = api.Proc2api(*proc)

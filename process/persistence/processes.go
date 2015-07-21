@@ -54,6 +54,8 @@ func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp Persistence) Insert(info process.Info) (bool, error) {
+	logger.Debugf("insertng %#v", info)
+
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?

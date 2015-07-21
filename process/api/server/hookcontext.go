@@ -64,9 +64,12 @@ func (a HookContextAPI) ListDefinitions() (api.ListDefinitionsResults, error) {
 
 // RegisterProcess registers a workload process in state.
 func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.ProcessResults, error) {
+	logger.Debugf("registering %d procs from API", len(args.Processes))
+
 	r := api.ProcessResults{}
 	for _, apiProc := range args.Processes {
 		info := api.API2Proc(apiProc)
+		logger.Debugf("registering proc from API: %#v", info)
 		res := api.ProcessResult{
 			ID: info.ID(),
 		}
