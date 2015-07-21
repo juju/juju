@@ -2154,7 +2154,9 @@ func (s *upgradesSuite) tearDownJobManageNetworking(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Reset machine sequence.
-	query := s.state.db.C(sequenceC).FindId(s.state.docID("machine"))
+	sequences, closer := s.state.getCollection(sequenceC)
+	defer closer()
+	query := sequences.FindId(s.state.docID("machine"))
 	set := mgo.Change{
 		Update: bson.M{"$set": bson.M{"counter": 0}},
 		Upsert: true,
@@ -3172,7 +3174,7 @@ func (s *upgradesSuite) TestSetHostedEnvironCount(c *gc.C) {
 
 	//While there are 4 environments, the system environment should not be
 	//counted.
-	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+	c.Assert(HostedEnvironCount(c, s.state), gc.Equals, 3)
 }
 
 func (s *upgradesSuite) TestSetHostedEnvironCountIdempotent(c *gc.C) {
@@ -3184,7 +3186,7 @@ func (s *upgradesSuite) TestSetHostedEnvironCountIdempotent(c *gc.C) {
 	SetHostedEnvironCount(s.state)
 	SetHostedEnvironCount(s.state)
 
-	c.Assert(EnvironCount(c, s.state), gc.Equals, 3)
+	c.Assert(HostedEnvironCount(c, s.state), gc.Equals, 3)
 }
 
 var index uint32

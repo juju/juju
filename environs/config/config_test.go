@@ -406,6 +406,31 @@ var configTests = []configTest{
 			"disable-network-management": true,
 		},
 	}, {
+		about:       "Invalid ignore-machine-addresses flag",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"ignore-machine-addresses": "invalid",
+		},
+		err: `ignore-machine-addresses: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "ignore-machine-addresses off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"ignore-machine-addresses": false,
+		},
+	}, {
+		about:       "ignore-machine-addresses on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"ignore-machine-addresses": true,
+		},
+	}, {
 		about:       "set-numa-control-policy on",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{

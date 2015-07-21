@@ -33,6 +33,8 @@ type CertUpdaterSuite struct {
 var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
 	s.stateServingInfo = params.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,

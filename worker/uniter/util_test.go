@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // worstCase is used for timeouts when timing out
@@ -96,6 +97,7 @@ type context struct {
 	collectMetricsTicker   *uniter.ManualTicker
 	sendMetricsTicker      *uniter.ManualTicker
 	updateStatusHookTicker *uniter.ManualTicker
+	err                    string
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -118,6 +120,12 @@ func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Unlock()
 }
 
+func (ctx *context) setExpectedError(err string) {
+	ctx.mu.Lock()
+	ctx.err = err
+	ctx.mu.Unlock()
+}
+
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
 	lease, err := lease.NewLeaseManager(ctx.st)
@@ -130,7 +138,11 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
-			c.Assert(err, jc.ErrorIsNil)
+			if ctx.err == "" {
+				c.Assert(err, jc.ErrorIsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, ctx.err)
+			}
 		}
 	}()
 	for i, s := range steps {
@@ -234,12 +246,16 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
+	c.Logf("ctx.waitHooks     : %#v", ctx.hooks)
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
 	for i, e := range ctx.hooks {
 		if ctx.hooksCompleted[i] != e {
+			c.Logf("hooks missmatch at: %d", i)
+			c.Logf("expected: %q", e)
+			c.Logf("obtained: %q", ctx.hooksCompleted[i])
 			return false, false
 		}
 	}
@@ -312,7 +328,7 @@ func startupHooks(minion bool) []string {
 	if minion {
 		leaderHook = "leader-settings-changed"
 	}
-	return []string{"install", leaderHook, "config-changed", "start"}
+	return []string{"install", leaderHook, "config-changed", "start", "update-status"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
@@ -399,7 +415,8 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 }
 
 type createUniter struct {
-	minion bool
+	minion       bool
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -408,7 +425,7 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{newExecutorFunc: s.executorFunc})
 	step(c, ctx, waitAddresses{})
 }
 
@@ -441,7 +458,8 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 }
 
 type startUniter struct {
-	unitTag string
+	unitTag         string
+	newExecutorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -471,7 +489,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 			ctx.collectMetricsTicker.ReturnTimer,
 			ctx.sendMetricsTicker.ReturnTimer,
 		),
-		UpdateStatusSignal: ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		NewOperationExecutor: s.newExecutorFunc,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
@@ -558,7 +577,8 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 }
 
 type verifyRunning struct {
-	minion bool
+	minion      bool
+	waitForIdle bool
 }
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
@@ -568,7 +588,13 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
 	}
+	// first update status before entering modeAbideAliveLoop second
+	// one entering idleLoop after config-changed.
 	hooks = append(hooks, "config-changed")
+	if s.waitForIdle {
+		step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+
+	}
 	step(c, ctx, waitHooks(hooks))
 }
 
@@ -591,10 +617,10 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	})
 	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
-			step(c, ctx, waitHooks{"fail-" + hook})
+			step(c, ctx, waitHooksWithoutExpectingUpdateStatus{"fail-" + hook})
 			break
 		}
-		step(c, ctx, waitHooks{hook})
+		step(c, ctx, waitHooksWithoutExpectingUpdateStatus{hook})
 	}
 	step(c, ctx, verifyCharm{})
 }
@@ -617,7 +643,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
 		}
-		step(c, ctx, waitHooks{hook})
+		step(c, ctx, waitHooksWithoutExpectingUpdateStatus{hook})
 	}
 	step(c, ctx, verifyCharm{})
 }
@@ -751,15 +777,47 @@ func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 	}
 }
 
+type waitHooksWithoutExpectingUpdateStatus []string
+
+func (s waitHooksWithoutExpectingUpdateStatus) step(c *gc.C, ctx *context) {
+	waitHooksStep([]string(s), c, ctx, false)
+}
+
 type waitHooks []string
 
 func (s waitHooks) step(c *gc.C, ctx *context) {
+	waitHooksStep([]string(s), c, ctx, true)
+}
+
+// waitHookStep will wait for a set of hooks to happen or fail.
+// additionally if updateStatus specified we will wait for an update-status
+// hook call at the end, product of re-entering abideAliveLoop idleness.
+func waitHooksStep(s []string, c *gc.C, ctx *context, updateStatus bool) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
 		ctx.s.BackingState.StartSync()
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
+	var (
+		endsInFailure bool
+		endsInStop    bool
+	)
+	lastHook := ""
+	// an update-status hook will be added at the end of the wait list unless:
+	// * the last hook is an update-status
+	// * the last hook is a failure
+	// * the last hook is stop
+	if len(ctx.hooks) > 0 {
+		lastHook = ctx.hooks[len(ctx.hooks)-1]
+		endsInFailure = strings.HasPrefix(lastHook, "fail-")
+		endsInStop = lastHook == "stop"
+		if len(s) > 0 && updateStatus && !endsInFailure && !endsInStop &&
+			lastHook != "update-status" {
+			ctx.hooks = append(ctx.hooks, "update-status")
+		}
+	}
+
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
 	match, overshoot := ctx.matchHooks(c)
 	if overshoot && len(s) == 0 {
@@ -771,6 +829,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
+		time.Sleep(coretesting.ShortWait)
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, _ = ctx.matchHooks(c); match {
@@ -881,25 +940,45 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type collectMetricsTick struct{}
+type collectMetricsTick struct {
+	expectFail bool
+}
 
 func (s collectMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.collectMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
-type updateStatusHookTick struct{}
+type updateStatusHookTick struct {
+	expectFail bool
+}
 
 func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	err := ctx.updateStatusHookTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
-type sendMetricsTick struct{}
+type sendMetricsTick struct {
+	expectFail bool
+}
 
 func (s sendMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.sendMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type addMetrics struct {
@@ -1766,4 +1845,29 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type shortWaitEnterLoopIsIdleTime struct {
+	burstSteps []stepper
+}
+
+func (s shortWaitEnterLoopIsIdleTime) step(c *gc.C, ctx *context) {
+	restoreInterval := gt.PatchValue(uniter.EnterLoopIsIdleTime, 0*time.Second)
+	for _, burstStep := range s.burstSteps {
+		step(c, ctx, burstStep)
+	}
+	defer restoreInterval()
+
+}
+
+func ust(summary string, steps ...stepper) uniterTest {
+	return ut(summary, shortWaitEnterLoopIsIdleTime{steps})
+}
+
+type expectError struct {
+	err string
+}
+
+func (s expectError) step(c *gc.C, ctx *context) {
+	ctx.setExpectedError(s.err)
 }
