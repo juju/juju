@@ -154,11 +154,11 @@ func (c *DestroyCommand) destroySystemViaClient(ctx *cmd.Context, info configsto
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
 // in a user-friendly manner with readable and digestable error message.
-func (c *DestroyCommand) ensureUserFriendlyErrorLog(err error, ctx *cmd.Context, api destroySystemAPI) error {
-	if err == nil {
+func (c *DestroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.Context, api destroySystemAPI) error {
+	if destroyErr == nil {
 		return nil
 	}
-	if params.IsCodeOperationBlocked(err) {
+	if params.IsCodeOperationBlocked(destroyErr) {
 		logger.Errorf(`there are blocks preventing system destruction
 To remove all blocks in the system, please run:
 
@@ -166,12 +166,22 @@ To remove all blocks in the system, please run:
 
 `)
 		if api != nil {
-			printBlockedEnvs(ctx, api)
+			envs, err := api.ListBlockedEnvironments()
+			var bytes []byte
+			if err == nil {
+				bytes, err = formatTabularBlockedEnvironments(envs)
+			}
+
+			if err != nil {
+				logger.Errorf("Unable to list blocked environments: %s", err)
+				return cmd.ErrSilent
+			}
+			ctx.Infof(string(bytes))
 		}
 		return cmd.ErrSilent
 	}
 	logger.Errorf(stdFailureMsg, c.systemName)
-	return err
+	return destroyErr
 }
 
 var stdFailureMsg = `failed to destroy system %q
@@ -185,11 +195,10 @@ your environment provider console for any resources that need
 to be cleaned up.
 `
 
-func printBlockedEnvs(ctx *cmd.Context, api destroySystemAPI) {
-	envs, err := api.ListBlockedEnvironments()
-	if err != nil {
-		fmt.Fprintf(ctx.Stdout, "Unable to list blocked environments: %s", err)
-		return
+func formatTabularBlockedEnvironments(value interface{}) ([]byte, error) {
+	envs, ok := value.([]params.EnvironmentBlockInfo)
+	if !ok {
+		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}
 
 	var out bytes.Buffer
@@ -207,8 +216,7 @@ func printBlockedEnvs(ctx *cmd.Context, api destroySystemAPI) {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", env.Name, env.UUID, env.OwnerTag, blocksToStr(env.Blocks))
 	}
 	tw.Flush()
-
-	fmt.Fprint(ctx.Stdout, out.String())
+	return out.Bytes(), nil
 }
 
 func blocksToStr(blocks []string) string {
