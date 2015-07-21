@@ -16,8 +16,8 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	cmdjuju "github.com/juju/juju/cmd/juju"
 	cmdaction "github.com/juju/juju/cmd/juju/action"
+	cmdjuju "github.com/juju/juju/cmd/juju/commands"
 	cmdmachine "github.com/juju/juju/cmd/juju/machine"
 	cmdservice "github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/component/all"
