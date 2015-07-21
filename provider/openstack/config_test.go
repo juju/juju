@@ -102,7 +102,7 @@ func (t configTest) check(c *gc.C) {
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
-		osenv := e.(*environ)
+		osenv := e.(*Environ)
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
 		c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +119,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
-	ecfg := e.(*environ).ecfg()
+	ecfg := e.(*Environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
 	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
@@ -182,7 +182,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 		s.savedVars[v] = os.Getenv(v)
 		os.Setenv(v, val)
 	}
-	s.PatchValue(&authenticateClient, func(*environ) error { return nil })
+	s.PatchValue(&authenticateClient, func(*Environ) error { return nil })
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
@@ -499,12 +499,12 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*environ).ecfg().controlBucket()
+	bucket0 := env0.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
 	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*environ).ecfg().controlBucket()
+	bucket1 := env1.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
 
 	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
@@ -521,7 +521,7 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 
 	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*environ).ecfg().controlBucket()
+	bucket := env.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
 }
 

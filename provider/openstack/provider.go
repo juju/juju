@@ -1047,7 +1047,15 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, OpenstackRenderer{})
+=======
+	cloudcfg, err := e.configurator.GetCloudConfig(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+>>>>>>> working version of rackspace provider
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1156,23 +1164,25 @@ func isNoValidHostsError(err error) bool {
 func (e *Environ) StopInstances(ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
 	var securityGroupNames []string
-	if e.Config().FirewallMode() == config.FwInstance {
-		instances, err := e.Instances(ids)
-		if err == environs.ErrNoInstances {
-			return nil
-		}
-		securityGroupNames = make([]string, 0, len(ids))
-		for _, inst := range instances {
-			if inst == nil {
-				continue
+	if e.configurator.UseSecurityGroups() {
+		if e.Config().FirewallMode() == config.FwInstance {
+			instances, err := e.Instances(ids)
+			if err == environs.ErrNoInstances {
+				return nil
 			}
-			openstackName := inst.(*openstackInstance).getServerDetail().Name
-			lastDashPos := strings.LastIndex(openstackName, "-")
-			if lastDashPos == -1 {
-				return fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
+			securityGroupNames = make([]string, 0, len(ids))
+			for _, inst := range instances {
+				if inst == nil {
+					continue
+				}
+				openstackName := inst.(*openstackInstance).getServerDetail().Name
+				lastDashPos := strings.LastIndex(openstackName, "-")
+				if lastDashPos == -1 {
+					return fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
+				}
+				securityGroupName := e.machineGroupName(openstackName[lastDashPos+1:])
+				securityGroupNames = append(securityGroupNames, securityGroupName)
 			}
-			securityGroupName := e.machineGroupName(openstackName[lastDashPos+1:])
-			securityGroupNames = append(securityGroupNames, securityGroupName)
 		}
 	}
 	logger.Debugf("terminating instances %v", ids)
@@ -1335,6 +1345,7 @@ func (e *Environ) Destroy() error {
 		return errors.Trace(err)
 	}
 	novaClient := e.nova()
+<<<<<<< HEAD
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
 		return errors.Annotate(err, "cannot list security groups")
@@ -1347,6 +1358,25 @@ func (e *Environ) Destroy() error {
 	for _, group := range securityGroups {
 		if re.MatchString(group.Name) || group.Name == globalGroupName {
 			deleteSecurityGroup(novaClient, group.Name, group.Id)
+=======
+	if e.configurator.UseSecurityGroups() {
+		securityGroups, err := novaClient.ListSecurityGroups()
+		if err != nil {
+			return errors.Annotate(err, "cannot list security groups")
+		}
+		re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		globalGroupName := e.globalGroupName()
+		for _, group := range securityGroups {
+			if re.MatchString(group.Name) || group.Name == globalGroupName {
+				err = novaClient.DeleteSecurityGroup(group.Id)
+				if err != nil {
+					logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
+				}
+			}
+>>>>>>> working version of rackspace provider
 		}
 	}
 	return nil
