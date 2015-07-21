@@ -455,7 +455,7 @@ func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
 	var procs []process.Info
 
 	results := u.runAction(c, "list", nil)
-	out := strings.TrimSpace(results["out"])
+	out := strings.TrimSpace(results["output"])
 	if out != " [no processes registered]" {
 		for _, section := range strings.Split(out, "\n\n") {
 			var proc process.Info
