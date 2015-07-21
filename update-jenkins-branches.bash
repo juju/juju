@@ -36,9 +36,10 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
     (cd ~/cloud-city; bzr revert; cd -)
     bzr pull -d ~/cloud-city ~/cloud-city.new
     rm -r ~/cloud-city.new
+    chmod -R go-w ~/cloud-city
     chmod 700 ~/cloud-city
     chmod 700 ~/cloud-city/gnupg
-    chmod 600 ~/cloud-city/staging-juju-rsa*
+    chmod 600 ~/cloud-city/staging-juju-rsa
 fi
 
 bzr pull -d ~/juju-release-tools
