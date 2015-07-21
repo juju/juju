@@ -60,6 +60,13 @@ of characters. For example, 'nova-*' will match any service whose name begins
 with 'nova-': 'nova-compute', 'nova-volume', etc.
 `
 
+// RegisterUnitComponentFormatter registers a formatting function for the given component.  When status is returned from the API, unitstatus for the compoentn
+func RegisterUnitComponentFormatter(component string, fn func(apiobj interface{}) interface{}) {
+	unitComponentFormatters[component] = fn
+}
+
+var unitComponentFormatters = map[string]func(interface{}) interface{}{}
+
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
@@ -227,8 +234,9 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 
 type unitStatus struct {
 	// New Juju Health Status fields.
-	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
-	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
+	WorkloadStatusInfo statusInfoContents     `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	AgentStatusInfo    statusInfoContents     `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
+	Components         map[string]interface{} `json:"components,omitempty", yaml:"components,omitempty"`
 
 	// Legacy status fields, to be removed in Juju 2.0
 	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
@@ -457,6 +465,13 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		PublicAddress:      unit.PublicAddress,
 		Charm:              unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
+		Components:         map[string]interface{}{},
+	}
+
+	for component, val := range unit.ComponentStatus {
+		if fn, ok := unitComponentFormatters[component]; ok {
+			out.Components[component] = fn(val)
+		}
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
