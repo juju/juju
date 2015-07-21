@@ -1507,8 +1507,8 @@ func AddDefaultBlockDevicesDocs(st *State) error {
 	return nil
 }
 
-// SetHostedEnvironCount sets envCountDoc.Count to the number of hosted
-// environments.
+// SetHostedEnvironCount is an upgrade step that sets hostedEnvCountDoc.Count
+// to the number of hosted environments.
 func SetHostedEnvironCount(st *State) error {
 	environments, closer := st.getCollection(environmentsC)
 	defer closer()
@@ -1533,9 +1533,9 @@ func SetHostedEnvironCount(st *State) error {
 	}
 	if count == 0 {
 		op.Assert = txn.DocMissing
-		op.Insert = &envCountDoc{hostedCount}
+		op.Insert = &hostedEnvCountDoc{hostedCount}
 	} else {
-		op.Update = bson.D{{"$set", bson.D{{"count", hostedCount}}}}
+		op.Update = bson.D{{"$set", bson.D{{"refcount", hostedCount}}}}
 	}
 
 	return st.runTransaction([]txn.Op{op})

@@ -32,21 +32,14 @@ func setAgentStatus(u *Uniter, status params.Status, info string, data map[strin
 	return u.unit.SetAgentStatus(status, info, data)
 }
 
-// updateAgentStatus updates the agent status to reflect what the uniter is doing,
-// or to report on an error.
-func updateAgentStatus(u *Uniter, userMessage string, err error) {
-	// If there was an error performing the operation, set the state
-	// of the agent to Failed.
-	if err != nil {
-		msg := fmt.Sprintf("%s: %v", userMessage, err)
-		err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
-		if err2 != nil {
-			logger.Errorf("updating agent status: %v", err2)
-		}
+// reportAgentError reports if there was an error performing an agent operation.
+func reportAgentError(u *Uniter, userMessage string, err error) {
+	// If a non-nil error is reported (e.g. due to an operation failing),
+	// set the agent status to Failed.
+	if err == nil {
 		return
 	}
-	// Anything else, the uniter is doing something, running a hook or action etc.
-	err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
+	err2 := setAgentStatus(u, params.StatusFailed, userMessage, nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}

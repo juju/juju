@@ -230,7 +230,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
 	err := s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
 	err = s.otherEnvClient.DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyEnvironment()
