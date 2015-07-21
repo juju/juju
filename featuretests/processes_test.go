@@ -28,8 +28,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var repoDir = testcharms.Repo.Path()
-
 func initProcessesSuites() {
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
@@ -40,24 +38,34 @@ func initProcessesSuites() {
 	gc.Suite(&processesCmdJujuSuite{})
 }
 
+var (
+	repoDir  = testcharms.Repo.Path()
+	procsEnv *procsEnviron
+)
+
 type processesBaseSuite struct {
-	initialized bool
-	env         *procsEnviron
+	env *procsEnviron
 }
 
-func (s *processesBaseSuite) SetUpTest(c *gc.C) {
-	if !s.initialized {
-		initJuju(c)
-		s.env = newProcsEnv(c, "local")
-
-		s.env.bootstrap(c)
-		s.initialized = true
-	}
+func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
+	s.env = newProcsEnv(c, "local")
+	s.env.addRef(c, s)
+	s.env.bootstrap(c)
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
-	if s.initialized && !c.Failed() {
+	if s.env != nil {
+		s.env.removeRef(c, s)
 		s.env.destroy(c)
+	}
+}
+
+func (s *processesBaseSuite) SetUpTest(c *gc.C) {
+}
+
+func (s *processesBaseSuite) TearDownTest(c *gc.C) {
+	if c.Failed() {
+		s.env.markFailure(c, s)
 	}
 }
 
@@ -76,6 +84,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 
 	unit := svc.deploy(c, "myproc", "xyz123", "running")
 
+	c.FailNow()
 	unit.checkState(c, []process.Info{{
 		Process: charm.Process{
 			Name: "myproc",
@@ -179,15 +188,36 @@ func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
 }
 
 type procsEnviron struct {
-	name    string
-	machine string
+	name     string
+	machine  string
+	refCount int
 }
 
 func newProcsEnv(c *gc.C, envName string) *procsEnviron {
+	if procsEnv != nil {
+		c.Assert(procsEnv.name, gc.Equals, envName)
+		return procsEnv
+	}
 	return &procsEnviron{
 		name:    envName,
 		machine: "1",
 	}
+}
+
+func (env *procsEnviron) addRef(c *gc.C, s interface{}) {
+	if env.refCount > 0 {
+		env.refCount += 1
+	}
+}
+
+func (env *procsEnviron) removeRef(c *gc.C, s interface{}) {
+	if env.refCount > 0 {
+		env.refCount -= 1
+	}
+}
+
+func (env *procsEnviron) markFailure(c *gc.C, s interface{}) {
+	env.refCount = -1
 }
 
 func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
@@ -240,6 +270,15 @@ func lookUpCommand(cmd string) cmd.Command {
 }
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
+	if procsEnv != nil {
+		c.Assert(env, gc.Equals, procsEnv)
+		return
+	}
+	// TODO(ericsnow) possible race...
+	procsEnv = env
+
+	initJuju(c)
+
 	env.run(c, "bootstrap")
 	env.run(c, "environment set", "logging-config=<root>=DEBUG")
 }
@@ -267,7 +306,11 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 }
 
 func (env *procsEnviron) destroy(c *gc.C) {
+	if env.refCount != 0 || procsEnv == nil {
+		return
+	}
 	env.run(c, "destroy-environment", "--force")
+	procsEnv = nil
 }
 
 type procsService struct {
