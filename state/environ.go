@@ -82,6 +82,25 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 	return env, nil
 }
 
+// AllEnvironments returns all the environments in the system.
+func (st *State) AllEnvironments() ([]*Environment, error) {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []environmentDoc
+	err := environments.Find(nil).All(&envDocs)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*Environment, len(envDocs))
+	for i, doc := range envDocs {
+		result[i] = &Environment{st: st, doc: doc}
+	}
+
+	return result, nil
+}
+
 // NewEnvironment creates a new environment with its own UUID and
 // prepares it for use. Environment and State instances for the new
 // environment are returned.
@@ -204,13 +223,17 @@ func (e *Environment) Config() (*config.Config, error) {
 	if e.st.environTag.Id() == e.UUID() {
 		return e.st.EnvironConfig()
 	}
-	// The active environment isn't the same as the environment
-	// we are querying.
-	envState, err := e.st.ForEnviron(e.ServerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
+	envState := e.st
+	if envState.environTag != e.EnvironTag() {
+		// The active environment isn't the same as the environment
+		// we are querying.
+		var err error
+		envState, err = e.st.ForEnviron(e.EnvironTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer envState.Close()
 	}
-	defer envState.Close()
 	return envState.EnvironConfig()
 }
 

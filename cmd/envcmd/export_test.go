@@ -5,6 +5,7 @@ package envcmd
 
 var (
 	GetCurrentEnvironmentFilePath = getCurrentEnvironmentFilePath
+	GetCurrentSystemFilePath      = getCurrentSystemFilePath
 	GetConfigStore                = &getConfigStore
 	EndpointRefresher             = &endpointRefresher
 )

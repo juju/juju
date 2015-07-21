@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package common_test
 
 import (
 	"fmt"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -24,10 +25,17 @@ import (
 )
 
 type destroyEnvironmentSuite struct {
-	baseSuite
+	testing.JujuConnSuite
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
+
+func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+}
 
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
@@ -75,7 +83,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +95,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = nonManager.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +116,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().DestroyEnvironment()
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After DestroyEnvironment returns, we should have:
@@ -145,7 +153,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	_, nonManager, _ := s.setUpInstances(c)
 	nonManagerId, _ := nonManager.InstanceId()
 
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 	for op := range ops {
 		if op, ok := op.(dummy.OpStopInstances); ok {
@@ -159,7 +167,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
@@ -167,7 +175,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
@@ -176,7 +184,7 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 }
 
@@ -217,7 +225,26 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := s.otherEnvClient.DestroyEnvironment()
+	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.otherState.Environment()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	_, err = s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
+	otherFactory := factory.NewFactory(s.otherState)
+	otherFactory.MakeMachine(c, nil)
+	m := otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachineNested(c, m.Id(), nil)
+
+	// NOTE: pass in the main test State instance, which is 'bound'
+	// to the state server environment.
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.otherState.Environment()
@@ -229,10 +256,23 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
-	err := s.APIState.Client().DestroyEnvironment()
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
-	err = s.otherEnvClient.DestroyEnvironment()
+	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
+	bh := commontesting.NewBlockHelper(s.APIState)
+	defer bh.Close()
+
+	bh.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
+
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
