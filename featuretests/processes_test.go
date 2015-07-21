@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -49,6 +50,8 @@ type processesBaseSuite struct {
 }
 
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
+	// TODO(ericsnow) Run in a test-only local provider
+	//  (see https://github.com/juju/docs/issues/35).
 	s.env = newProcsEnv(c, "local", procsSuiteCount)
 	s.env.bootstrap(c)
 }
@@ -222,6 +225,8 @@ func lookUpCommand(cmd string) cmd.Command {
 		return envcmd.Wrap(&cmdenv.SetCommand{})
 	case "destroy-environment":
 		return &cmdjuju.DestroyEnvironmentCommand{}
+	case "status":
+		return envcmd.Wrap(&cmdjuju.StatusCommand{})
 	case "add-machine":
 		return envcmd.Wrap(&cmdmachine.AddCommand{})
 	case "deploy":
@@ -326,18 +331,53 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 
 	svc.env.run(c, "service add-unit", "--to="+svc.env.machine, svc.name)
 
-	// TODO(ericsnow) wait until ready...
-
 	svc.lastUnit += 1
-	return &procsUnit{
+	u := &procsUnit{
 		svc: svc,
 		id:  fmt.Sprintf("%s/%d", svc.name, svc.lastUnit),
 	}
+
+	u.waitForStatus(c, "started", "pending")
+	return u
 }
 
 type procsUnit struct {
 	svc *procsService
 	id  string
+}
+
+var procsStatusRegex = regexp.MustCompile(`^- (.*): .* \((.*)\)$`)
+
+func (u *procsUnit) waitForStatus(c *gc.C, target string, okayList ...string) {
+	// TODO(ericsnow) Support a timeout?
+	for {
+		out := u.svc.env.run(c, "status", "--format=short")
+		for _, line := range strings.Split(out, "\n") {
+			line = strings.TrimSpace(line)
+			match := procsStatusRegex.FindStringSubmatch(line)
+			if match[0] == "" {
+				// Not a match.
+				continue
+			}
+			unitName, status := match[1], match[2]
+			if unitName != u.id {
+				continue
+			}
+			if status == target {
+				return
+			}
+			for _, okay := range okayList {
+				if status == okay {
+					continue
+				}
+			}
+			c.Errorf("invalid status %q", status)
+			c.FailNow()
+		}
+
+		c.Errorf("no status found for %q", u.id)
+		c.FailNow()
+	}
 }
 
 func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
@@ -348,7 +388,7 @@ func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
 func (u *procsUnit) destroy(c *gc.C) {
 	u.svc.env.run(c, "destroy-unit", u.id)
 
-	// TODO(ericsnow) wait until ready...
+	u.waitForStatus(c, "stopped", "started")
 }
 
 func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]interface{}) map[string]string {
