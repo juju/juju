@@ -346,38 +346,46 @@ type procsUnit struct {
 	id  string
 }
 
-var procsStatusRegex = regexp.MustCompile(`^- (.*): .* \((.*)\)$`)
-
 func (u *procsUnit) waitForStatus(c *gc.C, target string, okayList ...string) {
 	// TODO(ericsnow) Support a timeout?
 	for {
-		out := u.svc.env.run(c, "status", "--format=short")
-		for _, line := range strings.Split(out, "\n") {
-			line = strings.TrimSpace(line)
-			match := procsStatusRegex.FindStringSubmatch(line)
-			if match[0] == "" {
-				// Not a match.
-				continue
+		status := u.agentStatus(c)
+		if status == target {
+			return
+		}
+		invalid := true
+		for _, okay := range okayList {
+			if status == okay {
+				invalid = false
+				break
 			}
-			unitName, status := match[1], match[2]
-			if unitName != u.id {
-				continue
-			}
-			if status == target {
-				return
-			}
-			for _, okay := range okayList {
-				if status == okay {
-					continue
-				}
-			}
+		}
+		if invalid {
 			c.Errorf("invalid status %q", status)
 			c.FailNow()
 		}
-
-		c.Errorf("no status found for %q", u.id)
-		c.FailNow()
 	}
+}
+
+var procsStatusRegex = regexp.MustCompile(`^- (.*): .* \((.*)\)$`)
+
+func (u *procsUnit) agentStatus(c *gc.C) string {
+	out := u.svc.env.run(c, "status", "--format=short")
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		match := procsStatusRegex.FindStringSubmatch(line)
+		if match[0] == "" {
+			// Not a match.
+			continue
+		}
+		unitName, status := match[1], match[2]
+		if unitName == u.id {
+			return status
+		}
+	}
+	c.Errorf("no status found for %q", u.id)
+	c.FailNow()
+	return ""
 }
 
 func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
