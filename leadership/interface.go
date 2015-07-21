@@ -30,25 +30,35 @@ type Claimer interface {
 }
 
 // Token represents a unit's leadership of its service.
+//
+// It seems to be generic enough (it could easily represent any fact) that it
+// should find a more general home.
 type Token interface {
 
-	// Read exposes the token's content. The client is expected to magically
-	// know the token's meaning, and how it will be expressed, and pass a
-	// pointer to a suitable type. In practice, most implementations will
-	// likely expect *[]txn.Op, so that they can be used to gate mgo/txn-
-	// based state changes.
-	Read(interface{}) error
+	// Check returns an error if the condition it embodies no longer holds.
+	// If you pass a non-nil value into Check, it must be a pointer to data
+	// of the correct type, into which the token's content will be copied.
+	//
+	// The "correct type" is implementation-specific, and no implementation
+	// is obliged to accept any non-nil parameter; but methods that return
+	// Tokens should explain whether, and how, they will expose their content.
+	//
+	// In practice, most Token implementations will likely expect *[]txn.Op,
+	// so that they can be used to gate mgo/txn-based state changes.
+	Check(interface{}) error
 }
 
 // Checker exposes leadership testing capabilities.
 type Checker interface {
 
-	// CheckLeadership verifies that the named unit is leader of the named
+	// LeadershipCheck verifies that the named unit is leader of the named
 	// service, and returns a Token attesting to that fact for use building
 	// mgo/txn transactions that depend upon it.
-	CheckLeadership(serviceName, unitName string) (Token, error)
+	LeadershipCheck(serviceName, unitName string) Token
 }
 
+// LeadershipLeaseManager exposes lease management capabilities for the
+// convenience of the Manager type in this package.
 type LeadershipLeaseManager interface {
 
 	// Claimlease claims a lease for the given duration for the given
