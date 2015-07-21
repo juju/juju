@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // worstCase is used for timeouts when timing out
@@ -96,6 +97,7 @@ type context struct {
 	collectMetricsTicker   *uniter.ManualTicker
 	sendMetricsTicker      *uniter.ManualTicker
 	updateStatusHookTicker *uniter.ManualTicker
+	err                    string
 
 	wg             sync.WaitGroup
 	mu             sync.Mutex
@@ -118,6 +120,12 @@ func (ctx *context) HookFailed(hookName string) {
 	ctx.mu.Unlock()
 }
 
+func (ctx *context) setExpectedError(err string) {
+	ctx.mu.Lock()
+	ctx.err = err
+	ctx.mu.Unlock()
+}
+
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	// We need this lest leadership calls block forever.
 	lease, err := lease.NewLeaseManager(ctx.st)
@@ -130,7 +138,11 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
-			c.Assert(err, jc.ErrorIsNil)
+			if ctx.err == "" {
+				c.Assert(err, jc.ErrorIsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, ctx.err)
+			}
 		}
 	}()
 	for i, s := range steps {
@@ -399,7 +411,8 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 }
 
 type createUniter struct {
-	minion bool
+	minion       bool
+	executorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -408,7 +421,7 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{newExecutorFunc: s.executorFunc})
 	step(c, ctx, waitAddresses{})
 }
 
@@ -441,7 +454,8 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 }
 
 type startUniter struct {
-	unitTag string
+	unitTag         string
+	newExecutorFunc func(*uniter.Uniter) (operation.Executor, error)
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -471,7 +485,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 			ctx.collectMetricsTicker.ReturnTimer,
 			ctx.sendMetricsTicker.ReturnTimer,
 		),
-		UpdateStatusSignal: ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		NewOperationExecutor: s.newExecutorFunc,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
@@ -881,11 +896,17 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type collectMetricsTick struct{}
+type collectMetricsTick struct {
+	expectFail bool
+}
 
 func (s collectMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.collectMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type updateStatusHookTick struct{}
@@ -895,11 +916,18 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type sendMetricsTick struct{}
+type sendMetricsTick struct {
+	expectFail bool
+}
 
 func (s sendMetricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.sendMetricsTicker.Tick()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.expectFail {
+		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
+
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type addMetrics struct {
@@ -1766,4 +1794,12 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type expectError struct {
+	err string
+}
+
+func (s expectError) step(c *gc.C, ctx *context) {
+	ctx.setExpectedError(s.err)
 }

@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -262,7 +264,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 }
 
 func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics) *runner.HookContext {
+	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics, paths RealPaths) *runner.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -278,7 +280,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), paths)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -416,3 +418,27 @@ func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 func (s *BlockHelper) Close() {
 	s.blockClient.Close()
 }
+
+// StubMetricsRecorder implements the MetricsRecorder interface.
+type StubMetricsRecorder struct {
+	*jujutesting.Stub
+}
+
+// AddMetric implements the MetricsRecorder interface.
+func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) error {
+	s.AddCall("AddMetric", key, value, created)
+	return nil
+}
+
+func (mr *StubMetricsRecorder) IsDeclaredMetric(key string) bool {
+	mr.MethodCall(mr, "IsDeclaredMetric", key)
+	return true
+}
+
+// Close implements the MetricsRecorder interface.
+func (s StubMetricsRecorder) Close() error {
+	s.AddCall("Close")
+	return nil
+}
+
+var _ runner.MetricsRecorder = (*StubMetricsRecorder)(nil)

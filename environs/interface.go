@@ -197,6 +197,15 @@ type Environ interface {
 	state.Prechecker
 }
 
+// InstanceTagger is an interface that can be used for tagging instances.
+type InstanceTagger interface {
+	// TagInstance tags the given instance with the specified tags.
+	//
+	// The specified tags will replace any existing ones with the
+	// same names, but other existing tags will be left alone.
+	TagInstance(id instance.Id, tags map[string]string) error
+}
+
 // BootstrapContext is an interface that is passed to
 // Environ.Bootstrap, providing a means of obtaining
 // information about and manipulating the context in which

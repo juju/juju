@@ -24,6 +24,10 @@ type StringsWatcher interface {
 	Err() error
 }
 
+// EntityWatcher will send events when something changes.
+// The content for the changes is a list of tag strings.
+type EntityWatcher StringsWatcher
+
 // RelationUnitsWatcher will send events when something changes.
 // The content for the changes is a params.RelationUnitsChange struct.
 type RelationUnitsWatcher interface {
