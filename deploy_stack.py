@@ -4,7 +4,10 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
-from contextlib import contextmanager
+from contextlib import (
+    contextmanager,
+    nested,
+)
 import glob
 import logging
 import os
@@ -487,10 +490,14 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             return
         client.juju('status', ())
         if with_chaos > 0:
-            with background_chaos(job_name, client, log_dir, with_chaos):
-                deploy_dummy_stack(client, charm_prefix)
+            manager = background_chaos(temp_env_name, client, log_dir,
+                                       with_chaos)
         else:
-                deploy_dummy_stack(client, charm_prefix)
+            # Create a no-op context manager, to avoid duplicate calls of
+            # deploy_dummy_stack(), as was the case prior to this revision.
+            manager = nested()
+        with manager:
+            deploy_dummy_stack(client, charm_prefix)
         is_windows_charm = charm_prefix.startswith("local:win")
         if not is_windows_charm:
             assess_juju_run(client)
