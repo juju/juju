@@ -243,7 +243,7 @@ def handle_dump(showheader=True):
 
 
 def handle_launch(definition):
-    name = json.loads(definition)['name']
+    name = json.loads(definition)['Name']
     with DataFile() as datafile:
         try:
             proc = datafile.set_definition(name, definition)
