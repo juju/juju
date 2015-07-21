@@ -97,27 +97,12 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	}})
 	unit.checkPluginLog(c, []string{
 		`myproc	xyz123	running		added`,
+		`myproc	xyz123	running	{"Name":"myproc","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
 	})
 
 	// Change the config.
 
-	unit.setConfigStatus(c, "okay")
-
-	unit.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
-			Type: "myplugin",
-		},
-		Details: process.Details{
-			ID: "xyz123",
-			Status: process.PluginStatus{
-				Label: "okay",
-			},
-		},
-	}})
-	unit.checkPluginLog(c, []string{
-		`myproc	xyz123	running		added`,
-	})
+	// TODO(ericsnow) Implement once proc-set-status exists...
 
 	// Stop the unit.
 
@@ -129,6 +114,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	unit.checkState(c, nil)
 	unit.checkPluginLog(c, []string{
 		`myproc	xyz123	running		added`,
+		`myproc	xyz123	running	{"Name":"myproc","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
 		`myproc	xyz123	running		removed`,
 	})
 }
