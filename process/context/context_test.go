@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
@@ -325,6 +326,23 @@ func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "mismatch on name: A != B")
 	c.Check(before, jc.DeepEquals, []*process.Info{&other})
 	c.Check(after, jc.DeepEquals, []*process.Info{&other})
+}
+
+func (s *contextSuite) TestListDefinitions(c *gc.C) {
+	definition := charm.Process{
+		Name: "procA",
+		Type: "myplugin",
+	}
+	s.apiClient.definitions["procA"] = definition
+	ctx := context.NewContext(s.apiClient)
+
+	definitions, err := ctx.ListDefinitions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(definitions, gc.DeepEquals, []charm.Process{
+		definition,
+	})
+	s.Stub.CheckCallNames(c, "AllDefinitions")
 }
 
 func (s *contextSuite) TestFlushDirty(c *gc.C) {

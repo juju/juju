@@ -83,8 +83,9 @@ func (c stubHookContext) Component(name string) (context.Component, error) {
 }
 
 type stubContextComponent struct {
-	stub  *testing.Stub
-	procs map[string]*process.Info
+	stub        *testing.Stub
+	procs       map[string]*process.Info
+	definitions map[string]charm.Process
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
@@ -118,6 +119,19 @@ func (c *stubContextComponent) Set(procName string, info *process.Info) error {
 	}
 	c.procs[procName] = info
 	return nil
+}
+
+func (c *stubContextComponent) ListDefinitions() ([]charm.Process, error) {
+	c.stub.AddCall("ListDefinitions")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var definitions []charm.Process
+	for _, definition := range c.definitions {
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 func (c *stubContextComponent) Flush() error {
@@ -160,7 +174,7 @@ func (c *stubAPIClient) AllDefinitions() ([]charm.Process, error) {
 		return nil, errors.Trace(err)
 	}
 
-	definitions := make([]charm.Process, len(c.definitions))
+	var definitions []charm.Process
 	for _, definition := range c.definitions {
 		definitions = append(definitions, definition)
 	}

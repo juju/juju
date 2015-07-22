@@ -35,6 +35,8 @@ type Component interface {
 	Get(procName string) (*process.Info, error)
 	// Set records the process info in the hook context.
 	Set(procName string, info *process.Info) error
+	// ListDefinitions returns the charm-defined processes.
+	ListDefinitions() ([]charm.Process, error)
 	// Flush pushes the hook context data out to state.
 	Flush() error
 }
@@ -180,6 +182,15 @@ func (c *Context) set(id string, pInfo *process.Info) {
 	var info process.Info
 	info = *pInfo
 	c.updates[id] = &info
+}
+
+// ListDefinitions returns the unit's charm-defined processes.
+func (c *Context) ListDefinitions() ([]charm.Process, error) {
+	definitions, err := c.api.AllDefinitions()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return definitions, nil
 }
 
 // TODO(ericsnow) The context machinery is not actually using this yet.
