@@ -298,6 +298,11 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 	}})
 }
 
+func (s *processesHookContextSuite) TestSetStatus(c *gc.C) {
+	// TODO(ericsnow) Finish!
+	c.Skip("not finished")
+}
+
 func (s *processesHookContextSuite) TestUnregister(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
