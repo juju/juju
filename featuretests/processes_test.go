@@ -252,8 +252,50 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 }
 
 func (s *processesHookContextSuite) TestInfo(c *gc.C) {
-	// TODO(ericsnow) Finish!
-	c.Skip("not finished")
+	svc := s.env.addService(c, "proc-actions", "info-service")
+	unit := svc.deploy(c, "myproc", "xyz123", "running")
+
+	// checkState calls the "list" action, which wraps "info".
+	unit.checkState(c, []process.Info{{
+		Process: charm.Process{
+			Name: "myproc",
+			Type: "myplugin",
+			TypeOptions: map[string]string{
+				"critical": "true",
+			},
+			Command: "run-server",
+			Image:   "web-server",
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "",
+			}, {
+				External: 8081,
+				Internal: 443,
+				Endpoint: "",
+			}},
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/some-server/html",
+				InternalMount: "/usr/share/some-server/html",
+				Mode:          "ro",
+				Name:          "",
+			}, {
+				ExternalMount: "/var/some-server/conf",
+				InternalMount: "/etc/some-server",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			EnvVars: map[string]string{
+				"IMPORTANT": "some value",
+			},
+		},
+		Details: process.Details{
+			ID: "xyz123",
+			Status: process.PluginStatus{
+				Label: "running",
+			},
+		},
+	}})
 }
 
 func (s *processesHookContextSuite) TestUnregister(c *gc.C) {
