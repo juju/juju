@@ -24,25 +24,13 @@ func init() {
 
 type baseSuite struct {
 	jujuctesting.ContextSuite
-	proc      *process.Info
-	compCtx   *context.Context
-	apiClient *stubAPIClient
-	Ctx       *stubHookContext
+	proc *process.Info
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.apiClient = newStubAPIClient(s.Stub)
-	proc := s.newProc("proc A", "docker")
-	compCtx := context.NewContext(s.apiClient)
-
-	hctx, info := s.NewHookContext()
-	info.SetComponent(process.ComponentName, compCtx)
-
-	s.proc = proc
-	s.compCtx = compCtx
-	s.Ctx = hctx
+	s.proc = s.newProc("proc A", "docker")
 }
 
 func (s *baseSuite) newProc(name, ptype string) *process.Info {

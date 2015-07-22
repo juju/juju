@@ -93,7 +93,7 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 
 func (s *registerSuite) TestInitAlreadyRegistered(c *gc.C) {
 	s.proc.Details.ID = "xyz123"
-	context.AddProcs(s.compCtx, s.proc)
+	s.compCtx.procs[s.proc.Name] = s.proc
 
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
@@ -302,7 +302,7 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "Set", "Flush")
+	s.Stub.CheckCallNames(c, "Get", "Set", "Flush")
 }
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
@@ -316,6 +316,9 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.proc.Process = *s.registerCmd.UpdatedProcess
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "Get",
+		Args:     []interface{}{s.proc.Name},
+	}, {
 		FuncName: "Set",
 		Args:     []interface{}{s.proc.Name, s.proc},
 	}, {

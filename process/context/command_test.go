@@ -24,11 +24,17 @@ type commandSuite struct {
 	cmd      cmd.Command
 	cmdCtx   *cmd.Context
 	metadata *charm.Meta
+	compCtx  *stubContextComponent
+	Ctx      *stubHookContext
 }
 
 func (s *commandSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
+	s.compCtx = newStubContextComponent(s.Stub)
+	hctx, info := s.NewHookContext()
+	info.SetComponent(process.ComponentName, s.compCtx)
+	s.Ctx = hctx
 	s.cmdCtx = coretesting.Context(c)
 
 	s.setMetadata()

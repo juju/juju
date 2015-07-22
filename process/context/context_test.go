@@ -15,12 +15,17 @@ import (
 
 type contextSuite struct {
 	baseSuite
+	compCtx   *context.Context
+	apiClient *stubAPIClient
 }
 
 var _ = gc.Suite(&contextSuite{})
 
 func (s *contextSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+
+	s.apiClient = newStubAPIClient(s.Stub)
+	s.compCtx = context.NewContext(s.apiClient)
 
 	context.AddProcs(s.compCtx, s.proc)
 }
