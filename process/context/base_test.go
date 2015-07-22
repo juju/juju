@@ -90,8 +90,9 @@ type stubContextComponent struct {
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	return &stubContextComponent{
-		stub:  stub,
-		procs: make(map[string]*process.Info),
+		stub:        stub,
+		procs:       make(map[string]*process.Info),
+		definitions: make(map[string]charm.Process),
 	}
 }
 

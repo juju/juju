@@ -4,28 +4,12 @@
 package context
 
 import (
-	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 )
-
-func readMetadata(filename string) (*charm.Meta, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer file.Close()
-
-	meta, err := charm.ReadMeta(file)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return meta, nil
-}
 
 func parseDefinition(name string, data []byte) (*charm.Process, error) {
 	raw := make(map[interface{}]interface{})

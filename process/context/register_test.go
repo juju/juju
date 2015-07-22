@@ -27,7 +27,6 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 
 	cmd, err := context.NewProcRegistrationCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	cmd.ReadMetadata = s.readMetadata
 
 	s.registerCmd = cmd
 	s.setCommand(c, "process-register", s.registerCmd)
@@ -304,10 +303,9 @@ func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
 func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(*s.proc)
 	s.init(c, s.proc.Name, "abc123", "running")
-	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "Get", "Set", "Flush")
+	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
 }
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
@@ -315,7 +313,6 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.setMetadata(*s.proc)
 	s.registerCmd.Overrides = []string{"description:foo"}
 	s.init(c, s.proc.Name, "abc123", "running")
-	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	s.checkRun(c, "", "")
 
@@ -324,6 +321,8 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Get",
 		Args:     []interface{}{s.proc.Name},
+	}, {
+		FuncName: "ListDefinitions",
 	}, {
 		FuncName: "Set",
 		Args:     []interface{}{s.proc.Name, s.proc},

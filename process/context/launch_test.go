@@ -73,8 +73,6 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(*s.proc)
-	cmd.ReadMetadata = s.readMetadata
-	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +92,6 @@ func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(*s.proc)
-	cmd.ReadMetadata = s.readMetadata
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +114,6 @@ func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(*s.proc)
-	cmd.ReadMetadata = s.readMetadata
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,7 +4,6 @@
 package context
 
 import (
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -49,8 +48,6 @@ type baseCommand struct {
 	Name string
 	// info is the process info for the named workload process.
 	info *process.Info
-	// ReadMetadata extracts charm metadata from the given file.
-	ReadMetadata func(filename string) (*charm.Meta, error)
 }
 
 func newCommand(ctx HookContext) (*baseCommand, error) {
@@ -60,9 +57,8 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 		return nil, errors.Trace(err)
 	}
 	return &baseCommand{
-		ctx:          ctx,
-		compCtx:      compCtx,
-		ReadMetadata: readMetadata,
+		ctx:     ctx,
+		compCtx: compCtx,
 	}, nil
 }
 
@@ -112,18 +108,14 @@ func (c *baseCommand) init(name string) error {
 	return nil
 }
 
-func (c *baseCommand) defsFromCharm(ctx *cmd.Context) (map[string]charm.Process, error) {
-	filename := filepath.Join(ctx.Dir, "metadata.yaml")
-	meta, err := c.ReadMetadata(filename)
+func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
+	definitions, err := c.compCtx.ListDefinitions()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defMap := make(map[string]charm.Process)
-	for _, definition := range meta.Processes {
-		// In the case of collision, use the first one.
-		if _, ok := defMap[definition.Name]; ok {
-			continue
-		}
+	for _, definition := range definitions {
+		// We expect no collisions.
 		defMap[definition.Name] = definition
 	}
 	return defMap, nil
@@ -248,7 +240,7 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 	var definition charm.Process
 	if c.Definition.Path == "" {
-		defs, err := c.defsFromCharm(ctx)
+		defs, err := c.defsFromCharm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
