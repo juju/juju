@@ -6,6 +6,7 @@ package ec2
 import (
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -59,6 +61,14 @@ const (
 	volumeStatusAvailable = "available"
 	volumeStatusInUse     = "in-use"
 	volumeStatusCreating  = "creating"
+
+	attachmentStatusAttaching = "attaching"
+	attachmentStatusAttached  = "attached"
+	attachmentStatusDetaching = "detaching"
+	attachmentStatusDetached  = "detached"
+
+	instanceStateShuttingDown = "shutting-down"
+	instanceStateTerminated   = "terminated"
 )
 
 const (
@@ -367,14 +377,116 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.VolumeInfo
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
+	var wg sync.WaitGroup
+	wg.Add(len(volIds))
 	results := make([]error, len(volIds))
 	for i, volumeId := range volIds {
-		if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
-			results[i] = errors.Annotatef(err, "destroying %q", volumeId)
-		}
-
+		go func(i int, volumeId string) {
+			defer wg.Done()
+			results[i] = v.destroyVolume(volumeId)
+		}(i, volumeId)
 	}
+	wg.Wait()
 	return results
+}
+
+var destroyVolumeAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Minute,
+	Delay: 5 * time.Second,
+}
+
+func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
+	logger.Debugf("destroying %q", volumeId)
+	// Volumes must not be in-use when destroying. A volume may
+	// still be in-use when the instance it is attached to is
+	// in the process of being terminated.
+	volume, err := v.waitVolume(volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
+		if volume.Status != volumeStatusInUse {
+			// Volume is not in use, it should be OK to destroy now.
+			return true, nil
+		}
+		if len(volume.Attachments) == 0 {
+			// There are no attachments remaining now; keep querying
+			// until volume transitions out of in-use.
+			return false, nil
+		}
+		var deleteOnTermination []string
+		var args []storage.VolumeAttachmentParams
+		for _, a := range volume.Attachments {
+			switch a.Status {
+			case attachmentStatusAttaching, attachmentStatusAttached:
+				// The volume is attaching or attached to an
+				// instance, we need for it to be detached
+				// before we can destroy it.
+				args = append(args, storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						InstanceId: instance.Id(a.InstanceId),
+					},
+					VolumeId: volumeId,
+				})
+				if a.DeleteOnTermination {
+					// The volume is still attached, and the
+					// attachment is "delete on termination";
+					// check if the related instance is being
+					// terminated, in which case we can stop
+					// waiting and skip destroying the volume.
+					//
+					// Note: we still accrue in "args" above
+					// in case the instance is not terminating;
+					// in that case we detach and destroy as
+					// usual.
+					deleteOnTermination = append(
+						deleteOnTermination, a.InstanceId,
+					)
+				}
+			}
+		}
+		if len(deleteOnTermination) > 0 {
+			result, err := v.ec2.Instances(deleteOnTermination, nil)
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			for _, reservation := range result.Reservations {
+				for _, instance := range reservation.Instances {
+					switch instance.State.Name {
+					case instanceStateShuttingDown, instanceStateTerminated:
+						// The instance is or will be terminated,
+						// and so the volume will be deleted by
+						// virtue of delete-on-termination.
+						return true, nil
+					}
+				}
+			}
+		}
+		if len(args) > 0 {
+			if err := v.DetachVolumes(args); err != nil {
+				return false, errors.Trace(err)
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Either the volume isn't found, or we queried the
+			// instance corresponding to a DeleteOnTermination
+			// attachment; in either case, the volume is or will
+			// be destroyed.
+			return nil
+		} else if err == errWaitVolumeTimeout {
+			return errors.Errorf("timed out waiting for volume %v to not be in-use", volumeId)
+		}
+		return errors.Trace(err)
+	}
+	if volume.Status == volumeStatusInUse {
+		// If the volume is in-use, that means it will be
+		// handled by delete-on-termination and we have
+		// nothing more to do.
+		return nil
+	}
+	if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
+		return errors.Annotatef(err, "destroying %q", volumeId)
+	}
+	return nil
 }
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
@@ -522,16 +634,38 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
+	volume, err := v.waitVolume(volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
+		return volume.Status != volumeStatusCreating, nil
+	})
+	if err == errWaitVolumeTimeout {
+		return nil, errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return volume, nil
+}
+
+var errWaitVolumeTimeout = errors.New("timed out")
+
+func (v *ebsVolumeSource) waitVolume(
+	volumeId string,
+	attempt utils.AttemptStrategy,
+	pred func(v *ec2.Volume) (bool, error),
+) (*ec2.Volume, error) {
 	for a := attempt.Start(); a.Next(); {
 		volume, err := v.describeVolume(volumeId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if volume.Status != volumeStatusCreating {
+		ok, err := pred(volume)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ok {
 			return volume, nil
 		}
 	}
-	return nil, errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+	return nil, errWaitVolumeTimeout
 }
 
 func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
@@ -539,7 +673,9 @@ func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "querying volume")
 	}
-	if len(resp.Volumes) != 1 {
+	if len(resp.Volumes) == 0 {
+		return nil, errors.NotFoundf("%v", volumeId)
+	} else if len(resp.Volumes) != 1 {
 		return nil, errors.Errorf("expected one volume, got %d", len(resp.Volumes))
 	}
 	return &resp.Volumes[0], nil
