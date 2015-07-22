@@ -147,18 +147,20 @@ func (c workloadProcesses) registerState() {
 }
 
 func (c workloadProcesses) registerStatusAPI() {
-	logger.Debugf("registering status API for processes")
-	statusAdapter := func(st *state.State, unitTag names.UnitTag) (map[string]string, error) {
-		unitTagToProcessList := func(unitTag names.UnitTag) ([]process.Info, error) {
-			unitProcesses, err := st.UnitProcesses(unitTag)
-			if err != nil {
-				return nil, err
-			}
-
-			return unitProcesses.List()
+	statusAdapter := func(st *state.State, unitTag names.UnitTag) (interface{}, error) {
+		unitProcesses, err := st.UnitProcesses(unitTag)
+		if err != nil {
+			return nil, err
 		}
-
-		return server.BuildStatus(unitTagToProcessList, unitTag)
+		var details []process.Details
+		procs, err := unitProcesses.List()
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range procs {
+			details = append(details, p.Details)
+		}
+		return details, nil
 	}
 
 	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, statusAdapter)

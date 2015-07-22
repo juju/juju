@@ -12,7 +12,7 @@ import (
 
 // StatusProviderForUnitFn is a function which returns a structured
 // (e.g. json, yaml, etc.) string representation of the status.
-type StatusProviderForUnitFn func(*state.State, names.UnitTag) (map[string]string, error)
+type StatusProviderForUnitFn func(*state.State, names.UnitTag) (interface{}, error)
 
 // statusProvidersForUnits contains all registered statusProviders.
 var statusProvidersForUnits = map[string]StatusProviderForUnitFn{}

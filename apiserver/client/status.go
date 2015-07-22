@@ -648,7 +648,7 @@ func (context *statusContext) processUnit(st *state.State, unit *state.Unit, ser
 	}
 
 	// Grab structured statuses from all the registered status providers.
-	result.ComponentStatus = make(map[string]map[string]string, len(statusProvidersForUnits))
+	result.ComponentStatus = make(map[string]interface{}, len(statusProvidersForUnits))
 	for statusType, getStatus := range statusProvidersForUnits {
 		status, err := getStatus(st, unit.UnitTag())
 		if err != nil {

@@ -129,7 +129,7 @@ type UnitStatus struct {
 	Subordinates  map[string]UnitStatus
 
 	// ComponentStatus: Label -> Group -> Status
-	ComponentStatus map[string]map[string]string
+	ComponentStatus map[string]interface{}
 }
 
 // RelationStatus holds status info about a relation.
