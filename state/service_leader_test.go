@@ -195,10 +195,10 @@ func (t *raceToken) Check(out interface{}) error {
 	if !ok {
 		return errors.Errorf("SUT passed in bad value: %#v", out)
 	}
-	shouldBeUnique := utils.MustNewUUID()
+	wontExist := utils.MustNewUUID()
 	*outPtr = []txn.Op{{
 		C:      "units", // we have to use a collection defined in the schema
-		Id:     shouldBeUnique.String(),
+		Id:     wontExist.String(),
 		Assert: txn.DocExists,
 	}}
 	return nil
