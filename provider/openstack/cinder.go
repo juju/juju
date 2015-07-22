@@ -14,6 +14,7 @@ import (
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/storage"
 )
 
@@ -44,9 +45,14 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
+	uuid, ok := environConfig.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("environment UUID")
+	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
+		envUUID:        uuid,
 	}
 	return source, nil
 }
@@ -85,6 +91,7 @@ func (p *cinderProvider) Dynamic() bool {
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
 	envName        string // non unique, informational only
+	envUUID        string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -178,11 +185,28 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 	return storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
+// ListVolumes is specified on the storage.VolumeSource interface.
+func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
+	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
+	if err != nil {
+		return nil, err
+	}
+	volumeIds := make([]string, 0, len(cinderVolumes))
+	for _, volume := range cinderVolumes {
+		envUUID, ok := volume.Metadata[tags.JujuEnv]
+		if !ok || envUUID != s.envUUID {
+			continue
+		}
+		volumeIds = append(volumeIds, cinderToJujuVolumeInfo(&volume).VolumeId)
+	}
+	return volumeIds, nil
+}
+
 // DescribeVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
-	cinderVolumes, err := s.storageAdapter.GetVolumesSimple()
+	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +358,7 @@ func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.Vol
 
 type openstackStorage interface {
 	GetVolume(volumeId string) (*cinder.Volume, error)
-	GetVolumesSimple() ([]cinder.Volume, error)
+	GetVolumesDetail() ([]cinder.Volume, error)
 	DeleteVolume(volumeId string) error
 	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
@@ -386,9 +410,9 @@ func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumePa
 	return &resp.Volume, nil
 }
 
-// GetVolumesSimple is part of the openstackStorage interface.
-func (ga *openstackStorageAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
-	resp, err := ga.cinderClient.GetVolumesSimple()
+// GetVolumesDetail is part of the openstackStorage interface.
+func (ga *openstackStorageAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
+	resp, err := ga.cinderClient.GetVolumesDetail()
 	if err != nil {
 		return nil, err
 	}

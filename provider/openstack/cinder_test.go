@@ -12,6 +12,7 @@ import (
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
@@ -212,9 +213,33 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 	c.Assert(created, jc.IsTrue)
 }
 
+func (s *cinderVolumeSourceSuite) TestListVolumes(c *gc.C) {
+	mockAdapter := &mockAdapter{
+		getVolumesDetail: func() ([]cinder.Volume, error) {
+			return []cinder.Volume{{
+				ID: "volume-1",
+			}, {
+				ID: "volume-2",
+				Metadata: map[string]string{
+					tags.JujuEnv: "something-else",
+				},
+			}, {
+				ID: "volume-3",
+				Metadata: map[string]string{
+					tags.JujuEnv: testing.EnvironmentTag.Id(),
+				},
+			}}, nil
+		},
+	}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	volumeIds, err := volSource.ListVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(volumeIds, jc.DeepEquals, []string{"volume-3"})
+}
+
 func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	mockAdapter := &mockAdapter{
-		getVolumesSimple: func() ([]cinder.Volume, error) {
+		getVolumesDetail: func() ([]cinder.Volume, error) {
 			return []cinder.Volume{{
 				ID:   mockVolId,
 				Size: mockVolSize / 1024,
@@ -395,7 +420,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 
 type mockAdapter struct {
 	getVolume             func(string) (*cinder.Volume, error)
-	getVolumesSimple      func() ([]cinder.Volume, error)
+	getVolumesDetail      func() ([]cinder.Volume, error)
 	deleteVolume          func(string) error
 	createVolume          func(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	attachVolume          func(string, string, string) (*nova.VolumeAttachment, error)
@@ -414,9 +439,9 @@ func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
 	}, nil
 }
 
-func (ma *mockAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
-	if ma.getVolumesSimple != nil {
-		return ma.getVolumesSimple()
+func (ma *mockAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
+	if ma.getVolumesDetail != nil {
+		return ma.getVolumesDetail()
 	}
 	return nil, nil
 }
