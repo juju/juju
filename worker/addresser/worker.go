@@ -6,9 +6,11 @@ package addresser
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	apiaddresser "github.com/juju/juju/api/addresser"
-	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -26,7 +28,7 @@ type releaser interface {
 }
 
 type addresserHandler struct {
-	api *apiaddresser.API
+	api      *apiaddresser.API
 	releaser releaser
 }
 
@@ -52,7 +54,7 @@ func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
 // It's an own helper function to be exported for tests.
 func newWorkerWithReleaser(api *apiaddresser.API, releaser releaser) worker.Worker {
 	a := &addresserHandler{
-		api:       api,
+		api:      api,
 		releaser: releaser,
 	}
 	w := worker.NewStringsWorker(a)
@@ -60,39 +62,52 @@ func newWorkerWithReleaser(api *apiaddresser.API, releaser releaser) worker.Work
 }
 
 // Handle is part of the StringsWorker interface.
-func (a *addresserHandler) Handle(ids []string) error {
+func (a *addresserHandler) Handle(watcherTags []string) error {
 	if a.releaser == nil {
 		return nil
 	}
-	for _, id := range ids {
-		logger.Debugf("received notification about address %v", id)
-		addr, err := a.st.IPAddress(id)
+	// Convert received tag strings into tags.
+	tags := make([]names.IPAddressTags, len(watcherTags))
+	for i, watcherTag := range watcherTags {
+		tag, err := name.ParseIPAddressTag(watcherTag)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				logger.Debugf("address %v was removed; skipping", id)
-				continue
-			}
-			return err
+			return errors.Annotatef(err, "cannot parse IP address tag %q", watcherTag)
 		}
-		if addr.Life() != state.Dead {
-			logger.Debugf("address %v is not Dead (life %q); skipping", id, addr.Life())
+		tags[i] = tag
+	}
+	// Retrieve IP addresses and process them.
+	ipAddresses, err := a.api.IPAddresses(tags...)
+	if err != nil {
+		if err != common.ErrPartialResults {
+			return errors.Annotate(err, "cannot retrieve IP addresses")
+		}
+	}
+	toBeRemoved := []*apiaddresser.IPAddress
+	for i, ipAddress := range ipAddresses {
+		tag := tags[i]
+		if ipAddress == nil {
+			logger.Debugf("IP address %v was removed; skipping", tag)
 			continue
 		}
-		err = a.releaseIPAddress(addr)
-		if err != nil {
-			return err
+		if ipAddress.Life() != state.Dead {
+			logger.Debugf("IP address %v is not Dead (life %q); skipping", tag, ipAddress.Life())
+			continue
 		}
-		logger.Debugf("address %v released", id)
-		err = addr.Remove()
-		if err != nil {
-			return err
+		if err := a.releaseIPAddress(addr); err != nil {
+			return errors.Annotatef(err, "cannot release IP address %v", tag)
 		}
-		logger.Debugf("address %v removed", id)
+		logger.Debugf("IP address %v released", tag)
+		toBeRemoved = append(toBeRemoved, ipAddress)
 	}
+	// Finally remove the release ones.
+	if err := a.api.Remove(toBeRemoved...); err != nil {
+		return errors.Annotate(err, "cannot remove all released IP addresses")
+	}
+	logger.Debugf("removed released IP addresses")
 	return nil
 }
 
-func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
+func (a *addresserHandler) releaseIPAddress(ipAddress *apiaddresser.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
 	logger.Debugf("attempting to release dead address %#v", addr.Value())
 
@@ -110,7 +125,8 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 }
 
 // SetUp is part of the StringsWorker interface.
-func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
+func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
+	// WatchIPAddresses returns an EntityWatche which is a StringsWatcher.
 	return a.st.WatchIPAddresses(), nil
 }
 
