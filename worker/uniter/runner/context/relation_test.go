@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner_test
+package context_test
 
 import (
 	"github.com/juju/names"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type ContextRelationSuite struct {
@@ -85,8 +85,8 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	_, err = settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cache := runner.NewRelationCache(s.apiRelUnit.ReadSettings, []string{"u/1"})
-	ctx := runner.NewContextRelation(s.apiRelUnit, cache)
+	cache := context.NewRelationCache(s.apiRelUnit.ReadSettings, []string{"u/1"})
+	ctx := context.NewContextRelation(s.apiRelUnit, cache)
 
 	// Check that uncached settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -117,8 +117,8 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	_, err = settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cache := runner.NewRelationCache(s.apiRelUnit.ReadSettings, nil)
-	ctx := runner.NewContextRelation(s.apiRelUnit, cache)
+	cache := context.NewRelationCache(s.apiRelUnit.ReadSettings, nil)
+	ctx := context.NewContextRelation(s.apiRelUnit, cache)
 
 	// Check that settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -137,7 +137,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestLocalSettings(c *gc.C) {
-	ctx := runner.NewContextRelation(s.apiRelUnit, nil)
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
 
 	// Change Settings...
 	node, err := ctx.Settings()

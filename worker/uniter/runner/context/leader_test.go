@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner_test
+package context_test
 
 import (
 	"github.com/juju/errors"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type LeaderSuite struct {
@@ -18,7 +18,7 @@ type LeaderSuite struct {
 	testing.Stub
 	accessor *StubLeadershipSettingsAccessor
 	tracker  *StubTracker
-	context  runner.LeadershipContext
+	context  context.LeadershipContext
 }
 
 var _ = gc.Suite(&LeaderSuite{})
@@ -35,7 +35,7 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ServiceName",
 	}}, func() {
-		s.context = runner.NewLeadershipContext(s.accessor, s.tracker)
+		s.context = context.NewLeadershipContext(s.accessor, s.tracker)
 	})
 }
 

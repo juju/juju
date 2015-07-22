@@ -1,7 +1,9 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner
+// Package context contains the ContextFactory and Context definitions. Context implements
+// jujuc.Context and is used together with uniter.Runner to run hooks, commands and actions.
+package context
 
 import (
 	"fmt"
@@ -22,6 +24,27 @@ import (
 	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+// Paths exposes the paths needed by Context.
+type Paths interface {
+
+	// GetToolsDir returns the filesystem path to the dirctory containing
+	// the hook tool symlinks.
+	GetToolsDir() string
+
+	// GetCharmDir returns the filesystem path to the directory in which
+	// the charm is installed.
+	GetCharmDir() string
+
+	// GetJujucSocket returns the path to the socket used by the hook tools
+	// to communicate back to the executing uniter process. It might be a
+	// filesystem path, or it might be abstract.
+	GetJujucSocket() string
+
+	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
+	// to store metrics recorded during a single hook run.
+	GetMetricsSpoolDir() string
+}
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
