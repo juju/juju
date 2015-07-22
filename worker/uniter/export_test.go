@@ -15,7 +15,6 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	NewExecutor               = newOperationExecutor
 	ActiveCollectMetricsTimer = &activeCollectMetricsTimer
 	ActiveSendMetricsTimer    = &activeSendMetricsTimer
 	IdleWaitTime              = &idleWaitTime

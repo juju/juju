@@ -69,7 +69,7 @@ type Uniter struct {
 	deployer             *deployerProxy
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
-	newOperationExecutor newExecutorFunc
+	newOperationExecutor NewExecutorFunc
 
 	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
@@ -110,10 +110,10 @@ type UniterParams struct {
 	HookLock             *fslock.Lock
 	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
-	NewOperationExecutor newExecutorFunc
+	NewOperationExecutor NewExecutorFunc
 }
 
-type newExecutorFunc func(*Uniter) (operation.Executor, error)
+type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -129,9 +129,6 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
-	}
-	if u.newOperationExecutor == nil {
-		u.newOperationExecutor = newOperationExecutor
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -232,12 +229,6 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func newOperationExecutor(u *Uniter) (operation.Executor, error) {
-	return operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
-	)
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -298,7 +289,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
-	operationExecutor, err := u.newOperationExecutor(u)
+	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock)
 	if err != nil {
 		return err
 	}

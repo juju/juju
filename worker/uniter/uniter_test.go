@@ -2215,8 +2215,8 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(u *uniter.Uniter) (operation.Executor, error) {
-		e, err := uniter.NewExecutor(u)
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
