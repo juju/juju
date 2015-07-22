@@ -136,6 +136,12 @@ func (lvs *loopVolumeSource) volumeFilePath(tag names.VolumeTag) string {
 	return filepath.Join(lvs.storageDir, tag.String())
 }
 
+// ListVolumes is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) ListVolumes() ([]string, error) {
+	// TODO(axw) implement this when we need it.
+	return nil, errors.NotImplementedf("ListVolumes")
+}
+
 // DescribeVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// TODO(axw) implement this when we need it.
