@@ -171,13 +171,11 @@ class BuildPackageTestCase(unittest.TestCase):
             source_files = make_source_files(workspace, 'my.dsc')
             build_dir = setup_local(
                 workspace, 'trusty', 'i386', source_files, verbose=False)
-            proc = Mock(returncode=0)
-            with patch('subprocess.Popen', return_value=proc) as p_mock:
+            with patch('subprocess.call', return_value=0) as p_mock:
                 code = build_in_lxc('trusty-i386', build_dir,
                                     ppa=None, verbose=False)
         self.assertEqual(0, code)
         oc_mock.assert_any_call(build_dir, 0o777)
-        proc.communicate.assert_called_with()
         cc_mock.assert_any_call(
             ['sudo', 'lxc-start', '-d', '-n', 'trusty-i386'])
         build_script = BUILD_DEB_TEMPLATE.format(
