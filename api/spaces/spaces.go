@@ -31,12 +31,12 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-func makeAddSpeceParams(name string, subnetIds []string, public bool) params.AddSpaceParams {
+func makeAddSpaceParams(name string, subnetIds []string, public bool) params.AddSpaceParams {
 	spaceTag := names.NewSpaceTag(name).String()
-	subnetTags := []string{}
+	subnetTags := make([]string, len(subnetIds))
 
-	for _, s := range subnetIds {
-		subnetTags = append(subnetTags, names.NewSubnetTag(s).String())
+	for i, s := range subnetIds {
+		subnetTags[i] = names.NewSubnetTag(s).String()
 	}
 
 	return params.AddSpaceParams{
@@ -51,7 +51,7 @@ func makeAddSpeceParams(name string, subnetIds []string, public bool) params.Add
 func (api *API) CreateSpace(name string, subnetIds []string, public bool) (params.ErrorResults, error) {
 	var response params.ErrorResults
 	params := params.AddSpacesParams{
-		Spaces: []params.AddSpaceParams{makeAddSpeceParams(name, subnetIds, public)},
+		Spaces: []params.AddSpaceParams{makeAddSpaceParams(name, subnetIds, public)},
 	}
 	err := api.facade.FacadeCall("CreateSpaces", params, &response)
 	return response, err

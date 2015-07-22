@@ -103,7 +103,7 @@ func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
 func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 	name := "foo"
 	subnets := []string{}
-	for count := 0; count < 300; count += 11 {
+	for count := 0; count < 300; count++ {
 		newSubnet := fmt.Sprintf("1.%d.%d.0/24", uint8(count>>8), uint8(count))
 		subnets = append(subnets, newSubnet)
 		s.testCreateSpace(c, name, subnets)
