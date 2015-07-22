@@ -30,7 +30,7 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 	cmd.ReadMetadata = s.readMetadata
 
 	s.registerCmd = cmd
-	s.setCommand(c, "register", s.registerCmd)
+	s.setCommand(c, "proc-register", s.registerCmd)
 }
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
