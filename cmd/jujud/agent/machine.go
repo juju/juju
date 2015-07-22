@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -60,6 +61,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage/looputil"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -262,6 +264,7 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
 	bufferedLogs logsender.LogRecordCh,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
@@ -271,6 +274,7 @@ func MachineAgentFactoryFn(
 			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+			loopDeviceManager,
 		)
 	}
 }
@@ -283,6 +287,7 @@ func NewMachineAgent(
 	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:            machineId,
@@ -293,6 +298,7 @@ func NewMachineAgent(
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
+		loopDeviceManager:                loopDeviceManager,
 	}
 }
 
@@ -329,6 +335,8 @@ type MachineAgent struct {
 	mongoInitialized bool
 
 	apiStateUpgrader APIStateUpgrader
+
+	loopDeviceManager looputil.LoopDeviceManager
 }
 
 func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
@@ -1684,9 +1692,26 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
+
 	// Remove the juju-run symlink.
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
+	}
+
+	insideLXC, err := lxcutils.RunningInsideLXC()
+	if err != nil {
+		errors = append(errors, err)
+	} else if insideLXC {
+		// We're running inside LXC, so loop devices may leak. Detach
+		// any loop devices that are backed by files on this machine.
+		//
+		// It is necessary to do this here as well as in container/lxc,
+		// as container/lxc needs to check in the container's rootfs
+		// to see if the loop device is attached to the container; that
+		// will fail if the data-dir is removed first.
+		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	namespace := agentConfig.Value(agent.Namespace)
