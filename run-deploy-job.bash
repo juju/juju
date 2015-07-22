@@ -27,7 +27,10 @@ package=$($SCRIPTS/jujuci.py get-package-name $VERSION)
 s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
   s3://juju-qa-data/juju-ci/products/version-$revision_build . \
   --exclude '*' --include $package
-dpkg -x $(find . -name $package|tail -n1) extracted-bin
+# Find the deb with the highest build- number.
+deb=$(find . -name $package|sed -r 's/.*build-([0-9]+)\/.*/\1 \0/'|sort -g|\
+      tail -n1| cut -f 2 -d ' ')
+dpkg -x $deb extracted-bin
 JUJU_BIN=$(dirname $(find extracted-bin -name 'juju'))
 $SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
