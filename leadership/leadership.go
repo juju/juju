@@ -57,7 +57,7 @@ func (m *Manager) ClaimLeadership(sid, uid string, duration time.Duration) error
 }
 
 // ReleaseLeadership releases leadership. It's deprecated and only still exists
-// for the comvennience of certainn tests.
+// for the convenience of certain tests.
 func (m *Manager) ReleaseLeadership(sid, uid string) error {
 	return m.leaseMgr.ReleaseLease(leadershipNamespace(sid), uid)
 }
