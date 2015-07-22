@@ -22,6 +22,9 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -3252,69 +3255,156 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 		{EnvUUID: "uuid0"},
 		{EnvUUID: "uuid1"},
 	})
+}
+
+func setupForAttachmentTesting(s *upgradesSuite, c *gc.C) func() error {
+	kind := "filesystem"
+	pool := "loop-pool"
+
+	pm := poolmanager.New(NewStateSettings(s.state))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := AddTestingCharm(c, s.state, "storage-"+kind)
+	storage := map[string]StorageConstraints{
+		"data": StorageConstraints{Pool: pool, Size: 1024, Count: 1},
+	}
+	service := AddTestingServiceWithStorage(c, s.state, "storage-"+kind, ch, s.owner, storage)
+
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.AssignUnit(unit, AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	return service.Destroy
+}
+
+func assertVolumeAttachments(s *State, c *gc.C, expected int) *volume {
+	volumes, err := s.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+	vol := volumes[0].(*volume)
+	attCount := vol.doc.AttachmentCount
+	c.Assert(attCount, gc.Equals, expected)
+	return vol
+}
 
 func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
-	testAttachmentVolumes(s, c, false)
+	cleanup := setupForAttachmentTesting(s, c)
+	defer cleanup()
+	vol := assertVolumeAttachments(s.state, c, 1)
+
+	id := vol.doc.DocID
+	ops := []txn.Op{{
+		C:      volumesC,
+		Id:     id,
+		Update: bson.D{{"$unset", bson.D{{"attachmentcount", nil}}}},
+	}}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+	assertVolumeAttachments(s.state, c, 0)
+
+	AddVolumeAttachmentCount(s.state)
+	assertVolumeAttachments(s.state, c, 1)
 }
 
-func (s *upgradesSuite) TestAddAttachmentToVolumesIdempotent(c *gc.C) {
-	testAttachmentVolumes(s, c, true)
+func assertFilesystemAttachments(s *State, c *gc.C, expected int) *filesystem {
+	filesystems, err := s.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+	fs := filesystems[0].(*filesystem)
+	attCount := fs.doc.AttachmentCount
+	c.Assert(attCount, gc.Equals, expected)
+	return fs
 }
 
-func testAttachmentVolumes(s *upgradesSuite, c *gc.C, idempotent bool) {
-	doc1 := bson.M{
-		"_id":  "volume1",
-		"name": "1",
-		"life": "alive",
-	}
-	doc2 := bson.M{
-		"_id":  "volume2",
-		"name": "2",
-		"life": "alive",
-	}
-	expectedVol1 := 2
-	expectedVol2 := 3
-	if idempotent {
-		doc1["attachmentcount"] = 5
-		doc2["attachmentcount"] = 6
-		expectedVol1 = 5
-		expectedVol2 = 6
-	}
+func (s *upgradesSuite) TestAddAttachmentToFilesystems(c *gc.C) {
+	cleanup := setupForAttachmentTesting(s, c)
+	defer cleanup()
 
-	ops := []txn.Op{
-		{
-			C:      volumesC,
-			Id:     "volume1",
-			Assert: txn.DocMissing,
-			Insert: doc1,
-		},
-		{
-			C:      volumesC,
-			Id:     "volume2",
-			Assert: txn.DocMissing,
-			Insert: doc2,
-		},
-	}
-	logger.Debugf("%v", doc1)
-	logger.Debugf("%v", doc2)
-	err := s.state.runRawTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-	attachments := map[names.VolumeTag]int{}
-	attachments[names.NewVolumeTag("1")] = 2
-	attachments[names.NewVolumeTag("2")] = 3
-	err = addVolumeAttachmentCount(s.state, attachments)
+	fs := assertFilesystemAttachments(s.state, c, 1)
+
+	id := fs.doc.DocID
+	ops := []txn.Op{{
+		C:      filesystemsC,
+		Id:     id,
+		Update: bson.D{{"$unset", bson.D{{"attachmentcount", nil}}}},
+	}}
+	err := s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	coll, closer := s.state.getRawCollection(volumesC)
-	defer closer()
-	var vDoc volumeDoc
-	err = coll.FindId("volume1").One(&vDoc)
+	assertFilesystemAttachments(s.state, c, 0)
+
+	AddFilesystemsAttachmentCount(s.state)
+
+	assertFilesystemAttachments(s.state, c, 1)
+}
+
+func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
+	volumes, err := s.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+	vol := volumes[0].(*volume)
+	binding := vol.doc.Binding
+	c.Assert(binding, gc.Equals, expected)
+	return vol
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumes(c *gc.C) {
+	cleanup := setupForAttachmentTesting(s, c)
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "filesystem-0-0")
+
+	id := vol.doc.DocID
+	ops := []txn.Op{{
+		C:      volumesC,
+		Id:     id,
+		Update: bson.D{{"$unset", bson.D{{"binding", nil}}}},
+	}}
+	err := s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(vDoc.AttachmentCount, gc.Equals, expectedVol1)
+	assertVolumeBinding(s.state, c, "")
 
-	err = coll.FindId("volume2").One(&vDoc)
+	AddBindingToVolumes(s.state)
+
+	assertVolumeBinding(s.state, c, "filesystem-0-0")
+
+}
+
+func assertFilesystemBinding(s *State, c *gc.C, expected string) *filesystem {
+	filesystems, err := s.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+	fs := filesystems[0].(*filesystem)
+	binding := fs.doc.Binding
+	c.Assert(binding, gc.Equals, expected)
+	return fs
+}
+
+func (s *upgradesSuite) TestAddBindingToFilesystems(c *gc.C) {
+	cleanup := setupForAttachmentTesting(s, c)
+	defer cleanup()
+	fs := assertFilesystemBinding(s.state, c, "storage-data-0")
+
+	id := fs.doc.DocID
+	ops := []txn.Op{{
+		C:      filesystemsC,
+		Id:     id,
+		Update: bson.D{{"$unset", bson.D{{"binding", nil}}}},
+	}}
+	err := s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(vDoc.AttachmentCount, gc.Equals, expectedVol2)
+	assertFilesystemBinding(s.state, c, "")
+
+	AddBindingToFilesystems(s.state)
+
+	assertFilesystemBinding(s.state, c, "storage-data-0")
 }

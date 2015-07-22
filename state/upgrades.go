@@ -1149,16 +1149,6 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	return st.runRawTransaction(ops)
 }
 
-func removeBsonDID(d bson.D) bson.D {
-	var newD bson.D
-	for i := range d {
-		if d[i].Name != "_id" {
-			newD = append(newD, d[i])
-		}
-	}
-	return newD
-}
-
 // readBsonDField returns the value of a given field in a bson.D.
 func readBsonDField(d bson.D, name string) (interface{}, error) {
 	for i := range d {
@@ -1599,144 +1589,215 @@ func AddMissingEnvUUIDOnStatuses(st *State) error {
 //	return addAttachmentCount(st, storageInstancesC)
 //}
 
-// AddVolumeAttachmentCount adds storageInstanceDoc.AttachmentCount and
-// sets the right number to it.
-func AddVolumeAttachmentCount(st *State) error {
+// runForAllEnvStates will run runner function for every env passing a state
+// for that env.
+func runForAllEnvStates(st *State, runner func(st *State) error) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+		runner(envSt)
+	}
+	return nil
+}
+
+func addVolumeAttachmentCount(st *State) error {
 	volumes, err := st.AllVolumes()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	attachments := map[names.VolumeTag][]int{}
-	for _, volume := range volumes {
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
 		volAttachments, err := st.VolumeAttachments(volume.VolumeTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if volAttachments == nil {
-			continue
-		}
-		fsCount := 0
-		fs, err := st.VolumeFilesystem(names.VolumeTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if fs != nil {
-			fsCount = len(fs)
-		}
-		attachments[volume.VolumeTag()] = []int{len(volAttachments), fsCount}
-	}
-	return addVolumeAttachmentCount(st, attachments)
-}
-
-func addVolumeAttachmentCount(st *State, attachments map[names.VolumeTag]int) error {
-	coll, closer := st.getRawCollection(volumesC)
-	defer closer()
-	logger.Debugf("Adding attachmentcount to collection %q", volumesC)
-	iter := coll.Find(bson.D{{"attachmentcount", bson.D{{"$exists", false}}}}).Iter()
-	defer iter.Close()
-
-	fsColl, fsCloser := st.getRawCollection(filesystemsC)
-	defer fsCloser()
-
-	ops := []txn.Op{}
-	var doc bson.D
-	for iter.Next(&doc) {
-		id, err := readBsonDField(doc, "_id")
-		if err != nil {
-			return errors.Trace(err)
-		}
-		name, err := readBsonDField(doc, "name")
-		if err != nil {
-			return errors.Trace(err)
-		}
-		tag := names.NewVolumeTag(name.(string))
-		attCount := 0
-		fsCount := 0
-
-		count, ok := attachments[tag]
-		if ok {
-			attCount = count[0]
-			fsCount = count[1]
-		}
-		doc, err = addBsonDField(doc, "attachmentcount", attCount)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		doc = removeBsonDID(doc)
-
-		ops = append(ops,
-			txn.Op{
-				C:      volumesC,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"attachmentcount", attCount}}}},
-			},
-		)
-		//TODO make this use an id that should come from attachments
-		txn.Op{
-			C:      filesystemsC,
-			Id:     id,
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
 			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"attachmentcount", attCount}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(volAttachments)},
+			}}},
 		}
-
-		doc = nil
-	}
-	if err := iter.Err(); err != nil {
-		return errors.Trace(err)
-	}
-	return st.runRawTransaction(ops)
-
-}
-
-// AddFilesystemAttachmentCount adds storageInstanceDoc.AttachmentCount and
-// sets the right number to it.
-//func AddFilesystemAttachmentCount(st *State) error {
-//	return addAttachmentCount(st, filesystemsC)
-//}
-
-/*
-func AddVolumeBinding(st *State) error {
-	return addBinding(st, volumesC)
-}
-
-func AddFilesystemBinding(st *State) error {
-	return addBinding(st, filesystemsC)
-}
-
-func addBinding(st *State, collection string) error {
-	coll, closer := st.getCollection(collection)
-	defer closer()
-
-	iter := coll.Find(bson.D{{"binding", bson.D{{"$exists", false}}}}).Iter()
-	defer iter.Close()
-
-	ops := []txn.Op{}
-	var doc bson.D
-	for iter.Next(&doc) {
-		//TODO(perrito666): figure out binding.
-		doc, err = addBsonDField(doc, "binding")
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id, err := readBsonDField(doc, "_id")
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		ops = append(ops,
-			txn.Op{
-				C:      collection,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: bsonD{{"$set", doc}},
-			})
-		doc = nil
-	}
-	if err = iter.Err(); err != nil {
-		return errors.Trace(err)
 	}
 	return st.runTransaction(ops)
 }
-*/
+
+// AddVolumeAttachmentCount adds volumeDoc.AttachmentCount and
+// sets the right number to it.
+func AddVolumeAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addVolumeAttachmentCount)
+}
+
+func addFilesystemsAttachmentCount(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, fs := range filesystems {
+		fsAttachments, err := st.FilesystemAttachments(fs.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     fs.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(fsAttachments)},
+			}}},
+		}
+
+	}
+	return st.runTransaction(ops)
+}
+
+// AddFilesystemAttachmentCount adds filesystemDoc.AttachmentCount and
+// sets the right number to it.
+func AddFilesystemsAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addFilesystemsAttachmentCount)
+}
+
+func addBindingToVolume(st *State) error {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
+		// first filesystem
+		fs, err := st.VolumeFilesystem(volume.VolumeTag())
+		if err == nil {
+			ops[i] = txn.Op{
+				C:      volumesC,
+				Id:     volume.Tag().Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"binding", fs.FilesystemTag().String()},
+				}}},
+			}
+			continue
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+
+		// then Volume.StorageInstance
+		storageInstance, err := volume.StorageInstance()
+		if err == nil {
+			ops[i] = txn.Op{
+				C:      volumesC,
+				Id:     volume.Tag().Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"binding", storageInstance.String()},
+				}}},
+			}
+
+		} else if !errors.IsNotAssigned(err) {
+			return errors.Trace(err)
+		}
+
+		// then machine
+		atts, err := st.VolumeAttachments(volume.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(atts) != 1 {
+			ops[i] = txn.Op{
+				C:      volumesC,
+				Id:     volume.Tag().Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"binding", ""},
+				}}},
+			}
+			continue
+		}
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", atts[0].Machine().String()},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToVolumes adds the binding field to volumesDoc and
+// populates it.
+func AddBindingToVolumes(st *State) error {
+	return runForAllEnvStates(st, addBindingToVolume)
+}
+
+func addBindingToFilesystems(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, filesystem := range filesystems {
+		storage, err := filesystem.Storage()
+		if err == nil {
+			ops[i] = txn.Op{
+				C:      filesystemsC,
+				Id:     filesystem.Tag().Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"binding", storage.String()},
+				}}},
+			}
+			continue
+		} else if !errors.IsNotAssigned(err) {
+			return errors.Trace(err)
+		}
+		atts, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(atts) != 1 {
+			ops[i] = txn.Op{
+				C:      filesystemsC,
+				Id:     filesystem.Tag().Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"binding", ""},
+				}}},
+			}
+			continue
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     filesystem.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", atts[0].Machine().String()},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToFilesystems adds the binding field to filesystemDoc and populates it.
+func AddBindingToFilesystems(st *State) error {
+	return runForAllEnvStates(st, addBindingToFilesystems)
+}
