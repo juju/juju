@@ -1231,53 +1231,14 @@ func (s *Service) Status() (StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	var err error
-
-	var oldDoc statusDoc
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := s.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-
-		oldDoc, err = getStatus(s.st, s.globalKey())
-		insert := false
-		if IsStatusNotFound(err) {
-			insert = true
-			logger.Debugf("there is no state for %q yet", s.globalKey())
-		} else if err != nil {
-			logger.Debugf("cannot get state for %q yet", s.globalKey())
-		}
-
-		doc, err := newServiceStatusDoc(status, info, data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if insert {
-			// TODO(perrito666) we need a leader assertion added to this
-			// Op starting in 1.25.
-			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
-			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
-		}
-		return []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set status")
+	doc, err := newServiceStatusDoc(status, info, data)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if err = s.st.run(buildTxn); err != nil {
-		return errors.Errorf("cannot set status of service %q to %q: %v", s, status, onAbort(err, ErrDead))
-	}
-
-	if oldDoc.Status != "" {
-		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
-			logger.Errorf("could not record status history before change to %q: %v", status, err)
-		}
-	}
-
-	return nil
+	badge := fmt.Sprintf("service %q", s.doc.Name)
+	return setStatus(s.st, s.globalKey(), doc.statusDoc, nil, badge)
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.

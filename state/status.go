@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/mongo"
 )
 
@@ -553,6 +555,63 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 		return statusDoc{}, errors.Annotatef(err, "cannot get status %q", globalKey)
 	}
 	return doc, nil
+}
+
+// setStatus
+func setStatus(st *State, globalKey string, doc statusDoc, token leadership.Token, badge string) error {
+	go func() {
+		// TODO(fwereade) fix updateStatusHistory parameter ordering
+		if err := updateStatusHistory(doc, globalKey, st); err != nil {
+			logger.Errorf("failed to write status history document %q: %v", globalKey, err)
+		}
+	}()
+	buildTxn := updateStatusSource(st, globalKey, doc)
+	if token != nil {
+		buildTxn = wrapSource(buildTxn, token)
+	}
+	err := st.run(buildTxn)
+	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+		return errors.NotFoundf(badge)
+	}
+	return errors.Trace(err)
+}
+
+// updateStatusSource returns a transaction source that builds the operations
+// necessary to set the supplied status (and to fail safely if leaked and
+// executed late, so as not to overwrite more recent documents).
+func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
+	update := bson.D{{"$set", doc}}
+	return func(_ int) ([]txn.Op, error) {
+		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		assert := bson.D{{"txn-revno", txnRevno}}
+		return []txn.Op{{
+			C:      statusesC,
+			Id:     globalKey,
+			Assert: assert,
+			Update: update,
+		}}
+	}
+}
+
+// wrapSource returns a transaction source that combines the supplied source
+// with checks and asserts on the supplied token.
+func wrapSource(buildTxn jujutxn.TransactionSource, token leadership.Token) jujutxn.TransactionSource {
+	return func(attempt int) ([]txn.Op, error) {
+		var prereqs []txn.Op
+		if err := token.Check(&prereqs); err != nil {
+			return nil, errors.Annotatef(err, "prerequisites failed")
+		}
+		ops, err := buildTxn(attempt)
+		if err == jujutxn.ErrNoOperations {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return append(prereqs, ops...), nil
+	}
 }
 
 // createStatusOp returns the operation needed to create the given
