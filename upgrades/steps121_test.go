@@ -42,7 +42,6 @@ func (s *steps121Suite) TestStateStepsFor121(c *gc.C) {
 		// Non-environment UUID upgrade steps follow.
 		"rename the user LastConnection field to LastLogin",
 		"add all users in state as environment users",
-		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
 		"migrate individual unit ports to openedPorts collection",

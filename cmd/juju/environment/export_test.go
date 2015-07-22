@@ -3,11 +3,6 @@
 
 package environment
 
-var (
-	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
-	UserCurrent                  = &userCurrent
-)
-
 // NewGetCommand returns a GetCommand with the api provided as specified.
 func NewGetCommand(api GetEnvironmentAPI) *GetCommand {
 	return &GetCommand{
@@ -50,16 +45,16 @@ func NewUnshareCommand(api UnshareEnvironmentAPI) *UnshareCommand {
 	}
 }
 
-// NewCreateCommand returns a CreateCommand with the api provided as specified.
-func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
-	return &CreateCommand{
+// NewUsersCommand returns a UsersCommand with the api provided as specified.
+func NewUsersCommand(api UsersAPI) *UsersCommand {
+	return &UsersCommand{
 		api: api,
 	}
 }
 
-// NewUsersCommand returns a UsersCommand with the api provided as specified.
-func NewUsersCommand(api UsersAPI) *UsersCommand {
-	return &UsersCommand{
+// NewDestroyCommand returns a DestroyCommand with the api provided as specified.
+func NewDestroyCommand(api DestroyEnvironmentAPI) *DestroyCommand {
+	return &DestroyCommand{
 		api: api,
 	}
 }

@@ -133,6 +133,14 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"",
 			"error: cannot record metric: metrics disabled\n",
 			nil,
+		}, {
+			"cannot add builtin metric",
+			[]string{"add-metric", "juju-key=50"},
+			true,
+			1,
+			"",
+			"error: juju-key uses a reserved prefix\n",
+			nil,
 		}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)

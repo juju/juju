@@ -69,6 +69,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -219,7 +220,9 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf, logsCh)
+	machineAgentFactory := MachineAgentFactoryFn(
+		&agentConf, &agentConf, logsCh, &mockLoopDeviceManager{},
+	)
 	return machineAgentFactory(m.Id())
 }
 
@@ -228,7 +231,10 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, &agentConf, nil),
+			MachineAgentFactoryFn(
+				&agentConf, &agentConf, nil,
+				&mockLoopDeviceManager{},
+			),
 			&agentConf,
 			&agentConf,
 		)
@@ -303,7 +309,10 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf, nil),
+		MachineAgentFactoryFn(
+			agentConf, agentConf, nil,
+			&mockLoopDeviceManager{},
+		),
 		agentConf,
 		agentConf,
 	)
@@ -329,7 +338,10 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf, nil),
+		MachineAgentFactoryFn(
+			agentConf, agentConf, nil,
+			&mockLoopDeviceManager{},
+		),
 		agentConf,
 		agentConf,
 	)
@@ -1613,6 +1625,45 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+	for _, expectedIgnoreValue := range []bool{true, false} {
+		ignoreAddressCh := make(chan bool, 1)
+		s.AgentSuite.PatchValue(&newMachiner, func(
+			accessor machiner.MachineAccessor,
+			conf agent.Config,
+			ignoreMachineAddresses bool,
+		) worker.Worker {
+			select {
+			case ignoreAddressCh <- ignoreMachineAddresses:
+			default:
+			}
+			return machiner.NewMachiner(accessor, conf, ignoreMachineAddresses)
+		})
+
+		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
+		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+		a := s.newAgent(c, m)
+		defer a.Stop()
+		doneCh := make(chan error)
+		go func() {
+			doneCh <- a.Run(nil)
+		}()
+
+		select {
+		case ignoreMachineAddresses := <-ignoreAddressCh:
+			if ignoreMachineAddresses != expectedIgnoreValue {
+				c.Fatalf("expected ignore-machine-addresses = %v, got = %v", expectedIgnoreValue, ignoreMachineAddresses)
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for the machiner to start")
+		}
+		s.waitStopped(c, state.JobHostUnits, a, doneCh)
+	}
+}
+
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
@@ -2209,4 +2260,15 @@ func mktemp(prefix string, content string) string {
 	}
 	f.Close()
 	return f.Name()
+}
+
+type mockLoopDeviceManager struct {
+	detachLoopDevicesArgRootfs string
+	detachLoopDevicesArgPrefix string
+}
+
+func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
+	m.detachLoopDevicesArgRootfs = rootfs
+	m.detachLoopDevicesArgPrefix = prefix
+	return nil
 }

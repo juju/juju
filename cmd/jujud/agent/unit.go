@@ -233,6 +233,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			hookLock,
 			uniter.NewMetricsTimerChooser(),
 			uniter.NewUpdateStatusTimer(),
+			nil,
 		}
 		return uniter.NewUniter(&uniterParams), nil
 	})

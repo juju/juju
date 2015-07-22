@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
@@ -40,6 +41,7 @@ type dblogSuite struct {
 func (s *dblogSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
+	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.
@@ -95,7 +97,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	agentConf.ReadConfig(m.Tag().String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logsCh)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logsCh, nil)
 	a := machineAgentFactory(m.Id())
 
 	// Ensure there's no logs to begin with.

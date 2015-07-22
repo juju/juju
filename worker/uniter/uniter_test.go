@@ -11,9 +11,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type UniterSuite struct {
@@ -136,7 +139,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			// (and hence unit) name.
 			createCharm{},
 			createServiceAndUnit{serviceName: "w"},
-			startUniter{"unit-u-0"},
+			startUniter{unitTag: "unit-u-0"},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
 		),
 	})
@@ -1384,8 +1387,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			verifyCharm{},
 			collectMetricsTick{},
 			waitHooks{"collect-metrics"},
-		),
-		ut(
+		), ut(
 			"collect-metrics resumed after hook error",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1393,7 +1395,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
@@ -1403,7 +1405,9 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			verifyRunning{},
 		),
 		ut(
@@ -1414,7 +1418,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
@@ -1426,13 +1430,14 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			waitHooks{},
 		),
 	})
@@ -1453,8 +1458,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 			addMetrics{[]string{"15", "17"}},
 			sendMetricsTick{},
 			checkStateMetrics{number: 1, values: []string{"17", "15"}},
-		),
-		ut(
+		), ut(
 			"send-metrics resumed after hook error",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1463,7 +1467,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 				},
 			},
 			addMetrics{[]string{"15"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitHooks{"config-changed", "start"},
@@ -1471,8 +1475,7 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 			sendMetricsTick{},
 			checkStateMetrics{number: 2, values: []string{"15", "17"}},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"send-metrics state maintained during uniter restart",
 			startupErrorWithCustomCharm{
 				badHook: "config-changed",
@@ -1480,25 +1483,26 @@ func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
 					ctx.writeMetricsYaml(c, path)
 				},
 			},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			addMetrics{[]string{"13"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			fixHook{"config-changed"},
 			stopUniter{},
 			startUniter{},
 			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start", "collect-metrics"},
+			waitHooks{"config-changed", "start"},
+			collectMetricsTick{},
+			waitHooks{"collect-metrics"},
 			addMetrics{[]string{"21"}},
 			sendMetricsTick{},
 			checkStateMetrics{number: 2, values: []string{"13", "21"}},
 			verifyRunning{},
-		),
-		ut(
+		), ut(
 			"collect-metrics event not triggered for non-metered charm",
 			quickStart{},
-			collectMetricsTick{},
+			collectMetricsTick{expectFail: true},
 			addMetrics{[]string{"21"}},
-			sendMetricsTick{},
+			sendMetricsTick{expectFail: true},
 			waitHooks{},
 			checkStateMetrics{number: 0},
 		),
@@ -2194,5 +2198,39 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 		// storage attachments before upgrade-charm is run. This
 		// requires additions to state to add storage when a charm
 		// is upgraded.
+	})
+}
+
+type mockExecutor struct {
+	operation.Executor
+}
+
+func (m *mockExecutor) Run(op operation.Operation) error {
+	// want to allow charm unpacking to occur
+	if strings.HasPrefix(op.String(), "install") {
+		return m.Executor.Run(op)
+	}
+	// but hooks should error
+	return errors.New("some error occurred")
+}
+
+func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
+	executorFunc := func(u *uniter.Uniter) (operation.Executor, error) {
+		e, err := uniter.NewExecutor(u)
+		c.Assert(err, jc.ErrorIsNil)
+		return &mockExecutor{e}, nil
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"error running operations are reported",
+			createCharm{},
+			serveCharm{},
+			createUniter{executorFunc: executorFunc},
+			waitUnitAgent{
+				status: params.StatusFailed,
+				info:   "run install hook",
+			},
+			expectError{".*some error occurred.*"},
+		),
 	})
 }

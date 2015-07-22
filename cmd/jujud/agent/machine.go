@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -60,6 +61,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage/looputil"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -111,6 +113,7 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
+	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -261,6 +264,7 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	apiAddressSetter apiaddressupdater.APIAddressSetter,
 	bufferedLogs logsender.LogRecordCh,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
@@ -270,6 +274,7 @@ func MachineAgentFactoryFn(
 			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+			loopDeviceManager,
 		)
 	}
 }
@@ -282,6 +287,7 @@ func NewMachineAgent(
 	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:            machineId,
@@ -292,6 +298,7 @@ func NewMachineAgent(
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
+		loopDeviceManager:                loopDeviceManager,
 	}
 }
 
@@ -328,6 +335,8 @@ type MachineAgent struct {
 	mongoInitialized bool
 
 	apiStateUpgrader APIStateUpgrader
+
+	loopDeviceManager looputil.LoopDeviceManager
 }
 
 func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
@@ -438,16 +447,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
-	// For windows clients we need to make sure we set a random password in a
-	// registry file and use that password for the jujud user and its services
-	// before starting anything else.
-	// Services on windows need to know the user's password to start up. The only
-	// way to store that password securely is if the user running the services
-	// sets the password. This cannot be done during cloud-init so it is done here.
-	if err := password.EnsureJujudPassword(); err != nil {
-		return errors.Annotate(err, "Could not ensure jujud password")
-	}
-
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
@@ -455,6 +454,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+
 	network.InitializeFromConfig(agentConfig)
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
@@ -465,6 +465,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
+
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
@@ -746,9 +747,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	if ignoreMachineAddresses {
+		logger.Infof("machine addresses not used, only addresses from provider")
+	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return machiner.NewMachiner(accessor, agentConfig), nil
+		return newMachiner(accessor, agentConfig, ignoreMachineAddresses), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -800,10 +809,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	// Check if the network management is disabled.
-	envConfig, err := st.Environment().EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
-	}
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
@@ -1551,7 +1556,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Environment(), info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1604,6 +1609,20 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 			}
 		}
 		logger.Debugf("upgrades done, starting worker %q", name)
+
+		// For windows clients we need to make sure we set a random password in a
+		// registry file and use that password for the jujud user and its services
+		// before starting anything else.
+		// Services on windows need to know the user's password to start up. The only
+		// way to store that password securely is if the user running the services
+		// sets the password. This cannot be done during cloud-init so it is done here.
+		// This needs to get ran in between finishing the upgrades and starting
+		// the rest of the workers(in particular the deployer which should use
+		// the new password)
+		if err := password.EnsureJujudPassword(); err != nil {
+			return errors.Annotate(err, "Could not ensure jujud password")
+		}
+
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1673,9 +1692,26 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
+
 	// Remove the juju-run symlink.
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
+	}
+
+	insideLXC, err := lxcutils.RunningInsideLXC()
+	if err != nil {
+		errors = append(errors, err)
+	} else if insideLXC {
+		// We're running inside LXC, so loop devices may leak. Detach
+		// any loop devices that are backed by files on this machine.
+		//
+		// It is necessary to do this here as well as in container/lxc,
+		// as container/lxc needs to check in the container's rootfs
+		// to see if the loop device is attached to the container; that
+		// will fail if the data-dir is removed first.
+		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	namespace := agentConfig.Value(agent.Namespace)

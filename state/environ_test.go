@@ -49,7 +49,7 @@ func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
 
 func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
-	owner := s.factory.MakeUser(c, nil).UserTag()
+	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first environment.
 	_, st1, err := s.State.NewEnvironment(cfg, owner)
@@ -151,6 +151,41 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
+func (s *EnvironSuite) TestConfigForStateServerEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+
+	env, err := otherState.GetEnvironment(s.envTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "testenv")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, s.envTag.Id())
+}
+
+func (s *EnvironSuite) TestConfigForOtherEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+	otherEnv, err := otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// By getting the environment through a different state connection,
+	// the underlying state pointer in the *state.Environment struct has
+	// a different environment tag.
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "other")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, otherEnv.UUID())
+}
+
 // createTestEnvConfig returns a new environment config and its UUID for testing.
 func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
@@ -172,7 +207,7 @@ func (s *EnvironSuite) TestEnvironmentConfigSameEnvAsState(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
-	otherState := s.factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
 	env, err := otherState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +227,7 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,11 +236,46 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+}
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
+	// Simulate an environment being added just before the remove txn is
+	// called.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		blocker := s.Factory.MakeEnvironment(c, nil)
+		err := blocker.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}).Check()
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Simulate an environment being destroyed by another client just before
+	// the remove txn is called.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Destroy(), jc.ErrorIsNil)
+	}).Check()
+
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
@@ -316,24 +386,44 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
 }
 
-func (s *EnvironSuite) TestEnvironCount(c *gc.C) {
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
+func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("bob@remote")}).Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("mary@remote")}).Close()
+	envs, err := s.State.AllEnvironments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envs, gc.HasLen, 3)
+	var obtained []string
+	for _, env := range envs {
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Username(), env.Name()))
+	}
+	expected := []string{
+		"test-admin@local/testenv",
+		"bob@remote/test",
+		"mary@remote/test",
+	}
+	c.Assert(obtained, jc.SameContents, expected)
+}
 
-	st1 := s.factory.MakeEnvironment(c, nil)
+func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
+
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 2)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 2)
 
 	env1, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env1.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.EnvironCount(c, s.State), gc.Equals, 0)
+	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
 }

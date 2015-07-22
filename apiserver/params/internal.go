@@ -116,9 +116,17 @@ type Environment struct {
 	ServerUUID string
 }
 
-// EnvironmentList holds information about a list of environments.
-type EnvironmentList struct {
-	Environments []Environment
+// UserEnvironment holds information about an environment and the last
+// time the environment was accessed for a particular user.
+type UserEnvironment struct {
+	Environment
+	LastConnection *time.Time
+}
+
+// UserEnvironmentList holds information about a list of environments
+// for a particular user.
+type UserEnvironmentList struct {
+	UserEnvironments []UserEnvironment
 }
 
 // ResolvedModeResult holds a resolved mode or an error.
@@ -494,6 +502,20 @@ type StringsWatchResult struct {
 // returning a list of StringsWatchers.
 type StringsWatchResults struct {
 	Results []StringsWatchResult
+}
+
+// EntityWatchResult holds a EntityWatcher id, changes and an error
+// (if any).
+type EntityWatchResult struct {
+	EntityWatcherId string   `json:"EntityWatcherId"`
+	Changes         []string `json:"Changes"`
+	Error           *Error   `json:"Error"`
+}
+
+// EntityWatchResults holds the results for any API call which ends up
+// returning a list of EntityWatchers.
+type EntityWatchResults struct {
+	Results []EntityWatchResult
 }
 
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
