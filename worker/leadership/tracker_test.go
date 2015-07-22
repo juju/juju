@@ -21,7 +21,7 @@ import (
 type TrackerSuite struct {
 	testing.IsolationSuite
 	unitTag names.UnitTag
-	manager *StubLeadershipManager
+	claimer *StubClaimer
 }
 
 var _ = gc.Suite(&TrackerSuite{})
@@ -40,38 +40,38 @@ func refreshes(count int) time.Duration {
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
-	s.manager = &StubLeadershipManager{
+	s.claimer = &StubClaimer{
 		Stub:     &testing.Stub{},
 		releases: make(chan struct{}),
 	}
 }
 
 func (s *TrackerSuite) TearDownTest(c *gc.C) {
-	if s.manager != nil {
+	if s.claimer != nil {
 		// It's not impossible that there's a goroutine waiting for a
 		// BlockUntilLeadershipReleased. Make sure it completes.
-		close(s.manager.releases)
-		s.manager = nil
+		close(s.claimer.releases)
+		s.claimer = nil
 	}
 	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	select {
-	case s.manager.releases <- struct{}{}:
+	case s.claimer.releases <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
 	}
 }
 
 func (s *TrackerSuite) TestServiceName(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 	c.Assert(tracker.ServiceName(), gc.Equals, "led-service")
 }
 
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket succeeds.
@@ -79,7 +79,7 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -88,8 +88,8 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
-	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket fails.
@@ -101,7 +101,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	// Unblock the release goroutine, lest data races.
 	s.unblockRelease(c)
 
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -115,8 +115,8 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
-	s.manager.Stub.SetErrors(errors.New("pow"))
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(errors.New("pow"))
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer worker.Stop(tracker)
 
 	// Check the ticket fails.
@@ -125,7 +125,7 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	// Stop the tracker before trying to look at its mocks.
 	err := worker.Stop(tracker)
 	c.Check(err, gc.ErrorMatches, "leadership failure: pow")
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -134,8 +134,8 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
-	s.manager.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the first ticket succeeds.
@@ -152,7 +152,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	// Unblock the release goroutine, lest data races.
 	s.unblockRelease(c)
 
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -171,8 +171,8 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
-	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -189,7 +189,7 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -208,10 +208,10 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
-	s.manager.Stub.SetErrors(
+	s.claimer.Stub.SetErrors(
 		coreleadership.ErrClaimDenied, nil, coreleadership.ErrClaimDenied, nil,
 	)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -236,7 +236,7 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 	// ...and clear out the release goroutine before we look at the stub.
 	s.unblockRelease(c)
 
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -260,7 +260,7 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket succeeds.
@@ -268,7 +268,7 @@ func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -277,8 +277,8 @@ func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
-	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -295,7 +295,7 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -314,8 +314,8 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
-	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -332,7 +332,7 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	// Unblock the release goroutine and stop the tracker before trying to
 	// look at its stub.
 	s.unblockRelease(c)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -346,8 +346,8 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
-	s.manager.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket is closed immediately.
@@ -355,7 +355,7 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -369,8 +369,8 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
-	s.manager.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the first ticket stays open.
@@ -387,7 +387,7 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	// Unblock the release goroutine, lest data races.
 	s.unblockRelease(c)
 
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
@@ -406,7 +406,7 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	ticket := tracker.WaitMinion()
@@ -416,7 +416,7 @@ func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
 		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
 	}
 
-	s.manager.CheckCalls(c, []testing.StubCall{{
+	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
 			"led-service", "led-service/123", leaseDuration,
