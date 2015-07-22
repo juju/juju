@@ -770,7 +770,11 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	if !ecfg.SSLHostnameVerification() {
 		newClient = client.NewNonValidatingClient
 	}
-	return newClient(cred, authMode, nil)
+	client := newClient(cred, authMode, nil)
+	// By default, the client requires "compute" and
+	// "object-store". Juju only requires "compute".
+	client.SetRequiredServiceTypes([]string{"compute"})
+	return client
 }
 
 var authenticateClient = func(e *environ) error {
