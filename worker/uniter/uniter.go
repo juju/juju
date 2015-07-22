@@ -273,8 +273,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	runnerFactory, err := runner.NewFactory(
+	contextFactory, err := runner.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
+	)
+	if err != nil {
+		return err
+	}
+	runnerFactory, err := runner.NewFactory(
+		u.st, u.paths, contextFactory,
 	)
 	if err != nil {
 		return err

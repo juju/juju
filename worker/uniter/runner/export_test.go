@@ -40,7 +40,8 @@ func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
 
 func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.Settings) {
 	f := f0.(*factory)
-	members := f.relationCaches[relId].members
+	cf := f.contextFactory.(*contextFactory)
+	members := cf.relationCaches[relId].members
 	if members[unitName] == nil {
 		members[unitName] = params.Settings{}
 	}
@@ -51,7 +52,8 @@ func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings param
 
 func CachedSettings(f0 Factory, relId int, unitName string) (params.Settings, bool) {
 	f := f0.(*factory)
-	settings, found := f.relationCaches[relId].members[unitName]
+	cf := f.contextFactory.(*contextFactory)
+	settings, found := cf.relationCaches[relId].members[unitName]
 	return settings, found
 }
 
