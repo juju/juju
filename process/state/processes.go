@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/persistence"
@@ -31,14 +32,17 @@ type UnitProcesses struct {
 	Persist processesPersistence
 	// Unit identifies the unit associated with the processes.
 	Unit names.UnitTag
+	// Metadata is a function that returns the metadata for the unit's charm.
+	Metadata func() (*charm.Meta, error)
 }
 
 // NewUnitProcesses builds a UnitProcesses for a unit.
-func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag) *UnitProcesses {
+func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) *UnitProcesses {
 	persist := persistence.NewPersistence(st, unit)
 	return &UnitProcesses{
-		Persist: persist,
-		Unit:    unit,
+		Persist:  persist,
+		Unit:     unit,
+		Metadata: getMetadata,
 	}
 }
 
@@ -90,6 +94,20 @@ func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
 		return nil, errors.Trace(err)
 	}
 	return results, nil
+}
+
+// ListDefinitions builds the list of process definitions found in the
+// unit's charm metadata.
+func (ps UnitProcesses) ListDefinitions() ([]charm.Process, error) {
+	meta, err := ps.Metadata()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var definitions []charm.Process
+	for _, definition := range meta.Processes {
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 // Remove removes the identified process from state. It does not

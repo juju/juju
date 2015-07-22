@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/state"
@@ -164,6 +165,34 @@ func (s *unitProcessesSuite) TestListMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(procs, jc.DeepEquals, []process.Info{proc})
+}
+
+func (s *unitProcessesSuite) TestListDefinitions(c *gc.C) {
+	expected := s.newProcesses("docker", "procA", "procB")
+	getMetadata := func() (*charm.Meta, error) {
+		meta := &charm.Meta{
+			Processes: map[string]charm.Process{
+				"procA": expected[0].Process,
+				"procB": expected[1].Process,
+			},
+		}
+		return meta, nil
+	}
+	ps := state.UnitProcesses{Persist: s.persist}
+	ps.Metadata = getMetadata
+
+	definitions, err := ps.ListDefinitions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCalls(c, nil)
+	c.Check(definitions, gc.HasLen, 2)
+	if definitions[0].Name == "procA" {
+		c.Check(definitions[0], jc.DeepEquals, expected[0].Process)
+		c.Check(definitions[1], jc.DeepEquals, expected[1].Process)
+	} else {
+		c.Check(definitions[0], jc.DeepEquals, expected[1].Process)
+		c.Check(definitions[1], jc.DeepEquals, expected[0].Process)
+	}
 }
 
 func (s *unitProcessesSuite) TestRemoveOkay(c *gc.C) {
