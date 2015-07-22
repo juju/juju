@@ -90,6 +90,34 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 		Process: charm.Process{
 			Name: "myproc",
 			Type: "myplugin",
+			TypeOptions: map[string]string{
+				"critical": "true",
+			},
+			Command: "run-server",
+			Image:   "web-server",
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "",
+			}, {
+				External: 8081,
+				Internal: 443,
+				Endpoint: "",
+			}},
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/some-server/html",
+				InternalMount: "/usr/share/some-server/html",
+				Mode:          "ro",
+				Name:          "",
+			}, {
+				ExternalMount: "/var/some-server/conf",
+				InternalMount: "/etc/some-server",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			EnvVars: map[string]string{
+				"IMPORTANT": "some value",
+			},
 		},
 		Details: process.Details{
 			ID: "xyz123",
@@ -114,12 +142,8 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	}
 	unit.destroy(c)
 
-	unit.checkState(c, nil)
-	unit.checkPluginLog(c, []string{
-		`myproc	xyz123	running		added`,
-		`myproc	xyz123	running	{"Name":"myproc","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
-		`myproc	xyz123	running		removed`,
-	})
+	// At this point we can no longer call unit.checkStatus
+	// or unit.checkPluginLog...
 }
 
 // TODO(ericsnow) Add a test specifically for each supported plugin
@@ -474,7 +498,6 @@ func (u *procsUnit) checkPluginLog(c *gc.C, expected []string) {
 	output, ok := results["output"]
 	c.Assert(ok, jc.IsTrue)
 	lines := strings.Split(output, "\n")
-	// TODO(ericsnow) strip header...
 
 	c.Check(lines, jc.DeepEquals, expected)
 }
