@@ -30,6 +30,7 @@ type workloadProcesses struct{}
 func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
 	c.registerState()
+	c.registerStatusAPI()
 	return nil
 }
 
@@ -146,7 +147,7 @@ func (c workloadProcesses) registerState() {
 }
 
 func (c workloadProcesses) registerStatusAPI() {
-
+	logger.Debugf("registering status API for processes")
 	statusAdapter := func(st *state.State, unitTag names.UnitTag) (map[string]string, error) {
 		unitTagToProcessList := func(unitTag names.UnitTag) ([]process.Info, error) {
 			unitProcesses, err := st.UnitProcesses(unitTag)

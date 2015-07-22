@@ -15,7 +15,7 @@ import (
 type StatusProviderForUnitFn func(*state.State, names.UnitTag) (map[string]string, error)
 
 // statusProvidersForUnits contains all registered statusProviders.
-var statusProvidersForUnits map[string]StatusProviderForUnitFn
+var statusProvidersForUnits = map[string]StatusProviderForUnitFn{}
 
 // RegisterStatusProviderForUnit registers status providers with the
 // status API server client.
