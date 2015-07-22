@@ -43,6 +43,7 @@ var (
 	repoDir         = testcharms.Repo.Path()
 	procsEnv        *procsEnviron
 	procsSuiteCount = 3
+	alwaysCleanUp   = true
 )
 
 type processesBaseSuite struct {
@@ -448,7 +449,7 @@ func (env *procsEnviron) destroy(c *gc.C) {
 	if env.refCount > 0 {
 		env.refCount -= 1
 	}
-	if env.refCount != 0 || procsEnv == nil {
+	if !alwaysCleanUp && (env.refCount != 0 || procsEnv == nil) {
 		return
 	}
 	env.run(c, "destroy-environment", "--force")
