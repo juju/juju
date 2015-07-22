@@ -172,7 +172,13 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 	if err := c.compCtx.Set(c.Name, info); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(ericsnow) flush here?
+
+	// We flush to state immedeiately so that status reflects the
+	// process correctly.
+	if err := c.compCtx.Flush(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

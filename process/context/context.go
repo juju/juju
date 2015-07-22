@@ -25,6 +25,8 @@ type Component interface {
 	Get(procName string) (*process.Info, error)
 	// Set records the process info in the hook context.
 	Set(procName string, info *process.Info) error
+	// Flush pushes the hook context data out to state.
+	Flush() error
 }
 
 // Context is the workload process portion of the hook context.
