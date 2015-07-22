@@ -267,6 +267,65 @@ func (suite) TestListProcessesAll(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
+func (suite) TestListDefinitions(c *gc.C) {
+	definition := charm.Process{
+		Name:        "foobar",
+		Description: "desc",
+		Type:        "type",
+		TypeOptions: map[string]string{"foo": "bar"},
+		Command:     "cmd",
+		Image:       "img",
+		Ports: []charm.ProcessPort{
+			{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "endpoint",
+			},
+		},
+		Volumes: []charm.ProcessVolume{
+			{
+				ExternalMount: "/foo/bar",
+				InternalMount: "/baz/bat",
+				Mode:          "ro",
+				Name:          "volname",
+			},
+		},
+		EnvVars: map[string]string{"envfoo": "bar"},
+	}
+	st := &FakeState{defs: []charm.Process{definition}}
+	a := HookContextAPI{st}
+
+	results, err := a.ListDefinitions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(results, jc.DeepEquals, api.ListDefinitionsResults{
+		Results: []api.ProcessDefinition{{
+			Name:        "foobar",
+			Description: "desc",
+			Type:        "type",
+			TypeOptions: map[string]string{"foo": "bar"},
+			Command:     "cmd",
+			Image:       "img",
+			Ports: []api.ProcessPort{
+				{
+					External: 8080,
+					Internal: 80,
+					Endpoint: "endpoint",
+				},
+			},
+			Volumes: []api.ProcessVolume{
+				{
+					ExternalMount: "/foo/bar",
+					InternalMount: "/baz/bat",
+					Mode:          "ro",
+					Name:          "volname",
+				},
+			},
+			EnvVars: map[string]string{"envfoo": "bar"},
+		}},
+	})
+}
+
 func (suite) TestSetProcessStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
@@ -326,6 +385,7 @@ type FakeState struct {
 
 	//outputs
 	procs []process.Info
+	defs  []charm.Process
 	err   error
 }
 
@@ -333,9 +393,14 @@ func (f *FakeState) Add(info process.Info) error {
 	f.info = info
 	return f.err
 }
+
 func (f *FakeState) List(ids ...string) ([]process.Info, error) {
 	f.ids = ids
 	return f.procs, f.err
+}
+
+func (f *FakeState) ListDefinitions() ([]charm.Process, error) {
+	return f.defs, f.err
 }
 
 func (f *FakeState) SetStatus(id string, status process.PluginStatus) error {

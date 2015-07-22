@@ -8,6 +8,7 @@ package server
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/process"
@@ -23,6 +24,9 @@ type UnitProcesses interface {
 	Add(info process.Info) error
 	// List returns information on the process with the id on the unit.
 	List(ids ...string) ([]process.Info, error)
+	// ListDefinitions returns the process definitions found in the
+	// unit's metadata.
+	ListDefinitions() ([]charm.Process, error)
 	// Settatus sets the status for the process with the given id on the unit.
 	SetStatus(id string, status process.PluginStatus) error
 	// Remove removes the information for the process with the given id.
@@ -38,6 +42,24 @@ type HookContextAPI struct {
 // NewHookContextAPI builds a new facade for the given State.
 func NewHookContextAPI(st UnitProcesses) *HookContextAPI {
 	return &HookContextAPI{State: st}
+}
+
+// ListDefinitions builds the list of workload process definitions
+// found in the metadata of the unit's charm.
+func (a HookContextAPI) ListDefinitions() (api.ListDefinitionsResults, error) {
+	var results api.ListDefinitionsResults
+
+	definitions, err := a.State.ListDefinitions()
+	if err != nil {
+		results.Error = common.ServerError(err)
+		return results, nil
+	}
+
+	for _, definition := range definitions {
+		result := api.Definition2api(definition)
+		results.Results = append(results.Results, result)
+	}
+	return results, nil
 }
 
 // RegisterProcess registers a workload process in state.
