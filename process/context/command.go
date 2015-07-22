@@ -121,6 +121,33 @@ func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
 	return defMap, nil
 }
 
+func (c *baseCommand) registeredProcs(ids ...string) ([]process.Info, error) {
+	if len(ids) == 0 {
+		registered, err := c.compCtx.List()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(registered) == 0 {
+			return nil, nil
+		}
+		ids = registered
+	}
+
+	var procs []process.Info
+	for _, id := range ids {
+		proc, err := c.compCtx.Get(id)
+		if errors.IsNotFound(err) {
+			// This is an inconsequential race so we ignore it.
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		procs = append(procs, *proc)
+	}
+	return procs, nil
+}
+
 // registeringCommand is the base for commands that register a process
 // that has been launched.
 type registeringCommand struct {
