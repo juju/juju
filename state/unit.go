@@ -985,9 +985,10 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 	db, closer := u.st.newDB()
 	defer closer()
-	envUUID := u.st.EnvironUUID()
-	units := getCollectionFromDB(db, unitsC, envUUID)
-	charms := getCollectionFromDB(db, charmsC, envUUID)
+	units, closer := db.GetCollection(unitsC)
+	defer closer()
+	charms, closer := db.GetCollection(charmsC)
+	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1145,17 +1146,47 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	originalm := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			m, err = u.st.Machine(m.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return u.assignToMachineOps(m, unused)
+	}
+	if err := u.st.run(buildTxn); err != nil {
+		// Don't wrap the error, as we want to return specific values
+		// as described in the doc comment.
+		return err
+	}
+	u.doc.MachineId = originalm.doc.Id
+	originalm.doc.Clean = false
+	return nil
+}
+
+func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
+	if u.Life() != Alive {
+		return nil, unitNotAliveErr
+	}
+	if m.Life() != Alive {
+		return nil, machineNotAliveErr
+	}
 	if u.doc.Series != m.doc.Series {
-		return fmt.Errorf("series does not match")
+		return nil, fmt.Errorf("series does not match")
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
-			return alreadyAssignedErr
+			return nil, alreadyAssignedErr
 		}
-		return nil
+		return nil, jujutxn.ErrNoOperations
 	}
 	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
+		return nil, fmt.Errorf("unit is a subordinate")
+	}
+	if unused && !m.doc.Clean {
+		return nil, inUseErr
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -1165,29 +1196,36 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		}
 	}
 	if !canHost {
-		return fmt.Errorf("machine %q cannot host units", m)
+		return nil, fmt.Errorf("machine %q cannot host units", m)
 	}
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
 	if err := u.st.supportsUnitPlacement(); err != nil {
-		return err
+		return nil, err
 	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
 		&m.doc, storageParams,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
-		m.doc.Id, volumesAttached, filesystemsAttached,
-	))
+	// addMachineStorageAttachmentsOps will add a txn.Op that ensures
+	// that no filesystems were concurrently added to the machine if
+	// any of the filesystems being attached specify a location.
+	attachmentOps, err := addMachineStorageAttachmentsOps(
+		m, volumesAttached, filesystemsAttached,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps = append(storageOps, attachmentOps...)
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1211,32 +1249,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
 	ops = append(ops, storageOps...)
-	err = u.st.runTransaction(ops)
-	if err == nil {
-		u.doc.MachineId = m.doc.Id
-		m.doc.Clean = false
-		return nil
-	}
-	if err != txn.ErrAborted {
-		return err
-	}
-	u0, err := u.st.Unit(u.Name())
-	if err != nil {
-		return err
-	}
-	m0, err := u.st.Machine(m.Id())
-	if err != nil {
-		return err
-	}
-	switch {
-	case u0.Life() != Alive:
-		return unitNotAliveErr
-	case m0.Life() != Alive:
-		return machineNotAliveErr
-	case u0.doc.MachineId != "" || !unused:
-		return alreadyAssignedErr
-	}
-	return inUseErr
+	return ops, nil
 }
 
 // validateDynamicMachineStorageParams validates that the provided machine
@@ -1256,7 +1269,10 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStorageParams(m.st, params)
+	if err := validateDynamicStorageParams(m.st, params); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // validateDynamicStorageParams validates that all storage providers required for
@@ -1465,23 +1481,24 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	}
 
 	// Find a clean, empty machine on which to create a container.
-	var host machineDoc
 	hostCons := *cons
 	noContainer := instance.NONE
 	hostCons.Container = &noContainer
-	query, closer, err := u.findCleanMachineQuery(true, &hostCons)
+	query, err := u.findCleanMachineQuery(true, &hostCons)
 	if err != nil {
 		return err
 	}
+	machinesCollection, closer := u.st.getCollection(machinesC)
 	defer closer()
-	err = query.One(&host)
-	if err == mgo.ErrNotFound {
+	var host machineDoc
+	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
 		// No existing clean, empty machine so create a new one.
 		// The container constraint will be used by AssignToNewMachine to create the required container.
 		return u.AssignToNewMachine()
 	} else if err != nil {
 		return err
 	}
+
 	svc, err := u.Service()
 	if err != nil {
 		return err
@@ -1668,6 +1685,7 @@ func machineStorageParamsForStorageInstance(
 			)
 		}
 		filesystemAttachmentParams := FilesystemAttachmentParams{
+			charmStorage.Location == "", // auto-generated location
 			location,
 			charmStorage.ReadOnly,
 		}
@@ -1742,23 +1760,20 @@ var hasNoContainersTerm = bson.DocElem{
 
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
-func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (_ *mgo.Query, _ func(), err error) {
+func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
 	db, closer := u.st.newDB()
-	defer func() {
-		if err != nil {
-			closer()
-		}
-	}()
-	containerRefsCollection := db.C(containerRefsC)
+	defer closer()
+	containerRefsCollection, closer := db.GetCollection(containerRefsC)
+	defer closer()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which have containers
 	// so we can exclude those.
 	if requireEmpty {
-		err = containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
+		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
-			return nil, closer, err
+			return nil, err
 		}
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
@@ -1811,10 +1826,11 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"tags", bson.D{{"$all", *cons.Tags}}})
 	}
 	if len(suitableTerms) > 0 {
-		instanceData := db.C(instanceDataC)
-		err := instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
+		instanceDataCollection, closer := db.GetCollection(instanceDataC)
+		defer closer()
+		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
-			return nil, closer, err
+			return nil, err
 		}
 		var suitableIds = make([]string, len(suitableInstanceData))
 		for i, m := range suitableInstanceData {
@@ -1822,8 +1838,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		}
 		terms = append(terms, bson.DocElem{"_id", bson.D{{"$in", suitableIds}}})
 	}
-	machines := db.C(machinesC)
-	return machines.Find(terms), closer, nil
+	return terms, nil
 }
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
@@ -1841,7 +1856,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// If any required storage s not all dynamic, then assigning
+	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
@@ -1862,19 +1877,20 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	query, closer, err := u.findCleanMachineQuery(requireEmpty, cons)
+	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	defer closer()
 
 	// Find all of the candidate machines, and associated
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
+	machinesCollection, closer := u.st.getCollection(machinesC)
+	defer closer()
 	var mdocs []*machineDoc
-	if err := query.All(&mdocs); err != nil {
+	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}

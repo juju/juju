@@ -22,6 +22,7 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/storage/looputil"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/logsender"
@@ -135,7 +136,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// MachineAgent type has called out the seperate concerns; the
 	// AgentConf should be split up to follow suite.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logCh)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf, agentConf, logCh,
+		looputil.NewLoopDeviceManager(),
+	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))

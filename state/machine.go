@@ -352,7 +352,7 @@ func (m *Machine) SetMongoPassword(password string) error {
 	if !m.IsManager() {
 		return errors.NotSupportedf("setting mongo password for non-state server machine %v", m)
 	}
-	return mongo.SetAdminMongoPassword(m.st.db.Session, m.Tag().String(), password)
+	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.

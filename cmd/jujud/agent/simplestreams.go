@@ -63,7 +63,7 @@ func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
 func registerSimplestreamsDataSource(stor storage.Storage) {
 	ds := NewEnvironmentStorageDataSource(stor)
-	environs.RegisterImageDataSourceFunc(ds.Description(), func(environs.Environ) (simplestreams.DataSource, error) {
+	environs.RegisterUserImageDataSourceFunc(ds.Description(), func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})
 }

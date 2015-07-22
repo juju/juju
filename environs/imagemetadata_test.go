@@ -79,14 +79,19 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
 		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
+	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id2", "foobar", utils.NoVerifySSLHostnames), nil
+	})
 	defer environs.UnregisterImageDataSourceFunc("id0")
 	defer environs.UnregisterImageDataSourceFunc("id1")
+	defer environs.UnregisterImageDataSourceFunc("id2")
 
 	env := s.env(c, "config-image-metadata-url", "")
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-image-metadata-url/",
+		"foobar/",
 		"betwixt/releases/",
 		"http://cloud-images.ubuntu.com/releases/",
 	})
