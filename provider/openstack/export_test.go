@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
@@ -76,6 +77,14 @@ var (
 )
 
 type OpenstackStorage openstackStorage
+
+func NewCinderProvider(s OpenstackStorage) storage.Provider {
+	return &cinderProvider{
+		func(*config.Config) (openstackStorage, error) {
+			return openstackStorage(s), nil
+		},
+	}
+}
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"

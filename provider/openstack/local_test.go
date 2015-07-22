@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
@@ -45,6 +46,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -147,6 +149,22 @@ type localLiveSuite struct {
 	srv localServer
 }
 
+func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
+	// Override the cinder storage provider, since there is no test
+	// double for cinder.
+	old, err := registry.StorageProvider(openstack.CinderProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterProvider(openstack.CinderProviderType, nil)
+	registry.RegisterProvider(
+		openstack.CinderProviderType,
+		openstack.NewCinderProvider(&mockAdapter{}),
+	)
+	s.AddSuiteCleanup(func(*gc.C) {
+		registry.RegisterProvider(openstack.CinderProviderType, nil)
+		registry.RegisterProvider(openstack.CinderProviderType, old)
+	})
+}
+
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
@@ -155,6 +173,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -193,6 +212,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
 
@@ -1094,6 +1114,11 @@ type localHTTPSServerSuite struct {
 	cred  *identity.Credentials
 	srv   localServer
 	env   environs.Environ
+}
+
+func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {

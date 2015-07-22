@@ -6,6 +6,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -36,6 +37,11 @@ var _ = gc.Suite(&cinderVolumeSourceSuite{})
 
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite
+}
+
+func init() {
+	// Override attempt strategy to speed things up.
+	openstack.CinderAttempt.Delay = 0
 }
 
 func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
@@ -257,19 +263,44 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *gc.C) {
-	var numCalls int
+	mockAdapter := &mockAdapter{}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	errs := volSource.DestroyVolumes([]string{mockVolId})
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
+		"DeleteVolume", []interface{}{mockVolId},
+	}})
+}
+
+func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *gc.C) {
+	statuses := []string{"in-use", "detaching", "available"}
+
 	mockAdapter := &mockAdapter{
-		deleteVolume: func(volId string) error {
-			numCalls++
-			c.Check(volId, gc.Equals, mockVolId)
-			return nil
+		getVolume: func(volId string) (*cinder.Volume, error) {
+			c.Assert(statuses, gc.Not(gc.HasLen), 0)
+			status := statuses[0]
+			statuses = statuses[1:]
+			return &cinder.Volume{
+				ID:     volId,
+				Status: status,
+			}, nil
 		},
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	errs := volSource.DestroyVolumes([]string{mockVolId})
-	c.Assert(numCalls, gc.Equals, 1)
-	c.Assert(errs, jc.DeepEquals, []error{nil})
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIsNil)
+	c.Assert(statuses, gc.HasLen, 0)
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
+		"GetVolume", []interface{}{mockVolId},
+	}, {
+		"GetVolume", []interface{}{mockVolId},
+	}, {
+		"GetVolume", []interface{}{mockVolId},
+	}, {
+		"DeleteVolume", []interface{}{mockVolId},
+	}})
 }
 
 func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
@@ -315,10 +346,15 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 			InstanceId: mockServerId2,
 		},
 	}})
-	c.Assert(numListCalls, gc.Equals, 2)
-	// DetachVolume should only be called for existing attachments.
-	c.Assert(numDetachCalls, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
+	// DetachVolume should only be called for existing attachments.
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
+		"ListVolumeAttachments", []interface{}{mockServerId},
+	}, {
+		"DetachVolume", []interface{}{mockServerId, mockVolId},
+	}, {
+		"ListVolumeAttachments", []interface{}{mockServerId2},
+	}})
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
@@ -419,6 +455,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 }
 
 type mockAdapter struct {
+	gitjujutesting.Stub
 	getVolume             func(string) (*cinder.Volume, error)
 	getVolumesDetail      func() ([]cinder.Volume, error)
 	deleteVolume          func(string) error
@@ -430,6 +467,7 @@ type mockAdapter struct {
 }
 
 func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
+	ma.MethodCall(ma, "GetVolume", volumeId)
 	if ma.getVolume != nil {
 		return ma.getVolume(volumeId)
 	}
@@ -440,6 +478,7 @@ func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
 }
 
 func (ma *mockAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
+	ma.MethodCall(ma, "GetVolumesDetail")
 	if ma.getVolumesDetail != nil {
 		return ma.getVolumesDetail()
 	}
@@ -447,6 +486,7 @@ func (ma *mockAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
 }
 
 func (ma *mockAdapter) DeleteVolume(volId string) error {
+	ma.MethodCall(ma, "DeleteVolume", volId)
 	if ma.deleteVolume != nil {
 		return ma.deleteVolume(volId)
 	}
@@ -454,6 +494,7 @@ func (ma *mockAdapter) DeleteVolume(volId string) error {
 }
 
 func (ma *mockAdapter) CreateVolume(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+	ma.MethodCall(ma, "CreateVolume", args)
 	if ma.createVolume != nil {
 		return ma.createVolume(args)
 	}
@@ -461,6 +502,7 @@ func (ma *mockAdapter) CreateVolume(args cinder.CreateVolumeVolumeParams) (*cind
 }
 
 func (ma *mockAdapter) AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error) {
+	ma.MethodCall(ma, "AttachVolume", serverId, volumeId, mountPoint)
 	if ma.attachVolume != nil {
 		return ma.attachVolume(serverId, volumeId, mountPoint)
 	}
@@ -468,6 +510,7 @@ func (ma *mockAdapter) AttachVolume(serverId, volumeId, mountPoint string) (*nov
 }
 
 func (ma *mockAdapter) DetachVolume(serverId, attachmentId string) error {
+	ma.MethodCall(ma, "DetachVolume", serverId, attachmentId)
 	if ma.detachVolume != nil {
 		return ma.detachVolume(serverId, attachmentId)
 	}
@@ -475,6 +518,7 @@ func (ma *mockAdapter) DetachVolume(serverId, attachmentId string) error {
 }
 
 func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error) {
+	ma.MethodCall(ma, "ListVolumeAttachments", serverId)
 	if ma.listVolumeAttachments != nil {
 		return ma.listVolumeAttachments(serverId)
 	}
