@@ -52,6 +52,12 @@ func StorageProvider(providerType storage.ProviderType) (storage.Provider, error
 // supported ProviderType(s).
 var supportedEnvironProviders = make(map[string][]storage.ProviderType)
 
+// ResetEnvironStorageProviders clears out the supported storage providers for
+// the specified environment type. This is provided for testing purposes.
+func ResetEnvironStorageProviders(envType string) {
+	delete(supportedEnvironProviders, envType)
+}
+
 // RegisterEnvironStorageProviders records which storage provider types
 // are valid for an environment.
 // This is to be called from the environ provider's init().
