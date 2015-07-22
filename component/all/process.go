@@ -123,7 +123,7 @@ func (workloadProcesses) registerHookContextCommands() {
 		return cmd
 	})
 
-	jujuc.RegisterCommand("info", func(ctx jujuc.Context) cmd.Command {
+	jujuc.RegisterCommand("proc-info", func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcInfoCommand(compCtx)
 		if err != nil {

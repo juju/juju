@@ -154,7 +154,7 @@ func (s *infoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.infoCmd = cmd
-	s.setCommand(c, "info", s.infoCmd)
+	s.setCommand(c, "proc-info", s.infoCmd)
 
 	cmd.ReadMetadata = s.readMetadata
 }
