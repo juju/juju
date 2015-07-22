@@ -74,11 +74,6 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 	c.Check(s.cmdCtx.Stderr.(*bytes.Buffer).String(), gc.Equals, expected)
 }
 
-func (s *commandSuite) checkDetails(c *gc.C, expected process.Details) {
-	info := context.GetCmdInfo(s.cmd)
-	c.Check(info.Details, jc.DeepEquals, expected)
-}
-
 func (s *commandSuite) checkCommandRegistered(c *gc.C) {
 	component := &context.Context{}
 	hctx, info := s.NewHookContext()
@@ -105,4 +100,21 @@ func (s *commandSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
 
 	s.checkStdout(c, expectedOut)
 	s.checkStderr(c, expectedErr)
+}
+
+type registeringCommandSuite struct {
+	commandSuite
+}
+
+func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent process.Info) {
+	s.checkRun(c, "", "")
+
+	info := context.GetCmdInfo(s.cmd)
+	c.Check(info, jc.DeepEquals, &orig)
+
+	s.Stub.CheckCallNames(c, "Get", "Set", "Flush")
+	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{
+		sent.Name,
+		&sent,
+	})
 }

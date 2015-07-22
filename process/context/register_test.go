@@ -14,7 +14,7 @@ import (
 )
 
 type registerSuite struct {
-	commandSuite
+	registeringCommandSuite
 
 	registerCmd *context.ProcRegistrationCommand
 	details     process.Details
@@ -45,10 +45,10 @@ func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	}
 }
 
-func (s *registerSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
-	s.commandSuite.checkRun(c, expectedOut, expectedErr)
+func (s *registerSuite) checkRunInfo(c *gc.C, orig, sent process.Info) {
+	s.registeringCommandSuite.checkRunInfo(c, orig, sent)
 
-	s.checkDetails(c, s.details)
+	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &sent.Process)
 }
 
 func (s *registerSuite) TestCommandRegistered(c *gc.C) {
@@ -174,11 +174,12 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	}
 	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	s.checkRun(c, "", "")
-
-	expected := s.proc.Process.Copy()
-	expected.Description = "foo"
-	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+	def := s.proc.Process.Copy()
+	def.Description = "foo"
+	s.checkRunInfo(c, *s.proc, process.Info{
+		Process: def,
+		Details: s.details,
+	})
 }
 
 func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
@@ -189,11 +190,12 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	}
 	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	s.checkRun(c, "", "")
-
-	expected := s.proc.Process.Copy()
-	expected.EnvVars = map[string]string{"foo": "baz"}
-	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+	def := s.proc.Process.Copy()
+	def.EnvVars = map[string]string{"foo": "baz"}
+	s.checkRunInfo(c, *s.proc, process.Info{
+		Process: def,
+		Details: s.details,
+	})
 }
 
 func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
@@ -240,11 +242,12 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	}
 	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	s.checkRun(c, "", "")
-
-	expected := s.proc.Process.Copy()
-	expected.Description = "foo"
-	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+	def := s.proc.Process.Copy()
+	def.Description = "foo"
+	s.checkRunInfo(c, *s.proc, process.Info{
+		Process: def,
+		Details: s.details,
+	})
 }
 
 func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
@@ -254,11 +257,12 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 	}
 	s.init(c, s.proc.Name, "abc123-override", "okay")
 
-	s.checkRun(c, "", "")
-
-	expected := s.proc.Process.Copy()
-	expected.EnvVars = map[string]string{"foo": "baz"}
-	c.Check(s.registerCmd.UpdatedProcess, jc.DeepEquals, &expected)
+	def := s.proc.Process.Copy()
+	def.EnvVars = map[string]string{"foo": "baz"}
+	s.checkRunInfo(c, *s.proc, process.Info{
+		Process: def,
+		Details: s.details,
+	})
 }
 
 func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {

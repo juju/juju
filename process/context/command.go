@@ -179,22 +179,36 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 }
 
 func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, error) {
-	if c.info != nil {
-		logger.Debugf("using existing process.Info")
-		copied := *c.info
-
-		if c.UpdatedProcess == nil {
-			logger.Debugf("parsing updates")
-			newProcess, err := c.parseUpdates(c.info.Process)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			c.UpdatedProcess = newProcess
-			copied.Process = *newProcess
+	if c.info == nil {
+		info, err := c.findInfo(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return &copied, nil
+		c.info = info
 	}
+	info := *c.info // copied
 
+	if c.UpdatedProcess == nil {
+		logger.Debugf("parsing updates")
+		newProcess, err := c.parseUpdates(c.info.Process)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		c.UpdatedProcess = newProcess
+	}
+	info.Process = *c.UpdatedProcess
+
+	// validate
+	if err := info.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if info.IsRegistered() {
+		return nil, errors.Errorf("already registered")
+	}
+	return &info, nil
+}
+
+func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 	var definition charm.Process
 	if c.Definition.Path == "" {
 		filename := filepath.Join(ctx.Dir, "metadata.yaml")
@@ -216,27 +230,7 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 		definition = *cliDef
 	}
 	logger.Debugf("creating new process.Info")
-	info := &process.Info{Process: definition}
-
-	logger.Debugf("parsing updates")
-	newProcess, err := c.parseUpdates(info.Process)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	c.UpdatedProcess = newProcess
-	info.Process = *newProcess
-
-	// validate
-	if err := info.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	c.info = info
-
-	if info.IsRegistered() {
-		return nil, errors.Errorf("already registered")
-	}
-	return info, nil
+	return &process.Info{Process: definition}, nil
 }
 
 func (c *registeringCommand) defFromMetadata(name, filename string) (*charm.Process, error) {
