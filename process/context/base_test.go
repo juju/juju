@@ -130,14 +130,16 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
-	stub  *testing.Stub
-	procs map[string]*process.Info
+	stub        *testing.Stub
+	procs       map[string]*process.Info
+	definitions map[string]charm.Process
 }
 
 func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	return &stubAPIClient{
-		stub:  stub,
-		procs: make(map[string]*process.Info),
+		stub:        stub,
+		procs:       make(map[string]*process.Info),
+		definitions: make(map[string]charm.Process),
 	}
 }
 
@@ -150,6 +152,19 @@ func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 		procs = append(procs, &proc)
 	}
 	return procs
+}
+
+func (c *stubAPIClient) AllDefinitions() ([]charm.Process, error) {
+	c.stub.AddCall("AllDefinitions")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	definitions := make([]charm.Process, len(c.definitions))
+	for _, definition := range c.definitions {
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 func (c *stubAPIClient) List() ([]string, error) {

@@ -5,9 +5,13 @@ package context
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
+
+// TODO(ericsnow) Normalize method names across all the arch. layers
+// (e.g. List->AllProcesses, Get->Processes, Set->AddProcess).
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {
@@ -17,7 +21,13 @@ type APIClient interface {
 	Get(ids ...string) ([]*process.Info, error)
 	// Set sends a request to update state with the provided processes.
 	Set(procs ...*process.Info) error
+	// AllDefinitions returns the process definitions found in the
+	// unit's metadata.
+	AllDefinitions() ([]charm.Process, error)
 }
+
+// TODO(ericsnow) Rename Get and Set to more specifically describe what
+// they are for.
 
 // omponent provides the hook context data specific to workload processes.
 type Component interface {

@@ -5,6 +5,7 @@ package client
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
@@ -25,6 +26,24 @@ type HookContextClient struct {
 // NewHookContextClient builds a new workload process API client.
 func NewHookContextClient(caller facadeCaller) HookContextClient {
 	return HookContextClient{caller}
+}
+
+// AllDefinitions calls the ListDefinitions API server method.
+func (c HookContextClient) AllDefinitions() ([]charm.Process, error) {
+	var results api.ListDefinitionsResults
+	if err := c.FacadeCall("ListDefinitions", nil, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if results.Error != nil {
+		return nil, errors.Errorf(results.Error.GoString())
+	}
+
+	var definitions []charm.Process
+	for _, result := range results.Results {
+		definition := api.API2Definition(result)
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 // RegisterProcesses calls the RegisterProcesses API server method.
