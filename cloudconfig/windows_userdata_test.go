@@ -809,6 +809,7 @@ $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 
 
+mkdir -Force "C:\Juju"
 icacls "C:\Juju" /grant "jujud:(OI)(CI)(F)" /T
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
