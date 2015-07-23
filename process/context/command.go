@@ -121,7 +121,7 @@ func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
 	return defMap, nil
 }
 
-func (c *baseCommand) registeredProcs(ids ...string) ([]process.Info, error) {
+func (c *baseCommand) registeredProcs(ids ...string) (map[string]*process.Info, error) {
 	if len(ids) == 0 {
 		registered, err := c.compCtx.List()
 		if err != nil {
@@ -133,17 +133,15 @@ func (c *baseCommand) registeredProcs(ids ...string) ([]process.Info, error) {
 		ids = registered
 	}
 
-	var procs []process.Info
+	procs := make(map[string]*process.Info)
 	for _, id := range ids {
 		proc, err := c.compCtx.Get(id)
 		if errors.IsNotFound(err) {
-			// This is an inconsequential race so we ignore it.
-			continue
-		}
-		if err != nil {
+			proc = nil
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		procs = append(procs, *proc)
+		procs[id] = proc
 	}
 	return procs, nil
 }

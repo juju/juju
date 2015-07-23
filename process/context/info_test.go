@@ -6,7 +6,6 @@ package context_test
 import (
 	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -250,9 +249,7 @@ func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
 func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
 	s.init(c, "myprocess0")
 
-	err := s.infoCmd.Run(s.cmdCtx)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.checkRun(c, `["myprocess0" not found]`+"\n", "")
 	s.Stub.CheckCallNames(c, "Get")
 }
 
@@ -285,9 +282,7 @@ func (s *infoSuite) TestRunWithNameNotAvailable(c *gc.C) {
 	s.infoCmd.Available = true
 	s.init(c, "wistful")
 
-	err := s.infoCmd.Run(s.cmdCtx)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.checkRun(c, `["wistful" not found]`+"\n", "")
 	s.Stub.CheckCallNames(c, "ListDefinitions")
 }
 

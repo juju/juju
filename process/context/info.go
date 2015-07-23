@@ -100,12 +100,22 @@ func (c *ProcInfoCommand) printInfos(ctx *cmd.Context, ids ...string) error {
 		fmt.Fprintln(ctx.Stderr, " [no processes registered]")
 		return nil
 	}
-	// TODO(ericsnow) Sort if len(ids) == 0.
-	var values []interface{}
-	for _, v := range procs {
-		values = append(values, v)
+	if len(ids) == 0 {
+		for _, proc := range procs {
+			ids = append(ids, proc.Name)
+		}
+		sort.Strings(ids)
 	}
-	if err := dumpAll(ctx, values...); err != nil {
+
+	values := make(map[string]interface{})
+	for k, v := range procs {
+		if v == nil {
+			values[k] = nil
+			continue
+		}
+		values[k] = v
+	}
+	if err := dumpAll(ctx, ids, values); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -128,21 +138,28 @@ func (c *ProcInfoCommand) printDefinitions(ctx *cmd.Context, names ...string) er
 	}
 
 	// Now print them out.
-	definition, ok := definitions[names[0]]
-	if !ok {
-		return errors.NotFoundf(names[0])
+	values := make(map[string]interface{})
+	for k, v := range definitions {
+		values[k] = v
 	}
-	if err := dump(ctx, definition); err != nil {
+	if err := dumpAll(ctx, names, values); err != nil {
 		return errors.Trace(err)
 	}
-	for _, name := range names[1:] {
-		definition, ok := definitions[name]
-		if !ok {
-			return errors.NotFoundf(name)
-		}
-		if err := dump(ctx, definition); err != nil {
-			return errors.Trace(err)
-		}
-	}
+	//definition, ok := definitions[names[0]]
+	//if !ok {
+	//	return errors.NotFoundf(names[0])
+	//}
+	//if err := dump(ctx, ndefinition); err != nil {
+	//	return errors.Trace(err)
+	//}
+	//for _, name := range names[1:] {
+	//	definition, ok := definitions[name]
+	//	if !ok {
+	//		return errors.NotFoundf(name)
+	//	}
+	//	if err := dump(ctx, definition); err != nil {
+	//		return errors.Trace(err)
+	//	}
+	//}
 	return nil
 }

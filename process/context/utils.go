@@ -13,30 +13,36 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 )
 
-func dumpAll(ctx *cmd.Context, values ...interface{}) error {
-	if len(values) == 0 {
+func dumpAll(ctx *cmd.Context, ids []string, values map[string]interface{}) error {
+	if len(ids) == 0 {
 		return nil
 	}
-	if err := dump(ctx, values[0]); err != nil {
+	if err := dump(ctx, ids[0], values); err != nil {
 		return errors.Trace(err)
 	}
-	for _, value := range values[1:] {
+	for _, id := range ids[1:] {
 		// TODO(ericsnow) Separate each entry or dump as a YAML list?
-		if err := dump(ctx, value); err != nil {
+		if err := dump(ctx, id, values); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func dump(ctx *cmd.Context, value interface{}) error {
+func dump(ctx *cmd.Context, id string, values map[string]interface{}) error {
 	// TODO(ericsnow) support passing in an indent size?
 
-	data, err := goyaml.Marshal(value)
-	if err != nil {
-		return errors.Trace(err)
+	value := values[id]
+	output := fmt.Sprintf("[%q not found]", id)
+	if value != nil {
+		data, err := goyaml.Marshal(value)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		output = string(data)
 	}
-	if _, err := fmt.Fprintln(ctx.Stdout, string(data)); err != nil {
+
+	if _, err := fmt.Fprintln(ctx.Stdout, output); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
