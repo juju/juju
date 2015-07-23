@@ -2180,6 +2180,154 @@ var statusTests = []testCase{
 				},
 			},
 		},
+	), test(
+		"deploy two services; set meter statuses on one",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+
+		addMachine{machineId: "3", job: state.JobHostUnits},
+		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", state.StatusStarted, ""},
+
+		addMachine{machineId: "4", job: state.JobHostUnits},
+		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", state.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+
+		addService{name: "servicewithmeterstatus", charm: "mysql"},
+
+		addAliveUnit{"mysql", "1"},
+		addAliveUnit{"servicewithmeterstatus", "2"},
+		addAliveUnit{"servicewithmeterstatus", "3"},
+		addAliveUnit{"servicewithmeterstatus", "4"},
+
+		setServiceExposed{"mysql", true},
+
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
+		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/0", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/0", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/1", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/1", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/2", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/2", state.StatusActive, "", nil},
+
+		setUnitMeterStatus{"servicewithmeterstatus/1", "GREEN", "test green status"},
+		setUnitMeterStatus{"servicewithmeterstatus/2", "RED", "test red status"},
+
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+					"4": machine4,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "dummyenv-1.dns",
+							},
+						},
+					},
+
+					"servicewithmeterstatus": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"servicewithmeterstatus/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "dummyenv-2.dns",
+							},
+							"servicewithmeterstatus/1": M{
+								"machine":     "3",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"meter-status": M{
+									"color":   "green",
+									"message": "test green status",
+								},
+								"public-address": "dummyenv-3.dns",
+							},
+							"servicewithmeterstatus/2": M{
+								"machine":     "4",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"meter-status": M{
+									"color":   "red",
+									"message": "test red status",
+								},
+								"public-address": "dummyenv-4.dns",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -2452,6 +2600,19 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	for _, u := range us {
 		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
 	}
+}
+
+type setUnitMeterStatus struct {
+	unitName string
+	color    string
+	message  string
+}
+
+func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setUnitStatus struct {

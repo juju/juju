@@ -33,27 +33,19 @@ const (
 	StubUnitNm    = "stub-unit/0"
 )
 
-type stubLeadershipManager struct {
+type stubClaimer struct {
 	ClaimLeadershipFn              func(sid, uid string, duration time.Duration) error
-	ReleaseLeadershipFn            func(sid, uid string) error
 	BlockUntilLeadershipReleasedFn func(serviceId string) error
 }
 
-func (m *stubLeadershipManager) ClaimLeadership(sid, uid string, duration time.Duration) error {
+func (m *stubClaimer) ClaimLeadership(sid, uid string, duration time.Duration) error {
 	if m.ClaimLeadershipFn != nil {
 		return m.ClaimLeadershipFn(sid, uid, duration)
 	}
 	return nil
 }
 
-func (m *stubLeadershipManager) ReleaseLeadership(sid, uid string) error {
-	if m.ReleaseLeadershipFn != nil {
-		return m.ReleaseLeadershipFn(sid, uid)
-	}
-	return nil
-}
-
-func (m *stubLeadershipManager) BlockUntilLeadershipReleased(serviceId string) error {
+func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string) error {
 	if m.BlockUntilLeadershipReleasedFn != nil {
 		return m.BlockUntilLeadershipReleasedFn(serviceId)
 	}
@@ -91,8 +83,8 @@ func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
-	var ldrMgr stubLeadershipManager
-	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
+	var claimer stubClaimer
+	claimer.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
 		expectDuration := time.Duration(299.9 * float64(time.Second))
@@ -100,7 +92,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 		return nil
 	}
 
-	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
+	ldrSvc := &leadershipService{claimer: &claimer, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -117,8 +109,8 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
-	var ldrMgr stubLeadershipManager
-	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
+	var claimer stubClaimer
+	claimer.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
 		expectDuration := time.Duration(5.001 * float64(time.Second))
@@ -126,7 +118,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 		return errors.Annotatef(leadership.ErrClaimDenied, "obfuscated")
 	}
 
-	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
+	ldrSvc := &leadershipService{claimer: &claimer, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -206,39 +198,15 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
 }
 
-func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
-
-	var ldrMgr stubLeadershipManager
-	ldrMgr.ReleaseLeadershipFn = func(sid, uid string) error {
-		c.Check(sid, gc.Equals, StubServiceNm)
-		c.Check(uid, gc.Equals, StubUnitNm)
-		return nil
-	}
-
-	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
-	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
-		Params: []params.ReleaseLeadershipParams{
-			{
-				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
-			},
-		},
-	})
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.IsNil)
-}
-
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 
-	var ldrMgr stubLeadershipManager
-	ldrMgr.BlockUntilLeadershipReleasedFn = func(sid string) error {
+	var claimer stubClaimer
+	claimer.BlockUntilLeadershipReleasedFn = func(sid string) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		return nil
 	}
 
-	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
+	ldrSvc := &leadershipService{claimer: &claimer, authorizer: &stubAuthorizer{}}
 	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
 	c.Check(err, jc.ErrorIsNil)
@@ -250,7 +218,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 		AuthUnitAgentFn: func() bool { return false },
 	}
 
-	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
+	ldrSvc := &leadershipService{authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -266,32 +234,12 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
-	authorizer := &stubAuthorizer{
-		AuthUnitAgentFn: func() bool { return false },
-	}
-
-	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
-	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
-		Params: []params.ReleaseLeadershipParams{
-			{
-				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
-			},
-		},
-	})
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
 		AuthUnitAgentFn: func() bool { return false },
 	}
 
-	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
+	ldrSvc := &leadershipService{authorizer: authorizer}
 	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
 	// Overall function call should succeed, but operations should

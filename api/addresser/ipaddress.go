@@ -39,16 +39,3 @@ func (a *IPAddress) Refresh() error {
 	a.life = life
 	return nil
 }
-
-// Remove removes the IP address.
-func (a *IPAddress) Remove() error {
-	var result params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: a.tag.String()}},
-	}
-	err := a.facade.FacadeCall("Remove", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
