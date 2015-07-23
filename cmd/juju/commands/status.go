@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/components"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
@@ -59,13 +60,6 @@ Wildcards ('*') may be specified in service/unit names to match any sequence
 of characters. For example, 'nova-*' will match any service whose name begins
 with 'nova-': 'nova-compute', 'nova-volume', etc.
 `
-
-// RegisterUnitComponentFormatter registers a formatting function for the given component.  When status is returned from the API, unitstatus for the compoentn
-func RegisterUnitComponentFormatter(component string, fn func(apiobj interface{}) interface{}) {
-	unitComponentFormatters[component] = fn
-}
-
-var unitComponentFormatters = map[string]func(interface{}) interface{}{}
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -468,8 +462,12 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		Components:         map[string]interface{}{},
 	}
 
-	for k, v := range unit.ComponentStatus {
-		out.Components[k] = v
+	for component, apistatus := range unit.ComponentStatus {
+		if formatter, ok := components.UnitComponentFormatters[component]; ok {
+			out.Components[component] = formatter(apistatus)
+		} else {
+			out.Components[component] = apistatus
+		}
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
