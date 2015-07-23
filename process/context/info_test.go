@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	procs = []*process.Info{{
+	proc0 = process.Info{
 		Process: charm.Process{
 			Name: "myprocess0",
 			Type: "myplugin",
@@ -33,7 +33,8 @@ var (
 				Label: "running",
 			},
 		},
-	}, {
+	}
+	proc1 = process.Info{
 		Process: charm.Process{
 			Name:    "myprocess1",
 			Type:    "myplugin",
@@ -46,7 +47,8 @@ var (
 				Label: "running",
 			},
 		},
-	}, {
+	}
+	proc2 = process.Info{
 		Process: charm.Process{
 			Name: "myprocess2",
 			Type: "myplugin",
@@ -57,7 +59,7 @@ var (
 				Label: "invalid",
 			},
 		},
-	}}
+	}
 )
 
 type infoSuite struct {
@@ -141,9 +143,9 @@ func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
 }
 
 func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0"] = procs[0]
-	s.compCtx.procs["myprocess1"] = procs[1]
-	s.compCtx.procs["myprocess2"] = procs[2]
+	s.compCtx.procs["myprocess0"] = &proc0
+	s.compCtx.procs["myprocess1"] = &proc1
+	s.compCtx.procs["myprocess2"] = &proc2
 	s.init(c, "myprocess0")
 
 	expected := `
@@ -170,9 +172,9 @@ myprocess0:
 }
 
 func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0"] = procs[0]
-	s.compCtx.procs["myprocess1"] = procs[1]
-	s.compCtx.procs["myprocess2"] = procs[2]
+	s.compCtx.procs["myprocess0"] = &proc0
+	s.compCtx.procs["myprocess1"] = &proc1
+	s.compCtx.procs["myprocess2"] = &proc2
 	s.init(c, "")
 
 	expected := `
