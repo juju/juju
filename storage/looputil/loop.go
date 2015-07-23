@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,7 +64,7 @@ func (m *loopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
 		if !strings.HasPrefix(info.backingFile, prefix) {
 			continue
 		}
-		rootedBackingFile := filepath.Join(rootfs, info.backingFile)
+		rootedBackingFile := path.Join(rootfs, info.backingFile)
 		st, err := m.stat(rootedBackingFile)
 		if os.IsNotExist(err) {
 			continue
