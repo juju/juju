@@ -20,6 +20,19 @@ import (
 
 var logger = loggo.GetLogger("juju.process.persistence")
 
+type cmdInfo struct {
+	// Name is the command's name.
+	Name string
+	// ExtraArgs is the list of arg names that follow "name", if any.
+	ExtraArgs []string
+	// OptionalArgs is the list of optional args, if any.
+	OptionalArgs []string
+	// Summary is the one-line description of the command.
+	Summary string
+	// Doc is the multi-line description of the command.
+	Doc string
+}
+
 // TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
 // into actual ports? For now we should error out with such definitions
 // (and recommend overriding).
@@ -28,6 +41,8 @@ var logger = loggo.GetLogger("juju.process.persistence")
 // hook env commands.
 type baseCommand struct {
 	cmd.CommandBase
+
+	cmdInfo
 
 	ctx     HookContext
 	compCtx Component
@@ -48,6 +63,27 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 		ctx:     ctx,
 		compCtx: compCtx,
 	}, nil
+}
+
+// Info implements cmd.Command.
+func (c baseCommand) Info() *cmd.Info {
+	args := []string{"<name>"} // name isn't optional
+	for _, name := range c.cmdInfo.ExtraArgs {
+		arg := "<" + name + ">"
+		for _, optional := range c.cmdInfo.OptionalArgs {
+			if name == optional {
+				arg = "[" + arg + "]"
+				break
+			}
+		}
+		args = append(args, arg)
+	}
+	return &cmd.Info{
+		Name:    c.cmdInfo.Name,
+		Args:    strings.Join(args, " "),
+		Purpose: c.cmdInfo.Summary,
+		Doc:     c.cmdInfo.Doc,
+	}
 }
 
 // Init implements cmd.Command.

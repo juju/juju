@@ -10,14 +10,20 @@ import (
 	"github.com/juju/juju/process"
 )
 
-const registerDoc = `
+// RegisterCommandInfo is the info for the proc-launch command.
+var RegisterCommandInfo = cmdInfo{
+	Name:      "process-register",
+	ExtraArgs: []string{"proc-details"},
+	Summary:   "register a workload process",
+	Doc: `
 "register" is used while a hook is running to let Juju know that
 a workload process has been manually started. The information used
 to start the process must be provided when "register" is run.
 
 The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.
-`
+`,
+}
 
 // ProcRegistrationCommand implements the register command.
 type ProcRegistrationCommand struct {
@@ -30,19 +36,11 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProcRegistrationCommand{
+	c := &ProcRegistrationCommand{
 		registeringCommand: *base,
-	}, nil
-}
-
-// Info implements cmd.Command.
-func (c *ProcRegistrationCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "register",
-		Args:    "<name> <proc-details>",
-		Purpose: "register a workload process",
-		Doc:     registerDoc,
 	}
+	c.cmdInfo = RegisterCommandInfo
+	return c, nil
 }
 
 // Init implements cmd.Command.

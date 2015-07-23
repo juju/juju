@@ -13,11 +13,16 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
-const launchDoc = `
+// LaunchCommandInfo is the info for the proc-launch command.
+var LaunchCommandInfo = cmdInfo{
+	Name:    "process-launch",
+	Summary: "launch a workload process",
+	Doc: `
 "launch" is used to launch a workload process.
 
 The process name must correspond to one of the processes defined in
-the charm's metadata.yaml.`
+the charm's metadata.yaml.`,
+}
 
 // FindPluginFn will find a plugin given its name.
 type FindPluginFn func(string) (*plugin.Plugin, error)
@@ -33,11 +38,13 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 		return nil, err
 	}
 
-	return &ProcLaunchCommand{
+	c := &ProcLaunchCommand{
 		registeringCommand: *base,
 		findPlugin:         findPlugin,
 		launchPlugin:       launchPlugin,
-	}, nil
+	}
+	c.cmdInfo = LaunchCommandInfo
+	return c, nil
 }
 
 // ProcLaunchCommand implements the launch command for launching
@@ -47,16 +54,6 @@ type ProcLaunchCommand struct {
 
 	findPlugin   FindPluginFn
 	launchPlugin LaunchPluginFn
-}
-
-// Info implements cmd.Command.
-func (c *ProcLaunchCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "launch",
-		Args:    "<name>",
-		Purpose: "launch a workload process",
-		Doc:     launchDoc,
-	}
 }
 
 // Init implements cmd.Command.

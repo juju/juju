@@ -101,7 +101,8 @@ func (workloadProcesses) registerHookContextCommands() {
 		return
 	}
 
-	jujuc.RegisterCommand("register", func(ctx jujuc.Context) cmd.Command {
+	name := context.RegisterCommandInfo.Name
+	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcRegistrationCommand(compCtx)
 		if err != nil {
@@ -111,7 +112,8 @@ func (workloadProcesses) registerHookContextCommands() {
 		return cmd
 	})
 
-	jujuc.RegisterCommand("launch", func(ctx jujuc.Context) cmd.Command {
+	name = context.LaunchCommandInfo.Name
+	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcLaunchCommand(plugin.Find, plugin.Plugin.Launch, compCtx)
 		if err != nil {
