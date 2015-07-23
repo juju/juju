@@ -10,12 +10,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
 )
+
+var logger = loggo.GetLogger("juju.process.persistence")
 
 // TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
 // into actual ports? For now we should error out with such definitions
@@ -160,13 +163,6 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	newProcess, err := c.parseUpdates(info.Process)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.UpdatedProcess = newProcess
-	info.Process = *newProcess
-
 	info.Details = c.Details
 
 	if err := c.compCtx.Set(c.Name, info); err != nil {
@@ -183,11 +179,36 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 }
 
 func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, error) {
-	if c.info != nil {
-		copied := *c.info
-		return &copied, nil
+	if c.info == nil {
+		info, err := c.findInfo(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		c.info = info
 	}
+	info := *c.info // copied
 
+	if c.UpdatedProcess == nil {
+		logger.Debugf("parsing updates")
+		newProcess, err := c.parseUpdates(c.info.Process)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		c.UpdatedProcess = newProcess
+	}
+	info.Process = *c.UpdatedProcess
+
+	// validate
+	if err := info.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if info.IsRegistered() {
+		return nil, errors.Errorf("already registered")
+	}
+	return &info, nil
+}
+
+func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 	var definition charm.Process
 	if c.Definition.Path == "" {
 		filename := filepath.Join(ctx.Dir, "metadata.yaml")
@@ -208,17 +229,8 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 		}
 		definition = *cliDef
 	}
-	info := &process.Info{Process: definition}
-	c.info = info
-
-	// validate
-	if err := info.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if info.IsRegistered() {
-		return nil, errors.Errorf("already registered")
-	}
-	return info, nil
+	logger.Debugf("creating new process.Info")
+	return &process.Info{Process: definition}, nil
 }
 
 func (c *registeringCommand) defFromMetadata(name, filename string) (*charm.Process, error) {
