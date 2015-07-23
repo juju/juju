@@ -45,6 +45,13 @@ func stateStepsFor125() []Step {
 				return addInstanceTags(env, machines)
 			},
 		},
+		&upgradeStep{
+			description: "move lastlogin and last connection to their own collections",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateLastLoginAndLastConnection(context.State())
+			},
+		},
 	}
 }
 

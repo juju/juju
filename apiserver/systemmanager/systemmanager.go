@@ -6,12 +6,12 @@
 package systemmanager
 
 import (
-	"github.com/juju/utils/set"
 	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -90,6 +90,10 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 	}
 	visibleEnvironments := set.NewStrings()
 	for _, env := range environments {
+		lastConn, err := env.LastConnection()
+		if err != nil && !state.IsNeverConnectedError(err) {
+			return result, errors.Trace(err)
+		}
 		visibleEnvironments.Add(env.UUID())
 		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
 			Environment: params.Environment{
@@ -97,7 +101,7 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
 			},
-			LastConnection: env.LastConnection,
+			LastConnection: &lastConn,
 		})
 	}
 
