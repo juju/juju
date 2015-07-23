@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/process"
 )
 
+// RegisterCommandInfo is the info for the proc-launch command.
 var RegisterCommandInfo = cmdInfo{
 	Name:      "proc-register",
 	ExtraArgs: []string{"proc-details"},
@@ -35,19 +36,11 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProcRegistrationCommand{
+	c := &ProcRegistrationCommand{
 		registeringCommand: *base,
-	}, nil
-}
-
-// Info implements cmd.Command.
-func (c *ProcRegistrationCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    RegisterCommandInfo.Name,
-		Args:    "<name> <proc-details>",
-		Purpose: RegisterCommandInfo.Summary,
-		Doc:     RegisterCommandInfo.Doc,
 	}
+	c.cmdInfo = RegisterCommandInfo
+	return c, nil
 }
 
 // Init implements cmd.Command.
