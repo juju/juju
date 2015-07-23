@@ -225,10 +225,16 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 	return "", ssNoMethods(s)
 }
 
+type meterStatus struct {
+	Color   string `json:"color,omitempty" yaml:"color,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+}
+
 type unitStatus struct {
 	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
 	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
+	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	// Legacy status fields, to be removed in Juju 2.0
 	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
@@ -427,7 +433,12 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
-		out.Units[k] = sf.formatUnit(m, name)
+		out.Units[k] = sf.formatUnit(unitFormatInfo{
+			unit:          m,
+			unitName:      k,
+			serviceName:   name,
+			meterStatuses: service.MeterStatuses,
+		})
 	}
 	return out
 }
@@ -445,31 +456,50 @@ func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statu
 	return info
 }
 
-func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {
+type unitFormatInfo struct {
+	unit          api.UnitStatus
+	unitName      string
+	serviceName   string
+	meterStatuses map[string]api.MeterStatus
+}
+
+func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	// TODO(Wallyworld) - this should be server side but we still need to support older servers.
-	sf.updateUnitStatusInfo(&unit, serviceName)
+	sf.updateUnitStatusInfo(&info.unit, info.serviceName)
 
 	out := unitStatus{
-		WorkloadStatusInfo: sf.getWorkloadStatusInfo(unit),
-		AgentStatusInfo:    sf.getAgentStatusInfo(unit),
-		Machine:            unit.Machine,
-		OpenedPorts:        unit.OpenedPorts,
-		PublicAddress:      unit.PublicAddress,
-		Charm:              unit.Charm,
+		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
+		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit),
+		Machine:            info.unit.Machine,
+		OpenedPorts:        info.unit.OpenedPorts,
+		PublicAddress:      info.unit.PublicAddress,
+		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
+	}
+
+	if ms, ok := info.meterStatuses[info.unitName]; ok {
+		out.MeterStatus = &meterStatus{
+			Color:   ms.Color,
+			Message: ms.Message,
+		}
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
 	if sf.compatVersion < 2 || out.AgentStatusInfo.Current == "" {
-		out.Err = unit.Err
-		out.AgentState = unit.AgentState
-		out.AgentStateInfo = unit.AgentStateInfo
-		out.Life = unit.Life
-		out.AgentVersion = unit.AgentVersion
+		out.Err = info.unit.Err
+		out.AgentState = info.unit.AgentState
+		out.AgentStateInfo = info.unit.AgentStateInfo
+		out.Life = info.unit.Life
+		out.AgentVersion = info.unit.AgentVersion
 	}
 
-	for k, m := range unit.Subordinates {
-		out.Subordinates[k] = sf.formatUnit(m, serviceName)
+	for k, m := range info.unit.Subordinates {
+		out.Subordinates[k] = sf.formatUnit(unitFormatInfo{
+			unit:          m,
+			unitName:      k,
+			serviceName:   info.serviceName,
+			meterStatuses: info.meterStatuses,
+		})
 	}
 	return out
 }

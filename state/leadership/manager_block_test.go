@@ -107,7 +107,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) 
 
 		// Induce a refresh by making an unexpected check; it turns out the
 		// lease had already been expired by someone else.
-		manager.CheckLeadership("redis", "redis/99")
+		manager.LeadershipCheck("redis", "redis/99").Check(nil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -187,7 +187,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestKillManager(c *gc.C) {
 // fails if it's used more than a second after creation (which should be
 // *plenty* of time).
 type blockTest struct {
-	manager     leadership.Manager
+	manager     leadership.ManagerWorker
 	serviceName string
 	done        chan error
 	abort       <-chan time.Time
@@ -195,7 +195,7 @@ type blockTest struct {
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // leaderlessness of the named service.
-func newBlockTest(manager leadership.Manager, serviceName string) *blockTest {
+func newBlockTest(manager leadership.ManagerWorker, serviceName string) *blockTest {
 	bt := &blockTest{
 		manager:     manager,
 		serviceName: serviceName,

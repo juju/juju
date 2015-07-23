@@ -83,7 +83,7 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
-	leader                 leadership.LeadershipManager
+	leader                 *leadership.Manager
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -412,7 +412,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 
 type createUniter struct {
 	minion       bool
-	executorFunc func(*uniter.Uniter) (operation.Executor, error)
+	executorFunc uniter.NewExecutorFunc
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -455,7 +455,7 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 
 type startUniter struct {
 	unitTag         string
-	newExecutorFunc func(*uniter.Uniter) (operation.Executor, error)
+	newExecutorFunc uniter.NewExecutorFunc
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -475,10 +475,14 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
+	operationExecutor := operation.NewExecutor
+	if s.newExecutorFunc != nil {
+		operationExecutor = s.newExecutorFunc
+	}
 	uniterParams := uniter.UniterParams{
 		St:                ctx.api,
 		UnitTag:           tag,
-		LeadershipManager: ctx.leader,
+		LeadershipClaimer: ctx.leader,
 		DataDir:           ctx.dataDir,
 		HookLock:          lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
@@ -486,7 +490,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 			ctx.sendMetricsTicker.ReturnTimer,
 		),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
-		NewOperationExecutor: s.newExecutorFunc,
+		NewOperationExecutor: operationExecutor,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)

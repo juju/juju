@@ -69,9 +69,9 @@ type Uniter struct {
 	deployer             *deployerProxy
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
-	newOperationExecutor newExecutorFunc
+	newOperationExecutor NewExecutorFunc
 
-	leadershipManager coreleadership.LeadershipManager
+	leadershipClaimer coreleadership.Claimer
 	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
@@ -105,15 +105,15 @@ type Uniter struct {
 type UniterParams struct {
 	St                   *uniter.State
 	UnitTag              names.UnitTag
-	LeadershipManager    coreleadership.LeadershipManager
+	LeadershipClaimer    coreleadership.Claimer
 	DataDir              string
 	HookLock             *fslock.Lock
 	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
-	NewOperationExecutor newExecutorFunc
+	NewOperationExecutor NewExecutorFunc
 }
 
-type newExecutorFunc func(*Uniter) (operation.Executor, error)
+type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -123,15 +123,12 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		st:                   uniterParams.St,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.HookLock,
-		leadershipManager:    uniterParams.LeadershipManager,
+		leadershipClaimer:    uniterParams.LeadershipClaimer,
 		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
 		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
 		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
-	}
-	if u.newOperationExecutor == nil {
-		u.newOperationExecutor = newOperationExecutor
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -160,7 +157,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// with a clean way to reference one (lineage of a...) worker from another,
 	// so for now the tracker is accessible only to its unit.
 	leadershipTracker := leadership.NewTrackerWorker(
-		unitTag, u.leadershipManager, leadershipGuarantee,
+		unitTag, u.leadershipClaimer, leadershipGuarantee,
 	)
 	u.addCleanup(func() error {
 		return worker.Stop(leadershipTracker)
@@ -232,12 +229,6 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func newOperationExecutor(u *Uniter) (operation.Executor, error) {
-	return operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
-	)
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -298,7 +289,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
-	operationExecutor, err := u.newOperationExecutor(u)
+	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock)
 	if err != nil {
 		return err
 	}

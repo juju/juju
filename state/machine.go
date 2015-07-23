@@ -1326,20 +1326,23 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
 	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
-	ops := []txn.Op{{
-		C:      networksC,
-		Id:     m.st.docID(args.NetworkName),
-		Assert: txn.DocExists,
-	}, {
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: isAliveDoc,
-	}, {
-		C:      networkInterfacesC,
-		Id:     doc.Id,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(m.st.EnvironUUID()),
+		{
+			C:      networksC,
+			Id:     m.st.docID(args.NetworkName),
+			Assert: txn.DocExists,
+		}, {
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: isAliveDoc,
+		}, {
+			C:      networkInterfacesC,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		},
+	}
 
 	err = m.st.runTransaction(ops)
 	switch err {
