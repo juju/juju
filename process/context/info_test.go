@@ -150,9 +150,9 @@ func (s *infoSuite) TestHelp(c *gc.C) {
 usage: process-info [<name>]
 purpose: get info about a workload process (or all of them)
 
-"info" is used while a hook is running to access a currently registered
-workload process (or the list of all the unit's processes). The process
-info is printed to stdout as YAML-formatted text.
+"process-info" is used while a hook is running to access a currently
+registered workload process (or the list of all the unit's processes).
+The process info is printed to stdout as YAML-formatted text.
 `[1:])
 }
 

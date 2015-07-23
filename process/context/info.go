@@ -17,9 +17,9 @@ var InfoCommandInfo = cmdInfo{
 	OptionalArgs: []string{"name"},
 	Summary:      "get info about a workload process (or all of them)",
 	Doc: `
-"info" is used while a hook is running to access a currently registered
-workload process (or the list of all the unit's processes). The process
-info is printed to stdout as YAML-formatted text.
+"process-info" is used while a hook is running to access a currently
+registered workload process (or the list of all the unit's processes).
+The process info is printed to stdout as YAML-formatted text.
 `,
 }
 

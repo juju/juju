@@ -18,7 +18,7 @@ var LaunchCommandInfo = cmdInfo{
 	Name:    "process-launch",
 	Summary: "launch a workload process",
 	Doc: `
-"launch" is used to launch a workload process.
+"process-launch" is used to launch a workload process.
 
 The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.`,
