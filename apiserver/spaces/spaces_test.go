@@ -86,7 +86,7 @@ type checkAddSpacesParams struct {
 }
 
 func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
-	args := params.AddSpaceParams{}
+	args := params.CreateSpaceParams{}
 	if p.Name != "" {
 		args.SpaceTag = "space-" + p.Name
 	}
@@ -97,7 +97,7 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	}
 	args.Public = p.Public
 
-	spaces := params.AddSpacesParams{}
+	spaces := params.CreateSpacesParams{}
 	spaces.Spaces = append(spaces.Spaces, args)
 	results, err := s.facade.CreateSpaces(spaces)
 

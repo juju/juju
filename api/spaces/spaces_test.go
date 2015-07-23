@@ -6,7 +6,9 @@ package spaces_test
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 
+	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -14,7 +16,6 @@ import (
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 type SpacesSuite struct {
@@ -72,9 +73,9 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.Check
 		subnetTags = append(subnetTags, names.NewSubnetTag(s).String())
 	}
 
-	expectArgs := params.AddSpacesParams{
-		Spaces: []params.AddSpaceParams{
-			params.AddSpaceParams{
+	expectArgs := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			params.CreateSpaceParams{
 				SpaceTag:   spaceTag,
 				SubnetTags: subnetTags,
 			}}}
@@ -103,9 +104,13 @@ func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
 func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 	name := "foo"
 	subnets := []string{}
-	for count := 0; count < 300; count++ {
-		newSubnet := fmt.Sprintf("1.%d.%d.0/24", uint8(count>>8), uint8(count))
-		subnets = append(subnets, newSubnet)
+	r := rand.New(rand.NewSource(0xdeadbeef))
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 10; j++ {
+			n := r.Uint32()
+			newSubnet := fmt.Sprintf("%d.%d.%d.0/24", uint8(n>>16), uint8(n>>8), uint8(n))
+			subnets = append(subnets, newSubnet)
+		}
 		s.testCreateSpace(c, name, subnets)
 	}
 }

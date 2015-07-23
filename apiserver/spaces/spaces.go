@@ -21,7 +21,7 @@ func init() {
 
 // API defines the methods the Spaces API facade implements.
 type API interface {
-	CreateSpaces(params.AddSpacesParams) (params.ErrorResults, error)
+	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
 }
 
 // spacesAPI implements the API interface.
@@ -48,7 +48,7 @@ func NewAPI(backing common.NetworkBacking, resources *common.Resources, authoriz
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *spacesAPI) CreateSpaces(args params.AddSpacesParams) (params.ErrorResults, error) {
+func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{}
 
 	for _, space := range args.Spaces {
@@ -65,7 +65,7 @@ func (api *spacesAPI) CreateSpaces(args params.AddSpacesParams) (params.ErrorRes
 	return results, nil
 }
 
-func (api *spacesAPI) createOneSpace(args params.AddSpaceParams) error {
+func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	if len(args.SubnetTags) == 0 {
 		return errors.NotValidf("calling CreateSpaces with zero subnets is") // ... not valid.
 	}
