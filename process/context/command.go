@@ -20,6 +20,17 @@ import (
 
 var logger = loggo.GetLogger("juju.process.persistence")
 
+type cmdInfo struct {
+	// Name is the command's name.
+	Name string
+	// ExtraArgs is the list of arg names that follow "name", if any.
+	ExtraArgs []string
+	// Summary is the one-line description of the command.
+	Summary string
+	// Doc is the multi-line description of the command.
+	Doc string
+}
+
 // TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
 // into actual ports? For now we should error out with such definitions
 // (and recommend overriding).
