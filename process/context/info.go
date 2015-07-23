@@ -43,6 +43,7 @@ func NewProcInfoCommand(ctx HookContext) (*ProcInfoCommand, error) {
 		baseCommand: *base,
 	}
 	c.cmdInfo = InfoCommandInfo
+	c.handleArgs = c.init
 	return c, nil
 }
 
@@ -51,19 +52,15 @@ func (c *ProcInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Available, "available", false, "show unregistered processes instead")
 }
 
-// Init implements cmd.Command.
-func (c *ProcInfoCommand) Init(args []string) error {
-	if len(args) > 1 {
-		return errors.Errorf("expected <name> (or nothing), got: %v", args)
-	}
+func (c *ProcInfoCommand) init(args map[string]string) error {
 	if len(args) > 0 {
 		if c.Available {
-			c.Name = args[0]
+			c.Name = args["name"]
 			// Do not call c.init().
-		} else if err := c.init(args[0]); err != nil {
+		} else if err := c.baseCommand.init(args); err != nil {
 			return errors.Trace(err)
 		}
-	} // Otherwise we do *not* call c.init().
+	} // Otherwise we do nothing.
 	return nil
 }
 

@@ -44,6 +44,7 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 		launchPlugin:       launchPlugin,
 	}
 	c.cmdInfo = LaunchCommandInfo
+	c.handleArgs = c.init
 	return c, nil
 }
 
@@ -54,22 +55,6 @@ type ProcLaunchCommand struct {
 
 	findPlugin   FindPluginFn
 	launchPlugin LaunchPluginFn
-}
-
-// Init implements cmd.Command.
-func (c *ProcLaunchCommand) Init(args []string) error {
-	if len(args) != 1 {
-		return errors.Errorf("expected %s, got %v", c.Info().Args, args)
-	}
-
-	return c.init(args[0])
-}
-
-func (c *ProcLaunchCommand) init(name string) error {
-	if err := c.registeringCommand.init(name); err != nil {
-		return err
-	}
-	return nil
 }
 
 // Run implements cmd.Command.

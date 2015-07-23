@@ -222,7 +222,7 @@ func (s *infoSuite) TestInitNotFound(c *gc.C) {
 func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.infoCmd.Init([]string{s.proc.Name, "other"})
 
-	c.Check(err, gc.ErrorMatches, `expected <name> \(or nothing\), got: .*`)
+	c.Check(err, gc.ErrorMatches, `unrecognized args: .*`)
 }
 
 func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {

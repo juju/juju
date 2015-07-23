@@ -30,6 +30,15 @@ type cmdInfo struct {
 	Doc string
 }
 
+func (ci cmdInfo) isOptional(arg string) bool {
+	for _, optional := range ci.OptionalArgs {
+		if arg == optional {
+			return true
+		}
+	}
+	return false
+}
+
 // TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
 // into actual ports? For now we should error out with such definitions
 // (and recommend overriding).
@@ -40,6 +49,7 @@ type baseCommand struct {
 	cmd.CommandBase
 
 	cmdInfo
+	handleArgs func(map[string]string) error
 
 	ctx     HookContext
 	compCtx Component
@@ -56,10 +66,12 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 		// The component wasn't registered properly.
 		return nil, errors.Trace(err)
 	}
-	return &baseCommand{
+	c := &baseCommand{
 		ctx:     ctx,
 		compCtx: compCtx,
-	}, nil
+	}
+	c.handleArgs = c.init
+	return c, nil
 }
 
 // Info implements cmd.Command.
@@ -67,11 +79,8 @@ func (c baseCommand) Info() *cmd.Info {
 	var args []string
 	for _, name := range append([]string{"name"}, c.cmdInfo.ExtraArgs...) {
 		arg := "<" + name + ">"
-		for _, optional := range c.cmdInfo.OptionalArgs {
-			if name == optional {
-				arg = "[" + arg + "]"
-				break
-			}
+		if c.cmdInfo.isOptional(name) {
+			arg = "[" + arg + "]"
 		}
 		args = append(args, arg)
 	}
@@ -85,13 +94,40 @@ func (c baseCommand) Info() *cmd.Info {
 
 // Init implements cmd.Command.
 func (c *baseCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.Errorf("missing process name")
+	argsMap, err := c.processArgs(args)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Trace(c.init(args[0]))
+	return errors.Trace(c.handleArgs(argsMap))
 }
 
-func (c *baseCommand) init(name string) error {
+func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
+	argNames := append([]string{"name"}, c.cmdInfo.ExtraArgs...)
+	results := make(map[string]string)
+	for i, name := range argNames {
+		if len(args) == 0 {
+			if !c.cmdInfo.isOptional(name) {
+				var missing []string
+				for _, name := range argNames[i:] {
+					if !c.cmdInfo.isOptional(name) {
+						missing = append(missing, name)
+					}
+				}
+				return results, errors.Errorf("missing args %v", missing)
+			}
+			// Skip the optional arg.
+			continue
+		}
+		results[name], args = args[0], args[1:]
+	}
+	if err := cmd.CheckEmpty(args); err != nil {
+		return results, errors.Trace(err)
+	}
+	return results, nil
+}
+
+func (c *baseCommand) init(args map[string]string) error {
+	name := args["name"]
 	if name == "" {
 		return errors.Errorf("got empty name")
 	}
@@ -172,9 +208,11 @@ func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &registeringCommand{
+	c := &registeringCommand{
 		baseCommand: *base,
-	}, nil
+	}
+	c.handleArgs = c.init
+	return c, nil
 }
 
 // SetFlags implements cmd.Command.
@@ -184,8 +222,8 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend process definition")
 }
 
-func (c *registeringCommand) init(name string) error {
-	if err := c.baseCommand.init(name); err != nil {
+func (c *registeringCommand) init(args map[string]string) error {
+	if err := c.baseCommand.init(args); err != nil {
 		return errors.Trace(err)
 	}
 

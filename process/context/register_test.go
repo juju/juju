@@ -104,10 +104,10 @@ func (s *registerSuite) TestInitAlreadyRegistered(c *gc.C) {
 
 func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{})
-	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
+	c.Check(err, gc.ErrorMatches, `missing args .*`)
 
 	err = s.registerCmd.Init([]string{s.proc.Name})
-	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
+	c.Check(err, gc.ErrorMatches, `missing args .*`)
 }
 
 func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
@@ -117,7 +117,7 @@ func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 		"other",
 	})
 
-	c.Check(err, gc.ErrorMatches, "expected <name> <proc-details>, got: .*")
+	c.Check(err, gc.ErrorMatches, "unrecognized args: .*")
 }
 
 func (s *registerSuite) TestInitEmptyName(c *gc.C) {

@@ -40,22 +40,16 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 		registeringCommand: *base,
 	}
 	c.cmdInfo = RegisterCommandInfo
+	c.handleArgs = c.init
 	return c, nil
 }
 
-// Init implements cmd.Command.
-func (c *ProcRegistrationCommand) Init(args []string) error {
-	if len(args) != 2 {
-		return errors.Errorf("expected <name> <proc-details>, got: %v", args)
-	}
-	return c.init(args[0], args[1])
-}
-
-func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
-	if err := c.registeringCommand.init(name); err != nil {
+func (c *ProcRegistrationCommand) init(args map[string]string) error {
+	if err := c.registeringCommand.init(args); err != nil {
 		return errors.Trace(err)
 	}
 
+	detailsStr := args["proc-details"]
 	details, err := process.UnmarshalDetails([]byte(detailsStr))
 	if err != nil {
 		return errors.Trace(err)
