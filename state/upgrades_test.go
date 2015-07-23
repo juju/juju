@@ -1798,7 +1798,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 
 	s.PatchValue(
 		&addPortsDocOps,
-		func(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+		func(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 			pDoc.Ports = ports
 			return []txn.Op{{
 				C:      machinesC,
@@ -1809,7 +1809,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
 				Assert: portsAssert,
 				Insert: pDoc,
-			}}, nil
+			}}
 		})
 
 	s.PatchValue(

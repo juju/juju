@@ -200,6 +200,9 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := checkEnvLife(p.st); err != nil {
+				return nil, errors.Trace(err)
+			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
 				// No longer exists, we'll create it.
 				if !ports.areNew {
@@ -226,15 +229,19 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 			}
 		}
 
+		ops := []txn.Op{
+			assertEnvAliveOp(p.st.EnvironUUID()),
+		}
 		if ports.areNew {
 			// Create a new document.
 			assert := txn.DocMissing
-			return addPortsDocOps(p.st, &ports.doc, assert, portRange)
+			ops = append(ops, addPortsDocOps(p.st, &ports.doc, assert, portRange)...)
 		} else {
 			// Update an existing document.
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			return updatePortsDocOps(p.st, ports.doc, assert, portRange), nil
+			ops = append(ops, updatePortsDocOps(p.st, ports.doc, assert, portRange)...)
 		}
+		return ops, nil
 	}
 	// Run the transaction using the state transaction runner.
 	if err = p.st.run(buildTxn); err != nil {
@@ -389,7 +396,7 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 // statement for on the openedPorts collection op.
 var addPortsDocOps = addPortsDocOpsFunc
 
-func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	pDoc.Ports = ports
 	return []txn.Op{{
 		C:      machinesC,
@@ -400,7 +407,7 @@ func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, port
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Insert: pDoc,
-	}}, nil
+	}}
 }
 
 // updatePortsDocOps returns the ops for adding a port range to an
