@@ -111,23 +111,6 @@ details:
 			},
 		},
 	}}
-
-	rawDefinition = `
-name: wistful
-description: ""
-type: other-type
-typeoptions: {}
-command: run
-image: ""
-ports: []
-volumes: []
-envvars: {}
-`[1:]
-	definition = charm.Process{
-		Name:    "wistful",
-		Type:    "other-type",
-		Command: "run",
-	}
 )
 
 type infoSuite struct {
@@ -164,12 +147,8 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-info [options] [<name>]
+usage: process-info [<name>]
 purpose: get info about a workload process (or all of them)
-
-options:
---available  (= false)
-    show unregistered processes instead
 
 "info" is used while a hook is running to access a currently registered
 workload process (or the list of all the unit's processes). The process
@@ -177,7 +156,7 @@ info is printed to stdout as YAML-formatted text.
 `[1:])
 }
 
-func (s *infoSuite) TestInitWithNameRegistered(c *gc.C) {
+func (s *infoSuite) TestInitWithName(c *gc.C) {
 	s.compCtx.procs[s.proc.Name] = s.proc
 
 	err := s.infoCmd.Init([]string{s.proc.Name})
@@ -186,25 +165,7 @@ func (s *infoSuite) TestInitWithNameRegistered(c *gc.C) {
 	c.Check(s.infoCmd.Name, gc.Equals, s.proc.Name)
 }
 
-func (s *infoSuite) TestInitWithNameAvailable(c *gc.C) {
-	s.infoCmd.Available = true
-	s.compCtx.procs[s.proc.Name] = s.proc
-
-	err := s.infoCmd.Init([]string{s.proc.Name})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.infoCmd.Name, gc.Equals, s.proc.Name)
-}
-
-func (s *infoSuite) TestInitWithoutNameRegistered(c *gc.C) {
-	err := s.infoCmd.Init(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.infoCmd.Name, gc.Equals, "")
-}
-
-func (s *infoSuite) TestInitWithoutNameAvailable(c *gc.C) {
-	s.infoCmd.Available = true
+func (s *infoSuite) TestInitWithoutName(c *gc.C) {
 	err := s.infoCmd.Init(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -257,38 +218,4 @@ func (s *infoSuite) TestRunWithoutNameEmpty(c *gc.C) {
 
 	s.checkRun(c, "", " [no processes registered]\n")
 	s.Stub.CheckCallNames(c, "List")
-}
-
-func (s *infoSuite) TestRunWithNameAvailable(c *gc.C) {
-	s.infoCmd.Available = true
-	s.compCtx.definitions[definition.Name] = definition
-	s.init(c, "wistful")
-
-	s.checkRun(c, rawDefinition+"\n", "")
-	s.Stub.CheckCallNames(c, "ListDefinitions")
-}
-
-func (s *infoSuite) TestRunWithoutNameAvailable(c *gc.C) {
-	s.infoCmd.Available = true
-	s.compCtx.definitions[definition.Name] = definition
-	s.init(c, "")
-
-	s.checkRun(c, rawDefinition+"\n", "")
-	s.Stub.CheckCallNames(c, "ListDefinitions")
-}
-
-func (s *infoSuite) TestRunWithNameNotAvailable(c *gc.C) {
-	s.infoCmd.Available = true
-	s.init(c, "wistful")
-
-	s.checkRun(c, `["wistful" not found]`+"\n", "")
-	s.Stub.CheckCallNames(c, "ListDefinitions")
-}
-
-func (s *infoSuite) TestRunWithoutNameNotAvailable(c *gc.C) {
-	s.infoCmd.Available = true
-	s.init(c, "")
-
-	s.checkRun(c, "", " [no processes defined in charm]\n")
-	s.Stub.CheckCallNames(c, "ListDefinitions")
 }

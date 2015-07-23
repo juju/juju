@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 )
 
 // InfoCommandInfo is the info for the proc-info command.
@@ -27,10 +26,6 @@ info is printed to stdout as YAML-formatted text.
 // ProcInfoCommand implements the register command.
 type ProcInfoCommand struct {
 	baseCommand
-
-	// Available indicates that only unregistered process definitions
-	// from the charm metadata should be shown.
-	Available bool
 }
 
 // NewProcInfoCommand returns a new ProcInfoCommand.
@@ -45,11 +40,6 @@ func NewProcInfoCommand(ctx HookContext) (*ProcInfoCommand, error) {
 	c.cmdInfo = InfoCommandInfo
 	c.handleArgs = c.init
 	return c, nil
-}
-
-// SetFlags implements cmd.Command.
-func (c *ProcInfoCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Available, "available", false, "show unregistered processes instead")
 }
 
 func (c *ProcInfoCommand) init(args map[string]string) error {
@@ -69,14 +59,8 @@ func (c *ProcInfoCommand) Run(ctx *cmd.Context) error {
 		ids = append(ids, c.Name)
 	}
 
-	if c.Available {
-		if err := c.printDefinitions(ctx, ids...); err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		if err := c.printInfos(ctx, ids...); err != nil {
-			return errors.Trace(err)
-		}
+	if err := c.printInfos(ctx, ids...); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -109,33 +93,6 @@ func (c *ProcInfoCommand) printInfos(ctx *cmd.Context, ids ...string) error {
 		values[k] = v
 	}
 	if err := dumpAll(ctx, ids, values); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (c *ProcInfoCommand) printDefinitions(ctx *cmd.Context, names ...string) error {
-	definitions, err := c.defsFromCharm()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(names) == 0 {
-		if len(definitions) == 0 {
-			fmt.Fprintln(ctx.Stderr, " [no processes defined in charm]")
-			return nil
-		}
-		for _, def := range definitions {
-			names = append(names, def.Name)
-		}
-		sort.Strings(names)
-	}
-
-	// Now print them out.
-	values := make(map[string]interface{})
-	for k, v := range definitions {
-		values[k] = v
-	}
-	if err := dumpAll(ctx, names, values); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
