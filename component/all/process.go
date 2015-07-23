@@ -4,8 +4,6 @@
 package all
 
 import (
-	"encoding/json"
-	"fmt"
 	"reflect"
 
 	"github.com/juju/cmd"
@@ -38,7 +36,7 @@ func (c workloadProcesses) registerForServer() error {
 }
 
 func (c workloadProcesses) registerForClient() error {
-	comps.RegisterUnitComponentFormatter(server.StatusType, convertAPItoCLI)
+	comps.RegisterUnitComponentFormatter(server.StatusType, client.ConvertAPItoCLI)
 	return nil
 }
 
@@ -151,59 +149,5 @@ func (c workloadProcesses) registerState() {
 }
 
 func (c workloadProcesses) registerStatusAPI() {
-	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, unitStatus)
-}
-
-func unitStatus(st *state.State, unitTag names.UnitTag) (interface{}, error) {
-	unitProcesses, err := st.UnitProcesses(unitTag)
-	if err != nil {
-		return nil, err
-	}
-
-	return unitProcesses.List()
-}
-
-type cliDetails struct {
-	ID     string    `json:"id" yaml:"id"`
-	Type   string    `json:"type" yaml:"type"`
-	Status cliStatus `json:"status" yaml:"status"`
-}
-
-type cliStatus struct {
-	State string `json:"state" yaml:"state"`
-}
-
-// convertAPItoCLI converts the object returned from the API for our component
-// to the object we want to display in the CLI.  In our case, the api object is
-// a []process.Info
-func convertAPItoCLI(apiObj interface{}) (cliObj interface{}) {
-	if apiObj == nil {
-		return nil
-	}
-	var infos []process.Info
-
-	// ok, this is ugly, but because our type was unmarshaled into a
-	// map[string]interface{}, the easiest way to convert it into the type we
-	// want is just to marshal it back out and then unmarshal it into the
-	// correct type.
-	b, err := json.Marshal(apiObj)
-	if err != nil {
-		return fmt.Sprintf("error reading type returned from api: %s", err)
-	}
-
-	if err := json.Unmarshal(b, &infos); err != nil {
-		return fmt.Sprintf("error loading type returned from api: %s", err)
-	}
-
-	result := map[string]cliDetails{}
-	for _, info := range infos {
-		result[info.Name] = cliDetails{
-			ID:   info.Details.ID,
-			Type: info.Type,
-			Status: cliStatus{
-				State: info.Details.Status.Label,
-			},
-		}
-	}
-	return result
+	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, server.UnitStatus)
 }
