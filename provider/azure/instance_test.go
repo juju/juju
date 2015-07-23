@@ -31,7 +31,7 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.env = makeEnviron(c)
-	s.service = makeDeployment(s.env, "service-name")
+	s.service = makeDeployment(c, s.env, "service-name")
 	s.deployment = &s.service.Deployments[0]
 	s.deployment.Name = "deployment-one"
 	s.role = &s.deployment.RoleList[0]
