@@ -9,10 +9,10 @@ import (
 
 // ActionData contains the tag, parameters, and results of an Action.
 type ActionData struct {
-	ActionName     string
-	ActionTag      names.ActionTag
-	ActionParams   map[string]interface{}
-	ActionFailed   bool
+	Name           string
+	Tag            names.ActionTag
+	Params         map[string]interface{}
+	Failed         bool
 	ResultsMessage string
 	ResultsMap     map[string]interface{}
 }

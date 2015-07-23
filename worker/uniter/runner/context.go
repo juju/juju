@@ -566,8 +566,8 @@ func (ctx *HookContext) addJujuUnitsMetric() error {
 	return nil
 }
 
-// FlushContext implements the Context interface.
-func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
+// Flush implements the Context interface.
+func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// A non-existant metricsRecorder simply means that metrics were disabled
 	// for this hook run.
 	if ctx.metricsRecorder != nil {
