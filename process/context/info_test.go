@@ -4,69 +4,16 @@
 package context_test
 
 import (
-	"strings"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
 )
 
 var (
-	rawProcs = []string{
-		`
-process:
-  name: myprocess0
-  description: ""
-  type: myplugin
-  typeoptions:
-    extra: "5"
-  command: do-something
-  image: myimage
-  ports: []
-  volumes: []
-  envvars:
-    ENV_VAR: some value
-details:
-  id: xyz123
-  status:
-    label: running
-`[1:],
-		`
-process:
-  name: myprocess1
-  description: ""
-  type: myplugin
-  typeoptions: {}
-  command: do-something
-  image: myimage
-  ports: []
-  volumes: []
-  envvars: {}
-details:
-  id: xyz456
-  status:
-    label: running
-`[1:],
-		`
-process:
-  name: myprocess2
-  description: ""
-  type: myplugin
-  typeoptions: {}
-  command: ""
-  image: ""
-  ports: []
-  volumes: []
-  envvars: {}
-details:
-  id: xyz789
-  status:
-    label: invalid
-`[1:],
-	}
 	procs = []*process.Info{{
 		Process: charm.Process{
 			Name: "myprocess0",
@@ -132,6 +79,8 @@ func (s *infoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *infoSuite) init(c *gc.C, name string) {
+	s.infoCmd.SetFlags(&gnuflag.FlagSet{})
+
 	if name == "" {
 		err := s.infoCmd.Init(nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -147,8 +96,14 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-info [<name>]
+usage: process-info [options] [<name>]
 purpose: get info about a workload process (or all of them)
+
+options:
+--format  (= yaml)
+    specify output format (json|yaml)
+-o, --output (= "")
+    specify an output file
 
 "process-info" is used while a hook is running to access a currently
 registered workload process (or the list of all the unit's processes).
@@ -191,7 +146,26 @@ func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
 	s.compCtx.procs["myprocess2"] = procs[2]
 	s.init(c, "myprocess0")
 
-	s.checkRun(c, rawProcs[0]+"\n", "")
+	expected := `
+myprocess0:
+  process:
+    name: myprocess0
+    description: ""
+    type: myplugin
+    typeoptions:
+      extra: "5"
+    command: do-something
+    image: myimage
+    ports: []
+    volumes: []
+    envvars:
+      ENV_VAR: some value
+  details:
+    id: xyz123
+    status:
+      label: running
+`[1:]
+	s.checkRun(c, expected, "")
 	s.Stub.CheckCallNames(c, "Get")
 }
 
@@ -201,21 +175,69 @@ func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
 	s.compCtx.procs["myprocess2"] = procs[2]
 	s.init(c, "")
 
-	expected := strings.Join(rawProcs, "\n")
-	s.checkRun(c, expected+"\n", "")
+	expected := `
+myprocess0:
+  process:
+    name: myprocess0
+    description: ""
+    type: myplugin
+    typeoptions:
+      extra: "5"
+    command: do-something
+    image: myimage
+    ports: []
+    volumes: []
+    envvars:
+      ENV_VAR: some value
+  details:
+    id: xyz123
+    status:
+      label: running
+myprocess1:
+  process:
+    name: myprocess1
+    description: ""
+    type: myplugin
+    typeoptions: {}
+    command: do-something
+    image: myimage
+    ports: []
+    volumes: []
+    envvars: {}
+  details:
+    id: xyz456
+    status:
+      label: running
+myprocess2:
+  process:
+    name: myprocess2
+    description: ""
+    type: myplugin
+    typeoptions: {}
+    command: ""
+    image: ""
+    ports: []
+    volumes: []
+    envvars: {}
+  details:
+    id: xyz789
+    status:
+      label: invalid
+`[1:]
+	s.checkRun(c, expected, "")
 	s.Stub.CheckCallNames(c, "List", "Get", "Get", "Get")
 }
 
 func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
 	s.init(c, "myprocess0")
 
-	s.checkRun(c, `["myprocess0" not found]`+"\n", "")
+	s.checkRun(c, `myprocess0: <not found>`+"\n", "")
 	s.Stub.CheckCallNames(c, "Get")
 }
 
 func (s *infoSuite) TestRunWithoutNameEmpty(c *gc.C) {
 	s.init(c, "")
 
-	s.checkRun(c, "", " [no processes registered]\n")
+	s.checkRun(c, "", "<no processes registered>\n")
 	s.Stub.CheckCallNames(c, "List")
 }
