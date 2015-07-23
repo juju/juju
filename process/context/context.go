@@ -7,11 +7,14 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
+
+var logger = loggo.GetLogger("juju.process.context")
 
 // TODO(ericsnow) Normalize method names across all the arch. layers
 // (e.g. List->AllProcesses, Get->Processes, Set->AddProcess).

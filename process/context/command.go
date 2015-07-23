@@ -8,14 +8,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
 )
-
-var logger = loggo.GetLogger("juju.process.persistence")
 
 type cmdInfo struct {
 	// Name is the command's name.
