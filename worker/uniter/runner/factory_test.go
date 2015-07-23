@@ -568,9 +568,9 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	data, err := ctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, &runner.ActionData{
-		ActionName: "snapshot",
-		ActionTag:  action.ActionTag(),
-		ActionParams: map[string]interface{}{
+		Name: "snapshot",
+		Tag:  action.ActionTag(),
+		Params: map[string]interface{}{
 			"outfile": "/some/file.bz2",
 		},
 		ResultsMap: map[string]interface{}{},

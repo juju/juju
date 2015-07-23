@@ -403,7 +403,7 @@ func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
 		return "", errors.New("not running an action")
 	}
-	return ctx.actionData.ActionName, nil
+	return ctx.actionData.Name, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
@@ -411,7 +411,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
-	return ctx.actionData.ActionParams, nil
+	return ctx.actionData.Params, nil
 }
 
 // SetActionMessage sets a message for the Action, usually an error message.
@@ -428,7 +428,7 @@ func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
-	ctx.actionData.ActionFailed = true
+	ctx.actionData.Failed = true
 	return nil
 }
 
@@ -521,9 +521,9 @@ func (context *HookContext) HookVars(paths Paths) []string {
 	}
 	if context.actionData != nil {
 		vars = append(vars,
-			"JUJU_ACTION_NAME="+context.actionData.ActionName,
-			"JUJU_ACTION_UUID="+context.actionData.ActionTag.Id(),
-			"JUJU_ACTION_TAG="+context.actionData.ActionTag.String(),
+			"JUJU_ACTION_NAME="+context.actionData.Name,
+			"JUJU_ACTION_UUID="+context.actionData.Tag.Id(),
+			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
 	return append(vars, osDependentEnvVars(paths)...)
@@ -673,9 +673,9 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
-	tag := ctx.actionData.ActionTag
+	tag := ctx.actionData.Tag
 	status := params.ActionCompleted
-	if ctx.actionData.ActionFailed {
+	if ctx.actionData.Failed {
 		status = params.ActionFailed
 	}
 
