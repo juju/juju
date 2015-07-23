@@ -14,8 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/metricsmanager"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -30,7 +28,7 @@ import (
 type destroyEnvironmentSuite struct {
 	testing.JujuConnSuite
 	commontesting.BlockHelper
-	metricsManager *testMetricsManager
+	metricSender *testMetricSender
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
@@ -40,12 +38,8 @@ func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
-	s.metricsManager = &testMetricsManager{}
-	/*
-		s.PatchValue(client.NewMetricsManager, func(_ *state.State, _ common.Authorizer) (metricsmanager.MetricsManager, error) {
-			return s.metricsManager, nil
-		})
-	*/
+	s.metricSender = &testMetricSender{}
+	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
 }
 
 // setUpManual adds "manually provisioned" machines to state:
@@ -111,6 +105,8 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
+
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
@@ -129,6 +125,8 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 
 	// After DestroyEnvironment returns, we should have:
 	//   - all non-manager instances stopped
@@ -172,6 +170,8 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 			break
 		}
 	}
+
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
@@ -180,6 +180,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
@@ -188,6 +189,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
@@ -197,16 +199,7 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
-}
-
-func (s *destroyEnvironmentSuite) TestDestroyEnvironmentFlushMetrics(c *gc.C) {
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.metricsManager.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics", Args: []interface{}{env.Tag().String()}}})
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 type destroyTwoEnvironmentsSuite struct {
@@ -214,7 +207,7 @@ type destroyTwoEnvironmentsSuite struct {
 	otherState     *state.State
 	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
-	metricsManager *testMetricsManager
+	metricSender   *testMetricSender
 }
 
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
@@ -241,12 +234,8 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.metricsManager = &testMetricsManager{}
-	/*
-		s.PatchValue(client.NewMetricsManager, func(_ *state.State, _ *common.Resources, _ common.Authorizer) (metricsmanager.MetricsManager, error) {
-			return s.metricsManager, nil
-		})
-	*/
+	s.metricSender = &testMetricSender{}
+	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
@@ -264,6 +253,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 	_, err = s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
@@ -283,6 +273,8 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 	_, err = s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
@@ -292,6 +284,7 @@ func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerI
 	c.Assert(err, jc.ErrorIsNil)
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}, {FuncName: "SendMetrics"}})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
@@ -305,43 +298,15 @@ func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
 
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
+
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
-func (s *destroyTwoEnvironmentsSuite) TestDestroyEnvironmentFlushMetrics(c *gc.C) {
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	otherEnv, err := s.otherState.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.otherEnvClient.DestroyEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.metricsManager.CheckCalls(c, []jtesting.StubCall{
-		{
-			FuncName: "SendMetrics",
-			Args:     []interface{}{otherEnv.Tag().String()},
-		}, {
-			FuncName: "SendMetrics",
-			Args:     []interface{}{env.Tag().String()},
-		},
-	})
-}
-
-type testMetricsManager struct {
+type testMetricSender struct {
 	jtesting.Stub
-	metricsmanager.MetricsManager
 }
 
-func (t *testMetricsManager) SendMetrics(args params.Entities) (params.ErrorResults, error) {
-	for _, arg := range args.Entities {
-		t.AddCall("SendMetrics", arg.Tag)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	return result, nil
+func (t *testMetricSender) SendMetrics(st *state.State) error {
+	t.AddCall("SendMetrics")
+	return nil
 }

@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	senderPeriod = 15 * time.Minute
+	senderPeriod = 5 * time.Minute
 )
 
 // NewSender creates a new periodic worker that sends metrics
