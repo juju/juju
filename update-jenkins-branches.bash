@@ -9,7 +9,7 @@ SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     vivid-slave.vapour.ws wily-slave.vapour.ws \
     ppc64el-slave.vapour.ws i386-slave.vapour.ws kvm-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
-    cloud-health.vapour.ws certification-slave.vapour.ws \
+    cloud-health-slave.vapour.ws certification-slave.vapour.ws \
     charm-bundle-slave.vapour.ws osx-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
@@ -36,6 +36,7 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
     (cd ~/cloud-city; bzr revert; cd -)
     bzr pull -d ~/cloud-city ~/cloud-city.new
     rm -r ~/cloud-city.new
+    sudo chown -R jenkins:jenkins ~/cloud-city
     chmod -R go-w ~/cloud-city
     chmod 700 ~/cloud-city
     chmod 700 ~/cloud-city/gnupg
