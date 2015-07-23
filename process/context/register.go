@@ -12,7 +12,7 @@ import (
 
 // RegisterCommandInfo is the info for the proc-launch command.
 var RegisterCommandInfo = cmdInfo{
-	Name:      "proc-register",
+	Name:      "process-register",
 	ExtraArgs: []string{"proc-details"},
 	Summary:   "register a workload process",
 	Doc: `

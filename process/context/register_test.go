@@ -30,7 +30,7 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 	cmd.ReadMetadata = s.readMetadata
 
 	s.registerCmd = cmd
-	s.setCommand(c, "proc-register", s.registerCmd)
+	s.setCommand(c, "process-register", s.registerCmd)
 }
 
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
@@ -57,7 +57,7 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: proc-register [options] <name> <proc-details>
+usage: process-register [options] <name> <proc-details>
 purpose: register a workload process
 
 options:

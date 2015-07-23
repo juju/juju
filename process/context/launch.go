@@ -15,7 +15,7 @@ import (
 
 // LaunchCommandInfo is the info for the proc-launch command.
 var LaunchCommandInfo = cmdInfo{
-	Name:    "proc-launch",
+	Name:    "process-launch",
 	Summary: "launch a workload process",
 	Doc: `
 "launch" is used to launch a workload process.
