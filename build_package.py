@@ -133,9 +133,7 @@ def build_in_lxc(container, build_dir, ppa=None, verbose=False):
     subprocess.check_call(['sudo', 'lxc-start', '-d', '-n', container])
     try:
         build_script = BUILD_DEB_TEMPLATE.format(container=container, ppa=ppa)
-        proc = subprocess.Popen([build_script], shell=True)
-        proc.communicate()
-        returncode = proc.returncode
+        returncode = subprocess.call([build_script], shell=True)
     finally:
         subprocess.check_call(['sudo', 'lxc-stop', '-n', container])
         user = os.environ.get('USER', 'jenkins')
