@@ -57,7 +57,7 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: register [options] <name> <proc-details>
+usage: proc-register [options] <name> <proc-details>
 purpose: register a workload process
 
 options:

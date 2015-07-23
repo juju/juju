@@ -38,7 +38,7 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 // Info implements cmd.Command.
 func (c *ProcRegistrationCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "register",
+		Name:    "proc-register",
 		Args:    "<name> <proc-details>",
 		Purpose: "register a workload process",
 		Doc:     registerDoc,

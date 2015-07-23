@@ -52,7 +52,7 @@ type ProcLaunchCommand struct {
 // Info implements cmd.Command.
 func (c *ProcLaunchCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "launch",
+		Name:    "proc-launch",
 		Args:    "<name>",
 		Purpose: "launch a workload process",
 		Doc:     launchDoc,
