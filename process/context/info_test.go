@@ -156,7 +156,6 @@ func (s *infoSuite) init(c *gc.C, name string) {
 		err := s.infoCmd.Init([]string{name})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	s.Stub.ResetCalls()
 }
 
 func (s *infoSuite) TestCommandRegistered(c *gc.C) {

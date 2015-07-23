@@ -132,15 +132,16 @@ func (c *baseCommand) init(args map[string]string) error {
 		return errors.Errorf("got empty name")
 	}
 	c.Name = name
+	return nil
+}
 
-	// TODO(ericsnow) Pull the definitions from the metadata here...
-
+// Run implements cmd.Command.
+func (c *baseCommand) Run(ctx *cmd.Context) error {
 	pInfo, err := c.compCtx.Get(c.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	c.info = pInfo
-
 	return nil
 }
 
@@ -222,8 +223,9 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend process definition")
 }
 
-func (c *registeringCommand) init(args map[string]string) error {
-	if err := c.baseCommand.init(args); err != nil {
+// Run implements cmd.Command.
+func (c *registeringCommand) Run(ctx *cmd.Context) error {
+	if err := c.baseCommand.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 

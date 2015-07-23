@@ -53,14 +53,12 @@ func (c *ProcInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ProcInfoCommand) init(args map[string]string) error {
-	if len(args) > 0 {
-		if c.Available {
-			c.Name = args["name"]
-			// Do not call c.init().
-		} else if err := c.baseCommand.init(args); err != nil {
-			return errors.Trace(err)
-		}
-	} // Otherwise we do nothing.
+	if len(args) == 0 {
+		return nil
+	}
+	if err := c.baseCommand.init(args); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -140,21 +138,5 @@ func (c *ProcInfoCommand) printDefinitions(ctx *cmd.Context, names ...string) er
 	if err := dumpAll(ctx, names, values); err != nil {
 		return errors.Trace(err)
 	}
-	//definition, ok := definitions[names[0]]
-	//if !ok {
-	//	return errors.NotFoundf(names[0])
-	//}
-	//if err := dump(ctx, ndefinition); err != nil {
-	//	return errors.Trace(err)
-	//}
-	//for _, name := range names[1:] {
-	//	definition, ok := definitions[name]
-	//	if !ok {
-	//		return errors.NotFoundf(name)
-	//	}
-	//	if err := dump(ctx, definition); err != nil {
-	//		return errors.Trace(err)
-	//	}
-	//}
 	return nil
 }

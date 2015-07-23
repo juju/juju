@@ -90,18 +90,6 @@ func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	})
 }
 
-func (s *registerSuite) TestInitAlreadyRegistered(c *gc.C) {
-	s.proc.Details.ID = "xyz123"
-	s.compCtx.procs[s.proc.Name] = s.proc
-
-	err := s.registerCmd.Init([]string{
-		s.proc.Name,
-		`{"id":"abc123", "status":{"label":"okay"}}`,
-	})
-
-	c.Check(err, gc.ErrorMatches, ".*already registered")
-}
-
 func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{})
 	c.Check(err, gc.ErrorMatches, `missing args .*`)
@@ -306,6 +294,16 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 
 	s.checkRun(c, "", "")
 	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
+}
+
+func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
+	s.proc.Details.ID = "xyz123"
+	s.compCtx.procs[s.proc.Name] = s.proc
+	s.init(c, s.proc.Name, "abc123", "okay")
+
+	err := s.registerCmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, ".*already registered")
 }
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
