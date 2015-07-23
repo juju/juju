@@ -112,7 +112,7 @@ func (c *ProcInfoCommand) printInfos(ctx *cmd.Context, ids ...string) error {
 }
 
 func (c *ProcInfoCommand) printDefinitions(ctx *cmd.Context, names ...string) error {
-	definitions, err := c.defsFromCharm(ctx)
+	definitions, err := c.defsFromCharm()
 	if err != nil {
 		return errors.Trace(err)
 	}

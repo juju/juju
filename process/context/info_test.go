@@ -129,18 +129,10 @@ envvars: {}
 		Type:    "other-type",
 		Command: "run",
 	}
-	meta = charm.Meta{
-		Name:        "mycharm",
-		Summary:     "a charm",
-		Description: "a charm",
-		Processes: map[string]charm.Process{
-			"wistful": definition,
-		},
-	}
 )
 
 type infoSuite struct {
-	commandSuite
+	registeringCommandSuite
 
 	infoCmd *context.ProcInfoCommand
 }
@@ -148,15 +140,13 @@ type infoSuite struct {
 var _ = gc.Suite(&infoSuite{})
 
 func (s *infoSuite) SetUpTest(c *gc.C) {
-	s.commandSuite.SetUpTest(c)
+	s.registeringCommandSuite.SetUpTest(c)
 
 	cmd, err := context.NewProcInfoCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.infoCmd = cmd
 	s.setCommand(c, "proc-info", s.infoCmd)
-
-	cmd.ReadMetadata = s.readMetadata
 }
 
 func (s *infoSuite) init(c *gc.C, name string) {
@@ -167,6 +157,7 @@ func (s *infoSuite) init(c *gc.C, name string) {
 		err := s.infoCmd.Init([]string{name})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	s.Stub.ResetCalls()
 }
 
 func (s *infoSuite) TestCommandRegistered(c *gc.C) {
@@ -189,7 +180,7 @@ info is printed to stdout as YAML-formatted text.
 }
 
 func (s *infoSuite) TestInitWithNameRegistered(c *gc.C) {
-	context.AddProcs(s.compCtx, s.proc)
+	s.compCtx.procs[s.proc.Name] = s.proc
 
 	err := s.infoCmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +190,7 @@ func (s *infoSuite) TestInitWithNameRegistered(c *gc.C) {
 
 func (s *infoSuite) TestInitWithNameAvailable(c *gc.C) {
 	s.infoCmd.Available = true
-	context.AddProcs(s.compCtx, s.proc)
+	s.compCtx.procs[s.proc.Name] = s.proc
 
 	err := s.infoCmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,25 +227,20 @@ func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
 }
 
 func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
-	compCtx := newStubContextComponent(s.Stub)
-	compCtx.procs["myprocess0"] = procs[0]
-	compCtx.procs["myprocess1"] = procs[1]
-	compCtx.procs["myprocess2"] = procs[2]
+	s.compCtx.procs["myprocess0"] = procs[0]
+	s.compCtx.procs["myprocess1"] = procs[1]
+	s.compCtx.procs["myprocess2"] = procs[2]
 	s.init(c, "myprocess0")
-	context.SetComponent(s.cmd, compCtx)
 
 	s.checkRun(c, rawProcs[0]+"\n", "")
 	s.Stub.CheckCallNames(c, "Get")
 }
 
 func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
-	compCtx := newStubContextComponent(s.Stub)
-	compCtx.procs["myprocess0"] = procs[0]
-	compCtx.procs["myprocess1"] = procs[1]
-	compCtx.procs["myprocess2"] = procs[2]
-	context.AddProcs(s.compCtx, procs...)
+	s.compCtx.procs["myprocess0"] = procs[0]
+	s.compCtx.procs["myprocess1"] = procs[1]
+	s.compCtx.procs["myprocess2"] = procs[2]
 	s.init(c, "")
-	context.SetComponent(s.cmd, compCtx)
 
 	expected := strings.Join(rawProcs, "\n")
 	s.checkRun(c, expected+"\n", "")
@@ -262,9 +248,7 @@ func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
 }
 
 func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
-	compCtx := newStubContextComponent(s.Stub)
 	s.init(c, "myprocess0")
-	context.SetComponent(s.cmd, compCtx)
 
 	err := s.infoCmd.Run(s.cmdCtx)
 
@@ -273,9 +257,7 @@ func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
 }
 
 func (s *infoSuite) TestRunWithoutNameEmpty(c *gc.C) {
-	compCtx := newStubContextComponent(s.Stub)
 	s.init(c, "")
-	context.SetComponent(s.cmd, compCtx)
 
 	s.checkRun(c, "", " [no processes registered]\n")
 	s.Stub.CheckCallNames(c, "List")
@@ -283,40 +265,36 @@ func (s *infoSuite) TestRunWithoutNameEmpty(c *gc.C) {
 
 func (s *infoSuite) TestRunWithNameAvailable(c *gc.C) {
 	s.infoCmd.Available = true
-	//context.AddProcs(s.compCtx, procs...)
-	s.metadata = &meta
+	s.compCtx.definitions[definition.Name] = definition
 	s.init(c, "wistful")
 
 	s.checkRun(c, rawDefinition+"\n", "")
-	s.Stub.CheckCalls(c, nil)
+	s.Stub.CheckCallNames(c, "ListDefinitions")
 }
 
 func (s *infoSuite) TestRunWithoutNameAvailable(c *gc.C) {
 	s.infoCmd.Available = true
-	//context.AddProcs(s.compCtx, procs...)
-	s.metadata = &meta
+	s.compCtx.definitions[definition.Name] = definition
 	s.init(c, "")
 
 	s.checkRun(c, rawDefinition+"\n", "")
-	s.Stub.CheckCalls(c, nil)
+	s.Stub.CheckCallNames(c, "ListDefinitions")
 }
 
 func (s *infoSuite) TestRunWithNameNotAvailable(c *gc.C) {
 	s.infoCmd.Available = true
-	//context.AddProcs(s.compCtx, procs...)
 	s.init(c, "wistful")
 
 	err := s.infoCmd.Run(s.cmdCtx)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	s.Stub.CheckCalls(c, nil)
+	s.Stub.CheckCallNames(c, "ListDefinitions")
 }
 
 func (s *infoSuite) TestRunWithoutNameNotAvailable(c *gc.C) {
 	s.infoCmd.Available = true
-	//context.AddProcs(s.compCtx, procs...)
 	s.init(c, "")
 
 	s.checkRun(c, "", " [no processes defined in charm]\n")
-	s.Stub.CheckCalls(c, nil)
+	s.Stub.CheckCallNames(c, "ListDefinitions")
 }
