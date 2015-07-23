@@ -1685,167 +1685,115 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `constraints not found`)
 }
 
-func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
+func (s *MachineSuite) TestInitialStatus(c *gc.C) {
+	s.checkInitialStatus(c)
+}
+
+func (s *MachineSuite) checkInitialStatus(c *gc.C) {
+	statusInfo, err := s.machine.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Check(statusInfo.Message, gc.Equals, "")
+	c.Check(statusInfo.Data, gc.HasLen, 0)
+	c.Check(statusInfo.Since, gc.NotNil)
+}
+
+func (s *MachineSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	err := s.machine.SetStatus(state.StatusError, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(state.StatusDown, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.machine.SetStatus(state.Status("vliegkat"), "orville", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
+
+	s.checkInitialStatus(c)
+}
+
+func (s *MachineSuite) TestSetDownStatus(c *gc.C) {
+	err := s.machine.SetStatus(state.StatusDown, "", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set status "down"`)
+
+	s.checkInitialStatus(c)
+}
+
+func (s *MachineSuite) TestSetUnknownStatus(c *gc.C) {
+	err := s.machine.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
+	s.checkInitialStatus(c)
+}
+
+func (s *MachineSuite) TestSetOverwritesData(c *gc.C) {
+	err := s.machine.SetStatus(state.StatusStarted, "blah", map[string]interface{}{
+		"pew.pew": "zap",
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	s.checkGetSetStatus(c)
+}
+
+func (s *MachineSuite) TestGetSetStatusAlive(c *gc.C) {
+	s.checkGetSetStatus(c)
+}
+
+func (s *MachineSuite) checkGetSetStatus(c *gc.C) {
+	err := s.machine.SetStatus(state.StatusStarted, "blah", map[string]interface{}{
+		"$foo.bar.baz": map[string]interface{}{
+			"pew.pew": "zap",
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+
 	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
-		"foo": "bar",
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Check(statusInfo.Message, gc.Equals, "blah")
+	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+		"$foo.bar.baz": map[string]interface{}{
+			"pew.pew": "zap",
+		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"foo": "bar",
-	})
+	c.Check(statusInfo.Since, gc.NotNil)
 }
 
-func (s *MachineSuite) TestSetStatusPending(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusPending, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Cannot set status to pending once a machine is provisioned.
-	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusPending, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-}
-
-func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
-	// When Dying set/get should work.
+func (s *MachineSuite) TestGetSetStatusDying(c *gc.C) {
 	err := s.machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusStopped, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
-	// When Dead set should fail, but get will work.
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	s.checkGetSetStatus(c)
+}
 
+func (s *MachineSuite) TestGetSetStatusDead(c *gc.C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// NOTE: it would be more technically correct to reject status updates
+	// while Dead, but it's easier and clearer, not to mention more efficient,
+	// to just depend on status doc existence.
+	s.checkGetSetStatus(c)
+}
+
+func (s *MachineSuite) TestGetSetStatusGone(c *gc.C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	_, err = s.machine.Status()
-	c.Assert(err, gc.ErrorMatches, `status for key "m#1" not found`)
-}
-
-func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Regular status setting with data.
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-}
-
-func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting with MongoDB special values.
-	err = s.machine.SetStatus(state.StatusError, "mongo", map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "mongo")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-}
-
-func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting and changing data afterwards.
-	data := map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	}
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", data)
-	c.Assert(err, jc.ErrorIsNil)
-	data["4th-key"] = 4.0
+	c.Check(err, gc.ErrorMatches, `cannot set status: machine not found`)
 
 	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
+	c.Check(err, gc.ErrorMatches, `cannot get status: machine not found`)
+	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
+}
 
-	// Set status data to nil, so an empty map will be returned.
-	err = s.machine.SetStatus(state.StatusStarted, "", nil)
+func (s *MachineSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
+	err := s.machine.SetStatus(state.StatusPending, "", nil)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestSetStatusPendingProvisioned(c *gc.C) {
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	err = s.machine.SetStatus(state.StatusPending, "", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }
 
 func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {

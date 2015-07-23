@@ -4,9 +4,7 @@
 package state_test
 
 import (
-	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -26,44 +24,6 @@ const (
 )
 
 type statusHistoryFunc func(int) ([]state.StatusInfo, error)
-
-func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *state.State, globalKey string) {
-	begin := state.NowToTheSecond()
-	c.Logf("will use %q as base time", begin)
-	for i := 0; i < 100; i++ {
-		message := fmt.Sprintf("bogus message number %d", i)
-		c.Logf("fill status history, attempt: %d", i)
-		updated := begin.Add(time.Duration(i) + time.Second)
-		statusDoc := state.StatusDoc{Status: state.StatusActive,
-			StatusInfo: message,
-			Updated:    &updated}
-		sdoc := state.NewStatusDoc(statusDoc)
-		err := state.UpdateStatusHistory(sdoc, globalKey, st)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	h, err := statusHistory(100)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
-	h, err = statusHistory(200)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 0")
-	h, err = statusHistory(50)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 50)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 99")
-	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[49].Message, gc.Equals, "bogus message number 50")
-
-}
 
 type UnitSuite struct {
 	ConnSuite
@@ -568,59 +528,87 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
-	err := s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
-
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
-	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-	c.Assert(statusInfo.Since, gc.NotNil)
-
-	err = s.unit.SetStatus(state.StatusActive, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+func (s *UnitSuite) TestInitialStatus(c *gc.C) {
+	s.checkInitialStatus(c)
 }
 
-func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
-	err := s.unit.SetAgentStatus(state.StatusError, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetAgentStatus(state.Status("vliegkat"), "orville", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
+func (s *UnitSuite) checkInitialStatus(c *gc.C) {
+	statusInfo, err := s.unit.Status()
+	c.Check(err, jc.ErrorIsNil)
+	checkInitialUnitStatus(c, statusInfo)
+}
 
-	statusInfo, err := s.unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusAllocating)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-	c.Assert(statusInfo.Since, gc.NotNil)
+func (s *UnitSuite) TestSetUnknownStatus(c *gc.C) {
+	err := s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	err = s.unit.SetAgentStatus(state.StatusRebooting, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusRebooting)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	s.checkInitialStatus(c)
+}
 
-	err = s.unit.SetAgentStatus(state.StatusError, "test-hook failed", map[string]interface{}{
-		"foo": "bar",
+func (s *UnitSuite) TestSetOverwritesData(c *gc.C) {
+	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+		"pew.pew": "zap",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Unit status reports errors.
-	statusInfo, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"foo": "bar",
+	c.Check(err, jc.ErrorIsNil)
+
+	s.checkGetSetStatus(c)
+}
+
+func (s *UnitSuite) TestGetSetStatusAlive(c *gc.C) {
+	s.checkGetSetStatus(c)
+}
+
+func (s *UnitSuite) checkGetSetStatus(c *gc.C) {
+	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+		"$ping": map[string]interface{}{
+			"foo.bar": 123,
+		},
 	})
+	c.Check(err, jc.ErrorIsNil)
+
+	statusInfo, err := s.unit.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
+	c.Check(statusInfo.Message, gc.Equals, "healthy")
+	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+		"$ping": map[string]interface{}{
+			"foo.bar": 123,
+		},
+	})
+	c.Check(statusInfo.Since, gc.NotNil)
+}
+
+func (s *UnitSuite) TestGetSetStatusDying(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	err := s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkGetSetStatus(c)
+}
+
+func (s *UnitSuite) TestGetSetStatusDead(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	err := s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// NOTE: it would be more technically correct to reject status updates
+	// while Dead, but it's easier and clearer, not to mention more efficient,
+	// to just depend on status doc existence.
+	s.checkGetSetStatus(c)
+}
+
+func (s *UnitSuite) TestGetSetStatusGone(c *gc.C) {
+	err := s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set status: unit not found`)
+
+	statusInfo, err := s.unit.Status()
+	c.Check(err, gc.ErrorMatches, `cannot get status: unit not found`)
+	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
 }
 
 func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
@@ -641,170 +629,37 @@ func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
 }
 
-func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
-	err := state.EraseUnitHistory(s.unit)
-	c.Assert(err, jc.ErrorIsNil)
-	globalKey := state.UnitGlobalKey(s.unit)
+func (s *UnitSuite) TestStatusHistoryInitial(c *gc.C) {
+	history, err := s.unit.StatusHistory(1)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 1)
 
-	err = s.unit.SetStatus(state.StatusMaintenance, "to push something to history", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusMaintenance)
+	checkInitialUnitStatus(c, history[0])
+}
 
-	h, err := state.StatusHistory(10, globalKey, s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 1)
-	c.Assert(h[0].Status, gc.Equals, state.StatusUnknown)
-	c.Assert(h[0].Message, gc.Equals, "Waiting for agent initialization to finish")
+func (s *UnitSuite) TestStatusHistoryShort(c *gc.C) {
+	primeUnitStatusHistory(c, s.unit, 5)
 
-	err = s.unit.SetStatus(state.StatusActive, "active message", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+	history, err := s.unit.StatusHistory(10)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 6)
 
-	err = s.unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
-
-	h, err = state.StatusHistory(10, globalKey, s.State)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(h, gc.HasLen, 3)
-	var message string
-	for i := 0; i < 3; i++ {
-		c.Logf("checking status %q", h[i].Status)
-		switch h[i].Status {
-		case state.StatusUnknown:
-			message = "Waiting for agent initialization to finish"
-		case state.StatusActive:
-			message = "active message"
-		case state.StatusMaintenance:
-			message = "to push something to history"
-		}
-		c.Assert(h[i].Message, gc.Equals, message)
+	checkInitialUnitStatus(c, history[5])
+	history = history[:5]
+	for i, statusInfo := range history {
+		checkPrimedUnitStatus(c, statusInfo, 4-i)
 	}
 }
 
-func (s *UnitSuite) TestGetUnitStatusHistory(c *gc.C) {
-	err := state.EraseUnitHistory(s.unit)
-	c.Assert(err, jc.ErrorIsNil)
-	globalKey := state.UnitGlobalKey(s.unit)
-	history := func(i int) ([]state.StatusInfo, error) {
-		return s.unit.StatusHistory(i)
+func (s *UnitSuite) TestStatusHistoryLong(c *gc.C) {
+	primeUnitStatusHistory(c, s.unit, 25)
+
+	history, err := s.unit.StatusHistory(15)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 15)
+	for i, statusInfo := range history {
+		checkPrimedUnitStatus(c, statusInfo, 24-i)
 	}
-	testGetUnitStatusHistory(c, history, s.State, globalKey)
-}
-
-func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
-	err := s.unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
-
-	err = s.unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, err = s.unit.Status()
-	c.Assert(err, gc.ErrorMatches, `status for key "u#wordpress/0" not found`)
-}
-
-func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Regular status setting with data.
-	err = s.unit.SetAgentStatus(state.StatusError, "test-hook failed", map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Unit status reports errors.
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-}
-
-func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting with MongoDB special values.
-	err = s.unit.SetAgentStatus(state.StatusError, "mongo", map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Unit status reports errors.
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "mongo")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-}
-
-func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting and changing data afterwards.
-	data := map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	}
-	err = s.unit.SetAgentStatus(state.StatusError, "test-hook failed", data)
-	c.Assert(err, jc.ErrorIsNil)
-	data["4th-key"] = 4.0
-
-	// Unit status reports errors.
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-
-	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err = s.unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
-	c.Assert(statusInfo.Message, gc.Equals, "running")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
@@ -1018,7 +873,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	assertLife(c, s.unit, state.Dying)
 }
 
-func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
+func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	for i, test := range []struct {
 		status state.Status
 		info   string
@@ -1035,29 +890,6 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(test.status, test.info, nil)
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(unit.Life(), gc.Equals, state.Dying)
-		assertLife(c, unit, state.Dying)
-	}
-}
-
-func (s *UnitSuite) TestCannotShortCircuitDestroyWithUnitStatus(c *gc.C) {
-	for i, test := range []struct {
-		status state.Status
-		info   string
-	}{{
-		state.StatusActive, "",
-	}, {
-		state.StatusMaintenance, "blah",
-	}} {
-		c.Logf("test %d: %s", i, test.status)
-		unit, err := s.service.AddUnit()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusExecuting, "running", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(test.status, test.info, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Destroy()
 		c.Assert(err, jc.ErrorIsNil)

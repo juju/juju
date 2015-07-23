@@ -1010,31 +1010,20 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 	}
 	update := setUnsetUpdate(sets, unsets)
 	buildTxn := func(_ int) ([]txn.Op, error) {
-
-		// First check leadership is still valid, and store the ops that will
-		// fail should it not remain so.
-		var prereqs []txn.Op
-		if err := token.Check(&prereqs); err != nil {
-			return nil, errors.Annotatef(err, "prerequisites failed")
-		}
-
-		// Then read the txn-revno of the settings doc, so as to create an
-		// assert that will protect us from overwriting more recent changes
-		// in the event of this transaction being missed and resumed late.
 		txnRevno, err := s.st.readTxnRevno(settingsC, docId)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "cannot check latest settings")
 		}
-		return append(prereqs, txn.Op{
+		return []txn.Op{{
 			C:      settingsC,
 			Id:     docId,
 			Assert: bson.D{{"txn-revno", txnRevno}},
 			Update: update,
-		}), nil
+		}}, nil
 	}
-	return s.st.run(buildTxn)
+	return s.st.run(wrapSource(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
@@ -1214,31 +1203,29 @@ type settingsRefsDoc struct {
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (s *Service) Status() (StatusInfo, error) {
-	doc, err := getStatus(s.st, s.globalKey())
+	info, err := getStatus(s.st, s.globalKey(), "service")
 	if errors.IsNotFound(err) {
 		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
 		return s.deriveStatus()
+	} else if err != nil {
+		return StatusInfo{}, errors.Trace(err)
 	}
-	if err != nil {
-		return StatusInfo{}, errors.Annotatef(err, "reading status for %q", s.Name())
-	}
-	return StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    doc.StatusData,
-		Since:   doc.Updated,
-	}, nil
+	return info, nil
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set status")
-	doc, err := newServiceStatusDoc(status, info, data)
-	if err != nil {
-		return errors.Trace(err)
+func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
+	// Valid service status values are the same as those for the unit.
+	if !validWorkloadStatus(status) {
+		return errors.Errorf("cannot set invalid status %q", status)
 	}
-	badge := fmt.Sprintf("service %q", s.doc.Name)
-	return setStatus(s.st, s.globalKey(), doc.statusDoc, nil, badge)
+	return setStatus(s.st, setStatusParams{
+		badge:     "service",
+		globalKey: s.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.

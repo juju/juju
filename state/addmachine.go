@@ -466,11 +466,14 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		Insert: mdoc,
 	}
 
+	// TODO(fwereade) this is crazy, and done only for consistency.
+	now := nowToTheSecond()
 	prereqOps = []txn.Op{
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status:  StatusPending,
 			EnvUUID: st.EnvironUUID(),
+			Updated: &now,
 		}),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine

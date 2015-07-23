@@ -135,30 +135,6 @@ const (
 	PreparingStorageMessage = "preparing storage"
 )
 
-type statusNotFoundError struct {
-	error
-}
-
-// Cause implements errors.causer
-func (e *statusNotFoundError) Cause() error {
-	return e.error
-}
-
-func newStatusNotFound(key string) error {
-	return &statusNotFoundError{errors.NotFoundf("status for key %q", key)}
-}
-
-// IsStatusNotFound returns true if the provided error is
-// statusNotFoundError
-func IsStatusNotFound(err error) bool {
-	if _, ok := err.(*statusNotFoundError); ok {
-		return true
-	}
-	err = errors.Cause(err)
-	_, ok := err.(*statusNotFoundError)
-	return ok
-}
-
 // ValidAgentStatus returns true if status has a known value for an agent.
 // This is used by the status command to filter out
 // unknown status values.
@@ -187,18 +163,14 @@ func (status Status) ValidAgentStatus() bool {
 }
 
 // ValidWorkloadStatus returns true if status has a known value for a workload.
-// This is used by the status command to filter out
-// unknown status values.
+// This is used by the apiserver client facade to filter out completely-unknown
+// status values.
 func (status Status) ValidWorkloadStatus() bool {
+	if validWorkloadStatus(status) {
+		return true
+	}
 	switch status {
-	case
-		StatusBlocked,
-		StatusMaintenance,
-		StatusWaiting,
-		StatusActive,
-		StatusUnknown,
-		StatusTerminated,
-		StatusError: // include error so that we can filter on what the spec says is valid
+	case StatusError: // include error so that we can filter on what the spec says is valid
 		return true
 	case // Deprecated statuses
 		StatusPending,
@@ -206,6 +178,22 @@ func (status Status) ValidWorkloadStatus() bool {
 		StatusStarted,
 		StatusStopped,
 		StatusDown:
+		return true
+	default:
+		return false
+	}
+}
+
+// validWorkloadStatus returns true if status has a known value for units or services.
+func validWorkloadStatus(status Status) bool {
+	switch status {
+	case
+		StatusBlocked,
+		StatusMaintenance,
+		StatusWaiting,
+		StatusActive,
+		StatusUnknown,
+		StatusTerminated:
 		return true
 	default:
 		return false
@@ -267,372 +255,96 @@ type StatusInfo struct {
 // entity in the document's creation transaction, but omitted to allow
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
-	EnvUUID    string `bson:"env-uuid"`
-	Status     Status
-	StatusInfo string
-	StatusData map[string]interface{}
-	Updated    *time.Time
+	EnvUUID    string                 `bson:"env-uuid"`
+	Status     Status                 `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+	Updated    *time.Time             `bson:"updated"`
 }
 
-type historicalStatusDoc struct {
-	Id         int    `bson:"_id"`
-	EnvUUID    string `bson:"env-uuid"`
-	Status     Status
-	StatusInfo string
-	StatusData map[string]interface{}
-	Updated    *time.Time
-	EntityId   string
-}
-
-func newHistoricalStatusDoc(s statusDoc, entityId string) *historicalStatusDoc {
-	return &historicalStatusDoc{
-		EnvUUID:    s.EnvUUID,
-		Status:     s.Status,
-		StatusInfo: s.StatusInfo,
-		StatusData: s.StatusData,
-		Updated:    s.Updated,
-		EntityId:   entityId,
-	}
-}
-
-func updateStatusHistory(oldDoc statusDoc, globalKey string, st *State) error {
-	id, err := st.sequence("statushistory")
-	if err != nil {
-		errors.Annotatef(err, "cannot make id updating status history of unit agent %q", globalKey)
-	}
-	hDoc := newHistoricalStatusDoc(oldDoc, globalKey)
-
-	h := txn.Op{
-		C:      statusesHistoryC,
-		Id:     id,
-		Insert: hDoc,
-	}
-
-	err = st.runTransaction([]txn.Op{h})
-	return errors.Annotatef(err, "cannot update status history of unit agent %q", globalKey)
-}
-
-func statusHistory(size int, globalKey string, st *State) ([]StatusInfo, error) {
-	statusHistory, closer := st.getCollection(statusesHistoryC)
-	defer closer()
-
-	sInfo := []StatusInfo{}
-	results := []historicalStatusDoc{}
-	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Limit(size).All(&results)
-	if err == mgo.ErrNotFound {
-		return []StatusInfo{}, errors.NotFoundf("statusHistory")
-	}
-	if err != nil {
-		return []StatusInfo{}, errors.Annotatef(err, "cannot get status history for %q", globalKey)
-	}
-	for _, s := range results {
-		sInfo = append(sInfo, StatusInfo{
-			Status:  s.Status,
-			Message: s.StatusInfo,
-			Data:    s.StatusData,
-			Since:   s.Updated,
-		})
-	}
-	return sInfo, nil
-}
-
-type machineStatusDoc struct {
-	statusDoc
-}
-
-// newMachineStatusDoc creates a new machineAgentStatusDoc with the given status and other data.
-func newMachineStatusDoc(status Status, info string, data map[string]interface{},
-	allowPending bool,
-) (*machineStatusDoc, error) {
-	doc := &machineStatusDoc{statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}}
-	timestamp := nowToTheSecond()
-	doc.Updated = &timestamp
-	if err := doc.validateSet(allowPending); err != nil {
-		return nil, err
-	}
-	return doc, nil
-}
-
-// machineStatusValid returns true if status has a known value for machines.
-func machineStatusValid(status Status) bool {
-	switch status {
-	case
-		StatusPending,
-		StatusStarted,
-		StatusStopped,
-		StatusError,
-		StatusDown:
-		return true
-	default:
-		return false
-	}
-}
-
-// validateSet returns an error if the machineStatusDoc does not represent a sane
-// SetStatus operation.
-func (doc machineStatusDoc) validateSet(allowPending bool) error {
-	if !machineStatusValid(doc.Status) {
-		return errors.Errorf("cannot set invalid status %q", doc.Status)
-	}
-	switch doc.Status {
-	case StatusPending:
-		if !allowPending {
-			return errors.Errorf("cannot set status %q", doc.Status)
+// mapKeys returns a copy of the supplied map, with all nested map[string]interface{}
+// keys transformed by f. All other types are ignored.
+func mapKeys(f func(string) string, input map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for key, value := range input {
+		if submap, ok := value.(map[string]interface{}); ok {
+			value = mapKeys(f, submap)
 		}
-	case StatusDown:
-		return errors.Errorf("cannot set status %q", doc.Status)
-	case StatusError:
-		if doc.StatusInfo == "" {
-			return errors.Errorf("cannot set status %q without info", doc.Status)
-		}
+		result[f(key)] = value
 	}
-	if doc.StatusData != nil && doc.Status != StatusError {
-		return errors.Errorf("cannot set status data when status is %q", doc.Status)
-	}
-	return nil
+	return result
 }
 
-type unitAgentStatusDoc struct {
-	statusDoc
+func escapeKeys(input map[string]interface{}) map[string]interface{} {
+	return mapKeys(escapeReplacer.Replace, input)
 }
 
-// newUnitAgentStatusDoc creates a new unitAgentStatusDoc with the given status and other data.
-func newUnitAgentStatusDoc(status Status, info string, data map[string]interface{}) (*unitAgentStatusDoc, error) {
-	doc := &unitAgentStatusDoc{statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}}
-	timestamp := nowToTheSecond()
-	doc.Updated = &timestamp
-	if err := doc.validateSet(); err != nil {
-		return nil, err
-	}
-	return doc, nil
-}
-
-// unitAgentStatusValid returns true if status has a known value for unit agents.
-func unitAgentStatusValid(status Status) bool {
-	switch status {
-	case
-		StatusAllocating,
-		StatusRebooting,
-		StatusExecuting,
-		StatusIdle,
-		StatusFailed,
-		StatusLost,
-		// The current health spec says an agent should not be in error
-		// but this needs discussion so we'll retain it for now.
-		StatusError:
-		return true
-	case // TODO(perrito666) Deprecate in 2.x
-		StatusPending,
-		StatusStarted,
-		StatusStopped:
-		return true
-	default:
-		return false
-	}
-}
-
-// validateSet returns an error if the unitAgentStatusDoc does not represent a sane
-// SetStatus operation for a unit agent.
-func (doc *unitAgentStatusDoc) validateSet() error {
-	if !unitAgentStatusValid(doc.Status) {
-		return errors.Errorf("cannot set invalid status %q", doc.Status)
-	}
-	switch doc.Status {
-	// For safety; no code will use these deprecated values.
-	case StatusPending, StatusStarted, StatusStopped:
-		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
-	case StatusAllocating, StatusLost:
-		isStorageMessage := doc.StatusInfo == PreparingStorageMessage || doc.StatusInfo == StorageReadyMessage
-		if doc.Status == StatusAllocating && isStorageMessage {
-			return nil
-		}
-		return errors.Errorf("cannot set status %q", doc.Status)
-	case StatusError:
-		if doc.StatusInfo == "" {
-			return errors.Errorf("cannot set status %q without info", doc.Status)
-		}
-	}
-	if doc.StatusData != nil && doc.Status != StatusError {
-		return errors.Errorf("cannot set status data when status is %q", doc.Status)
-	}
-	return nil
-}
-
-type unitStatusDoc struct {
-	statusDoc
-}
-
-// newUnitStatusDoc creates a new unitStatusDoc with the given status and other data.
-func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (*unitStatusDoc, error) {
-	doc := &unitStatusDoc{statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}}
-	timestamp := nowToTheSecond()
-	doc.Updated = &timestamp
-	if err := doc.validateSet(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return doc, nil
-}
-
-// unitStatusValid returns true if status has a known value for units.
-func unitStatusValid(status Status) bool {
-	switch status {
-	case
-		StatusBlocked,
-		StatusMaintenance,
-		StatusWaiting,
-		StatusActive,
-		StatusUnknown,
-		StatusTerminated:
-		return true
-	default:
-		return false
-	}
-}
-
-// validateSet returns an error if the unitStatusDoc does not represent a sane
-// SetStatus operation for a unit.
-func (doc *unitStatusDoc) validateSet() error {
-	if !unitStatusValid(doc.Status) {
-		return errors.Errorf("cannot set invalid status %q", doc.Status)
-	}
-	return nil
-}
-
-type serviceStatusDoc struct {
-	statusDoc
-}
-
-// newServiceStatusDoc creates a new serviceStatusDoc with the given status and other data.
-func newServiceStatusDoc(status Status, info string, data map[string]interface{}) (*serviceStatusDoc, error) {
-	doc := &serviceStatusDoc{statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}}
-	timestamp := nowToTheSecond()
-	doc.Updated = &timestamp
-	if err := doc.validateSet(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return doc, nil
-}
-
-// validateSet returns an error if the serviceStatusDoc does not represent a sane
-// SetStatus operation for a service.
-func (doc *serviceStatusDoc) validateSet() error {
-	// Valid service status values are the same as those for the unit.
-	if !unitStatusValid(doc.Status) {
-		return errors.Errorf("cannot set invalid status %q", doc.Status)
-	}
-	return nil
+func unescapeKeys(input map[string]interface{}) map[string]interface{} {
+	return mapKeys(unescapeReplacer.Replace, input)
 }
 
 // getStatus retrieves the status document associated with the given
-// globalKey and copies it to outStatusDoc, which needs to be created
-// by the caller before.
-func getStatus(st *State, globalKey string) (statusDoc, error) {
+// globalKey and converts it to a StatusInfo. If the status document
+// is not found, a NotFoundError referencing badge will be returned.
+func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot get status")
 	statuses, closer := st.getCollection(statusesC)
 	defer closer()
 
 	var doc statusDoc
-	err := statuses.FindId(globalKey).One(&doc)
+	err = statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return statusDoc{}, newStatusNotFound(globalKey)
+		return StatusInfo{}, errors.NotFoundf(badge)
+	} else if err != nil {
+		return StatusInfo{}, errors.Trace(err)
 	}
-	if err != nil {
-		return statusDoc{}, errors.Annotatef(err, "cannot get status %q", globalKey)
-	}
-	return doc, nil
+
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    mapKeys(unescapeReplacer.Replace, doc.StatusData),
+		Since:   doc.Updated,
+	}, nil
 }
 
-// setStatus
-func setStatus(st *State, globalKey string, doc statusDoc, token leadership.Token, badge string) error {
-	go func() {
-		// TODO(fwereade) fix updateStatusHistory parameter ordering
-		if err := updateStatusHistory(doc, globalKey, st); err != nil {
-			logger.Errorf("failed to write status history document %q: %v", globalKey, err)
-		}
-	}()
-	buildTxn := updateStatusSource(st, globalKey, doc)
-	if token != nil {
-		buildTxn = wrapSource(buildTxn, token)
-	}
-	err := st.run(buildTxn)
-	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
-		return errors.NotFoundf(badge)
-	}
-	return errors.Trace(err)
-}
+// setStatusParams configures a setStatus call. All parameters are presumed to
+// be set to valid values unless otherwise noted.
+type setStatusParams struct {
 
-// updateStatusSource returns a transaction source that builds the operations
-// necessary to set the supplied status (and to fail safely if leaked and
-// executed late, so as not to overwrite more recent documents).
-func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
-	update := bson.D{{"$set", doc}}
-	return func(_ int) ([]txn.Op, error) {
-		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		assert := bson.D{{"txn-revno", txnRevno}}
-		return []txn.Op{{
-			C:      statusesC,
-			Id:     globalKey,
-			Assert: assert,
-			Update: update,
-		}}
-	}
-}
+	// badge is used to specialize any NotFound error emitted.
+	badge string
 
-// wrapSource returns a transaction source that combines the supplied source
-// with checks and asserts on the supplied token.
-func wrapSource(buildTxn jujutxn.TransactionSource, token leadership.Token) jujutxn.TransactionSource {
-	return func(attempt int) ([]txn.Op, error) {
-		var prereqs []txn.Op
-		if err := token.Check(&prereqs); err != nil {
-			return nil, errors.Annotatef(err, "prerequisites failed")
-		}
-		ops, err := buildTxn(attempt)
-		if err == jujutxn.ErrNoOperations {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return append(prereqs, ops...), nil
-	}
+	// globalKey uniquely identifies the entity to which the status belongs.
+	globalKey string
+
+	// status is the status value.
+	status Status
+
+	// message is an optional string elaborating upon the status.
+	message string
+
+	// rawData is a map of arbitrary data elaborating upon the status and
+	// message. Its keys are assumed not to have been escaped.
+	rawData map[string]interface{}
+
+	// token, if present, must accept an *[]txn.Op passed to its Check method,
+	// and will prevent any change if it becomes invalid.
+	token leadership.Token
 }
 
 // createStatusOp returns the operation needed to create the given
-// status document associated with the given globalKey.
+// status document associated with the given globalKey *and* tries
+// to write a corresponding historical status document. This is a
+// hack but it's a small one compared to the unhacks in the CL that
+// introduced it, and it's probably better to have the hack in one
+// place here than in the N places that will create statuses.
 func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
+	probablyUpdateStatusHistory(st, globalKey, doc)
 	return txn.Op{
 		C:      statusesC,
 		Id:     st.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}
-}
-
-// updateStatusOp returns the operations needed to update the given
-// status document associated with the given globalKey.
-func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
-	return txn.Op{
-		C:      statusesC,
-		Id:     st.docID(globalKey),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", &doc}},
 	}
 }
 
@@ -646,16 +358,140 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 	}
 }
 
+// setStatus inteprets the supplied params as documented on the type.
+func setStatus(st *State, params setStatusParams) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set status")
+
+	// TODO(fwereade): this can/should probably be recording the time the
+	// status was *set*, not the time it happened to arrive in state.
+	// And we shouldn't be throwing away accuracy here -- neither to the
+	// second right here *or* by serializing into mongo as a time.Time,
+	// which also discards precision.
+	// We should almost certainly be accepting StatusInfo in the exposed
+	// SetStatus methods, for symetry with the Status methods.
+	now := nowToTheSecond()
+	doc := statusDoc{
+		Status:     params.status,
+		StatusInfo: params.message,
+		StatusData: escapeKeys(params.rawData),
+		Updated:    &now,
+	}
+	probablyUpdateStatusHistory(st, params.globalKey, doc)
+
+	// Set the authoritative status document, or fail trying.
+	buildTxn := updateStatusSource(st, params.globalKey, doc)
+	if params.token != nil {
+		buildTxn = wrapSource(buildTxn, params.token)
+	}
+	err = st.run(buildTxn)
+	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+		return errors.NotFoundf(params.badge)
+	}
+	return errors.Trace(err)
+}
+
+// updateStatusSource returns a transaction source that builds the operations
+// necessary to set the supplied status (and to fail safely if leaked and
+// executed late, so as not to overwrite more recent documents).
+func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
+	update := bson.D{{"$set", &doc}}
+	return func(_ int) ([]txn.Op, error) {
+		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		assert := bson.D{{"txn-revno", txnRevno}}
+		return []txn.Op{{
+			C:      statusesC,
+			Id:     globalKey,
+			Assert: assert,
+			Update: update,
+		}}, nil
+	}
+}
+
+type historicalStatusDoc struct {
+	Id         int                    `bson:"_id"`
+	EnvUUID    string                 `bson:"env-uuid"`
+	Status     Status                 `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+	Updated    *time.Time             `bson:"updated"`
+	EntityId   string                 `bson:"entityid"`
+}
+
+func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
+	// TODO(fwereade): we do NOT need every single status-history operation
+	// to write to the same document in mongodb. If you need to order them,
+	// use a time representation that does not discard precision, like an
+	// int64 holding the time's UnixNanoseconds.
+	id, err := st.sequence("statushistory")
+	if err != nil {
+		logger.Errorf("failed to generate id for status history: %v", err)
+		return
+	}
+	historyDoc := &historicalStatusDoc{
+		Id: id,
+		// We can't guarantee that the statusDoc we're dealing with has the
+		// env-uuid filled in; and envStateCollection does not trap inserts.
+		// Good to be explicit; better to fix leaky abstraction.
+		EnvUUID:    st.EnvironUUID(),
+		Status:     doc.Status,
+		StatusInfo: doc.StatusInfo,
+		StatusData: doc.StatusData, // coming from a statusDoc, already escaped
+		Updated:    doc.Updated,
+		EntityId:   globalKey,
+	}
+	history, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+	if err := historyW.Insert(historyDoc); err != nil {
+		logger.Errorf("failed to write status history: %v", err)
+	}
+}
+
+func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) {
+	statusHistory, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+
+	var docs []historicalStatusDoc
+	query := statusHistory.Find(bson.D{{"entityid", globalKey}})
+	err := query.Sort("-_id").Limit(size).All(&docs)
+	if err == mgo.ErrNotFound {
+		return []StatusInfo{}, errors.NotFoundf("status history")
+	} else if err != nil {
+		return []StatusInfo{}, errors.Annotatef(err, "cannot get status history")
+	}
+
+	results := make([]StatusInfo, len(docs))
+	for i, doc := range docs {
+		results[i] = StatusInfo{
+			Status:  doc.Status,
+			Message: doc.StatusInfo,
+			Data:    unescapeKeys(doc.StatusData),
+			Since:   doc.Updated,
+		}
+	}
+	return results, nil
+}
+
 // PruneStatusHistory removes status history entries until
 // only the maxLogsPerEntity newest records per unit remain.
 func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 	history, closer := st.getCollection(statusesHistoryC)
 	defer closer()
-	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
-	// txn and non-txn operations in the same collection without clear and
-	// detailed reasoning for so doing.
 	historyW := history.Writeable()
 
+	// TODO(fwereade): This is a very strange implementation. Is it specced
+	// that we should keep different spans of history for different entities?
+	// It would seem normal to either keep entries for a fixed time (say 24h),
+	// or to prune down to a target total data size by discarding the oldest
+	// entries. This renders useless -- but is careful to keep -- every status
+	// older than the oldest status of the most frequently updated entity...
+	//
+	// ...and it's really doing a *lot* of work to subtly corrupt the data.
+	// If you want to break status history like this you can do it *much*
+	// more efficiently.
 	globalKeys, err := getEntitiesWithStatuses(historyW)
 	if err != nil {
 		return errors.Trace(err)
