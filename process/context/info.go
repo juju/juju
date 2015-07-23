@@ -12,11 +12,17 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-const infoDoc = `
+// InfoCommandInfo is the info for the proc-info command.
+var InfoCommandInfo = cmdInfo{
+	Name:         "process-info",
+	OptionalArgs: []string{"name"},
+	Summary:      "get info about a workload process (or all of them)",
+	Doc: `
 "info" is used while a hook is running to access a currently registered
 workload process (or the list of all the unit's processes). The process
 info is printed to stdout as YAML-formatted text.
-`
+`,
+}
 
 // ProcInfoCommand implements the register command.
 type ProcInfoCommand struct {
@@ -33,19 +39,11 @@ func NewProcInfoCommand(ctx HookContext) (*ProcInfoCommand, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProcInfoCommand{
+	c := &ProcInfoCommand{
 		baseCommand: *base,
-	}, nil
-}
-
-// Info implements cmd.Command.
-func (c *ProcInfoCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "info",
-		Args:    "[<name>]",
-		Purpose: "get info about a workload process (or all of them)",
-		Doc:     infoDoc,
 	}
+	c.cmdInfo = InfoCommandInfo
+	return c, nil
 }
 
 // SetFlags implements cmd.Command.

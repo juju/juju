@@ -64,8 +64,8 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 
 // Info implements cmd.Command.
 func (c baseCommand) Info() *cmd.Info {
-	args := []string{"<name>"} // name isn't optional
-	for _, name := range c.cmdInfo.ExtraArgs {
+	var args []string
+	for _, name := range append([]string{"name"}, c.cmdInfo.ExtraArgs...) {
 		arg := "<" + name + ">"
 		for _, optional := range c.cmdInfo.OptionalArgs {
 			if name == optional {

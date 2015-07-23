@@ -145,7 +145,7 @@ func (s *infoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.infoCmd = cmd
-	s.setCommand(c, "proc-info", s.infoCmd)
+	s.setCommand(c, "process-info", s.infoCmd)
 }
 
 func (s *infoSuite) init(c *gc.C, name string) {
@@ -165,7 +165,7 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: info [options] [<name>]
+usage: process-info [options] [<name>]
 purpose: get info about a workload process (or all of them)
 
 options:

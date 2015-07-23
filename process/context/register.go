@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/process"
 )
 
-// RegisterCommandInfo is the info for the proc-launch command.
+// RegisterCommandInfo is the info for the proc-register command.
 var RegisterCommandInfo = cmdInfo{
 	Name:      "process-register",
 	ExtraArgs: []string{"proc-details"},
