@@ -18,7 +18,7 @@ var LaunchCommandInfo = cmdInfo{
 	Name:    "process-launch",
 	Summary: "launch a workload process",
 	Doc: `
-"launch" is used to launch a workload process.
+"process-launch" is used to launch a workload process.
 
 The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.`,
@@ -44,6 +44,7 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 		launchPlugin:       launchPlugin,
 	}
 	c.cmdInfo = LaunchCommandInfo
+	c.handleArgs = c.init
 	return c, nil
 }
 
@@ -56,24 +57,11 @@ type ProcLaunchCommand struct {
 	launchPlugin LaunchPluginFn
 }
 
-// Init implements cmd.Command.
-func (c *ProcLaunchCommand) Init(args []string) error {
-	if len(args) != 1 {
-		return errors.Errorf("expected %s, got %v", c.Info().Args, args)
-	}
-
-	return c.init(args[0])
-}
-
-func (c *ProcLaunchCommand) init(name string) error {
-	if err := c.registeringCommand.init(name); err != nil {
-		return err
-	}
-	return nil
-}
-
 // Run implements cmd.Command.
 func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
+	if err := c.registeringCommand.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
 
 	info, err := c.findValidInfo(ctx)
 	if err != nil {

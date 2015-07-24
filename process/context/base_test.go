@@ -109,6 +109,19 @@ func (c *stubContextComponent) Get(procName string) (*process.Info, error) {
 	return info, nil
 }
 
+func (c *stubContextComponent) List() ([]string, error) {
+	c.stub.AddCall("List")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ids []string
+	for k := range c.procs {
+		ids = append(ids, k)
+	}
+	return ids, nil
+}
+
 func (c *stubContextComponent) Set(procName string, info *process.Info) error {
 	c.stub.AddCall("Set", procName, info)
 	if err := c.stub.NextErr(); err != nil {

@@ -13,7 +13,10 @@ func SetComponent(cmd cmd.Command, compCtx Component) {
 	switch cmd := cmd.(type) {
 	case *ProcRegistrationCommand:
 		cmd.compCtx = compCtx
+	case *ProcInfoCommand:
+		cmd.compCtx = compCtx
 	}
+	// TODO(ericsnow) Add ProcLaunchCommand here.
 }
 
 func AddProc(ctx *Context, id string, original *process.Info) {

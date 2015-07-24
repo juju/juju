@@ -118,7 +118,16 @@ func (workloadProcesses) registerHookContextCommands() {
 		compCtx := workloadProcessesHookContext{ctx}
 		cmd, err := context.NewProcLaunchCommand(plugin.Find, plugin.Plugin.Launch, compCtx)
 		if err != nil {
-			// TODO(ericsnow) Return an error instead.
+			panic(err)
+		}
+		return cmd
+	})
+
+	name = context.InfoCommandInfo.Name
+	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
+		compCtx := workloadProcessesHookContext{ctx}
+		cmd, err := context.NewProcInfoCommand(compCtx)
+		if err != nil {
 			panic(err)
 		}
 		return cmd

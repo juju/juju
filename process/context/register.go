@@ -10,15 +10,15 @@ import (
 	"github.com/juju/juju/process"
 )
 
-// RegisterCommandInfo is the info for the proc-launch command.
+// RegisterCommandInfo is the info for the proc-register command.
 var RegisterCommandInfo = cmdInfo{
 	Name:      "process-register",
 	ExtraArgs: []string{"proc-details"},
 	Summary:   "register a workload process",
 	Doc: `
-"register" is used while a hook is running to let Juju know that
-a workload process has been manually started. The information used
-to start the process must be provided when "register" is run.
+"process-register" is used while a hook is running to let Juju know
+that a workload process has been manually started. The information
+used to start the process must be provided when "register" is run.
 
 The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.
@@ -40,22 +40,16 @@ func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, erro
 		registeringCommand: *base,
 	}
 	c.cmdInfo = RegisterCommandInfo
+	c.handleArgs = c.init
 	return c, nil
 }
 
-// Init implements cmd.Command.
-func (c *ProcRegistrationCommand) Init(args []string) error {
-	if len(args) != 2 {
-		return errors.Errorf("expected <name> <proc-details>, got: %v", args)
-	}
-	return c.init(args[0], args[1])
-}
-
-func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
-	if err := c.registeringCommand.init(name); err != nil {
+func (c *ProcRegistrationCommand) init(args map[string]string) error {
+	if err := c.registeringCommand.init(args); err != nil {
 		return errors.Trace(err)
 	}
 
+	detailsStr := args["proc-details"]
 	details, err := process.UnmarshalDetails([]byte(detailsStr))
 	if err != nil {
 		return errors.Trace(err)
@@ -67,6 +61,10 @@ func (c *ProcRegistrationCommand) init(name, detailsStr string) error {
 
 // Run implements cmd.Command.
 func (c *ProcRegistrationCommand) Run(ctx *cmd.Context) error {
+	if err := c.registeringCommand.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
 	if err := c.register(ctx); err != nil {
 		return errors.Trace(err)

@@ -39,7 +39,7 @@ func (s *launchCmdSuite) TestInitInvalidArgsReturnsErr(c *gc.C) {
 	c.Check(
 		err.Error(),
 		gc.Equals,
-		fmt.Sprintf("expected %s, got [mock-name invalid-arg]", cmd.Info().Args),
+		`unrecognized args: ["invalid-arg"]`,
 	)
 }
 
