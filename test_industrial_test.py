@@ -3,7 +3,9 @@ __metaclass__ = type
 from argparse import Namespace
 from collections import OrderedDict
 from contextlib import contextmanager
+import errno
 import os
+import socket
 from tempfile import (
     mkdtemp,
     NamedTemporaryFile,
@@ -1469,7 +1471,8 @@ class TestBackupRestoreAttempt(TestCase):
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
-        self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
+        with patch('deploy_stack.wait_for_port'):
+            self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch('subprocess.Popen') as po_mock:
             with patch('sys.stdout'):
                     self.assertEqual(iterator.next(),

@@ -454,7 +454,8 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
                       upload_tools):
-        client.add_ssh_machines(machines)
+        if machines is not None:
+            client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.

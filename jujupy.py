@@ -230,7 +230,7 @@ class EnvJujuClient:
 
     def add_ssh_machines(self, machines):
         for machine in machines:
-            client.juju('add-machine', ('ssh:' + machine,))
+            self.juju('add-machine', ('ssh:' + machine,))
 
     def get_bootstrap_args(self, upload_tools):
         """Bootstrap, using sudo if necessary."""
