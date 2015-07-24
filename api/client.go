@@ -168,11 +168,6 @@ type Status struct {
 	Services        map[string]ServiceStatus
 	Networks        map[string]NetworkStatus
 	Relations       []RelationStatus
-
-	// StructuredStatus is a map of status type (e.g. process,
-	// machine, network, etc.) to structured status string. It is up
-	// to the server/client to agree upon what that structure is.
-	StructuredStatus map[string]string
 }
 
 // Status returns the status of the juju environment.
