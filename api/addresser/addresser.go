@@ -66,6 +66,21 @@ func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
 	return ipAddresses, err
 }
 
+// ReleaseIPAddresses releases the given IP addresses.
+func (api *API) ReleaseIPAddresses(ipAddresses ...*IPAddress) error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: make([]params.Entity, len(ipAddresses)),
+	}
+	for i, ipAddress := range ipAddresses {
+		args.Entities[i].Tag = ipAddress.Tag().String()
+	}
+	if err := api.facade.FacadeCall("ReleaseIPAddresses", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.Combine()
+}
+
 // Remove deletes the given IP addresses.
 func (api *API) Remove(ipAddresses ...*IPAddress) error {
 	var results params.ErrorResults

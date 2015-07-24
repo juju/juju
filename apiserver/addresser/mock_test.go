@@ -4,6 +4,7 @@
 package addresser_test
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
@@ -16,6 +17,8 @@ import (
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -32,16 +35,43 @@ type mockState struct {
 	ipAddressWatchers []*mockIPAddressWatcher
 }
 
+var _ addresser.StateInterface = (*mockState)(nil)
+
 func newMockState() *mockState {
 	mst := &mockState{
 		stub:        &testing.Stub{},
 		ipAddresses: make(map[string]*mockIPAddress),
 	}
-	mst.setUpIPAddresses()
+	mst.setUpState()
 	return mst
 }
 
-var _ addresser.StateInterface = (*mockState)(nil)
+func (mst *mockState) setUpState() {
+	ips := []struct {
+		value string
+		uuid  string
+		life  state.Life
+	}{
+		{"0.1.2.3", "00000000-1111-2222-3333-0123456789ab", state.Alive},
+		{"0.1.2.4", "00000000-1111-2222-4444-0123456789ab", state.Alive},
+		{"0.1.2.5", "00000000-1111-2222-5555-0123456789ab", state.Alive},
+		{"0.1.2.6", "00000000-1111-2222-6666-0123456789ab", state.Dead},
+		{"0.1.2.7", "00000000-1111-2222-7777-0123456789ab", state.Dead},
+	}
+	for i, ip := range ips {
+		mst.ipAddresses[ip.value] = &mockIPAddress{
+			stub:       mst.stub,
+			st:         mst,
+			value:      ip.value,
+			tag:        names.NewIPAddressTag(ip.uuid),
+			life:       ip.life,
+			subnetId:   "subnet-" + ip.value,
+			instanceId: instance.Id(fmt.Sprintf("instance-%d", i)),
+			addr:       network.NewScopedAddress(ip.value, network.ScopePublic),
+			macaddr:    fmt.Sprintf("a%d", i),
+		}
+	}
+}
 
 // EnvironConfig implements StateInterface.
 func (mst *mockState) EnvironConfig() (*config.Config, error) {
@@ -106,7 +136,6 @@ func (mst *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	defer mst.mu.Unlock()
 
 	mst.stub.MethodCall(mst, "FindEntity", tag)
-
 	if err := mst.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -127,7 +156,6 @@ func (mst *mockState) IPAddress(value string) (addresser.StateIPAddress, error) 
 	defer mst.mu.Unlock()
 
 	mst.stub.MethodCall(mst, "IPAddress", value)
-
 	if err := mst.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -136,6 +164,23 @@ func (mst *mockState) IPAddress(value string) (addresser.StateIPAddress, error) 
 		return nil, errors.NotFoundf("IP address %s", value)
 	}
 	return ipAddress, nil
+}
+
+// IPAddressByTag implements StateInterface.
+func (mst *mockState) IPAddressByTag(tag names.IPAddressTag) (addresser.StateIPAddress, error) {
+	mst.mu.Lock()
+	defer mst.mu.Unlock()
+
+	mst.stub.MethodCall(mst, "IPAddressByTag", tag)
+	if err := mst.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	for _, ipAddress := range mst.ipAddresses {
+		if ipAddress.Tag().String() == tag.String() {
+			return ipAddress, nil
+		}
+	}
+	return nil, errors.NotFoundf("IP address %v", tag)
 }
 
 // WatchIPAddresses implements StateInterface.
@@ -196,27 +241,14 @@ func (mst *mockState) removeIPAddress(value string) error {
 // used with watcher helpers/checkers.
 func (mst *mockState) StartSync() {}
 
-func (mst *mockState) setUpIPAddresses() {
-	ips := []struct {
-		value string
-		uuid  string
-		life  state.Life
-	}{
-		{"0.1.2.3", "00000000-1111-2222-3333-0123456789ab", state.Alive},
-		{"0.1.2.4", "00000000-1111-2222-4444-0123456789ab", state.Alive},
-		{"0.1.2.5", "00000000-1111-2222-5555-0123456789ab", state.Alive},
-		{"0.1.2.6", "00000000-1111-2222-6666-0123456789ab", state.Dead},
-		{"0.1.2.7", "00000000-1111-2222-7777-0123456789ab", state.Dead},
-	}
-	for _, ip := range ips {
-		mst.ipAddresses[ip.value] = &mockIPAddress{
-			stub:  mst.stub,
-			st:    mst,
-			value: ip.value,
-			tag:   names.NewIPAddressTag(ip.uuid),
-			life:  ip.life,
-		}
-	}
+// mockMachine
+type mockMachine struct {
+	addresser.StateMachine
+
+	mu   sync.Mutex
+	stub *testing.Stub
+
+	st *mockState
 }
 
 // mockIPAddress implements StateIPAddress for testing.
@@ -226,10 +258,14 @@ type mockIPAddress struct {
 	mu   sync.Mutex
 	stub *testing.Stub
 
-	st    *mockState
-	value string
-	tag   names.Tag
-	life  state.Life
+	st         *mockState
+	value      string
+	tag        names.Tag
+	life       state.Life
+	subnetId   string
+	instanceId instance.Id
+	addr       network.Address
+	macaddr    string
 }
 
 var _ addresser.StateIPAddress = (*mockIPAddress)(nil)
@@ -277,6 +313,46 @@ func (mip *mockIPAddress) Remove() error {
 		return err
 	}
 	return mip.st.removeIPAddress(mip.value)
+}
+
+// SubnetId implements StateIPAddress.
+func (mip *mockIPAddress) SubnetId() string {
+	mip.mu.Lock()
+	defer mip.mu.Unlock()
+
+	mip.stub.MethodCall(mip, "SubnetId")
+	mip.stub.NextErr() // Consume the unused error.
+	return mip.subnetId
+}
+
+// InstanceId implements StateIPAddress.
+func (mip *mockIPAddress) InstanceId() instance.Id {
+	mip.mu.Lock()
+	defer mip.mu.Unlock()
+
+	mip.stub.MethodCall(mip, "InstanceId")
+	mip.stub.NextErr() // Consume the unused error.
+	return mip.instanceId
+}
+
+// Address implements StateIPAddress.
+func (mip *mockIPAddress) Address() network.Address {
+	mip.mu.Lock()
+	defer mip.mu.Unlock()
+
+	mip.stub.MethodCall(mip, "Address")
+	mip.stub.NextErr() // Consume the unused error.
+	return mip.addr
+}
+
+// MACAddress implements StateIPAddress.
+func (mip *mockIPAddress) MACAddress() string {
+	mip.mu.Lock()
+	defer mip.mu.Unlock()
+
+	mip.stub.MethodCall(mip, "MACAddress")
+	mip.stub.NextErr() // Consume the unused error.
+	return mip.macaddr
 }
 
 // mockBaseWatcher is a helper for the watcher mocks.

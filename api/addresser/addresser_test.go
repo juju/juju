@@ -159,6 +159,64 @@ func (s *AddresserSuite) TestIPAddressesServerError(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
+func (s *AddresserSuite) TestReleaseIPAddressesSuccess(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+	tag3 := names.NewIPAddressTag("33333333-0000-0000-0000-000000000000")
+
+	var called int
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+			{Tag: tag3.String()},
+		},
+	}
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{{nil}, {nil}, {nil}},
+	}
+	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ipAddress1 := addresser.NewIPAddress(api, tag1, params.Alive)
+	ipAddress2 := addresser.NewIPAddress(api, tag2, params.Dying)
+	ipAddress3 := addresser.NewIPAddress(api, tag3, params.Dead)
+
+	err := api.ReleaseIPAddresses(ipAddress1, ipAddress2, ipAddress3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *AddresserSuite) TestReleaseIPAddressesClientError(c *gc.C) {
+	var called int
+	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
+	apiCaller := clientErrorAPICaller(c, "ReleaseIPAddresses", nil, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
+	err := api.ReleaseIPAddresses(ipAddress)
+	c.Assert(err, gc.ErrorMatches, "client error!")
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *AddresserSuite) TestReleaseIPAddressesServerError(c *gc.C) {
+	var called int
+	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{{apiservertesting.ServerError("server boom!")}},
+	}
+	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
+	err := api.ReleaseIPAddresses(ipAddress)
+	c.Assert(err, gc.ErrorMatches, "server boom!")
+	c.Assert(called, gc.Equals, 1)
+}
+
 func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
 	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
 	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
