@@ -81,26 +81,34 @@ def make_source_files(workspace, dsc_name):
 class BuildPackageTestCase(unittest.TestCase):
 
     def test_get_args_source(self):
-        args = get_args(
-            ['prog', 'source', 'my.tar.gz', '~/workspace', 'trusty',
-             '123', '456'])
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args = get_args(
+                ['prog', 'source', 'my.tar.gz', '~/workspace', 'trusty',
+                 '123', '456'])
         self.assertEqual('source', args.command)
         self.assertEqual('my.tar.gz', args.tar_file)
         self.assertEqual('~/workspace', args.location)
         self.assertEqual('trusty', args.series)
         self.assertEqual(['123', '456'], args.bugs)
+        self.assertEqual('me@email', args.debemail)
+        self.assertEqual('me', args.debfullname)
+        self.assertEqual('/usr/bin/gpg', args.gpgcmd)
+        self.assertEqual(DEFAULT_SPB, args.branch)
+        self.assertEqual(0, args.upatch)
         self.assertFalse(args.verbose)
 
     def test_main_source(self):
         with patch('build_package.build_source', autospec=True,
                    return_value=0) as bs_mock:
             code = main([
-                'prog', 'source', '--debemail', 'email', '--debfullname', 'me',
+                'prog', 'source',
+                '--debemail', 'me@email', '--debfullname', 'me',
                 'my.tar.gz', '~/workspace', 'trusty', '123', '456'])
         self.assertEqual(0, code)
         bs_mock.assert_called_with(
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
-            debemail='email', debfullname='me', gpgcmd='/usr/bin/gpg',
+            debemail='me@email', debfullname='me', gpgcmd='/usr/bin/gpg',
             branch=DEFAULT_SPB, upatch=0, verbose=False)
 
     def test_get_args_binary(self):
