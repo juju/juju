@@ -6,22 +6,21 @@ package status
 import (
 	"fmt"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
 type statusFormatter struct {
-	status        *api.Status
-	relations     map[int]api.RelationStatus
+	status        *params.FullStatus
+	relations     map[int]params.RelationStatus
 	isoTime       bool
 	compatVersion int
 }
 
-func newStatusFormatter(status *api.Status, compatVersion int, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, compatVersion int, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:        status,
-		relations:     make(map[int]api.RelationStatus),
+		relations:     make(map[int]params.RelationStatus),
 		compatVersion: compatVersion,
 		isoTime:       isoTime,
 	}
@@ -55,7 +54,7 @@ func (sf *statusFormatter) format() formattedStatus {
 	return out
 }
 
-func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatus {
+func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
 	if machine.Agent.Status == "" {
@@ -107,7 +106,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 	return out
 }
 
-func (sf *statusFormatter) formatService(name string, service api.ServiceStatus) serviceStatus {
+func (sf *statusFormatter) formatService(name string, service params.ServiceStatus) serviceStatus {
 	out := serviceStatus{
 		Err:           service.Err,
 		Charm:         service.Charm,
@@ -137,7 +136,7 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
-func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
+func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     service.Status.Err,
 		Current: service.Status.Status,
@@ -151,10 +150,10 @@ func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statu
 }
 
 type unitFormatInfo struct {
-	unit          api.UnitStatus
+	unit          params.UnitStatus
 	unitName      string
 	serviceName   string
-	meterStatuses map[string]api.MeterStatus
+	meterStatuses map[string]params.MeterStatus
 }
 
 func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
@@ -198,7 +197,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	return out
 }
 
-func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfoContents {
+func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     unit.Workload.Err,
 		Current: unit.Workload.Status,
@@ -211,7 +210,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 	return info
 }
 
-func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoContents {
+func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     unit.UnitAgent.Err,
 		Current: unit.UnitAgent.Status,
@@ -224,7 +223,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 	return info
 }
 
-func (sf *statusFormatter) updateUnitStatusInfo(unit *api.UnitStatus, serviceName string) {
+func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
 	// This logic has no business here but can't be moved until Juju 2.0.
 	statusInfo := unit.Workload.Info
 	if unit.Workload.Status == "" {
@@ -243,7 +242,7 @@ func (sf *statusFormatter) updateUnitStatusInfo(unit *api.UnitStatus, serviceNam
 	}
 }
 
-func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatus {
+func (sf *statusFormatter) formatNetwork(network params.NetworkStatus) networkStatus {
 	return networkStatus{
 		Err:        network.Err,
 		ProviderId: network.ProviderId,
@@ -267,7 +266,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 	return s
 }
 
-func getRelationIdFromData(unit *api.UnitStatus) int {
+func getRelationIdFromData(unit *params.UnitStatus) int {
 	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
@@ -282,13 +281,13 @@ func getRelationIdFromData(unit *api.UnitStatus) int {
 // findOtherEndpoint searches the provided endpoints for an endpoint
 // that *doesn't* match serviceName. The returned bool indicates if
 // such an endpoint was found.
-func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.EndpointStatus, bool) {
+func findOtherEndpoint(endpoints []params.EndpointStatus, serviceName string) (params.EndpointStatus, bool) {
 	for _, endpoint := range endpoints {
 		if endpoint.ServiceName != serviceName {
 			return endpoint, true
 		}
 	}
-	return api.EndpointStatus{}, false
+	return params.EndpointStatus{}, false
 }
 
 // adjustInfoIfMachineAgentDown modifies the agent status info string if the

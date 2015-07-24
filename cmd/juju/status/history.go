@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -88,7 +87,7 @@ func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
-	var statuses *api.UnitStatusHistory
+	var statuses *params.UnitStatusHistory
 	kind := params.HistoryKind(c.outputContent)
 	statuses, err = apiclient.UnitStatusHistory(kind, c.unitName, c.backlogSize)
 	if err != nil {

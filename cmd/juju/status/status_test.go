@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -2860,18 +2859,18 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 }
 
 type fakeApiClient struct {
-	statusReturn *api.Status
+	statusReturn *params.FullStatus
 	patternsUsed []string
 	closeCalled  bool
 }
 
-func newFakeApiClient(statusReturn *api.Status) fakeApiClient {
+func newFakeApiClient(statusReturn *params.FullStatus) fakeApiClient {
 	return fakeApiClient{
 		statusReturn: statusReturn,
 	}
 }
 
-func (a *fakeApiClient) Status(patterns []string) (*api.Status, error) {
+func (a *fakeApiClient) Status(patterns []string) (*params.FullStatus, error) {
 	a.patternsUsed = patterns
 	return a.statusReturn, nil
 }
@@ -2886,9 +2885,9 @@ func (a *fakeApiClient) Close() error {
 // Agent field (they were introduced at the same time).
 func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	// Construct an older style status response
-	client := newFakeApiClient(&api.Status{
+	client := newFakeApiClient(&params.FullStatus{
 		EnvironmentName: "dummyenv",
-		Machines: map[string]api.MachineStatus{
+		Machines: map[string]params.MachineStatus{
 			"0": {
 				// Agent field intentionally not set
 				Id:             "0",
@@ -2896,7 +2895,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentState:     "down",
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
-				Containers:     map[string]api.MachineStatus{},
+				Containers:     map[string]params.MachineStatus{},
 				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
@@ -2908,19 +2907,19 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentState:     "started",
 				AgentStateInfo: "hello",
 				Series:         "quantal",
-				Containers:     map[string]api.MachineStatus{},
+				Containers:     map[string]params.MachineStatus{},
 				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},
 		},
-		Services: map[string]api.ServiceStatus{
+		Services: map[string]params.ServiceStatus{
 			"mysql": {
 				Charm: "local:quantal/mysql-1",
 				Relations: map[string][]string{
 					"server": {"wordpress"},
 				},
-				Units: map[string]api.UnitStatus{
+				Units: map[string]params.UnitStatus{
 					"mysql/0": {
 						// Agent field intentionally not set
 						Machine:    "1",
@@ -2933,7 +2932,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				Relations: map[string][]string{
 					"db": {"mysql"},
 				},
-				Units: map[string]api.UnitStatus{
+				Units: map[string]params.UnitStatus{
 					"wordpress/0": {
 						// Agent field intentionally not set
 						AgentState:     "error",
@@ -2943,7 +2942,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				},
 			},
 		},
-		Networks: map[string]api.NetworkStatus{},
+		Networks: map[string]params.NetworkStatus{},
 		// Relations field intentionally not set
 	})
 	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
@@ -3323,7 +3322,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 
 	client := fakeApiClient{}
 	var status = client.Status
-	s.PatchValue(&status, func(_ []string) (*api.Status, error) {
+	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
 		return nil, nil
 	})
 	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {

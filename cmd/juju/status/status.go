@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -113,7 +113,7 @@ Error details:
 `
 
 type statusAPI interface {
-	Status(patterns []string) (*api.Status, error)
+	Status(patterns []string) (*params.FullStatus, error)
 	Close() error
 }
 
