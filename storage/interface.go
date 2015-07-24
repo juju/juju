@@ -71,6 +71,10 @@ type VolumeSource interface {
 	// information about those attachments too.
 	CreateVolumes(params []VolumeParams) ([]Volume, []VolumeAttachment, error)
 
+	// ListVolumes lists the provider volume IDs for every volume
+	// created by this volume source.
+	ListVolumes() ([]string, error)
+
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
 	DescribeVolumes(volIds []string) ([]VolumeInfo, error)

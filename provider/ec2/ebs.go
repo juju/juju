@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -189,7 +190,15 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	source := &ebsVolumeSource{ec2: ec2, envName: environConfig.Name()}
+	uuid, ok := environConfig.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("environment UUID")
+	}
+	source := &ebsVolumeSource{
+		ec2:     ec2,
+		envName: environConfig.Name(),
+		envUUID: uuid,
+	}
 	return source, nil
 }
 
@@ -201,6 +210,7 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 type ebsVolumeSource struct {
 	ec2     *ec2.EC2
 	envName string // non-unique, informational only
+	envUUID string
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -318,6 +328,21 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 	return volumes, volumeAttachments, nil
 }
 
+// ListVolumes is specified on the storage.VolumeSource interface.
+func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
+	filter := ec2.NewFilter()
+	filter.Add("tag:"+tags.JujuEnv, v.envUUID)
+	resp, err := v.ec2.Volumes(nil, filter)
+	if err != nil {
+		return nil, err
+	}
+	volumeIds := make([]string, len(resp.Volumes))
+	for i, vol := range resp.Volumes {
+		volumeIds[i] = vol.Id
+	}
+	return volumeIds, nil
+}
+
 // DescribeVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.VolumeInfo, error) {
 	resp, err := v.ec2.Volumes(volIds, nil)
@@ -347,6 +372,7 @@ func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
 		if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
 			results[i] = errors.Annotatef(err, "destroying %q", volumeId)
 		}
+
 	}
 	return results
 }
