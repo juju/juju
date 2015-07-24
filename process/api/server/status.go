@@ -28,6 +28,10 @@ func UnitStatus(p ProcessHolder, unitTag names.UnitTag) (interface{}, error) {
 		return nil, err
 	}
 
+	if len(procs) == 0 {
+		return nil, nil
+	}
+
 	results := make([]api.Process, len(procs))
 	for i, p := range procs {
 		results[i] = api.Proc2api(p)

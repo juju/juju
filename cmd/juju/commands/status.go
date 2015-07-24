@@ -230,7 +230,7 @@ type unitStatus struct {
 	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents     `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
 	AgentStatusInfo    statusInfoContents     `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
-	Components         map[string]interface{} `json:"components,omitempty", yaml:"components,omitempty"`
+	Components         map[string]interface{} `json:"components,omitempty" yaml:"components,omitempty"`
 
 	// Legacy status fields, to be removed in Juju 2.0
 	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
@@ -354,6 +354,7 @@ func (sf *statusFormatter) format() formattedStatus {
 		}
 		out.Networks[k] = sf.formatNetwork(n)
 	}
+
 	return out
 }
 
@@ -466,11 +467,19 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 	}
 
 	for component, apistatus := range unit.ComponentStatus {
+		var val interface{}
 		if formatter, ok := components.UnitComponentFormatters[component]; ok {
-			out.Components[component] = formatter(apistatus)
+			val = formatter(apistatus)
 		} else {
-			out.Components[component] = apistatus
+			val = apistatus
 		}
+		if val != nil {
+			out.Components[component] = val
+		}
+	}
+
+	if len(out.Components) == 0 {
+		out.Components = nil
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.

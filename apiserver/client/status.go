@@ -647,8 +647,10 @@ func (context *statusContext) processUnit(st *state.State, unit *state.Unit, ser
 		}
 	}
 
-	// Grab structured statuses from all the registered status providers.
-	result.ComponentStatus = make(map[string]interface{}, len(statusProvidersForUnits))
+	if len(statusProvidersForUnits) > 0 {
+		// Grab structured statuses from all the registered status providers.
+		result.ComponentStatus = make(map[string]interface{}, len(statusProvidersForUnits))
+	}
 	for statusType, getStatus := range statusProvidersForUnits {
 		status, err := getStatus(st, unit.UnitTag())
 		if err != nil {
@@ -656,8 +658,12 @@ func (context *statusContext) processUnit(st *state.State, unit *state.Unit, ser
 			// TODO(katco): Errs should be per status provider
 			break
 		}
-
-		result.ComponentStatus[statusType] = status
+		if status != nil {
+			result.ComponentStatus[statusType] = status
+		}
+	}
+	if len(result.ComponentStatus) == 0 {
+		result.ComponentStatus = nil
 	}
 
 	return result

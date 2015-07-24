@@ -3548,11 +3548,9 @@ var statusTimeTest = test(
 )
 
 func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
-	func(t testCase) {
-		// Prepare context and run all steps to setup.
-		ctx := s.newContext(c)
-		ctx.expectIsoTime = true
-		defer s.resetContext(c, ctx)
-		ctx.run(c, t.steps)
-	}(statusTimeTest)
+	// Prepare context and run all steps to setup.
+	ctx := s.newContext(c)
+	ctx.expectIsoTime = true
+	defer s.resetContext(c, ctx)
+	ctx.run(c, statusTimeTest.steps)
 }
