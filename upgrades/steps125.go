@@ -45,6 +45,13 @@ func stateStepsFor125() []Step {
 				return addInstanceTags(env, machines)
 			},
 		},
+		&upgradeStep{
+			description: "add missing env-uuid to statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingEnvUUIDOnStatuses(context.State())
+			},
+		},
 	}
 }
 
