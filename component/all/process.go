@@ -31,7 +31,7 @@ type workloadProcesses struct{}
 func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
 	c.registerState()
-	c.registerStatusAPI()
+	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, UnitStatus)
 	return nil
 }
 
@@ -148,6 +148,6 @@ func (c workloadProcesses) registerState() {
 	state.SetProcessesComponent(newUnitProcesses)
 }
 
-func (c workloadProcesses) registerStatusAPI() {
-	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, server.UnitStatus)
+func UnitStatus(st *state.State, unit names.UnitTag) (interface{}, error) {
+	return server.UnitStatus(st, unitTag)
 }

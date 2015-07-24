@@ -12,9 +12,13 @@ import (
 
 const StatusType = "workload-processes"
 
+type ProcessHolder interface {
+	UnitProcesses(names.UnitTag) (state.UnitProcesses, error)
+}
+
 // UnitStatus returns a status object to be returned by juju status.
-func UnitStatus(st *state.State, unitTag names.UnitTag) (interface{}, error) {
-	unitProcesses, err := st.UnitProcesses(unitTag)
+func UnitStatus(p ProcessHolder, unitTag names.UnitTag) (interface{}, error) {
+	unitProcesses, err := p.UnitProcesses(unitTag)
 	if err != nil {
 		return nil, err
 	}
