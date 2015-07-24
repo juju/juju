@@ -11,6 +11,9 @@ import subprocess
 import sys
 
 
+DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
+
+
 SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
 
 
@@ -196,6 +199,27 @@ def get_args(argv=None):
         "-v", "--verbose", action="store_true", default=False,
         help="Increase the verbosity of the output")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    src_parser = subparsers.add_parser('source', help='Build source packages')
+    src_parser.add_argument(
+        '--debemail', default=os.environ.get("DEBEMAIL"),
+        help="Your email address; Environment: DEBEMAIL.")
+    src_parser.add_argument(
+        '--debfullname', default=os.environ.get("DEBFULLNAME"),
+        help="Your full name; Environment: DEBFULLNAME.")
+    src_parser.add_argument(
+        '--gpgcmd', default=os.environ.get("GPGCMD"),
+        help="Path to an alternate gpg signing command; Environment: GPGCMD.")
+    src_parser.add_argument(
+        '--branch', default=DEFAULT_SPB,
+        help="The base/previous source package branch.")
+    src_parser.add_argument(
+        '--upatch', default=0, help="The Ubuntu patch number.")
+    src_parser.add_argument('tar_file', help="The release tar file.")
+    src_parser.add_argument("location", help="The location to build in.")
+    src_parser.add_argument(
+        'series', help="The destination Ubuntu release or LIVING for all.")
+    src_parser.add_argument(
+        'bugs', nargs='*', help="Bugs this version will fix in the release.")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
     bin_parser.add_argument(
         '--ppa', default=None, help="The PPA that provides package deps.")
