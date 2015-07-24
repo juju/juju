@@ -3,9 +3,7 @@ __metaclass__ = type
 from argparse import Namespace
 from collections import OrderedDict
 from contextlib import contextmanager
-import errno
 import os
-import socket
 from tempfile import (
     mkdtemp,
     NamedTemporaryFile,
