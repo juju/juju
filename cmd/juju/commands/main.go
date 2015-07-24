@@ -214,6 +214,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(system.NewSuperCommand())
 		r.RegisterSuperAlias("systems", "system", "list", nil)
 		r.RegisterSuperAlias("environments", "system", "environments", nil)
+		r.RegisterSuperAlias("login", "system", "login", nil)
+		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
+		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
 	}
 }
 
