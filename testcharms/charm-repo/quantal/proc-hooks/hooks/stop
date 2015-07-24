@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 export PATH=$PWD/plugin:$PATH
 ACTIVE_FILE=$PWD/.active
@@ -10,7 +11,7 @@ if [ -e $ACTIVE_FILE ]; then
 
     status-set waiting "destroy ${name} not supported yet"
     #status-set active "cleaning up workload process ${name}..."
-    #result=$(destroy "$name" --unregister 2>&1)
+    #result=$(process-destroy "$name" --unregister 2>&1)
     #rc=$?
     #if [ "$rc" = "0" ]; then
     #    status-set waiting "workload process ${name} cleaned up ($result)"

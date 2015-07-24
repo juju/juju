@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 export PATH=$PWD/plugin:$PATH
 ACTIVE_FILE=$PWD/.active
@@ -8,7 +9,7 @@ if [ -e $ACTIVE_FILE ]; then
     name=$(cat $ACTIVE_FILE)
 
     status-set maintenance "launching ${name}..."
-    output=$(launch "$name" 2>&1)
+    output=$(process-launch "$name" 2>&1)
     rc=$?
     if [ -z "$output" ]; then
         output='<no output>'

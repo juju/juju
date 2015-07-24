@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 export PATH=$PWD/plugin:$PATH
 
@@ -7,7 +8,7 @@ id=$(action-get id)
 status=$(action-get status)
 status-set maintenance "register: registering $name into Juju's state ($id, $status)"
 
-result=$(register "$name" '{"id":"'"$id"'", "status":{"label":"'"$status"'"}}"' 2>&1)
+result=$(process-register "$name" '{"id":"'"$id"'", "status":{"label":"'"$status"'"}}"' 2>&1)
 rc=$?
 if [ "$rc" == "0" ]; then
     action-set output="$result"

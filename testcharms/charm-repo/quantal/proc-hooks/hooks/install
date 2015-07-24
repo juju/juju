@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 export PATH=$PWD/plugin:$PATH
 ACTIVE_FILE=$PWD/.active

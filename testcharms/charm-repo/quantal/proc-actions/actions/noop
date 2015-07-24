@@ -1,6 +1,8 @@
 #!/bin/bash
+set -x
 
 export PATH=$PWD/plugin:$PATH
+unitstatus=$(status-get)
 
-status-set maintenance "noop: doing nothing"
+status-set $unitstatus "noop: doing nothing"
 # do nothing
