@@ -13,6 +13,7 @@ from build_package import (
     BUILD_DEB_TEMPLATE,
     build_in_lxc,
     CREATE_LXC_TEMPLATE,
+    DEFAULT_SPB,
     get_args,
     main,
     move_debs,
@@ -89,6 +90,18 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual('trusty', args.series)
         self.assertEqual(['123', '456'], args.bugs)
         self.assertFalse(args.verbose)
+
+    def test_main_source(self):
+        with patch('build_package.build_source', autospec=True,
+                   return_value=0) as bs_mock:
+            code = main([
+                'prog', 'source', '--debemail', 'email', '--debfullname', 'me',
+                'my.tar.gz', '~/workspace', 'trusty', '123', '456'])
+        self.assertEqual(0, code)
+        bs_mock.assert_called_with(
+            'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
+            debemail='email', debfullname='me', gpgcmd='/usr/bin/gpg',
+            branch=DEFAULT_SPB, upatch=0, verbose=False)
 
     def test_get_args_binary(self):
         args = get_args(
