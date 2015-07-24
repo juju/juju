@@ -459,7 +459,10 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		PublicAddress:      unit.PublicAddress,
 		Charm:              unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
-		Components:         map[string]interface{}{},
+	}
+
+	if len(unit.ComponentStatus) > 0 {
+		out.Components = map[string]interface{}{}
 	}
 
 	for component, apistatus := range unit.ComponentStatus {

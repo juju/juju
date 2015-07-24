@@ -149,5 +149,5 @@ func (c workloadProcesses) registerState() {
 }
 
 func UnitStatus(st *state.State, unit names.UnitTag) (interface{}, error) {
-	return server.UnitStatus(st, unitTag)
+	return server.UnitStatus(st, unit)
 }
