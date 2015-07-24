@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
@@ -20,12 +19,11 @@ import (
 type commandSuite struct {
 	baseSuite
 
-	cmdName  string
-	cmd      cmd.Command
-	cmdCtx   *cmd.Context
-	metadata *charm.Meta
-	compCtx  *stubContextComponent
-	Ctx      *stubHookContext
+	cmdName string
+	cmd     cmd.Command
+	cmdCtx  *cmd.Context
+	compCtx *stubContextComponent
+	Ctx     *stubHookContext
 }
 
 func (s *commandSuite) SetUpTest(c *gc.C) {
@@ -48,21 +46,10 @@ func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
 	s.cmd = cmd
 }
 
-func (s *commandSuite) readMetadata(string) (*charm.Meta, error) {
-	return s.metadata, nil
-}
-
 func (s *commandSuite) setMetadata(procs ...process.Info) {
-	definitions := make(map[string]charm.Process)
 	for _, proc := range procs {
 		definition := proc.Process
-		definitions[definition.Name] = definition
-	}
-	s.metadata = &charm.Meta{
-		Name:        "a-charm",
-		Summary:     "a charm",
-		Description: "a charm",
-		Processes:   definitions,
+		s.compCtx.definitions[definition.Name] = definition
 	}
 }
 
@@ -93,8 +80,6 @@ func (s *commandSuite) checkHelp(c *gc.C, expected string) {
 }
 
 func (s *commandSuite) checkRun(c *gc.C, expectedOut, expectedErr string) {
-	context.SetComponent(s.cmd, newStubContextComponent(s.Stub))
-
 	err := s.cmd.Run(s.cmdCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -112,8 +97,8 @@ func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent process.Info)
 	info := context.GetCmdInfo(s.cmd)
 	c.Check(info, jc.DeepEquals, &orig)
 
-	s.Stub.CheckCallNames(c, "Get", "Set", "Flush")
-	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{
+	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
+	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{
 		sent.Name,
 		&sent,
 	})

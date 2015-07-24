@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
@@ -31,6 +32,9 @@ type UnitProcesses interface {
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
 	List(ids ...string) ([]process.Info, error)
+	// ListDefinitions builds the list of process definitions found
+	// in the unit's charm metadata.
+	ListDefinitions() ([]charm.Process, error)
 	// Remove removes the identified workload process from state. If the
 	// given ID is not in state then the request will fail.
 	Remove(id string) error
@@ -38,7 +42,7 @@ type UnitProcesses interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitProcessesFunc func(persist Persistence, unit names.UnitTag) (UnitProcesses, error)
+type newUnitProcessesFunc func(persist Persistence, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) (UnitProcesses, error)
 
 var (
 	newUnitProcesses newUnitProcessesFunc
@@ -57,8 +61,18 @@ func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 		return nil, errors.Errorf("workload processes not supported")
 	}
 
+	getMetadata := func() (*charm.Meta, error) {
+		// TODO(ericsnow) Freeze the metadata at this moment?
+		// TODO(ericsnow) Worry about refreshing the unit?
+		ch, err := unit.charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ch.Meta(), nil
+	}
+
 	persist := st.newPersistence()
-	unitProcs, err := newUnitProcesses(persist, unit.UnitTag())
+	unitProcs, err := newUnitProcesses(persist, unit.UnitTag(), getMetadata)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

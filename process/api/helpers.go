@@ -8,20 +8,42 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
+// API2Definition converts an API process definition struct into
+// a charm.Process struct.
+func API2Definition(d ProcessDefinition) charm.Process {
+	return charm.Process{
+		Name:        d.Name,
+		Description: d.Description,
+		Type:        d.Type,
+		TypeOptions: d.TypeOptions,
+		Command:     d.Command,
+		Image:       d.Image,
+		Ports:       API2charmPorts(d.Ports),
+		Volumes:     API2charmVolumes(d.Volumes),
+		EnvVars:     d.EnvVars,
+	}
+}
+
+// Definition2api converts a charm.Process struct into an
+// api.ProcessDefinition struct.
+func Definition2api(d charm.Process) ProcessDefinition {
+	return ProcessDefinition{
+		Name:        d.Name,
+		Description: d.Description,
+		Type:        d.Type,
+		TypeOptions: d.TypeOptions,
+		Command:     d.Command,
+		Image:       d.Image,
+		Ports:       Charm2apiPorts(d.Ports),
+		Volumes:     Charm2apiVolumes(d.Volumes),
+		EnvVars:     d.EnvVars,
+	}
+}
+
 // API2Proc converts an API Process info struct into a process.Info struct.
 func API2Proc(p Process) process.Info {
 	return process.Info{
-		Process: charm.Process{
-			Name:        p.Definition.Name,
-			Description: p.Definition.Description,
-			Type:        p.Definition.Type,
-			TypeOptions: p.Definition.TypeOptions,
-			Command:     p.Definition.Command,
-			Image:       p.Definition.Image,
-			Ports:       API2charmPorts(p.Definition.Ports),
-			Volumes:     API2charmVolumes(p.Definition.Volumes),
-			EnvVars:     p.Definition.EnvVars,
-		},
+		Process: API2Definition(p.Definition),
 		Details: process.Details{
 			ID:     p.Details.ID,
 			Status: APIStatus2Status(p.Details.Status),
@@ -32,17 +54,7 @@ func API2Proc(p Process) process.Info {
 // Proc2api converts a process.Info struct into an api.Process struct.
 func Proc2api(p process.Info) Process {
 	return Process{
-		Definition: ProcessDefinition{
-			Name:        p.Process.Name,
-			Description: p.Process.Description,
-			Type:        p.Process.Type,
-			TypeOptions: p.Process.TypeOptions,
-			Command:     p.Process.Command,
-			Image:       p.Process.Image,
-			Ports:       Charm2apiPorts(p.Process.Ports),
-			Volumes:     Charm2apiVolumes(p.Process.Volumes),
-			EnvVars:     p.Process.EnvVars,
-		},
+		Definition: Definition2api(p.Process),
 		Details: ProcessDetails{
 			ID:     p.Details.ID,
 			Status: Status2apiStatus(p.Details.Status),

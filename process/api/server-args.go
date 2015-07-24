@@ -63,6 +63,14 @@ type ListProcessResult struct {
 	Error *params.Error
 }
 
+// ListDefinitionsResults contains the results for a call to ListDefinitions.
+type ListDefinitionsResults struct {
+	// Results is the list of definition results.
+	Results []ProcessDefinition
+	// Error is the error (if any) for the call as a whole.
+	Error *params.Error
+}
+
 // SetProcessesStatusArgs are the arguments for the SetProcessesStatus endpoint.
 type SetProcessesStatusArgs struct {
 	// Args is the list of arguments to pass to this function.

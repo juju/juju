@@ -4,15 +4,12 @@
 package context
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
-	"gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
@@ -100,6 +97,8 @@ func (c *baseCommand) init(name string) error {
 	}
 	c.Name = name
 
+	// TODO(ericsnow) Pull the definitions from the metadata here...
+
 	pInfo, err := c.compCtx.Get(c.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -107,6 +106,19 @@ func (c *baseCommand) init(name string) error {
 	c.info = pInfo
 
 	return nil
+}
+
+func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
+	definitions, err := c.compCtx.ListDefinitions()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defMap := make(map[string]charm.Process)
+	for _, definition := range definitions {
+		// We expect no collisions.
+		defMap[definition.Name] = definition
+	}
+	return defMap, nil
 }
 
 // registeringCommand is the base for commands that register a process
@@ -128,9 +140,6 @@ type registeringCommand struct {
 
 	// Definition is the file definition of the process.
 	Definition cmd.FileVar
-
-	// ReadMetadata extracts charm metadata from the given file.
-	ReadMetadata func(filename string) (*charm.Meta, error)
 }
 
 func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
@@ -139,24 +148,8 @@ func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
 		return nil, errors.Trace(err)
 	}
 	return &registeringCommand{
-		baseCommand:  *base,
-		ReadMetadata: readMetadata,
+		baseCommand: *base,
 	}, nil
-}
-
-func readMetadata(filename string) (*charm.Meta, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer file.Close()
-
-	meta, err := charm.ReadMeta(file)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return meta, nil
 }
 
 // SetFlags implements cmd.Command.
@@ -247,12 +240,15 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 	var definition charm.Process
 	if c.Definition.Path == "" {
-		filename := filepath.Join(ctx.Dir, "metadata.yaml")
-		charmDef, err := c.defFromMetadata(c.Name, filename)
+		defs, err := c.defsFromCharm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		definition = *charmDef
+		charmDef, ok := defs[c.Name]
+		if !ok {
+			return nil, errors.NotFoundf(c.Name)
+		}
+		definition = charmDef
 	} else {
 		// c.info must be nil at this point.
 		data, err := c.Definition.Read(ctx)
@@ -267,36 +263,6 @@ func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 	}
 	logger.Debugf("creating new process.Info")
 	return &process.Info{Process: definition}, nil
-}
-
-func (c *registeringCommand) defFromMetadata(name, filename string) (*charm.Process, error) {
-	meta, err := c.ReadMetadata(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, definition := range meta.Processes {
-		if name == definition.Name {
-			return &definition, nil
-		}
-	}
-	return nil, errors.NotFoundf(name)
-}
-
-func parseDefinition(name string, data []byte) (*charm.Process, error) {
-	raw := make(map[interface{}]interface{})
-	if err := yaml.Unmarshal(data, raw); err != nil {
-		return nil, errors.Trace(err)
-	}
-	definition, err := charm.ParseProcess(name, raw)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if definition.Name == "" {
-		definition.Name = name
-	} else if definition.Name != name {
-		return nil, errors.Errorf("process name mismatch; %q != %q", definition.Name, name)
-	}
-	return definition, nil
 }
 
 // checkSpace ensures that the requested network space is available
@@ -323,43 +289,4 @@ func (c *registeringCommand) parseUpdates(definition charm.Process) (*charm.Proc
 	}
 
 	return newDefinition, nil
-}
-
-// parseUpdate builds a charm.ProcessFieldValue from an update string.
-func parseUpdate(update string) (charm.ProcessFieldValue, error) {
-	var pfv charm.ProcessFieldValue
-
-	parts := strings.SplitN(update, ":", 2)
-	if len(parts) == 1 {
-		return pfv, errors.Errorf("missing value")
-	}
-	pfv.Field, pfv.Value = parts[0], parts[1]
-
-	if pfv.Field == "" {
-		return pfv, errors.Errorf("missing field")
-	}
-	if pfv.Value == "" {
-		return pfv, errors.Errorf("missing value")
-	}
-
-	fieldParts := strings.SplitN(pfv.Field, "/", 2)
-	if len(fieldParts) == 2 {
-		pfv.Field = fieldParts[0]
-		pfv.Subfield = fieldParts[1]
-	}
-
-	return pfv, nil
-}
-
-// parseUpdates parses the updates list in to a charm.ProcessFieldValue list.
-func parseUpdates(updates []string) ([]charm.ProcessFieldValue, error) {
-	var results []charm.ProcessFieldValue
-	for _, update := range updates {
-		pfv, err := parseUpdate(update)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		results = append(results, pfv)
-	}
-	return results, nil
 }

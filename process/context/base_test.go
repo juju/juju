@@ -83,14 +83,16 @@ func (c stubHookContext) Component(name string) (context.Component, error) {
 }
 
 type stubContextComponent struct {
-	stub  *testing.Stub
-	procs map[string]*process.Info
+	stub        *testing.Stub
+	procs       map[string]*process.Info
+	definitions map[string]charm.Process
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	return &stubContextComponent{
-		stub:  stub,
-		procs: make(map[string]*process.Info),
+		stub:        stub,
+		procs:       make(map[string]*process.Info),
+		definitions: make(map[string]charm.Process),
 	}
 }
 
@@ -120,6 +122,19 @@ func (c *stubContextComponent) Set(procName string, info *process.Info) error {
 	return nil
 }
 
+func (c *stubContextComponent) ListDefinitions() ([]charm.Process, error) {
+	c.stub.AddCall("ListDefinitions")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var definitions []charm.Process
+	for _, definition := range c.definitions {
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
+}
+
 func (c *stubContextComponent) Flush() error {
 	c.stub.AddCall("Flush")
 	if err := c.stub.NextErr(); err != nil {
@@ -130,14 +145,16 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
-	stub  *testing.Stub
-	procs map[string]*process.Info
+	stub        *testing.Stub
+	procs       map[string]*process.Info
+	definitions map[string]charm.Process
 }
 
 func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	return &stubAPIClient{
-		stub:  stub,
-		procs: make(map[string]*process.Info),
+		stub:        stub,
+		procs:       make(map[string]*process.Info),
+		definitions: make(map[string]charm.Process),
 	}
 }
 
@@ -150,6 +167,19 @@ func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 		procs = append(procs, &proc)
 	}
 	return procs
+}
+
+func (c *stubAPIClient) AllDefinitions() ([]charm.Process, error) {
+	c.stub.AddCall("AllDefinitions")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var definitions []charm.Process
+	for _, definition := range c.definitions {
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 func (c *stubAPIClient) List() ([]string, error) {

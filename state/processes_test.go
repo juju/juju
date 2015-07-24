@@ -61,6 +61,31 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 	st, err := s.State.UnitProcesses(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
+	definitions, err := st.ListDefinitions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(definitions, jc.DeepEquals, []charm.Process{{
+		Name:        "procA",
+		Type:        "docker",
+		TypeOptions: map[string]string{},
+		Command:     "do-something cool",
+		Image:       "spam/eggs",
+		Volumes: []charm.ProcessVolume{{
+			ExternalMount: "/var/nginx/html",
+			InternalMount: "/usr/share/nginx/html",
+			Mode:          "ro",
+			Name:          "",
+		}},
+		Ports: []charm.ProcessPort{{
+			External: 8080,
+			Internal: 80,
+			Endpoint: "",
+		}},
+		EnvVars: map[string]string{
+			// TODO(erisnow) YAML coerces YES into true...
+			"IMPORTANT": "true",
+		},
+	}})
+
 	procs, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(procs, gc.HasLen, 0)
@@ -83,7 +108,6 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				Endpoint: "website",
 			}},
 			EnvVars: map[string]string{
-				// TODO(erisnow) YAML coerces YES into true...
 				"IMPORTANT": "true",
 			},
 		},

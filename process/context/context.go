@@ -5,9 +5,13 @@ package context
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
+
+// TODO(ericsnow) Normalize method names across all the arch. layers
+// (e.g. List->AllProcesses, Get->Processes, Set->AddProcess).
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {
@@ -17,7 +21,13 @@ type APIClient interface {
 	Get(ids ...string) ([]*process.Info, error)
 	// Set sends a request to update state with the provided processes.
 	Set(procs ...*process.Info) error
+	// AllDefinitions returns the process definitions found in the
+	// unit's metadata.
+	AllDefinitions() ([]charm.Process, error)
 }
+
+// TODO(ericsnow) Rename Get and Set to more specifically describe what
+// they are for.
 
 // omponent provides the hook context data specific to workload processes.
 type Component interface {
@@ -25,6 +35,8 @@ type Component interface {
 	Get(procName string) (*process.Info, error)
 	// Set records the process info in the hook context.
 	Set(procName string, info *process.Info) error
+	// ListDefinitions returns the charm-defined processes.
+	ListDefinitions() ([]charm.Process, error)
 	// Flush pushes the hook context data out to state.
 	Flush() error
 }
@@ -170,6 +182,15 @@ func (c *Context) set(id string, pInfo *process.Info) {
 	var info process.Info
 	info = *pInfo
 	c.updates[id] = &info
+}
+
+// ListDefinitions returns the unit's charm-defined processes.
+func (c *Context) ListDefinitions() ([]charm.Process, error) {
+	definitions, err := c.api.AllDefinitions()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return definitions, nil
 }
 
 // TODO(ericsnow) The context machinery is not actually using this yet.
