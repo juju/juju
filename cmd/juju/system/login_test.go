@@ -115,13 +115,13 @@ func (s *LoginSuite) TestBadServerFile(c *gc.C) {
 func (s *LoginSuite) TestBadUser(c *gc.C) {
 	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
 	content := `
-username: omg+not+valid
+username: omg@not@valid
 `
 	err := ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "foo", "--server", serverFilePath)
-	c.Assert(err, gc.ErrorMatches, `"omg\+not\+valid" is not a valid username`)
+	c.Assert(err, gc.ErrorMatches, `"omg@not@valid" is not a valid username`)
 }
 
 func (s *LoginSuite) TestAPIOpenError(c *gc.C) {

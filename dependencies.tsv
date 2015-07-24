@@ -10,7 +10,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
-github.com/juju/cmd	git	a7964f7cbac96484d1a9ba25e37bd32b7fa3cd90	2015-04-10T20:58:56Z
+github.com/juju/cmd	git	a7964f7cbac96484d1a9ba25e37bd32b7fa3cd90	2015-06-12T00:20:39Z
 github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T19:24:31Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -19,7 +19,7 @@ github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/jujusvg	git	28683402583926ce903491c14a07cdc5cb371adb	2015-04-10T08:55:05Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
-github.com/juju/names	git	4c70644adb1d8beef5d94bda6a60acd845bcbb8f	2015-06-19T11:06:44Z
+github.com/juju/names	git	a6a253b0a94cc79e99a68d284b970ffce2a11ecd	2015-07-09T13:59:32Z
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
@@ -27,7 +27,7 @@ github.com/juju/schema	git	5fef1eb09944df7dea207cf14ffa8163268cc7cd	2015-06-16T1
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	f521911d9a79aeb62c051fe18e689796369c5564	2015-05-29T04:40:43Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	64a93c89a0247572070fcaeb1610ef03c2ec2f2f	2015-07-16T20:17:45Z
+github.com/juju/utils	git	77752cff636ca3dcd1ff3f54dc2ce1eee587d908	2015-07-20T12:23:57Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
 golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T01:39:50Z
