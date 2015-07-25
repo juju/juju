@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/components"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
@@ -462,18 +461,12 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		Subordinates:       make(map[string]unitStatus),
 	}
 
-	if len(unit.ComponentStatus) > 0 {
+	if len(unit.Components) > 0 {
 		out.Components = map[string]interface{}{}
 	}
 
-	for component, apistatus := range unit.ComponentStatus {
-		var val interface{}
-		if formatter, ok := components.UnitComponentFormatters[component]; ok {
-			val = formatter(apistatus)
-		} else {
-			val = apistatus
-		}
-		if val != nil {
+	for component, apistatus := range unit.Components {
+		if val := formatter(apistatus); val != nil {
 			out.Components[component] = val
 		}
 	}

@@ -127,9 +127,7 @@ type UnitStatus struct {
 	PublicAddress string
 	Charm         string
 	Subordinates  map[string]UnitStatus
-
-	// ComponentStatus: Label -> Group -> Status
-	ComponentStatus map[string]interface{}
+	Components    map[string]interface{}
 }
 
 // RelationStatus holds status info about a relation.

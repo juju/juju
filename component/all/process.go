@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/base"
-	jujuServerClient "github.com/juju/juju/apiserver/client"
+	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	comps "github.com/juju/juju/cmd/juju/components"
 	"github.com/juju/juju/process"
@@ -31,11 +31,11 @@ type workloadProcesses struct{}
 func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
 	c.registerState()
-	jujuServerClient.RegisterStatusProviderForUnits(server.StatusType, UnitStatus)
+	c.registerUnitStatus()
 	return nil
 }
 
-func (c workloadProcesses) registerForClient() error {
+func (workloadProcesses) registerForClient() error {
 	comps.RegisterUnitComponentFormatter(server.StatusType, client.ConvertAPItoCLI)
 	return nil
 }
@@ -62,7 +62,7 @@ func (c workloadProcesses) registerHookContext() {
 	c.registerHookContextFacade()
 }
 
-func (c workloadProcesses) registerHookContextFacade() {
+func (workloadProcesses) registerHookContextFacade() {
 
 	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
 		if st == nil {
@@ -138,7 +138,7 @@ func (workloadProcesses) registerHookContextCommands() {
 	})
 }
 
-func (c workloadProcesses) registerState() {
+func (workloadProcesses) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
@@ -148,6 +148,17 @@ func (c workloadProcesses) registerState() {
 	state.SetProcessesComponent(newUnitProcesses)
 }
 
-func UnitStatus(st *state.State, unit names.UnitTag) (interface{}, error) {
-	return server.UnitStatus(st, unit)
+func (workloadProcesses) registerUnitStatus() {
+	apiserverclient.RegisterStatusProviderForUnits(server.StatusType,
+		func(st *state.State, unit names.UnitTag) (interface{}, error) {
+			up, err := st.UnitProcesses(unit)
+			if err != nil {
+				return nil, err
+			}
+			procs, err := up.List()
+			if err != nil {
+				return nil, err
+			}
+			return server.UnitStatus(procs)
+		})
 }

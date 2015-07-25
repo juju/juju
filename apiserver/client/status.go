@@ -649,7 +649,7 @@ func (context *statusContext) processUnit(st *state.State, unit *state.Unit, ser
 
 	if len(statusProvidersForUnits) > 0 {
 		// Grab structured statuses from all the registered status providers.
-		result.ComponentStatus = make(map[string]interface{}, len(statusProvidersForUnits))
+		result.Components = make(map[string]interface{}, len(statusProvidersForUnits))
 	}
 	for statusType, getStatus := range statusProvidersForUnits {
 		status, err := getStatus(st, unit.UnitTag())
@@ -659,11 +659,11 @@ func (context *statusContext) processUnit(st *state.State, unit *state.Unit, ser
 			break
 		}
 		if status != nil {
-			result.ComponentStatus[statusType] = status
+			result.Components[statusType] = status
 		}
 	}
-	if len(result.ComponentStatus) == 0 {
-		result.ComponentStatus = nil
+	if len(result.Components) == 0 {
+		result.Components = nil
 	}
 
 	return result
