@@ -50,10 +50,8 @@ func (info Info) Validate() error {
 		return errors.Trace(err)
 	}
 
-	if !reflect.DeepEqual(info.Details, Details{}) {
-		if err := info.Details.Validate(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := info.Details.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil

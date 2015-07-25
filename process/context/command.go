@@ -291,7 +291,7 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 	info.Process = *c.UpdatedProcess
 
 	// validate
-	if err := info.Validate(); err != nil {
+	if err := info.Process.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if info.IsRegistered() {
