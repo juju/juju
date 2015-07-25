@@ -350,7 +350,6 @@ func newProcsEnv(c *gc.C, envName string, suiteCount int) *procsEnviron {
 	}
 	return &procsEnviron{
 		name:     envName,
-		machine:  "1",
 		refCount: suiteCount,
 	}
 }
@@ -429,7 +428,10 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	}
 	charmURL := "local:quantal/" + charmName
 
-	env.run(c, "add-machine", "--series=quantal")
+	if env.machine == "" {
+		env.run(c, "add-machine", "--series=quantal")
+		env.machine = "1"
+	}
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
 	// We leave unit /0 alive to keep the machine alive.
 
