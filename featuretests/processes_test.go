@@ -34,16 +34,20 @@ func initProcessesSuites() {
 		panic(err)
 	}
 
-	gc.Suite(&processesHookContextSuite{})
-	gc.Suite(&processesWorkerSuite{})
-	gc.Suite(&processesCmdJujuSuite{})
+	for _, suite := range procsSuites {
+		gc.Suite(suite)
+	}
 }
 
 var (
-	repoDir         = testcharms.Repo.Path()
-	procsEnv        *procsEnviron
-	procsSuiteCount = 3
-	alwaysCleanUp   = true
+	repoDir     = testcharms.Repo.Path()
+	procsEnv    *procsEnviron
+	procsSuites = []interface{}{
+		&processesHookContextSuite{},
+		&processesWorkerSuite{},
+		&processesCmdJujuSuite{},
+	}
+	alwaysCleanUp = true
 )
 
 type processesBaseSuite struct {
@@ -53,7 +57,7 @@ type processesBaseSuite struct {
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
 	// TODO(ericsnow) Run in a test-only local provider
 	//  (see https://github.com/juju/docs/issues/35).
-	s.env = newProcsEnv(c, "local", procsSuiteCount)
+	s.env = newProcsEnv(c, "local", len(procsSuites))
 	s.env.bootstrap(c)
 }
 
