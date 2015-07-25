@@ -222,6 +222,7 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements cmd.Command.
 func (c *registeringCommand) Run(ctx *cmd.Context) error {
+	// TODO(ericsnow) The Get call here should be match on just c.Name...
 	if err := c.baseCommand.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -256,7 +257,7 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 
 	info.Details = c.Details
 
-	if err := c.compCtx.Set(c.Name, info); err != nil {
+	if err := c.compCtx.Set(info.ID(), info); err != nil {
 		return errors.Trace(err)
 	}
 

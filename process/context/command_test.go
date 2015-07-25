@@ -99,7 +99,7 @@ func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent process.Info)
 
 	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
 	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{
-		sent.Name,
+		sent.ID(),
 		&sent,
 	})
 }

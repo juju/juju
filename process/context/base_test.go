@@ -128,8 +128,8 @@ func (c *stubContextComponent) Set(procName string, info *process.Info) error {
 		return errors.Trace(err)
 	}
 
-	if info.Name != procName {
-		return errors.Errorf("name mismatch")
+	if info.ID() != procName {
+		return errors.Errorf("name mismatch (expected %q, got %q)", info.Name, procName)
 	}
 	c.procs[procName] = info
 	return nil
