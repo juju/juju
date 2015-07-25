@@ -59,14 +59,16 @@ type Context struct {
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
 func NewContext(api APIClient, procs ...*process.Info) *Context {
+	ids := set.NewStrings()
 	processes := make(map[string]*process.Info)
 	for _, proc := range procs {
 		processes[proc.Name] = proc
+		ids.Add(proc.ID())
 	}
 	return &Context{
 		processes: processes,
 		api:       api,
-		ids:       set.NewStrings(),
+		ids:       ids,
 	}
 }
 
