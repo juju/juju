@@ -20,8 +20,22 @@ func SetComponent(cmd cmd.Command, compCtx Component) {
 }
 
 func AddProc(ctx *Context, id string, original *process.Info) {
-	if err := ctx.addProc(id, original); err != nil {
-		panic(err)
+	var proc *process.Info
+	if original != nil {
+		if id != original.ID() {
+			panic("ID mismatch")
+		}
+		info := *original
+		proc = &info
+	}
+	if _, ok := ctx.processes[id]; !ok {
+		ctx.processes[id] = proc
+	} else {
+		if proc == nil {
+			panic("update can't be nil")
+		}
+		info := *proc
+		ctx.updates[info.ID()] = &info
 	}
 }
 

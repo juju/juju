@@ -102,27 +102,6 @@ func ContextComponent(ctx HookContext) (Component, error) {
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
 
-func (c *Context) addProc(id string, original *process.Info) error {
-	var proc *process.Info
-	if original != nil {
-		if id != original.ID() {
-			return errors.Errorf("ID mismatch")
-		}
-		info := *original
-		proc = &info
-	}
-	if _, ok := c.processes[id]; !ok {
-		c.processes[id] = proc
-	} else {
-		if proc == nil {
-			return errors.Errorf("update can't be nil")
-		}
-		info := *proc
-		c.updates[info.ID()] = &info
-	}
-	return nil
-}
-
 // Processes returns the processes known to the context.
 func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info
