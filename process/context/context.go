@@ -103,6 +103,8 @@ func ContextComponent(ctx HookContext) (Component, error) {
 	return compCtx, nil
 }
 
+// TODO(ericsnow) Should we build in refreshes in all the methods?
+
 func (c *Context) addProc(id string, original *process.Info) error {
 	var proc *process.Info
 	if original != nil {
@@ -126,12 +128,11 @@ func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info
 	for id, info := range mergeProcMaps(c.processes, c.updates) {
 		if info == nil {
-			fetched, err := c.api.Get(id)
+			fetched, err := c.fetch(id)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			info = fetched[0]
-			c.processes[id] = info
+			info = fetched
 		}
 		procs = append(procs, info)
 	}
@@ -151,7 +152,15 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 	return result
 }
 
-// TODO(ericsnow) Should be build in refreshes?
+func (c *Context) fetch(id string) (*process.Info, error) {
+	fetched, err := c.api.Get(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	proc := fetched[0]
+	c.processes[id] = proc
+	return proc, nil
+}
 
 // Get returns the process info corresponding to the given ID.
 func (c *Context) Get(procName string) (*process.Info, error) {
@@ -163,12 +172,11 @@ func (c *Context) Get(procName string) (*process.Info, error) {
 		}
 	}
 	if actual == nil {
-		fetched, err := c.api.Get(procName)
+		fetched, err := c.fetch(procName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		actual = fetched[0]
-		c.processes[procName] = actual
+		actual = fetched
 	}
 	return actual, nil
 }
