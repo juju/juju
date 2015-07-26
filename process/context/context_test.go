@@ -31,6 +31,14 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	context.AddProcs(s.compCtx, s.proc)
 }
 
+func (s *contextSuite) newContext(c *gc.C, procs ...*process.Info) *context.Context {
+	ctx := context.NewContext(s.apiClient)
+	for _, proc := range procs {
+		context.AddProc(ctx, proc.ID(), proc)
+	}
+	return ctx
+}
+
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient)
 	procs, err := ctx.Processes()
@@ -44,7 +52,7 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 	expected[0].Name = "A"
 	expected[1].Name = "B"
 
-	ctx := context.NewContext(s.apiClient, expected...)
+	ctx := s.newContext(c, expected...)
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -147,7 +155,7 @@ func (s *contextSuite) TestProcessesOkay(c *gc.C) {
 	expected[1].Name = "B"
 	expected[2].Name = "C"
 
-	ctx := context.NewContext(s.apiClient, expected...)
+	ctx := s.newContext(c, expected...)
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -186,7 +194,7 @@ func (s *contextSuite) TestProcessesAdditions(c *gc.C) {
 	infoD.Name = "D"
 	expected = append(expected, &infoC, &infoD)
 
-	ctx := context.NewContext(s.apiClient, expected[0])
+	ctx := s.newContext(c, expected[0])
 	context.AddProc(ctx, "B", nil)
 	ctx.Set("C", &infoC)
 	ctx.Set("D", &infoD)
@@ -222,7 +230,7 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	var expected, extra process.Info
 	expected.Name = "A"
 
-	ctx := context.NewContext(s.apiClient, &expected, &extra)
+	ctx := s.newContext(c, &expected, &extra)
 	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -234,7 +242,7 @@ func (s *contextSuite) TestGetAPIPull(c *gc.C) {
 	procs := s.apiClient.setNew("A", "B")
 	expected := procs[0]
 
-	ctx := context.NewContext(s.apiClient, procs[1])
+	ctx := s.newContext(c, procs[1])
 	context.AddProc(ctx, "A", nil)
 
 	info, err := ctx.Get("A")
@@ -248,7 +256,7 @@ func (s *contextSuite) TestGetAPINoPull(c *gc.C) {
 	procs := s.apiClient.setNew("A", "B")
 	expected := procs[0]
 
-	ctx := context.NewContext(s.apiClient, procs...)
+	ctx := s.newContext(c, procs...)
 
 	info, err := ctx.Get("A")
 	c.Assert(err, jc.ErrorIsNil)
@@ -261,7 +269,7 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 	procs := s.apiClient.setNew("A", "B")
 	expected := procs[0]
 
-	ctx := context.NewContext(s.apiClient, procs[1])
+	ctx := s.newContext(c, procs[1])
 	context.AddProc(ctx, "A", nil)
 	context.AddProc(ctx, "A", expected)
 
@@ -300,7 +308,7 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	info.Details.Status.Label = "running"
 	other.Name = "A"
 	other.Details.Status.Label = "stopped"
-	ctx := context.NewContext(s.apiClient, &other)
+	ctx := s.newContext(c, &other)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.Set("A", &info)
@@ -316,7 +324,7 @@ func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
 	var info, other process.Info
 	info.Name = "B"
 	other.Name = "A"
-	ctx := context.NewContext(s.apiClient, &other)
+	ctx := s.newContext(c, &other)
 	before, err2 := ctx.Processes()
 	c.Assert(err2, jc.ErrorIsNil)
 	err := ctx.Set("A", &info)
@@ -362,7 +370,7 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 	var info process.Info
 	info.Name = "flush-not-dirty"
-	ctx := context.NewContext(s.apiClient, &info)
+	ctx := s.newContext(c, &info)
 
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
