@@ -39,7 +39,7 @@ type Component interface {
 	// Get returns the process info corresponding to the given ID.
 	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
-	Set(id string, info *process.Info) error
+	Set(info process.Info) error
 	// List returns the list of registered process IDs.
 	List() ([]string, error)
 	// ListDefinitions returns the charm-defined processes.
@@ -117,7 +117,8 @@ func (c *Context) addProc(id string, original *process.Info) error {
 		if proc == nil {
 			return errors.Errorf("update can't be nil")
 		}
-		c.set(id, proc)
+		info := *proc
+		c.updates[info.ID()] = &info
 	}
 	return nil
 }
@@ -198,23 +199,15 @@ func (c *Context) List() ([]string, error) {
 }
 
 // Set records the process info in the hook context.
-func (c *Context) Set(id string, info *process.Info) error {
-	if id != info.ID() {
-		return errors.Errorf("mismatch on ID: %s != %s", id, info.ID())
+func (c *Context) Set(info process.Info) error {
+	if err := info.Validate(); err != nil {
+		return errors.Trace(err)
 	}
+	logger.Debugf("adding %q to hook context: %#v", info.ID(), info)
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
-	c.set(id, info)
+	c.updates[info.ID()] = &info
 	return nil
-}
-
-func (c *Context) set(id string, pInfo *process.Info) {
-	if c.updates == nil {
-		c.updates = make(map[string]*process.Info)
-	}
-	var info process.Info
-	info = *pInfo
-	c.updates[id] = &info
 }
 
 // ListDefinitions returns the unit's charm-defined processes.

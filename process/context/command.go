@@ -257,7 +257,7 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 
 	info.Details = c.Details
 
-	if err := c.compCtx.Set(info.ID(), info); err != nil {
+	if err := c.compCtx.Set(*info); err != nil {
 		return errors.Trace(err)
 	}
 

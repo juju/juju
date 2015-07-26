@@ -128,16 +128,13 @@ func (c *stubContextComponent) List() ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubContextComponent) Set(id string, info *process.Info) error {
-	c.stub.AddCall("Set", id, info)
+func (c *stubContextComponent) Set(info process.Info) error {
+	c.stub.AddCall("Set", info)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if info.ID() != id {
-		return errors.Errorf("name mismatch (expected %q, got %q)", info.Name, id)
-	}
-	c.procs[id] = info
+	c.procs[info.ID()] = &info
 	return nil
 }
 

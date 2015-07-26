@@ -197,8 +197,8 @@ func (s *contextSuite) TestProcessesAdditions(c *gc.C) {
 
 	ctx := s.newContext(c, expected[0])
 	context.AddProc(ctx, "B/eggs", nil)
-	ctx.Set(infoC.ID(), infoC)
-	ctx.Set(infoD.ID(), infoD)
+	ctx.Set(*infoC)
+	ctx.Set(*infoD)
 
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,8 +216,8 @@ func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
 	ctx := context.NewContext(s.apiClient)
 	context.AddProc(ctx, "A/xyz123", nil)
 	context.AddProc(ctx, "B/xyz456", nil)
-	ctx.Set(infoB.ID(), infoB)
-	ctx.Set(infoC.ID(), infoC)
+	ctx.Set(*infoB)
+	ctx.Set(*infoC)
 
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,7 +292,7 @@ func (s *contextSuite) TestSetOkay(c *gc.C) {
 	ctx := context.NewContext(s.apiClient)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(info.ID(), info)
+	err = ctx.Set(*info)
 	c.Assert(err, jc.ErrorIsNil)
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,28 +307,13 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	ctx := s.newContext(c, other)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(info.ID(), info)
+	err = ctx.Set(*info)
 	c.Assert(err, jc.ErrorIsNil)
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(before, jc.DeepEquals, []*process.Info{other})
 	c.Check(after, jc.DeepEquals, []*process.Info{info})
-}
-
-func (s *contextSuite) TestSetNameMismatch(c *gc.C) {
-	info := s.newProc("B", "myplugin", "eggs", "running")
-	other := s.newProc("A", "myplugin", "spam", "stopped")
-	ctx := s.newContext(c, other)
-	before, err2 := ctx.Processes()
-	c.Assert(err2, jc.ErrorIsNil)
-	err := ctx.Set("A/spam", info)
-	after, err2 := ctx.Processes()
-	c.Assert(err2, jc.ErrorIsNil)
-
-	c.Check(err, gc.ErrorMatches, "mismatch on ID: A/spam != B/eggs")
-	c.Check(before, jc.DeepEquals, []*process.Info{other})
-	c.Check(after, jc.DeepEquals, []*process.Info{other})
 }
 
 func (s *contextSuite) TestListDefinitions(c *gc.C) {
@@ -352,7 +337,7 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	info := s.newProc("A", "myplugin", "xyz123", "okay")
 
 	ctx := context.NewContext(s.apiClient)
-	err := ctx.Set(info.ID(), info)
+	err := ctx.Set(*info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctx.Flush()

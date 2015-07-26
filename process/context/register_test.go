@@ -323,7 +323,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 		FuncName: "ListDefinitions",
 	}, {
 		FuncName: "Set",
-		Args:     []interface{}{s.proc.ID(), s.proc},
+		Args:     []interface{}{*s.proc},
 	}, {
 		FuncName: "Flush",
 		Args:     nil,
