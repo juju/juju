@@ -37,9 +37,9 @@ type APIClient interface {
 // omponent provides the hook context data specific to workload processes.
 type Component interface {
 	// Get returns the process info corresponding to the given ID.
-	Get(procName string) (*process.Info, error)
+	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
-	Set(procName string, info *process.Info) error
+	Set(id string, info *process.Info) error
 	// List returns the list of registered process IDs.
 	List() ([]string, error)
 	// ListDefinitions returns the charm-defined processes.
@@ -163,16 +163,16 @@ func (c *Context) fetch(id string) (*process.Info, error) {
 }
 
 // Get returns the process info corresponding to the given ID.
-func (c *Context) Get(procName string) (*process.Info, error) {
-	actual, ok := c.updates[procName]
+func (c *Context) Get(id string) (*process.Info, error) {
+	actual, ok := c.updates[id]
 	if !ok {
-		actual, ok = c.processes[procName]
+		actual, ok = c.processes[id]
 		if !ok {
-			return nil, errors.NotFoundf("%s", procName)
+			return nil, errors.NotFoundf("%s", id)
 		}
 	}
 	if actual == nil {
-		fetched, err := c.fetch(procName)
+		fetched, err := c.fetch(id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -199,13 +199,13 @@ func (c *Context) List() ([]string, error) {
 }
 
 // Set records the process info in the hook context.
-func (c *Context) Set(procName string, info *process.Info) error {
-	if procName != info.Name {
-		return errors.Errorf("mismatch on name: %s != %s", procName, info.Name)
+func (c *Context) Set(id string, info *process.Info) error {
+	if id != info.Name {
+		return errors.Errorf("mismatch on name: %s != %s", id, info.Name)
 	}
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
-	c.set(procName, info)
+	c.set(id, info)
 	return nil
 }
 

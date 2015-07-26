@@ -96,15 +96,15 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	}
 }
 
-func (c *stubContextComponent) Get(procName string) (*process.Info, error) {
-	c.stub.AddCall("Get", procName)
+func (c *stubContextComponent) Get(id string) (*process.Info, error) {
+	c.stub.AddCall("Get", id)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info, ok := c.procs[procName]
+	info, ok := c.procs[id]
 	if !ok {
-		return nil, errors.NotFoundf(procName)
+		return nil, errors.NotFoundf(id)
 	}
 	return info, nil
 }
@@ -122,16 +122,16 @@ func (c *stubContextComponent) List() ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubContextComponent) Set(procName string, info *process.Info) error {
-	c.stub.AddCall("Set", procName, info)
+func (c *stubContextComponent) Set(id string, info *process.Info) error {
+	c.stub.AddCall("Set", id, info)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if info.ID() != procName {
-		return errors.Errorf("name mismatch (expected %q, got %q)", info.Name, procName)
+	if info.ID() != id {
+		return errors.Errorf("name mismatch (expected %q, got %q)", info.Name, id)
 	}
-	c.procs[procName] = info
+	c.procs[id] = info
 	return nil
 }
 
