@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
@@ -54,21 +53,17 @@ type Context struct {
 	api       APIClient
 	processes map[string]*process.Info
 	updates   map[string]*process.Info
-	ids       set.Strings
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
 func NewContext(api APIClient, procs ...*process.Info) *Context {
-	ids := set.NewStrings()
 	processes := make(map[string]*process.Info)
 	for _, proc := range procs {
 		processes[proc.Name] = proc
-		ids.Add(proc.ID())
 	}
 	return &Context{
 		processes: processes,
 		api:       api,
-		ids:       ids,
 	}
 }
 
@@ -82,7 +77,6 @@ func NewContextAPI(api APIClient) (*Context, error) {
 	ctx := NewContext(api)
 	for _, id := range ids {
 		ctx.processes[id] = nil
-		ctx.ids.Add(id)
 	}
 	return ctx, nil
 }
@@ -181,8 +175,17 @@ func (c *Context) Get(procName string) (*process.Info, error) {
 
 // List returns the names of all registered processes.
 func (c *Context) List() ([]string, error) {
-	ids := make([]string, len(c.ids))
-	copy(ids, c.ids.Values())
+	procs, err := c.Processes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(procs) == 0 {
+		return nil, nil
+	}
+	var ids []string
+	for _, proc := range procs {
+		ids = append(ids, proc.ID())
+	}
 	sort.Strings(ids)
 	return ids, nil
 }
@@ -205,7 +208,6 @@ func (c *Context) set(id string, pInfo *process.Info) {
 	var info process.Info
 	info = *pInfo
 	c.updates[id] = &info
-	c.ids.Add(id)
 }
 
 // ListDefinitions returns the unit's charm-defined processes.
