@@ -267,9 +267,10 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	errs := volSource.DestroyVolumes([]string{mockVolId})
 	c.Assert(errs, jc.DeepEquals, []error{nil})
-	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
-		"DeleteVolume", []interface{}{mockVolId},
-	}})
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetVolume", []interface{}{mockVolId}},
+		{"DeleteVolume", []interface{}{mockVolId}},
+	})
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *gc.C) {
