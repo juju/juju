@@ -30,14 +30,20 @@ type baseSuite struct {
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.proc = s.newProc("proc A", "docker")
+	s.proc = s.newProc("proc A", "docker", "", "")
 }
 
-func (s *baseSuite) newProc(name, ptype string) *process.Info {
+func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
 	return &process.Info{
 		Process: charm.Process{
 			Name: name,
 			Type: ptype,
+		},
+		Details: process.Details{
+			ID: id,
+			Status: process.PluginStatus{
+				Label: status,
+			},
 		},
 	}
 }
@@ -174,10 +180,27 @@ func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 	var procs []*process.Info
 	for _, id := range ids {
-		var proc process.Info
-		proc.Name = id
-		c.procs[id] = &proc
-		procs = append(procs, &proc)
+		name, pluginID := process.ParseID(id)
+		if name == "" {
+			panic("missing name")
+		}
+		if pluginID == "" {
+			panic("missing id")
+		}
+		proc := &process.Info{
+			Process: charm.Process{
+				Name: name,
+				Type: "myplugin",
+			},
+			Details: process.Details{
+				ID: pluginID,
+				Status: process.PluginStatus{
+					Label: "okay",
+				},
+			},
+		}
+		c.procs[id] = proc
+		procs = append(procs, proc)
 	}
 	return procs
 }

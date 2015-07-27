@@ -105,8 +105,10 @@ func ContextComponent(ctx HookContext) (Component, error) {
 func (c *Context) addProc(id string, original *process.Info) error {
 	var proc *process.Info
 	if original != nil {
+		if id != original.ID() {
+			return errors.Errorf("ID mismatch")
+		}
 		info := *original
-		info.Name = id
 		proc = &info
 	}
 	if _, ok := c.processes[id]; !ok {
@@ -197,8 +199,8 @@ func (c *Context) List() ([]string, error) {
 
 // Set records the process info in the hook context.
 func (c *Context) Set(id string, info *process.Info) error {
-	if id != info.Name {
-		return errors.Errorf("mismatch on name: %s != %s", id, info.Name)
+	if id != info.ID() {
+		return errors.Errorf("mismatch on ID: %s != %s", id, info.ID())
 	}
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
