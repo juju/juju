@@ -66,6 +66,19 @@ func stepsFor1243() []Step {
 	}
 }
 
+// stateStepsFor1244 returns upgrade steps for Juju 1.24.4 that manipulate state directly.
+func stateStepsFor1244() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "add missing service statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingServiceStatuses(context.State())
+			},
+		},
+	}
+}
+
 func moveSyslogConfig(context Context) error {
 	config := context.AgentConfig()
 	namespace := config.Value(agent.Namespace)

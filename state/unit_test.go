@@ -23,8 +23,6 @@ const (
 	contentionErr = ".*: state changing too quickly; try again soon"
 )
 
-type statusHistoryFunc func(int) ([]state.StatusInfo, error)
-
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
@@ -528,140 +526,6 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *UnitSuite) TestInitialStatus(c *gc.C) {
-	s.checkInitialStatus(c)
-}
-
-func (s *UnitSuite) checkInitialStatus(c *gc.C) {
-	statusInfo, err := s.unit.Status()
-	c.Check(err, jc.ErrorIsNil)
-	checkInitialUnitStatus(c, statusInfo)
-}
-
-func (s *UnitSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
-	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
-
-	s.checkInitialStatus(c)
-}
-
-func (s *UnitSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
-		"pew.pew": "zap",
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	s.checkGetSetStatus(c)
-}
-
-func (s *UnitSuite) TestGetSetStatusAlive(c *gc.C) {
-	s.checkGetSetStatus(c)
-}
-
-func (s *UnitSuite) checkGetSetStatus(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
-		"$ping": map[string]interface{}{
-			"foo.bar": 123,
-		},
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	statusInfo, err := s.unit.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
-	c.Check(statusInfo.Message, gc.Equals, "healthy")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
-		"$ping": map[string]interface{}{
-			"foo.bar": 123,
-		},
-	})
-	c.Check(statusInfo.Since, gc.NotNil)
-}
-
-func (s *UnitSuite) TestGetSetStatusDying(c *gc.C) {
-	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkGetSetStatus(c)
-}
-
-func (s *UnitSuite) TestGetSetStatusDead(c *gc.C) {
-	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// NOTE: it would be more technically correct to reject status updates
-	// while Dead, but it's easier and clearer, not to mention more efficient,
-	// to just depend on status doc existence.
-	s.checkGetSetStatus(c)
-}
-
-func (s *UnitSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
-	c.Check(err, gc.ErrorMatches, `cannot set status: unit not found`)
-
-	statusInfo, err := s.unit.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: unit not found`)
-	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
-}
-
-func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
-	now := state.NowToTheSecond()
-	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	firstTime := statusInfo.Since
-	c.Assert(firstTime, gc.NotNil)
-	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
-
-	// Setting the same status a second time also updates the timestamp.
-	err = s.unit.SetStatus(state.StatusMaintenance, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
-}
-
-func (s *UnitSuite) TestStatusHistoryInitial(c *gc.C) {
-	history, err := s.unit.StatusHistory(1)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(history, gc.HasLen, 1)
-
-	checkInitialUnitStatus(c, history[0])
-}
-
-func (s *UnitSuite) TestStatusHistoryShort(c *gc.C) {
-	primeUnitStatusHistory(c, s.unit, 5)
-
-	history, err := s.unit.StatusHistory(10)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(history, gc.HasLen, 6)
-
-	checkInitialUnitStatus(c, history[5])
-	history = history[:5]
-	for i, statusInfo := range history {
-		checkPrimedUnitStatus(c, statusInfo, 4-i)
-	}
-}
-
-func (s *UnitSuite) TestStatusHistoryLong(c *gc.C) {
-	primeUnitStatusHistory(c, s.unit, 25)
-
-	history, err := s.unit.StatusHistory(15)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(history, gc.HasLen, 15)
-	for i, statusInfo := range history {
-		checkPrimedUnitStatus(c, statusInfo, 24-i)
-	}
-}
-
 func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
@@ -893,7 +757,6 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(unit.Life(), gc.Equals, state.Dying)
 		assertLife(c, unit, state.Dying)
 	}
 }

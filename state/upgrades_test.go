@@ -3006,3 +3006,7 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 		{EnvUUID: "uuid1"},
 	})
 }
+
+func (s *upgradesSuite) TestAddMissingServiceStatuses(c *gc.C) {
+	c.Fatalf("not done")
+}

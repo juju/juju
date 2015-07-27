@@ -16,240 +16,6 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-var (
-	_ StatusSetter = (*Machine)(nil)
-	_ StatusSetter = (*Unit)(nil)
-	_ StatusGetter = (*Machine)(nil)
-	_ StatusGetter = (*Unit)(nil)
-)
-
-// Status represents the status of an entity.
-// It could be a service, unit, machine or its agent.
-type Status string
-
-const (
-	// Status values common to machine and unit agents.
-
-	// The entity requires human intervention in order to operate
-	// correctly.
-	StatusError Status = "error"
-
-	// The entity is actively participating in the environment.
-	// For unit agents, this is a state we preserve for backwards
-	// compatibility with scripts during the life of Juju 1.x.
-	// In Juju 2.x, the agent-state will remain “active” and scripts
-	// will watch the unit-state instead for signals of service readiness.
-	StatusStarted Status = "started"
-)
-
-const (
-	// Status values specific to machine agents.
-
-	// The machine is not yet participating in the environment.
-	StatusPending Status = "pending"
-
-	// The machine's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped Status = "stopped"
-
-	// The machine ought to be signalling activity, but it cannot be
-	// detected.
-	StatusDown Status = "down"
-)
-
-const (
-	// Status values specific to unit agents.
-
-	// The machine on which a unit is to be hosted is still being
-	// spun up in the cloud.
-	StatusAllocating Status = "allocating"
-
-	// The machine on which this agent is running is being rebooted.
-	// The juju-agent should move from rebooting to idle when the reboot is complete.
-	StatusRebooting Status = "rebooting"
-
-	// The agent is running a hook or action. The human-readable message should reflect
-	// which hook or action is being run.
-	StatusExecuting Status = "executing"
-
-	// Once the agent is installed and running it will notify the Juju server and its state
-	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
-	// error (e.g it loses contact with the Juju server) moves it to a different state.
-	StatusIdle Status = "idle"
-
-	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected. It might also be that the unit agent
-	// detected an unrecoverable condition and managed to tell the Juju server about it.
-	StatusFailed Status = "failed"
-
-	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
-	// the unit agent ought to be signalling activity, but none has been detected.
-	StatusLost Status = "lost"
-
-	// ---- Outdated ----
-	// The unit agent is downloading the charm and running the install hook.
-	StatusInstalling Status = "installing"
-
-	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
-	// In Juju 2.x this will describe the state of the agent rather than a unit.
-	StatusStopping Status = "stopping"
-)
-
-const (
-	// Status values specific to services and units, reflecting the
-	// state of the software itself.
-
-	// The unit is not yet providing services, but is actively doing stuff
-	// in preparation for providing those services.
-	// This is a "spinning" state, not an error state.
-	// It reflects activity on the unit itself, not on peers or related units.
-	StatusMaintenance Status = "maintenance"
-
-	// This unit used to exist, we have a record of it (perhaps because of storage
-	// allocated for it that was flagged to survive it). Nonetheless, it is now gone.
-	StatusTerminated Status = "terminated"
-
-	// A unit-agent has finished calling install, config-changed, and start,
-	// but the charm has not called status-set yet.
-	StatusUnknown Status = "unknown"
-
-	// The unit is unable to progress to an active state because a service to
-	// which it is related is not running.
-	StatusWaiting Status = "waiting"
-
-	// The unit needs manual intervention to get back to the Running state.
-	StatusBlocked Status = "blocked"
-
-	// The unit believes it is correctly offering all the services it has
-	// been asked to offer.
-	StatusActive Status = "active"
-)
-
-const (
-	// StorageReadyMessage is the message set to the agent status when all storage
-	// attachments are properly done.
-	StorageReadyMessage = "storage ready"
-
-	// PreparingStorageMessage is the message set to the agent status before trying
-	// to attach storages.
-	PreparingStorageMessage = "preparing storage"
-)
-
-// ValidAgentStatus returns true if status has a known value for an agent.
-// This is used by the status command to filter out
-// unknown status values.
-func (status Status) ValidAgentStatus() bool {
-	switch status {
-	case
-		StatusAllocating,
-		StatusError,
-		StatusFailed,
-		StatusRebooting,
-		StatusExecuting,
-		StatusIdle:
-		return true
-	case //Deprecated status vales
-		StatusPending,
-		StatusStarted,
-		StatusStopped,
-		StatusInstalling,
-		StatusActive,
-		StatusStopping,
-		StatusDown:
-		return true
-	default:
-		return false
-	}
-}
-
-// ValidWorkloadStatus returns true if status has a known value for a workload.
-// This is used by the apiserver client facade to filter out completely-unknown
-// status values.
-func (status Status) ValidWorkloadStatus() bool {
-	if validWorkloadStatus(status) {
-		return true
-	}
-	switch status {
-	case StatusError: // include error so that we can filter on what the spec says is valid
-		return true
-	case // Deprecated statuses
-		StatusPending,
-		StatusInstalling,
-		StatusStarted,
-		StatusStopped,
-		StatusDown:
-		return true
-	default:
-		return false
-	}
-}
-
-// validWorkloadStatus returns true if status has a known value for units or services.
-func validWorkloadStatus(status Status) bool {
-	switch status {
-	case
-		StatusBlocked,
-		StatusMaintenance,
-		StatusWaiting,
-		StatusActive,
-		StatusUnknown,
-		StatusTerminated:
-		return true
-	default:
-		return false
-	}
-}
-
-// WorkloadMatches returns true if the candidate matches status,
-// taking into account that the candidate may be a legacy
-// status value which has been deprecated.
-func (status Status) WorkloadMatches(candidate Status) bool {
-	switch candidate {
-	case status: // We could be holding an old status ourselves
-		return true
-	case StatusDown, StatusStopped:
-		candidate = StatusTerminated
-	case StatusInstalling:
-		candidate = StatusMaintenance
-	case StatusStarted:
-		candidate = StatusActive
-	}
-	return status == candidate
-}
-
-// Matches returns true if the candidate matches status,
-// taking into account that the candidate may be a legacy
-// status value which has been deprecated.
-func (status Status) Matches(candidate Status) bool {
-	switch candidate {
-	case StatusDown:
-		candidate = StatusLost
-	case StatusStarted:
-		candidate = StatusActive
-	case StatusStopped:
-		candidate = StatusStopping
-	}
-	return status == candidate
-}
-
-// StatusSetter represents a type whose status can be set.
-type StatusSetter interface {
-	SetStatus(status Status, info string, data map[string]interface{}) error
-}
-
-// StatusGetter represents a type whose status can be read.
-type StatusGetter interface {
-	Status() (StatusInfo, error)
-}
-
-// StatusInfo holds the status information for a machine, unit, service etc.
-type StatusInfo struct {
-	Status  Status
-	Message string
-	Data    map[string]interface{}
-	Since   *time.Time
-}
-
 // statusDoc represents a entity status in Mongodb.  The implicit
 // _id field is explicitly set to the global key of the associated
 // entity in the document's creation transaction, but omitted to allow
@@ -259,7 +25,17 @@ type statusDoc struct {
 	Status     Status                 `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
-	Updated    *time.Time             `bson:"updated"`
+
+	// Updated might not be present on statuses dating from older versions
+	// of juju. Do not dereference without checking.
+	Updated *time.Time `bson:"updated"`
+
+	// NeverSet is a short-term hack to work around a misfeature in service
+	// status. To maintain current behaviour, we create service status docs
+	// (and only service status documents) with NeverSet true; and then, when
+	// reading them, if NeverSet is still true, we aggregate status from the
+	// units instead.
+	NeverSet bool `bson:"neverset"`
 }
 
 // mapKeys returns a copy of the supplied map, with all nested map[string]interface{}
@@ -275,10 +51,14 @@ func mapKeys(f func(string) string, input map[string]interface{}) map[string]int
 	return result
 }
 
+// escapeKeys is used to escape bad keys in StatusData. A statusDoc without
+// escaped keys is broken.
 func escapeKeys(input map[string]interface{}) map[string]interface{} {
 	return mapKeys(escapeReplacer.Replace, input)
 }
 
+// unescapeKeys is used to restore escaped keys from StatusData to their
+// original values.
 func unescapeKeys(input map[string]interface{}) map[string]interface{} {
 	return mapKeys(unescapeReplacer.Replace, input)
 }
@@ -302,7 +82,7 @@ func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
 	return StatusInfo{
 		Status:  doc.Status,
 		Message: doc.StatusInfo,
-		Data:    mapKeys(unescapeReplacer.Replace, doc.StatusData),
+		Data:    unescapeKeys(doc.StatusData),
 		Since:   doc.Updated,
 	}, nil
 }
@@ -332,13 +112,16 @@ type setStatusParams struct {
 	token leadership.Token
 }
 
-// createStatusOp returns the operation needed to create the given
-// status document associated with the given globalKey *and* tries
-// to write a corresponding historical status document. This is a
-// hack but it's a small one compared to the unhacks in the CL that
-// introduced it, and it's probably better to have the hack in one
-// place here than in the N places that will create statuses.
-func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
+// createStatusOpWithExcitingSideEffect returns the operation needed to create
+// the given status document associated with the given globalKey...
+//
+// ...*and* tries to write a corresponding historical status document.
+// This means that we may occasionally write spurious docs if people
+// call this speculatively (so don't do that...) -- but also means that
+// status-history is accurate from the very beginning of the entity's
+// existence. We can't use mgo/txn consistency with statusHistory, so
+// we err in favour of setting twice over never setting.
+func createStatusOpWithExcitingSideEffect(st *State, globalKey string, doc statusDoc) txn.Op {
 	probablyUpdateStatusHistory(st, globalKey, doc)
 	return txn.Op{
 		C:      statusesC,
@@ -413,11 +196,14 @@ func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.Tran
 type historicalStatusDoc struct {
 	Id         int                    `bson:"_id"`
 	EnvUUID    string                 `bson:"env-uuid"`
+	EntityId   string                 `bson:"entityid"`
 	Status     Status                 `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
-	Updated    *time.Time             `bson:"updated"`
-	EntityId   string                 `bson:"entityid"`
+
+	// Updated might not be present on statuses copied by old versions of juju
+	// from yet older versions of juju. Do not dereference without checking.
+	Updated *time.Time `bson:"updated"`
 }
 
 func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
@@ -539,48 +325,4 @@ func getEntitiesWithStatuses(coll mongo.Collection) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	return entityKeys, nil
-}
-
-const MessageInstalling = "installing charm software"
-
-// TranslateLegacyAgentStatus returns the status value clients expect to see for
-// agent-state in versions prior to 1.24
-func TranslateToLegacyAgentState(agentStatus, workloadStatus Status, workloadMessage string) (Status, bool) {
-	// Originally AgentState (a member of api.UnitStatus) could hold one of:
-	// StatusPending
-	// StatusInstalled
-	// StatusStarted
-	// StatusStopped
-	// StatusError
-	// StatusDown
-	// For compatibility reasons we convert modern states (from V2 uniter) into
-	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
-
-	// For the purposes of deriving the legacy status, there's currently no better
-	// way to determine if a unit is installed.
-	// TODO(wallyworld) - use status history to see if start hook has run.
-	isInstalled := workloadStatus != StatusMaintenance || workloadMessage != MessageInstalling
-
-	switch agentStatus {
-	case StatusAllocating:
-		return StatusPending, true
-	case StatusError:
-		return StatusError, true
-	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
-		switch workloadStatus {
-		case StatusError:
-			return StatusError, true
-		case StatusTerminated:
-			return StatusStopped, true
-		case StatusMaintenance:
-			if isInstalled {
-				return StatusStarted, true
-			} else {
-				return StatusPending, true
-			}
-		default:
-			return StatusStarted, true
-		}
-	}
-	return "", false
 }

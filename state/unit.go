@@ -789,7 +789,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Agent Returns an agent by its unit's name.
-func (u *Unit) Agent() Entity {
+func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
@@ -844,7 +844,7 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !validWorkloadStatus(status) {
+	if !ValidWorkloadStatus(status) {
 		return errors.Errorf("cannot set invalid status %q", status)
 	}
 	return setStatus(u.st, setStatusParams{

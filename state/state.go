@@ -1113,6 +1113,9 @@ func (st *State) AddService(
 		OwnerTag:      owner,
 	}
 	svc := newService(st, svcDoc)
+
+	// TODO(fwereade): crazy, done for consistency.
+	now := nowToTheSecond()
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1124,15 +1127,26 @@ func (st *State) AddService(
 		createStorageConstraintsOp(svc.globalKey(), storage),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		addLeadershipSettingsOp(svc.Tag().Id()),
-		{
+		createStatusOpWithExcitingSideEffect(st, svc.globalKey(), statusDoc{
+			EnvUUID: st.EnvironUUID(),
+			// TODO(fwereade): this violates the spec. Should be "waiting".
+			// Implemented like this to be consistent with incorrect add-unit
+			// behaviour.
+			Status:     StatusUnknown,
+			StatusInfo: MessageWaitForAgentInit,
+			Updated:    &now,
+			// This exists to preserve questionable unit-aggregation behaviour
+			// while we work out how to switch to an implementation that makes
+			// sense. It is also set in AddMissingServiceStatuses.
+			NeverSet: true,
+		}), {
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
 				RefCount: 1,
 				EnvUUID:  st.EnvironUUID()},
-		},
-		{
+		}, {
 			C:      servicesC,
 			Id:     serviceID,
 			Assert: txn.DocMissing,

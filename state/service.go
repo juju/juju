@@ -231,6 +231,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
 		removeLeadershipSettingsOp(s.Tag().Id()),
+		removeStatusOp(s.st, s.globalKey()),
 	}
 	return ops
 }
@@ -694,14 +695,15 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
+		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    &now,
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
+		createStatusOpWithExcitingSideEffect(s.st, globalKey, unitStatusDoc),
+		createStatusOpWithExcitingSideEffect(s.st, agentGlobalKey, agentStatusDoc),
 		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      unitsC,
@@ -1203,20 +1205,37 @@ type settingsRefsDoc struct {
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (s *Service) Status() (StatusInfo, error) {
-	info, err := getStatus(s.st, s.globalKey(), "service")
-	if errors.IsNotFound(err) {
-		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
-		return s.deriveStatus()
-	} else if err != nil {
+	statuses, closer := s.st.getCollection(statusesC)
+	defer closer()
+	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
+	if count, err := query.Count(); err != nil {
 		return StatusInfo{}, errors.Trace(err)
+	} else if count != 0 {
+		// This indicates that SetStatus has never been called on this service.
+		// This in turn implies the service status document is likely to be
+		// inaccurate, so we return aggregated unit statuses instead.
+		//
+		// TODO(fwereade): this is completely wrong and will produce bad results
+		// in not-very-challenging scenarios. The leader unit remains responsible
+		// for setting the service status in a timely way, *whether or not the
+		// charm's hooks exists or sets a service status*. This logic should be
+		// removed as soon as possible, and the responsibilities implemented in
+		// the right places rather than being applied at seeming random.
+		units, err := s.AllUnits()
+		if err != nil {
+			return StatusInfo{}, err
+		}
+		logger.Tracef("service %q has %d units", s.Name(), len(units))
+		if len(units) > 0 {
+			return s.deriveStatus(units)
+		}
 	}
-	return info, nil
+	return getStatus(s.st, s.globalKey(), "service")
 }
 
 // SetStatus sets the status for the service.
 func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	// Valid service status values are the same as those for the unit.
-	if !validWorkloadStatus(status) {
+	if !ValidWorkloadStatus(status) {
 		return errors.Errorf("cannot set invalid status %q", status)
 	}
 	return setStatus(s.st, setStatusParams{
@@ -1250,12 +1269,7 @@ func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, er
 
 }
 
-func (s *Service) deriveStatus() (StatusInfo, error) {
-	units, err := s.AllUnits()
-	if err != nil {
-		return StatusInfo{}, err
-	}
-	logger.Tracef("service %q has %d units", s.Name(), len(units))
+func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
 	var result StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]

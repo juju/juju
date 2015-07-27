@@ -33,6 +33,13 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
 
+func (s *steps124Suite) TestStateStepsFor1244(c *gc.C) {
+	expected := []string{
+		"add missing service statuses",
+	}
+	assertStateSteps(c, version.MustParse("1.24.4"), expected)
+}
+
 func (s *steps124Suite) TestStateStepsFor1243(c *gc.C) {
 	expected := []string{
 		"add missing env-uuid to statuses",

@@ -470,7 +470,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	now := nowToTheSecond()
 	prereqOps = []txn.Op{
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
+		createStatusOpWithExcitingSideEffect(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status:  StatusPending,
 			EnvUUID: st.EnvironUUID(),
 			Updated: &now,

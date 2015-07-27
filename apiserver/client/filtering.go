@@ -332,9 +332,9 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
-		// If the pattern isn't a valid status, ignore it.
+		// If the pattern isn't a known status, ignore it.
 		ps := state.Status(p)
-		if !ps.ValidWorkloadStatus() {
+		if !ps.KnownWorkloadStatus() {
 			continue
 		}
 
@@ -353,7 +353,7 @@ func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error
 	for _, p := range patterns {
 		// If the pattern isn't a valid status, ignore it.
 		ps := state.Status(p)
-		if !ps.ValidAgentStatus() {
+		if !ps.KnownAgentStatus() {
 			continue
 		}
 
