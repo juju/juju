@@ -3008,5 +3008,96 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddMissingServiceStatuses(c *gc.C) {
-	c.Fatalf("not done")
+
+	// Add two environments.
+	uuid0 := utils.MustNewUUID().String()
+	uuid1 := utils.MustNewUUID().String()
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	err := environments.Insert(
+		bson.D{
+			{"_id", uuid0},
+		},
+		bson.D{
+			{"_id", uuid1},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create four services across those environments.
+	services, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+	err = services.Insert(
+		bson.D{
+			{"_id", uuid0 + ":foo"},
+			{"name", "foo"},
+			{"env-uuid", uuid0},
+		},
+		bson.D{
+			{"_id", uuid0 + ":bar"},
+			{"name", "bar"},
+			{"env-uuid", uuid0},
+		},
+		bson.D{
+			{"_id", uuid1 + ":ping"},
+			{"name", "ping"},
+			{"env-uuid", uuid1},
+		},
+		bson.D{
+			{"_id", uuid1 + ":pong"},
+			{"name", "pong"},
+			{"env-uuid", uuid1},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create status for one service in each environment.
+	statuses, closer := s.state.getRawCollection(statusesC)
+	defer closer()
+	err = statuses.Insert(
+		bson.D{
+			{"_id", uuid0 + ":s#foo"},
+			{"env-uuid", uuid0},
+			{"status", "untouched"},
+		},
+		bson.D{
+			{"_id", uuid1 + ":s#pong"},
+			{"env-uuid", uuid1},
+			{"status", "untouched"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Run the upgrade.
+	err = AddMissingServiceStatuses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check we now have the expected number of statuses.
+	count, err := statuses.Find(nil).Count()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 4)
+
+	// Check the original statuses were preserved.
+	checkUntouched := func(id string) {
+		var doc statusDoc
+		err = statuses.FindId(id).One(&doc)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(doc.Status, gc.Equals, Status("untouched"))
+	}
+	checkUntouched(uuid0 + ":s#foo")
+	checkUntouched(uuid1 + ":s#pong")
+
+	// Check new statuses were inserted.
+	checkInserted := func(id string) {
+		var doc statusDoc
+		err = statuses.FindId(id).One(&doc)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(doc.Status, gc.Equals, StatusUnknown)
+		c.Check(doc.StatusInfo, gc.Equals, "Waiting for agent initialization to finish")
+		c.Check(doc.StatusData, gc.DeepEquals, map[string]interface{}{})
+		c.Check(doc.Updated, gc.NotNil)
+		c.Check(doc.NeverSet, jc.IsTrue)
+	}
+	checkInserted(uuid0 + ":s#bar")
+	checkInserted(uuid1 + ":s#ping")
 }

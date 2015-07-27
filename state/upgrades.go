@@ -1473,13 +1473,15 @@ func AddMissingServiceStatuses(st *State) error {
 		if err != nil {
 			return errors.Annotatef(err, "failed to retrieve machines for environment %q", envUUID)
 		}
+		logger.Debugf("found %d services in environment %s", len(services), envUUID)
 
 		for _, service := range services {
 			_, err := service.Status()
 			if cause := errors.Cause(err); errors.IsNotFound(cause) {
+				logger.Debugf("service %s lacks status doc", service)
 				err := envSt.runTransaction([]txn.Op{
 					createStatusOpWithExcitingSideEffect(envSt, service.globalKey(), statusDoc{
-						EnvUUID:    st.EnvironUUID(),
+						EnvUUID:    envSt.EnvironUUID(),
 						Status:     StatusUnknown,
 						StatusInfo: MessageWaitForAgentInit,
 						Updated:    &now,
@@ -1492,6 +1494,8 @@ func AddMissingServiceStatuses(st *State) error {
 				if err != nil && err != txn.ErrAborted {
 					return err
 				}
+			} else if err != nil {
+				return err
 			}
 		}
 	}
