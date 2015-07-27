@@ -53,6 +53,8 @@ type baseCommand struct {
 
 	// Name is the name of the process in charm metadata.
 	Name string
+	// ID is the full ID of the registered process.
+	ID string
 	// info is the process info for the named workload process.
 	info *process.Info
 }
@@ -124,17 +126,24 @@ func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
 }
 
 func (c *baseCommand) init(args map[string]string) error {
-	name := args["name"]
-	if name == "" {
+	id := args["name"]
+	if id == "" {
 		return errors.Errorf("got empty name")
 	}
+	name, _ := process.ParseID(id)
 	c.Name = name
+	c.ID = id
 	return nil
 }
 
 // Run implements cmd.Command.
 func (c *baseCommand) Run(ctx *cmd.Context) error {
-	pInfo, err := c.compCtx.Get(c.Name)
+	id, err := c.findID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pInfo, err := c.compCtx.Get(id)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -180,6 +189,43 @@ func (c *baseCommand) registeredProcs(ids ...string) (map[string]*process.Info, 
 	return procs, nil
 }
 
+func (c *baseCommand) findID() (string, error) {
+	if c.ID != c.Name {
+		return c.ID, nil
+	}
+
+	ids, err := c.idsForName(c.Name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(ids) == 0 {
+		return "", errors.NotFoundf("ID for %q", c.Name)
+	}
+	// For now we only support a single proc for a given name.
+	if len(ids) > 1 {
+		return "", errors.Errorf("found more than one registered proc for %q", c.Name)
+	}
+
+	c.ID = ids[0]
+	return c.ID, nil
+}
+
+func (c *baseCommand) idsForName(name string) ([]string, error) {
+	registered, err := c.compCtx.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ids []string
+	for _, id := range registered {
+		registeredName, _ := process.ParseID(id)
+		// For now we only support a single proc for a given name.
+		if name == registeredName {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
 // registeringCommand is the base for commands that register a process
 // that has been launched.
 type registeringCommand struct {
@@ -223,16 +269,16 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 // Run implements cmd.Command.
 func (c *registeringCommand) Run(ctx *cmd.Context) error {
 	// We do not call baseCommand.Run here since we do not yet know the ID.
-	ids, err := c.compCtx.List()
+
+	// TODO(ericsnow) Ensure that c.ID == c.Name?
+
+	ids, err := c.idsForName(c.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, id := range ids {
-		name, _ := process.ParseID(id)
+	if len(ids) > 0 {
 		// For now we only support a single proc for a given name.
-		if name == c.Name {
-			return errors.Errorf("process %q already registered", c.Name)
-		}
+		return errors.Errorf("process %q already registered", c.Name)
 	}
 
 	if err := c.checkSpace(); err != nil {

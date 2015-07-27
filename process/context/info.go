@@ -66,8 +66,14 @@ func (c *ProcInfoCommand) init(args map[string]string) error {
 // Run implements cmd.Command.
 func (c *ProcInfoCommand) Run(ctx *cmd.Context) error {
 	var ids []string
-	if c.Name != "" {
-		ids = append(ids, c.Name)
+	if c.ID != "" {
+		id, err := c.findID()
+		if errors.IsNotFound(err) {
+			id = c.ID
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		ids = append(ids, id)
 	}
 
 	formatted, err := c.formatInfos(ids...)
@@ -96,7 +102,7 @@ func (c *ProcInfoCommand) formatInfos(ids ...string) (map[string]interface{}, er
 		}
 	} else {
 		for _, proc := range procs {
-			ids = append(ids, proc.Name)
+			ids = append(ids, proc.ID())
 		}
 		sort.Strings(ids)
 	}
