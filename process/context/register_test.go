@@ -293,7 +293,7 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
+	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Set", "Flush")
 }
 
 func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
@@ -317,8 +317,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.proc.Process = *s.registerCmd.UpdatedProcess
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Get",
-		Args:     []interface{}{s.proc.Name},
+		FuncName: "List",
 	}, {
 		FuncName: "ListDefinitions",
 	}, {

@@ -222,25 +222,21 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements cmd.Command.
 func (c *registeringCommand) Run(ctx *cmd.Context) error {
-	// TODO(ericsnow) The Get call here should be match on just c.Name...
-	if err := c.baseCommand.Run(ctx); err != nil {
+	// We do not call baseCommand.Run here since we do not yet know the ID.
+	ids, err := c.compCtx.List()
+	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if c.info != nil {
-		return errors.Errorf("process %q already registered", c.Name)
+	for _, id := range ids {
+		name, _ := process.ParseID(id)
+		// For now we only support a single proc for a given name.
+		if name == c.Name {
+			return errors.Errorf("process %q already registered", c.Name)
+		}
 	}
 
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
-	}
-
-	// Either the named process must already be defined or the command
-	// must have been run with the --definition option.
-	if c.Definition.Path != "" {
-		if c.info != nil {
-			return errors.Errorf("process %q already defined", c.Name)
-		}
 	}
 
 	return nil
