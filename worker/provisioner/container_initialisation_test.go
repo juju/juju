@@ -280,7 +280,12 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect("any-old-thing")
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string, addressable bool) {
+type ContainerInstance struct {
+	ctype    instance.ContainerType
+	packages [][]string
+}
+
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance, addressable bool) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
@@ -289,9 +294,28 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
+	var series string
+	var expected_initial []string
+
+	current_os, err := version.GetOSFromSeries(version.Current.Series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	switch current_os {
+	case version.CentOS:
+		series = "centos7"
+		expected_initial = []string{
+			"yum", "--assumeyes", "--debuglevel=1", "install"}
+	default:
+		series = "precise"
+		expected_initial = []string{
+			"apt-get", "--option=Dpkg::Options::=--force-confold",
+			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
+			"install"}
+	}
+
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      "precise", // precise requires special apt parameters, so we use that series here.
+		Series:      series, // precise requires special apt parameters, so we use that series here.
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -304,14 +328,14 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	// Before starting /etc/default/lxc-net should be missing.
 	c.Assert(s.fakeLXCNet, jc.DoesNotExist)
 
-	s.createContainer(c, m, ctype)
+	s.createContainer(c, m, cont.ctype)
 
 	// Only feature-flagged addressable containers modify lxc-net.
 	if addressable {
 		// After initialisation starts, but before running the
-		// initializer, lxc-net should be created if ctype is LXC, as the
+		// initializer, lxc-net should be created if cont.ctype is LXC, as the
 		// dummy provider supports static address allocation by default.
-		if ctype == instance.LXC {
+		if cont.ctype == instance.LXC {
 			AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
 			defer os.Remove(s.fakeLXCNet)
 		} else {
@@ -319,30 +343,20 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 		}
 	}
 
-	for _, pack := range packages {
+	for _, pack := range cont.packages {
 		cmd := <-s.aptCmdChan
-		expected := []string{
-			"apt-get", "--option=Dpkg::Options::=--force-confold",
-			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-			"install"}
-		expected = append(expected, pack...)
+
+		expected := append(expected_initial, pack...)
 		c.Assert(cmd.Args, gc.DeepEquals, expected)
 	}
 }
 
 func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
-	for _, test := range []struct {
-		ctype    instance.ContainerType
-		packages [][]string
-	}{
-		{instance.LXC, [][]string{
-			[]string{"--target-release", "precise-updates/cloud-tools", "lxc"},
-			[]string{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
-		{instance.KVM, [][]string{
-			[]string{"uvtool-libvirt"},
-			[]string{"uvtool"}}},
-	} {
-		s.assertContainerInitialised(c, test.ctype, test.packages, false)
+	cont, err := getContainerInstance()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, test := range cont {
+		s.assertContainerInitialised(c, test, false)
 	}
 }
 
@@ -501,16 +515,48 @@ func (s *AddressableContainerSetupSuite) enableFeatureFlag() {
 }
 
 func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
-	for _, test := range []struct {
-		ctype    instance.ContainerType
-		packages [][]string
-	}{
-		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc"}, {"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
-		{instance.KVM, [][]string{{"uvtool-libvirt"}, {"uvtool"}}},
-	} {
+	cont, err := getContainerInstance()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, test := range cont {
 		s.enableFeatureFlag()
-		s.assertContainerInitialised(c, test.ctype, test.packages, true)
+		s.assertContainerInitialised(c, test, true)
 	}
+}
+
+func getContainerInstance() (cont []ContainerInstance, err error) {
+	current_os, err := version.GetOSFromSeries(version.Current.Series)
+
+	if err != nil {
+		return nil, err
+	}
+
+	switch current_os {
+	case version.CentOS:
+		cont = []ContainerInstance{
+			{instance.LXC, [][]string{
+				{"lxc"},
+				{"cloud-image-utils"},
+			}},
+			{instance.KVM, [][]string{
+				{"uvtool-libvirt"},
+				{"uvtool"},
+			}},
+		}
+	default:
+		cont = []ContainerInstance{
+			{instance.LXC, [][]string{
+				{"--target-release", "precise-updates/cloud-tools", "lxc"},
+				{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"},
+			}},
+			{instance.KVM, [][]string{
+				{"uvtool-libvirt"},
+				{"uvtool"},
+			}},
+		}
+	}
+
+	return cont, nil
 }
 
 // LXCDefaultMTUSuite only contains tests depending on the
