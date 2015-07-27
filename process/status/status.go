@@ -36,10 +36,10 @@ type cliStatus struct {
 	State string `json:"state" yaml:"state"`
 }
 
-// convertAPItoCLI converts the object returned from the API for our component
+// Format converts the object returned from the API for our component
 // to the object we want to display in the CLI.  In our case, the api object is
 // a []process.Info.
-func ConvertAPItoCLI(apiObj interface{}) interface{} {
+func Format(apiObj interface{}) interface{} {
 	if apiObj == nil {
 		return nil
 	}

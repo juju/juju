@@ -11,18 +11,18 @@ type clientSuite struct{}
 var _ = gc.Suite(&clientSuite{})
 
 func (*clientSuite) TestNil(c *gc.C) {
-	c.Assert(ConvertAPItoCLI(nil), gc.IsNil)
+	c.Assert(Format(nil), gc.IsNil)
 }
 
 func (*clientSuite) TestWrongObj(c *gc.C) {
-	out := ConvertAPItoCLI("foo")
+	out := Format("foo")
 	if _, ok := out.(error); !ok {
 		c.Errorf("Expected error, got %#v", out)
 	}
 }
 
 func (*clientSuite) TestEmpty(c *gc.C) {
-	out := ConvertAPItoCLI([]interface{}{})
+	out := Format([]interface{}{})
 	s, ok := out.(map[string]cliDetails)
 	if !ok {
 		c.Fatalf("Expected map[string]cliDetails but got %#v", out)
@@ -53,7 +53,7 @@ func (*clientSuite) TestGood(c *gc.C) {
 		},
 	}
 
-	out := ConvertAPItoCLI(in)
+	out := Format(in)
 	s, ok := out.(map[string]cliDetails)
 	if !ok {
 		c.Fatalf("Expected map[string]cliDetails but got %#v", out)
