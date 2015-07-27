@@ -24,6 +24,7 @@ import yaml
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    get_juju_home,
     NoSuchEnvironment,
 )
 from jujupy import (
@@ -107,8 +108,9 @@ class TestEnvJujuClient25(ClientTest):
 
     def test__shell_environ_juju_home(self):
         client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
-        env = client._shell_environ(juju_home='asdf')
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
+            'asdf')
+        env = client._shell_environ()
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
@@ -124,8 +126,9 @@ class TestEnvJujuClient22(ClientTest):
 
     def test__shell_environ_juju_home(self):
         client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path')
-        env = client._shell_environ(juju_home='asdf')
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.22-foobar', 'path',
+            'asdf')
+        env = client._shell_environ()
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
@@ -265,8 +268,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 EnvJujuClient(env, None, None).bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_maas(self):
         env = Environment('maas', '')
@@ -275,8 +277,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
 
     def test_bootstrap_joyent(self):
         env = Environment('joyent', '')
@@ -286,7 +287,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap()
             mock.assert_called_once_with(
                 client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
-                False, juju_home=None)
+                False)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -295,8 +296,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -305,7 +305,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), True)
 
     def test_bootstrap_upload_tools(self):
         env = Environment('foo', '')
@@ -315,26 +315,16 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True, juju_home=None)
-
-    def test_bootstrap_juju_home(self):
-        env = Environment('foo', '')
-        client = EnvJujuClient(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju', autospec=True) as mock:
-                client.bootstrap(upload_tools=True, juju_home='temp-home')
-            mock.assert_called_with(
-                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True, juju_home='temp-home')
+                True)
 
     def test_bootstrap_async(self):
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
-            with client.bootstrap_async(juju_home='foo'):
+            client.juju_home = 'foo'
+            with client.bootstrap_async():
                 mock.assert_called_once_with(
-                    client, 'bootstrap', ('--constraints', 'mem=2G'),
-                    juju_home='foo')
+                    client, 'bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_async_upload_tools(self):
         env = Environment('foo', '')
@@ -343,7 +333,7 @@ class TestEnvJujuClient(ClientTest):
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
-                                          'mem=2G'), juju_home=None)
+                                          'mem=2G'))
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
@@ -879,10 +869,12 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_call') as mock:
             client.set_env_option(
                 'tools-metadata-url', 'https://example.org/juju/tools')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'),
-            env=os.environ)
+            env=environ)
 
     def test_set_testing_tools_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
@@ -912,8 +904,10 @@ class TestEnvJujuClient(ClientTest):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.check_call') as mock:
                 client.juju('foo', ('bar', 'baz'))
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=os.environ)
+                                 'bar', 'baz'), env=environ)
         stdout_mock.flush.assert_called_with()
 
     def test_juju_env(self):
@@ -927,11 +921,13 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_no_check(self):
         env = Environment('qux', '')
         client = EnvJujuClient(env, None, None)
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.juju_home
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.call') as mock:
                 client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=os.environ)
+                                 'bar', 'baz'), env=environ)
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check_env(self):
@@ -953,21 +949,22 @@ class TestEnvJujuClient(ClientTest):
 
     def test_juju_juju_home(self):
         env = SimpleEnvironment('qux')
-        client = EnvJujuClient(env, None, '/foobar/baz')
         with scoped_environ():
             os.environ['JUJU_HOME'] = 'foo'
+            client = EnvJujuClient(env, None, '/foobar/baz')
             with patch('subprocess.check_call') as cc_mock:
                 client.juju('foo', ('bar', 'baz'))
                 self.assertEqual(cc_mock.mock_calls[0][2]['env']['JUJU_HOME'],
                                  'foo')
-                client.juju('foo', ('bar', 'baz'), juju_home='asdf')
+                client.juju_home = 'asdf'
+                client.juju('foo', ('bar', 'baz'))
                 self.assertEqual(cc_mock.mock_calls[1][2]['env']['JUJU_HOME'],
                                  'asdf')
 
     def test_juju_extra_env(self):
         env = Environment('qux', '')
         client = EnvJujuClient(env, None, None)
-        extra_env = {'JUJU': '/juju'}
+        extra_env = {'JUJU': '/juju', 'JUJU_HOME': client.juju_home}
         with patch('sys.stdout'):
             with patch('subprocess.check_call') as mock:
                 client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
@@ -1274,8 +1271,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -1283,8 +1279,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False,
-                juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -1293,7 +1288,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
+                'bootstrap', ('--constraints', 'mem=2G'), True)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
@@ -1433,10 +1428,12 @@ class TestJujuClientDevel(TestCase):
         with patch('subprocess.check_call') as mock:
             client.set_env_option(
                 env, 'tools-metadata-url', 'https://example.org/juju/tools')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = get_juju_home()
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'),
-            env=os.environ)
+            env=environ)
 
     def test_juju(self):
         env = Environment('qux', '')
@@ -1444,8 +1441,10 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.check_call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'))
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = get_juju_home()
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=os.environ)
+                                 'bar', 'baz'), env=environ)
         stdout_mock.flush.assert_called_with()
 
     def test_juju_env(self):
@@ -1462,8 +1461,10 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'), check=False)
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = get_juju_home()
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=os.environ)
+                                 'bar', 'baz'), env=environ)
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check_env(self):
