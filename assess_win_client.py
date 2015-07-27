@@ -16,13 +16,16 @@ def win_test(script_dir, address, juju_home):
         run_file.write(dedent("""
             ci/$1 /verysilent
             juju version
-            juju destroy-environment --force -y test-win-client
-            python ci\\\\deploy_stack.py test-win-client
+            juju destroy-environment --force -y win-client-deploy
+            mkdir logs
+            python ci\\\\deploy_job.py test-win-client \
+                'c:\\Program Files (x86)\\Juju\\juju.exe' \
+                logs win-client-deploy
             """))
 
     ci = [os.path.join(script_dir, f) for f in [
-        'deploy_stack.py', 'jujupy.py', 'jujuconfig.py', 'remote.py',
-        'substrate.py', 'utility.py', 'get_ami.py', 'chaos.py'
+        'deploy_stack.py', 'deploy_job.py', 'jujupy.py', 'jujuconfig.py',
+        'remote.py', 'substrate.py', 'utility.py', 'get_ami.py', 'chaos.py'
         ]]
     ci.extend([install_file, 'run-file'])
     with open('foo.yaml', 'w') as config:

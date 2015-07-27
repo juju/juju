@@ -56,36 +56,6 @@ from utility import (
 )
 
 
-def prepare_environment(client, already_bootstrapped, machines):
-    """Prepare an environment for deployment.
-
-    As well as bootstrapping, this ensures the correct agent version is in
-    use.
-
-    :param client: An EnvJujuClient to prepare the environment of.
-    :param already_bootstrapped: If true, the environment is already
-        bootstrapped.
-    :param machines: A list of machines to add to the environment.
-    """
-    if sys.platform == 'win32':
-        # Ensure OpenSSH is never in the path for win tests.
-        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    if not already_bootstrapped:
-        client.bootstrap()
-    agent_version = client.get_matching_agent_version()
-    for ignored in until_timeout(30):
-        agent_versions = client.get_status().get_agent_versions()
-        if 'unknown' not in agent_versions and len(agent_versions) == 1:
-            break
-    if agent_versions.keys() != [agent_version]:
-        print("Current versions: %s" % ', '.join(agent_versions.keys()))
-        client.juju('upgrade-juju', ('--version', agent_version))
-    client.wait_for_version(client.get_matching_agent_version())
-    for machine in machines:
-        client.juju('add-machine', ('ssh:' + machine,))
-    return client
-
-
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
     if (client.env.config['type'] == 'manual'
@@ -157,6 +127,8 @@ def get_random_string():
 
 
 def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
+    if sys.platform == 'win32':
+        return
     remote_machines = get_remote_machines(client, bootstrap_host)
 
     for machine_id, remote in remote_machines.iteritems():
@@ -433,7 +405,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                 with temp_bootstrap_env(juju_home, client) as temp_juju_home:
                     client.bootstrap(upload_tools, temp_juju_home)
             except:
-                if host is not None:
+                if host is not None and sys.platform != 'win32':
                     dump_logs(client, host, log_dir, bootstrap_id)
                 raise
             try:
@@ -482,8 +454,8 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
                       upload_tools):
-        prepare_environment(
-            client, already_bootstrapped=True, machines=machines)
+        if machines is not None:
+            client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
@@ -540,35 +512,3 @@ def wait_for_state_server_to_shutdown(host, client, instance_id):
         else:
             raise Exception(
                 '{} was not deleted:\n{}'.format(instance_id, output))
-
-
-def main():
-    parser = ArgumentParser('Deploy a WordPress stack')
-    parser.add_argument('--charm-prefix', help='A prefix for charm urls.',
-                        default='')
-    parser.add_argument('--already-bootstrapped',
-                        help='The environment is already bootstrapped.',
-                        action='store_true')
-    parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.',
-                        action='append', default=[])
-    parser.add_argument('--dummy', help='Use dummy charms.',
-                        action='store_true')
-    parser.add_argument('env', help='The environment to deploy on.')
-    args = parser.parse_args()
-    try:
-        client = EnvJujuClient.by_version(
-            SimpleEnvironment.from_config(args.env))
-        prepare_environment(client, args.already_bootstrapped, args.machine)
-        if sys.platform in ('win32', 'darwin'):
-            # The win and osx client tests only verify the client to
-            # the state-server.
-            return
-        deploy_dummy_stack(client, args.charm_prefix)
-    except Exception as e:
-        print('%s (%s)' % (e, type(e).__name__))
-        sys.exit(1)
-
-
-if __name__ == '__main__':
-    main()

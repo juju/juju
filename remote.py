@@ -6,6 +6,7 @@ import abc
 import logging
 import os
 import subprocess
+import sys
 import zlib
 
 import winrm
@@ -147,7 +148,8 @@ class SSHRemote(_Remote):
         return self.run("cat " + utility.quote(filename))
 
     def _run_subprocess(self, command):
-        if self.timeout:
+        # XXX implement this in a Windows-compatible way
+        if self.timeout and sys.platform != 'win32':
             command = ["timeout", self.timeout] + command
         return subprocess.check_output(command)
 

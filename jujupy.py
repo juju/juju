@@ -191,7 +191,9 @@ class EnvJujuClient:
             e_arg = ()
         else:
             e_arg = ('-e', self.env.environment)
-        if timeout is None:
+        # Windows doesn't have an equivalent to *nix timeout.
+        # XXX implement timeouts in a win-compatible way
+        if timeout is None or sys.platform == 'win32':
             prefix = ()
         else:
             prefix = ('timeout', '%.2fs' % timeout)
@@ -225,6 +227,10 @@ class EnvJujuClient:
             env['JUJU_HOME'] = juju_home
 
         return env
+
+    def add_ssh_machines(self, machines):
+        for machine in machines:
+            self.juju('add-machine', ('ssh:' + machine,))
 
     def get_bootstrap_args(self, upload_tools):
         """Bootstrap, using sudo if necessary."""
@@ -743,7 +749,9 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
         # races.  Can't use a hard link because jenv doesn't exist until
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
-        os.symlink(new_jenv_path, jenv_path)
+        # Skip creating symlink where not supported (i.e. Windows).
+        if getattr(os, 'symlink', None) is not None:
+            os.symlink(new_jenv_path, jenv_path)
         try:
             yield temp_juju_home
         finally:

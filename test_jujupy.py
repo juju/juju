@@ -131,7 +131,7 @@ class TestEnvJujuClient22(ClientTest):
 
 class TestEnvJujuClient24(TestEnvJujuClient25):
 
-    client_class = EnvJujuClient25
+    client_class = EnvJujuClient24
 
 
 class TestEnvJujuClient(ClientTest):
@@ -563,6 +563,18 @@ class TestEnvJujuClient(ClientTest):
         # until_timeout is called by status as well as status_until.
         self.assertEqual(ut_mock.mock_calls,
                          [call(60), call(30, start=70), call(60), call(60)])
+
+    def test_add_ssh_machines(self):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
+        self.assertEqual(cc_mock.call_count, 3)
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')

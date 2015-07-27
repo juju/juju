@@ -28,7 +28,6 @@ from deploy_stack import (
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
-    prepare_environment,
     assess_upgrade,
     safe_print_status,
     retain_jenv,
@@ -517,7 +516,6 @@ class TestDeployJob(TestCase):
     @patch('jujupy.SimpleEnvironment.from_config',
            side_effect=fake_SimpleEnvironment)
     @patch('deploy_stack.boot_context', autospec=True)
-    @patch('deploy_stack.prepare_environment', autospec=True)
     @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
     def test_background_chaos_used(self, *args):
         with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
@@ -533,7 +531,6 @@ class TestDeployJob(TestCase):
     @patch('jujupy.SimpleEnvironment.from_config',
            side_effect=fake_SimpleEnvironment)
     @patch('deploy_stack.boot_context', autospec=True)
-    @patch('deploy_stack.prepare_environment', autospec=True)
     @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
     def test_background_chaos_not_used(self, *args):
         with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
@@ -622,54 +619,6 @@ class TestTestUpgrade(TestCase):
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
         wfv_mock.assert_called_once_with('1.38', 1200)
-
-
-class TestPrepareEnvironment(TestCase):
-
-    def setUp(self):
-        setup_test_logging(self)
-
-    def get_client(self):
-        return EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
-                             '1.18.17', '/foo/juju')
-
-    status = yaml.dump({
-        'machines': {0: {'agent-version': '1.18.17'}},
-        'services': {},
-    })
-
-    def test_prepare_environment(self):
-        client = self.get_client()
-        with patch('subprocess.check_output', return_value=self.status,
-                   autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('sys.stdout', autospec=True):
-                    prepare_environment(
-                        client, already_bootstrapped=True, machines=[])
-        self.assertEqual(cc_mock.call_count, 0)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'foo'), 0,
-            assign_stderr=True)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'foo'), 1,
-            assign_stderr=True)
-
-    def test_add_machines(self):
-        client = self.get_client()
-        machines = ['m-foo', 'm-bar', 'm-baz']
-        with patch('subprocess.check_output', return_value=self.status,
-                   autospec=True):
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('sys.stdout', autospec=True):
-                    prepare_environment(
-                        client, already_bootstrapped=True, machines=machines)
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 1)
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
-        self.assertEqual(cc_mock.call_count, 3)
 
 
 class TestBootContext(TestCase):
