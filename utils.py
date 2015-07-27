@@ -52,6 +52,8 @@ Series = namedtuple('Series', ['version', 'name', 'status'])
 
 class JujuSeries:
 
+    LIVING_STATUSES = ('DEVEL', 'SUPPORTED', 'LTS')
+
     def __init__(self, data_path=None):
         self.all = {}
         if data_path is None:
@@ -64,6 +66,10 @@ class JujuSeries:
                 continue
             series = Series(*line.split())
             self.all[series.name] = series
+
+    def get_living_names(self):
+        return sorted(s.name for s in self.all.values()
+                      if s.status in self.LIVING_STATUSES)
 
 
 def get_random_hex_string(size=64):

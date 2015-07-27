@@ -38,3 +38,9 @@ class JujuSeriesTestCase(TestCase):
         self.assertEqual(
             Series('14.10', 'utopic', 'HISTORIC'),
             juju_series.all['utopic'])
+
+    def test_get_living_names(self):
+        juju_series = get_juju_series()
+        self.assertEqual(
+            ['precise', 'trusty', 'vivid', 'wily'],
+            juju_series.get_living_names())
