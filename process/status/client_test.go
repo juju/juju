@@ -1,4 +1,4 @@
-package client
+package status
 
 import (
 	gc "gopkg.in/check.v1"
@@ -6,22 +6,22 @@ import (
 	"github.com/juju/juju/process/api"
 )
 
-type statusSuite struct{}
+type clientSuite struct{}
 
-var _ = gc.Suite(&statusSuite{})
+var _ = gc.Suite(&clientSuite{})
 
-func (*statusSuite) TestNil(c *gc.C) {
+func (*clientSuite) TestNil(c *gc.C) {
 	c.Assert(ConvertAPItoCLI(nil), gc.IsNil)
 }
 
-func (*statusSuite) TestWrongObj(c *gc.C) {
+func (*clientSuite) TestWrongObj(c *gc.C) {
 	out := ConvertAPItoCLI("foo")
 	if _, ok := out.(error); !ok {
 		c.Errorf("Expected error, got %#v", out)
 	}
 }
 
-func (*statusSuite) TestEmpty(c *gc.C) {
+func (*clientSuite) TestEmpty(c *gc.C) {
 	out := ConvertAPItoCLI([]interface{}{})
 	s, ok := out.(map[string]cliDetails)
 	if !ok {
@@ -30,7 +30,7 @@ func (*statusSuite) TestEmpty(c *gc.C) {
 	c.Assert(s, gc.HasLen, 0)
 }
 
-func (*statusSuite) TestGood(c *gc.C) {
+func (*clientSuite) TestGood(c *gc.C) {
 	in := []api.Process{
 		{
 			Definition: api.ProcessDefinition{

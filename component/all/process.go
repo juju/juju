@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
 	procstate "github.com/juju/juju/process/state"
+	"github.com/juju/juju/process/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -36,7 +37,7 @@ func (c workloadProcesses) registerForServer() error {
 }
 
 func (workloadProcesses) registerForClient() error {
-	comps.RegisterUnitComponentFormatter(server.StatusType, client.ConvertAPItoCLI)
+	comps.RegisterUnitComponentFormatter(status.StatusType, client.ConvertAPItoCLI)
 	return nil
 }
 
@@ -149,7 +150,7 @@ func (workloadProcesses) registerState() {
 }
 
 func (workloadProcesses) registerUnitStatus() {
-	apiserverclient.RegisterStatusProviderForUnits(server.StatusType,
+	apiserverclient.RegisterStatusProviderForUnits(status.StatusType,
 		func(st *state.State, unit names.UnitTag) (interface{}, error) {
 			up, err := st.UnitProcesses(unit)
 			if err != nil {
@@ -159,6 +160,6 @@ func (workloadProcesses) registerUnitStatus() {
 			if err != nil {
 				return nil, err
 			}
-			return server.UnitStatus(procs)
+			return status.UnitStatus(procs)
 		})
 }
