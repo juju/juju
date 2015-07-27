@@ -28,6 +28,7 @@ var expectedCommmandNames = []string{
 	"help",
 	"kill",
 	"list",
+	"list-blocks",
 	"login",
 	"remove-blocks",
 	"use-env", // alias for use-environment

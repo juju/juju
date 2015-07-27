@@ -4,6 +4,9 @@
 package featuretests
 
 import (
+	"fmt"
+	"strings"
+
 	"io/ioutil"
 	"path/filepath"
 
@@ -155,4 +158,17 @@ func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *cmdSystemSuite) TestListBlocks(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	ctx := s.run(c, "list-blocks", "--format", "json")
+	expected := fmt.Sprintf(`[{"name":"dummyenv","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+		s.State.EnvironUUID(), s.AdminUserTag(c).String())
+
+	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Check(strippedOut, gc.Equals, expected)
 }
