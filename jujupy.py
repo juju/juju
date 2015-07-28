@@ -14,6 +14,7 @@ from itertools import chain
 import logging
 import os
 import re
+from shutil import rmtree
 import subprocess
 import sys
 import tempfile
@@ -274,7 +275,7 @@ class EnvJujuClient:
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
         if delete_jenv:
-            jenv_path = get_jenv_path(get_juju_home(), self.env.environment)
+            jenv_path = get_jenv_path(self.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
@@ -684,6 +685,12 @@ def uniquify_local(env):
         env.config[key] = env.config.get(key, default) + 1
 
 
+def dump_environments_yaml(juju_home, config):
+    environments_path = get_environments_path(juju_home)
+    with open(environments_path, 'w') as config_file:
+        yaml.safe_dump(config, config_file)
+
+
 @contextmanager
 def _temp_env(new_config, parent=None, set_home=True):
     """Use the supplied config as juju environment.
@@ -692,9 +699,7 @@ def _temp_env(new_config, parent=None, set_home=True):
     temp_bootstrap_env.
     """
     with temp_dir(parent) as temp_juju_home:
-        temp_environments = get_environments_path(temp_juju_home)
-        with open(temp_environments, 'w') as config_file:
-            yaml.safe_dump(new_config, config_file)
+        dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
             context = scoped_environ()
         else:
@@ -705,8 +710,23 @@ def _temp_env(new_config, parent=None, set_home=True):
             yield temp_juju_home
 
 
+def jes_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'jes-envs', dir_name)
+
+
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True):
+def make_jes_home(juju_home, dir_name, config):
+    home_path = jes_home_path(juju_home, dir_name)
+    if os.path.exists(home_path):
+        rmtree(home_path)
+    ensure_dir(os.path.dirname(home_path))
+    os.mkdir(home_path)
+    dump_environments_yaml(home_path, config)
+    yield home_path
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -742,7 +762,11 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
                 "/var/lib/lxc", 2000000, "LXC containers")
     new_config = {'environments': {client.env.environment: config}}
     jenv_path = get_jenv_path(juju_home, client.env.environment)
-    with _temp_env(new_config, juju_home, set_home) as temp_juju_home:
+    if permanent:
+        context = make_jes_home(juju_home, client.env.environment, new_config)
+    else:
+        context = _temp_env(new_config, juju_home, set_home)
+    with context as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
@@ -751,22 +775,23 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
         # Skip creating symlink where not supported (i.e. Windows).
-        if getattr(os, 'symlink', None) is not None:
+        if getattr(os, 'symlink', None) is not None and not permanent:
             os.symlink(new_jenv_path, jenv_path)
         old_juju_home = client.juju_home
         client.juju_home = temp_juju_home
         try:
             yield temp_juju_home
         finally:
-            # replace symlink with file before deleting temp home.
-            try:
-                os.rename(new_jenv_path, jenv_path)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-                # Remove dangling symlink
-                os.unlink(jenv_path)
-            client.juju_home = old_juju_home
+            if not permanent:
+                # replace symlink with file before deleting temp home.
+                try:
+                    os.rename(new_jenv_path, jenv_path)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                    # Remove dangling symlink
+                    os.unlink(jenv_path)
+                client.juju_home = old_juju_home
 
 
 class Status:

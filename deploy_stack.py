@@ -334,7 +334,8 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
-                 agent_url, agent_stream, log_dir, keep_env, upload_tools):
+                 agent_url, agent_stream, log_dir, keep_env, upload_tools,
+                 permanent=False):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -402,7 +403,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
             try:
-                with temp_bootstrap_env(juju_home, client):
+                with temp_bootstrap_env(juju_home, client,
+                                        permanent=permanent):
                     client.bootstrap(upload_tools)
             except:
                 if host is not None and sys.platform != 'win32':
@@ -420,8 +422,11 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
+                live_jenv_path = get_jenv_path(client.juju_home,
+                                               client.env.environment)
                 if host is not None:
-                    dump_env_logs(client, host, log_dir, jenv_path=jenv_path)
+                    dump_env_logs(client, host, log_dir,
+                                  jenv_path=live_jenv_path)
                 if not keep_env:
                     client.destroy_environment()
         finally:
