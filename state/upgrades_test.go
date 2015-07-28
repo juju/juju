@@ -3257,12 +3257,19 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 	})
 }
 
-func setupForAttachmentTesting(s *upgradesSuite, c *gc.C) func() error {
-	kind := "filesystem"
-	pool := "loop-pool"
+func unsetField(st *State, id, collection, field string) error {
+	return st.runTransaction(
+		[]txn.Op{{
+			C:      collection,
+			Id:     id,
+			Update: bson.D{{"$unset", bson.D{{field, nil}}}},
+		},
+		})
+}
 
+func setupForStorageTesting(s *upgradesSuite, c *gc.C, kind, pool string) func() error {
 	pm := poolmanager.New(NewStateSettings(s.state))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
@@ -3293,21 +3300,18 @@ func assertVolumeAttachments(s *State, c *gc.C, expected int) *volume {
 }
 
 func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
-	cleanup := setupForAttachmentTesting(s, c)
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
 	defer cleanup()
 	vol := assertVolumeAttachments(s.state, c, 1)
 
 	id := vol.doc.DocID
-	ops := []txn.Op{{
-		C:      volumesC,
-		Id:     id,
-		Update: bson.D{{"$unset", bson.D{{"attachmentcount", nil}}}},
-	}}
-	err := s.state.runTransaction(ops)
+	err := unsetField(s.state, id, volumesC, "attachmentcount")
 	c.Assert(err, jc.ErrorIsNil)
 	assertVolumeAttachments(s.state, c, 0)
 
-	AddVolumeAttachmentCount(s.state)
+	err = AddVolumeAttachmentCount(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
 	assertVolumeAttachments(s.state, c, 1)
 }
 
@@ -3323,23 +3327,20 @@ func assertFilesystemAttachments(s *State, c *gc.C, expected int) *filesystem {
 }
 
 func (s *upgradesSuite) TestAddAttachmentToFilesystems(c *gc.C) {
-	cleanup := setupForAttachmentTesting(s, c)
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
 	defer cleanup()
 
 	fs := assertFilesystemAttachments(s.state, c, 1)
 
 	id := fs.doc.DocID
-	ops := []txn.Op{{
-		C:      filesystemsC,
-		Id:     id,
-		Update: bson.D{{"$unset", bson.D{{"attachmentcount", nil}}}},
-	}}
-	err := s.state.runTransaction(ops)
+
+	err := unsetField(s.state, id, filesystemsC, "attachmentcount")
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertFilesystemAttachments(s.state, c, 0)
 
-	AddFilesystemsAttachmentCount(s.state)
+	err = AddFilesystemsAttachmentCount(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertFilesystemAttachments(s.state, c, 1)
 }
@@ -3355,26 +3356,74 @@ func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
 	return vol
 }
 
-func (s *upgradesSuite) TestAddBindingToVolumes(c *gc.C) {
-	cleanup := setupForAttachmentTesting(s, c)
+func setupMachineBoundTests(c *gc.C, st *State) func() error {
+	pm := poolmanager.New(NewStateSettings(st))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	// Make an unprovisioned machine with storage for tests to use.
+	// TODO(axw) extend testing/factory to allow creating unprovisioned
+	// machines.
+	m, err := st.AddOneMachine(MachineTemplate{
+		Series: "quantal",
+		Jobs:   []MachineJob{JobHostUnits},
+		Volumes: []MachineVolumeParams{
+			{Volume: VolumeParams{Pool: "loop-pool", Size: 2048}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return m.Destroy
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumesFilesystemBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
 	defer cleanup()
 	vol := assertVolumeBinding(s.state, c, "filesystem-0-0")
 
 	id := vol.doc.DocID
-	ops := []txn.Op{{
-		C:      volumesC,
-		Id:     id,
-		Update: bson.D{{"$unset", bson.D{{"binding", nil}}}},
-	}}
-	err := s.state.runTransaction(ops)
+	err := unsetField(s.state, id, volumesC, "binding")
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertVolumeBinding(s.state, c, "")
 
-	AddBindingToVolumes(s.state)
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertVolumeBinding(s.state, c, "filesystem-0-0")
+}
 
+func (s *upgradesSuite) TestAddBindingToVolumesStorageBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "storage-data-0")
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "")
+
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "storage-data-0")
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumesMachineBound(c *gc.C) {
+	cleanup := setupMachineBoundTests(c, s.state)
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "machine-0")
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "")
+
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "machine-0")
 }
 
 func assertFilesystemBinding(s *State, c *gc.C, expected string) *filesystem {
@@ -3388,23 +3437,19 @@ func assertFilesystemBinding(s *State, c *gc.C, expected string) *filesystem {
 	return fs
 }
 
-func (s *upgradesSuite) TestAddBindingToFilesystems(c *gc.C) {
-	cleanup := setupForAttachmentTesting(s, c)
+func (s *upgradesSuite) TestAddBindingToFilesystemsStorageBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
 	defer cleanup()
 	fs := assertFilesystemBinding(s.state, c, "storage-data-0")
 
 	id := fs.doc.DocID
-	ops := []txn.Op{{
-		C:      filesystemsC,
-		Id:     id,
-		Update: bson.D{{"$unset", bson.D{{"binding", nil}}}},
-	}}
-	err := s.state.runTransaction(ops)
+	err := unsetField(s.state, id, filesystemsC, "binding")
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertFilesystemBinding(s.state, c, "")
 
-	AddBindingToFilesystems(s.state)
+	err = AddBindingToFilesystems(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertFilesystemBinding(s.state, c, "storage-data-0")
 }

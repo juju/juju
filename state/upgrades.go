@@ -1608,7 +1608,9 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 			return errors.Annotatef(err, "failed to open environment %q", envUUID)
 		}
 		defer envSt.Close()
-		runner(envSt)
+		if err := runner(envSt); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -1674,6 +1676,36 @@ func AddFilesystemsAttachmentCount(st *State) error {
 	return runForAllEnvStates(st, addFilesystemsAttachmentCount)
 }
 
+func getVolumeBinding(st *State, volume Volume) (string, error) {
+	// first filesystem
+	fs, err := st.VolumeFilesystem(volume.VolumeTag())
+	if err == nil {
+		return fs.FilesystemTag().String(), nil
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then Volume.StorageInstance
+	storageInstance, err := volume.StorageInstance()
+	if err == nil {
+		return storageInstance.String(), nil
+
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then machine
+	atts, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
 func addBindingToVolume(st *State) error {
 	volumes, err := st.AllVolumes()
 	if err != nil {
@@ -1682,60 +1714,16 @@ func addBindingToVolume(st *State) error {
 
 	ops := make([]txn.Op, len(volumes))
 	for i, volume := range volumes {
-		// first filesystem
-		fs, err := st.VolumeFilesystem(volume.VolumeTag())
-		if err == nil {
-			ops[i] = txn.Op{
-				C:      volumesC,
-				Id:     volume.Tag().Id(),
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"binding", fs.FilesystemTag().String()},
-				}}},
-			}
-			continue
-		} else if !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-
-		// then Volume.StorageInstance
-		storageInstance, err := volume.StorageInstance()
-		if err == nil {
-			ops[i] = txn.Op{
-				C:      volumesC,
-				Id:     volume.Tag().Id(),
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"binding", storageInstance.String()},
-				}}},
-			}
-
-		} else if !errors.IsNotAssigned(err) {
-			return errors.Trace(err)
-		}
-
-		// then machine
-		atts, err := st.VolumeAttachments(volume.VolumeTag())
+		b, err := getVolumeBinding(st, volume)
 		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(atts) != 1 {
-			ops[i] = txn.Op{
-				C:      volumesC,
-				Id:     volume.Tag().Id(),
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"binding", ""},
-				}}},
-			}
-			continue
+			return errors.Annotatef(err, "cannot determine binding for %q", volume.Tag().String())
 		}
 		ops[i] = txn.Op{
 			C:      volumesC,
 			Id:     volume.Tag().Id(),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{
-				{"binding", atts[0].Machine().String()},
+				{"binding", b},
 			}}},
 		}
 	}
@@ -1748,6 +1736,24 @@ func AddBindingToVolumes(st *State) error {
 	return runForAllEnvStates(st, addBindingToVolume)
 }
 
+func getFilesystemBinding(st *State, filesystem Filesystem) (string, error) {
+	storage, err := filesystem.Storage()
+	if err == nil {
+		return storage.String(), nil
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+	atts, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
 func addBindingToFilesystems(st *State) error {
 	filesystems, err := st.AllFilesystems()
 	if err != nil {
@@ -1756,41 +1762,16 @@ func addBindingToFilesystems(st *State) error {
 
 	ops := make([]txn.Op, len(filesystems))
 	for i, filesystem := range filesystems {
-		storage, err := filesystem.Storage()
-		if err == nil {
-			ops[i] = txn.Op{
-				C:      filesystemsC,
-				Id:     filesystem.Tag().Id(),
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"binding", storage.String()},
-				}}},
-			}
-			continue
-		} else if !errors.IsNotAssigned(err) {
-			return errors.Trace(err)
-		}
-		atts, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+		b, err := getFilesystemBinding(st, filesystem)
 		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(atts) != 1 {
-			ops[i] = txn.Op{
-				C:      filesystemsC,
-				Id:     filesystem.Tag().Id(),
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"binding", ""},
-				}}},
-			}
-			continue
+			return errors.Annotatef(err, "cannot determine binding for %q", filesystem.Tag().String())
 		}
 		ops[i] = txn.Op{
 			C:      filesystemsC,
 			Id:     filesystem.Tag().Id(),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{
-				{"binding", atts[0].Machine().String()},
+				{"binding", b},
 			}}},
 		}
 	}
