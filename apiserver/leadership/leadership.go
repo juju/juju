@@ -12,8 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -34,54 +32,26 @@ const (
 
 var (
 	logger = loggo.GetLogger("juju.apiserver.leadership")
-	// Begin injection-chain so we can instantiate leadership
-	// services. Exposed as variables so we can change the
-	// implementation for testing purposes.
-	leaseMgr  = lease.Manager()
-	leaderMgr = leadership.NewLeadershipManager(leaseMgr)
 )
 
 func init() {
-
 	common.RegisterStandardFacade(
 		FacadeName,
 		1,
-		NewLeadershipServiceFn(leaderMgr),
+		NewLeadershipService,
 	)
-}
-
-// NewLeadershipServiceFn returns a function which can construct a
-// LeadershipService when passed a state, resources, and authorizer.
-// This function signature conforms to Juju's required API server
-// signature.
-func NewLeadershipServiceFn(
-	claimer leadership.Claimer,
-) func(*state.State, *common.Resources, common.Authorizer) (LeadershipService, error) {
-	return func(
-		state *state.State,
-		resources *common.Resources,
-		authorizer common.Authorizer,
-	) (LeadershipService, error) {
-		return NewLeadershipService(state, resources, authorizer, claimer)
-	}
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	state *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-	claimer leadership.Claimer,
+	state *state.State, resources *common.Resources, authorizer common.Authorizer,
 ) (LeadershipService, error) {
-
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-
 	return &leadershipService{
 		state:      state,
 		authorizer: authorizer,
-		claimer:    claimer,
 	}, nil
 }
 
@@ -90,12 +60,12 @@ func NewLeadershipService(
 type leadershipService struct {
 	state      *state.State
 	authorizer common.Authorizer
-	claimer    leadership.Claimer
 }
 
 // ClaimLeadership implements the LeadershipService interface.
 func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
+	claimer := m.state.LeadershipClaimer()
 	results := make([]params.ErrorResult, len(args.Params))
 	for pIdx, p := range args.Params {
 
@@ -119,7 +89,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 			continue
 		}
 
-		err = m.claimer.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
+		err = claimer.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		}
@@ -134,7 +104,8 @@ func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.Servic
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
+	claimer := m.state.LeadershipClaimer()
+	if err := claimer.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
