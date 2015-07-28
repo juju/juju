@@ -45,6 +45,7 @@ var (
 	LxcObjectFactory = golxc.Factory()
 	runtimeGOOS      = runtime.GOOS
 	runningInsideLXC = lxcutils.RunningInsideLXC
+	writeWgetTmpFile = ioutil.WriteFile
 )
 
 const (
@@ -451,12 +452,13 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Write the wget script.
+	// Write the wget script.  Don't use a proxy when getting
+	// the image as it's going through the state server.
 	wgetTmpl := `#!/bin/bash
-/usr/bin/wget --ca-certificate=%s $*
+/usr/bin/wget --no-proxy --ca-certificate=%s $*
 `
 	wget := fmt.Sprintf(wgetTmpl, caCertPath)
-	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
+	err = writeWgetTmpFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
 	if err != nil {
 		defer closer()
 		return nil, nil, errors.Trace(err)
