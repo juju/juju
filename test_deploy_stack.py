@@ -771,3 +771,8 @@ class TestDeployJobParseArgs(TestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar', 'baz', 'qux', '--agent-stream', 'wacky'])
         self.assertEqual('wacky', args.agent_stream)
+
+    def test_jes(self):
+        args = deploy_job_parse_args(
+            ['foo', 'bar', 'baz', 'qux', '--jes'])
+        self.assertIs(args.jes, True)
