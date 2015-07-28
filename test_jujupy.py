@@ -370,7 +370,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
-                client.juju_home = client.juju_home = juju_home
+                client.juju_home = juju_home
                 jenv_path = get_jenv_path(juju_home, 'foo')
                 os.makedirs(os.path.dirname(jenv_path))
                 open(jenv_path, 'w')
