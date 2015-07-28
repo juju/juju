@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -354,6 +355,18 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 
 type storageContextAccessor struct {
 	storage map[names.StorageTag]*contextStorage
+}
+
+func (s *storageContextAccessor) StorageTags() []names.StorageTag {
+	tags := set.NewTags()
+	for tag := range s.storage {
+		tags.Add(tag)
+	}
+	storageTags := make([]names.StorageTag, len(tags))
+	for i, tag := range tags.SortedValues() {
+		storageTags[i] = tag.(names.StorageTag)
+	}
+	return storageTags
 }
 
 func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {

@@ -329,6 +329,10 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
+func (ctx *HookContext) StorageTags() []names.StorageTag {
+	return ctx.storage.StorageTags()
+}
+
 func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
