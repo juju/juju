@@ -37,7 +37,7 @@ func (c workloadProcesses) registerForServer() error {
 }
 
 func (workloadProcesses) registerForClient() error {
-	comps.RegisterUnitComponentFormatter(status.StatusType, client.ConvertAPItoCLI)
+	comps.RegisterUnitStatusFormatter(status.StatusType, status.Format)
 	return nil
 }
 

@@ -1,8 +1,10 @@
 package components
 
-// RegisterUnitComponentFormatter registers a formatting function for the given component.  When status is returned from the API, unitstatus for the compoentn
-func RegisterUnitComponentFormatter(component string, fn func(apiobj interface{}) interface{}) {
-	UnitComponentFormatters[component] = fn
+// RegisterUnitStatusFormatter registers a function that returns a
+// value that will be used to deserialize the status value for the given
+// component.
+func RegisterUnitStatusFormatter(component string, fn func([]byte) interface{}) {
+	UnitStatusFormatters[component] = fn
 }
 
-var UnitComponentFormatters = map[string]func(interface{}) interface{}{}
+var UnitStatusFormatters = map[string]func([]byte) interface{}{}

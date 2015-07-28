@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/components"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
@@ -465,10 +466,9 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		out.Components = map[string]interface{}{}
 	}
 
-	for component, apistatus := range unit.Components {
-		if val := formatter(apistatus); val != nil {
-			out.Components[component] = val
-		}
+	for component, status := range unit.Components {
+		formatter := components.UnitStatusFormatters[component]
+		out.Components[component] = formatter(status.Bytes())
 	}
 
 	if len(out.Components) == 0 {
