@@ -684,7 +684,7 @@ class EnvJujuClient25(EnvJujuClient):
 
 
 class EnvJujuClient24(EnvJujuClient25):
-    """Currently, same feature set as juju 25"""
+    """Similar to EnvJujuClient25, but lacking JES support."""
 
     def enable_jes(self):
         raise JESNotSupported()
