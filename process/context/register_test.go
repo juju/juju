@@ -56,7 +56,7 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-register [options] <name> <proc-details>
+usage: process-register [options] <name-or-id> <proc-details>
 purpose: register a workload process
 
 options:
@@ -114,7 +114,7 @@ func (s *registerSuite) TestInitEmptyName(c *gc.C) {
 		"abc123",
 	})
 
-	c.Check(err, gc.ErrorMatches, "got empty name")
+	c.Check(err, gc.ErrorMatches, "got empty name-or-id")
 }
 
 func (s *registerSuite) TestInitEmptyID(c *gc.C) {

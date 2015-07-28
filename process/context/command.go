@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/process"
 )
 
-const idArg = "name"
+const idArg = "name-or-id"
 
 type cmdInfo struct {
 	// Name is the command's name.
 	Name string
-	// ExtraArgs is the list of arg names that follow "name", if any.
+	// ExtraArgs is the list of arg names that follow "name-or-id", if any.
 	ExtraArgs []string
 	// OptionalArgs is the list of optional args, if any.
 	OptionalArgs []string
@@ -130,7 +130,7 @@ func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
 func (c *baseCommand) init(args map[string]string) error {
 	id := args[idArg]
 	if id == "" {
-		return errors.Errorf("got empty name")
+		return errors.Errorf("got empty " + idArg)
 	}
 	name, _ := process.ParseID(id)
 	c.Name = name

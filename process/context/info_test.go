@@ -98,7 +98,7 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-info [options] [<name>]
+usage: process-info [options] [<name-or-id>]
 purpose: get info about a workload process (or all of them)
 
 options:
