@@ -694,3 +694,18 @@ func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
 }
+
+func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
+	var wgetScript []byte
+	fakeCert := []byte("fakeCert")
+	s.PatchValue(lxc.WriteWgetTmpFile, func(filename string, data []byte, perm os.FileMode) error {
+		wgetScript = data
+		return nil
+	})
+	_, closer, err := lxc.WgetEnvironment(fakeCert)
+	if err == nil {
+		defer closer()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(wgetScript), jc.Contains, "/usr/bin/wget --no-proxy --ca-certificate")
+}
