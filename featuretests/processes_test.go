@@ -209,6 +209,8 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "launch-service")
 
+	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
+
 	args := map[string]interface{}{
 		"name": "myproc",
 	}
@@ -259,6 +261,15 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "info-service")
 	unit := svc.deploy(c, "myproc", "xyz123", "running")
+
+	unit.checkState(c, nil)
+
+	args := map[string]interface{}{
+		"name":   "myproc",
+		"id":     "xyz123",
+		"status": "running",
+	}
+	unit.runAction(c, "register", args)
 
 	// checkState calls the "list" action, which wraps "info".
 	unit.checkState(c, []process.Info{{
