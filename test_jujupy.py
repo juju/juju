@@ -41,13 +41,14 @@ from jujupy import (
     JESNotSupported,
     JujuClientDevel,
     JUJU_DEV_FEATURE_FLAGS,
+    make_client,
+    make_jes_home,
+    parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
-    make_client,
-    parse_new_state_server_from_error,
 )
 from utility import (
     scoped_environ,
@@ -401,7 +402,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
-                client.juju_home = client.juju_home = juju_home
+                client.juju_home = juju_home
                 jenv_path = get_jenv_path(juju_home, 'foo')
                 os.makedirs(os.path.dirname(jenv_path))
                 open(jenv_path, 'w')
@@ -1129,6 +1130,35 @@ def bootstrap_context(client):
             with temp_dir() as fake_home:
                 os.environ['JUJU_HOME'] = fake_home
                 yield fake_home
+
+
+class TestJesHomePath(TestCase):
+
+    def test_jes_home_path(self):
+        path = jes_home_path('/home/jrandom/foo', 'bar')
+        self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+
+
+class TestMakeJESHome(TestCase):
+
+    def test_make_jes_home(self):
+        with temp_dir() as juju_home:
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                pass
+            with open(get_environments_path(jes_home)) as env_file:
+                env = yaml.safe_load(env_file)
+        self.assertEqual(env, {'baz': 'qux'})
+        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
+
+    def test_clean_existing(self):
+        with temp_dir() as juju_home:
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                foo_path = os.path.join(jes_home, 'foo')
+                with open(foo_path, 'w') as foo:
+                    foo.write('foo')
+                self.assertTrue(os.path.isfile(foo_path))
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                self.assertFalse(os.path.exists(foo_path))
 
 
 def stub_bootstrap(client):
