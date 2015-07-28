@@ -775,7 +775,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
         # Skip creating symlink where not supported (i.e. Windows).
-        if getattr(os, 'symlink', None) is not None and not permanent:
+        if not permanent and getattr(os, 'symlink', None) is not None:
             os.symlink(new_jenv_path, jenv_path)
         old_juju_home = client.juju_home
         client.juju_home = temp_juju_home
