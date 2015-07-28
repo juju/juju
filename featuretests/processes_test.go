@@ -624,12 +624,13 @@ func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
 	var procs []process.Info
 
 	results := u.runAction(c, "list", nil)
-	out := strings.TrimSpace(results["output"])
-	if out != " [no processes registered]" {
-		for _, section := range strings.Split(out, "\n\n") {
-			var proc process.Info
-			err := goyaml.Unmarshal([]byte(section), &proc)
-			c.Assert(err, jc.ErrorIsNil)
+	out, ok := results["output"]
+	c.Assert(ok, jc.IsTrue)
+	if strings.TrimSpace(out) != "[no processes registered]" {
+		procsMap := make(map[string]process.Info)
+		err := goyaml.Unmarshal([]byte(out), &procsMap)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, proc := range procsMap {
 			procs = append(procs, proc)
 		}
 	}
