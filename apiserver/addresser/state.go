@@ -11,12 +11,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// StateMachine defines the needed methods of state.Machine
-// for the work of the Addresser API.
-
-type StateMachine interface {
-}
-
 // StetIPAddress defines the needed methods of state.IPAddress
 // for the work of the Addresser API.
 type StateIPAddress interface {

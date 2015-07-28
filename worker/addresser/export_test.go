@@ -4,5 +4,5 @@
 package addresser
 
 var (
-	NewWorkerWithReleaser = newWorkerWithReleaser
+// NewWorkerWithReleaser = newWorkerWithReleaser
 )

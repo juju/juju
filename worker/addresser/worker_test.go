@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -29,6 +31,9 @@ type workerSuite struct {
 	testing.JujuConnSuite
 	machine  *state.Machine
 	machine2 *state.Machine
+
+	apiSt *api.State
+	api   *apiaddresser.API
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
@@ -36,6 +41,9 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
+
+	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.api = s.apiSt.Addresser()
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	s.machine = machine
@@ -118,7 +126,7 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 
 	opsChan := dummyListen()
 
-	w, err := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
@@ -148,7 +156,7 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
-	w, err := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
@@ -169,7 +177,7 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
-	w, err := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
@@ -197,7 +205,7 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 }
 
 func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
-	w, err := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
@@ -243,7 +251,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
-	w, err := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(w)
 
@@ -257,7 +265,10 @@ func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 
 	select {
 	case err := <-stopErr:
-		msg := "failed to release address .*: dummy.ReleaseAddress is broken"
+		// Combined error of two release errors.
+		msg := "cannot release all IP addresses: " +
+			"failed to release IP address .*: dummy.ReleaseAddress is broken\n" +
+			"failed to release IP address .*: dummy.ReleaseAddress is broken"
 		c.Assert(err, gc.ErrorMatches, msg)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("worker did not stop as expected")
@@ -269,20 +280,5 @@ func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 		rawAddr := fmt.Sprintf("0.1.2.%d", digit)
 		_, err := s.State.IPAddress(rawAddr)
 		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *workerSuite) TestAddresserWithNoNetworkingEnviron(c *gc.C) {
-	opsChan := dummyListen()
-	w := addresser.NewWorkerWithReleaser(s.State, nil)
-	defer s.assertStop(c, w)
-
-	for {
-		select {
-		case <-opsChan:
-			c.Fatalf("unexpected release op")
-		case <-time.After(coretesting.ShortWait):
-			return
-		}
 	}
 }

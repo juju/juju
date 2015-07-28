@@ -241,16 +241,6 @@ func (mst *mockState) removeIPAddress(value string) error {
 // used with watcher helpers/checkers.
 func (mst *mockState) StartSync() {}
 
-// mockMachine
-type mockMachine struct {
-	addresser.StateMachine
-
-	mu   sync.Mutex
-	stub *testing.Stub
-
-	st *mockState
-}
-
 // mockIPAddress implements StateIPAddress for testing.
 type mockIPAddress struct {
 	addresser.StateIPAddress

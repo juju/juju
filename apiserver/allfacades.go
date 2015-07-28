@@ -8,6 +8,7 @@ package apiserver
 // function will get called to register it.
 import (
 	_ "github.com/juju/juju/apiserver/action"
+	_ "github.com/juju/juju/apiserver/addresser"
 	_ "github.com/juju/juju/apiserver/agent"
 	_ "github.com/juju/juju/apiserver/annotations"
 	_ "github.com/juju/juju/apiserver/backups"

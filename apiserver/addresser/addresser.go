@@ -97,8 +97,8 @@ func (api *AddresserAPI) ReleaseIPAddresses(args params.Entities) (params.ErrorR
 
 // releaseIPAddress releases one IP address.
 func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag names.Tag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", tag)
-	logger.Debugf("attempting to release dead IP address %#v", tag)
+	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", tag.String())
+	logger.Debugf("attempting to release dead IP address %v", tag.String())
 	// Retrieve IP address by tag.
 	ipAddress, err := api.st.IPAddressByTag(tag.(names.IPAddressTag))
 	if err != nil {
@@ -120,15 +120,16 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag
 
 // WatchIPAddresses observes changes to the IP addresses.
 func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
-	watch := &ipAddressesWatcher{api.st.WatchIPAddresses()}
+	watch := &ipAddressesWatcher{api.st.WatchIPAddresses(), api.st}
 
 	if changes, ok := <-watch.Changes(); ok {
-		mappedChanges, err := watch.MapChanges(api.st, changes)
+		mappedChanges, err := watch.MapChanges(changes)
 		if err != nil {
 			return params.EntityWatchResult{}, errors.Trace(err)
 		}
+		id := api.resources.Register(watch)
 		return params.EntityWatchResult{
-			EntityWatcherId: api.resources.Register(watch),
+			EntityWatcherId: id,
 			Changes:         mappedChanges,
 		}, nil
 	}
