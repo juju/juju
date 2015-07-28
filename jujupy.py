@@ -711,7 +711,7 @@ def _temp_env(new_config, parent=None, set_home=True):
 
 
 def jes_home_path(juju_home, dir_name):
-    return os.path.join(juju_home, 'jes-envs', dir_name)
+    return os.path.join(juju_home, 'jes-homes', dir_name)
 
 
 @contextmanager
