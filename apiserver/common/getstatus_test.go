@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type statusGetterSuite struct{}
+type statusGetterSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&statusGetterSuite{})
 
