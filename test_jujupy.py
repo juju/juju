@@ -124,27 +124,47 @@ class TestEnvJujuClient25(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', return_value='system'):
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='system') as co_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            assign_stderr=True)
 
     def test_enable_jes_unsupported(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', return_value=''):
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
             with self.assertRaises(JESNotSupported):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0, assign_stderr=True)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 2)
 
     def test_enable_jes_requires_flag(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', side_effect=['', 'system']):
+        with patch('subprocess.check_output', autospec=True,
+                   side_effect=['', 'system']) as co_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0, assign_stderr=True)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 2)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
