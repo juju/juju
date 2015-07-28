@@ -6,7 +6,11 @@ import json
 import logging
 import os
 import subprocess
-from unittest import TestCase
+import sys
+from unittest import (
+    skipIf,
+    TestCase
+)
 
 from mock import (
     call,
@@ -512,6 +516,8 @@ def fake_EnvJujuClient(env, path=None, debug=None):
 
 class TestDeployJob(TestCase):
 
+    @skipIf(sys.platform in ('win32', 'darwin'),
+            'Not supported on Windown and OS X')
     @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
     @patch('jujupy.SimpleEnvironment.from_config',
            side_effect=fake_SimpleEnvironment)
@@ -527,6 +533,8 @@ class TestDeployJob(TestCase):
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
 
+    @skipIf(sys.platform in ('win32', 'darwin'),
+            'Not supported on Windown and OS X')
     @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
     @patch('jujupy.SimpleEnvironment.from_config',
            side_effect=fake_SimpleEnvironment)
