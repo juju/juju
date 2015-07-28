@@ -402,8 +402,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
             try:
-                with temp_bootstrap_env(juju_home, client) as temp_juju_home:
-                    client.bootstrap(upload_tools, temp_juju_home)
+                with temp_bootstrap_env(juju_home, client):
+                    client.bootstrap(upload_tools)
             except:
                 if host is not None and sys.platform != 'win32':
                     dump_logs(client, host, log_dir, bootstrap_id)
