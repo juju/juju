@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -83,6 +84,7 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 
 func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
@@ -308,11 +310,25 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	}
 }
 
-func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
+func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	err := vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
+	errs := vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	sortBySize(ec2Vols.Volumes)
+	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
+}
+
+func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	errs := vs.DestroyVolumes([]string{"vol-0"})
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 
