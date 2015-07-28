@@ -67,7 +67,7 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	ctx := s.addUnitStorage(c, cons)
 
 	// Flush the context with a success.
-	err := ctx.FlushContext("success", nil)
+	err := ctx.Flush("success", nil)
 	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
 
 	// Make sure no storage instances was added
@@ -86,7 +86,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 	ctx := s.addUnitStorage(c, cons)
 
 	// Flush the context with a success.
-	err := ctx.FlushContext("success", nil)
+	err := ctx.Flush("success", nil)
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
@@ -104,7 +104,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 	ctx := s.addUnitStorage(c, cons)
 
 	// Flush the context with a success.
-	err := ctx.FlushContext("success", nil)
+	err := ctx.Flush("success", nil)
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
@@ -222,7 +222,7 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 	ctx := s.addUnitStorage(c, cons...)
 
 	// Flush the context with a success.
-	err := ctx.FlushContext("success", nil)
+	err := ctx.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	after, err := s.State.AllStorageInstances()

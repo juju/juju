@@ -278,7 +278,7 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(actionData.ActionFailed, jc.IsTrue)
+	c.Check(actionData.Failed, jc.IsTrue)
 }
 
 // TestSetActionMessage ensures SetActionMessage works properly.
