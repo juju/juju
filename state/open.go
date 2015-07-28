@@ -224,16 +224,14 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 	}
 
 	// Create State.
-	st := &State{
+	return &State{
 		environTag: environTag,
 		mongoInfo:  mongoInfo,
 		session:    session,
 		database:   database,
 		policy:     policy,
 		watcher:    watcher.New(rawDB.C(txnLogC)),
-	}
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
-	return st, nil
+	}, nil
 }
 
 // MongoConnectionInfo returns information for connecting to mongo

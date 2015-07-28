@@ -1004,6 +1004,10 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
+
+	// TODO(fwereade): ...seriously? we use *status*, which is *output* for the
+	// user's edification, as *input* for the *provisioner*? This is pretty damn
+	// close to deliberate sabotage.
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
 		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
