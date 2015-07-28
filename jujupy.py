@@ -14,6 +14,7 @@ from itertools import chain
 import logging
 import os
 import re
+from shutil import rmtree
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,20 @@ class ErroredUnit(Exception):
         Exception.__init__(self, msg)
         self.unit_name = unit_name
         self.state = state
+
+
+class JESNotSupported(Exception):
+
+    def __init__(self):
+        super(JESNotSupported, self).__init__(
+            'This client does not support JES')
+
+
+class JESByDefault(Exception):
+
+    def __init__(self):
+        super(JESNotSupported, self).__init__(
+            'This client does not need to enable JES')
 
 
 def yaml_loads(yaml_str):
@@ -274,7 +289,7 @@ class EnvJujuClient:
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
         if delete_jenv:
-            jenv_path = get_jenv_path(get_juju_home(), self.env.environment)
+            jenv_path = get_jenv_path(self.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
@@ -352,8 +367,10 @@ class EnvJujuClient:
         if extra_env is not None:
             env.update(extra_env)
         if check:
-            return subprocess.check_call(args, env=env)
-        return subprocess.call(args, env=env)
+            call_func = subprocess.check_call
+        else:
+            call_func = subprocess.call
+        return call_func(args, env=env)
 
     @contextmanager
     def juju_async(self, command, args, include_e=True, timeout=None):
@@ -628,20 +645,53 @@ class EnvJujuClient22(EnvJujuClient):
 
 class EnvJujuClient25(EnvJujuClient):
 
+    def __init__(self, *args, **kwargs):
+        super(EnvJujuClient25, self).__init__(*args, **kwargs)
+        self._use_jes = False
+
+    def _supports_jes(self):
+        commands = self.get_juju_output('help', 'commands', include_e=False)
+        for line in commands.splitlines():
+            if line.startswith('system'):
+                return True
+        return False
+
+    def enable_jes(self):
+        if self._use_jes:
+            return
+        if self._supports_jes():
+            raise JESByDefault()
+        self._use_jes = True
+        if not self._supports_jes():
+            self._use_jes = False
+            raise JESNotSupported()
+
+    def _get_feature_flags(self):
+        if self.env.config.get('type') == 'cloudsigma':
+            yield 'cloudsigma'
+        if self._use_jes is True:
+            yield 'jes'
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
         env = super(EnvJujuClient25, self)._shell_environ()
-        if self.env.config.get('type') == 'cloudsigma':
-            env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
+        feature_flags = self._get_feature_flags()
+        env[JUJU_DEV_FEATURE_FLAGS] = ','.join(feature_flags)
         return env
 
 
 class EnvJujuClient24(EnvJujuClient25):
-
     """Currently, same feature set as juju 25"""
+
+    def enable_jes(self):
+        raise JESNotSupported()
+
+    def _get_feature_flags(self):
+        if self.env.config.get('type') == 'cloudsigma':
+            yield 'cloudsigma'
 
 
 def get_local_root(juju_home, env):
@@ -684,6 +734,12 @@ def uniquify_local(env):
         env.config[key] = env.config.get(key, default) + 1
 
 
+def dump_environments_yaml(juju_home, config):
+    environments_path = get_environments_path(juju_home)
+    with open(environments_path, 'w') as config_file:
+        yaml.safe_dump(config, config_file)
+
+
 @contextmanager
 def _temp_env(new_config, parent=None, set_home=True):
     """Use the supplied config as juju environment.
@@ -692,9 +748,7 @@ def _temp_env(new_config, parent=None, set_home=True):
     temp_bootstrap_env.
     """
     with temp_dir(parent) as temp_juju_home:
-        temp_environments = get_environments_path(temp_juju_home)
-        with open(temp_environments, 'w') as config_file:
-            yaml.safe_dump(new_config, config_file)
+        dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
             context = scoped_environ()
         else:
@@ -705,8 +759,23 @@ def _temp_env(new_config, parent=None, set_home=True):
             yield temp_juju_home
 
 
+def jes_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'jes-envs', dir_name)
+
+
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True):
+def make_jes_home(juju_home, dir_name, config):
+    home_path = jes_home_path(juju_home, dir_name)
+    if os.path.exists(home_path):
+        rmtree(home_path)
+    ensure_dir(os.path.dirname(home_path))
+    os.mkdir(home_path)
+    dump_environments_yaml(home_path, config)
+    yield home_path
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -742,7 +811,11 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
                 "/var/lib/lxc", 2000000, "LXC containers")
     new_config = {'environments': {client.env.environment: config}}
     jenv_path = get_jenv_path(juju_home, client.env.environment)
-    with _temp_env(new_config, juju_home, set_home) as temp_juju_home:
+    if permanent:
+        context = make_jes_home(juju_home, client.env.environment, new_config)
+    else:
+        context = _temp_env(new_config, juju_home, set_home)
+    with context as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
@@ -751,22 +824,23 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
         # Skip creating symlink where not supported (i.e. Windows).
-        if getattr(os, 'symlink', None) is not None:
+        if getattr(os, 'symlink', None) is not None and not permanent:
             os.symlink(new_jenv_path, jenv_path)
         old_juju_home = client.juju_home
         client.juju_home = temp_juju_home
         try:
             yield temp_juju_home
         finally:
-            # replace symlink with file before deleting temp home.
-            try:
-                os.rename(new_jenv_path, jenv_path)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-                # Remove dangling symlink
-                os.unlink(jenv_path)
-            client.juju_home = old_juju_home
+            if not permanent:
+                # replace symlink with file before deleting temp home.
+                try:
+                    os.rename(new_jenv_path, jenv_path)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                    # Remove dangling symlink
+                    os.unlink(jenv_path)
+                client.juju_home = old_juju_home
 
 
 class Status:
