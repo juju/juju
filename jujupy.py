@@ -73,7 +73,7 @@ class JESNotSupported(Exception):
 class JESByDefault(Exception):
 
     def __init__(self):
-        super(JESNotSupported, self).__init__(
+        super(JESByDefault, self).__init__(
             'This client does not need to enable JES')
 
 

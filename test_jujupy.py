@@ -38,6 +38,7 @@ from jujupy import (
     GroupReporter,
     get_local_root,
     jes_home_path,
+    JESByDefault,
     JESNotSupported,
     JujuClientDevel,
     JUJU_DEV_FEATURE_FLAGS,
@@ -93,13 +94,6 @@ class ClientTest(TestCase):
 
 class CloudSigmaTest:
 
-    def test__shell_environ_juju_home(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
-            'asdf')
-        env = client._shell_environ()
-        self.assertEqual(env['JUJU_HOME'], 'asdf')
-
     def test__shell_environ_no_flags(self):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
@@ -114,25 +108,43 @@ class CloudSigmaTest:
         "".split()
         self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
-
-class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
-
-    client_class = EnvJujuClient24
-
-    def test_no_jes(self):
+    def test__shell_environ_juju_home(self):
         client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.25-foobar', 'path')
-        with self.assertRaises(JESNotSupported):
-            client.enable_jes()
-        client._use_jes = True
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
+            'asdf')
         env = client._shell_environ()
-        self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
 class TestEnvJujuClient25(ClientTest, CloudSigmaTest):
 
     client_class = EnvJujuClient25
+
+    def test_enable_jes_already_supported(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', return_value='system'):
+            with self.assertRaises(JESByDefault):
+                client.enable_jes()
+        self.assertFalse(client._use_jes)
+
+    def test_enable_jes_unsupported(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', return_value=''):
+            with self.assertRaises(JESNotSupported):
+                client.enable_jes()
+        self.assertFalse(client._use_jes)
+
+    def test_enable_jes_requires_flag(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', side_effect=['', 'system']):
+            client.enable_jes()
+        self.assertTrue(client._use_jes)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
@@ -168,6 +180,21 @@ class TestEnvJujuClient22(ClientTest):
             'asdf')
         env = client._shell_environ()
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
+
+    client_class = EnvJujuClient24
+
+    def test_no_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            '1.25-foobar', 'path')
+        with self.assertRaises(JESNotSupported):
+            client.enable_jes()
+        client._use_jes = True
+        env = client._shell_environ()
+        self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
 
 class TestEnvJujuClient(ClientTest):
