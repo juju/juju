@@ -160,7 +160,7 @@ func (c *Context) Get(id string) (*process.Info, error) {
 	return actual, nil
 }
 
-// List returns the names of all registered processes.
+// List returns the sorted names of all registered processes.
 func (c *Context) List() ([]string, error) {
 	procs, err := c.Processes()
 	if err != nil {
