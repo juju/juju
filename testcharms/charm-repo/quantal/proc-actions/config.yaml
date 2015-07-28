@@ -1,0 +1,13 @@
+options:
+    plugin-name:
+        default:
+        description: The name by which the plugin should recognize the process
+        type: string
+    plugin-id:
+        default:
+        description: The id which the plugin should report for the process
+        type: string
+    plugin-status:
+        default:
+        description: The status to set for the proc
+        type: string
