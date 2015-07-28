@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Script for building source and binary debain packages."""
+"""Script for building source and binary debian packages."""
 
 from __future__ import print_function
 
@@ -9,6 +9,8 @@ import os
 import shutil
 import subprocess
 import sys
+
+from utils import JujuSeries
 
 
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
@@ -184,7 +186,8 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
 def build_source(tar_file, location, series, bugs,
                  debemail=None, debfullname=None, gpgcmd=None,
                  branch=None, upatch=None, verbose=False):
-    pass
+    return 0
+    # setup_local() <- update
 
 
 def main(argv):
@@ -240,6 +243,8 @@ def get_args(argv=None):
     bin_parser.add_argument("series", help="The series to build in.")
     bin_parser.add_argument("arch", help="The dpkg architure to build in.")
     args = parser.parse_args(argv[1:])
+    if args.series == 'LIVING':
+        args.series = JujuSeries().get_living_names()
     return args
 
 

@@ -12,6 +12,7 @@ from build_package import (
     build_binary,
     BUILD_DEB_TEMPLATE,
     build_in_lxc,
+    build_source,
     CREATE_LXC_TEMPLATE,
     DEFAULT_SPB,
     get_args,
@@ -98,6 +99,15 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(0, args.upatch)
         self.assertFalse(args.verbose)
 
+    def test_get_args_source_with_living(self):
+        with patch('build_package.JujuSeries.get_living_names', autospec=True,
+                   return_value=['precise', 'trusty']) as js_mock:
+            args = get_args(
+                ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+                 '123', '456'])
+        self.assertEqual(['precise', 'trusty'], args.series)
+        self.assertEqual(1, js_mock.call_count)
+
     def test_main_source(self):
         with patch('build_package.build_source', autospec=True,
                    return_value=0) as bs_mock:
@@ -110,6 +120,13 @@ class BuildPackageTestCase(unittest.TestCase):
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
             debemail='me@email', debfullname='me', gpgcmd='/usr/bin/gpg',
             branch=DEFAULT_SPB, upatch=0, verbose=False)
+
+    def test_build_source(self):
+        return_code = build_source(
+            'tar_file', 'location', ['precise', 'trusty'], ['123'],
+            debemail=None, debfullname=None, gpgcmd=None,
+            branch=None, upatch=None, verbose=False)
+        self.assertEqual(0, return_code)
 
     def test_get_args_binary(self):
         args = get_args(
