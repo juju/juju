@@ -30,14 +30,20 @@ type baseSuite struct {
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.proc = s.newProc("proc A", "docker")
+	s.proc = s.newProc("proc A", "docker", "", "")
 }
 
-func (s *baseSuite) newProc(name, ptype string) *process.Info {
+func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
 	return &process.Info{
 		Process: charm.Process{
 			Name: name,
 			Type: ptype,
+		},
+		Details: process.Details{
+			ID: id,
+			Status: process.PluginStatus{
+				Label: status,
+			},
 		},
 	}
 }
@@ -96,15 +102,15 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	}
 }
 
-func (c *stubContextComponent) Get(procName string) (*process.Info, error) {
-	c.stub.AddCall("Get", procName)
+func (c *stubContextComponent) Get(id string) (*process.Info, error) {
+	c.stub.AddCall("Get", id)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info, ok := c.procs[procName]
+	info, ok := c.procs[id]
 	if !ok {
-		return nil, errors.NotFoundf(procName)
+		return nil, errors.NotFoundf(id)
 	}
 	return info, nil
 }
@@ -122,16 +128,13 @@ func (c *stubContextComponent) List() ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubContextComponent) Set(procName string, info *process.Info) error {
-	c.stub.AddCall("Set", procName, info)
+func (c *stubContextComponent) Set(info process.Info) error {
+	c.stub.AddCall("Set", info)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if info.Name != procName {
-		return errors.Errorf("name mismatch")
-	}
-	c.procs[procName] = info
+	c.procs[info.ID()] = &info
 	return nil
 }
 
@@ -174,10 +177,27 @@ func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 	var procs []*process.Info
 	for _, id := range ids {
-		var proc process.Info
-		proc.Name = id
-		c.procs[id] = &proc
-		procs = append(procs, &proc)
+		name, pluginID := process.ParseID(id)
+		if name == "" {
+			panic("missing name")
+		}
+		if pluginID == "" {
+			panic("missing id")
+		}
+		proc := &process.Info{
+			Process: charm.Process{
+				Name: name,
+				Type: "myplugin",
+			},
+			Details: process.Details{
+				ID: pluginID,
+				Status: process.PluginStatus{
+					Label: "okay",
+				},
+			},
+		}
+		c.procs[id] = proc
+		procs = append(procs, proc)
 	}
 	return procs
 }

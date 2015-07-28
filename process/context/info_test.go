@@ -98,7 +98,7 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-info [options] [<name>]
+usage: process-info [options] [<name-or-id>]
 purpose: get info about a workload process (or all of them)
 
 options:
@@ -142,14 +142,14 @@ func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unrecognized args: .*`)
 }
 
-func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0"] = &proc0
-	s.compCtx.procs["myprocess1"] = &proc1
-	s.compCtx.procs["myprocess2"] = &proc2
-	s.init(c, "myprocess0")
+func (s *infoSuite) TestRunWithIDkay(c *gc.C) {
+	s.compCtx.procs["myprocess0/xyz123"] = &proc0
+	s.compCtx.procs["myprocess1/xyz456"] = &proc1
+	s.compCtx.procs["myprocess2/xyz789"] = &proc2
+	s.init(c, "myprocess0/xyz123")
 
 	expected := `
-myprocess0:
+myprocess0/xyz123:
   process:
     name: myprocess0
     description: ""
@@ -171,14 +171,14 @@ myprocess0:
 	s.Stub.CheckCallNames(c, "Get")
 }
 
-func (s *infoSuite) TestRunWithoutNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0"] = &proc0
-	s.compCtx.procs["myprocess1"] = &proc1
-	s.compCtx.procs["myprocess2"] = &proc2
+func (s *infoSuite) TestRunWithoutIDOkay(c *gc.C) {
+	s.compCtx.procs["myprocess0/xyz123"] = &proc0
+	s.compCtx.procs["myprocess1/xyz456"] = &proc1
+	s.compCtx.procs["myprocess2/xyz789"] = &proc2
 	s.init(c, "")
 
 	expected := `
-myprocess0:
+myprocess0/xyz123:
   process:
     name: myprocess0
     description: ""
@@ -195,7 +195,7 @@ myprocess0:
     id: xyz123
     status:
       label: running
-myprocess1:
+myprocess1/xyz456:
   process:
     name: myprocess1
     description: ""
@@ -210,7 +210,7 @@ myprocess1:
     id: xyz456
     status:
       label: running
-myprocess2:
+myprocess2/xyz789:
   process:
     name: myprocess2
     description: ""
@@ -230,14 +230,50 @@ myprocess2:
 	s.Stub.CheckCallNames(c, "List", "Get", "Get", "Get")
 }
 
+func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
+	s.compCtx.procs["myprocess0/xyz123"] = &proc0
+	s.compCtx.procs["myprocess1/xyz456"] = &proc1
+	s.compCtx.procs["myprocess2/xyz789"] = &proc2
+	s.init(c, "myprocess0")
+
+	expected := `
+myprocess0/xyz123:
+  process:
+    name: myprocess0
+    description: ""
+    type: myplugin
+    typeoptions:
+      extra: "5"
+    command: do-something
+    image: myimage
+    ports: []
+    volumes: []
+    envvars:
+      ENV_VAR: some value
+  details:
+    id: xyz123
+    status:
+      label: running
+`[1:]
+	s.checkRun(c, expected, "")
+	s.Stub.CheckCallNames(c, "List", "Get")
+}
+
+func (s *infoSuite) TestRunWithIDMissing(c *gc.C) {
+	s.init(c, "myprocess0/xyz123")
+
+	s.checkRun(c, `myprocess0/xyz123: <not found>`+"\n", "")
+	s.Stub.CheckCallNames(c, "Get")
+}
+
 func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
 	s.init(c, "myprocess0")
 
 	s.checkRun(c, `myprocess0: <not found>`+"\n", "")
-	s.Stub.CheckCallNames(c, "Get")
+	s.Stub.CheckCallNames(c, "List", "Get")
 }
 
-func (s *infoSuite) TestRunWithoutNameEmpty(c *gc.C) {
+func (s *infoSuite) TestRunWithoutIDEmpty(c *gc.C) {
 	s.init(c, "")
 
 	s.checkRun(c, "", "<no processes registered>\n")

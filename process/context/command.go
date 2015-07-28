@@ -8,19 +8,18 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/process"
 )
 
-var logger = loggo.GetLogger("juju.process.persistence")
+const idArg = "name-or-id"
 
 type cmdInfo struct {
 	// Name is the command's name.
 	Name string
-	// ExtraArgs is the list of arg names that follow "name", if any.
+	// ExtraArgs is the list of arg names that follow "name-or-id", if any.
 	ExtraArgs []string
 	// OptionalArgs is the list of optional args, if any.
 	OptionalArgs []string
@@ -56,6 +55,8 @@ type baseCommand struct {
 
 	// Name is the name of the process in charm metadata.
 	Name string
+	// ID is the full ID of the registered process.
+	ID string
 	// info is the process info for the named workload process.
 	info *process.Info
 }
@@ -77,7 +78,7 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 // Info implements cmd.Command.
 func (c baseCommand) Info() *cmd.Info {
 	var args []string
-	for _, name := range append([]string{"name"}, c.cmdInfo.ExtraArgs...) {
+	for _, name := range append([]string{idArg}, c.cmdInfo.ExtraArgs...) {
 		arg := "<" + name + ">"
 		if c.cmdInfo.isOptional(name) {
 			arg = "[" + arg + "]"
@@ -102,7 +103,7 @@ func (c *baseCommand) Init(args []string) error {
 }
 
 func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
-	argNames := append([]string{"name"}, c.cmdInfo.ExtraArgs...)
+	argNames := append([]string{idArg}, c.cmdInfo.ExtraArgs...)
 	results := make(map[string]string)
 	for i, name := range argNames {
 		if len(args) == 0 {
@@ -127,17 +128,24 @@ func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
 }
 
 func (c *baseCommand) init(args map[string]string) error {
-	name := args["name"]
-	if name == "" {
-		return errors.Errorf("got empty name")
+	id := args[idArg]
+	if id == "" {
+		return errors.Errorf("got empty " + idArg)
 	}
+	name, _ := process.ParseID(id)
 	c.Name = name
+	c.ID = id
 	return nil
 }
 
 // Run implements cmd.Command.
 func (c *baseCommand) Run(ctx *cmd.Context) error {
-	pInfo, err := c.compCtx.Get(c.Name)
+	id, err := c.findID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pInfo, err := c.compCtx.Get(id)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -183,6 +191,43 @@ func (c *baseCommand) registeredProcs(ids ...string) (map[string]*process.Info, 
 	return procs, nil
 }
 
+func (c *baseCommand) findID() (string, error) {
+	if c.ID != c.Name {
+		return c.ID, nil
+	}
+
+	ids, err := c.idsForName(c.Name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(ids) == 0 {
+		return "", errors.NotFoundf("ID for %q", c.Name)
+	}
+	// For now we only support a single proc for a given name.
+	if len(ids) > 1 {
+		return "", errors.Errorf("found more than one registered proc for %q", c.Name)
+	}
+
+	c.ID = ids[0]
+	return c.ID, nil
+}
+
+func (c *baseCommand) idsForName(name string) ([]string, error) {
+	registered, err := c.compCtx.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ids []string
+	for _, id := range registered {
+		registeredName, _ := process.ParseID(id)
+		// For now we only support a single proc for a given name.
+		if name == registeredName {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
 // registeringCommand is the base for commands that register a process
 // that has been launched.
 type registeringCommand struct {
@@ -225,24 +270,21 @@ func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements cmd.Command.
 func (c *registeringCommand) Run(ctx *cmd.Context) error {
-	if err := c.baseCommand.Run(ctx); err != nil {
+	// We do not call baseCommand.Run here since we do not yet know the ID.
+
+	// TODO(ericsnow) Ensure that c.ID == c.Name?
+
+	ids, err := c.idsForName(c.Name)
+	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if c.info != nil {
+	if len(ids) > 0 {
+		// For now we only support a single proc for a given name.
 		return errors.Errorf("process %q already registered", c.Name)
 	}
 
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
-	}
-
-	// Either the named process must already be defined or the command
-	// must have been run with the --definition option.
-	if c.Definition.Path != "" {
-		if c.info != nil {
-			return errors.Errorf("process %q already defined", c.Name)
-		}
 	}
 
 	return nil
@@ -259,7 +301,7 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 
 	info.Details = c.Details
 
-	if err := c.compCtx.Set(c.Name, info); err != nil {
+	if err := c.compCtx.Set(*info); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -293,7 +335,7 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 	info.Process = *c.UpdatedProcess
 
 	// validate
-	if err := info.Validate(); err != nil {
+	if err := info.Process.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if info.IsRegistered() {

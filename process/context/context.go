@@ -7,11 +7,13 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 )
+
+var logger = loggo.GetLogger("juju.process.context")
 
 // TODO(ericsnow) Normalize method names across all the arch. layers
 // (e.g. List->AllProcesses, Get->Processes, Set->AddProcess).
@@ -35,9 +37,9 @@ type APIClient interface {
 // omponent provides the hook context data specific to workload processes.
 type Component interface {
 	// Get returns the process info corresponding to the given ID.
-	Get(procName string) (*process.Info, error)
+	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
-	Set(procName string, info *process.Info) error
+	Set(info process.Info) error
 	// List returns the list of registered process IDs.
 	List() ([]string, error)
 	// ListDefinitions returns the charm-defined processes.
@@ -51,19 +53,14 @@ type Context struct {
 	api       APIClient
 	processes map[string]*process.Info
 	updates   map[string]*process.Info
-	ids       set.Strings
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext(api APIClient, procs ...*process.Info) *Context {
-	processes := make(map[string]*process.Info)
-	for _, proc := range procs {
-		processes[proc.Name] = proc
-	}
+func NewContext(api APIClient) *Context {
 	return &Context{
-		processes: processes,
 		api:       api,
-		ids:       set.NewStrings(),
+		processes: make(map[string]*process.Info),
+		updates:   make(map[string]*process.Info),
 	}
 }
 
@@ -77,7 +74,6 @@ func NewContextAPI(api APIClient) (*Context, error) {
 	ctx := NewContext(api)
 	for _, id := range ids {
 		ctx.processes[id] = nil
-		ctx.ids.Add(id)
 	}
 	return ctx, nil
 }
@@ -104,35 +100,18 @@ func ContextComponent(ctx HookContext) (Component, error) {
 	return compCtx, nil
 }
 
-func (c *Context) addProc(id string, original *process.Info) error {
-	var proc *process.Info
-	if original != nil {
-		info := *original
-		info.Name = id
-		proc = &info
-	}
-	if _, ok := c.processes[id]; !ok {
-		c.processes[id] = proc
-	} else {
-		if proc == nil {
-			return errors.Errorf("update can't be nil")
-		}
-		c.set(id, proc)
-	}
-	return nil
-}
+// TODO(ericsnow) Should we build in refreshes in all the methods?
 
 // Processes returns the processes known to the context.
 func (c *Context) Processes() ([]*process.Info, error) {
 	var procs []*process.Info
 	for id, info := range mergeProcMaps(c.processes, c.updates) {
 		if info == nil {
-			fetched, err := c.api.Get(id)
+			fetched, err := c.fetch(id)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			info = fetched[0]
-			c.processes[id] = info
+			info = fetched
 		}
 		procs = append(procs, info)
 	}
@@ -152,55 +131,62 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 	return result
 }
 
-// TODO(ericsnow) Should be build in refreshes?
+func (c *Context) fetch(id string) (*process.Info, error) {
+	fetched, err := c.api.Get(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	proc := fetched[0]
+	c.processes[id] = proc
+	return proc, nil
+}
 
 // Get returns the process info corresponding to the given ID.
-func (c *Context) Get(procName string) (*process.Info, error) {
-	actual, ok := c.updates[procName]
+func (c *Context) Get(id string) (*process.Info, error) {
+	actual, ok := c.updates[id]
 	if !ok {
-		actual, ok = c.processes[procName]
+		actual, ok = c.processes[id]
 		if !ok {
-			return nil, errors.NotFoundf("%s", procName)
+			return nil, errors.NotFoundf("%s", id)
 		}
 	}
 	if actual == nil {
-		fetched, err := c.api.Get(procName)
+		fetched, err := c.fetch(id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		actual = fetched[0]
-		c.processes[procName] = actual
+		actual = fetched
 	}
 	return actual, nil
 }
 
-// List returns the names of all registered processes.
+// List returns the sorted names of all registered processes.
 func (c *Context) List() ([]string, error) {
-	ids := make([]string, len(c.ids))
-	copy(ids, c.ids.Values())
+	procs, err := c.Processes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(procs) == 0 {
+		return nil, nil
+	}
+	var ids []string
+	for _, proc := range procs {
+		ids = append(ids, proc.ID())
+	}
 	sort.Strings(ids)
 	return ids, nil
 }
 
 // Set records the process info in the hook context.
-func (c *Context) Set(procName string, info *process.Info) error {
-	if procName != info.Name {
-		return errors.Errorf("mismatch on name: %s != %s", procName, info.Name)
+func (c *Context) Set(info process.Info) error {
+	if err := info.Validate(); err != nil {
+		return errors.Trace(err)
 	}
+	logger.Debugf("adding %q to hook context: %#v", info.ID(), info)
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
-	c.set(procName, info)
+	c.updates[info.ID()] = &info
 	return nil
-}
-
-func (c *Context) set(id string, pInfo *process.Info) {
-	if c.updates == nil {
-		c.updates = make(map[string]*process.Info)
-	}
-	var info process.Info
-	info = *pInfo
-	c.updates[id] = &info
-	c.ids.Add(id)
 }
 
 // ListDefinitions returns the unit's charm-defined processes.

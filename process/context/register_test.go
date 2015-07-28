@@ -56,7 +56,7 @@ func (s *registerSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *registerSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-register [options] <name> <proc-details>
+usage: process-register [options] <name-or-id> <proc-details>
 purpose: register a workload process
 
 options:
@@ -114,7 +114,7 @@ func (s *registerSuite) TestInitEmptyName(c *gc.C) {
 		"abc123",
 	})
 
-	c.Check(err, gc.ErrorMatches, "got empty name")
+	c.Check(err, gc.ErrorMatches, "got empty name-or-id")
 }
 
 func (s *registerSuite) TestInitEmptyID(c *gc.C) {
@@ -293,7 +293,7 @@ func (s *registerSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "Get", "ListDefinitions", "Set", "Flush")
+	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Set", "Flush")
 }
 
 func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
@@ -317,13 +317,12 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.proc.Process = *s.registerCmd.UpdatedProcess
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Get",
-		Args:     []interface{}{s.proc.Name},
+		FuncName: "List",
 	}, {
 		FuncName: "ListDefinitions",
 	}, {
 		FuncName: "Set",
-		Args:     []interface{}{s.proc.Name, s.proc},
+		Args:     []interface{}{*s.proc},
 	}, {
 		FuncName: "Flush",
 		Args:     nil,

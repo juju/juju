@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/process/api"
 )
 
-const processAPI = "Process"
-
 type facadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
 }

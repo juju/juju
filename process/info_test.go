@@ -72,6 +72,8 @@ func (s *infoSuite) TestParseIDExtras(c *gc.C) {
 
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
+	info.Details.ID = "my-proc"
+	info.Details.Status.Label = "running"
 	err := info.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
