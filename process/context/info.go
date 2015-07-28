@@ -15,7 +15,7 @@ import (
 // InfoCommandInfo is the info for the proc-info command.
 var InfoCommandInfo = cmdInfo{
 	Name:         "process-info",
-	OptionalArgs: []string{"name"},
+	OptionalArgs: []string{idArg},
 	Summary:      "get info about a workload process (or all of them)",
 	Doc: `
 "process-info" is used while a hook is running to access a currently

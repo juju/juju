@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/process"
 )
 
+const idArg = "name"
+
 type cmdInfo struct {
 	// Name is the command's name.
 	Name string
@@ -76,7 +78,7 @@ func newCommand(ctx HookContext) (*baseCommand, error) {
 // Info implements cmd.Command.
 func (c baseCommand) Info() *cmd.Info {
 	var args []string
-	for _, name := range append([]string{"name"}, c.cmdInfo.ExtraArgs...) {
+	for _, name := range append([]string{idArg}, c.cmdInfo.ExtraArgs...) {
 		arg := "<" + name + ">"
 		if c.cmdInfo.isOptional(name) {
 			arg = "[" + arg + "]"
@@ -101,7 +103,7 @@ func (c *baseCommand) Init(args []string) error {
 }
 
 func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
-	argNames := append([]string{"name"}, c.cmdInfo.ExtraArgs...)
+	argNames := append([]string{idArg}, c.cmdInfo.ExtraArgs...)
 	results := make(map[string]string)
 	for i, name := range argNames {
 		if len(args) == 0 {
@@ -126,7 +128,7 @@ func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
 }
 
 func (c *baseCommand) init(args map[string]string) error {
-	id := args["name"]
+	id := args[idArg]
 	if id == "" {
 		return errors.Errorf("got empty name")
 	}
