@@ -768,8 +768,7 @@ def make_jes_home(juju_home, dir_name, config):
     home_path = jes_home_path(juju_home, dir_name)
     if os.path.exists(home_path):
         rmtree(home_path)
-    ensure_dir(os.path.dirname(home_path))
-    os.mkdir(home_path)
+    os.makedirs(home_path)
     dump_environments_yaml(home_path, config)
     yield home_path
 
@@ -839,7 +838,11 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     if e.errno != errno.ENOENT:
                         raise
                     # Remove dangling symlink
-                    os.unlink(jenv_path)
+                    try:
+                        os.unlink(jenv_path)
+                    except OSError as e:
+                        if e.errno != errno.ENOENT:
+                            raise
                 client.juju_home = old_juju_home
 
 
