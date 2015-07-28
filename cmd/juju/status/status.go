@@ -141,6 +141,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	result := newStatusFormatter(status, c.CompatVersion(), c.isoTime).format()
-	return c.out.Write(ctx, result)
+	formatter := newStatusFormatter(status, c.CompatVersion(), c.isoTime)
+	formatted := formatter.format()
+	return c.out.Write(ctx, formatted)
 }
