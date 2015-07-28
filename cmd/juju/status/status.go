@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package status
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.status")
 
 type StatusCommand struct {
 	envcmd.EnvCommandBase
