@@ -29,6 +29,7 @@ from jujuconfig import (
 from jujupy import (
     EnvJujuClient,
     get_local_root,
+    jes_home_path,
     SimpleEnvironment,
     temp_bootstrap_env,
 )
@@ -308,7 +309,10 @@ def deploy_job_parse_args(argv=None):
                         help='Perform an upgrade test.')
     parser.add_argument('--with-chaos', default=0, type=int,
                         help='Deploy and run Chaos Monkey in the background.')
-    parser.add_argument('--jes', action='store_true')
+    parser.add_argument('--jes', action='store_true',
+                        help='Use JES to control environments.')
+    parser.add_argument('--pre-destroy', action='store_true',
+                        help='Destroy any environment in the way first.')
     return parser.parse_args(argv)
 
 
@@ -328,7 +332,7 @@ def deploy_job():
                        series, args.logs, args.debug, args.juju_bin,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools, args.with_chaos,
-                       args.jes)
+                       args.jes, args.pre_destroy)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -466,11 +470,19 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                agent_stream, keep_env, upload_tools, with_chaos, use_jes):
+                agent_stream, keep_env, upload_tools, with_chaos, use_jes,
+                pre_destroy):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
+    if pre_destroy:
+        client = EnvJujuClient.by_version(
+            SimpleEnvironment(temp_env_name, {}), juju_path, debug)
+        if use_jes:
+            client.enable_jes()
+            client.juju_home = jes_home_path(client.juju_home, temp_env_name)
+        client.destroy_environment()
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     if use_jes:
