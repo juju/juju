@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import tempfile
 
 import yaml
@@ -218,6 +219,7 @@ class EnvJujuClient:
         if juju_home is None:
             juju_home = get_juju_home()
         self.juju_home = juju_home
+        self.juju_timings = {}
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -352,8 +354,22 @@ class EnvJujuClient:
         if extra_env is not None:
             env.update(extra_env)
         if check:
-            return subprocess.check_call(args, env=env)
-        return subprocess.call(args, env=env)
+            start_time = time.time()
+            rval = subprocess.check_call(args, env=env)
+            self.juju_timings.setdefault(args, []).append(
+                (time.time() - start_time))
+            return rval
+        start_time = time.time()
+        rval = subprocess.call(args, env=env)
+        self.juju_timings.setdefault(args, []).append(
+            (time.time() - start_time))
+        return rval
+
+    def get_juju_timings(self):
+        stringified_timings = {}
+        for command, timings in self.juju_timings.items():
+            stringified_timings[' '.join(command)] = timings
+        return stringified_timings
 
     @contextmanager
     def juju_async(self, command, args, include_e=True, timeout=None):

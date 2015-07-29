@@ -1039,6 +1039,14 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(err_cxt.exception.cmd, (
             'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
 
+    def test_get_juju_timings(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        flattened_timings = client.get_juju_timings()
+        expected = {"juju op1": [1], "juju op2": [2]}
+        self.assertEqual(flattened_timings, expected)
+
 
 class TestUniquifyLocal(TestCase):
 

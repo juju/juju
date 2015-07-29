@@ -155,6 +155,18 @@ def retain_jenv(jenv_path, log_directory):
     return False
 
 
+def dump_juju_timings(client, log_directory):
+    try:
+        with open(os.path.join(log_directory, 'juju_command_times.json'),
+                  'w') as timing_file:
+            json.dump(client.get_juju_timings(), timing_file, indent=2,
+                      sort_keys=True)
+            timing_file.write('\n')
+    except Exception as e:
+        print_now("Failed to save timings")
+        print_now(str(e))
+
+
 def get_remote_machines(client, bootstrap_host):
     """Return a dict of machine_id to remote machines.
 
@@ -428,6 +440,9 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             if created_machines and not keep_env:
                 destroy_job_instances(temp_env_name)
     finally:
+        logging.info(
+            'Juju command timings: {}'.format(client.get_juju_timings()))
+        dump_juju_timings(client, log_dir)
         if client.env.config['type'] == 'maas' and not keep_env:
             logging.info("Waiting for destroy-environment to complete")
             time.sleep(90)
