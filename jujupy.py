@@ -176,6 +176,13 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
+    def is_jes_enabled(self):
+        commands = self.get_juju_output('help', 'commands', include_e=False)
+        for line in commands.splitlines():
+            if line.startswith('system'):
+                return True
+        return False
+
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -649,20 +656,13 @@ class EnvJujuClient25(EnvJujuClient):
         super(EnvJujuClient25, self).__init__(*args, **kwargs)
         self._use_jes = False
 
-    def _supports_jes(self):
-        commands = self.get_juju_output('help', 'commands', include_e=False)
-        for line in commands.splitlines():
-            if line.startswith('system'):
-                return True
-        return False
-
     def enable_jes(self):
         if self._use_jes:
             return
-        if self._supports_jes():
+        if self.is_jes_enabled():
             raise JESByDefault()
         self._use_jes = True
-        if not self._supports_jes():
+        if not self.is_jes_enabled():
             self._use_jes = False
             raise JESNotSupported()
 

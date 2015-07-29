@@ -1120,6 +1120,18 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(err_cxt.exception.cmd, (
             'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
 
+    def test_is_jes_enabled(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value=' system') as co_mock:
+            self.assertFalse(client.is_jes_enabled())
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
+        with patch('subprocess.check_output',
+                   return_value='system') as co_mock:
+            self.assertTrue(client.is_jes_enabled())
+
 
 class TestUniquifyLocal(TestCase):
 
