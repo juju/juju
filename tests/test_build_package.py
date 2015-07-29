@@ -19,6 +19,7 @@ from build_package import (
     DEFAULT_SPB,
     get_args,
     main,
+    make_changelog_message,
     move_debs,
     parse_dsc,
     setup_local,
@@ -300,6 +301,18 @@ class BuildPackageTestCase(unittest.TestCase):
         sl_mock.assert_any_call(
             './workspace', 'trusty', 'all', [], verbose=False)
         self.assertEqual(0, return_code)
+
+    def test_make_changelog_message(self):
+        message = make_changelog_message('1.2.0')
+        self.assertEqual('New upstream stable release.', message)
+        message = make_changelog_message('1.2.3')
+        self.assertEqual('New upstream stable point release.', message)
+        message = make_changelog_message('1.2-a')
+        self.assertEqual('New upstream devel release.', message)
+        message = make_changelog_message('1.2.3', ['987', '876'])
+        self.assertEqual(
+            'New upstream stable point release. (LP #987, LP #876)',
+            message)
 
     @autopatch('subprocess.check_call')
     def test_create_source_package_branch(self, cc_mock):
