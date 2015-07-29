@@ -200,10 +200,6 @@ func GetPasswordHash(e Authenticator) string {
 	return e.(hasGetPasswordHash).getPasswordHash()
 }
 
-func init() {
-	txnLogSize = txnLogSizeTests
-}
-
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
 func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
@@ -464,10 +460,39 @@ func WriteLogWithOplog(
 	return logs.Insert(doc)
 }
 
-func AddSpace(st SpaceState, name string, subnets []string, isPrivate bool) (newSpace *Space, err error) {
-	return addSpace(st, name, subnets, isPrivate)
+func AddSpace(st SpaceState, name string, subnets []string, isPrivate bool, spaceID string, runTxn TxnRunner) (newSpace *Space, err error) {
+	return addSpace(st, name, subnets, isPrivate, spaceID, runTxn)
 }
 
-func Space(st SpaceState, name string) (*Space, error) {
-	return space(st, name)
+//type SpaceDoc spaceDoc
+
+/*
+type FooBar struct {
 }
+
+func (FooBar) Name() string {
+	return ""
+}
+
+// Count, Find, and FindId methods act as documented for *mgo.Collection.
+func (FooBar) Count() (int, error) {
+	return 0, nil
+}
+func (FooBar) Find(query interface{}) *mgo.Query {
+	return nil
+}
+func (FooBar) FindId(id interface{}) *mgo.Query {
+	return nil
+}
+
+// Writeable gives access to methods that enable direct DB access. It
+// should be used with judicious care, and for only the best of reasons.
+func (FooBar) Writeable() mongo.WriteCollection {
+	return mongo.WriteCollection{}
+}
+
+func GetSpace(st SpaceState, name string) (*Space, error) {
+	foo := FooBar{}
+	return space(st, name, foo)
+}
+*/
