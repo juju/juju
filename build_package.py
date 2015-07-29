@@ -6,6 +6,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from collections import namedtuple
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -71,6 +72,21 @@ bzr import-upstream {version} {tarfile_path}
 bzr merge . -r upstream-{version}
 bzr commit -m "Merged upstream-{version}."
 """
+
+
+BUILD_SOURCE_TEMPLATE = """\
+bzr branch {spb} {source}
+cd {source}
+dch --newversion {ubuntu_version} -D {series} "{message}"
+debcommit
+bzr bd -S -- -us -uc
+"""
+
+
+UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~${release}.${upatch}~juju1'
+
+
+STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
 
 
 def parse_dsc(dsc_path, verbose=False):
@@ -192,19 +208,38 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
     return 0
 
 
-def create_source_package_branch(build_dir, tarfile, branch):
+def create_source_package_branch(build_dir, version, tarfile, branch):
     spb = os.path.join(build_dir, 'spb')
     tarfile_path = os.path.join(build_dir, tarfile)
-    version = tarfile.split('_')[-1].replace('.tar.gz', '')
-    branch_script = CREATE_SPB_TEMPLATE.format(
+    script = CREATE_SPB_TEMPLATE.format(
         branch=branch, spb=spb, tarfile_path=tarfile_path, version=version)
-    subprocess.check_call([branch_script], shell=True, cwd=build_dir)
+    subprocess.check_call([script], shell=True, cwd=build_dir)
     return spb
 
 
-def create_source_package(build_dir, spb_branch, release,
-                          debemail=None, debfullname=None,
-                          gpgcmd=None, upatch=None, verbose=False):
+def make_changelog_message(version, bugs=None):
+    match = STABLE_PATTERN.match(version)
+    if match is None:
+        message = 'New upstream devel release.'
+    elif match.group(3) == '0':
+        message = 'New upstream stable release.'
+    else:
+        message = 'New upstream stable point release.'
+    return message
+
+
+def create_source_package(build_dir, spb, series, version,
+                          upatch='1', bugs=None, gpgcmd=None,
+                          debemail=None, debfullname=None, verbose=False):
+    release = JujuSeries().get_version(series)
+    ubuntu_version = UBUNTU_VERSION_TEMPLATE.format(
+        version=version, release=release, upatch=upatch)
+    source = os.path.join(build_dir, version)
+    message = make_changelog_message(version)
+    script = BUILD_SOURCE_TEMPLATE.format(
+        spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
+        message=message)
+    subprocess.check_call([script], shell=True, cwd=build_dir)
     return None
 
 
@@ -214,17 +249,18 @@ def build_source(tar_path, location, series, bugs,
     if not isinstance(series, list):
         series = [series]
     tar_name = os.path.basename(tar_path)
+    version = tar_name.split('_')[-1].replace('.tar.gz', '')
     files = [SourceFile(None, None, tar_name, tar_path)]
     spb_dir = setup_local(
         location, 'any', 'all', files, verbose=verbose)
-    spb = create_source_package_branch(spb_dir, tar_name, branch)
-    for release in series:
-        build_dir = setup_local(location, release, 'all', [], verbose=verbose)
-        dsc_path = create_source_package(
-            build_dir, spb, release, debemail=None, debfullname=None,
-            gpgcmd=None, upatch=None, verbose=False)
+    spb = create_source_package_branch(spb_dir, version, tar_name, branch)
+    for a_series in series:
+        build_dir = setup_local(location, a_series, 'all', [], verbose=verbose)
+        create_source_package(
+            build_dir, spb, a_series, version, upatch=upatch, bugs=bugs,
+            gpgcmd=gpgcmd, debemail=debemail, debfullname=debfullname,
+            verbose=verbose)
     return 0
-    # setup_local() <- update
 
 
 def main(argv):

@@ -279,21 +279,22 @@ class BuildPackageTestCase(unittest.TestCase):
             self.assertFalse(os.path.isfile(deb_file))
             self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
 
+    @autopatch('build_package.create_source_package')
     @autopatch('build_package.create_source_package_branch',
                return_value='./spb_path')
     @autopatch('build_package.setup_local',
                side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
-    def test_build_source(self, sl_mock, spb_mock):
+    def test_build_source(self, sl_mock, spb_mock, csp_mock):
         return_code = build_source(
-            './my.tar.gz', './workspace', ['precise', 'trusty'], ['123'],
+            './my_1.2.3.tar.gz', './workspace', ['precise', 'trusty'], ['987'],
             debemail=None, debfullname=None, gpgcmd='my/gpg',
             branch='lp:branch', upatch=None, verbose=False)
         sl_mock.assert_any_call(
             './workspace', 'any', 'all',
-            [SourceFile(None, None, 'my.tar.gz', './my.tar.gz')],
+            [SourceFile(None, None, 'my_1.2.3.tar.gz', './my_1.2.3.tar.gz')],
             verbose=False)
         spb_mock.assert_called_with(
-            './spb_dir', 'my.tar.gz', 'lp:branch')
+            './spb_dir', '1.2.3', 'my_1.2.3.tar.gz', 'lp:branch')
         sl_mock.assert_any_call(
             './workspace', 'precise', 'all', [], verbose=False)
         sl_mock.assert_any_call(
@@ -303,7 +304,8 @@ class BuildPackageTestCase(unittest.TestCase):
     @autopatch('subprocess.check_call')
     def test_create_source_package_branch(self, cc_mock):
         spb = create_source_package_branch(
-            'juju-build-any-all', 'juju-core_1.2.3.tar.gz', DEFAULT_SPB)
+            'juju-build-any-all', '1.2.3', 'juju-core_1.2.3.tar.gz',
+            DEFAULT_SPB)
         self.assertEqual('juju-build-any-all/spb', spb)
         script = CREATE_SPB_TEMPLATE.format(
             branch=DEFAULT_SPB, spb='juju-build-any-all/spb',
