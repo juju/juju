@@ -37,7 +37,7 @@ func (c workloadProcesses) registerForServer() error {
 }
 
 func (workloadProcesses) registerForClient() error {
-	comps.RegisterUnitStatusFormatter(status.StatusType, status.Format)
+	comps.RegisterUnitStatusFormatter(process.ComponentName, status.Format)
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (workloadProcesses) registerState() {
 }
 
 func (workloadProcesses) registerUnitStatus() {
-	apiserverclient.RegisterStatusProviderForUnits(status.StatusType,
+	apiserverclient.RegisterStatusProviderForUnits(process.ComponentName,
 		func(st *state.State, unit names.UnitTag) (interface{}, error) {
 			up, err := st.UnitProcesses(unit)
 			if err != nil {

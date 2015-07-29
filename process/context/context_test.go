@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -118,14 +120,14 @@ func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 
 	c.Check(compCtx, gc.Equals, expected)
 	s.Stub.CheckCallNames(c, "Component")
-	s.Stub.CheckCall(c, 0, "Component", "process")
+	s.Stub.CheckCall(c, 0, "Component", process.ComponentName)
 }
 
 func (s *contextSuite) TestContextComponentMissing(c *gc.C) {
 	hctx, _ := s.NewHookContext()
 	_, err := context.ContextComponent(hctx)
 
-	c.Check(err, gc.ErrorMatches, `component "process" not registered`)
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q not registered", process.ComponentName))
 	s.Stub.CheckCallNames(c, "Component")
 }
 
@@ -146,7 +148,7 @@ func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 
 	_, err := context.ContextComponent(hctx)
 
-	c.Check(err, gc.ErrorMatches, `component "process" disabled`)
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q disabled", process.ComponentName))
 	s.Stub.CheckCallNames(c, "Component")
 }
 

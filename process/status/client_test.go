@@ -4,6 +4,9 @@
 package status
 
 import (
+	"encoding/json"
+
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/process/api"
@@ -18,14 +21,14 @@ func (*clientSuite) TestNil(c *gc.C) {
 }
 
 func (*clientSuite) TestWrongObj(c *gc.C) {
-	out := Format("foo")
+	out := Format([]byte("foo"))
 	if _, ok := out.(error); !ok {
 		c.Errorf("Expected error, got %#v", out)
 	}
 }
 
 func (*clientSuite) TestEmpty(c *gc.C) {
-	out := Format([]interface{}{})
+	out := Format(nil)
 	s, ok := out.(map[string]cliDetails)
 	if !ok {
 		c.Fatalf("Expected map[string]cliDetails but got %#v", out)
@@ -56,7 +59,9 @@ func (*clientSuite) TestGood(c *gc.C) {
 		},
 	}
 
-	out := Format(in)
+	b, err := json.Marshal(in)
+	c.Assert(err, jc.ErrorIsNil)
+	out := Format(b)
 	s, ok := out.(map[string]cliDetails)
 	if !ok {
 		c.Fatalf("Expected map[string]cliDetails but got %#v", out)

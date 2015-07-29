@@ -64,7 +64,7 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 func (s *commandSuite) checkCommandRegistered(c *gc.C) {
 	component := &context.Context{}
 	hctx, info := s.NewHookContext()
-	info.SetComponent("process", component)
+	info.SetComponent(process.ComponentName, component)
 
 	cmd, err := jujuc.NewCommand(hctx.Context, s.cmdName)
 	c.Assert(err, jc.ErrorIsNil)

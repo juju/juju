@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/process/api"
 )
 
-const StatusType = "workload-processes"
-
 // UnitStatus returns a status object to be returned by juju status.
 func UnitStatus(procs []process.Info) (interface{}, error) {
 	if len(procs) == 0 {
