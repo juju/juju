@@ -704,6 +704,8 @@ func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
 	})
 	_, closer, err := lxc.WgetEnvironment(fakeCert)
 	if err == nil {
+		// If the WgetEnvironment call was successful, we need to clean
+		// up the temporary directory it created.
 		defer closer()
 	}
 	c.Assert(err, jc.ErrorIsNil)
