@@ -362,6 +362,7 @@ const (
 	storageConstraintsC    = "storageconstraints"
 	storageInstancesC      = "storageinstances"
 	subnetsC               = "subnets"
+	spacesC                = "spaces"
 	toolsmetadataC         = "toolsmetadata"
 	txnLogC                = "txns.log"
 	txnsC                  = "txns"

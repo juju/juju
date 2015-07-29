@@ -55,6 +55,7 @@ type subnetDoc struct {
 	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
 	VLANTag           int    `bson:"vlantag,omitempty"`
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
+	IsPublic          bool   `bson:"is-public",omitempty`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.

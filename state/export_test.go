@@ -463,3 +463,11 @@ func WriteLogWithOplog(
 	logs := session.DB("logs").C("logs")
 	return logs.Insert(doc)
 }
+
+func AddSpace(st SpaceState, name string, subnets []string, isPrivate bool) (newSpace *Space, err error) {
+	return addSpace(st, name, subnets, isPrivate)
+}
+
+func Space(st SpaceState, name string) (*Space, error) {
+	return space(st, name)
+}
