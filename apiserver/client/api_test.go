@@ -212,12 +212,18 @@ var scenarioStatus = &api.Status{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
+			// TODO(fwereade): why does the subordinate have no service status?
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]api.UnitStatus{},
+			Status: api.AgentStatus{
+				Status: "unknown",
+				Info:   "Waiting for agent initialization to finish",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"wordpress": {
 			Charm: "local:quantal/wordpress-3",
