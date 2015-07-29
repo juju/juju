@@ -64,6 +64,15 @@ EOT
 """
 
 
+CREATE_SPB_TEMPLATE = """\
+bzr branch {branch} {spb}
+cd {spb}
+bzr import-upstream {version} {tarfile_path}
+bzr merge . -r upstream-{version}
+bzr commit -m "Merged upstream-{version}."
+"""
+
+
 def parse_dsc(dsc_path, verbose=False):
     """Return the source files need to build a binary package."""
     there = os.path.dirname(dsc_path)
@@ -183,9 +192,37 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
     return 0
 
 
-def build_source(tar_file, location, series, bugs,
+def create_source_package_branch(build_dir, tarfile, branch):
+    spb = os.path.join(build_dir, 'spb')
+    tarfile_path = os.path.join(build_dir, tarfile)
+    version = tarfile.split('_')[-1].replace('.tar.gz', '')
+    branch_script = CREATE_SPB_TEMPLATE.format(
+        branch=branch, spb=spb, tarfile_path=tarfile_path, version=version)
+    subprocess.check_call([branch_script], shell=True, cwd=build_dir)
+    return spb
+
+
+def create_source_package(build_dir, spb_branch, release,
+                          debemail=None, debfullname=None,
+                          gpgcmd=None, upatch=None, verbose=False):
+    return None
+
+
+def build_source(tar_path, location, series, bugs,
                  debemail=None, debfullname=None, gpgcmd=None,
                  branch=None, upatch=None, verbose=False):
+    if not isinstance(series, list):
+        series = [series]
+    tar_name = os.path.basename(tar_path)
+    files = [SourceFile(None, None, tar_name, tar_path)]
+    spb_dir = setup_local(
+        location, 'any', 'all', files, verbose=verbose)
+    spb = create_source_package_branch(spb_dir, tar_name, branch)
+    for release in series:
+        build_dir = setup_local(location, release, 'all', [], verbose=verbose)
+        dsc_path = create_source_package(
+            build_dir, spb, release, debemail=None, debfullname=None,
+            gpgcmd=None, upatch=None, verbose=False)
     return 0
     # setup_local() <- update
 

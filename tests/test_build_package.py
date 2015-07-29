@@ -14,6 +14,8 @@ from build_package import (
     build_in_lxc,
     build_source,
     CREATE_LXC_TEMPLATE,
+    create_source_package_branch,
+    CREATE_SPB_TEMPLATE,
     DEFAULT_SPB,
     get_args,
     main,
@@ -277,9 +279,35 @@ class BuildPackageTestCase(unittest.TestCase):
             self.assertFalse(os.path.isfile(deb_file))
             self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
 
-    def test_build_source(self):
+    @autopatch('build_package.create_source_package_branch',
+               return_value='./spb_path')
+    @autopatch('build_package.setup_local',
+               side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
+    def test_build_source(self, sl_mock, spb_mock):
         return_code = build_source(
-            'tar_file', 'location', ['precise', 'trusty'], ['123'],
-            debemail=None, debfullname=None, gpgcmd=None,
-            branch=None, upatch=None, verbose=False)
+            './my.tar.gz', './workspace', ['precise', 'trusty'], ['123'],
+            debemail=None, debfullname=None, gpgcmd='my/gpg',
+            branch='lp:branch', upatch=None, verbose=False)
+        sl_mock.assert_any_call(
+            './workspace', 'any', 'all',
+            [SourceFile(None, None, 'my.tar.gz', './my.tar.gz')],
+            verbose=False)
+        spb_mock.assert_called_with(
+            './spb_dir', 'my.tar.gz', 'lp:branch')
+        sl_mock.assert_any_call(
+            './workspace', 'precise', 'all', [], verbose=False)
+        sl_mock.assert_any_call(
+            './workspace', 'trusty', 'all', [], verbose=False)
         self.assertEqual(0, return_code)
+
+    @autopatch('subprocess.check_call')
+    def test_create_source_package_branch(self, cc_mock):
+        spb = create_source_package_branch(
+            'juju-build-any-all', 'juju-core_1.2.3.tar.gz', DEFAULT_SPB)
+        self.assertEqual('juju-build-any-all/spb', spb)
+        script = CREATE_SPB_TEMPLATE.format(
+            branch=DEFAULT_SPB, spb='juju-build-any-all/spb',
+            tarfile_path='juju-build-any-all/juju-core_1.2.3.tar.gz',
+            version='1.2.3')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='juju-build-any-all')
