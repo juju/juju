@@ -1,27 +1,30 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package status
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/components"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.status")
 
 type StatusCommand struct {
 	envcmd.EnvCommandBase
@@ -467,7 +470,7 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 	}
 
 	for component, status := range unit.Components {
-		formatter := components.UnitStatusFormatters[component]
+		formatter := unitStatusFormatters[component]
 		out.Components[component] = formatter(status.Bytes())
 	}
 
@@ -594,4 +597,23 @@ func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string)
 		return fmt.Sprintf("(%s: %s)", origStatus, info)
 	}
 	return info
+}
+
+// formatStatusTime returns a string with the local time
+// formatted in an arbitrary format used for status or
+// and localized tz or in utc timezone and format RFC3339
+// if u is specified.
+func formatStatusTime(t *time.Time, formatISO bool) string {
+	if formatISO {
+		// If requested, use ISO time format.
+		// The format we use is RFC3339 without the "T". From the spec:
+		// NOTE: ISO 8601 defines date and time separated by "T".
+		// Applications using this syntax may choose, for the sake of
+		// readability, to specify a full-date and full-time separated by
+		// (say) a space character.
+		return t.UTC().Format("2006-01-02 15:04:05Z")
+	} else {
+		// Otherwise use local time.
+		return t.Local().Format("02 Jan 2006 15:04:05Z07:00")
+	}
 }

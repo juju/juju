@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
 	components "github.com/juju/juju/component/all"
@@ -126,11 +127,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&DestroyEnvironmentCommand{})
 
 	// Reporting commands.
-	r.Register(wrapEnvCommand(&StatusCommand{}))
+	r.Register(wrapEnvCommand(&status.StatusCommand{}))
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
-	r.Register(wrapEnvCommand(&StatusHistoryCommand{}))
+	r.Register(wrapEnvCommand(&status.StatusHistoryCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))

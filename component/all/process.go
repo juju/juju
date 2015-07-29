@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
-	comps "github.com/juju/juju/cmd/juju/components"
+	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api/client"
 	"github.com/juju/juju/process/api/server"
@@ -37,7 +37,7 @@ func (c workloadProcesses) registerForServer() error {
 }
 
 func (workloadProcesses) registerForClient() error {
-	comps.RegisterUnitStatusFormatter(process.ComponentName, status.Format)
+	cmdstatus.RegisterUnitStatusFormatter(process.ComponentName, status.Format)
 	return nil
 }
 
