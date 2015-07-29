@@ -1261,12 +1261,8 @@ func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
 		return nil
 	})
 	_, closer, err := lxc.WgetEnvironment(fakeCert)
-	if err == nil {
-		// If the WgetEnvironment call was successful, we need to clean
-		// up the temporary directory it created.
-		defer closer()
-	}
 	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
 	c.Assert(string(wgetScript), jc.Contains, "/usr/bin/wget --no-proxy --ca-certificate")
 }
 
