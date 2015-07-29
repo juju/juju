@@ -5,11 +5,11 @@ package state
 
 import (
 	"github.com/juju/juju/charmresources"
+	"github.com/juju/juju/state/resourcestorage"
 )
 
 // ResourceManager returns a new charmresources.ResourceManager
 // that stores charm resources metadata.
 func (st *State) ResourceManager() charmresources.ResourceManager {
-	// TODO - wallyworld
-	panic("not implemented")
+	return resourcestorage.NewResourceManager(st.session, st.EnvironUUID())
 }

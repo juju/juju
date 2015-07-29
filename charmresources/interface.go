@@ -72,6 +72,14 @@ type ResourceManager interface {
 
 	// ResourcePut stores the resource with the specified metadata,
 	// and returns the metadata with additional attributes filled in.
+	//
+	// If SHA384Hash is specified in metadata, then ResourcePut
+	// should return an error if it does not match the SHA-384
+	// hash of the content. If SHA384Hash is unspecified in metadata,
+	// it will be calculated and returned in the resulting Resource.
+	//
+	// If Size is <= 0, then data will be consumed from rdr until
+	// EOF, and Size will be returned in the resulting Resource.
 	ResourcePut(metadata Resource, rdr io.Reader) (Resource, error)
 
 	// ResourceList returns resource metadata matching the specified filter.
