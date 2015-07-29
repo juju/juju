@@ -305,6 +305,7 @@ func allCollections() collectionSchema {
 				Key: []string{"env-uuid", "entityid"},
 			}},
 		},
+		spacesC: {},
 
 		// ----------------------
 

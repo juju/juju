@@ -7,19 +7,13 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-type SpaceState interface {
-	EnvironUUID() string
-	Space(name string) (*Space, error)
-}
-
 type Space struct {
-	st  SpaceState
+	st  *State
 	doc SpaceDoc
 }
 
@@ -54,13 +48,10 @@ func (s *Space) GoString() string {
 }
 
 // AddSpace creates and returns a new space
-func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (space *Space, err error) {
-	return addSpace(st, name, subnets, isPrivate, st.docID(name), runTransaction)
-}
-
-func addSpace(st SpaceState, name string, subnets []string, isPrivate bool, spaceID string, runTxn TxnRunner) (newSpace *Space, err error) {
+func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
 
+	spaceID := st.docID(name)
 	spaceDoc := SpaceDoc{
 		DocID:    spaceID,
 		EnvUUID:  st.EnvironUUID(),
@@ -82,7 +73,7 @@ func addSpace(st SpaceState, name string, subnets []string, isPrivate bool, spac
 		Insert: spaceDoc,
 	}}
 
-	err = runTxn(st, ops)
+	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.Space(name); err == nil {
@@ -97,10 +88,7 @@ func addSpace(st SpaceState, name string, subnets []string, isPrivate bool, spac
 func (st *State) Space(name string) (*Space, error) {
 	spaces, closer := st.getCollection(spacesC)
 	defer closer()
-	return space(st, name, spaces)
-}
 
-func space(st SpaceState, name string, spaces mongo.Collection) (*Space, error) {
 	doc := &SpaceDoc{}
 	err := spaces.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
@@ -111,14 +99,6 @@ func space(st SpaceState, name string, spaces mongo.Collection) (*Space, error) 
 	}
 	return &Space{st, *doc}, nil
 }
-
-type TxnRunner func(SpaceState, []txn.Op) error
-
-func runTransaction(st SpaceState, ops []txn.Op) error {
-	return st.(*State).runTransaction(ops)
-}
-
-type txnProvider func() ([]txn.Op, error)
 
 // EnsureDead sets the Life of the space to Dead, if it's Alive. It
 // does nothing otherwise.
@@ -135,7 +115,7 @@ func (s *Space) EnsureDead() (err error) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
-	if err = runTransaction(s.st, ops); err != nil {
+	if err = s.st.runTransaction(ops); err != nil {
 		// Ignore ErrAborted if it happens, otherwise return err.
 		return onAbort(err, nil)
 	}
@@ -157,18 +137,14 @@ func (s *Space) Remove() (err error) {
 		Remove: true,
 	}}
 	// TODO: if err == mgo.NotFound, return nil - see similar state Remove() methods.
-	return runTransaction(s.st, ops)
-}
-
-func getCollection(st SpaceState, name string) (mongo.Collection, func()) {
-	return st.(*State).getCollection(name)
+	return s.st.runTransaction(ops)
 }
 
 // Refresh refreshes the contents of the Space from the underlying
 // state. It an error that satisfies errors.IsNotFound if the Space has
 // been removed.
 func (s *Space) Refresh() error {
-	spaces, closer := getCollection(s.st, spacesC)
+	spaces, closer := s.st.getCollection(spacesC)
 	defer closer()
 
 	err := spaces.FindId(s.doc.DocID).One(&s.doc)
@@ -188,9 +164,14 @@ func (s *Space) validate() error {
 		return errors.NewNotValid(nil, "at least one subnet required")
 	}
 
-	// Check that CIDRs are valid
 	for _, cidr := range s.doc.Subnets {
+		// Check that CIDRs are valid
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return errors.Trace(err)
+		}
+
+		// Check that CIDRs match a subnet entry in state
+		if _, err := s.st.Subnet(cidr); err != nil {
 			return errors.Trace(err)
 		}
 	}
