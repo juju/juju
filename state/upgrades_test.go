@@ -22,6 +22,9 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -3252,4 +3255,201 @@ func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 		{EnvUUID: "uuid0"},
 		{EnvUUID: "uuid1"},
 	})
+}
+
+func unsetField(st *State, id, collection, field string) error {
+	return st.runTransaction(
+		[]txn.Op{{
+			C:      collection,
+			Id:     id,
+			Update: bson.D{{"$unset", bson.D{{field, nil}}}},
+		},
+		})
+}
+
+func setupForStorageTesting(s *upgradesSuite, c *gc.C, kind, pool string) func() error {
+	pm := poolmanager.New(NewStateSettings(s.state))
+	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
+	// There are test charms called "storage-block" and
+	// "storage-filesystem" which are what you'd expect.
+	ch := AddTestingCharm(c, s.state, "storage-"+kind)
+	storage := map[string]StorageConstraints{
+		"data": StorageConstraints{Pool: pool, Size: 1024, Count: 1},
+	}
+	service := AddTestingServiceWithStorage(c, s.state, "storage-"+kind, ch, s.owner, storage)
+
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.AssignUnit(unit, AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	return service.Destroy
+}
+
+func assertVolumeAttachments(s *State, c *gc.C, expected int) *volume {
+	volumes, err := s.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+	vol := volumes[0].(*volume)
+	attCount := vol.doc.AttachmentCount
+	c.Assert(attCount, gc.Equals, expected)
+	return vol
+}
+
+func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
+	defer cleanup()
+	vol := assertVolumeAttachments(s.state, c, 1)
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "attachmentcount")
+	c.Assert(err, jc.ErrorIsNil)
+	assertVolumeAttachments(s.state, c, 0)
+
+	err = AddVolumeAttachmentCount(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeAttachments(s.state, c, 1)
+}
+
+func assertFilesystemAttachments(s *State, c *gc.C, expected int) *filesystem {
+	filesystems, err := s.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+	fs := filesystems[0].(*filesystem)
+	attCount := fs.doc.AttachmentCount
+	c.Assert(attCount, gc.Equals, expected)
+	return fs
+}
+
+func (s *upgradesSuite) TestAddAttachmentToFilesystems(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	defer cleanup()
+
+	fs := assertFilesystemAttachments(s.state, c, 1)
+
+	id := fs.doc.DocID
+
+	err := unsetField(s.state, id, filesystemsC, "attachmentcount")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertFilesystemAttachments(s.state, c, 0)
+
+	err = AddFilesystemsAttachmentCount(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertFilesystemAttachments(s.state, c, 1)
+}
+
+func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
+	volumes, err := s.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+	vol := volumes[0].(*volume)
+	binding := vol.doc.Binding
+	c.Assert(binding, gc.Equals, expected)
+	return vol
+}
+
+func setupMachineBoundTests(c *gc.C, st *State) func() error {
+	pm := poolmanager.New(NewStateSettings(st))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	// Make an unprovisioned machine with storage for tests to use.
+	// TODO(axw) extend testing/factory to allow creating unprovisioned
+	// machines.
+	m, err := st.AddOneMachine(MachineTemplate{
+		Series: "quantal",
+		Jobs:   []MachineJob{JobHostUnits},
+		Volumes: []MachineVolumeParams{
+			{Volume: VolumeParams{Pool: "loop-pool", Size: 2048}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return m.Destroy
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumesFilesystemBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "filesystem-0-0")
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "")
+
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "filesystem-0-0")
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumesStorageBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "storage-data-0")
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "")
+
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "storage-data-0")
+}
+
+func (s *upgradesSuite) TestAddBindingToVolumesMachineBound(c *gc.C) {
+	cleanup := setupMachineBoundTests(c, s.state)
+	defer cleanup()
+	vol := assertVolumeBinding(s.state, c, "machine-0")
+
+	id := vol.doc.DocID
+	err := unsetField(s.state, id, volumesC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "")
+
+	err = AddBindingToVolumes(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertVolumeBinding(s.state, c, "machine-0")
+}
+
+func assertFilesystemBinding(s *State, c *gc.C, expected string) *filesystem {
+	filesystems, err := s.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+	fs := filesystems[0].(*filesystem)
+	binding := fs.doc.Binding
+	c.Assert(binding, gc.Equals, expected)
+	return fs
+}
+
+func (s *upgradesSuite) TestAddBindingToFilesystemsStorageBound(c *gc.C) {
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	defer cleanup()
+	fs := assertFilesystemBinding(s.state, c, "storage-data-0")
+
+	id := fs.doc.DocID
+	err := unsetField(s.state, id, filesystemsC, "binding")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertFilesystemBinding(s.state, c, "")
+
+	err = AddBindingToFilesystems(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertFilesystemBinding(s.state, c, "storage-data-0")
 }

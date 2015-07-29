@@ -1582,3 +1582,203 @@ func AddMissingEnvUUIDOnStatuses(st *State) error {
 	}
 	return nil
 }
+
+// AddStorageAttachmentCount adds storageInstanceDoc.AttachmentCount and
+// sets the right number to it.
+//func AddStorageAttachmentCount(st *State) error {
+//	return addAttachmentCount(st, storageInstancesC)
+//}
+
+// runForAllEnvStates will run runner function for every env passing a state
+// for that env.
+func runForAllEnvStates(st *State, runner func(st *State) error) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+		if err := runner(envSt); err != nil {
+			return errors.Annotatef(err, "environment UUID %q", envUUID)
+		}
+	}
+	return nil
+}
+
+func addVolumeAttachmentCount(st *State) error {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
+		volAttachments, err := st.VolumeAttachments(volume.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(volAttachments)},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddVolumeAttachmentCount adds volumeDoc.AttachmentCount and
+// sets the right number to it.
+func AddVolumeAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addVolumeAttachmentCount)
+}
+
+func addFilesystemsAttachmentCount(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, fs := range filesystems {
+		fsAttachments, err := st.FilesystemAttachments(fs.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     fs.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(fsAttachments)},
+			}}},
+		}
+
+	}
+	return st.runTransaction(ops)
+}
+
+// AddFilesystemAttachmentCount adds filesystemDoc.AttachmentCount and
+// sets the right number to it.
+func AddFilesystemsAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addFilesystemsAttachmentCount)
+}
+
+func getVolumeBinding(st *State, volume Volume) (string, error) {
+	// first filesystem
+	fs, err := st.VolumeFilesystem(volume.VolumeTag())
+	if err == nil {
+		return fs.FilesystemTag().String(), nil
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then Volume.StorageInstance
+	storageInstance, err := volume.StorageInstance()
+	if err == nil {
+		return storageInstance.String(), nil
+
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then machine
+	atts, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
+func addBindingToVolume(st *State) error {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
+		b, err := getVolumeBinding(st, volume)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine binding for %q", volume.Tag().String())
+		}
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", b},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToVolumes adds the binding field to volumesDoc and
+// populates it.
+func AddBindingToVolumes(st *State) error {
+	return runForAllEnvStates(st, addBindingToVolume)
+}
+
+func getFilesystemBinding(st *State, filesystem Filesystem) (string, error) {
+	storage, err := filesystem.Storage()
+	if err == nil {
+		return storage.String(), nil
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+	atts, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
+func addBindingToFilesystems(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, filesystem := range filesystems {
+		b, err := getFilesystemBinding(st, filesystem)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine binding for %q", filesystem.Tag().String())
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     filesystem.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", b},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToFilesystems adds the binding field to filesystemDoc and populates it.
+func AddBindingToFilesystems(st *State) error {
+	return runForAllEnvStates(st, addBindingToFilesystems)
+}

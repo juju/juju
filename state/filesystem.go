@@ -327,6 +327,26 @@ func (st *State) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
 	return f, err
 }
 
+func (st *State) filesystems(query interface{}) ([]*filesystem, error) {
+	coll, cleanup := st.getCollection(filesystemsC)
+	defer cleanup()
+
+	var fDocs []filesystemDoc
+	err := coll.Find(query).All(&fDocs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filesystems := make([]*filesystem, len(fDocs))
+	for i, doc := range fDocs {
+		f := &filesystem{doc}
+		if err := f.validate(); err != nil {
+			return nil, errors.Annotate(err, "filesystem validation failed")
+		}
+		filesystems[i] = f
+	}
+	return filesystems, nil
+}
+
 func (st *State) filesystem(query bson.D, description string) (*filesystem, error) {
 	coll, cleanup := st.getCollection(filesystemsC)
 	defer cleanup()
@@ -1061,4 +1081,21 @@ func validateFilesystemMountPoints(m *Machine, newFilesystems []filesystemAttach
 		}
 	}
 	return nil
+}
+
+// AllFilesystems returns all Filesystems for this state.
+func (st *State) AllFilesystems() ([]Filesystem, error) {
+	filesystems, err := st.filesystems(nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get filesystems")
+	}
+	return filesystemsToInterfaces(filesystems), nil
+}
+
+func filesystemsToInterfaces(fs []*filesystem) []Filesystem {
+	result := make([]Filesystem, len(fs))
+	for i, f := range fs {
+		result[i] = f
+	}
+	return result
 }
