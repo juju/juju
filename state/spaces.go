@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -14,10 +15,10 @@ import (
 
 type Space struct {
 	st  *State
-	doc SpaceDoc
+	doc spaceDoc
 }
 
-type SpaceDoc struct {
+type spaceDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 	Life    Life   `bson:"life"`
@@ -52,7 +53,7 @@ func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (newSpa
 	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
 
 	spaceID := st.docID(name)
-	spaceDoc := SpaceDoc{
+	spaceDoc := spaceDoc{
 		DocID:    spaceID,
 		EnvUUID:  st.EnvironUUID(),
 		Life:     Alive,
@@ -89,7 +90,7 @@ func (st *State) Space(name string) (*Space, error) {
 	spaces, closer := st.getCollection(spacesC)
 	defer closer()
 
-	doc := &SpaceDoc{}
+	doc := &spaceDoc{}
 	err := spaces.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("space %q", name)
@@ -159,6 +160,10 @@ func (s *Space) Refresh() error {
 
 // Validate validates the space, checking the validity of its subnets.
 func (s *Space) validate() error {
+	if !names.IsValidSpace(s.doc.Name) {
+		return errors.NewNotValid(nil, "invalid space name")
+	}
+
 	// We need at least one subnet
 	if len(s.doc.Subnets) == 0 {
 		return errors.NewNotValid(nil, "at least one subnet required")
