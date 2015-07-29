@@ -53,12 +53,6 @@ func stateStepsFor125() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "add attachmentCount to storage and set it to the right count",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddStorageAttachmentCount(context.State())
-			}},
-		&upgradeStep{
 			description: "add attachmentCount to volume",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -77,7 +71,7 @@ func stateStepsFor125() []Step {
 				return state.AddBindingToVolumes(context.State())
 			}},
 		&upgradeStep{
-			description: "add attachmentCount to filesystem",
+			description: "add binding to filesystem",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddBindingToFilesystems(context.State())

@@ -340,12 +340,11 @@ func (st *State) filesystems(query interface{}) ([]*filesystem, error) {
 	for i, doc := range fDocs {
 		f := &filesystem{doc}
 		if err := f.validate(); err != nil {
-			return nil, errors.Annotate(err, "validating filesystem")
+			return nil, errors.Annotate(err, "filesystem validation failed")
 		}
 		filesystems[i] = f
 	}
 	return filesystems, nil
-
 }
 
 func (st *State) filesystem(query bson.D, description string) (*filesystem, error) {

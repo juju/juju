@@ -1609,7 +1609,7 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 		}
 		defer envSt.Close()
 		if err := runner(envSt); err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "environment UUID %q", envUUID)
 		}
 	}
 	return nil

@@ -32,7 +32,7 @@ func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 		"add attachmentCount to volume",
 		"add attachmentCount to filesystem",
 		"add binding to volume",
-		"add attachmentCount to filesystem",
+		"add binding to filesystem",
 	}
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)
 }

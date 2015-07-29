@@ -3300,7 +3300,7 @@ func assertVolumeAttachments(s *State, c *gc.C, expected int) *volume {
 }
 
 func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
 	defer cleanup()
 	vol := assertVolumeAttachments(s.state, c, 1)
 
