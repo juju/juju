@@ -738,7 +738,7 @@ class TestBootContext(TestCase):
             with boot_context('bar', client, 'baz', [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=True):
                 pass
-        dl_mock.assert_called_once_with(client, 'baz', 'log_dir', None)
+        dl_mock.assert_called_once_with(client.env, 'baz', 'log_dir', None)
 
 
 class TestDeployJobParseArgs(TestCase):

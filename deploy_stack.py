@@ -414,7 +414,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     client.bootstrap(upload_tools)
             except:
                 if host is not None and sys.platform != 'win32':
-                    dump_logs(client, host, log_dir, bootstrap_id)
+                    dump_logs(client.env, host, log_dir, bootstrap_id)
                 raise
             try:
                 if host is None:
