@@ -30,6 +30,7 @@ type statusDoc struct {
 	// of juju. Do not dereference without checking.
 	Updated *time.Time `bson:"updated"`
 
+	// TODO(fwereade/wallyworld): lp:1479278
 	// NeverSet is a short-term hack to work around a misfeature in service
 	// status. To maintain current behaviour, we create service status docs
 	// (and only service status documents) with NeverSet true; and then, when
@@ -112,17 +113,9 @@ type setStatusParams struct {
 	token leadership.Token
 }
 
-// createStatusOpWithExcitingSideEffect returns the operation needed to create
-// the given status document associated with the given globalKey...
-//
-// ...*and* tries to write a corresponding historical status document.
-// This means that we may occasionally write spurious docs if people
-// call this speculatively (so don't do that...) -- but also means that
-// status-history is accurate from the very beginning of the entity's
-// existence. We can't use mgo/txn consistency with statusHistory, so
-// we err in favour of setting twice over never setting.
-func createStatusOpWithExcitingSideEffect(st *State, globalKey string, doc statusDoc) txn.Op {
-	probablyUpdateStatusHistory(st, globalKey, doc)
+// createStatusOp returns the operation needed to create the given status
+// document associated with the given globalKey.
+func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
 		C:      statusesC,
 		Id:     st.docID(globalKey),
@@ -164,7 +157,7 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	// Set the authoritative status document, or fail trying.
 	buildTxn := updateStatusSource(st, params.globalKey, doc)
 	if params.token != nil {
-		buildTxn = wrapSource(buildTxn, params.token)
+		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
 	err = st.run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {

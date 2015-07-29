@@ -3088,16 +3088,42 @@ func (s *upgradesSuite) TestAddMissingServiceStatuses(c *gc.C) {
 	checkUntouched(uuid1 + ":s#pong")
 
 	// Check new statuses were inserted.
-	checkInserted := func(id string) {
-		var doc statusDoc
-		err = statuses.FindId(id).One(&doc)
-		c.Check(err, jc.ErrorIsNil)
+	checkStatusDoc := func(doc statusDoc, expectNeverSet bool) {
 		c.Check(doc.Status, gc.Equals, StatusUnknown)
 		c.Check(doc.StatusInfo, gc.Equals, "Waiting for agent initialization to finish")
 		c.Check(doc.StatusData, gc.DeepEquals, map[string]interface{}{})
 		c.Check(doc.Updated, gc.NotNil)
-		c.Check(doc.NeverSet, jc.IsTrue)
+		c.Check(doc.NeverSet, gc.Equals, expectNeverSet)
 	}
-	checkInserted(uuid0 + ":s#bar")
-	checkInserted(uuid1 + ":s#ping")
+
+	checkStatusInserted := func(id string) {
+		var doc statusDoc
+		err = statuses.FindId(id).One(&doc)
+		c.Check(err, jc.ErrorIsNil)
+		checkStatusDoc(doc, true)
+	}
+	checkStatusInserted(uuid0 + ":s#bar")
+	checkStatusInserted(uuid1 + ":s#ping")
+
+	// Check status history docs were inserted.
+	history, closer := s.state.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	checkHistoryInserted := func(envUUID, entityid string) {
+		var doc statusDoc
+		err = history.Find(bson.D{{
+			"entityid", entityid,
+		}, {
+			"env-uuid", envUUID,
+		}}).One(&doc)
+		c.Check(err, jc.ErrorIsNil)
+		checkStatusDoc(doc, false)
+	}
+	checkHistoryInserted(uuid0, "s#bar")
+
+	// TODO(fwereade): lp:1479289
+	// This doesn't work because we use sequence and can't prefix and int _id
+	// with the env-uuid, and thus end up with duplicate key errors when
+	// inserting history across multiple environments.
+	//checkHistoryInserted(uuid1, "s#ping")
 }

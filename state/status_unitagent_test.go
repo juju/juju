@@ -73,7 +73,11 @@ func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.agent.Status()
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	agent := unit.Agent()
+
+	statusInfo, err := agent.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusInfo.Status, gc.Equals, state.StatusIdle)
 	c.Check(statusInfo.Message, gc.Equals, "something")

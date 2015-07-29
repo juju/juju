@@ -1116,6 +1116,20 @@ func (st *State) AddService(
 
 	// TODO(fwereade): crazy, done for consistency.
 	now := nowToTheSecond()
+	statusDoc := statusDoc{
+		EnvUUID: st.EnvironUUID(),
+		// TODO(fwereade): this violates the spec. Should be "waiting".
+		// Implemented like this to be consistent with incorrect add-unit
+		// behaviour.
+		Status:     StatusUnknown,
+		StatusInfo: MessageWaitForAgentInit,
+		Updated:    &now,
+		// This exists to preserve questionable unit-aggregation behaviour
+		// while we work out how to switch to an implementation that makes
+		// sense. It is also set in AddMissingServiceStatuses.
+		NeverSet: true,
+	}
+
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1127,19 +1141,8 @@ func (st *State) AddService(
 		createStorageConstraintsOp(svc.globalKey(), storage),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOpWithExcitingSideEffect(st, svc.globalKey(), statusDoc{
-			EnvUUID: st.EnvironUUID(),
-			// TODO(fwereade): this violates the spec. Should be "waiting".
-			// Implemented like this to be consistent with incorrect add-unit
-			// behaviour.
-			Status:     StatusUnknown,
-			StatusInfo: MessageWaitForAgentInit,
-			Updated:    &now,
-			// This exists to preserve questionable unit-aggregation behaviour
-			// while we work out how to switch to an implementation that makes
-			// sense. It is also set in AddMissingServiceStatuses.
-			NeverSet: true,
-		}), {
+		createStatusOp(st, svc.globalKey(), statusDoc),
+		{
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
@@ -1159,6 +1162,9 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, peerOps...)
+
+	// At the last moment before inserting the service, prime status history.
+	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		if err := checkEnvLife(st); err != nil {

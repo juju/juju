@@ -60,7 +60,10 @@ func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.unit.Status()
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err := unit.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")

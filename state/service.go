@@ -702,8 +702,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
-		createStatusOpWithExcitingSideEffect(s.st, globalKey, unitStatusDoc),
-		createStatusOpWithExcitingSideEffect(s.st, agentGlobalKey, agentStatusDoc),
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
 		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      unitsC,
@@ -740,6 +740,13 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		}
 		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
+
+	// At the last moment we still have the statusDocs in scope, set the initial
+	// history entries. This is risky, and may lead to extra entries, but that's
+	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
+	// them cleanly.
+	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -1025,7 +1032,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 			Update: update,
 		}}, nil
 	}
-	return s.st.run(wrapSource(buildTxn, token))
+	return s.st.run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")

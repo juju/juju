@@ -77,7 +77,10 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.machine.Status()
+	machine, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err := machine.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusInfo.Status, gc.Equals, state.StatusStarted)
 	c.Check(statusInfo.Message, gc.Equals, "blah")

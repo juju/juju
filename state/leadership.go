@@ -46,9 +46,9 @@ func (st *State) LeadershipChecker() leadership.Checker {
 	return st.leadershipManager
 }
 
-// wrapSource returns a transaction source that combines the supplied source
+// buildTxnWithLeadership returns a transaction source that combines the supplied source
 // with checks and asserts on the supplied token.
-func wrapSource(buildTxn jujutxn.TransactionSource, token leadership.Token) jujutxn.TransactionSource {
+func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership.Token) jujutxn.TransactionSource {
 	return func(attempt int) ([]txn.Op, error) {
 		var prereqs []txn.Op
 		if err := token.Check(&prereqs); err != nil {

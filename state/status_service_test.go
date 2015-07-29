@@ -60,7 +60,10 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.service.Status()
+	service, err := s.State.Service(s.service.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err := service.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")

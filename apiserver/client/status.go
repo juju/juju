@@ -703,8 +703,8 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 	return
 }
 
-// makeStatusForGetter creates status information for machines, units.
-func makeStatusForGetter(agent *api.AgentStatus, getter state.StatusGetter) {
+// populateStatusFromGetter creates status information for machines, units.
+func populateStatusFromGetter(agent *api.AgentStatus, getter state.StatusGetter) {
 	statusInfo, err := getter.Status()
 	agent.Err = err
 	agent.Status = params.Status(statusInfo.Status)
@@ -722,7 +722,7 @@ func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.Age
 		out.Version = t.Version.Number.String()
 	}
 
-	makeStatusForGetter(&out, machine)
+	populateStatusFromGetter(&out, machine)
 	compat = out
 
 	if out.Err != nil {
@@ -769,14 +769,14 @@ func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.Age
 func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentStatus) {
 	// First determine the agent status information.
 	unitAgent := unit.Agent()
-	makeStatusForGetter(&agentStatus, unitAgent)
+	populateStatusFromGetter(&agentStatus, unitAgent)
 	agentStatus.Life = processLife(unit)
 	if t, err := unit.AgentTools(); err == nil {
 		agentStatus.Version = t.Version.Number.String()
 	}
 
 	// Second, determine the workload (unit) status.
-	makeStatusForGetter(&workloadStatus, unit)
+	populateStatusFromGetter(&workloadStatus, unit)
 	return
 }
 
@@ -789,16 +789,16 @@ func canBeLost(status *api.UnitStatus) bool {
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
-	// TODO(wallyworld) - use status history to see if start hook has run.
-	// TODO(fwereade) - DO NOT USE STATUS HISTORY FOR THIS. If you need it,
-	// give it its ownn place in the model.
+	// TODO(fwereade/wallyworld): we should have an explicit place in the model
+	// to tell us when we've hit this point, instead of piggybacking on top of
+	// status and/or status history.
 	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
 	return isInstalled
 }
 
 // processUnitLost determines whether the given unit should be marked as lost.
-// TODO(wallyworld) - move this to state and the canBeLost() code can be simplified.
-// TODO(fwereade) - DO NOT MOVE THIS TO STATE. Is it concerned with persistence?
+// TODO(fwereade/wallyworld): this is also model-level code and should sit in
+// between state and this package.
 func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
 	if !canBeLost(status) {
 		// The status is allocating or installing - there's no point

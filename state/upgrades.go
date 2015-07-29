@@ -1479,17 +1479,19 @@ func AddMissingServiceStatuses(st *State) error {
 			_, err := service.Status()
 			if cause := errors.Cause(err); errors.IsNotFound(cause) {
 				logger.Debugf("service %s lacks status doc", service)
+				statusDoc := statusDoc{
+					EnvUUID:    envSt.EnvironUUID(),
+					Status:     StatusUnknown,
+					StatusInfo: MessageWaitForAgentInit,
+					Updated:    &now,
+					// This exists to preserve questionable unit-aggregation behaviour
+					// while we work out how to switch to an implementation that makes
+					// sense. It is also set in AddService.
+					NeverSet: true,
+				}
+				probablyUpdateStatusHistory(envSt, service.globalKey(), statusDoc)
 				err := envSt.runTransaction([]txn.Op{
-					createStatusOpWithExcitingSideEffect(envSt, service.globalKey(), statusDoc{
-						EnvUUID:    envSt.EnvironUUID(),
-						Status:     StatusUnknown,
-						StatusInfo: MessageWaitForAgentInit,
-						Updated:    &now,
-						// This exists to preserve questionable unit-aggregation behaviour
-						// while we work out how to switch to an implementation that makes
-						// sense. It is also set in AddService.
-						NeverSet: true,
-					}),
+					createStatusOp(envSt, service.globalKey(), statusDoc),
 				})
 				if err != nil && err != txn.ErrAborted {
 					return err
