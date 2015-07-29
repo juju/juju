@@ -37,15 +37,19 @@ from jujupy import (
     ErroredUnit,
     GroupReporter,
     get_local_root,
+    jes_home_path,
+    JESByDefault,
+    JESNotSupported,
     JujuClientDevel,
     JUJU_DEV_FEATURE_FLAGS,
+    make_client,
+    make_jes_home,
+    parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
-    make_client,
-    parse_new_state_server_from_error,
 )
 from utility import (
     scoped_environ,
@@ -88,11 +92,9 @@ class ClientTest(TestCase):
         self.pause_mock = patcher.start()
 
 
-class TestEnvJujuClient25(ClientTest):
+class CloudSigmaTest:
 
-    client_class = EnvJujuClient25
-
-    def test__shell_environ_not_cloudsigma(self):
+    def test__shell_environ_no_flags(self):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
         env = client._shell_environ()
@@ -114,6 +116,74 @@ class TestEnvJujuClient25(ClientTest):
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
+class TestEnvJujuClient25(ClientTest, CloudSigmaTest):
+
+    client_class = EnvJujuClient25
+
+    def test_enable_jes_already_supported(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='system') as co_mock:
+            with self.assertRaises(JESByDefault):
+                client.enable_jes()
+        self.assertFalse(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            assign_stderr=True)
+
+    def test_enable_jes_unsupported(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            with self.assertRaises(JESNotSupported):
+                client.enable_jes()
+        self.assertFalse(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0, assign_stderr=True)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 2)
+
+    def test_enable_jes_requires_flag(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        with patch('subprocess.check_output', autospec=True,
+                   side_effect=['', 'system']) as co_mock:
+            client.enable_jes()
+        self.assertTrue(client._use_jes)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0, assign_stderr=True)
+        assert_juju_call(
+            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 2)
+
+    def test__shell_environ_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        client._use_jes = True
+        env = client._shell_environ()
+        self.assertIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+
+    def test__shell_environ_jes_cloudsigma(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            '1.25-foobar', 'path')
+        client._use_jes = True
+        env = client._shell_environ()
+        flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
+        self.assertItemsEqual(['cloudsigma', 'jes'], flags)
+
+
 class TestEnvJujuClient22(ClientTest):
 
     client_class = EnvJujuClient22
@@ -132,9 +202,19 @@ class TestEnvJujuClient22(ClientTest):
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
-class TestEnvJujuClient24(TestEnvJujuClient25):
+class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
 
     client_class = EnvJujuClient24
+
+    def test_no_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            '1.25-foobar', 'path')
+        with self.assertRaises(JESNotSupported):
+            client.enable_jes()
+        client._use_jes = True
+        env = client._shell_environ()
+        self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
 
 class TestEnvJujuClient(ClientTest):
@@ -369,6 +449,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
+                client.juju_home = juju_home
                 jenv_path = get_jenv_path(juju_home, 'foo')
                 os.makedirs(os.path.dirname(jenv_path))
                 open(jenv_path, 'w')
@@ -1098,21 +1179,50 @@ def bootstrap_context(client):
                 yield fake_home
 
 
-def stub_bootstrap(upload_tools=False):
-    jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
+class TestJesHomePath(TestCase):
+
+    def test_jes_home_path(self):
+        path = jes_home_path('/home/jrandom/foo', 'bar')
+        self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+
+
+class TestMakeJESHome(TestCase):
+
+    def test_make_jes_home(self):
+        with temp_dir() as juju_home:
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                pass
+            with open(get_environments_path(jes_home)) as env_file:
+                env = yaml.safe_load(env_file)
+        self.assertEqual(env, {'baz': 'qux'})
+        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
+
+    def test_clean_existing(self):
+        with temp_dir() as juju_home:
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                foo_path = os.path.join(jes_home, 'foo')
+                with open(foo_path, 'w') as foo:
+                    foo.write('foo')
+                self.assertTrue(os.path.isfile(foo_path))
+            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                self.assertFalse(os.path.exists(foo_path))
+
+
+def stub_bootstrap(client):
+    jenv_path = get_jenv_path(client.juju_home, 'qux')
     os.mkdir(os.path.dirname(jenv_path))
     with open(jenv_path, 'w') as f:
         f.write('Bogus jenv')
 
 
-class TestTempJujuEnv(TestCase):
+class TestTempBootstrapEnv(TestCase):
 
     def test_no_config_mangling_side_effect(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = EnvJujuClient.by_version(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
-                stub_bootstrap()
+                stub_bootstrap(client)
         self.assertEqual(env.config, {'type': 'local'})
 
     def test_temp_bootstrap_env_environment(self):
@@ -1137,7 +1247,7 @@ class TestTempJujuEnv(TestCase):
                     'test-mode': True,
                     'name': 'qux',
                 }}})
-                stub_bootstrap()
+                stub_bootstrap(client)
 
     def test_temp_bootstrap_env_provides_dir(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -1168,7 +1278,7 @@ class TestTempJujuEnv(TestCase):
         client = EnvJujuClient.by_version(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
-                stub_bootstrap()
+                stub_bootstrap(client)
             jenv_path = get_jenv_path(fake_home, 'qux')
             self.assertFalse(os.path.islink(jenv_path))
             self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
@@ -1179,7 +1289,7 @@ class TestTempJujuEnv(TestCase):
         with bootstrap_context(client) as fake_home:
             with self.assertRaisesRegexp(Exception, 'test-rename'):
                 with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap()
+                    stub_bootstrap(client)
                     raise Exception('test-rename')
             jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
             self.assertFalse(os.path.islink(jenv_path))
@@ -1203,7 +1313,7 @@ class TestTempJujuEnv(TestCase):
         with bootstrap_context(client) as fake_home:
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap()
+                    stub_bootstrap(client)
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/lxc', 2000000, 'LXC containers'),
@@ -1215,7 +1325,7 @@ class TestTempJujuEnv(TestCase):
         with bootstrap_context(client) as fake_home:
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap()
+                    stub_bootstrap(client)
         self.assertEqual(mock_cfds.mock_calls, [
             call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
             call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
@@ -1231,7 +1341,41 @@ class TestTempJujuEnv(TestCase):
                 f.write('In the way')
             with self.assertRaisesRegexp(Exception, '.* already exists!'):
                 with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap()
+                    stub_bootstrap(client)
+
+    def test_not_permanent(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            client.juju_home = fake_home
+            with temp_bootstrap_env(fake_home, client,
+                                    permanent=False) as tb_home:
+                stub_bootstrap(client)
+            self.assertFalse(os.path.exists(tb_home))
+            self.assertTrue(os.path.exists(get_jenv_path(fake_home,
+                            client.env.environment)))
+            self.assertFalse(os.path.exists(get_jenv_path(tb_home,
+                             client.env.environment)))
+        self.assertFalse(os.path.exists(tb_home))
+        self.assertEqual(client.juju_home, fake_home)
+        self.assertNotEqual(tb_home,
+                            jes_home_path(fake_home, client.env.environment))
+
+    def test_permanent(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            client.juju_home = fake_home
+            with temp_bootstrap_env(fake_home, client,
+                                    permanent=True) as tb_home:
+                stub_bootstrap(client)
+            self.assertTrue(os.path.exists(tb_home))
+            self.assertFalse(os.path.exists(get_jenv_path(fake_home,
+                             client.env.environment)))
+            self.assertTrue(os.path.exists(get_jenv_path(tb_home,
+                            client.env.environment)))
+        self.assertFalse(os.path.exists(tb_home))
+        self.assertEqual(client.juju_home, tb_home)
 
 
 class TestJujuClientDevel(TestCase):
