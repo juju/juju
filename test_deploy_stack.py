@@ -541,7 +541,7 @@ class TestDeployJob(TestCase):
             with patch('deploy_stack.deploy_dummy_stack', autospec=True):
                 with patch('deploy_stack.assess_juju_run', autospec=True):
                     _deploy_job('foo', None, None, '', None, None, None, 'log',
-                                None, None, None, None, None, None, 1)
+                                None, None, None, None, None, None, 1, False)
         self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
@@ -558,7 +558,7 @@ class TestDeployJob(TestCase):
             with patch('deploy_stack.deploy_dummy_stack', autospec=True):
                 with patch('deploy_stack.assess_juju_run', autospec=True):
                     _deploy_job('foo', None, None, '', None, None, None, None,
-                                None, None, None, None, None, None, 0)
+                                None, None, None, None, None, None, 0, False)
         self.assertEqual(bc_mock.call_count, 0)
 
 
@@ -772,6 +772,7 @@ class TestDeployJobParseArgs(TestCase):
             verbose=logging.INFO,
             upload_tools=False,
             with_chaos=0,
+            jes=False,
         ))
 
     def test_upload_tools(self):
@@ -783,3 +784,8 @@ class TestDeployJobParseArgs(TestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar', 'baz', 'qux', '--agent-stream', 'wacky'])
         self.assertEqual('wacky', args.agent_stream)
+
+    def test_jes(self):
+        args = deploy_job_parse_args(
+            ['foo', 'bar', 'baz', 'qux', '--jes'])
+        self.assertIs(args.jes, True)

@@ -308,6 +308,7 @@ def deploy_job_parse_args(argv=None):
                         help='Perform an upgrade test.')
     parser.add_argument('--with-chaos', default=0, type=int,
                         help='Deploy and run Chaos Monkey in the background.')
+    parser.add_argument('--jes', action='store_true')
     return parser.parse_args(argv)
 
 
@@ -326,7 +327,8 @@ def deploy_job():
                        charm_prefix, args.bootstrap_host, args.machine,
                        series, args.logs, args.debug, args.juju_bin,
                        args.agent_url, args.agent_stream,
-                       args.keep_env, args.upload_tools, args.with_chaos)
+                       args.keep_env, args.upload_tools, args.with_chaos,
+                       args.jes)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -346,7 +348,8 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
-                 agent_url, agent_stream, log_dir, keep_env, upload_tools):
+                 agent_url, agent_stream, log_dir, keep_env, upload_tools,
+                 permanent=False):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -414,7 +417,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
             try:
-                with temp_bootstrap_env(juju_home, client):
+                with temp_bootstrap_env(juju_home, client,
+                                        permanent=permanent):
                     client.bootstrap(upload_tools)
             except:
                 if host is not None and sys.platform != 'win32':
@@ -432,8 +436,11 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
+                live_jenv_path = get_jenv_path(client.juju_home,
+                                               client.env.environment)
                 if host is not None:
-                    dump_env_logs(client, host, log_dir, jenv_path=jenv_path)
+                    dump_env_logs(client, host, log_dir,
+                                  jenv_path=live_jenv_path)
                 if not keep_env:
                     client.destroy_environment()
         finally:
@@ -459,16 +466,18 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                agent_stream, keep_env, upload_tools, with_chaos):
+                agent_stream, keep_env, upload_tools, with_chaos, use_jes):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
+    if use_jes:
+        client.enable_jes()
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools):
+                      upload_tools, permanent=use_jes):
         if machines is not None:
             client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
