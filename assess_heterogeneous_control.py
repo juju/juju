@@ -51,7 +51,7 @@ def dumping_env(client, host, log_dir):
         try:
             yield
         finally:
-            dump_logs(client, host, log_dir)
+            dump_logs(client.env, host, log_dir)
     except:
         client.destroy_environment()
         raise
