@@ -981,8 +981,16 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	resp, err := ec2conn.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Volumes, gc.Not(gc.HasLen), 0)
-	vol := resp.Volumes[len(resp.Volumes)-1]
-	c.Assert(vol.Tags, jc.SameContents, []amzec2.Tag{
+
+	var found *amzec2.Volume
+	for _, vol := range resp.Volumes {
+		if len(vol.Tags) != 0 {
+			found = &vol
+			break
+		}
+	}
+	c.Assert(found, gc.NotNil)
+	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0-root"},
 		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 	})
