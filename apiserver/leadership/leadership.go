@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -38,19 +39,27 @@ func init() {
 	common.RegisterStandardFacade(
 		FacadeName,
 		1,
-		NewLeadershipService,
+		NewLeadershipServiceFacade,
 	)
 }
 
-// NewLeadershipService constructs a new LeadershipService.
-func NewLeadershipService(
+// NewLeadershipServiceFacade constructs a new LeadershipService and presents
+// a signature that can be used with RegisterStandardFacade.
+func NewLeadershipServiceFacade(
 	state *state.State, resources *common.Resources, authorizer common.Authorizer,
 ) (LeadershipService, error) {
+	return NewLeadershipService(state.LeadershipClaimer(), authorizer)
+}
+
+// NewLeadershipService returns a new LeadershipService.
+func NewLeadershipService(
+	claimer leadership.Claimer, authorizer common.Authorizer,
+) (LeadershipService, error) {
 	if !authorizer.AuthUnitAgent() {
-		return nil, common.ErrPerm
+		return nil, errors.Unauthorizedf("permission denied")
 	}
 	return &leadershipService{
-		state:      state,
+		claimer:    claimer,
 		authorizer: authorizer,
 	}, nil
 }
@@ -58,14 +67,13 @@ func NewLeadershipService(
 // LeadershipService implements the LeadershipService interface and
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
-	state      *state.State
+	claimer    leadership.Claimer
 	authorizer common.Authorizer
 }
 
 // ClaimLeadership implements the LeadershipService interface.
 func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
-	claimer := m.state.LeadershipClaimer()
 	results := make([]params.ErrorResult, len(args.Params))
 	for pIdx, p := range args.Params {
 
@@ -83,13 +91,13 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
-		// claim leadership for themselves.
-		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
+		// claim leadership for themselves, for their own service.
+		if !m.authorizer.AuthOwner(unitTag) || !m.authMember(serviceTag) {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		err = claimer.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
+		err = m.claimer.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		}
@@ -100,15 +108,27 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
 func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (params.ErrorResult, error) {
-	if !m.authorizer.AuthUnitAgent() {
+	if !m.authMember(serviceTag) {
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
-
-	claimer := m.state.LeadershipClaimer()
-	if err := claimer.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
+}
+
+func (m *leadershipService) authMember(serviceTag names.ServiceTag) bool {
+	ownerTag := m.authorizer.GetAuthTag()
+	unitTag, ok := ownerTag.(names.UnitTag)
+	if !ok {
+		return false
+	}
+	unitId := unitTag.Id()
+	requireServiceId, err := names.UnitService(unitId)
+	if err != nil {
+		return false
+	}
+	return serviceTag.Id() == requireServiceId
 }
 
 // parseServiceAndUnitTags takes in string representations of service
