@@ -44,3 +44,7 @@ class JujuSeriesTestCase(TestCase):
         self.assertEqual(
             ['precise', 'trusty', 'vivid', 'wily'],
             juju_series.get_living_names())
+
+    def test_get_version(self):
+        juju_series = get_juju_series()
+        self.assertEqual('14.04', juju_series.get_version('trusty'))

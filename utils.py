@@ -71,6 +71,9 @@ class JujuSeries:
         return sorted(s.name for s in self.all.values()
                       if s.status in self.LIVING_STATUSES)
 
+    def get_version(self, name):
+        return self.all[name].version
+
 
 def get_random_hex_string(size=64):
     return ''.join(random.choice(string.hexdigits) for n in range(size))
