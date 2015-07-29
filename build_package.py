@@ -241,7 +241,7 @@ def get_args(argv=None):
     bin_parser.add_argument("dsc", help="The dsc file to build")
     bin_parser.add_argument("location", help="The location to build in.")
     bin_parser.add_argument("series", help="The series to build in.")
-    bin_parser.add_argument("arch", help="The dpkg architure to build in.")
+    bin_parser.add_argument("arch", help="The dpkg architecture to build in.")
     args = parser.parse_args(argv[1:])
     if args.series == 'LIVING':
         args.series = JujuSeries().get_living_names()

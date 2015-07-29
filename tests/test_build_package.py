@@ -81,6 +81,30 @@ def make_source_files(workspace, dsc_name):
 
 class BuildPackageTestCase(unittest.TestCase):
 
+    def test_get_args_binary(self):
+        args = get_args(
+            ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
+        self.assertEqual('binary', args.command)
+        self.assertEqual('my.dsc', args.dsc)
+        self.assertEqual('~/workspace', args.location)
+        self.assertIs(None, args.ppa)
+        self.assertFalse(args.verbose)
+
+    def test_get_args_binary_with_ppa(self):
+        args = get_args(
+            ['prog', 'binary', '--ppa', 'ppa:juju/experimental',
+             'my.dsc', '~/workspace', 'trusty', 'i386'])
+        self.assertEqual('ppa:juju/experimental', args.ppa)
+
+    def test_main_binary(self):
+        with patch('build_package.build_binary', autospec=True,
+                   return_value=0) as bb_mock:
+            code = main(
+                ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
+        self.assertEqual(0, code)
+        bb_mock.assert_called_with(
+            'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
+
     def test_get_args_source(self):
         shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
         with patch.dict('os.environ', shell_env):
@@ -120,37 +144,6 @@ class BuildPackageTestCase(unittest.TestCase):
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
             debemail='me@email', debfullname='me', gpgcmd='/usr/bin/gpg',
             branch=DEFAULT_SPB, upatch=0, verbose=False)
-
-    def test_build_source(self):
-        return_code = build_source(
-            'tar_file', 'location', ['precise', 'trusty'], ['123'],
-            debemail=None, debfullname=None, gpgcmd=None,
-            branch=None, upatch=None, verbose=False)
-        self.assertEqual(0, return_code)
-
-    def test_get_args_binary(self):
-        args = get_args(
-            ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
-        self.assertEqual('binary', args.command)
-        self.assertEqual('my.dsc', args.dsc)
-        self.assertEqual('~/workspace', args.location)
-        self.assertIs(None, args.ppa)
-        self.assertFalse(args.verbose)
-
-    def test_get_args_binary_with_ppa(self):
-        args = get_args(
-            ['prog', 'binary', '--ppa', 'ppa:juju/experimental',
-             'my.dsc', '~/workspace', 'trusty', 'i386'])
-        self.assertEqual('ppa:juju/experimental', args.ppa)
-
-    def test_main_binary(self):
-        with patch('build_package.build_binary', autospec=True,
-                   return_value=0) as bb_mock:
-            code = main(
-                ['prog', 'binary', 'my.dsc', '~/workspace', 'trusty', 'i386'])
-        self.assertEqual(0, code)
-        bb_mock.assert_called_with(
-            'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
@@ -283,3 +276,10 @@ class BuildPackageTestCase(unittest.TestCase):
             self.assertTrue(found)
             self.assertFalse(os.path.isfile(deb_file))
             self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
+
+    def test_build_source(self):
+        return_code = build_source(
+            'tar_file', 'location', ['precise', 'trusty'], ['123'],
+            debemail=None, debfullname=None, gpgcmd=None,
+            branch=None, upatch=None, verbose=False)
+        self.assertEqual(0, return_code)
