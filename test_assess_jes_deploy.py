@@ -1,3 +1,4 @@
+from argparse import Namespace
 import unittest
 from mock import (
     patch,
@@ -17,23 +18,6 @@ from jujupy import (
 )
 
 
-class setupArgs(object):
-    env = 'baz'
-    verbose = True
-    job_name = 'jesjob'
-    bootstrap_host = 'localhost'
-    debug = True
-    machine = ['0']
-    series = 'trusty'
-    agent_stream = 'devel'
-    agent_url = 'some_url'
-    logs = 'log/dir'
-    keep_env = True
-    upload_tools = True
-    juju_home = 'path/to/juju/home'
-    machines = [0]
-
-
 class TestJES(unittest.TestCase):
 
     client_class = EnvJujuClient25
@@ -41,10 +25,10 @@ class TestJES(unittest.TestCase):
     @patch('assess_jes_deploy.get_random_string')
     @patch('assess_jes_deploy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
-        from_config_func.return_value = SimpleEnvironment(setupArgs.env, {})
+        from_config_func.return_value = SimpleEnvironment('baz', {})
         get_random_string_func.return_value = 'fakeran'
         client = self.client_class(
-            SimpleEnvironment.from_config(setupArgs.env),
+            SimpleEnvironment.from_config('baz'),
             '1.25-foobar', 'path')
         client._use_jes = True
         return client
@@ -72,9 +56,7 @@ class TestJES(unittest.TestCase):
         deploy_dummy_stack_in_environ(client, 'trusty', 'baz')
 
         # assert helper funcs were called with correct args.
-        args, kwargs = deploy_dummy_stack_func.call_args
-        self.assertEqual(args, (client, 'trusty'))
-        self.assertEqual(kwargs, {})
+        deploy_dummy_stack_func.assert_called_once_with(client, 'trusty')
 
         env = client._shell_environ()
         self.assertEqual(juju_func.call_args_list, [
@@ -102,11 +84,10 @@ class TestJES(unittest.TestCase):
 
         check_updated_token(client, 'token', 5)
 
-        self.assertEqual(check_token_func.call_count, 2)
-
-        args, kwargs = check_token_func.call_args
-        self.assertEqual(args, (client, 'token'))
-        self.assertEqual(kwargs, {})
+        self.assertEqual(check_token_func.mock_calls, [
+            call(client, 'token'),
+            call(client, 'token'),
+            ])
 
     @patch('assess_jes_deploy.get_random_string')
     @patch('assess_jes_deploy.EnvJujuClient.juju')
@@ -121,14 +102,10 @@ class TestJES(unittest.TestCase):
         client = self.mock_client()
         check_services(client, 'token')
 
-        self.assertEqual(
-            juju_func.call_args,
-            call('set', ('dummy-source', 'token=tokenfakeran')),
-        )
-
-        args, kwargs = check_updated_token_func.call_args
-        self.assertEqual(args, (client, 'tokenfakeran', 30))
-        self.assertEqual(kwargs, {})
+        juju_func.assert_called_once_with(
+            'set', ('dummy-source', 'token=tokenfakeran'))
+        check_updated_token_func.assert_called_once_with(
+            client, 'tokenfakeran', 30)
 
     @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
     @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines')
@@ -146,14 +123,21 @@ class TestJES(unittest.TestCase):
             get_full_path_func):
         # patch helper funcs
         expected_client = self.mock_client()
-        expected_env = SimpleEnvironment(setupArgs.env, {})
+        expected_env = SimpleEnvironment('baz', {})
         from_config_func.return_value = expected_env
         by_version_func.return_value = expected_client
         configure_logging_func.return_value = None
         get_full_path_func.return_value = '/path/to/juju'
 
+        setup_args = Namespace(
+            env='baz', verbose=True, job_name='jesjob',
+            bootstrap_host='localhost', debug=True, machine=['0'],
+            series='trusty', agent_stream='devel', agent_url='some_url',
+            logs='log/dir', keep_env=True, upload_tools=True,
+            juju_home='path/to/juju/home', machines=[0])
+
         # setup jes
-        client, charm_previx, base_env = jes_setup(setupArgs)
+        client, charm_previx, base_env = jes_setup(setup_args)
 
         # assert that jes_setup returns expected values
         self.assertIs(client, expected_client)
@@ -161,32 +145,12 @@ class TestJES(unittest.TestCase):
         self.assertEqual(base_env, 'baz')
 
         # assert that helper funcs were called with expected args.
-        args, kwargs = by_version_func.call_args
-        self.assertEqual(args, (expected_env, '/path/to/juju', True))
-        self.assertEqual(kwargs, {})
+        by_version_func.assert_called_once_with(
+            expected_env, '/path/to/juju', True)
 
-        args, kwargs = configure_logging_func.call_args
-        self.assertEqual(args, (True,))
-        self.assertEqual(kwargs, {})
+        configure_logging_func.assert_called_once_with(True)
+        boot_context_func.assert_called_once_with(
+            'jesjob', expected_client, 'localhost', ['0'], 'trusty', 'devel',
+            'some_url', 'log/dir', True, True, 'path/to/juju/home')
 
-        args, kwargs = boot_context_func.call_args
-        self.assertEqual(args, (
-            'jesjob',
-            expected_client,
-            'localhost',
-            ['0'],
-            'trusty',
-            'devel',
-            'some_url',
-            'log/dir',
-            True,
-            True,
-            'path/to/juju/home',
-        ))
-
-        args, kwargs = add_ssh_machines_func.call_args
-        self.assertEqual(args, ([0],))
-        self.assertEqual(
-            kwargs,
-            {},
-        )
+        add_ssh_machines_func.assert_called_once_with([0])
