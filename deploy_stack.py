@@ -65,12 +65,11 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def deploy_dummy_stack(client, charm_prefix, token=None):
+def deploy_dummy_stack(client, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
     client.deploy(charm_prefix + 'dummy-source')
-    if token is None:
-        token = get_random_string()
+    token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))

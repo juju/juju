@@ -84,8 +84,7 @@ def deploy_dummy_stack_in_environ(client, charm_prefix, env_name):
     )
 
     # then deploy a dummy stack in it
-    token = env_token(env_name)
-    return deploy_dummy_stack(client, charm_prefix, token)
+    return deploy_dummy_stack(client, charm_prefix)
 
 
 def check_updated_token(client, token, timeout):

@@ -73,7 +73,7 @@ class TestJES(unittest.TestCase):
 
         # assert helper funcs were called with correct args.
         args, kwargs = deploy_dummy_stack_func.call_args
-        self.assertEqual(args, (client, 'trusty', 'bazfakerandom'))
+        self.assertEqual(args, (client, 'trusty'))
         self.assertEqual(kwargs, {})
 
         env = client._shell_environ()
