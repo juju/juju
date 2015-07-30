@@ -78,14 +78,14 @@ class TestJES(unittest.TestCase):
 
         env = client._shell_environ()
         self.assertEqual(juju_func.call_args_list, [
-                call(
-                    'system create-environment', ('baz',),
-                    extra_env=env,
+            call(
+                'system create-environment', ('baz',),
+                extra_env=env,
                 ),
-                call(
-                    'environment set',
-                    ('default-series=trusty', '-e', 'baz'),
-                    extra_env=env,
+            call(
+                'environment set',
+                ('default-series=trusty', '-e', 'baz'),
+                extra_env=env,
                 ),
             ]
         )

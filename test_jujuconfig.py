@@ -48,7 +48,8 @@ class TestDescribeSubstrate(TestCase):
         self.assertEqual('MAAS', describe_substrate({'type': 'maas'}))
 
 
-class TestConfig(TestCase):
+class TestGetJenvPath(TestCase):
 
     def test_get_jenv_path(self):
-        self.assertEqual('home/environments/envname.jenv', get_jenv_path('home', 'envname'))
+        self.assertEqual('home/environments/envname.jenv',
+                         get_jenv_path('home', 'envname'))
