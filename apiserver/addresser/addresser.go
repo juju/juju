@@ -79,7 +79,7 @@ func (api *AddresserAPI) ReleaseIPAddresses(args params.Entities) (params.ErrorR
 		return result, err
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
-		logger.Debugf("environment supports networking")
+		logger.Tracef("environment supports networking")
 		for i, entity := range args.Entities {
 			tag, err := names.ParseTag(entity.Tag)
 			if err != nil {
@@ -98,7 +98,7 @@ func (api *AddresserAPI) ReleaseIPAddresses(args params.Entities) (params.ErrorR
 // releaseIPAddress releases one IP address.
 func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag names.Tag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", tag.String())
-	logger.Debugf("attempting to release dead IP address %v", tag.String())
+	logger.Tracef("attempting to release dead IP address %v", tag.String())
 	// Retrieve IP address by tag.
 	ipAddress, err := api.st.IPAddressByTag(tag.(names.IPAddressTag))
 	if err != nil {
