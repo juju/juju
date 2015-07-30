@@ -670,7 +670,7 @@ class TestBootContext(TestCase):
                    return_value=co_return) as co_mock:
             yield
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 0, assign_stderr=True)
+            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
         if jes:
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'cache.yaml')
