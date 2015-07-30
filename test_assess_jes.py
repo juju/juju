@@ -3,7 +3,7 @@ from mock import (
     patch,
     call,
     )
-from jes import (
+from assess_jes_deploy import (
     env_token,
     jes_setup,
     deploy_dummy_stack_in_environ,
@@ -38,8 +38,8 @@ class TestJES(unittest.TestCase):
 
     client_class = EnvJujuClient25
 
-    @patch('jes.get_random_string')
-    @patch('jes.SimpleEnvironment.from_config')
+    @patch('assess_jes_deploy.get_random_string')
+    @patch('assess_jes_deploy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment(setupArgs.env, {})
         get_random_string_func.return_value = 'fakeran'
@@ -49,7 +49,7 @@ class TestJES(unittest.TestCase):
         client._use_jes = True
         return client
 
-    @patch('jes.get_random_string')
+    @patch('assess_jes_deploy.get_random_string')
     def test_env_token(self, get_random_string_func):
         get_random_string_func.return_value = 'fakeran'
         self.assertEqual(env_token('env1'), 'env1fakeran')
@@ -59,9 +59,9 @@ class TestJES(unittest.TestCase):
         env = client._shell_environ()
         self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
-    @patch('jes.EnvJujuClient.juju')
-    @patch('jes.deploy_dummy_stack')
-    @patch('jes.get_random_string')
+    @patch('assess_jes_deploy.EnvJujuClient.juju')
+    @patch('assess_jes_deploy.deploy_dummy_stack')
+    @patch('assess_jes_deploy.get_random_string')
     def test_deploy_dummy_stack_in_environ(
             self, get_random_string_func,
             deploy_dummy_stack_func,
@@ -90,8 +90,8 @@ class TestJES(unittest.TestCase):
             ]
         )
 
-    @patch('jes.sleep', return_value=None)
-    @patch('jes.check_token')
+    @patch('assess_jes_deploy.sleep', return_value=None)
+    @patch('assess_jes_deploy.check_token')
     def test_check_updated_token(self, check_token_func, patched_sleep):
         client = self.mock_client()
 
@@ -108,9 +108,9 @@ class TestJES(unittest.TestCase):
         self.assertEqual(args, (client, 'token'))
         self.assertEqual(kwargs, {})
 
-    @patch('jes.get_random_string')
-    @patch('jes.EnvJujuClient.juju')
-    @patch('jes.check_updated_token')
+    @patch('assess_jes_deploy.get_random_string')
+    @patch('assess_jes_deploy.EnvJujuClient.juju')
+    @patch('assess_jes_deploy.check_updated_token')
     def test_check_services(
             self,
             check_updated_token_func,
@@ -130,12 +130,12 @@ class TestJES(unittest.TestCase):
         self.assertEqual(args, (client, 'tokenfakeran', 30))
         self.assertEqual(kwargs, {})
 
-    @patch('jes.EnvJujuClient.get_full_path')
-    @patch('jes.EnvJujuClient.add_ssh_machines')
-    @patch('jes.boot_context')
-    @patch('jes.configure_logging')
-    @patch('jes.SimpleEnvironment.from_config')
-    @patch('jes.EnvJujuClient.by_version')
+    @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
+    @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines')
+    @patch('assess_jes_deploy.boot_context')
+    @patch('assess_jes_deploy.configure_logging')
+    @patch('assess_jes_deploy.SimpleEnvironment.from_config')
+    @patch('assess_jes_deploy.EnvJujuClient.by_version')
     def test_jes_setup(
             self,
             by_version_func,
@@ -183,8 +183,6 @@ class TestJES(unittest.TestCase):
             True,
             'path/to/juju/home',
         ))
-
-        self.assertIsNotNone(kwargs['extra_env'])
 
         args, kwargs = add_ssh_machines_func.call_args
         self.assertEqual(args, ([0],))
