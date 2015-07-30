@@ -128,7 +128,7 @@ func (c HookContextClient) Get(ids ...string) ([]*process.Info, error) {
 }
 
 func (c HookContextClient) Set(procs ...*process.Info) error {
-	logger.Debugf("pushing to API: %v", procs)
+	logger.Tracef("pushing to API: %v", procs)
 
 	procArgs := make([]api.Process, len(procs))
 	for i, proc := range procs {

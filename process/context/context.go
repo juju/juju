@@ -143,7 +143,7 @@ func (c *Context) fetch(id string) (*process.Info, error) {
 
 // Get returns the process info corresponding to the given ID.
 func (c *Context) Get(id string) (*process.Info, error) {
-	logger.Debugf("getting %q from hook context", id)
+	logger.Tracef("getting %q from hook context", id)
 
 	actual, ok := c.updates[id]
 	if !ok {
@@ -164,7 +164,7 @@ func (c *Context) Get(id string) (*process.Info, error) {
 
 // List returns the sorted names of all registered processes.
 func (c *Context) List() ([]string, error) {
-	logger.Debugf("listing all procs in hook context")
+	logger.Tracef("listing all procs in hook context")
 
 	procs, err := c.Processes()
 	if err != nil {
@@ -183,7 +183,7 @@ func (c *Context) List() ([]string, error) {
 
 // Set records the process info in the hook context.
 func (c *Context) Set(info process.Info) error {
-	logger.Debugf("adding %q to hook context: %#v", info.ID(), info)
+	logger.Tracef("adding %q to hook context: %#v", info.ID(), info)
 
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
@@ -209,7 +209,7 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 // added and updated process.Info in the hook context are pushed to
 // Juju state via the API.
 func (c *Context) Flush() error {
-	logger.Debugf("flushing from hook context to state")
+	logger.Tracef("flushing from hook context to state")
 
 	if len(c.updates) == 0 {
 		return nil
