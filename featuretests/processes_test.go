@@ -57,8 +57,9 @@ type processesBaseSuite struct {
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
 	// TODO(ericsnow) Run in a test-only local provider
 	//  (see https://github.com/juju/docs/issues/35).
-	s.env = newProcsEnv(c, "local", len(procsSuites))
-	s.env.bootstrap(c)
+	env := newProcsEnv(c, "local", len(procsSuites))
+	env.bootstrap(c)
+	s.env = env
 }
 
 func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
@@ -473,13 +474,13 @@ func lookUpCommand(cmd string) cmd.Command {
 }
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
+	initJuju(c)
+
 	if procsEnv != nil {
 		c.Assert(env, gc.Equals, procsEnv)
 		return
 	}
 	procsEnv = env
-
-	initJuju(c)
 
 	env.run(c, "bootstrap")
 	env.run(c, "environment set", "logging-config=<root>=DEBUG")
