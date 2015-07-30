@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
@@ -42,6 +43,23 @@ type UniterSuite struct {
 }
 
 var _ = gc.Suite(&UniterSuite{})
+
+var leaseClock *coretesting.Clock
+
+func init() {
+	// TODO(fwereade): lp:1479653
+	// This is clearly evil, but less evil than failing to test the uniter's
+	// response to leadership changes.
+	zone, err := time.LoadLocation("")
+	if err != nil {
+		panic(err)
+	}
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	state.GetClock = func() lease.Clock {
+		return leaseClock
+	}
+}
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -1979,7 +1997,7 @@ func (s *UniterSuite) TestLeadership(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
-	s.PatchValue(uniter.LeadershipGuarantee, coretesting.ShortWait)
+	s.PatchValue(uniter.LeadershipGuarantee, 2*coretesting.ShortWait)
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			// NOTE: this is a strange and ugly test, intended to detect what

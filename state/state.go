@@ -179,7 +179,7 @@ func (st *State) start(serverTag names.EnvironTag) error {
 	}
 
 	logger.Infof("creating lease client as %s", clientId)
-	clock := lease.SystemClock{}
+	clock := GetClock()
 	leaseClient, err := lease.NewClient(lease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,

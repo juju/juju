@@ -1423,11 +1423,12 @@ func (forceMinion) step(c *gc.C, ctx *context) {
 	// (in addition to working just fine when the uniter's not running).
 	for i := 0; i < 3; i++ {
 		c.Logf("deposing local unit (attempt %d)", i)
-		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		leaseClock.Advance(61 * time.Second)
+		time.Sleep(coretesting.ShortWait)
 		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), otherLeader, time.Minute)
 		if err == nil {
+			ctx.s.BackingState.StartSync()
 			return
 		} else if errors.Cause(err) != leadership.ErrClaimDenied {
 			c.Assert(err, jc.ErrorIsNil)
@@ -1440,11 +1441,12 @@ type forceLeader struct{}
 
 func (forceLeader) step(c *gc.C, ctx *context) {
 	c.Logf("deposing other unit")
-	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
-	c.Assert(err, jc.ErrorIsNil)
+	leaseClock.Advance(61 * time.Second)
+	time.Sleep(coretesting.ShortWait)
 	c.Logf("promoting local unit")
-	err = ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
 }
 
 type setLeaderSettings map[string]string
