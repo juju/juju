@@ -80,6 +80,22 @@ type processesHookContextSuite struct {
 	processesBaseSuite
 }
 
+func (s *processesHookContextSuite) SetUpSuite(c *gc.C) {
+	s.processesBaseSuite.SetUpSuite(c)
+}
+
+func (s *processesHookContextSuite) TearDownSuite(c *gc.C) {
+	s.processesBaseSuite.TearDownSuite(c)
+}
+
+func (s *processesHookContextSuite) SetUpTest(c *gc.C) {
+	s.processesBaseSuite.SetUpTest(c)
+}
+
+func (s *processesHookContextSuite) TearDownTest(c *gc.C) {
+	s.processesBaseSuite.TearDownTest(c)
+}
+
 func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 	// start: info, launch, info
 	// config-changed: info, set-status, info
@@ -333,6 +349,22 @@ type processesWorkerSuite struct {
 	processesBaseSuite
 }
 
+func (s *processesWorkerSuite) SetUpSuite(c *gc.C) {
+	s.processesBaseSuite.SetUpSuite(c)
+}
+
+func (s *processesWorkerSuite) TearDownSuite(c *gc.C) {
+	s.processesBaseSuite.TearDownSuite(c)
+}
+
+func (s *processesWorkerSuite) SetUpTest(c *gc.C) {
+	s.processesBaseSuite.SetUpTest(c)
+}
+
+func (s *processesWorkerSuite) TearDownTest(c *gc.C) {
+	s.processesBaseSuite.TearDownTest(c)
+}
+
 func (s *processesWorkerSuite) TestSetStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
@@ -345,6 +377,22 @@ func (s *processesWorkerSuite) TestCleanUp(c *gc.C) {
 
 type processesCmdJujuSuite struct {
 	processesBaseSuite
+}
+
+func (s *processesCmdJujuSuite) SetUpSuite(c *gc.C) {
+	s.processesBaseSuite.SetUpSuite(c)
+}
+
+func (s *processesCmdJujuSuite) TearDownSuite(c *gc.C) {
+	s.processesBaseSuite.TearDownSuite(c)
+}
+
+func (s *processesCmdJujuSuite) SetUpTest(c *gc.C) {
+	s.processesBaseSuite.SetUpTest(c)
+}
+
+func (s *processesCmdJujuSuite) TearDownTest(c *gc.C) {
+	s.processesBaseSuite.TearDownTest(c)
 }
 
 func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
