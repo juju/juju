@@ -307,8 +307,8 @@ def get_args(argv=None):
         '--debfullname', default=os.environ.get("DEBFULLNAME"),
         help="Your full name; Environment: DEBFULLNAME.")
     src_parser.add_argument(
-        '--gpgcmd', default='/usr/bin/gpg',
-        help="Path to an alternate gpg signing command; default /usr/bin/gpg.")
+        '--gpgcmd', default=None,
+        help="Path to a gpg signing command to make signed packages.")
     src_parser.add_argument(
         '--branch', default=DEFAULT_SPB,
         help="The base/previous source package branch.")

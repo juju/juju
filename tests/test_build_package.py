@@ -124,7 +124,7 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(['123', '456'], args.bugs)
         self.assertEqual('me@email', args.debemail)
         self.assertEqual('me', args.debfullname)
-        self.assertEqual('/usr/bin/gpg', args.gpgcmd)
+        self.assertIsNone(args.gpgcmd)
         self.assertEqual(DEFAULT_SPB, args.branch)
         self.assertEqual(0, args.upatch)
         self.assertFalse(args.verbose)
@@ -148,7 +148,7 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(0, code)
         bs_mock.assert_called_with(
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
-            debemail='me@email', debfullname='me', gpgcmd='/usr/bin/gpg',
+            debemail='me@email', debfullname='me', gpgcmd=None,
             branch=DEFAULT_SPB, upatch=0, verbose=False)
 
     @autopatch('build_package.move_debs', return_value=True)
