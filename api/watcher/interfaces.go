@@ -26,7 +26,6 @@ type StringsWatcher interface {
 
 // EntityWatcher will send events when something changes.
 // The content for the changes is a list of tag strings.
-// type EntityWatcher StringsWatcher
 type EntityWatcher interface {
 	Changes() <-chan []string
 	Stop() error
