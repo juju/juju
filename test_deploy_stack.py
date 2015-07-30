@@ -744,8 +744,10 @@ class TestBootContext(TestCase):
             '--constraints', 'mem=2G'), 0)
 
     def test_with_bootstrap_failure(self):
+
         class FakeException(Exception):
-            pass
+            """A sentry exception to be raised by bootstrap."""
+
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
