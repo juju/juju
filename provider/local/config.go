@@ -54,6 +54,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Values: []interface{}{
 			string(instance.LXC),
+			string(instance.LXD),
 			string(instance.KVM),
 		},
 	},
@@ -122,6 +123,10 @@ func (c *environConfig) setDefaultNetworkBridge() {
 	name := c.networkBridge()
 	switch c.container() {
 	case instance.LXC:
+		if name == "" {
+			name = lxc.DefaultLxcBridge
+		}
+	case instance.LXD:
 		if name == "" {
 			name = lxc.DefaultLxcBridge
 		}
