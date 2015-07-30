@@ -22,7 +22,7 @@ class TestJES(unittest.TestCase):
 
     client_class = EnvJujuClient25
 
-    @patch('assess_jes_deploy.get_random_string')
+    @patch('assess_jes_deploy.get_random_string', autospec=True)
     @patch('assess_jes_deploy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
@@ -33,7 +33,7 @@ class TestJES(unittest.TestCase):
         client._use_jes = True
         return client
 
-    @patch('assess_jes_deploy.get_random_string')
+    @patch('assess_jes_deploy.get_random_string', autospec=True)
     def test_env_token(self, get_random_string_func):
         get_random_string_func.return_value = 'fakeran'
         self.assertEqual(env_token('env1'), 'env1fakeran')
@@ -43,9 +43,9 @@ class TestJES(unittest.TestCase):
         env = client._shell_environ()
         self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
-    @patch('assess_jes_deploy.EnvJujuClient.juju')
-    @patch('assess_jes_deploy.deploy_dummy_stack')
-    @patch('assess_jes_deploy.get_random_string')
+    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
+    @patch('assess_jes_deploy.deploy_dummy_stack', autospec=True)
+    @patch('assess_jes_deploy.get_random_string', autospec=True)
     def test_deploy_dummy_stack_in_environ(
             self, get_random_string_func,
             deploy_dummy_stack_func,
@@ -61,19 +61,19 @@ class TestJES(unittest.TestCase):
         env = client._shell_environ()
         self.assertEqual(juju_func.call_args_list, [
             call(
-                'system create-environment', ('baz',),
+                client, 'system create-environment', ('baz',),
                 extra_env=env,
                 ),
             call(
-                'environment set',
+                client, 'environment set',
                 ('default-series=trusty', '-e', 'baz'),
                 extra_env=env,
                 ),
             ]
         )
 
-    @patch('assess_jes_deploy.sleep', return_value=None)
-    @patch('assess_jes_deploy.check_token')
+    @patch('assess_jes_deploy.sleep', return_value=None, autospec=True)
+    @patch('assess_jes_deploy.check_token', autospec=True)
     def test_check_updated_token(self, check_token_func, patched_sleep):
         client = self.mock_client()
 
@@ -89,9 +89,9 @@ class TestJES(unittest.TestCase):
             call(client, 'token'),
             ])
 
-    @patch('assess_jes_deploy.get_random_string')
-    @patch('assess_jes_deploy.EnvJujuClient.juju')
-    @patch('assess_jes_deploy.check_updated_token')
+    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
+    @patch('assess_jes_deploy.check_updated_token', autospec=True)
     def test_check_services(
             self,
             check_updated_token_func,
@@ -103,14 +103,14 @@ class TestJES(unittest.TestCase):
         check_services(client, 'token')
 
         juju_func.assert_called_once_with(
-            'set', ('dummy-source', 'token=tokenfakeran'))
+            client, 'set', ('dummy-source', 'token=tokenfakeran'))
         check_updated_token_func.assert_called_once_with(
             client, 'tokenfakeran', 30)
 
     @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
-    @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines')
-    @patch('assess_jes_deploy.boot_context')
-    @patch('assess_jes_deploy.configure_logging')
+    @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines', autospec=True)
+    @patch('assess_jes_deploy.boot_context', autospec=True)
+    @patch('assess_jes_deploy.configure_logging', autospec=True)
     @patch('assess_jes_deploy.SimpleEnvironment.from_config')
     @patch('assess_jes_deploy.EnvJujuClient.by_version')
     def test_jes_setup(
@@ -153,4 +153,4 @@ class TestJES(unittest.TestCase):
             'jesjob', expected_client, 'localhost', ['0'], 'trusty', 'devel',
             'some_url', 'log/dir', True, True, 'path/to/juju/home')
 
-        add_ssh_machines_func.assert_called_once_with([0])
+        add_ssh_machines_func.assert_called_once_with(client, [0])

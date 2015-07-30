@@ -7,7 +7,6 @@ from deploy_stack import (
     check_token,
     configure_logging,
     deploy_dummy_stack,
-    deploy_job_parse_args,
     get_random_string,
     )
 from jujupy import (
@@ -107,9 +106,12 @@ def check_services(client, env):
 
 
 def main():
-    args = deploy_job_parse_args()
+    parser = ArgumentParser()
+    add_basic_testing_arguments(parser)
+    args = parser.parse_args()
     client, charm_prefix, base_env = jes_setup(args)
     test_jes_deploy(client, charm_prefix, base_env)
+
 
 if __name__ == '__main__':
     main()
