@@ -14,7 +14,20 @@ import subprocess
 import sys
 
 
+# This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
+
+
+# This constant defines the status of the series supported by CI and Releases.
+SUPPORTED_RELEASES = """\
+12.04 precise LTS
+12.10 quantal HISTORIC
+13.10 saucy HISTORIC
+14.04 trusty LTS
+14.10 utopic HISTORIC
+15.04 vivid SUPPORTED
+15.10 wily DEVEL
+"""
 
 
 SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
@@ -94,18 +107,6 @@ STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
 
 
 Series = namedtuple('Series', ['version', 'name', 'status'])
-
-
-# This constant defines the status of the series supported by CI and Releases.
-SUPPORTED_RELEASES = """\
-12.04 precise LTS
-12.10 quantal HISTORIC
-13.10 saucy HISTORIC
-14.04 trusty LTS
-14.10 utopic HISTORIC
-15.04 vivid SUPPORTED
-15.10 wily DEVEL
-"""
 
 
 class JujuSeries:
@@ -274,10 +275,15 @@ def make_changelog_message(version, bugs=None):
     return message
 
 
-def sign_source_package(build_dir, gpgcmd, debemail, debfullname):
+def get_deb_shell_env(debemail, debfullname):
     env = dict(os.environ)
     env['DEBEMAIL'] = debemail
     env['DEBFULLNAME'] = debfullname
+    return env
+
+
+def sign_source_package(build_dir, gpgcmd, debemail, debfullname):
+    env = get_deb_shell_env(debemail, debfullname)
     script = DEBSIGN_TEMPLATE.format(gpgcmd=gpgcmd)
     subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
 
@@ -288,9 +294,7 @@ def create_source_package(build_dir, spb, series, version,
     ubuntu_version = make_ubuntu_version(series, version, upatch)
     message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(build_dir, version)
-    env = dict(os.environ)
-    env['DEBEMAIL'] = debemail
-    env['DEBFULLNAME'] = debfullname
+    env = get_deb_shell_env(debemail, debfullname)
     script = BUILD_SOURCE_TEMPLATE.format(
         spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
         message=message)
@@ -300,17 +304,17 @@ def create_source_package(build_dir, spb, series, version,
     return None
 
 
-def build_source(tar_path, location, series, bugs,
+def build_source(tarfile_path, location, series, bugs,
                  debemail=None, debfullname=None, gpgcmd=None,
                  branch=None, upatch=None, verbose=False):
     if not isinstance(series, list):
         series = [series]
-    tar_name = os.path.basename(tar_path)
-    version = tar_name.split('_')[-1].replace('.tar.gz', '')
-    files = [SourceFile(None, None, tar_name, tar_path)]
+    tarfile_name = os.path.basename(tarfile_path)
+    version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
+    files = [SourceFile(None, None, tarfile_name, tarfile_path)]
     spb_dir = setup_local(
         location, 'any', 'all', files, verbose=verbose)
-    spb = create_source_package_branch(spb_dir, version, tar_name, branch)
+    spb = create_source_package_branch(spb_dir, version, tarfile_name, branch)
     for a_series in series:
         build_dir = setup_local(location, a_series, 'all', [], verbose=verbose)
         create_source_package(
