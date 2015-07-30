@@ -180,7 +180,7 @@ class DumpEnvLogsTestCase(TestCase):
         self.assertEqual(
             (client, '10.10.0.1'), gm_mock.call_args[0])
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
-        self.assertEqual(
+        self.assertItemsEqual(
             [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': False}),
              ((env, self.r1, '%s/machine-1' % artifacts_dir),
@@ -203,7 +203,7 @@ class DumpEnvLogsTestCase(TestCase):
                     client = EnvJujuClient(env, '1.234-76', None)
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
         call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
-        self.assertEqual(
+        self.assertItemsEqual(
             [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': True}),
              ((env, self.r1, '%s/machine-1' % artifacts_dir),
@@ -644,10 +644,11 @@ class TestBootContext(TestCase):
         return result
 
     @contextmanager
-    def bc_context(self, client, log_dir=None, jes=False):
+    def bc_context(self, client, log_dir=None, jes=False, keep_env=False):
         dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
+        c_mock = self.addContext(patch('subprocess.call'))
         if jes:
             co_return = 'system'
         else:
@@ -665,12 +666,17 @@ class TestBootContext(TestCase):
                                           'bar.jenv')
         dl_mock.assert_called_once_with(
             client, 'foo', log_dir, runtime_config=runtime_config)
+        if keep_env:
+            self.assertEqual(c_mock.call_count, 0)
+        else:
+            assert_juju_call(self, c_mock, client, (
+                'timeout', '600.00s', 'juju', '--show-log',
+                'destroy-environment', 'bar', '--force', '-y'))
 
     def test_bootstrap_context(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        c_mock = self.addContext(patch('subprocess.call'))
         with self.bc_context(client, 'log_dir'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
@@ -680,16 +686,12 @@ class TestBootContext(TestCase):
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'status', '-e', 'bar'), 1)
-        assert_juju_call(self, c_mock, client, (
-            'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
-            'bar', '--force', '-y'))
 
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        c_mock = self.addContext(patch('subprocess.call'))
-        with self.bc_context(client):
+        with self.bc_context(client, keep_env=True):
             with boot_context('bar', client, None, [], None, None, None, None,
                               keep_env=True, upload_tools=False):
                 pass
@@ -698,7 +700,6 @@ class TestBootContext(TestCase):
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'status', '-e', 'bar'), 1)
-        self.assertEqual(c_mock.call_count, 0)
 
     def test_upload_tools(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
