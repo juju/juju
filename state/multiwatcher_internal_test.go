@@ -647,6 +647,44 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 	}, "")
 }
 
+func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
+	b := newTestBacking([]multiwatcher.EntityInfo{
+		&multiwatcher.MachineInfo{EnvUUID: "uuid0", Id: "0"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "wordpress"},
+		&multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "logging"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "wordpress"},
+		&multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"},
+	})
+	sm := newStoreManager(b)
+	defer func() {
+		c.Check(sm.Stop(), gc.IsNil)
+	}()
+	w := &Multiwatcher{all: sm}
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid0", Id: "0"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "wordpress"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "wordpress"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"}},
+	}, "")
+	b.updateEntity(&multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0", InstanceId: "i-0"})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0", InstanceId: "i-0"}},
+	}, "")
+	b.deleteEntity(multiwatcher.EntityId{"machine", "uuid2", "0"})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Removed: true, Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"}},
+	}, "")
+	b.updateEntity(&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging", Exposed: true})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging", Exposed: true}},
+	}, "")
+}
+
 func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 	sm := newStoreManager(newTestBacking(nil))
 	defer func() {
