@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from contextlib import contextmanager
 from time import sleep
 
 from deploy_stack import (
@@ -31,6 +32,7 @@ def test_jes_deploy(client, charm_prefix, base_env):
     check_services(client, "env2")
 
 
+@contextmanager
 def jes_setup(args):
     """jes_setup sets up the juju client and its environment.
        It returns return client, charm_prefix and base_env"""
@@ -59,7 +61,7 @@ def jes_setup(args):
             ):
         if args.machines is not None:
             client.add_ssh_machines(args.machines)
-    return client, charm_prefix, base_env
+        yield client, charm_prefix, base_env
 
 
 def env_token(env_name):
@@ -109,8 +111,8 @@ def main():
     parser = ArgumentParser()
     add_basic_testing_arguments(parser)
     args = parser.parse_args()
-    client, charm_prefix, base_env = jes_setup(args)
-    test_jes_deploy(client, charm_prefix, base_env)
+    with jes_setup(args) as (client, charm_prefix, base_env):
+        test_jes_deploy(client, charm_prefix, base_env)
 
 
 if __name__ == '__main__':

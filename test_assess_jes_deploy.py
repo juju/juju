@@ -137,9 +137,10 @@ class TestJES(unittest.TestCase):
             juju_home='path/to/juju/home', machines=[0])
 
         # setup jes
-        client, charm_previx, base_env = jes_setup(setup_args)
+        with jes_setup(setup_args) as (client, charm_previx, base_env):
+            pass
 
-        # assert that jes_setup returns expected values
+        # assert that jes_setup provides expected values
         self.assertIs(client, expected_client)
         self.assertEqual(charm_previx, 'local:trusty/')
         self.assertEqual(base_env, 'baz')
