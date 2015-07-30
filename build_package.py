@@ -239,6 +239,14 @@ def make_changelog_message(version, bugs=None):
     return message
 
 
+def sign_source_package(build_dir, gpgcmd, debemail, debfullname):
+    env = dict(os.environ)
+    env['DEBEMAIL'] = debemail
+    env['DEBFULLNAME'] = debfullname
+    script = 'debsign -p {gpgcmd} *.changes'.format(gpgcmd=gpgcmd)
+    subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
+
+
 def create_source_package(build_dir, spb, series, version,
                           upatch='1', bugs=None, gpgcmd=None,
                           debemail=None, debfullname=None, verbose=False):

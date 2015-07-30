@@ -27,6 +27,7 @@ from build_package import (
     parse_dsc,
     setup_local,
     setup_lxc,
+    sign_source_package,
     SourceFile,
     teardown_lxc,
 )
@@ -336,8 +337,9 @@ class BuildPackageTestCase(unittest.TestCase):
             'New upstream stable point release. (LP #987, LP #876)',
             message)
 
+    @autopatch('build_package.sign_source_package')
     @autopatch('subprocess.check_call')
-    def test_create_source_package(self, cc_mock):
+    def test_create_source_package(self, cc_mock, ss_mock):
         create_source_package(
             '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
             '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
@@ -351,3 +353,14 @@ class BuildPackageTestCase(unittest.TestCase):
         env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
         cc_mock.assert_called_with(
             [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        self.assertEqual(0, ss_mock.call_count)
+
+    @autopatch('subprocess.check_call')
+    def test_sign_source_package(self, cc_mock):
+        sign_source_package(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+        env = dict(os.environ)
+        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        cc_mock.assert_called_with(
+            ['debsign -p /my/gpgcmd *.changes'],
+            shell=True, cwd='/juju-build-trusty-all', env=env)
