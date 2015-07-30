@@ -1,5 +1,3 @@
-__metaclass__ = type
-
 from contextlib import contextmanager
 from datetime import datetime
 from mock import patch
