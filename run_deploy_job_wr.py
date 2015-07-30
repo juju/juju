@@ -27,6 +27,7 @@ def main():
                 'artifacts/machine*/*log*',
                 'artifacts/*.jenv',
                 'artifacts/cache.yaml',
+                'artifacts/*.json',
                 ]},
             'bucket': 'juju-qa-data',
             }, config_file)

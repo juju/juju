@@ -28,6 +28,7 @@ from deploy_stack import (
     deploy_job_parse_args,
     destroy_environment,
     dump_env_logs,
+    dump_juju_timings,
     dump_logs,
     iter_remote_machines,
     get_remote_machines,
@@ -148,6 +149,18 @@ class DeployStackTestCase(TestCase):
         self.assertEqual('baz', env.config['bootstrap-host'])
         self.assertEqual('url', env.config['tools-metadata-url'])
         self.assertEqual('devel', env.config['agent-stream'])
+
+    def test_dump_juju_timings(self):
+        env = SimpleEnvironment('foo', {'type': 'bar'})
+        client = EnvJujuClient(env, None, None)
+        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        expected = {"juju op1": [1], "juju op2": [2]}
+        with temp_dir() as fake_dir:
+            dump_juju_timings(client, fake_dir)
+            with open(os.path.join(fake_dir,
+                      'juju_command_times.json')) as out_file:
+                file_data = json.load(out_file)
+        self.assertEqual(file_data, expected)
 
 
 class DumpEnvLogsTestCase(TestCase):
@@ -748,7 +761,7 @@ class TestBootContext(TestCase):
                               'log_dir', keep_env=False,
                               upload_tools=True):
                 pass
-        dl_mock.assert_called_once_with(client, 'baz', 'log_dir', None)
+        dl_mock.assert_called_once_with(client.env, 'baz', 'log_dir', None)
 
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))

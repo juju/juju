@@ -1133,6 +1133,14 @@ class TestEnvJujuClient(ClientTest):
                    return_value='system') as co_mock:
             self.assertTrue(client.is_jes_enabled())
 
+    def test_get_juju_timings(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        flattened_timings = client.get_juju_timings()
+        expected = {"juju op1": [1], "juju op2": [2]}
+        self.assertEqual(flattened_timings, expected)
+
 
 class TestUniquifyLocal(TestCase):
 
