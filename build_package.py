@@ -83,7 +83,7 @@ bzr bd -S -- -us -uc
 """
 
 
-UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~${release}.${upatch}~juju1'
+UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
 
 
 STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
@@ -217,6 +217,12 @@ def create_source_package_branch(build_dir, version, tarfile, branch):
     return spb
 
 
+def make_ubuntu_version(series, version, upatch=1):
+    release = JujuSeries().get_version(series)
+    return UBUNTU_VERSION_TEMPLATE.format(
+        version=version, release=release, upatch=upatch)
+
+
 def make_changelog_message(version, bugs=None):
     match = STABLE_PATTERN.match(version)
     if match is None:
@@ -234,15 +240,16 @@ def make_changelog_message(version, bugs=None):
 def create_source_package(build_dir, spb, series, version,
                           upatch='1', bugs=None, gpgcmd=None,
                           debemail=None, debfullname=None, verbose=False):
-    release = JujuSeries().get_version(series)
-    ubuntu_version = UBUNTU_VERSION_TEMPLATE.format(
-        version=version, release=release, upatch=upatch)
-    source = os.path.join(build_dir, version)
+    ubuntu_version = make_ubuntu_version(series, version, upatch)
     message = make_changelog_message(version)
+    source = os.path.join(build_dir, version)
+    env = dict(os.environ)
+    env['DEBEMAIL'] = debemail
+    env['DEBFULLNAME'] = debfullname
     script = BUILD_SOURCE_TEMPLATE.format(
         spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
         message=message)
-    subprocess.check_call([script], shell=True, cwd=build_dir)
+    subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
     return None
 
 

@@ -20,6 +20,7 @@ from build_package import (
     get_args,
     main,
     make_changelog_message,
+    make_ubuntu_version,
     move_debs,
     parse_dsc,
     setup_local,
@@ -302,18 +303,6 @@ class BuildPackageTestCase(unittest.TestCase):
             './workspace', 'trusty', 'all', [], verbose=False)
         self.assertEqual(0, return_code)
 
-    def test_make_changelog_message(self):
-        message = make_changelog_message('1.2.0')
-        self.assertEqual('New upstream stable release.', message)
-        message = make_changelog_message('1.2.3')
-        self.assertEqual('New upstream stable point release.', message)
-        message = make_changelog_message('1.2-a')
-        self.assertEqual('New upstream devel release.', message)
-        message = make_changelog_message('1.2.3', ['987', '876'])
-        self.assertEqual(
-            'New upstream stable point release. (LP #987, LP #876)',
-            message)
-
     @autopatch('subprocess.check_call')
     def test_create_source_package_branch(self, cc_mock):
         spb = create_source_package_branch(
@@ -326,3 +315,24 @@ class BuildPackageTestCase(unittest.TestCase):
             version='1.2.3')
         cc_mock.assert_called_with(
             [script], shell=True, cwd='juju-build-any-all')
+
+    def test_make_ubuntu_version(self):
+        ubuntu_version = make_ubuntu_version('trusty', '1.2.3')
+        self.assertEqual('1.2.3-0ubuntu1~14.04.1~juju1', ubuntu_version)
+        ubuntu_version = make_ubuntu_version('precise', '1.22-alpha1', '8')
+        self.assertEqual('1.22-alpha1-0ubuntu1~12.04.8~juju1', ubuntu_version)
+
+    def test_make_changelog_message(self):
+        message = make_changelog_message('1.2.0')
+        self.assertEqual('New upstream stable release.', message)
+        message = make_changelog_message('1.2.3')
+        self.assertEqual('New upstream stable point release.', message)
+        message = make_changelog_message('1.2-a')
+        self.assertEqual('New upstream devel release.', message)
+        message = make_changelog_message('1.2.3', ['987', '876'])
+        self.assertEqual(
+            'New upstream stable point release. (LP #987, LP #876)',
+            message)
+
+    def test_create_source_package(self):
+        pass
