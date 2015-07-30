@@ -4,11 +4,14 @@
 package user_test
 
 import (
+	"io/ioutil"
 	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
@@ -24,6 +27,7 @@ var _ = gc.Suite(&UserCommandSuite{})
 var expectedUserCommmandNames = []string{
 	"add",
 	"change-password",
+	"credentials",
 	"disable",
 	"enable",
 	"help",
@@ -40,11 +44,11 @@ func (s *UserCommandSuite) TestHelp(c *gc.C) {
 }
 
 type BaseSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
@@ -67,4 +71,19 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.ReadPassword, func() (string, error) {
 		return "sekrit", nil
 	})
+	err = envcmd.WriteCurrentSystem("testing")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BaseSuite) assertServerFileMatches(c *gc.C, serverfile, username, password string) {
+	yaml, err := ioutil.ReadFile(serverfile)
+	c.Assert(err, jc.ErrorIsNil)
+	var content envcmd.ServerFile
+	err = goyaml.Unmarshal(yaml, &content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(content.Username, gc.Equals, username)
+	c.Assert(content.Password, gc.Equals, password)
+	c.Assert(content.CACert, gc.Equals, testing.CACert)
+	c.Assert(content.Addresses, jc.DeepEquals, []string{"127.0.0.1:12345"})
 }

@@ -167,7 +167,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 			info.APIEndpoint().Addresses,
 		)
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(store, info, apiOpen, stop)
+			return apiInfoConnect(info, apiOpen, stop)
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -272,7 +272,7 @@ func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}) (apiState, error) {
+func apiInfoConnect(info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}) (apiState, error) {
 	endpoint := info.APIEndpoint()
 	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
@@ -281,11 +281,8 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	var environTag names.EnvironTag
 	if names.IsValidEnvironment(endpoint.EnvironUUID) {
 		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
-	} else {
-		// For backwards-compatibility, we have to allow connections
-		// with an empty UUID. Login will work for the same reasons.
-		logger.Warningf("ignoring invalid API endpoint environment UUID %v", endpoint.EnvironUUID)
 	}
+
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
@@ -319,6 +316,7 @@ func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struc
 	if err != nil {
 		return nil, err
 	}
+
 	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
 	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {

@@ -272,8 +272,9 @@ type historicalStatusDoc struct {
 	EntityId   string
 }
 
-func newHistoricalStatusDoc(s statusDoc, entityId string) *historicalStatusDoc {
+func newHistoricalStatusDoc(id int, s statusDoc, entityId string) *historicalStatusDoc {
 	return &historicalStatusDoc{
+		Id:         id,
 		EnvUUID:    s.EnvUUID,
 		Status:     s.Status,
 		StatusInfo: s.StatusInfo,
@@ -288,15 +289,11 @@ func updateStatusHistory(oldDoc statusDoc, globalKey string, st *State) error {
 	if err != nil {
 		errors.Annotatef(err, "cannot make id updating status history of unit agent %q", globalKey)
 	}
-	hDoc := newHistoricalStatusDoc(oldDoc, globalKey)
-
-	h := txn.Op{
-		C:      statusesHistoryC,
-		Id:     id,
-		Insert: hDoc,
-	}
-
-	err = st.runTransaction([]txn.Op{h})
+	hDoc := newHistoricalStatusDoc(id, oldDoc, globalKey)
+	history, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+	err = historyW.Insert(hDoc)
 	return errors.Annotatef(err, "cannot update status history of unit agent %q", globalKey)
 }
 
@@ -555,20 +552,11 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // updateStatusOp returns the operations needed to update the given
 // status document associated with the given globalKey.
 func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
-	// never $set the actual statusDoc received as it might wipe envuuid field
-	// that is set automatically upon insertion.
-	// See #1474606.
-	updateFields := bson.D{
-		{"status", doc.Status},
-		{"statusinfo", doc.StatusInfo},
-		{"statusdata", doc.StatusData},
-		{"updated", doc.Updated},
-	}
 	return txn.Op{
 		C:      statusesC,
 		Id:     st.docID(globalKey),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", updateFields}},
+		Update: bson.D{{"$set", &doc}},
 	}
 }
 
@@ -587,9 +575,7 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 	history, closer := st.getCollection(statusesHistoryC)
 	defer closer()
-	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
-	// txn and non-txn operations in the same collection without clear and
-	// detailed reasoning for so doing.
+
 	historyW := history.Writeable()
 
 	globalKeys, err := getEntitiesWithStatuses(historyW)

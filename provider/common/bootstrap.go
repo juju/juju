@@ -238,8 +238,9 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 	done := make(chan error, 1)
 	var lastErr error
 	for {
+		address := hc.addr.Value
 		go func() {
-			done <- connectSSH(hc.client, hc.addr.Value, hc.checkHostScript)
+			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
 		select {
 		case <-hc.closed:
@@ -249,6 +250,8 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
+			} else {
+				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
 		}
 		select {

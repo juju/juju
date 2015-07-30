@@ -16,9 +16,10 @@ var (
 	StateToolsStorage         = &stateToolsStorage
 	AddAZToInstData           = &addAZToInstData
 
-	ChownPath      = &chownPath
-	IsLocalEnviron = &isLocalEnviron
-	OsRemove       = &osRemove
+	ChownPath       = &chownPath
+	IsLocalEnviron  = &isLocalEnviron
+	OsRemove        = &osRemove
+	ExecRunCommands = &execRunCommands
 
 	// 118 upgrade functions
 	StepsFor118                            = stepsFor118
@@ -50,4 +51,6 @@ var (
 
 	// 125 upgrade functions
 	AddInstanceTags = addInstanceTags
+	RemoveJujudpass = removeJujudpass
+	AddJujuRegKey   = addJujuRegKey
 )

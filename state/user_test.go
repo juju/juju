@@ -72,7 +72,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	exists, err := state.CheckUserExists(s.State, user.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
@@ -82,13 +82,13 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 }
 
 func (s *UserSuite) TestString(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "foo"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
 	c.Assert(user.String(), gc.Equals, "foo@local")
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.LastLogin().After(now) ||
@@ -96,14 +96,14 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.User(user.UserTag())
 	})
 }
 
 func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	salt, hash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(hash, gc.Not(gc.Equals), "")
 	c.Assert(salt, gc.Not(gc.Equals), "")
@@ -112,7 +112,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	origSalt, origHash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(origSalt, gc.Not(gc.Equals), "")
 	user.SetPassword("a-password")
@@ -124,7 +124,7 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestDisable(c *gc.C) {
-	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 
 	err := user.Disable()
@@ -139,7 +139,7 @@ func (s *UserSuite) TestDisable(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
 	err := user.SetPasswordHash(compatHash, "")
@@ -203,7 +203,7 @@ func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 }
 
 func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
-	s.factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
 
 	_, err := s.State.AddUser(
 		"boB", "ignored", "ignored", "ignored")
@@ -212,7 +212,7 @@ func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
 }
 
 func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {
-	expectedUser := s.factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+	expectedUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
 
 	assertCaseInsensitiveLookup := func(name string) {
 		userTag := names.NewUserTag(name)
@@ -229,12 +229,12 @@ func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {
 
 func (s *UserSuite) TestAllUsers(c *gc.C) {
 	// Create in non-alphabetical order.
-	s.factory.MakeUser(c, &factory.UserParams{Name: "conrad"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "adam"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "debbie", Disabled: true})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "erica"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "conrad"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "adam"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "debbie", Disabled: true})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "erica"})
 	// There is the existing state server owner called "test-admin"
 
 	includeDeactivated := false
