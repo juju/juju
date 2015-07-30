@@ -96,20 +96,25 @@ STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
 Series = namedtuple('Series', ['version', 'name', 'status'])
 
 
+# This constant defines the status of the series supported by CI and Releases.
+SUPPORTED_RELEASES = """\
+12.04 precise LTS
+12.10 quantal HISTORIC
+13.10 saucy HISTORIC
+14.04 trusty LTS
+14.10 utopic HISTORIC
+15.04 vivid SUPPORTED
+15.10 wily DEVEL
+"""
+
+
 class JujuSeries:
 
     LIVING_STATUSES = ('DEVEL', 'SUPPORTED', 'LTS')
 
-    def __init__(self, data_path=None):
+    def __init__(self):
         self.all = {}
-        if data_path is None:
-            data_path = os.path.join(
-                os.path.dirname(__file__), 'supported-releases.txt')
-        with open(data_path) as f:
-            data = f.read()
-        for line in data.splitlines():
-            if line.startswith('#'):
-                continue
+        for line in SUPPORTED_RELEASES.splitlines():
             series = Series(*line.split())
             self.all[series.name] = series
 
