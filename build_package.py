@@ -3,6 +3,8 @@
 
 from __future__ import print_function
 
+__metaclass__ = type
+
 from argparse import ArgumentParser
 from collections import namedtuple
 import os
@@ -10,8 +12,6 @@ import re
 import shutil
 import subprocess
 import sys
-
-from utils import JujuSeries
 
 
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
@@ -91,6 +91,34 @@ UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
 
 
 STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
+
+
+Series = namedtuple('Series', ['version', 'name', 'status'])
+
+
+class JujuSeries:
+
+    LIVING_STATUSES = ('DEVEL', 'SUPPORTED', 'LTS')
+
+    def __init__(self, data_path=None):
+        self.all = {}
+        if data_path is None:
+            data_path = os.path.join(
+                os.path.dirname(__file__), 'supported-releases.txt')
+        with open(data_path) as f:
+            data = f.read()
+        for line in data.splitlines():
+            if line.startswith('#'):
+                continue
+            series = Series(*line.split())
+            self.all[series.name] = series
+
+    def get_living_names(self):
+        return sorted(s.name for s in self.all.values()
+                      if s.status in self.LIVING_STATUSES)
+
+    def get_version(self, name):
+        return self.all[name].version
 
 
 def parse_dsc(dsc_path, verbose=False):
