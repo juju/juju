@@ -23,6 +23,7 @@ from build_package import (
     JujuSeries,
     main,
     make_changelog_message,
+    make_deb_shell_env,
     make_ubuntu_version,
     move_debs,
     parse_dsc,
@@ -370,8 +371,7 @@ class BuildPackageTestCase(unittest.TestCase):
             source='/juju-build-trusty-all/1.2.3',
             series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
             message='New upstream stable point release. (LP #987)')
-        env = dict(os.environ)
-        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        env = make_deb_shell_env('me@email', 'me')
         cc_mock.assert_called_with(
             [script], shell=True, cwd='/juju-build-trusty-all', env=env)
         self.assertEqual(0, ss_mock.call_count)
@@ -388,8 +388,7 @@ class BuildPackageTestCase(unittest.TestCase):
             source='/juju-build-trusty-all/1.2.3',
             series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
             message='New upstream stable point release. (LP #987)')
-        env = dict(os.environ)
-        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        env = make_deb_shell_env('me@email', 'me')
         cc_mock.assert_called_with(
             [script], shell=True, cwd='/juju-build-trusty-all', env=env)
         ss_mock.assert_called_with(
@@ -399,8 +398,7 @@ class BuildPackageTestCase(unittest.TestCase):
     def test_sign_source_package(self, cc_mock):
         sign_source_package(
             '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
-        env = dict(os.environ)
-        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        env = make_deb_shell_env('me@email', 'me')
         cc_mock.assert_called_with(
             ['debsign -p /my/gpgcmd *.changes'],
             shell=True, cwd='/juju-build-trusty-all', env=env)

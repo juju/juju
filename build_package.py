@@ -275,7 +275,7 @@ def make_changelog_message(version, bugs=None):
     return message
 
 
-def get_deb_shell_env(debemail, debfullname):
+def make_deb_shell_env(debemail, debfullname):
     env = dict(os.environ)
     env['DEBEMAIL'] = debemail
     env['DEBFULLNAME'] = debfullname
@@ -283,7 +283,7 @@ def get_deb_shell_env(debemail, debfullname):
 
 
 def sign_source_package(build_dir, gpgcmd, debemail, debfullname):
-    env = get_deb_shell_env(debemail, debfullname)
+    env = make_deb_shell_env(debemail, debfullname)
     script = DEBSIGN_TEMPLATE.format(gpgcmd=gpgcmd)
     subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
 
@@ -294,7 +294,7 @@ def create_source_package(build_dir, spb, series, version,
     ubuntu_version = make_ubuntu_version(series, version, upatch)
     message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(build_dir, version)
-    env = get_deb_shell_env(debemail, debfullname)
+    env = make_deb_shell_env(debemail, debfullname)
     script = BUILD_SOURCE_TEMPLATE.format(
         spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
         message=message)
