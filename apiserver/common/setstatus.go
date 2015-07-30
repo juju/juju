@@ -55,12 +55,19 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 		// it isn't); and, in practice, it's always going to be the calling
 		// unit (because, /sigh, we don't actually use service tags to refer
 		// to services in this method).
-		unitTag, err := names.ParseUnitTag(arg.Tag)
+		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		if !canModify(unitTag) {
+		if !canModify(tag) {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		unitTag, ok := tag.(names.UnitTag)
+		if !ok {
+			// No matter what the canModify says, if this entity is not
+			// a unit, we say "NO".
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
