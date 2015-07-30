@@ -548,10 +548,7 @@ func (context *statusContext) processServices() map[string]api.ServiceStatus {
 	return servicesMap
 }
 
-func (context *statusContext) processService(
-	service *state.Service,
-) (status api.ServiceStatus) {
-
+func (context *statusContext) processService(service *state.Service) (status api.ServiceStatus) {
 	serviceCharmURL, _ := service.CharmURL()
 	status.Charm = serviceCharmURL.String()
 	status.Exposed = service.IsExposed()
@@ -592,12 +589,7 @@ func (context *statusContext) processService(
 		}
 	}
 	if service.IsPrincipal() {
-		unitStatus, err := context.processUnits(context.units[service.Name()], serviceCharmURL.String())
-		if err != nil {
-			status.Err = err
-			return
-		}
-		status.Units = unitStatus
+		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
 		serviceStatus, err := service.Status()
 		if err != nil {
 			status.Err = err
@@ -611,12 +603,12 @@ func (context *statusContext) processService(
 	return status
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) (map[string]api.UnitStatus, error) {
+func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]api.UnitStatus {
 	unitsMap := make(map[string]api.UnitStatus)
 	for _, unit := range units {
 		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
 	}
-	return unitsMap, nil
+	return unitsMap
 }
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {

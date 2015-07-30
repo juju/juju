@@ -231,9 +231,8 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 
 type unitStatus struct {
 	// New Juju Health Status fields.
-	WorkloadStatusInfo statusInfoContents     `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
-	AgentStatusInfo    statusInfoContents     `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
-	Components         map[string]interface{} `json:"components,omitempty" yaml:"components,omitempty"`
+	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
 
 	// Legacy status fields, to be removed in Juju 2.0
 	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
@@ -242,11 +241,12 @@ type unitStatus struct {
 	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
 
-	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
-	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	Charm         string                 `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                 `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string               `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                 `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus  `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	Components    map[string]interface{} `json:"components,omitempty" yaml:"components,omitempty"`
 }
 
 type statusInfoContents struct {
@@ -467,15 +467,10 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 
 	if len(unit.Components) > 0 {
 		out.Components = map[string]interface{}{}
-	}
-
-	for component, status := range unit.Components {
-		formatter := unitStatusFormatters[component]
-		out.Components[component] = formatter(status.Bytes())
-	}
-
-	if len(out.Components) == 0 {
-		out.Components = nil
+		for component, status := range unit.Components {
+			formatter := unitStatusFormatters[component]
+			out.Components[component] = formatter(status.Bytes())
+		}
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
