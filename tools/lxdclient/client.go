@@ -21,6 +21,7 @@ type Client struct {
 	*certClient
 	*profileClient
 	*instanceClient
+	*imageClient
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -44,6 +45,7 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
+		imageClient:	    &imageClient{raw},
 	}
 	return conn, nil
 }

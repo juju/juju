@@ -52,6 +52,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Values: []interface{}{
 			string(instance.LXC),
+			string(instance.LXD),
 			string(instance.KVM),
 		},
 	},

@@ -337,7 +337,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
-	if containerType != instance.LXC && containerType != instance.KVM {
+	if containerType != instance.LXC && containerType != instance.LXD && containerType != instance.KVM {
 		return nil, errors.Errorf("unsupported container type: %q", containerType)
 	}
 	dir, err := utils.NormalizePath(localConfig.rootDir())

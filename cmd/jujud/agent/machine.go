@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -961,6 +962,12 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
+
+	supportsLXD := lxd.IsLXDSupported()
+	if supportsLXD {
+		supportedContainers = append(supportedContainers, instance.LXD)
+	}
+
 	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)
 }
 
