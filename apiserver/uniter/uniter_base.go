@@ -18,7 +18,6 @@ import (
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -97,13 +96,16 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
-		StatusAPI:                  NewStatusAPI(st, accessUnitOrService),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
 		EnvironWatcher:             common.NewEnvironWatcher(st, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
+
+		// TODO(fwereade): so *every* unit should be allowed to
+		// get/set its own status *and* its service's? FFS.
+		StatusAPI: NewStatusAPI(st, accessUnitOrService),
 
 		st:            st,
 		auth:          authorizer,
@@ -1551,46 +1553,27 @@ func leadershipSettingsAccessorFactory(
 		if _, ok := <-settingsWatcher.Changes(); ok {
 			return resources.Register(settingsWatcher), nil
 		}
-
 		return "", watcher.EnsureErr(settingsWatcher)
 	}
-	// TODO(katco-): <2015-01-21 Wed>
-	// Due to time constraints, we're translating between
-	// map[string]interface{} and map[string]string. At some point we
-	// should support a native read of this format straight from
-	// state.
 	getSettings := func(serviceId string) (map[string]string, error) {
-		settings, err := st.ReadLeadershipSettings(serviceId)
+		service, err := st.Service(serviceId)
 		if err != nil {
 			return nil, err
 		}
-		// Perform the conversion
-		rawMap := settings.Map()
-		leadershipSettings := make(map[string]string)
-		for k, v := range rawMap {
-			leadershipSettings[k] = v.(string)
-		}
-		return leadershipSettings, nil
+		return service.LeaderSettings()
 	}
-	writeSettings := func(serviceId string, settings map[string]string) error {
-		currentSettings, err := st.ReadLeadershipSettings(serviceId)
+	writeSettings := func(token leadership.Token, serviceId string, settings map[string]string) error {
+		service, err := st.Service(serviceId)
 		if err != nil {
 			return err
 		}
-		rawSettings := make(map[string]interface{})
-		for k, v := range settings {
-			rawSettings[k] = v
-		}
-		currentSettings.Update(rawSettings)
-		_, err = currentSettings.Write()
-		return errors.Annotate(err, "could not write changes")
+		return service.UpdateLeaderSettings(token, settings)
 	}
-	ldrMgr := leadership.NewLeadershipManager(lease.Manager())
 	return leadershipapiserver.NewLeadershipSettingsAccessor(
 		auth,
 		registerWatcher,
 		getSettings,
+		st.LeadershipChecker().LeadershipCheck,
 		writeSettings,
-		ldrMgr.Leader,
 	)
 }

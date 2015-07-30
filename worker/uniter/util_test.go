@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -82,7 +81,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
-	leader        *leadership.Manager
+	leaderClaimer leadership.Claimer
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -122,14 +121,6 @@ func (ctx *context) setExpectedError(err string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	lease, err := lease.NewLeaseManager(ctx.st)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		lease.Kill()
-		c.Assert(lease.Wait(), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -157,7 +148,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.api, err = st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
-	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
+	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -466,7 +457,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock, s.executorFunc)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leaderClaimer, ctx.dataDir, lock, s.executorFunc)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1432,11 +1423,12 @@ func (forceMinion) step(c *gc.C, ctx *context) {
 	// (in addition to working just fine when the uniter's not running).
 	for i := 0; i < 3; i++ {
 		c.Logf("deposing local unit (attempt %d)", i)
-		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		leaseClock.Advance(61 * time.Second)
+		time.Sleep(coretesting.ShortWait)
 		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), otherLeader, time.Minute)
 		if err == nil {
+			ctx.s.BackingState.StartSync()
 			return
 		} else if errors.Cause(err) != leadership.ErrClaimDenied {
 			c.Assert(err, jc.ErrorIsNil)
@@ -1449,11 +1441,12 @@ type forceLeader struct{}
 
 func (forceLeader) step(c *gc.C, ctx *context) {
 	c.Logf("deposing other unit")
-	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
-	c.Assert(err, jc.ErrorIsNil)
+	leaseClock.Advance(61 * time.Second)
+	time.Sleep(coretesting.ShortWait)
 	c.Logf("promoting local unit")
-	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
 }
 
 type setLeaderSettings map[string]string

@@ -14,6 +14,7 @@ import (
 	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ClaimLeadershipSuite struct {
@@ -29,7 +30,7 @@ func (s *ClaimLeadershipSuite) TestClaimLease_Success(c *gc.C) {
 			args:   []interface{}{"redis", lease.Request{"redis/0", time.Minute}},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -52,7 +53,7 @@ func (s *ClaimLeadershipSuite) TestClaimLease_Success_SameHolder(c *gc.C) {
 			args:   []interface{}{"redis", lease.Request{"redis/0", time.Minute}},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -72,7 +73,7 @@ func (s *ClaimLeadershipSuite) TestClaimLease_Failure_OtherHolder(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, gc.Equals, coreleadership.ErrClaimDenied)
 	})
@@ -87,7 +88,7 @@ func (s *ClaimLeadershipSuite) TestClaimLease_Failure_Error(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, gc.ErrorMatches, "leadership manager stopped")
 		err = manager.Wait()
@@ -108,7 +109,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Success(c *gc.C) {
 			args:   []interface{}{"redis", lease.Request{"redis/0", time.Minute}},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -134,7 +135,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Success_Expired(c *gc.C) {
 			args:   []interface{}{"redis", lease.Request{"redis/0", time.Minute}},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -160,7 +161,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, gc.Equals, coreleadership.ErrClaimDenied)
 	})
@@ -181,7 +182,7 @@ func (s *ClaimLeadershipSuite) TestExtendLease_Failure_Error(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, gc.ErrorMatches, "leadership manager stopped")
 		err = manager.Wait()
@@ -198,7 +199,7 @@ func (s *ClaimLeadershipSuite) TestOtherHolder_Failure(c *gc.C) {
 			},
 		},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Check(err, gc.Equals, coreleadership.ErrClaimDenied)
 	})
