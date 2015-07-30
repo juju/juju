@@ -195,6 +195,11 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
+// Processes returns the UnitProcesses for this unit.
+func (u *Unit) Processes() (UnitProcesses, error) {
+	return u.st.UnitProcesses(u.UnitTag())
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies errors.IsNotFound if the tools have not
 // yet been set.

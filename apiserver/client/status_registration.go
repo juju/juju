@@ -7,12 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 // StatusProviderForUnitFn is a function which returns a structured
 // (e.g. json, yaml, etc.) string representation of the status.
-type StatusProviderForUnitFn func(*state.State, names.UnitTag) (interface{}, error)
+type StatusProviderForUnitFn func(*state.Unit) (interface{}, error)
 
 // statusProvidersForUnits contains all registered statusProviders.
 var statusProvidersForUnits = map[string]StatusProviderForUnitFn{}

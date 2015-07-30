@@ -151,8 +151,8 @@ func (workloadProcesses) registerState() {
 
 func (workloadProcesses) registerUnitStatus() {
 	apiserverclient.RegisterStatusProviderForUnits(process.ComponentName,
-		func(st *state.State, unit names.UnitTag) (interface{}, error) {
-			up, err := st.UnitProcesses(unit)
+		func(unit *state.Unit) (interface{}, error) {
+			up, err := unit.Processes()
 			if err != nil {
 				return nil, err
 			}
