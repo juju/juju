@@ -292,7 +292,6 @@ func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 
 func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
 	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()

@@ -383,10 +383,6 @@ func (ctx *HookContext) OpenedPorts() []network.PortRange {
 	return unitRanges
 }
 
-func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner.String()
-}
-
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error

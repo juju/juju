@@ -62,7 +62,6 @@ type contextFactory struct {
 	envUUID    string
 	envName    string
 	machineTag names.MachineTag
-	ownerTag   names.UserTag
 	storage    StorageContextAccessor
 
 	// Callback to get relation state snapshot.
@@ -89,14 +88,6 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	service, err := state.Service(unit.ServiceTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ownerTag, err := service.OwnerTag()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	machineTag, err := unit.AssignedMachine()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -113,7 +104,6 @@ func NewContextFactory(
 		envUUID:          environment.UUID(),
 		envName:          environment.Name(),
 		machineTag:       machineTag,
-		ownerTag:         ownerTag,
 		getRelationInfos: getRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
 		storage:          storage,
@@ -142,7 +132,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		envName:            f.envName,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,
-		serviceOwner:       f.ownerTag,
 		relations:          f.getContextRelations(),
 		relationId:         -1,
 		metricsRecorder:    nil,
