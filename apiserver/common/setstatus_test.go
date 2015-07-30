@@ -232,8 +232,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 	c.Assert(status.Error, gc.ErrorMatches, ".* is not leader of .*")
 }
 
-func (s *serviceStatusSetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
-	// If the unit isn't the leader, it can't get it.
+func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &state.StatusInfo{
 		Status: state.StatusMaintenance,
 	}})

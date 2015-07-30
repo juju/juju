@@ -144,10 +144,6 @@ func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
-// fakeToken implements leadership.Token.
-type fakeToken struct{}
-
-// Check is part of the leadership.Token interface.
-func (*fakeToken) Check(out interface{}) error {
-	panic("this is a fake")
+type fakeToken struct {
+	coreleadership.Token
 }

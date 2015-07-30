@@ -46,21 +46,6 @@ var _ = gc.Suite(&UniterSuite{})
 
 var leaseClock *coretesting.Clock
 
-func init() {
-	// TODO(fwereade): lp:1479653
-	// This is clearly evil, but less evil than failing to test the uniter's
-	// response to leadership changes.
-	zone, err := time.LoadLocation("")
-	if err != nil {
-		panic(err)
-	}
-	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = coretesting.NewClock(now)
-	state.GetClock = func() lease.Clock {
-		return leaseClock
-	}
-}
-
 // This guarantees that we get proper platform
 // specific error directly from their source
 // This works on both windows and unix
@@ -82,6 +67,16 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
+
+	zone, err := time.LoadLocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	oldGetClock := state.GetClock
+	state.GetClock = func() lease.Clock {
+		return leaseClock
+	}
+	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
