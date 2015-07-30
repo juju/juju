@@ -31,6 +31,17 @@ func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
 	return aw, nil
 }
 
+// SetUp is part of the StringsWorker interface.
+func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
+	// WatchIPAddresses returns an EntityWatcher which is a StringsWatcher.
+	return a.api.WatchIPAddresses()
+}
+
+// TearDown is part of the StringsWorker interface.
+func (a *addresserHandler) TearDown() error {
+	return nil
+}
+
 // Handle is part of the StringsWorker interface.
 func (a *addresserHandler) Handle(watcherTags []string) error {
 	// Convert received tag strings into tags.
@@ -71,16 +82,5 @@ func (a *addresserHandler) Handle(watcherTags []string) error {
 		return errors.Annotate(err, "cannot remove all released IP addresses")
 	}
 	logger.Debugf("removed released IP addresses")
-	return nil
-}
-
-// SetUp is part of the StringsWorker interface.
-func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
-	// WatchIPAddresses returns an EntityWatche which is a StringsWatcher.
-	return a.api.WatchIPAddresses()
-}
-
-// TearDown is part of the StringsWorker interface.
-func (a *addresserHandler) TearDown() error {
 	return nil
 }

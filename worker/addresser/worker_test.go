@@ -87,7 +87,7 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 }
 
 func dummyListen() chan dummy.Operation {
-	opsChan := make(chan dummy.Operation, 10)
+	opsChan := make(chan dummy.Operation, 25)
 	dummy.Listen(opsChan)
 	return opsChan
 }
@@ -211,27 +211,32 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
+	// Add special test machine.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "really-fake", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9"), "foobar")
+	// Add a new alive address.
+	addr := network.NewAddress("0.1.2.9")
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = addr.AllocateTo(machine.Id(), "foo", "")
+	err = ipAddr.AllocateTo(machine.Id(), "foo", "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.InstanceId(), gc.Equals, instance.Id("foo"))
-	s.State.StartSync()
+	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
+
+	// Wait some time and remove test machine again.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+	}
 
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = addr.Refresh()
+	err = ipAddr.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Life(), gc.Equals, state.Dead)
+	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
 
 	// Wait for ReleaseAddress attempt.
 	op := waitForReleaseOp(c, opsChan)
