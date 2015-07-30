@@ -13,7 +13,9 @@ from build_package import (
     BUILD_DEB_TEMPLATE,
     build_in_lxc,
     build_source,
+    BUILD_SOURCE_TEMPLATE,
     CREATE_LXC_TEMPLATE,
+    create_source_package,
     create_source_package_branch,
     CREATE_SPB_TEMPLATE,
     DEFAULT_SPB,
@@ -334,5 +336,18 @@ class BuildPackageTestCase(unittest.TestCase):
             'New upstream stable point release. (LP #987, LP #876)',
             message)
 
-    def test_create_source_package(self):
-        pass
+    @autopatch('subprocess.check_call')
+    def test_create_source_package(self, cc_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
+            debemail='me@email', debfullname='me', verbose=False)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/1.2.3',
+            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
+            message='New upstream stable point release. (LP #987)')
+        env = dict(os.environ)
+        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)

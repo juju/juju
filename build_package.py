@@ -66,6 +66,7 @@ EOT
 
 
 CREATE_SPB_TEMPLATE = """\
+set -eux
 bzr branch {branch} {spb}
 cd {spb}
 bzr import-upstream {version} {tarfile_path}
@@ -75,6 +76,7 @@ bzr commit -m "Merged upstream-{version}."
 
 
 BUILD_SOURCE_TEMPLATE = """\
+set -eux
 bzr branch {spb} {source}
 cd {source}
 dch --newversion {ubuntu_version} -D {series} "{message}"
@@ -241,7 +243,7 @@ def create_source_package(build_dir, spb, series, version,
                           upatch='1', bugs=None, gpgcmd=None,
                           debemail=None, debfullname=None, verbose=False):
     ubuntu_version = make_ubuntu_version(series, version, upatch)
-    message = make_changelog_message(version)
+    message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(build_dir, version)
     env = dict(os.environ)
     env['DEBEMAIL'] = debemail
