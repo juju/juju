@@ -224,6 +224,7 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 // client will have been updated and we'll see fresh info when we scan for new
 // expiries next time through the loop. It will return only unrecoverable errors.
 func (manager *manager) expire() error {
+	logger.Debugf("expiring leases...")
 	client := manager.config.Client
 	leases := client.Leases()
 

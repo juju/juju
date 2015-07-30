@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ExpireLeadershipSuite struct {
@@ -34,7 +35,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *Clock) {})
+	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *coretesting.Clock) {})
 }
 
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
@@ -43,7 +44,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 			"redis": lease.Info{Expiry: offset(time.Second)},
 		},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(almostSeconds(1))
 	})
 }
@@ -61,7 +62,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(time.Second)
 	})
 }
@@ -80,7 +81,7 @@ func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(time.Second)
 	})
 }
@@ -99,7 +100,7 @@ func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(time.Second)
 	})
 }
@@ -116,7 +117,7 @@ func (s *ExpireLeadershipSuite) TestExpire_OtherError(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(time.Second)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "snarfblat hobalob")
@@ -136,7 +137,7 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -163,7 +164,7 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -190,7 +191,7 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -223,7 +224,7 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +276,7 @@ func (s *ExpireLeadershipSuite) TestExpire_Multiple(c *gc.C) {
 		}},
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		clock.Advance(5 * time.Second)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "what is this\\?")

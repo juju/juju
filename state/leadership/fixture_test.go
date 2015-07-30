@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/testing"
 )
 
 var (
@@ -67,8 +68,8 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *Clock)) {
-	clock := NewClock(defaultClockStart)
+func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testing.Clock)) {
+	clock := testing.NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
 		Clock:  clock,
