@@ -17,11 +17,11 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	cmdaction "github.com/juju/juju/cmd/juju/action"
-	cmdjuju "github.com/juju/juju/cmd/juju/commands"
-	cmdenv "github.com/juju/juju/cmd/juju/environment"
-	cmdmachine "github.com/juju/juju/cmd/juju/machine"
-	cmdservice "github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/juju/environment"
+	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/component/all"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/process"
@@ -446,27 +446,27 @@ func initJuju(c *gc.C) {
 func lookUpCommand(cmd string) cmd.Command {
 	switch cmd {
 	case "bootstrap":
-		return envcmd.Wrap(&cmdjuju.BootstrapCommand{})
+		return envcmd.Wrap(&commands.BootstrapCommand{})
 	case "environment set":
-		return envcmd.Wrap(&cmdenv.SetCommand{})
+		return envcmd.Wrap(&environment.SetCommand{})
 	case "destroy-environment":
-		return &cmdjuju.DestroyEnvironmentCommand{}
+		return &commands.DestroyEnvironmentCommand{}
 	case "status":
-		return envcmd.Wrap(&cmdjuju.StatusCommand{})
+		return envcmd.Wrap(&commands.StatusCommand{})
 	case "add-machine":
-		return envcmd.Wrap(&cmdmachine.AddCommand{})
+		return envcmd.Wrap(&machine.AddCommand{})
 	case "deploy":
-		return envcmd.Wrap(&cmdjuju.DeployCommand{})
+		return envcmd.Wrap(&commands.DeployCommand{})
 	case "service set":
-		return envcmd.Wrap(&cmdservice.SetCommand{})
+		return envcmd.Wrap(&service.SetCommand{})
 	case "service add-unit":
-		return envcmd.Wrap(&cmdservice.AddUnitCommand{})
+		return envcmd.Wrap(&service.AddUnitCommand{})
 	case "destroy-unit":
-		return envcmd.Wrap(&cmdjuju.RemoveUnitCommand{})
+		return envcmd.Wrap(&commands.RemoveUnitCommand{})
 	case "action do":
-		return envcmd.Wrap(&cmdaction.DoCommand{})
+		return envcmd.Wrap(&action.DoCommand{})
 	case "action fetch":
-		return envcmd.Wrap(&cmdaction.FetchCommand{})
+		return envcmd.Wrap(&action.FetchCommand{})
 	default:
 		panic("unknown command: " + cmd)
 	}
