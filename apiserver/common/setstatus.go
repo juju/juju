@@ -124,6 +124,8 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info
 		return err
 	}
 	switch entity := entity.(type) {
+	case *state.Service:
+		return ErrPerm
 	case state.StatusSetter:
 		return entity.SetStatus(state.Status(status), info, data)
 	default:
@@ -146,7 +148,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = ServerError(err)
 			continue
 		}
 		err = ErrPerm

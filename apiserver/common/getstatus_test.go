@@ -18,14 +18,14 @@ import (
 )
 
 type statusGetterSuite struct {
-	statusGetterBaseSuite
+	statusBaseSuite
 	getter *common.StatusGetter
 }
 
 var _ = gc.Suite(&statusGetterSuite{})
 
 func (s *statusGetterSuite) SetUpTest(c *gc.C) {
-	s.statusGetterBaseSuite.SetUpTest(c)
+	s.statusBaseSuite.SetUpTest(c)
 
 	s.getter = common.NewStatusGetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
@@ -123,14 +123,14 @@ func (s *statusGetterSuite) TestBulk(c *gc.C) {
 }
 
 type serviceStatusGetterSuite struct {
-	statusGetterBaseSuite
+	statusBaseSuite
 	getter *common.ServiceStatusGetter
 }
 
 var _ = gc.Suite(&serviceStatusGetterSuite{})
 
 func (s *serviceStatusGetterSuite) SetUpTest(c *gc.C) {
-	s.statusGetterBaseSuite.SetUpTest(c)
+	s.statusBaseSuite.SetUpTest(c)
 
 	s.getter = common.NewServiceStatusGetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
@@ -250,16 +250,16 @@ func (s *serviceStatusGetterSuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
-type statusGetterBaseSuite struct {
+type statusBaseSuite struct {
 	testing.StateSuite
 	badTag names.Tag
 }
 
-func (s *statusGetterBaseSuite) SetUpTest(c *gc.C) {
+func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 }
 
-func (s *statusGetterBaseSuite) authFunc(tag names.Tag) bool {
+func (s *statusBaseSuite) authFunc(tag names.Tag) bool {
 	return tag != s.badTag
 }
