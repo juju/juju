@@ -763,6 +763,10 @@ def jes_home_path(juju_home, dir_name):
     return os.path.join(juju_home, 'jes-homes', dir_name)
 
 
+def get_cache_path(juju_home):
+    return os.path.join(juju_home, 'environments', 'cache.yaml')
+
+
 @contextmanager
 def make_jes_home(juju_home, dir_name, config):
     home_path = jes_home_path(juju_home, dir_name)

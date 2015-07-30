@@ -36,6 +36,7 @@ from jujupy import (
     EnvJujuClient25,
     ErroredUnit,
     GroupReporter,
+    get_cache_path,
     get_local_root,
     jes_home_path,
     JESByDefault,
@@ -1196,6 +1197,13 @@ class TestJesHomePath(TestCase):
     def test_jes_home_path(self):
         path = jes_home_path('/home/jrandom/foo', 'bar')
         self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+
+
+class TestGetCachePath(TestCase):
+
+    def test_get_cache_path(self):
+        path = get_cache_path('/home/jrandom/foo')
+        self.assertEqual(path, '/home/jrandom/foo/environments/cache.yaml')
 
 
 class TestMakeJESHome(TestCase):
