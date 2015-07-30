@@ -5,8 +5,6 @@ package leadership_test
 
 import (
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
