@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from argparse import ArgumentParser
 from contextlib import contextmanager
 from time import sleep
 
@@ -14,6 +15,7 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
+from utility import add_basic_testing_arguments
 
 
 def test_jes_deploy(client, charm_prefix, base_env):
@@ -43,12 +45,11 @@ def jes_setup(args):
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
     client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(base_env),
-        EnvJujuClient.get_full_path(),
-        args.debug,
+        SimpleEnvironment.from_config(base_env), args.juju_bin, args.debug,
     )
+    client.enable_jes()
     with boot_context(
-            args.job_name,
+            args.temp_env_name,
             client,
             args.bootstrap_host,
             args.machine,
@@ -57,10 +58,10 @@ def jes_setup(args):
             args.agent_url,
             args.logs, args.keep_env,
             args.upload_tools,
-            args.juju_home,
+            permanent=True,
             ):
-        if args.machines is not None:
-            client.add_ssh_machines(args.machines)
+        if args.machine is not None:
+            client.add_ssh_machines(args.machine)
         yield client, charm_prefix, base_env
 
 
@@ -69,19 +70,16 @@ def env_token(env_name):
 
 
 def deploy_dummy_stack_in_environ(client, charm_prefix, env_name):
-    env = client._shell_environ()
     # first create the environment
     client.juju(
-        "system create-environment", (env_name,),
-        extra_env=env,
-    )
+        "system create-environment", (
+            '-s', client.env.environment, env_name,), include_e=False,)
 
     # switch to environment
     client.env.environment = env_name
     client.juju(
         "environment set",
         ("default-series=trusty", "-e", env_name),
-        extra_env=env,
     )
 
     # then deploy a dummy stack in it
