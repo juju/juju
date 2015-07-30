@@ -647,13 +647,13 @@ class TestBootContext(TestCase):
     def bc_context(self, client, log_dir=None, jes=False, keep_env=False):
         dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
-                              return_value='foo'))
-        c_mock = self.addContext(patch('subprocess.call'))
+                              return_value='foo', autospec=True))
+        c_mock = self.addContext(patch('subprocess.call', autospec=True))
         if jes:
             co_return = 'system'
         else:
             co_return = ''
-        with patch('subprocess.check_output',
+        with patch('subprocess.check_output', autospec=True,
                    return_value=co_return) as co_mock:
             yield
         assert_juju_call(self, co_mock, client, (
@@ -705,7 +705,6 @@ class TestBootContext(TestCase):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        self.addContext(patch('subprocess.call'))
         with self.bc_context(client):
             with boot_context('bar', client, None, [], None, None, None, None,
                               keep_env=False, upload_tools=True):
@@ -718,7 +717,6 @@ class TestBootContext(TestCase):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        self.addContext(patch('subprocess.call'))
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with self.bc_context(client):
@@ -753,10 +751,9 @@ class TestBootContext(TestCase):
         dl_mock.assert_called_once_with(client, 'baz', 'log_dir', None)
 
     def test_jes(self):
-        self.addContext(patch('subprocess.check_call'))
+        self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        self.addContext(patch('subprocess.call'))
         with self.bc_context(client, 'log_dir', jes=True):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):

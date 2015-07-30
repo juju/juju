@@ -1129,7 +1129,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertFalse(client.is_jes_enabled())
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
-        with patch('subprocess.check_output',
+        with patch('subprocess.check_output', autospec=True,
                    return_value='system') as co_mock:
             self.assertTrue(client.is_jes_enabled())
 
