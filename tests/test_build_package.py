@@ -355,6 +355,25 @@ class BuildPackageTestCase(unittest.TestCase):
             [script], shell=True, cwd='/juju-build-trusty-all', env=env)
         self.assertEqual(0, ss_mock.call_count)
 
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
+            debemail='me@email', debfullname='me', verbose=False)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/1.2.3',
+            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
+            message='New upstream stable point release. (LP #987)')
+        env = dict(os.environ)
+        env.update({'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'})
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        ss_mock.assert_called_with(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+
     @autopatch('subprocess.check_call')
     def test_sign_source_package(self, cc_mock):
         sign_source_package(

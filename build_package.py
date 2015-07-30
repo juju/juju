@@ -84,6 +84,8 @@ debcommit
 bzr bd -S -- -us -uc
 """
 
+DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
+
 
 UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
 
@@ -243,7 +245,7 @@ def sign_source_package(build_dir, gpgcmd, debemail, debfullname):
     env = dict(os.environ)
     env['DEBEMAIL'] = debemail
     env['DEBFULLNAME'] = debfullname
-    script = 'debsign -p {gpgcmd} *.changes'.format(gpgcmd=gpgcmd)
+    script = DEBSIGN_TEMPLATE.format(gpgcmd=gpgcmd)
     subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
 
 
@@ -260,6 +262,8 @@ def create_source_package(build_dir, spb, series, version,
         spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
         message=message)
     subprocess.check_call([script], shell=True, cwd=build_dir, env=env)
+    if gpgcmd:
+        sign_source_package(build_dir, gpgcmd, debemail, debfullname)
     return None
 
 
