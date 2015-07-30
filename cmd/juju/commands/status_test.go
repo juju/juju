@@ -3111,13 +3111,25 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps)
 
-	const expected = `
+	const expectedV1 = `
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (error)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
 `
+	assertOneLineStatus(c, expectedV1)
 
+	const expectedV2 = `
+- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
+  - logging/1: dummyenv-2.dns (agent:idle, workload:error)
+- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
+  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+`
+	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
+	assertOneLineStatus(c, expectedV2)
+}
+
+func assertOneLineStatus(c *gc.C, expected string) {
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
@@ -3135,6 +3147,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 }
+
 func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	ctx := s.newContext(c)
 	steps := []stepper{
