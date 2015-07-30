@@ -385,23 +385,7 @@ class Client:
             print("stopped")
         self.delete_machine(machine_id)
 
-    def _kill_old_procs(self, old_age):
-        old_procs = []
-        procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
-        for proc in procs.splitlines():
-            command = proc.split()
-            pid = command.pop(0)
-            alive = command.pop(0)
-            if len(alive) > 5 and int(alive.split(':')[0]) > old_age:
-                # the pid has an hours column and it is greater than old_age.
-                old_procs.append((pid, alive, command))
-                print(
-                    "Pid {} is {} old. Ending {}".format(pid, alive, command))
-                subprocess.check_output(['kill', '-9', pid])
-        return old_procs
-
     def delete_old_machines(self, old_age, contact_mail_address):
-        self._kill_old_procs(old_age)
         machines = self._list_machines()
         now = datetime.utcnow()
         current_stuck = []

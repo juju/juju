@@ -26,6 +26,9 @@ from utility import (
     get_auth_token,
     get_candidates_path,
     get_deb_arch,
+    get_winrm_certs,
+    quote,
+    run_command,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -117,24 +120,36 @@ class TestFindCandidates(TestCase):
 
     def test_find_candidates_old_buildvars(self):
         with temp_dir() as root:
-            candidates_path = get_candidates_path(root)
-            os.mkdir(candidates_path)
-            master_path = os.path.join(candidates_path, 'master')
-            os.mkdir(master_path)
-            buildvars_path = os.path.join(master_path, 'buildvars.json')
-            open(buildvars_path, 'w')
+            _, buildvars_path = self.make_candidates_dir(root, 'master')
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
             os.utime(buildvars_path, (time(), a_week_ago))
             self.assertEqual(list(find_candidates(root)), [])
 
     def test_find_candidates_artifacts(self):
         with temp_dir() as root:
-            candidates_path = get_candidates_path(root)
-            os.mkdir(candidates_path)
-            master_path = os.path.join(candidates_path, 'master-artifacts')
-            os.mkdir(master_path)
-            open(os.path.join(master_path, 'buildvars.json'), 'w')
+            self.make_candidates_dir(root, 'master-artifacts')
             self.assertEqual(list(find_candidates(root)), [])
+
+    def test_find_candidates_find_all(self):
+        with temp_dir() as root:
+            master_path, buildvars_path = self.make_candidates_dir(
+                root, '1.23')
+            master_path_2, _ = self.make_candidates_dir(root, '1.24')
+            a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
+            os.utime(buildvars_path, (time(), a_week_ago))
+            self.assertItemsEqual(list(find_candidates(root)), [master_path_2])
+            self.assertItemsEqual(list(find_candidates(root, find_all=True)),
+                                  [master_path, master_path_2])
+
+    def make_candidates_dir(self, root, master_name):
+        candidates_path = get_candidates_path(root)
+        if not os.path.isdir(candidates_path):
+            os.mkdir(candidates_path)
+        master_path = os.path.join(candidates_path, master_name)
+        os.mkdir(master_path)
+        buildvars_path = os.path.join(master_path, 'buildvars.json')
+        open(buildvars_path, 'w')
+        return master_path, buildvars_path
 
 
 class TestWaitForPort(TestCase):
@@ -242,7 +257,8 @@ class TestAddBasicTestingArguments(TestCase):
         expected = Namespace(
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
-            verbose=logging.INFO)
+            verbose=logging.INFO, agent_stream=None, keep_env=False,
+            upload_tools=False, bootstrap_host=None, machine=[])
         self.assertEqual(args, expected)
 
     def test_debug(self):
@@ -251,7 +267,7 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.debug, True)
 
-    def test_verbose(self):
+    def test_verbose_logging(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
@@ -264,9 +280,83 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_url, 'http://example.org')
 
+    def test_agent_stream(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--agent-stream', 'testing']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.agent_stream, 'testing')
+
     def test_series(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--series',
                     'vivid']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
+
+    def test_upload_tools(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--upload-tools']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertTrue(args.upload_tools)
+
+    def test_bootstrap_host(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--bootstrap-host', 'bar']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.bootstrap_host, 'bar')
+
+    def test_machine(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--machine', 'bar', '--machine', 'baz']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.machine, ['bar', 'baz'])
+
+    def test_keep_env(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--keep-env']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertTrue(args.keep_env)
+
+
+class TestRunCommand(TestCase):
+
+    def test_run_command_args(self):
+        with patch('subprocess.check_output') as co_mock:
+            run_command(['foo', 'bar'])
+        args, kwargs = co_mock.call_args
+        self.assertEqual((['foo', 'bar'], ), args)
+
+    def test_run_command_dry_run(self):
+        with patch('subprocess.check_output') as co_mock:
+            run_command(['foo', 'bar'], dry_run=True)
+            self.assertEqual(0, co_mock.call_count)
+
+    def test_run_command_verbose(self):
+        with patch('subprocess.check_output'):
+            with patch('utility.print_now') as p_mock:
+                run_command(['foo', 'bar'], verbose=True)
+                self.assertEqual(2, p_mock.call_count)
+
+
+class TestQuote(TestCase):
+
+    def test_quote(self):
+        self.assertEqual(quote("arg"), "arg")
+        self.assertEqual(quote("/a/file name"), "'/a/file name'")
+        self.assertEqual(quote("bob's"), "'bob'\"'\"'s'")
+
+
+class TestGetWinRmCerts(TestCase):
+
+    def test_get_certs(self):
+        with patch.dict(os.environ, {"HOME": "/fake/home"}):
+            certs = get_winrm_certs()
+        self.assertEqual(certs, (
+            "/fake/home/cloud-city/winrm_client_cert.key",
+            "/fake/home/cloud-city/winrm_client_cert.pem",
+        ))

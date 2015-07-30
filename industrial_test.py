@@ -20,9 +20,6 @@ from deploy_stack import (
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
     )
-from jujuconfig import (
-    get_juju_home,
-    )
 from jujupy import (
     AgentsNotStarted,
     EnvJujuClient,
@@ -371,10 +368,9 @@ class BootstrapAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'bootstrap'}
         yield results
-        with temp_bootstrap_env(
-                get_juju_home(), client, set_home=False) as juju_home:
+        with temp_bootstrap_env(client.juju_home, client, set_home=False):
             logging.info('Performing async bootstrap')
-            with client.bootstrap_async(juju_home=juju_home):
+            with client.bootstrap_async():
                 yield results
         with wait_for_started(client):
             yield results

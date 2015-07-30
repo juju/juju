@@ -1,5 +1,5 @@
 test:
-	TMPDIR=/tmp python -m unittest discover -vv . -p '*.py'
+	TMPDIR=/tmp python -m unittest discover -vv . -p 'test_*.py'
 lint:
 	flake8 *.py
 clean:
@@ -13,4 +13,6 @@ install-deps: juju-ci-tools.common_0.1.0-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.0-0_all.deb || true
 	sudo apt-get install -y -f
 	sudo apt-get install -y juju-local juju juju-quickstart juju-deployer
+	sudo apt-get install -y python-pip
+	./pipdeps.py install
 .PHONY: lint test apt-update install-deps

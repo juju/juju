@@ -7,8 +7,6 @@ from deploy_stack import (
     EnvJujuClient,
     configure_logging,
     boot_context,
-    prepare_environment,
-    get_log_level,
     sys,
     check_token,
 )
@@ -18,7 +16,7 @@ def jes_setup(args):
     """jes_setup sets up the juju client and its environment.
        It returns return client, charm_prefix and base_env"""
     base_env = args.env
-    configure_logging(get_log_level(args))
+    configure_logging(args.verbose)
     series = args.series
     if series is None:
         series = 'precise'
@@ -31,7 +29,7 @@ def jes_setup(args):
         EnvJujuClient.get_full_path(),
         args.debug,
     )
-    env = client._shell_environ(dev_flags=['jes'])
+    env = client._shell_environ()
     with boot_context(
             args.job_name,
             client,
@@ -45,8 +43,8 @@ def jes_setup(args):
             args.juju_home,
             extra_env=env,
             ):
-        prepare_environment(
-            client, already_bootstrapped=True, machines=args.machine)
+        if args.machines is not None:
+            client.add_ssh_machines(args.machines)
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
@@ -59,7 +57,7 @@ def env_token(env_name):
 
 
 def deploy_dummy_stack_in_environ(client, charm_prefix, env_name):
-    env = client._shell_environ(dev_flags=['jes'])
+    env = client._shell_environ()
     # first create the environment
     client.juju(
         "system create-environment", (env_name,),

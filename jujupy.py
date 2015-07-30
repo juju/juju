@@ -14,8 +14,10 @@ from itertools import chain
 import logging
 import os
 import re
+from shutil import rmtree
 import subprocess
 import sys
+import time
 import tempfile
 
 import yaml
@@ -60,6 +62,20 @@ class ErroredUnit(Exception):
         Exception.__init__(self, msg)
         self.unit_name = unit_name
         self.state = state
+
+
+class JESNotSupported(Exception):
+
+    def __init__(self):
+        super(JESNotSupported, self).__init__(
+            'This client does not support JES')
+
+
+class JESByDefault(Exception):
+
+    def __init__(self):
+        super(JESByDefault, self).__init__(
+            'This client does not need to enable JES')
 
 
 def yaml_loads(yaml_str):
@@ -110,7 +126,7 @@ class JujuClientDevel:
             return JujuClientDevel(version, full_path)
 
     def get_env_client(self, environment):
-        return EnvJujuClient(environment, self.version, self.full_path,
+        return EnvJujuClient(environment, self.version, self.full_path, None,
                              self.debug)
 
     def bootstrap(self, environment):
@@ -124,9 +140,9 @@ class JujuClientDevel:
         return self.get_env_client(environment).get_juju_output(
             command, *args, **kwargs)
 
-    def get_status(self, environment, timeout=60):
+    def get_status(self, environment, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
-        return self.get_env_client(environment).get_status(timeout)
+        return self.get_env_client(environment).get_status(timeout, raw, *args)
 
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
@@ -161,6 +177,13 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
+    def is_jes_enabled(self):
+        commands = self.get_juju_output('help', 'commands', include_e=False)
+        for line in commands.splitlines():
+            if line.startswith('system'):
+                return True
+        return False
+
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -177,13 +200,15 @@ class EnvJujuClient:
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         elif re.match('^1\.22[.-]', version):
-            return EnvJujuClient22(env, version, full_path, debug=debug)
+            client_class = EnvJujuClient22
         elif re.match('^1\.24[.-]', version):
-            return EnvJujuClient24(env, version, full_path, debug=debug)
+            client_class = EnvJujuClient24
         elif re.match('^1\.25[.-]', version):
-            return EnvJujuClient25(env, version, full_path, debug=debug)
+            client_class = EnvJujuClient25
         else:
-            return EnvJujuClient(env, version, full_path, debug=debug)
+            client_class = EnvJujuClient
+        return client_class(env, version, full_path, get_juju_home(),
+                            debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
@@ -191,7 +216,9 @@ class EnvJujuClient:
             e_arg = ()
         else:
             e_arg = ('-e', self.env.environment)
-        if timeout is None:
+        # Windows doesn't have an equivalent to *nix timeout.
+        # XXX implement timeouts in a win-compatible way
+        if timeout is None or sys.platform == 'win32':
             prefix = ()
         else:
             prefix = ('timeout', '%.2fs' % timeout)
@@ -203,7 +230,7 @@ class EnvJujuClient:
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
-    def __init__(self, env, version, full_path, debug=False):
+    def __init__(self, env, version, full_path, juju_home=None, debug=False):
         if env is None:
             self.env = None
         else:
@@ -211,8 +238,12 @@ class EnvJujuClient:
         self.version = version
         self.full_path = full_path
         self.debug = debug
+        if juju_home is None:
+            juju_home = get_juju_home()
+        self.juju_home = juju_home
+        self.juju_timings = {}
 
-    def _shell_environ(self, juju_home=None, dev_flags=None):
+    def _shell_environ(self):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
@@ -221,12 +252,12 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
                                          env['PATH'])
-        if juju_home is not None:
-            env['JUJU_HOME'] = juju_home
-
-        if dev_flags is not None and dev_flags != []:
-            env['JUJU_DEV_FEATURE_FLAGS'] = ','.join(dev_flags)
+        env['JUJU_HOME'] = self.juju_home
         return env
+
+    def add_ssh_machines(self, machines):
+        for machine in machines:
+            self.juju('add-machine', ('ssh:' + machine,))
 
     def get_bootstrap_args(self, upload_tools):
         """Bootstrap, using sudo if necessary."""
@@ -244,15 +275,14 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         return args
 
-    def bootstrap(self, upload_tools=False, juju_home=None, extra_env=None):
+    def bootstrap(self, upload_tools=False):
         args = self.get_bootstrap_args(upload_tools)
-        self.juju('bootstrap', args, self.env.needs_sudo(),
-                  juju_home=juju_home, extra_env=extra_env)
+        self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
-    def bootstrap_async(self, upload_tools=False, juju_home=None):
+    def bootstrap_async(self, upload_tools=False):
         args = self.get_bootstrap_args(upload_tools)
-        with self.juju_async('bootstrap', args, juju_home=juju_home):
+        with self.juju_async('bootstrap', args):
             yield
             logging.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
@@ -268,7 +298,7 @@ class EnvJujuClient:
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
         if delete_jenv:
-            jenv_path = get_jenv_path(get_juju_home(), self.env.environment)
+            jenv_path = get_jenv_path(self.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
@@ -299,10 +329,12 @@ class EnvJujuClient:
                 print('!!! ' + e.stderr)
                 raise
 
-    def get_status(self, timeout=60):
+    def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
         for ignored in until_timeout(timeout):
             try:
+                if raw:
+                    return self.get_juju_output('status', *args)
                 return Status.from_text(self.get_juju_output('status'))
             except subprocess.CalledProcessError as e:
                 pass
@@ -334,36 +366,49 @@ class EnvJujuClient:
             self.set_env_option('tools-metadata-url', testing_url)
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
-             timeout=None, juju_home=None, extra_env=None):
+             timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
         args = self._full_args(command, sudo, args, include_e=include_e,
                                timeout=timeout)
         print(' '.join(args))
         sys.stdout.flush()
-        env = self._shell_environ(juju_home)
+        env = self._shell_environ()
         if extra_env is not None:
             env.update(extra_env)
         if check:
-            return subprocess.check_call(args, env=env)
-        return subprocess.call(args, env=env)
+            call_func = subprocess.check_call
+        else:
+            call_func = subprocess.call
+        start_time = time.time()
+        rval = call_func(args, env=env)
+        self.juju_timings.setdefault(args, []).append(
+            (time.time() - start_time))
+        return rval
+
+    def get_juju_timings(self):
+        stringified_timings = {}
+        for command, timings in self.juju_timings.items():
+            stringified_timings[' '.join(command)] = timings
+        return stringified_timings
 
     @contextmanager
-    def juju_async(self, command, args, include_e=True, timeout=None,
-                   juju_home=None):
+    def juju_async(self, command, args, include_e=True, timeout=None):
         full_args = self._full_args(command, False, args, include_e=include_e,
                                     timeout=timeout)
         print_now(' '.join(args))
-        env = self._shell_environ(juju_home)
+        env = self._shell_environ()
         proc = subprocess.Popen(full_args, env=env)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm, repository=None):
+    def deploy(self, charm, repository=None, to=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
+        if to is not None:
+            args.extend(['--to', to])
         return self.juju('deploy', tuple(args))
 
     def deployer(self, bundle, name=None):
@@ -605,45 +650,65 @@ class EnvJujuClient:
         return self.action_fetch(id, action, timeout)
 
 
-
 class EnvJujuClient22(EnvJujuClient):
 
-    def _shell_environ(self, juju_home=None, dev_flags=None):
+    def _shell_environ(self):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        dev_flags = dev_flags or []
-        if 'actions' not in dev_flags:
-            dev_flags.append('actions')
-        env = super(EnvJujuClient22, self)._shell_environ(juju_home, dev_flags=dev_flags)
+        env = super(EnvJujuClient22, self)._shell_environ()
+        env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
         return env
 
 
 class EnvJujuClient25(EnvJujuClient):
 
-    def _shell_environ(self, juju_home=None, dev_flags=None):
+    def __init__(self, *args, **kwargs):
+        super(EnvJujuClient25, self).__init__(*args, **kwargs)
+        self._use_jes = False
+
+    def enable_jes(self):
+        if self._use_jes:
+            return
+        if self.is_jes_enabled():
+            raise JESByDefault()
+        self._use_jes = True
+        if not self.is_jes_enabled():
+            self._use_jes = False
+            raise JESNotSupported()
+
+    def _get_feature_flags(self):
+        if self.env.config.get('type') == 'cloudsigma':
+            yield 'cloudsigma'
+        if self._use_jes is True:
+            yield 'jes'
+
+    def _shell_environ(self):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        dev_flags = dev_flags or []
-        envType = self.env.config.get('type')
-        if envType == 'cloudsigma' and 'cloudsigma' not in dev_flags:
-            dev_flags.append('cloudsigma')
-        return super(EnvJujuClient25, self)._shell_environ(juju_home, dev_flags=dev_flags)
+        env = super(EnvJujuClient25, self)._shell_environ()
+        feature_flags = self._get_feature_flags()
+        env[JUJU_DEV_FEATURE_FLAGS] = ','.join(feature_flags)
+        return env
 
 
 class EnvJujuClient24(EnvJujuClient25):
+    """Similar to EnvJujuClient25, but lacking JES support."""
 
-    """Currently, same feature set as juju 25"""
+    def enable_jes(self):
+        raise JESNotSupported()
+
+    def _get_feature_flags(self):
+        if self.env.config.get('type') == 'cloudsigma':
+            yield 'cloudsigma'
 
 
 def get_local_root(juju_home, env):
     return os.path.join(juju_home, env.environment)
 
-def get_cache_path(juju_home):
-    return os.path.join(juju_home, 'environments', 'cache.yaml')
 
 def ensure_dir(path):
     try:
@@ -681,6 +746,12 @@ def uniquify_local(env):
         env.config[key] = env.config.get(key, default) + 1
 
 
+def dump_environments_yaml(juju_home, config):
+    environments_path = get_environments_path(juju_home)
+    with open(environments_path, 'w') as config_file:
+        yaml.safe_dump(config, config_file)
+
+
 @contextmanager
 def _temp_env(new_config, parent=None, set_home=True):
     """Use the supplied config as juju environment.
@@ -689,9 +760,7 @@ def _temp_env(new_config, parent=None, set_home=True):
     temp_bootstrap_env.
     """
     with temp_dir(parent) as temp_juju_home:
-        temp_environments = get_environments_path(temp_juju_home)
-        with open(temp_environments, 'w') as config_file:
-            yaml.safe_dump(new_config, config_file)
+        dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
             context = scoped_environ()
         else:
@@ -702,8 +771,26 @@ def _temp_env(new_config, parent=None, set_home=True):
             yield temp_juju_home
 
 
+def jes_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'jes-homes', dir_name)
+
+
+def get_cache_path(juju_home):
+    return os.path.join(juju_home, 'environments', 'cache.yaml')
+
+
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True):
+def make_jes_home(juju_home, dir_name, config):
+    home_path = jes_home_path(juju_home, dir_name)
+    if os.path.exists(home_path):
+        rmtree(home_path)
+    os.makedirs(home_path)
+    dump_environments_yaml(home_path, config)
+    yield home_path
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -739,7 +826,11 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
                 "/var/lib/lxc", 2000000, "LXC containers")
     new_config = {'environments': {client.env.environment: config}}
     jenv_path = get_jenv_path(juju_home, client.env.environment)
-    with _temp_env(new_config, juju_home, set_home) as temp_juju_home:
+    if permanent:
+        context = make_jes_home(juju_home, client.env.environment, new_config)
+    else:
+        context = _temp_env(new_config, juju_home, set_home)
+    with context as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
@@ -747,18 +838,28 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
         # races.  Can't use a hard link because jenv doesn't exist until
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
-        os.symlink(new_jenv_path, jenv_path)
+        # Skip creating symlink where not supported (i.e. Windows).
+        if not permanent and getattr(os, 'symlink', None) is not None:
+            os.symlink(new_jenv_path, jenv_path)
+        old_juju_home = client.juju_home
+        client.juju_home = temp_juju_home
         try:
             yield temp_juju_home
         finally:
-            # replace symlink with file before deleting temp home.
-            try:
-                os.rename(new_jenv_path, jenv_path)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-                # Remove dangling symlink
-                os.unlink(jenv_path)
+            if not permanent:
+                # replace symlink with file before deleting temp home.
+                try:
+                    os.rename(new_jenv_path, jenv_path)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                    # Remove dangling symlink
+                    try:
+                        os.unlink(jenv_path)
+                    except OSError as e:
+                        if e.errno != errno.ENOENT:
+                            raise
+                client.juju_home = old_juju_home
 
 
 class Status:
@@ -937,8 +1038,8 @@ class Environment(SimpleEnvironment):
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
-    def get_status(self, timeout=60):
-        return self.client.get_status(self, timeout)
+    def get_status(self, timeout=60, raw=False, *args):
+        return self.client.get_status(self, timeout, raw, *args)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.

@@ -17,7 +17,16 @@ from time import (
     time,
     )
 from tempfile import mkdtemp
+from unittest import FunctionTestCase
 import xml.etree.ElementTree as ET
+
+# Export shell quoting function which has moved in newer python versions
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
+
+quote
 
 
 @contextmanager
@@ -188,6 +197,15 @@ def check_free_disk_space(path, required, purpose):
             })
 
 
+def get_winrm_certs():
+    """"Returns locations of key and cert files for winrm in cloud-city."""
+    home = os.environ['HOME']
+    return (
+        os.path.join(home, 'cloud-city/winrm_client_cert.key'),
+        os.path.join(home, 'cloud-city/winrm_client_cert.pem'),
+    )
+
+
 def s3_cmd(params, drop_output=False):
     s3cfg_path = os.path.join(
         os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
@@ -200,8 +218,22 @@ def s3_cmd(params, drop_output=False):
 
 
 def add_basic_testing_arguments(parser):
-    """Returns the parser loaded with basic testing arguments."""
-    # Required possitional arguments.
+    """Returns the parser loaded with basic testing arguments.
+
+    The basic testing arguments, used in conjuction with boot_context ensures
+    a test can be run in any supported substrate in parallel.
+
+    This helper adds 4 positional arguments that define the minimum needed
+    to run a test script: env, juju_bin, logs, and temp_env_name.
+
+    There are many optional args that either update the env's config or
+    manipulate the juju command line options to test in controlled situations
+    or in uncommon substrates: --debug, --verbose, --agent-url, --agent-stream,
+    --series ,--upload-tools, --bootstrap-host, --machine, --keep-env.
+
+    :param parser: an ArgumentParser.
+    """
+    # Required positional arguments.
     # (name, help)
     positional_args = [
         ('env', 'The juju environment to base the temp test environment on.'),
@@ -212,15 +244,27 @@ def add_basic_testing_arguments(parser):
     for p_arg in positional_args:
         name, help_txt = p_arg
         parser.add_argument(name, help=help_txt)
-    parser.add_argument('--agent-url', action='store', default=None,
-                        help='URL for retrieving agent binaries.')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Pass --debug to Juju.')
-    parser.add_argument('--series', action='store', default=None,
-                        help='Name of the Ubuntu series to use.')
     parser.add_argument('--verbose', action='store_const',
                         default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
+    parser.add_argument('--agent-url', action='store', default=None,
+                        help='URL for retrieving agent binaries.')
+    parser.add_argument('--agent-stream', action='store', default=None,
+                        help='URL for retrieving agent binaries.')
+    parser.add_argument('--series', action='store', default=None,
+                        help='Name of the Ubuntu series to use.')
+    parser.add_argument('--upload-tools', action='store_true', default=False,
+                        help='upload local version of tools to bootstrap.')
+    parser.add_argument('--bootstrap-host',
+                        help='The host to use for bootstrap.')
+    parser.add_argument('--machine', help='A machine to add or when used with '
+                        'KVM based MaaS, a KVM image to start.',
+                        action='append', default=[])
+    parser.add_argument('--keep-env', action='store_true', default=False,
+                        help='Keep the Juju environment after the test'
+                        ' completes.')
     return parser
 
 
@@ -242,7 +286,7 @@ def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 
 
-def find_candidates(root_dir):
+def find_candidates(root_dir, find_all=False):
     candidates_path = get_candidates_path(root_dir)
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
@@ -256,7 +300,7 @@ def find_candidates(root_dir):
             if e.errno in (errno.ENOENT, errno.ENOTDIR):
                 continue
             raise
-        if stat.st_mtime < a_week_ago:
+        if not find_all and stat.st_mtime < a_week_ago:
             continue
         yield candidate_path
 
@@ -269,3 +313,25 @@ def get_deb_arch():
 def extract_deb(package_path, directory):
     """Extract a debian package to a specified directory."""
     subprocess.check_call(['dpkg', '-x', package_path, directory])
+
+
+def run_command(command, dry_run=False, verbose=False):
+    """Optionally execute a command and maybe print the output."""
+    if verbose:
+        print_now('Executing: {}'.format(command))
+    if not dry_run:
+        output = subprocess.check_output(command)
+        if verbose:
+            print_now(output)
+
+
+def to_unit_test(test_function):
+
+    def unit_testify(*args, **kwargs):
+        tc = FunctionTestCase(test_function)
+        largs = list(args)
+        largs.insert(1, tc)
+        args = tuple(largs)
+        return test_function(*args, **kwargs)
+
+    return unit_testify

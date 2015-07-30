@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from time import sleep
 
 from utility import temp_dir
@@ -315,8 +314,6 @@ class AzureAccount:
         It writes the certificate to a temp file because the Azure client
         library requires it, then deletes the temp file when done.
         """
-        from winazure import AZURE_PACKAGE
-        sys.path.insert(0, AZURE_PACKAGE)
         from azure.servicemanagement import ServiceManagementService
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'azure.pem')
@@ -591,3 +588,16 @@ def destroy_job_instances(job_name):
     if len(instances) == 0:
         return
     subprocess.check_call(['euca-terminate-instances'] + instances)
+
+
+def resolve_remote_dns_names(env, remote_machines):
+    """Update addresses of given remote_machines as needed by providers."""
+    if env.config['type'] != 'maas':
+        # Only MAAS requires special handling at prsent.
+        return
+    # MAAS hostnames are not resolvable, but we can adapt them to IPs.
+    with MAASAccount.manager_from_config(env.config) as account:
+        allocated_ips = account.get_allocated_ips()
+    for remote in remote_machines:
+        if remote.get_address() in allocated_ips:
+            remote.update_address(allocated_ips[remote.address])

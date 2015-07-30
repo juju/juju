@@ -31,6 +31,7 @@ class setupArgs(object):
     keep_env = True
     upload_tools = True
     juju_home = 'path/to/juju/home'
+    machines = [0]
 
 
 class TestJES(unittest.TestCase):
@@ -45,7 +46,7 @@ class TestJES(unittest.TestCase):
         client = self.client_class(
             SimpleEnvironment.from_config(setupArgs.env),
             '1.25-foobar', 'path')
-        client._shell_environ(dev_flags=['jes'])
+        client._use_jes = True
         return client
 
     @patch('jes.get_random_string')
@@ -55,7 +56,7 @@ class TestJES(unittest.TestCase):
 
     def test_set_jes_flag(self):
         client = self.mock_client()
-        env = client._shell_environ(dev_flags=['jes'])
+        env = client._shell_environ()
         self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     @patch('jes.EnvJujuClient.juju')
@@ -75,7 +76,7 @@ class TestJES(unittest.TestCase):
         self.assertEqual(args, (client, 'trusty', 'bazfakerandom'))
         self.assertEqual(kwargs, {})
 
-        env = client._shell_environ(dev_flags=['jes'])
+        env = client._shell_environ()
         self.assertEqual(juju_func.call_args_list, [
                 call(
                     'system create-environment', ('baz',),
@@ -130,7 +131,7 @@ class TestJES(unittest.TestCase):
         self.assertEqual(kwargs, {})
 
     @patch('jes.EnvJujuClient.get_full_path')
-    @patch('jes.prepare_environment')
+    @patch('jes.EnvJujuClient.add_ssh_machines')
     @patch('jes.boot_context')
     @patch('jes.configure_logging')
     @patch('jes.SimpleEnvironment.from_config')
@@ -141,7 +142,7 @@ class TestJES(unittest.TestCase):
             from_config_func,
             configure_logging_func,
             boot_context_func,
-            prepare_environment_func,
+            add_ssh_machines_func,
             get_full_path_func):
         # patch helper funcs
         expected_client = self.mock_client()
@@ -165,7 +166,7 @@ class TestJES(unittest.TestCase):
         self.assertEqual(kwargs, {})
 
         args, kwargs = configure_logging_func.call_args
-        self.assertEqual(args, (10,))
+        self.assertEqual(args, (True,))
         self.assertEqual(kwargs, {})
 
         args, kwargs = boot_context_func.call_args
@@ -185,9 +186,9 @@ class TestJES(unittest.TestCase):
 
         self.assertIsNotNone(kwargs['extra_env'])
 
-        args, kwargs = prepare_environment_func.call_args
-        self.assertEqual(args, (expected_client,))
+        args, kwargs = add_ssh_machines_func.call_args
+        self.assertEqual(args, ([0],))
         self.assertEqual(
             kwargs,
-            {'already_bootstrapped': True, 'machines': ['0']},
+            {},
         )

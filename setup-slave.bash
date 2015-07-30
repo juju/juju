@@ -1,15 +1,16 @@
 #!/bin/bash
-# setup-slave.bash arm64-slave [./cloud-city] [jenkins-master-ip]
+# setup-slave.bash private_ip [public_address] [./cloud-city]
 set -eux
 
-SLAVE=$1
-LOCAL_CLOUD_CITY="${2:-./cloud-city}"
-MASTER="http://juju-ci.vapour.ws:8080/"
+MASTER="http://ci-master.vapour.ws:8080/"
 KEY="staging-juju-rsa"
-SLAVE_ADDRESS=$(juju status $SLAVE |
+
+SLAVE=$1
+SLAVE_ADDRESS="${2:-$(juju status $SLAVE |
     grep public-address |
     cut -d : -f 2 |
-    sed 's/ //g')
+    sed 's/ //g')}"
+LOCAL_CLOUD_CITY="${3:-./cloud-city}"
 
 # Copy the authorized_keys so that we can ssh as jenkins.
 ssh -i $LOCAL_CLOUD_CITY/$KEY ubuntu@$SLAVE_ADDRESS <<EOT
@@ -37,8 +38,7 @@ EOC"
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
-sudo apt-get install -y juju-local juju bzr \
-    uvtool-libvirt uvtool python-novaclient euca2ools s3cmd python-requests
+sudo apt-get install -y bzr make
 EOT
 
 # Place a copy of cloud city on the slave as jenkins using your Lp privs.
@@ -55,6 +55,10 @@ chmod 600 cloud-city/$KEY*
 ln -s /var/lib/jenkins/cloud-city/$KEY .ssh/id_rsa
 ln -s /var/lib/jenkins/cloud-city/$KEY.pub .ssh/id_rsa.pub
 sudo /usr/share/jenkins/bin/download-slave.sh $MASTER
+if [[ \$(uname) == "Linux" ]]; then
+    cd juju-ci-tools
+    make install-deps
+fi
 EOT
 
 # Configure Jenkins with launch command
