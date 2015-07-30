@@ -2455,6 +2455,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:                 s.State.EnvironUUID(),
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),

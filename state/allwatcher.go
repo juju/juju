@@ -29,6 +29,7 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.MachineInfo{
+		EnvUUID:                  st.EnvironUUID(),
 		Id:                       m.Id,
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
@@ -144,6 +145,7 @@ func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *Status
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.UnitInfo{
+		EnvUUID:     st.EnvironUUID(),
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
@@ -265,6 +267,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		return errors.Trace(err)
 	}
 	info := &multiwatcher.ServiceInfo{
+		EnvUUID:     st.EnvironUUID(),
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
@@ -377,6 +380,7 @@ func (a *backingAction) removed(st *State, store *multiwatcherStore, id string) 
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.ActionInfo{
+		EnvUUID:    st.EnvironUUID(),
 		Id:         id,
 		Receiver:   a.Receiver,
 		Name:       a.Name,
@@ -403,6 +407,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 		}
 	}
 	info := &multiwatcher.RelationInfo{
+		EnvUUID:   st.EnvironUUID(),
 		Key:       r.Key,
 		Id:        r.Id,
 		Endpoints: eps,
@@ -426,6 +431,7 @@ type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.AnnotationInfo{
+		EnvUUID:     st.EnvironUUID(),
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
 	}
@@ -452,6 +458,7 @@ type backingBlock blockDoc
 
 func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.BlockInfo{
+		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 		Tag:     a.Tag,
 		Type:    a.Type.ToParams(),

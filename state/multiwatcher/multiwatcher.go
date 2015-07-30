@@ -121,6 +121,7 @@ type UnitSettings struct {
 // MachineInfo holds the information about a Machine
 // that is watched by StateMultiwatcher.
 type MachineInfo struct {
+	EnvUUID                  string
 	Id                       string
 	InstanceId               string
 	Status                   Status
@@ -154,6 +155,7 @@ type StatusInfo struct {
 }
 
 type ServiceInfo struct {
+	EnvUUID     string
 	Name        string
 	Exposed     bool
 	CharmURL    string
@@ -174,6 +176,7 @@ func (i *ServiceInfo) EntityId() EntityId {
 }
 
 type UnitInfo struct {
+	EnvUUID        string
 	Name           string
 	Service        string
 	Series         string
@@ -201,6 +204,7 @@ func (i *UnitInfo) EntityId() EntityId {
 }
 
 type ActionInfo struct {
+	EnvUUID    string
 	Id         string
 	Receiver   string
 	Name       string
@@ -221,6 +225,7 @@ func (i *ActionInfo) EntityId() EntityId {
 }
 
 type RelationInfo struct {
+	EnvUUID   string
 	Key       string
 	Id        int
 	Endpoints []Endpoint
@@ -234,6 +239,7 @@ func (i *RelationInfo) EntityId() EntityId {
 }
 
 type AnnotationInfo struct {
+	EnvUUID     string
 	Tag         string
 	Annotations map[string]string
 }
@@ -282,6 +288,7 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 // BlockInfo holds the information about blocks
 // in this environment that are watched.
 type BlockInfo struct {
+	EnvUUID string
 	Id      string
 	Type    BlockType
 	Message string
