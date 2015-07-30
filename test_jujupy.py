@@ -36,6 +36,7 @@ from jujupy import (
     EnvJujuClient25,
     ErroredUnit,
     GroupReporter,
+    get_cache_path,
     get_local_root,
     jes_home_path,
     JESByDefault,
@@ -1120,6 +1121,18 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(err_cxt.exception.cmd, (
             'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
 
+    def test_is_jes_enabled(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value=' system') as co_mock:
+            self.assertFalse(client.is_jes_enabled())
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='system') as co_mock:
+            self.assertTrue(client.is_jes_enabled())
+
     def test_get_juju_timings(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, 'my/juju/bin')
@@ -1192,6 +1205,13 @@ class TestJesHomePath(TestCase):
     def test_jes_home_path(self):
         path = jes_home_path('/home/jrandom/foo', 'bar')
         self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+
+
+class TestGetCachePath(TestCase):
+
+    def test_get_cache_path(self):
+        path = get_cache_path('/home/jrandom/foo')
+        self.assertEqual(path, '/home/jrandom/foo/environments/cache.yaml')
 
 
 class TestMakeJESHome(TestCase):
