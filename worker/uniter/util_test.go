@@ -81,7 +81,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
-	leader        *leadership.Manager
+	leaderClaimer leadership.Claimer
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -148,7 +148,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.api, err = st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
-	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
+	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -457,7 +457,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock, s.executorFunc)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leaderClaimer, ctx.dataDir, lock, s.executorFunc)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1426,7 +1426,7 @@ func (forceMinion) step(c *gc.C, ctx *context) {
 		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		err = ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
 		if err == nil {
 			return
 		} else if errors.Cause(err) != leadership.ErrClaimDenied {
@@ -1443,7 +1443,7 @@ func (forceLeader) step(c *gc.C, ctx *context) {
 	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("promoting local unit")
-	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	err = ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
