@@ -46,16 +46,10 @@ var _ = gc.Suite(&storeManagerStateSuite{})
 
 type storeManagerStateSuite struct {
 	internalStateSuite
-	OtherState *State
 }
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
-	s.OtherState = s.newState(c)
-	s.AddCleanup(func(c *gc.C) {
-		err := s.OtherState.Close()
-		c.Check(err, jc.ErrorIsNil)
-	})
 }
 
 func (s *storeManagerStateSuite) newState(c *gc.C) *State {
@@ -137,7 +131,9 @@ func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 
 	// Use more units in the second env to ensure the number of
 	// entities will mismatch if environment filtering isn't in place.
-	s.setUpScenario(c, s.OtherState, 4)
+	otherState := s.newState(c)
+	defer otherState.Close()
+	s.setUpScenario(c, otherState, 4)
 
 	s.checkGetAll(c, expectEntities)
 }
@@ -2305,14 +2301,16 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				w.AssertNoChange()
 				otherW.AssertNoChange()
 			}
+			otherState := s.newState(c)
+			defer otherState.Close()
 
 			w1 := newTestWatcher(s.state, c)
 			defer w1.Stop()
-			w2 := newTestWatcher(s.OtherState, c)
+			w2 := newTestWatcher(otherState, c)
 			defer w2.Stop()
 
 			checkIsolationForEnv(s.state, w1, w2)
-			checkIsolationForEnv(s.OtherState, w2, w1)
+			checkIsolationForEnv(otherState, w2, w1)
 		}()
 		s.Reset(c)
 	}
