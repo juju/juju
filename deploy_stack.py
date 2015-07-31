@@ -454,7 +454,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     if jes_enabled:
                         client.juju(
                             'system kill', (client.env.environment, '-y'),
-                            include_e=False)
+                            include_e=False, check=False, timeout=600)
                     else:
                         client.destroy_environment()
         finally:

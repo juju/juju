@@ -2,13 +2,10 @@ from argparse import Namespace
 import unittest
 from mock import (
     patch,
-    call,
     )
 from assess_jes_deploy import (
     env_token,
     jes_setup,
-    deploy_dummy_stack_in_environ,
-    check_updated_token,
     check_services,
 )
 from jujupy import (
@@ -43,66 +40,24 @@ class TestJES(unittest.TestCase):
         env = client._shell_environ()
         self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
-    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
-    @patch('assess_jes_deploy.deploy_dummy_stack', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)
-    def test_deploy_dummy_stack_in_environ(
-            self, get_random_string_func,
-            deploy_dummy_stack_func,
-            juju_func):
-        get_random_string_func.return_value = 'fakerandom'
-        client = self.mock_client()
-
-        deploy_dummy_stack_in_environ(client, 'trusty', 'qux')
-
-        # assert helper funcs were called with correct args.
-        deploy_dummy_stack_func.assert_called_once_with(client, 'trusty')
-
-        self.assertEqual(juju_func.call_args_list, [
-            call(
-                client, 'system create-environment', ('-s', 'baz', 'qux',),
-                include_e=False,),
-            call(
-                client, 'environment set',
-                ('default-series=trusty', '-e', 'qux'),
-                ),
-            ]
-        )
-
-    @patch('assess_jes_deploy.sleep', return_value=None, autospec=True)
+    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
     @patch('assess_jes_deploy.check_token', autospec=True)
-    def test_check_updated_token(self, check_token_func, patched_sleep):
-        client = self.mock_client()
-
-        def err(client, token):
-            raise ValueError()
-
-        check_token_func.side_effect = err
-
-        check_updated_token(client, 'token', 5)
-
-        self.assertEqual(check_token_func.mock_calls, [
-            call(client, 'token'),
-            call(client, 'token'),
-            ])
-
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
-    @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
-    @patch('assess_jes_deploy.check_updated_token', autospec=True)
     def test_check_services(
             self,
-            check_updated_token_func,
+            check_token_func,
             juju_func,
             get_random_string_func):
         get_random_string_func.return_value = 'fakeran'
 
         client = self.mock_client()
-        check_services(client, 'token')
+        client.env.environment = 'token'
+        check_services(client)
 
         juju_func.assert_called_once_with(
             client, 'set', ('dummy-source', 'token=tokenfakeran'))
-        check_updated_token_func.assert_called_once_with(
-            client, 'tokenfakeran', 30)
+        check_token_func.assert_called_once_with(
+            client, 'tokenfakeran')
 
     @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
     @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines', autospec=True)
@@ -148,7 +103,7 @@ class TestJES(unittest.TestCase):
 
         configure_logging_func.assert_called_once_with(True)
         boot_context_func.assert_called_once_with(
-            'jesjob', expected_client, 'localhost', ['0'], 'trusty', 'devel',
-            'some_url', 'log/dir', True, True, permanent=True)
+            'jesjob', expected_client, 'localhost', ['0'], 'trusty',
+            'some_url', 'devel', 'log/dir', True, True, permanent=True)
 
         add_ssh_machines_func.assert_called_once_with(client, ['0'])

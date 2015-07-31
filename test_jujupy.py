@@ -1190,7 +1190,7 @@ class TestUniquifyLocal(TestCase):
 
 
 @contextmanager
-def bootstrap_context(client):
+def bootstrap_context(client=None):
     # Avoid unnecessary syscalls.
     with patch('jujupy.check_free_disk_space'):
         with scoped_environ():
@@ -1254,9 +1254,9 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_temp_bootstrap_env_environment(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
-        agent_version = client.get_matching_agent_version()
-        with bootstrap_context(client) as fake_home:
+        with bootstrap_context() as fake_home:
+            client = EnvJujuClient.by_version(env)
+            agent_version = client.get_matching_agent_version()
             with temp_bootstrap_env(fake_home, client):
                 temp_home = os.environ['JUJU_HOME']
                 self.assertNotEqual(temp_home, fake_home)
@@ -1336,8 +1336,8 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_check_space_local_lxc(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
-        with bootstrap_context(client) as fake_home:
+        with bootstrap_context() as fake_home:
+            client = EnvJujuClient.by_version(env)
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
@@ -1348,8 +1348,8 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_check_space_local_kvm(self):
         env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
-        client = EnvJujuClient.by_version(env)
-        with bootstrap_context(client) as fake_home:
+        with bootstrap_context() as fake_home:
+            client = EnvJujuClient.by_version(env)
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
