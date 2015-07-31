@@ -206,8 +206,7 @@ def dump_logs(env, remote, directory, local_state_server=False):
         else:
             copy_remote_logs(remote, directory)
     except Exception as e:
-        print_now("Failed to retrieve logs")
-        print_now(str(e))
+        print_now("Failed to retrieve logs: {}".format(e))
     log_files = glob.glob(os.path.join(directory, '*.log'))
     if log_files:
         subprocess.check_call(['gzip', '-f'] + log_files)
@@ -425,8 +424,10 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                                         permanent=permanent):
                     client.bootstrap(upload_tools)
             except:
+                # If run from a windows machine may not have ssh to get logs
                 if host is not None and sys.platform != 'win32':
-                    dump_logs(client.env, host, log_dir, bootstrap_id)
+                    remote = remote_from_address(host, series=series)
+                    dump_logs(client.env, remote, log_dir, bootstrap_id)
                 raise
             try:
                 if host is None:

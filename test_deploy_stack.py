@@ -47,6 +47,7 @@ from jujupy import (
     Status,
 )
 from remote import (
+    _Remote,
     remote_from_address,
 )
 from test_jujupy import (
@@ -182,6 +183,11 @@ class DumpEnvLogsTestCase(TestCase):
     def fake_remote_machines(cls):
         return {'0': cls.r0, '1': cls.r1, '2': cls.r2}
 
+    @staticmethod
+    def _sorted_log_calls(dl_mock):
+        return sorted(((cal[0], cal[1]) for cal in dl_mock.call_args_list),
+            key=lambda t: t[0][2])
+
     def test_dump_env_logs_non_local_env(self):
         with temp_dir() as artifacts_dir:
             with patch('deploy_stack.get_remote_machines', autospec=True,
@@ -195,7 +201,6 @@ class DumpEnvLogsTestCase(TestCase):
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
             (client, '10.10.0.1'), gm_mock.call_args[0])
-        call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
             [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': False}),
@@ -203,7 +208,7 @@ class DumpEnvLogsTestCase(TestCase):
               {'local_state_server': False}),
              ((env, self.r2, '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
-            call_list)
+            self._sorted_log_calls(dl_mock))
         self.assertEqual(
             ['INFO Retrieving logs for machine-0 using ' + repr(self.r0),
              'INFO Retrieving logs for machine-1 using ' + repr(self.r1),
@@ -218,7 +223,6 @@ class DumpEnvLogsTestCase(TestCase):
                     env = SimpleEnvironment('foo', {'type': 'local'})
                     client = EnvJujuClient(env, '1.234-76', None)
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
-        call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
             [((env, self.r0, '%s/machine-0' % artifacts_dir),
               {'local_state_server': True}),
@@ -226,7 +230,7 @@ class DumpEnvLogsTestCase(TestCase):
               {'local_state_server': False}),
              ((env, self.r2, '%s/machine-2' % artifacts_dir),
               {'local_state_server': False})],
-            call_list)
+            self._sorted_log_calls(dl_mock))
 
     def test_dump_logs_with_local_state_server_false(self):
         # copy_remote_logs is called for non-local envs.
@@ -259,6 +263,36 @@ class DumpEnvLogsTestCase(TestCase):
                              sorted(os.listdir(log_dir)))
         self.assertEqual((env, log_dir), cll_mock.call_args[0])
         self.assertEqual(0, crl_mock.call_count)
+
+    def test_dump_logs_gzips_logs(self):
+        def _fake_remote_logs(remote, directory):
+            with open(os.path.join(directory, 'fake.log'), 'w') as f:
+                f.write('log contents')
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        remote = object()
+        with temp_dir() as log_dir:
+            with patch('deploy_stack.copy_remote_logs', autospec=True,
+                       side_effect=_fake_remote_logs) as crl_mock:
+                with patch('subprocess.check_call', autospec=True) as cc_mock:
+                    dump_logs(env, remote, log_dir)
+            log_path = os.path.join(log_dir, 'fake.log')
+            cc_mock.assert_called_once_with(['gzip', '-f', log_path])
+            # Because the gzip call was mocked, the filename will not have .gz
+            self.assertEqual(["fake.log"], os.listdir(log_dir))
+        crl_mock.assert_called_once_with(remote, log_dir)
+
+    def test_dump_logs_no_logs(self):
+        # If there are no logs, all is fine and gzip is not called
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        remote = object()
+        with temp_dir() as log_dir:
+            with patch('deploy_stack.copy_remote_logs',
+                       autospec=True) as crl_mock:
+                with patch('subprocess.check_call', autospec=True) as cc_mock:
+                    dump_logs(env, remote, log_dir)
+            self.assertEqual([], os.listdir(log_dir))
+        crl_mock.assert_called_once_with(remote, log_dir)
+        self.assertEquals(cc_mock.call_count, 0)
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
@@ -751,7 +785,12 @@ class TestBootContext(TestCase):
             with boot_context('bar', client, 'baz', [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=True):
                 pass
-        dl_mock.assert_called_once_with(client.env, 'baz', 'log_dir', None)
+        self.assertEqual(dl_mock.call_count, 1)
+        call_args = dl_mock.call_args[0]
+        self.assertEqual(call_args[0], client.env)
+        self.assertIsInstance(call_args[1], _Remote)
+        self.assertEqual(call_args[1].get_address(), 'baz')
+        self.assertEqual(call_args[2:], ('log_dir', None))
 
 
 class TestDeployJobParseArgs(TestCase):
