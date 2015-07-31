@@ -7,6 +7,17 @@ import (
 	"github.com/juju/errors"
 )
 
+// The Juju-recognized states in which a workload process might be.
+const (
+	StateUndefined = ""
+	StateDefined   = "defined"
+	StateStarting  = "starting"
+	StateRunning   = "running"
+	StateError     = "error"
+	StateStopping  = "stopping"
+	StateStopped   = "stopped"
+)
+
 // Status is the Juju-level status of a workload process.
 type Status struct {
 	// State is which state the process is in relative to Juju.
