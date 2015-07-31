@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +17,11 @@ type cloudImageMetadataSuite struct {
 }
 
 func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
+	metadata, err := s.State.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
+	c.Assert(metadata, gc.HasLen, 0)
+
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
@@ -26,17 +32,10 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		RootStorageSize: "rootStorageSize"}
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
-	err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+	err = s.State.CloudImageMetadataStorage.SaveMetadata(m)
 	c.Assert(err, jc.ErrorIsNil)
 
 	added, err := s.State.CloudImageMetadataStorage.FindMetadata(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(added, jc.SameContents, []cloudimagemetadata.Metadata{m})
-}
-
-func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
-	metadata, err := s.State.CloudImageMetadataStorage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 0)
 }
