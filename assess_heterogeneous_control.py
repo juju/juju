@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+import logging
 from textwrap import dedent
 from subprocess import CalledProcessError
 
@@ -20,6 +21,7 @@ from deploy_stack import (
     update_env,
     )
 from jujuci import add_credential_args
+from utility import configure_logging
 
 
 def bootstrap_client(client, upload_tools):
@@ -226,6 +228,7 @@ def parse_args(argv=None):
 
 def main():
     args = parse_args()
+    configure_logging(logging.INFO)
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
                          args.upload_tools, args.debug, args.agent_url)
