@@ -197,7 +197,7 @@ func (u *Unit) Life() Life {
 
 // Processes returns the UnitProcesses for this unit.
 func (u *Unit) Processes() (UnitProcesses, error) {
-	return u.st.UnitProcesses(u.UnitTag())
+	return u.st.UnitProcesses(u)
 }
 
 // AgentTools returns the tools that the agent is currently running.

@@ -58,7 +58,7 @@ func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 	_, unit := s.addUnit(c, "dummy", "a-service", metaYAML)
 
-	st, err := s.State.UnitProcesses(unit.UnitTag())
+	st, err := s.State.UnitProcesses(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	definitions, err := st.ListDefinitions()

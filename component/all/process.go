@@ -70,7 +70,7 @@ func (workloadProcesses) registerHookContextFacade() {
 			return nil, errors.NewNotValid(nil, "st is nil")
 		}
 
-		up, err := st.UnitProcesses(unit.UnitTag())
+		up, err := st.UnitProcesses(unit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
