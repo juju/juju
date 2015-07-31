@@ -9,16 +9,29 @@ from textwrap import dedent
 import unittest
 
 from build_package import (
+    _JujuSeries,
     build_binary,
     BUILD_DEB_TEMPLATE,
     build_in_lxc,
+    build_source,
+    BUILD_SOURCE_TEMPLATE,
     CREATE_LXC_TEMPLATE,
+    create_source_package,
+    create_source_package_branch,
+    CREATE_SPB_TEMPLATE,
+    DEFAULT_SPB,
     get_args,
+    juju_series,
     main,
+    make_changelog_message,
+    make_deb_shell_env,
+    make_ubuntu_version,
     move_debs,
     parse_dsc,
     setup_local,
     setup_lxc,
+    Series,
+    sign_source_package,
     SourceFile,
     teardown_lxc,
 )
@@ -26,6 +39,25 @@ from utils import (
     autopatch,
     temp_dir,
 )
+
+
+class JujuSeriesTestCase(unittest.TestCase):
+
+    def test_init(self):
+        juju_series = _JujuSeries()
+        self.assertEqual(
+            Series('14.10', 'utopic', 'HISTORIC'),
+            juju_series.all['utopic'])
+
+    def test_get_living_names(self):
+        juju_series = _JujuSeries()
+        self.assertEqual(
+            ['precise', 'trusty', 'vivid', 'wily'],
+            juju_series.get_living_names())
+
+    def test_get_version(self):
+        juju_series = _JujuSeries()
+        self.assertEqual('14.04', juju_series.get_version('trusty'))
 
 
 DSC_CONTENT = dedent("""\
@@ -102,6 +134,50 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(0, code)
         bb_mock.assert_called_with(
             'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
+
+    def test_get_args_source(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args = get_args(
+                ['prog', 'source', 'my.tar.gz', '~/workspace', 'trusty',
+                 '123', '456'])
+        self.assertEqual('source', args.command)
+        self.assertEqual('my.tar.gz', args.tar_file)
+        self.assertEqual('~/workspace', args.location)
+        self.assertEqual('trusty', args.series)
+        self.assertEqual(['123', '456'], args.bugs)
+        self.assertEqual('me@email', args.debemail)
+        self.assertEqual('me', args.debfullname)
+        self.assertIsNone(args.gpgcmd)
+        self.assertEqual(DEFAULT_SPB, args.branch)
+        self.assertEqual('1', args.upatch)
+        self.assertFalse(args.verbose)
+
+    def test_get_args_source_with_living(self):
+        with patch('build_package.juju_series.get_living_names', autospec=True,
+                   return_value=['precise', 'trusty']) as js_mock:
+            args = get_args(
+                ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+                 '123', '456'])
+        self.assertEqual(['precise', 'trusty'], args.series)
+        self.assertEqual(1, js_mock.call_count)
+        args = get_args(
+            ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+             '123', '456'])
+        self.assertEqual(juju_series.get_living_names(), args.series)
+
+    def test_main_source(self):
+        with patch('build_package.build_source', autospec=True,
+                   return_value=0) as bs_mock:
+            code = main([
+                'prog', 'source',
+                '--debemail', 'me@email', '--debfullname', 'me',
+                'my.tar.gz', '~/workspace', 'trusty', '123', '456'])
+        self.assertEqual(0, code)
+        bs_mock.assert_called_with(
+            'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
+            debemail='me@email', debfullname='me', gpgcmd=None,
+            branch=DEFAULT_SPB, upatch='1', verbose=False)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
@@ -234,3 +310,100 @@ class BuildPackageTestCase(unittest.TestCase):
             self.assertTrue(found)
             self.assertFalse(os.path.isfile(deb_file))
             self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
+
+    @autopatch('build_package.create_source_package')
+    @autopatch('build_package.create_source_package_branch',
+               return_value='./spb_path')
+    @autopatch('build_package.setup_local',
+               side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
+    def test_build_source(self, sl_mock, spb_mock, csp_mock):
+        return_code = build_source(
+            './my_1.2.3.tar.gz', './workspace', ['precise', 'trusty'], ['987'],
+            debemail=None, debfullname=None, gpgcmd='my/gpg',
+            branch='lp:branch', upatch=None, verbose=False)
+        sl_mock.assert_any_call(
+            './workspace', 'any', 'all',
+            [SourceFile(None, None, 'my_1.2.3.tar.gz', './my_1.2.3.tar.gz')],
+            verbose=False)
+        spb_mock.assert_called_with(
+            './spb_dir', '1.2.3', 'my_1.2.3.tar.gz', 'lp:branch')
+        sl_mock.assert_any_call(
+            './workspace', 'precise', 'all', [], verbose=False)
+        sl_mock.assert_any_call(
+            './workspace', 'trusty', 'all', [], verbose=False)
+        self.assertEqual(0, return_code)
+
+    @autopatch('subprocess.check_call')
+    def test_create_source_package_branch(self, cc_mock):
+        spb = create_source_package_branch(
+            'juju-build-any-all', '1.2.3', 'juju-core_1.2.3.tar.gz',
+            DEFAULT_SPB)
+        self.assertEqual('juju-build-any-all/spb', spb)
+        script = CREATE_SPB_TEMPLATE.format(
+            branch=DEFAULT_SPB, spb='juju-build-any-all/spb',
+            tarfile_path='juju-build-any-all/juju-core_1.2.3.tar.gz',
+            version='1.2.3')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='juju-build-any-all')
+
+    def test_make_ubuntu_version(self):
+        ubuntu_version = make_ubuntu_version('trusty', '1.2.3')
+        self.assertEqual('1.2.3-0ubuntu1~14.04.1~juju1', ubuntu_version)
+        ubuntu_version = make_ubuntu_version('precise', '1.22-alpha1', '8')
+        self.assertEqual('1.22-alpha1-0ubuntu1~12.04.8~juju1', ubuntu_version)
+
+    def test_make_changelog_message(self):
+        message = make_changelog_message('1.2.0')
+        self.assertEqual('New upstream stable release.', message)
+        message = make_changelog_message('1.2.3')
+        self.assertEqual('New upstream stable point release.', message)
+        message = make_changelog_message('1.2-a')
+        self.assertEqual('New upstream devel release.', message)
+        message = make_changelog_message('1.2.3', ['987', '876'])
+        self.assertEqual(
+            'New upstream stable point release. (LP #987, LP #876)',
+            message)
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_source_package(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
+            debemail='me@email', debfullname='me', verbose=False)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        self.assertEqual(0, ss_mock.call_count)
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
+            debemail='me@email', debfullname='me', verbose=False)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        ss_mock.assert_called_with(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+
+    @autopatch('subprocess.check_call')
+    def test_sign_source_package(self, cc_mock):
+        sign_source_package(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            ['debsign -p /my/gpgcmd *.changes'],
+            shell=True, cwd='/juju-build-trusty-all', env=env)

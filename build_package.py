@@ -1,14 +1,33 @@
 #!/usr/bin/python
-"""Script for building source and binary debain packages."""
+"""Script for building source and binary debian packages."""
 
 from __future__ import print_function
+
+__metaclass__ = type
 
 from argparse import ArgumentParser
 from collections import namedtuple
 import os
+import re
 import shutil
 import subprocess
 import sys
+
+
+# This constant defines the location of the base source package branch.
+DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
+
+
+# This constant defines the status of the series supported by CI and Releases.
+SUPPORTED_RELEASES = """\
+12.04 precise LTS
+12.10 quantal HISTORIC
+13.10 saucy HISTORIC
+14.04 trusty LTS
+14.10 utopic HISTORIC
+15.04 vivid SUPPORTED
+15.10 wily DEVEL
+"""
 
 
 SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
@@ -57,6 +76,58 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     dpkg-buildpackage -us -uc
 EOT
 """
+
+
+CREATE_SPB_TEMPLATE = """\
+set -eux
+bzr branch {branch} {spb}
+cd {spb}
+bzr import-upstream {version} {tarfile_path}
+bzr merge . -r upstream-{version}
+bzr commit -m "Merged upstream-{version}."
+"""
+
+
+BUILD_SOURCE_TEMPLATE = """\
+set -eux
+bzr branch {spb} {source}
+cd {source}
+dch --newversion {ubuntu_version} -D {series} --force-distribution "{message}"
+debcommit
+bzr bd -S -- -us -uc
+"""
+
+DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
+
+
+UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
+
+
+VERSION_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
+
+
+Series = namedtuple('Series', ['version', 'name', 'status'])
+
+
+class _JujuSeries:
+
+    LIVING_STATUSES = ('DEVEL', 'SUPPORTED', 'LTS')
+
+    def __init__(self):
+        self.all = {}
+        for line in SUPPORTED_RELEASES.splitlines():
+            series = Series(*line.split())
+            self.all[series.name] = series
+
+    def get_living_names(self):
+        return sorted(s.name for s in self.all.values()
+                      if s.status in self.LIVING_STATUSES)
+
+    def get_version(self, name):
+        return self.all[name].version
+
+
+juju_series = _JujuSeries()
 
 
 def parse_dsc(dsc_path, verbose=False):
@@ -178,10 +249,174 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
     return 0
 
 
+def create_source_package_branch(build_dir, version, tarfile, branch):
+    """Create a new source package branch with the imported release tarfile.
+
+    The new source package can be pushed to a permanent location if it will
+    be used as the base for future packages.
+
+    :param build_dir: The root directory to create the new branch in.
+    :param version: The upstream version, which is not always the version
+        in the tarfile name.
+    :param tarfile: The path to the tarfile to import.
+    :param branch: The base source package branch to fork and import into.
+    :return: The path to the source package branch.
+    """
+    spb = os.path.join(build_dir, 'spb')
+    tarfile_path = os.path.join(build_dir, tarfile)
+    script = CREATE_SPB_TEMPLATE.format(
+        branch=branch, spb=spb, tarfile_path=tarfile_path, version=version)
+    subprocess.check_call([script], shell=True, cwd=build_dir)
+    return spb
+
+
+def make_ubuntu_version(series, version, upatch=1):
+    """Return an Ubuntu package version.
+
+    :param series: The series codename.
+    :param version: The upstream version.
+    :param upatch: The package patch number for cases where a packaging rules
+        are updated and the package rebuilt.
+    :return: An Ubuntu version string.
+    """
+    release = juju_series.get_version(series)
+    return UBUNTU_VERSION_TEMPLATE.format(
+        version=version, release=release, upatch=upatch)
+
+
+def make_changelog_message(version, bugs=None):
+    """Return a changelog message for the version.
+
+    :param version: The upstream version.
+    :param bugs: A list of Lp bug numbers or None. They will be formatted
+        for the changelog.
+    :return: a changelog message.
+    """
+    match = VERSION_PATTERN.match(version)
+    if match is None:
+        message = 'New upstream devel release.'
+    elif match.group(3) == '0':
+        message = 'New upstream stable release.'
+    else:
+        message = 'New upstream stable point release.'
+    if bugs:
+        fixes = ', '.join(['LP #%s' % b for b in bugs])
+        message = '%s (%s)' % (message, fixes)
+    return message
+
+
+def make_deb_shell_env(debemail, debfullname):
+    """Return a replacement environ suitable for DEB building.
+
+    :param debemail: The email address to attribute the changelog entry to.
+    :param debfullname: The name to attribute the changelog entry to.
+    :return: A modified copy of os.environ that can be passed to subprocesses.
+    """
+    env = dict(os.environ)
+    env['DEBEMAIL'] = debemail
+    env['DEBFULLNAME'] = debfullname
+    return env
+
+
+def sign_source_package(source_dir, gpgcmd, debemail, debfullname):
+    """Sign a source package.
+
+    The debemail and debfullname must match the identity used in the changelog
+    and the changes file.
+
+    :param source_dir: The source package directory.
+    :param gpgcmd: The path to a gpg signing command to sign with.
+    :param debemail: The email address to attribute the changelog entry to.
+    :param debfullname: The name to attribute the changelog entry to.
+    """
+    env = make_deb_shell_env(debemail, debfullname)
+    script = DEBSIGN_TEMPLATE.format(gpgcmd=gpgcmd)
+    subprocess.check_call([script], shell=True, cwd=source_dir, env=env)
+
+
+def create_source_package(source_dir, spb, series, version,
+                          upatch='1', bugs=None, gpgcmd=None,
+                          debemail=None, debfullname=None, verbose=False):
+    """Create a series source package from a source package branch.
+
+    The new source package can be used to create series source packages.
+
+    :param source_dir: The source package directory.
+    :param spb: The path (or location) of the source package branch to create
+        the new source package with.
+    :param series: The series codename.
+    :param version: The upstream version.
+    :param upatch: The package patch number for cases where a packaging rules
+        are updated and the package rebuilt.
+    :param bugs: A list of Lp bug numbers for the changelog or None.
+    :param gpgcmd: The path to a gpg signing command to sign with.
+        Source packages will be signed when gpgcmd is not None.
+    :param debemail: The email address to attribute the changelog entry to.
+    :param debfullname: The name to attribute the changelog entry to.
+    :param verbose: Increase the information about the work performed.
+    """
+    ubuntu_version = make_ubuntu_version(series, version, upatch)
+    message = make_changelog_message(version, bugs=bugs)
+    source = os.path.join(source_dir, 'source')
+    env = make_deb_shell_env(debemail, debfullname)
+    script = BUILD_SOURCE_TEMPLATE.format(
+        spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,
+        message=message)
+    subprocess.check_call([script], shell=True, cwd=source_dir, env=env)
+    if gpgcmd:
+        sign_source_package(source_dir, gpgcmd, debemail, debfullname)
+
+
+def build_source(tarfile_path, location, series, bugs,
+                 debemail=None, debfullname=None, gpgcmd=None,
+                 branch=None, upatch=1, verbose=False):
+    """Build one or more series source packages from a new release tarfile.
+
+    The packages are unsigned by default, but providing the path to a gpgcmd,
+    the dsc file will be signed.
+
+    :param tarfile_path: The path to the upstream tarfile. to import.
+    :param location: The path to the directory to build packages in.
+    :param series: The series codename or list of series codenames.
+    :param bugs: A list of Lp bug numbers the release fixes.
+    :param gpgcmd: The path to a gpg signing command to sign with.
+        Source packages will be signed when gpgcmd is not None.
+    :param debemail: The email address to attribute the changelog entry to.
+    :param debfullname: The name to attribute the changelog entry to.
+    :param branch: The path (or location) of the source package branch to
+        create the new source package with.
+    :param upatch: The package patch number for cases where a packaging rules
+        are updated and the package rebuilt.
+    :param verbose: Increase the verbostiy of output.
+    :return: the exit code (which is 0 or else an exception was raised).
+    """
+    if not isinstance(series, list):
+        series = [series]
+    tarfile_name = os.path.basename(tarfile_path)
+    version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
+    files = [SourceFile(None, None, tarfile_name, tarfile_path)]
+    spb_dir = setup_local(
+        location, 'any', 'all', files, verbose=verbose)
+    spb = create_source_package_branch(spb_dir, version, tarfile_name, branch)
+    for a_series in series:
+        build_dir = setup_local(location, a_series, 'all', [], verbose=verbose)
+        create_source_package(
+            build_dir, spb, a_series, version, upatch=upatch, bugs=bugs,
+            gpgcmd=gpgcmd, debemail=debemail, debfullname=debfullname,
+            verbose=verbose)
+    return 0
+
+
 def main(argv):
     """Execute the commands from the command line."""
     exitcode = 0
     args = get_args(argv)
+    if args.command == 'source':
+        exitcode = build_source(
+            args.tar_file, args.location, args.series, args.bugs,
+            debemail=args.debemail, debfullname=args.debfullname,
+            gpgcmd=args.gpgcmd, branch=args.branch, upatch=args.upatch,
+            verbose=args.verbose)
     if args.command == 'binary':
         exitcode = build_binary(
             args.dsc, args.location, args.series, args.arch,
@@ -196,14 +431,37 @@ def get_args(argv=None):
         "-v", "--verbose", action="store_true", default=False,
         help="Increase the verbosity of the output")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    src_parser = subparsers.add_parser('source', help='Build source packages')
+    src_parser.add_argument(
+        '--debemail', default=os.environ.get("DEBEMAIL"),
+        help="Your email address; Environment: DEBEMAIL.")
+    src_parser.add_argument(
+        '--debfullname', default=os.environ.get("DEBFULLNAME"),
+        help="Your full name; Environment: DEBFULLNAME.")
+    src_parser.add_argument(
+        '--gpgcmd', default=None,
+        help="Path to a gpg signing command to make signed packages.")
+    src_parser.add_argument(
+        '--branch', default=DEFAULT_SPB,
+        help="The base/previous source package branch.")
+    src_parser.add_argument(
+        '--upatch', default='1', help="The Ubuntu patch number.")
+    src_parser.add_argument('tar_file', help="The release tar file.")
+    src_parser.add_argument("location", help="The location to build in.")
+    src_parser.add_argument(
+        'series', help="The destination Ubuntu release or LIVING for all.")
+    src_parser.add_argument(
+        'bugs', nargs='*', help="Bugs this version will fix in the release.")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
     bin_parser.add_argument(
         '--ppa', default=None, help="The PPA that provides package deps.")
     bin_parser.add_argument("dsc", help="The dsc file to build")
     bin_parser.add_argument("location", help="The location to build in.")
     bin_parser.add_argument("series", help="The series to build in.")
-    bin_parser.add_argument("arch", help="The dpkg architure to build in.")
+    bin_parser.add_argument("arch", help="The dpkg architecture to build in.")
     args = parser.parse_args(argv[1:])
+    if args.series == 'LIVING':
+        args.series = juju_series.get_living_names()
     return args
 
 
