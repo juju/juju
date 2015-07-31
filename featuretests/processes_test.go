@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/component/all"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/process"
@@ -454,7 +455,7 @@ func lookUpCommand(cmd string) cmd.Command {
 	case "destroy-environment":
 		return &commands.DestroyEnvironmentCommand{}
 	case "status":
-		return envcmd.Wrap(&commands.StatusCommand{})
+		return envcmd.Wrap(&status.StatusCommand{})
 	case "add-machine":
 		return envcmd.Wrap(&machine.AddCommand{})
 	case "deploy":
