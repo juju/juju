@@ -29,7 +29,7 @@ def run(command, verbose=False, dry_run=False):
     return subprocess.check_output(command, stderr=subprocess.STDOUT)
 
 
-def sign_file(file_path, dry_run, verbose):
+def sign_file(file_path, gpgcmd, dry_run, verbose):
     sig_file_path = '%s.asc' % file_path
     if os.path.isfile(sig_file_path):
         if verbose:
@@ -38,7 +38,7 @@ def sign_file(file_path, dry_run, verbose):
         if verbose:
             print('Creating %s' % sig_file_path)
         if not dry_run:
-            run(['gpg', '--armor', '--sign', '--detach-sig', file_path],
+            run([gpgcmd, '--armor', '--sign', '--detach-sig', file_path],
                 verbose, dry_run)
 
     return sig_file_path
@@ -126,7 +126,8 @@ def register_release(milestone, dry_run, verbose):
         return release
 
 
-def add_release_files(release, release_notes_path, files, dry_run, verbose):
+def add_release_files(release, release_notes_path, files, gpgcmd,
+                      dry_run, verbose):
     if not release and dry_run:
         print("Returning early because there is no registered release.")
         return
@@ -152,7 +153,7 @@ def add_release_files(release, release_notes_path, files, dry_run, verbose):
                 print('skipping %s because it is published' % file_name)
             continue
         content_type = get_content_type(file_name, verbose)
-        sig_file_path = sign_file(file_path, dry_run, verbose)
+        sig_file_path = sign_file(file_path, gpgcmd, dry_run, verbose)
         sig_file_name = os.path.basename(sig_file_path)
         with open(file_path) as content_file:
             content = content_file.read()
@@ -182,7 +183,8 @@ def main():
         close_bugs(milestone, dry_run, verbose)
         release = register_release(milestone, dry_run, verbose)
         add_release_files(
-            release, args.release_notes, args.files, dry_run, verbose)
+            release, args.release_notes, args.files, args.gpgcmd,
+            dry_run, verbose)
     except Exception as e:
         print(e)
         if verbose:
@@ -214,6 +216,9 @@ def get_args(argv=None):
     parser.add_argument(
         "-f", "--files", action="append", default=[],
         help="Launchpad credentials file.")
+    parser.add_argument(
+        "-g", "--gpgcmd", default='gpg',
+        help="Path to an alternate gpg cmd.")
     parser.add_argument(
         'project', help='The project to register the release in')
     parser.add_argument(
