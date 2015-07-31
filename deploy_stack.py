@@ -127,20 +127,32 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, jenv_path=None):
-    if sys.platform == 'win32':
-        return
-    remote_machines = get_remote_machines(client, bootstrap_host)
+def _can_run_ssh():
+    """Returns true if local system can use ssh to access remote machines"""
+    # When client is run on a windows machine, we have no local ssh binary.
+    return sys.platform != "win32"
 
-    for machine_id, remote in remote_machines.iteritems():
-        logging.info("Retrieving logs for machine-%s using %r", machine_id,
-                     remote)
-        machine_directory = os.path.join(directory, "machine-%s" % machine_id)
-        os.mkdir(machine_directory)
-        local_state_server = client.env.local and machine_id == '0'
-        dump_logs(client.env, remote, machine_directory,
-                  local_state_server=local_state_server)
-    retain_jenv(jenv_path, directory)
+
+def dump_env_logs(client, bootstrap_host, artifacts_dir, jenv_path=None):
+    if client.env.local:
+        logging.info("Retrieving logs for local environment")
+        copy_local_logs(client.env, artifacts_dir)
+    else:
+        remote_machines = get_remote_machines(client, bootstrap_host)
+
+        for machine_id in sorted(remote_machines, key=int):
+            remote = remote_machines[machine_id]
+            if not _can_run_ssh() and not remote.is_windows():
+                logging.info("No ssh, skipping logs for machine-%s using %r",
+                    machine_id, remote)
+                continue
+            logging.info("Retrieving logs for machine-%s using %r", machine_id,
+                         remote)
+            machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
+            os.mkdir(machine_dir)
+            copy_remote_logs(remote, machine_dir)
+    archive_logs(artifacts_dir)
+    retain_jenv(jenv_path, artifacts_dir)
 
 
 def retain_jenv(jenv_path, log_directory):
@@ -199,30 +211,27 @@ def iter_remote_machines(client):
             yield machine_id, remote
 
 
-def dump_logs(env, remote, directory, local_state_server=False):
-    try:
-        if local_state_server:
-            copy_local_logs(env, directory)
-        else:
-            copy_remote_logs(remote, directory)
-    except Exception as e:
-        print_now("Failed to retrieve logs: {}".format(e))
-    log_files = glob.glob(os.path.join(directory, '*.log'))
+def archive_logs(log_dir):
+    """Compress log files in given log_dir using gzip."""
+    log_files = glob.glob(os.path.join(log_dir, '*.log'))
     if log_files:
-        subprocess.check_call(['gzip', '-f'] + log_files)
+        subprocess.check_call(['gzip', '--best', '-f'] + log_files)
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
 
 
 def copy_local_logs(env, directory):
+    """Copy logs for all machines in local environment."""
     local = get_local_root(get_juju_home(), env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
     log_names.extend(glob.glob(lxc_template_glob))
-
-    subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
-    subprocess.check_call(['cp'] + log_names + [directory])
+    try:
+        subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
+        subprocess.check_call(['cp'] + log_names + [directory])
+    except subprocess.CalledProcessError as e:
+        logging.warning("Could not retrieve local logs: %s", e)
 
 
 def copy_remote_logs(remote, directory):
@@ -425,9 +434,10 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     client.bootstrap(upload_tools)
             except:
                 # If run from a windows machine may not have ssh to get logs
-                if host is not None and sys.platform != 'win32':
+                if host is not None and _can_run_ssh():
                     remote = remote_from_address(host, series=series)
-                    dump_logs(client.env, remote, log_dir, bootstrap_id)
+                    copy_remote_logs(remote, log_dir)
+                    archive_logs(log_dir)
                 raise
             try:
                 if host is None:
