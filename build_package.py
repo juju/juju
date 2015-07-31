@@ -353,7 +353,7 @@ def create_source_package(source_dir, spb, series, version,
     """
     ubuntu_version = make_ubuntu_version(series, version, upatch)
     message = make_changelog_message(version, bugs=bugs)
-    source = os.path.join(source_dir, version)
+    source = os.path.join(source_dir, 'source')
     env = make_deb_shell_env(debemail, debfullname)
     script = BUILD_SOURCE_TEMPLATE.format(
         spb=spb, source=source, series=series, ubuntu_version=ubuntu_version,

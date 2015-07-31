@@ -368,7 +368,7 @@ class BuildPackageTestCase(unittest.TestCase):
             debemail='me@email', debfullname='me', verbose=False)
         script = BUILD_SOURCE_TEMPLATE.format(
             spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/1.2.3',
+            source='/juju-build-trusty-all/source',
             series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
             message='New upstream stable point release. (LP #987)')
         env = make_deb_shell_env('me@email', 'me')
@@ -385,7 +385,7 @@ class BuildPackageTestCase(unittest.TestCase):
             debemail='me@email', debfullname='me', verbose=False)
         script = BUILD_SOURCE_TEMPLATE.format(
             spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/1.2.3',
+            source='/juju-build-trusty-all/source',
             series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
             message='New upstream stable point release. (LP #987)')
         env = make_deb_shell_env('me@email', 'me')
