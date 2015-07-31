@@ -5,7 +5,6 @@ from contextlib import contextmanager
 import logging
 import sys
 from tempfile import NamedTemporaryFile
-from time import sleep
 
 import yaml
 
@@ -109,22 +108,11 @@ def hosted_environment(system_client, suffix):
         client.destroy_environment(force=False)
 
 
-def check_updated_token(client, token, timeout):
-    wait = 5
-    try:
-        check_token(client, token)
-    except ValueError as err:
-        print("INFO: waiting for token to update: {}".format(str(err)))
-        if timeout > 0:
-            sleep(wait)
-            check_updated_token(client, token, timeout - wait)
-
-
 def check_services(client):
     token = env_token(client.env.environment)
     client.juju('set', ('dummy-source', 'token=%s' % token))
     print("checking services in " + client.env.environment)
-    check_updated_token(client, token, 30)
+    check_token(client, token)
 
 
 def main():
