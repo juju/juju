@@ -127,8 +127,7 @@ func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) 
 	if err := coll.Find(searchCriteria).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if searchCriteria != nil && len(docs) == 0 {
-		// If criteria had values and no metadata was found, err
+	if len(docs) == 0 {
 		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
 	metadata := make([]Metadata, len(docs))

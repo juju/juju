@@ -76,10 +76,6 @@ func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, se
 }
 
 func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
-	metadata, err := s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 0)
-
 	m := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
@@ -94,7 +90,7 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 
 	s.assertRecordMetadata(c, m)
 
-	metadata, err = s.storage.AllMetadata()
+	metadata, err := s.storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 1)
 	expected := []cloudimagemetadata.Metadata{m}
@@ -108,6 +104,34 @@ func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, gc.HasLen, 2)
 	expected = append(expected, m)
 	c.Assert(metadata, jc.SameContents, expected)
+}
+
+func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
+	// No metadata is stored yet.
+	// So when looking for all and none is found, err.
+	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(found, gc.HasLen, 0)
+
+	// insert something...
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region",
+		Series:          "series",
+		Arch:            "arch",
+		VirtualType:     "virtualType",
+		RootStorageType: "rootStorageType",
+		RootStorageSize: "rootStorageSize"}
+	m := cloudimagemetadata.Metadata{attrs, "1"}
+	s.assertRecordMetadata(c, m)
+
+	// ...but look for something else.
+	none, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{
+		Stream: "something else",
+	})
+	// Make sure that we are explicit that we could not find what we wanted.
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(none, gc.HasLen, 0)
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
