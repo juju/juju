@@ -6,6 +6,7 @@ package featuretests
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -60,7 +61,7 @@ type processesBaseSuite struct {
 func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
 	// TODO(ericsnow) Run in a test-only local provider
 	//  (see https://github.com/juju/docs/issues/35).
-	env := newProcsEnv(c, "local", len(procsSuites))
+	env := newProcsEnv(c, "local", "local", len(procsSuites))
 	env.bootstrap(c)
 	s.env = env
 }
@@ -427,23 +428,72 @@ func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
 
 type procsEnviron struct {
 	name     string
+	envType  string
 	machine  string
 	refCount int
+	homedir  string
 }
 
-func newProcsEnv(c *gc.C, envName string, suiteCount int) *procsEnviron {
+func newProcsEnv(c *gc.C, envName, envType string, suiteCount int) *procsEnviron {
+	if envType != "local" {
+		panic("not supported")
+	}
 	if procsEnv != nil {
 		c.Assert(procsEnv.name, gc.Equals, envName)
 		return procsEnv
 	}
 	return &procsEnviron{
 		name:     envName,
+		envType:  envType,
 		refCount: suiteCount,
 	}
 }
 
 func (env *procsEnviron) markFailure(c *gc.C, s interface{}) {
 	env.refCount = -1
+}
+
+func initJuju(c *gc.C) {
+	err := jjj.InitJujuHome()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (env procsEnviron) ensureOSEnv(c *gc.C) {
+	if env.homedir == "" {
+		homedir, err := ioutil.TempDir("", "juju-test-"+env.name+"-")
+		c.Assert(err, jc.ErrorIsNil)
+		env.homedir = homedir
+		env.writeConfig(c)
+	}
+
+	err := os.Setenv("JUJU_HOME", filepath.Join(env.homedir, ".juju"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (env procsEnviron) writeConfig(c *gc.C) {
+	config := map[string]interface{}{
+		"environments": map[string]interface{}{
+			env.name: env.localConfig(),
+		},
+	}
+	data, err := goyaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	envYAML := filepath.Join(env.homedir, ".juju", "environments.yaml")
+	err = os.MkdirAll(filepath.Dir(envYAML), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(envYAML, data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (env procsEnviron) localConfig() map[string]interface{} {
+	return map[string]interface{}{
+		"type":         "local",
+		"root-dir":     env.homedir,
+		"api-port":     17071,
+		"state-port":   37018,
+		"storage-port": 8041,
+	}
 }
 
 func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
@@ -459,11 +509,6 @@ func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return strings.TrimSpace(coretesting.Stdout(ctx))
-}
-
-func initJuju(c *gc.C) {
-	err := jjj.InitJujuHome()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TODO(ericsnow) Instead, directly access the command registry...
@@ -498,13 +543,14 @@ func lookUpCommand(cmd string) cmd.Command {
 }
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
-	initJuju(c)
-
 	if procsEnv != nil {
 		c.Assert(env, gc.Equals, procsEnv)
 		return
 	}
 	procsEnv = env
+
+	env.ensureOSEnv(c)
+	initJuju(c)
 
 	env.run(c, "bootstrap")
 	env.run(c, "environment set", "logging-config=<root>=DEBUG")
@@ -542,7 +588,13 @@ func (env *procsEnviron) destroy(c *gc.C) {
 	if !alwaysCleanUp && (env.refCount != 0 || procsEnv == nil) {
 		return
 	}
+	env.ensureOSEnv(c)
+	initJuju(c)
 	env.run(c, "destroy-environment", "--force")
+	if env.homedir != "" {
+		err := os.RemoveAll(env.homedir)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	procsEnv = nil
 }
 
