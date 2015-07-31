@@ -12,13 +12,16 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/base"
+	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api/client"
 	"github.com/juju/juju/process/api/server"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/plugin"
 	procstate "github.com/juju/juju/process/state"
+	"github.com/juju/juju/process/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -29,10 +32,12 @@ type workloadProcesses struct{}
 func (c workloadProcesses) registerForServer() error {
 	c.registerHookContext()
 	c.registerState()
+	c.registerUnitStatus()
 	return nil
 }
 
-func (c workloadProcesses) registerForClient() error {
+func (workloadProcesses) registerForClient() error {
+	cmdstatus.RegisterUnitStatusFormatter(process.ComponentName, status.Format)
 	return nil
 }
 
@@ -58,7 +63,7 @@ func (c workloadProcesses) registerHookContext() {
 	c.registerHookContextFacade()
 }
 
-func (c workloadProcesses) registerHookContextFacade() {
+func (workloadProcesses) registerHookContextFacade() {
 
 	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
 		if st == nil {
@@ -134,7 +139,7 @@ func (workloadProcesses) registerHookContextCommands() {
 	})
 }
 
-func (c workloadProcesses) registerState() {
+func (workloadProcesses) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
@@ -142,4 +147,19 @@ func (c workloadProcesses) registerState() {
 		return procstate.NewUnitProcesses(persist, unit, getMetadata), nil
 	}
 	state.SetProcessesComponent(newUnitProcesses)
+}
+
+func (workloadProcesses) registerUnitStatus() {
+	apiserverclient.RegisterStatusProviderForUnits(process.ComponentName,
+		func(unit *state.Unit) (interface{}, error) {
+			up, err := unit.Processes()
+			if err != nil {
+				return nil, err
+			}
+			procs, err := up.List()
+			if err != nil {
+				return nil, err
+			}
+			return status.UnitStatus(procs)
+		})
 }

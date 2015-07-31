@@ -1,16 +1,18 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package status
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -21,6 +23,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.status")
 
 type StatusCommand struct {
 	envcmd.EnvCommandBase
@@ -237,11 +241,12 @@ type unitStatus struct {
 	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
 
-	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
-	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	Charm         string                 `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                 `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string               `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                 `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus  `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	Components    map[string]interface{} `json:"components,omitempty" yaml:"components,omitempty"`
 }
 
 type statusInfoContents struct {
@@ -352,6 +357,7 @@ func (sf *statusFormatter) format() formattedStatus {
 		}
 		out.Networks[k] = sf.formatNetwork(n)
 	}
+
 	return out
 }
 
@@ -457,6 +463,14 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 		PublicAddress:      unit.PublicAddress,
 		Charm:              unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
+	}
+
+	if len(unit.Components) > 0 {
+		out.Components = map[string]interface{}{}
+		for component, status := range unit.Components {
+			formatter := unitStatusFormatters[component]
+			out.Components[component] = formatter(status.Bytes())
+		}
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
@@ -578,4 +592,23 @@ func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string)
 		return fmt.Sprintf("(%s: %s)", origStatus, info)
 	}
 	return info
+}
+
+// formatStatusTime returns a string with the local time
+// formatted in an arbitrary format used for status or
+// and localized tz or in utc timezone and format RFC3339
+// if u is specified.
+func formatStatusTime(t *time.Time, formatISO bool) string {
+	if formatISO {
+		// If requested, use ISO time format.
+		// The format we use is RFC3339 without the "T". From the spec:
+		// NOTE: ISO 8601 defines date and time separated by "T".
+		// Applications using this syntax may choose, for the sake of
+		// readability, to specify a full-date and full-time separated by
+		// (say) a space character.
+		return t.UTC().Format("2006-01-02 15:04:05Z")
+	} else {
+		// Otherwise use local time.
+		return t.Local().Format("02 Jan 2006 15:04:05Z07:00")
+	}
 }

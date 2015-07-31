@@ -8,4 +8,4 @@ package process
 
 // ComponentName is the name of the Juju component for workload
 // process management.
-const ComponentName = "process"
+const ComponentName = "workload-processes"
