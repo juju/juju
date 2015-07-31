@@ -103,7 +103,7 @@ DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
 UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
 
 
-STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
+VERSION_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
 
 
 Series = namedtuple('Series', ['version', 'name', 'status'])
@@ -292,7 +292,7 @@ def make_changelog_message(version, bugs=None):
         for the changelog.
     :return: a changelog message.
     """
-    match = STABLE_PATTERN.match(version)
+    match = VERSION_PATTERN.match(version)
     if match is None:
         message = 'New upstream devel release.'
     elif match.group(3) == '0':
@@ -353,6 +353,7 @@ def create_source_package(source_dir, spb, series, version,
         Source packages will be signed when gpgcmd is not None.
     :param debemail: The email address to attribute the changelog entry to.
     :param debfullname: The name to attribute the changelog entry to.
+    :param verbose: Increase the information about the work performed.
     """
     ubuntu_version = make_ubuntu_version(series, version, upatch)
     message = make_changelog_message(version, bugs=bugs)
@@ -387,7 +388,7 @@ def build_source(tarfile_path, location, series, bugs,
     :param upatch: The package patch number for cases where a packaging rules
         are updated and the package rebuilt.
     :param verbose: Increase the verbostiy of output.
-    :Return: the exit code (which is 0 or else an exception was raised).
+    :return: the exit code (which is 0 or else an exception was raised).
     """
     if not isinstance(series, list):
         series = [series]
@@ -444,7 +445,7 @@ def get_args(argv=None):
         '--branch', default=DEFAULT_SPB,
         help="The base/previous source package branch.")
     src_parser.add_argument(
-        '--upatch', default=0, help="The Ubuntu patch number.")
+        '--upatch', default='1', help="The Ubuntu patch number.")
     src_parser.add_argument('tar_file', help="The release tar file.")
     src_parser.add_argument("location", help="The location to build in.")
     src_parser.add_argument(

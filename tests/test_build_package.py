@@ -9,6 +9,7 @@ from textwrap import dedent
 import unittest
 
 from build_package import (
+    _JujuSeries,
     build_binary,
     BUILD_DEB_TEMPLATE,
     build_in_lxc,
@@ -20,7 +21,7 @@ from build_package import (
     CREATE_SPB_TEMPLATE,
     DEFAULT_SPB,
     get_args,
-    _JujuSeries,
+    juju_series,
     main,
     make_changelog_message,
     make_deb_shell_env,
@@ -149,7 +150,7 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual('me', args.debfullname)
         self.assertIsNone(args.gpgcmd)
         self.assertEqual(DEFAULT_SPB, args.branch)
-        self.assertEqual(0, args.upatch)
+        self.assertEqual('1', args.upatch)
         self.assertFalse(args.verbose)
 
     def test_get_args_source_with_living(self):
@@ -160,6 +161,10 @@ class BuildPackageTestCase(unittest.TestCase):
                  '123', '456'])
         self.assertEqual(['precise', 'trusty'], args.series)
         self.assertEqual(1, js_mock.call_count)
+        args = get_args(
+            ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+             '123', '456'])
+        self.assertEqual(juju_series.get_living_names(), args.series)
 
     def test_main_source(self):
         with patch('build_package.build_source', autospec=True,
@@ -172,7 +177,7 @@ class BuildPackageTestCase(unittest.TestCase):
         bs_mock.assert_called_with(
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
             debemail='me@email', debfullname='me', gpgcmd=None,
-            branch=DEFAULT_SPB, upatch=0, verbose=False)
+            branch=DEFAULT_SPB, upatch='1', verbose=False)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
