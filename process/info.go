@@ -53,6 +53,10 @@ func (info Info) Validate() error {
 		return errors.Trace(err)
 	}
 
+	if err := info.Status.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := info.Details.Validate(); err != nil {
 		return errors.Trace(err)
 	}

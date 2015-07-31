@@ -5,6 +5,7 @@ package process
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // TODO(ericsnow) Turn StateError into a field (like Failed)?
@@ -18,6 +19,18 @@ const (
 	StateError     = "error"
 	StateStopping  = "stopping"
 	StateStopped   = "stopped"
+)
+
+var (
+	okayStates = set.NewStrings(
+		StateUndefined, // TODO(ericsnow) Drop from the set.
+		StateDefined,
+		StateStarting,
+		StateRunning,
+		StateError,
+		StateStopping,
+		StateStopped,
+	)
 )
 
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
@@ -141,6 +154,25 @@ func (s *Status) Resolve(message string) error {
 
 	s.Failed = false
 	s.Message = message
+	return nil
+}
+
+// Validate checkes the status to ensure it contains valid data.
+func (s Status) Validate() error {
+	if !okayStates.Contains(s.State) {
+		return errors.NotValidf("Status.State (%q)", s.State)
+	}
+	if s.Failed {
+		switch s.State {
+		case StateUndefined:
+			return errors.NotValidf("failure in an initial state")
+		case StateDefined:
+			return errors.NotValidf("failure in an initial state")
+		case StateStopped:
+			return errors.NotValidf("failure in a final state")
+		}
+	}
+
 	return nil
 }
 

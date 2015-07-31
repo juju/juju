@@ -4,6 +4,7 @@
 package process_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -211,6 +212,7 @@ func (s *statusSuite) TestSetFailedBadState(c *gc.C) {
 		Message: "good to go",
 	}
 	test := func(state, msg string) {
+		c.Logf("checking %q", state)
 		status.State = state
 		err := status.SetFailed("")
 
@@ -343,4 +345,60 @@ func (s *statusSuite) TestResolveNotBlocked(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `not in an error or failed state`)
 	s.checkStatus(c, status, process.StateRunning, "nothing wrong")
+}
+
+func (s *statusSuite) TestValidateOkay(c *gc.C) {
+	var status process.Status
+	for _, state := range states {
+		c.Logf("checking %q", state)
+		status.State = state
+		err := status.Validate()
+
+		c.Check(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *statusSuite) TestValidateBadStatus(c *gc.C) {
+	var status process.Status
+	status.State = "some bogus state"
+	err := status.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *statusSuite) TestValidateFailedBadState(c *gc.C) {
+	var status process.Status
+	status.Failed = true
+	test := func(state string) {
+		c.Logf("checking %q", state)
+		status.State = state
+		err := status.Validate()
+
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+	}
+	for _, state := range initialStates {
+		test(state)
+	}
+	for _, state := range finalStates {
+		test(state)
+	}
+}
+
+func (s *statusSuite) TestValidateFailedOkay(c *gc.C) {
+	okay := []string{
+		process.StateStarting,
+		process.StateRunning,
+		process.StateError,
+		process.StateStopping,
+	}
+
+	var status process.Status
+	status.Failed = true
+	for _, state := range okay {
+		c.Logf("checking %q", state)
+		status.State = state
+		err := status.Validate()
+
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
