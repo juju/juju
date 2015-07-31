@@ -72,16 +72,16 @@ func (api *AddresserAPI) ReleaseIPAddresses(args params.Entities) (params.ErrorR
 	// Create an environment to verify networking support.
 	config, err := api.st.EnvironConfig()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		logger.Tracef("environment supports networking")
 		for i, entity := range args.Entities {
-			tag, err := names.ParseTag(entity.Tag)
+			tag, err := names.ParseIPAddressTag(entity.Tag)
 			if err != nil {
 				result.Results[i].Error = common.ServerError(err)
 				continue
@@ -96,13 +96,16 @@ func (api *AddresserAPI) ReleaseIPAddresses(args params.Entities) (params.ErrorR
 }
 
 // releaseIPAddress releases one IP address.
-func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag names.Tag) (err error) {
+func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag names.IPAddressTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", tag.String())
 	logger.Tracef("attempting to release dead IP address %v", tag.String())
 	// Retrieve IP address by tag.
-	ipAddress, err := api.st.IPAddressByTag(tag.(names.IPAddressTag))
+	ipAddress, err := api.st.IPAddressByTag(tag)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if ipAddress.Life() != state.Dead {
+		return errors.Errorf("cannot release IP address %q: is not dead", ipAddress.Address())
 	}
 	// Try to release it.
 	subnetId := network.Id(ipAddress.SubnetId())
@@ -114,7 +117,7 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag
 	}
 	// Don't remove the address from state so we
 	// can retry releasing the address later.
-	logger.Warningf("cannot release address %q: %v (will retry)", tag, err)
+	logger.Warningf("cannot release IP address %q (%v): %v (will retry)", ipAddress.Address(), tag, err)
 	return errors.Trace(err)
 }
 

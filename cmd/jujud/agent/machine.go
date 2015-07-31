@@ -1154,7 +1154,7 @@ func (a *MachineAgent) startEnvWorkers(
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return addresser.NewWorker(st)
+		return addresser.NewWorker(apiSt.Addresser())
 	})
 
 	// Start workers that use an API connection.

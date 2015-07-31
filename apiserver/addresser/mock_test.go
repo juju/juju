@@ -8,12 +8,11 @@ import (
 	"sort"
 	"sync"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jujutxn "github.com/juju/txn"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/environs/config"
@@ -176,7 +175,7 @@ func (mst *mockState) IPAddressByTag(tag names.IPAddressTag) (addresser.StateIPA
 		return nil, err
 	}
 	for _, ipAddress := range mst.ipAddresses {
-		if ipAddress.Tag().String() == tag.String() {
+		if ipAddress.Tag() == tag {
 			return ipAddress, nil
 		}
 	}

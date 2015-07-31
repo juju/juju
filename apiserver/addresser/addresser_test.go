@@ -116,17 +116,21 @@ func (s *AddresserSuite) TestLifeFail(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `IP address ipaddress-00000000-1111-2222-9999-ffffffffffff not found`)
 }
 
-func (s *AddresserSuite) TestReleaseIPAddressesSuccess(c *gc.C) {
+func (s *AddresserSuite) TestReleaseIPAddresses(c *gc.C) {
 	config := testingEnvConfig(c)
 	s.st.setConfig(c, config)
 
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"}},
+		Entities: []params.Entity{
+			{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"},
+			{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"},
+		},
 	}
 	result, err := s.api.ReleaseIPAddresses(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(len(result.Results), gc.Equals, 2)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `.*: cannot release IP address .*: is not dead`)
+	c.Assert(result.Results[1].Error, gc.IsNil)
 }
 
 func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {

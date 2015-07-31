@@ -18,6 +18,7 @@ type StateIPAddress interface {
 	state.EnsureDeader
 	state.Remover
 
+	Life() state.Life
 	SubnetId() string
 	InstanceId() instance.Id
 	Address() network.Address

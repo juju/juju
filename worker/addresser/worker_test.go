@@ -227,6 +227,9 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 	// Wait some time and remove test machine again.
 	for a := common.ShortAttempt.Start(); a.Next(); {
+		err = ipAddr.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 	}
 
 	err = machine.EnsureDead()

@@ -59,6 +59,7 @@ func (a *addresserHandler) Handle(watcherTags []string) error {
 		if err != common.ErrPartialResults {
 			return errors.Annotate(err, "cannot retrieve IP addresses")
 		}
+		return errors.Trace(err)
 	}
 	toBeReleased := []*apiaddresser.IPAddress{}
 	for i, ipAddress := range ipAddresses {
