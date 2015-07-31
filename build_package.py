@@ -250,7 +250,7 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
 
 
 def create_source_package_branch(build_dir, version, tarfile, branch):
-    """Importing a release tarfile to create a new source package branch.
+    """Create a new source package branch with the imported release tarfile.
 
     The new source package can be pushed to a permanent location if it will
     be used as the base for future packages.
