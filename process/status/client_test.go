@@ -16,24 +16,11 @@ type clientSuite struct{}
 
 var _ = gc.Suite(&clientSuite{})
 
-func (*clientSuite) TestNil(c *gc.C) {
-	c.Assert(Format(nil), gc.IsNil)
-}
-
 func (*clientSuite) TestWrongObj(c *gc.C) {
 	out := Format([]byte("foo"))
 	if _, ok := out.(error); !ok {
 		c.Errorf("Expected error, got %#v", out)
 	}
-}
-
-func (*clientSuite) TestEmpty(c *gc.C) {
-	out := Format(nil)
-	s, ok := out.(map[string]cliDetails)
-	if !ok {
-		c.Fatalf("Expected map[string]cliDetails but got %#v", out)
-	}
-	c.Assert(s, gc.HasLen, 0)
 }
 
 func (*clientSuite) TestGood(c *gc.C) {
