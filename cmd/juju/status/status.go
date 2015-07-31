@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
