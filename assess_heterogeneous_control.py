@@ -14,7 +14,7 @@ from jujupy import (
     )
 from deploy_stack import (
     check_token,
-    dump_logs,
+    dump_env_logs,
     get_machine_dns_name,
     get_random_string,
     update_env,
@@ -51,7 +51,7 @@ def dumping_env(client, host, log_dir):
         try:
             yield
         finally:
-            dump_logs(client.env, host, log_dir)
+            dump_env_logs(client, host, log_dir)
     except:
         client.destroy_environment()
         raise
