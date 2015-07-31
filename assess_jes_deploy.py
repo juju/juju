@@ -2,6 +2,8 @@
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+import logging
+import sys
 from tempfile import NamedTemporaryFile
 from time import sleep
 
@@ -15,7 +17,6 @@ from deploy_stack import (
     get_random_string,
     )
 from jujupy import (
-    dump_environments_yaml,
     EnvJujuClient,
     make_safe_config,
     SimpleEnvironment,
@@ -23,31 +24,31 @@ from jujupy import (
 from utility import add_basic_testing_arguments
 
 
-def make_system_env_client(client, suffix):
+def make_hosted_env_client(client, suffix):
     env_name = '{}-{}'.format(client.env.environment, suffix)
-    system_environment = SimpleEnvironment(env_name, dict(client.env.config))
-    system_env_client = EnvJujuClient.by_version(
-        system_environment, client.full_path, client.debug,
+    hosted_environment = SimpleEnvironment(env_name, dict(client.env.config))
+    hosted_env_client = EnvJujuClient.by_version(
+        hosted_environment, client.full_path, client.debug,
     )
-    system_env_client.juju_home = client.juju_home
-    system_env_client.enable_jes()
-    return system_env_client
+    hosted_env_client.juju_home = client.juju_home
+    hosted_env_client.enable_jes()
+    return hosted_env_client
 
 
 def test_jes_deploy(client, charm_prefix, base_env):
     """Deploy the dummy stack in two hosted environments."""
-
-    # deploy into state server
+    # deploy into system env
     deploy_dummy_stack(client, charm_prefix)
 
     # deploy into hosted envs
-    env1_client = deploy_dummy_stack_in_environ(client, charm_prefix, "env1")
-    env2_client = deploy_dummy_stack_in_environ(client, charm_prefix, "env2")
-
-    # check all the services can talk
-    check_services(client)
-    check_services(env1_client)
-    check_services(env2_client)
+    with hosted_environment(client, 'env1') as env1_client:
+        deploy_dummy_stack(env1_client, charm_prefix)
+        with hosted_environment(client, 'env2') as env2_client:
+            deploy_dummy_stack(env2_client, charm_prefix)
+            # check all the services can talk
+            check_services(client)
+            check_services(env1_client)
+            check_services(env2_client)
 
 
 @contextmanager
@@ -85,28 +86,27 @@ def env_token(env_name):
     return env_name + get_random_string()
 
 
-def create_environment(system_client, suffix):
-    client = make_system_env_client(system_client, suffix)
-    with NamedTemporaryFile() as config_file:
-        config = make_safe_config(client)
-        yaml.dump(config, config_file)
-        config_file.flush()
-        client.juju(
-            "system create-environment", (
-                '-s', system_client.env.environment, client.env.environment,
-                '--config', config_file.name),
-            include_e=False)
-    return client
-
-
-def deploy_dummy_stack_in_environ(system_client, charm_prefix, suffix):
-    # first create the environment
-    client = create_environment(system_client, suffix)
-    client.juju("environment set", ("default-series=trusty",))
-
-    # then deploy a dummy stack in it
-    deploy_dummy_stack(client, charm_prefix)
-    return client
+@contextmanager
+def hosted_environment(system_client, suffix):
+    client = make_hosted_env_client(system_client, suffix)
+    try:
+        with NamedTemporaryFile() as config_file:
+            config = make_safe_config(client)
+            yaml.dump(config, config_file)
+            config_file.flush()
+            client.juju(
+                "system create-environment", (
+                    '-s', system_client.env.environment,
+                    client.env.environment, '--config', config_file.name),
+                include_e=False)
+        yield client
+    except:
+        logging.exception(
+            'Exception while environment "{}" active'.format(
+                client.env.environment))
+        sys.exit(1)
+    finally:
+        client.destroy_environment(force=False)
 
 
 def check_updated_token(client, token, timeout):
@@ -123,7 +123,7 @@ def check_updated_token(client, token, timeout):
 def check_services(client):
     token = env_token(client.env.environment)
     client.juju('set', ('dummy-source', 'token=%s' % token))
-    print("checking services in "+ client.env.environment)
+    print("checking services in " + client.env.environment)
     check_updated_token(client, token, 30)
 
 

@@ -799,7 +799,8 @@ def make_safe_config(client):
     # ensure MAASAccount knows what the name will be.
     config['name'] = client.env.environment
     if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(juju_home, client.env))
+        config.setdefault('root-dir', get_local_root(client.juju_home,
+                          client.env))
         # MongoDB requires a lot of free disk space, and the only
         # visible error message is from "juju bootstrap":
         # "cannot initiate replication set" if disk space is low.
