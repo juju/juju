@@ -441,7 +441,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
-                if client.is_jes_enabled():
+                jes_enabled = client.is_jes_enabled()
+                if jes_enabled:
                     runtime_config = get_cache_path(client.juju_home)
                 else:
                     runtime_config = get_jenv_path(client.juju_home,
@@ -450,7 +451,12 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     dump_env_logs(client, host, log_dir,
                                   runtime_config=runtime_config)
                 if not keep_env:
-                    client.destroy_environment()
+                    if jes_enabled:
+                        client.juju(
+                            'system kill', (client.env.environment, '-y'),
+                            include_e=False)
+                    else:
+                        client.destroy_environment()
         finally:
             if created_machines and not keep_env:
                 destroy_job_instances(temp_env_name)
