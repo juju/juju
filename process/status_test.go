@@ -55,6 +55,63 @@ func (s *statusSuite) checkStatusOkay(c *gc.C, status process.Status, state, msg
 	s.checkStatus(c, status, state, msg, false, false)
 }
 
+func (s *statusSuite) TestStringOkay(c *gc.C) {
+	var status process.Status
+	status.Message = "nothing to see here"
+	for _, state := range states {
+		c.Logf("checking %q", state)
+		status.State = state
+		str := status.String()
+
+		c.Check(str, gc.Equals, "nothing to see here")
+	}
+}
+
+func (s *statusSuite) TestStringNoMessage(c *gc.C) {
+	var status process.Status
+	for _, state := range states {
+		c.Logf("checking %q", state)
+		status.State = state
+		str := status.String()
+
+		c.Check(str, gc.Equals, "<no message>")
+	}
+}
+
+func (s *statusSuite) TestStringFailed(c *gc.C) {
+	status := process.Status{
+		State:   process.StateRunning,
+		Failed:  true,
+		Message: "uh-oh",
+	}
+	str := status.String()
+
+	c.Check(str, gc.Equals, "(failed) uh-oh")
+}
+
+func (s *statusSuite) TestStringError(c *gc.C) {
+	status := process.Status{
+		State:   process.StateRunning,
+		Error:   true,
+		Message: "uh-oh",
+	}
+	str := status.String()
+
+	c.Check(str, gc.Equals, "(error) uh-oh")
+}
+
+func (s *statusSuite) TestStringFailedAndError(c *gc.C) {
+	status := process.Status{
+		State:   process.StateRunning,
+		Failed:  true,
+		Error:   true,
+		Message: "uh-oh",
+	}
+	str := status.String()
+
+	c.Check(str, gc.Equals, "(failed) uh-oh")
+}
+
 func (s *statusSuite) TestIsBlockedFalse(c *gc.C) {
 	status := s.newStatus(process.StateRunning)
 	blocked := status.IsBlocked()

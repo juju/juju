@@ -47,7 +47,20 @@ type Status struct {
 	Message string
 }
 
-// TODO(ericsnow) Add a String method.
+// String returns a string representing the status of the process.
+func (s Status) String() string {
+	message := s.Message
+	if message == "" {
+		message = "<no message>"
+	}
+	if s.Failed {
+		return "(failed) " + message
+	}
+	if s.Error {
+		return "(error) " + message
+	}
+	return message
+}
 
 // IsBlocked indicates whether or not the workload process may proceed
 // to the next state.
