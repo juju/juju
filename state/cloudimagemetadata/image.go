@@ -65,8 +65,7 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 			op.Insert = &newDoc
 			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
 		} else {
-			same := isSameMetadata(existing, metadata)
-			if same {
+			if existing == metadata {
 				logger.Debugf("cloud image metadata for %v has not changed", newDoc.Id)
 				return nil, jujutxn.ErrNoOperations
 			}
@@ -95,21 +94,6 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 		return emptyMetadata, err
 	}
 	return old.metadata(), nil
-}
-
-func isSameMetadata(old, new Metadata) bool {
-	return old.ImageId == new.ImageId &&
-		areSameAttributes(old.MetadataAttributes, new.MetadataAttributes)
-}
-
-func areSameAttributes(old, new MetadataAttributes) bool {
-	return old.Arch == new.Arch &&
-		old.Region == new.Region &&
-		old.RootStorageType == new.RootStorageType &&
-		old.RootStorageSize == new.RootStorageSize &&
-		old.Series == new.Series &&
-		old.Stream == new.Stream &&
-		old.VirtualType == new.VirtualType
 }
 
 // FindMetadata implements Storage.FindMetadata.

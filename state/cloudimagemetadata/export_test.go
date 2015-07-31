@@ -5,6 +5,4 @@ package cloudimagemetadata
 
 var (
 	BuildSearchClauses = buildSearchClauses
-	AreSameAttributes  = areSameAttributes
-	IsSameMetadata     = isSameMetadata
 )
