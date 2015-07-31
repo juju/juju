@@ -127,7 +127,9 @@ type UnitStatus struct {
 	PublicAddress string
 	Charm         string
 	Subordinates  map[string]UnitStatus
-	Components    map[string]ComponentStatus
+
+	// Components is a map from component name to the component's status.
+	Components map[string]ComponentStatus
 }
 
 // NewComponentStatus returns a ComponentStatus object wrapping the given value.

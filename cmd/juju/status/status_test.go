@@ -3554,3 +3554,63 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	ctx.run(c, statusTimeTest.steps)
 }
+
+type simpleStatusSuite struct{}
+
+var _ = gc.Suite(&simpleStatusSuite{})
+
+func (*simpleStatusSuite) TestFormatUnitProcesses(c *gc.C) {
+	unitStatusFormatters["comp1"] = func(b []byte) interface{} { return "foo" }
+
+	f := statusFormatter{}
+
+	unit := api.UnitStatus{
+		Components: map[string]api.ComponentStatus{
+			"comp1": api.NewComponentStatus("bar comp status"),
+		},
+	}
+
+	status := f.formatUnit(unit, "doesn't matter")
+	var val interface{} = "foo"
+	c.Assert(status.Components, gc.DeepEquals, map[string]interface{}{"comp1": val})
+}
+
+func (*simpleStatusSuite) TestFormatUnitNoProcesses(c *gc.C) {
+	f := statusFormatter{}
+	unit := api.UnitStatus{}
+
+	status := f.formatUnit(unit, "doesn't matter")
+	c.Assert(status.Components, gc.IsNil)
+}
+
+func (*simpleStatusSuite) TestComponentsJSON(c *gc.C) {
+	u := unitStatus{Components: map[string]interface{}{
+		"foo": "bar",
+	}}
+	b, err := json.Marshal(u)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(b), gc.Matches, `.*"components":{"foo":"bar"}.*`)
+}
+
+func (*simpleStatusSuite) TestEmptyComponentsJSON(c *gc.C) {
+	u := unitStatus{}
+	b, err := json.Marshal(u)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.Contains(string(b), "components"), jc.IsFalse)
+}
+
+func (*simpleStatusSuite) TestComponentsYAML(c *gc.C) {
+	u := unitStatus{Components: map[string]interface{}{
+		"foo": "bar",
+	}}
+	b, err := goyaml.Marshal(u)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.Contains(string(b), "components:\n  foo: bar"), jc.IsTrue)
+}
+
+func (*simpleStatusSuite) TestEmptyComponentsYAML(c *gc.C) {
+	u := unitStatus{}
+	b, err := goyaml.Marshal(u)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.Contains(string(b), "components"), jc.IsFalse)
+}
