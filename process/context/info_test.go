@@ -162,6 +162,10 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    failed: false
+    message: ""
   details:
     id: xyz123
     status:
@@ -191,6 +195,10 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    failed: false
+    message: ""
   details:
     id: xyz123
     status:
@@ -206,6 +214,10 @@ myprocess1/xyz456:
     ports: []
     volumes: []
     envvars: {}
+  status:
+    state: ""
+    failed: false
+    message: ""
   details:
     id: xyz456
     status:
@@ -221,6 +233,10 @@ myprocess2/xyz789:
     ports: []
     volumes: []
     envvars: {}
+  status:
+    state: ""
+    failed: false
+    message: ""
   details:
     id: xyz789
     status:
@@ -250,6 +266,10 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    failed: false
+    message: ""
   details:
     id: xyz123
     status:

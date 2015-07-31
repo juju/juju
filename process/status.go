@@ -7,6 +7,19 @@ import (
 	"github.com/juju/errors"
 )
 
+// Status is the Juju-level status of a workload process.
+type Status struct {
+	// State is which state the process is in relative to Juju.
+	State string
+	// Failed identifies whether or not Juju got a failure while trying
+	// to interact with the process (via its plugin).
+	Failed bool
+	// Message is a human-readable message describing the current status
+	// of the process, why it is in the current state, or what Juju is
+	// doing right now relative to the process. There may be no message.
+	Message string
+}
+
 // PluginStatus represents the data returned from the Plugin.Status call.
 type PluginStatus struct {
 	// Label represents the human-readable label returned by the plugin
