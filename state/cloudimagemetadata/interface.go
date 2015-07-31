@@ -26,11 +26,8 @@ type Storage interface {
 	// updates metadata if it already exists,
 	SaveMetadata(Metadata) error
 
-	// AllMetadata returns metadata for the full list of cloud images in
-	// the catalogue.
-	AllMetadata() ([]Metadata, error)
-
 	// FindMetadata returns all Metadata that match specified
 	// criteria or a "not found" error if none match.
-	FindMetadata(MetadataAttributes) ([]Metadata, error)
+	// Empty criteria will return all cloud image metadata.
+	FindMetadata(criteria MetadataAttributes) ([]Metadata, error)
 }

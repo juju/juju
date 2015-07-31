@@ -112,11 +112,6 @@ func areSameAttributes(old, new MetadataAttributes) bool {
 		old.VirtualType == new.VirtualType
 }
 
-// AllMetadata implements Storage.AllMetadata.
-func (s *storage) AllMetadata() ([]Metadata, error) {
-	return s.FindMetadata(MetadataAttributes{})
-}
-
 // FindMetadata implements Storage.FindMetadata.
 func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
 	coll, closer := s.getCollection(s.collection)

@@ -75,37 +75,6 @@ func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, se
 	s.assertMetadataRecorded(c, attrs, added)
 }
 
-func (s *cloudImageMetadataSuite) TestAllMetadata(c *gc.C) {
-	m := cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
-			Stream:          "stream",
-			Region:          "region",
-			Series:          "series",
-			Arch:            "arch",
-			VirtualType:     "virtualType",
-			RootStorageType: "rootStorageType",
-			RootStorageSize: "rootStorageSize"},
-		"1",
-	}
-
-	s.assertRecordMetadata(c, m)
-
-	metadata, err := s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 1)
-	expected := []cloudimagemetadata.Metadata{m}
-	c.Assert(metadata, jc.SameContents, expected)
-
-	m.Series = "series2"
-	s.assertRecordMetadata(c, m)
-
-	metadata, err = s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 2)
-	expected = append(expected, m)
-	c.Assert(metadata, jc.SameContents, expected)
-}
-
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	// No metadata is stored yet.
 	// So when looking for all and none is found, err.
@@ -197,7 +166,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
 
 	s.assertRecordMetadata(c, metadata1)
 
-	all, err := s.storage.AllMetadata()
+	all, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 2)
 	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
