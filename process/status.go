@@ -8,15 +8,12 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// TODO(ericsnow) Turn StateError into a field (like Failed)?
-
 // The Juju-recognized states in which a workload process might be.
 const (
 	StateUndefined = ""
 	StateDefined   = "defined"
 	StateStarting  = "starting"
 	StateRunning   = "running"
-	StateError     = "error"
 	StateStopping  = "stopping"
 	StateStopped   = "stopped"
 )
@@ -27,7 +24,6 @@ var (
 		StateDefined,
 		StateStarting,
 		StateRunning,
-		StateError,
 		StateStopping,
 		StateStopped,
 	)
@@ -42,6 +38,9 @@ type Status struct {
 	// Failed identifies whether or not Juju got a failure while trying
 	// to interact with the process (via its plugin).
 	Failed bool
+	// Error indicates that the plugin reported a problem with the
+	// workload process.
+	Error bool
 	// Message is a human-readable message describing the current status
 	// of the process, why it is in the current state, or what Juju is
 	// doing right now relative to the process. There may be no message.
@@ -53,7 +52,7 @@ type Status struct {
 // IsBlocked indicates whether or not the workload process may proceed
 // to the next state.
 func (s *Status) IsBlocked() bool {
-	return s.Failed || s.State == StateError
+	return s.Failed || s.Error
 }
 
 // Advance updates the state of the Status to the next appropriate one.
@@ -62,6 +61,9 @@ func (s *Status) IsBlocked() bool {
 func (s *Status) Advance(message string) error {
 	if s.Failed {
 		return errors.Errorf("cannot advance from a failed state")
+	}
+	if s.Error {
+		return errors.Errorf("cannot advance from an error state")
 	}
 	switch s.State {
 	case StateUndefined:
@@ -72,8 +74,6 @@ func (s *Status) Advance(message string) error {
 		s.State = StateRunning
 	case StateRunning:
 		s.State = StateStopping
-	case StateError:
-		return errors.Errorf("cannot advance from an error state")
 	case StateStopping:
 		s.State = StateStopped
 	case StateStopped:
@@ -113,9 +113,9 @@ func (s *Status) SetFailed(message string) error {
 // to be an error. problems during starting and stopping are recorded
 // as failures rather than errors.
 func (s *Status) SetError(message string) error {
+	// TODO(ericsnow) Allow errors in other states?
 	switch s.State {
 	case StateRunning:
-	case StateError:
 	default:
 		return errors.Errorf("can error only while running")
 	}
@@ -123,7 +123,7 @@ func (s *Status) SetError(message string) error {
 	if message == "" {
 		message = "the workload process has an error"
 	}
-	s.State = StateError
+	s.Error = true
 	s.Message = message
 	return nil
 }
@@ -139,19 +139,19 @@ func (s *Status) Resolve(message string) error {
 		return errors.Errorf("not in an error or failed state")
 	}
 
-	if s.State == StateError {
-		s.State = StateRunning
-		if message == "" {
-			// TODO(ericsnow) Add in the current message.
-			message = "error resolved"
-		}
-	} else if s.Failed {
-		if message == "" {
-			// TODO(ericsnow) Add in the current message.
-			message = "failure resolved"
-		}
+	var defaultMessage string
+	if s.Failed {
+		defaultMessage = "failure resolved"
+	} else if s.Error {
+		defaultMessage = "error resolved"
 	}
 
+	if message == "" {
+		// TODO(ericsnow) Add in the current message?
+		message = defaultMessage
+	}
+
+	s.Error = false
 	s.Failed = false
 	s.Message = message
 	return nil
@@ -170,6 +170,11 @@ func (s Status) Validate() error {
 			return errors.NotValidf("failure in an initial state")
 		case StateStopped:
 			return errors.NotValidf("failure in a final state")
+		}
+	}
+	if s.Error {
+		if s.State != StateRunning {
+			return errors.NotValidf("error outside running state")
 		}
 	}
 

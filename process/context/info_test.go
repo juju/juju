@@ -165,6 +165,7 @@ myprocess0/xyz123:
   status:
     state: ""
     failed: false
+    error: false
     message: ""
   details:
     id: xyz123
@@ -198,6 +199,7 @@ myprocess0/xyz123:
   status:
     state: ""
     failed: false
+    error: false
     message: ""
   details:
     id: xyz123
@@ -217,6 +219,7 @@ myprocess1/xyz456:
   status:
     state: ""
     failed: false
+    error: false
     message: ""
   details:
     id: xyz456
@@ -236,6 +239,7 @@ myprocess2/xyz789:
   status:
     state: ""
     failed: false
+    error: false
     message: ""
   details:
     id: xyz789
@@ -269,6 +273,7 @@ myprocess0/xyz123:
   status:
     state: ""
     failed: false
+    error: false
     message: ""
   details:
     id: xyz123
