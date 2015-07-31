@@ -133,6 +133,7 @@ func (p Plugin) Status(id string) (process.PluginStatus, error) {
 
 // run runs the given subcommand of the plugin with the given args.
 func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
+	logger.Debugf("running %s %s %s", p.Executable, subcommand, args)
 	cmd := exec.Command(p.Executable, append([]string{subcommand}, args...)...)
 	return runCmd(p.Name, cmd)
 }

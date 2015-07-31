@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+
+from collections import namedtuple
+import json
+import os.path
+import sys
+
+
+DATAFILE = os.path.join(os.path.dirname(__file__), 'data.tsv')
+
+FIELDS = ('name', 'id', 'status', 'definition', 'event')
+
+
+class Row(namedtuple('Row', FIELDS)):
+
+    @classmethod
+    def HEADER(cls):
+        return cls(*cls._fields).as_line()
+
+    @classmethod
+    def from_line(cls, line):
+        row = cls(**dict(zip(cls._fields, line.split('	'))))
+        if row.definition == '':
+            row = row._replace(definition=None)
+        return row
+
+    def as_line(self):
+        row = self
+        if self.definition is None:
+            row = row._replace(definition='')
+        return '	'.join(row)
+
+    def dump_details(self):
+        return '{"id":"%s", "status":{"label":"%s"}}' % (self.id, self.status)
+
+    def dump_status(self):
+        return '{"label":%s}' % (self.status,)
+
+
+class _DataFile:
+
+    def __init__(self, filename=None, *, lazy=True):
+        if filename is None:
+            filename = DATAFILE
+
+        self.filename = filename
+        self._file = None
+        self._open(force=not lazy)
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.filename)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def _open(self, *, force=False):
+        if force or os.path.exists(self.filename):
+            self._file = open(self.filename, 'a+')
+
+    def read_rows(self):
+        if self._file is None:
+            self._open()
+            if self._file is None:  # doesn't exist
+                return
+        self._file.seek(0)
+
+        header = next(self._file).strip()
+        assert(header == Row.HEADER())
+
+        for line in self._file:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            yield Row.from_line(line)
+
+    def write_rows(self, rows):
+        if self._file is None:
+            self._open()
+            if self._file is None:
+                self._open(force=True)
+        self._file.seek(0)
+        self._file.truncate(0)
+        self._file.write(Row.HEADER() + '\n')
+
+        for row in rows:
+            self._file.write(row.as_line() + '\n')
+
+    def flush(self):
+        if self._file is None:
+            return
+        self._file.flush()
+
+    def close(self):
+        if self._file is None:
+            return
+        self._file.close()
+        self._file = None
+
+
+class DataFile:
+
+    def __init__(self, filename=None, initial=None):
+        self._file = _DataFile(filename)
+
+        self.clear()
+        if initial is not None:
+            for row in initial: 
+                self._setitem(row)
+
+    def __del__(self):
+        self.close()
+
+    def __repr__(self):
+        filename = self._file.filename
+        rows = list(self._iter_rows())
+        return ('{}(filename={!r}, rows={!r})'
+                ).format(self.__class__.__name__, filename, rows)
+
+    def __enter__(self):
+        self.refresh()
+        return self
+
+    def __exit__(self, *args):
+        self.flush()
+        self.close()
+
+    def __iter__(self):
+        for row in self._data.values():
+            yield row
+
+    def __getitem__(self, id):
+        return self._data[id]
+
+    def _iter_rows(self):
+        for row in self._rows:
+            yield row
+        for row in self._updates:
+            yield row
+
+    def _setitem(self, row):
+        self._data[row.id] = row
+        self._rows.append(row)
+
+    def _update(self, row):
+        self._updates.append(row)
+        if row.event != 'removed':
+            self._data[row.id] = row
+
+    @property
+    def filename(self):
+        return self._file.filename
+
+    def refresh(self):
+        self.clear()
+        for row in self._file.read_rows():
+            self._setitem(row)
+
+    def flush(self, *, force=False):
+        if not force and not self._updates:
+            return
+        self._file.write_rows(self._iter_rows())
+        self._file.flush()
+        self._rows.extend(self._updates)
+        self._updates = []
+
+    def close(self):
+        self._file.close()
+
+    def get(self, id, default=None):
+        return self._data.get(id, default)
+
+    def look_up(self, name):
+        for row in self._data.values():
+            if row.name == name:
+                return row
+        raise KeyError(name)
+
+    def dump(self, *, showheader=True):
+        out = '\n'.join(row.as_line() for row in self._iter_rows())
+        if showheader:
+            out = Row.HEADER() + '\n' + out
+        return out
+
+    def add(self, name, id, status):
+        if id in self._data:
+            raise KeyError('proc {!r} already exists')
+        row = Row(name, id, status, None, 'added')
+        self._update(row)
+
+    def set_status(self, id, status):
+        row = self._data[id]
+        row = row._replace(status=status, event='status set')
+        self._update(row)
+
+    def set_definition(self, name, definition):
+        row = self.look_up(name)
+        if row.definition is not None:
+            raise Exception('proc {!r} already launched'.format(name))
+        row = row._replace(definition=definition, event='definition set')
+        self._update(row)
+        return row
+
+    def remove(self, id):
+        row = self._data.pop(id, None)
+        if row is None:
+            return
+        row = row._replace(event='removed')
+        self._update(row)
+
+    def clear(self):
+        self._data = {}
+        self._rows = []
+        self._updates = []
+
+
+def handle_init(name, id, status):
+    with DataFile() as datafile:
+        datafile.add(name, id, status)
+
+
+def handle_setstatus(id, status):
+    with DataFile() as datafile:
+        datafile.set_status(id, status)
+
+
+def handle_reset():
+    with DataFile() as datafile:
+        datafile.clear()
+        datafile.flush(force=True)
+
+
+def handle_datafile():
+    with DataFile() as datafile:
+        return datafile.filename
+
+
+def handle_dump(showheader=True):
+    with DataFile() as datafile:
+        return datafile.dump(showheader=showheader)
+
+
+def handle_launch(definition):
+    name = json.loads(definition)['Name']
+    with DataFile() as datafile:
+        try:
+            proc = datafile.set_definition(name, definition)
+        except KeyError:
+            raise Exception('not ready for proc {!r}'.format(name))
+    return proc.dump_details()
+
+
+def handle_status(id):
+    with DataFile() as datafile:
+        try:
+            proc = datafile[id]
+        except KeyError:
+            raise Exception('{!r} not found'.format(id))
+    return proc.dump_status()
+
+
+def handle_destroy(id):
+    with DataFile() as datafile:
+        try:
+            datafile.remove(id)
+        except KeyError:
+            raise Exception('{!r} not found'.format(id))
+
+
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    subs = parser.add_subparsers()
+
+    init = subs.add_parser('init')
+    init.add_argument('name')
+    init.add_argument('id')
+    init.add_argument('status')
+    init.set_defaults(command='init')
+
+    setstatus = subs.add_parser('setstatus')
+    setstatus.add_argument('id')
+    setstatus.add_argument('status')
+    setstatus.set_defaults(command='setstatus')
+
+    reset = subs.add_parser('reset')
+    reset.set_defaults(command='reset')
+
+    datafile = subs.add_parser('datafile')
+    datafile.set_defaults(command='datafile')
+
+    dump = subs.add_parser('dump')
+    dump.add_argument('--no-header', dest='showheader', action='store_false',
+                      default=True)
+    dump.set_defaults(command='dump')
+
+    launch = subs.add_parser('launch')
+    launch.add_argument('definition')
+    launch.set_defaults(command='launch')
+
+    status = subs.add_parser('status')
+    status.add_argument('id')
+    status.set_defaults(command='status')
+
+    destroy = subs.add_parser('destroy')
+    destroy.add_argument('id')
+    destroy.set_defaults(command='destroy')
+
+    args = parser.parse_args()
+
+    return args
+
+
+def main(command, **kwargs):
+    handler = globals()['handle_'+command]
+    try:
+        out = handler(**kwargs)
+    except Exception as e:
+        print('ERROR:', e, file=sys.stderr)
+    else:
+        if out is not None:
+            print(out)
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    main(**args.__dict__)

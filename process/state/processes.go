@@ -5,12 +5,15 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/persistence"
 )
+
+var logger = loggo.GetLogger("juju.process.state")
 
 // TODO(ericsnow) Add names.ProcessTag and use it here?
 
@@ -48,6 +51,7 @@ func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, getMet
 
 // Add registers the provided process info in state.
 func (ps UnitProcesses) Add(info process.Info) error {
+	logger.Tracef("adding %#v", info)
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad process info")
 	}
@@ -66,6 +70,7 @@ func (ps UnitProcesses) Add(info process.Info) error {
 // SetStatus updates the raw status for the identified process to the
 // provided value.
 func (ps UnitProcesses) SetStatus(id string, status process.PluginStatus) error {
+	logger.Tracef("setting status for %q to %#v", id, status)
 	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)
@@ -81,6 +86,7 @@ func (ps UnitProcesses) SetStatus(id string, status process.PluginStatus) error 
 // workload processes associated with the unit. Missing processes
 // are ignored.
 func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
+	logger.Tracef("listing %v", ids)
 	if len(ids) == 0 {
 		results, err := ps.Persist.ListAll()
 		if err != nil {
@@ -113,6 +119,7 @@ func (ps UnitProcesses) ListDefinitions() ([]charm.Process, error) {
 // Remove removes the identified process from state. It does not
 // trigger the actual destruction of the process.
 func (ps UnitProcesses) Remove(id string) error {
+	logger.Tracef("removing %q", id)
 	// If the record wasn't found then we're already done.
 	_, err := ps.Persist.Remove(id)
 	if err != nil {

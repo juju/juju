@@ -301,6 +301,8 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 
 	info.Details = c.Details
 
+	logger.Tracef("registering %#v", info)
+
 	if err := c.compCtx.Set(*info); err != nil {
 		return errors.Trace(err)
 	}
@@ -325,7 +327,7 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 	info := *c.info // copied
 
 	if c.UpdatedProcess == nil {
-		logger.Debugf("parsing updates")
+		logger.Tracef("parsing updates")
 		newProcess, err := c.parseUpdates(c.info.Process)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -368,7 +370,7 @@ func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 		}
 		definition = *cliDef
 	}
-	logger.Debugf("creating new process.Info")
+	logger.Tracef("creating new process.Info")
 	return &process.Info{Process: definition}, nil
 }
 

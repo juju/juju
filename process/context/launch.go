@@ -59,6 +59,7 @@ type ProcLaunchCommand struct {
 
 // Run implements cmd.Command.
 func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
+	logger.Tracef("running %s command", LaunchCommandInfo.Name)
 	if err := c.registeringCommand.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
