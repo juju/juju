@@ -20,7 +20,7 @@ from build_package import (
     CREATE_SPB_TEMPLATE,
     DEFAULT_SPB,
     get_args,
-    JujuSeries,
+    _JujuSeries,
     main,
     make_changelog_message,
     make_deb_shell_env,
@@ -43,19 +43,19 @@ from utils import (
 class JujuSeriesTestCase(unittest.TestCase):
 
     def test_init(self):
-        juju_series = JujuSeries()
+        juju_series = _JujuSeries()
         self.assertEqual(
             Series('14.10', 'utopic', 'HISTORIC'),
             juju_series.all['utopic'])
 
     def test_get_living_names(self):
-        juju_series = JujuSeries()
+        juju_series = _JujuSeries()
         self.assertEqual(
             ['precise', 'trusty', 'vivid', 'wily'],
             juju_series.get_living_names())
 
     def test_get_version(self):
-        juju_series = JujuSeries()
+        juju_series = _JujuSeries()
         self.assertEqual('14.04', juju_series.get_version('trusty'))
 
 
@@ -153,7 +153,7 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertFalse(args.verbose)
 
     def test_get_args_source_with_living(self):
-        with patch('build_package.JujuSeries.get_living_names', autospec=True,
+        with patch('build_package.juju_series.get_living_names', autospec=True,
                    return_value=['precise', 'trusty']) as js_mock:
             args = get_args(
                 ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',

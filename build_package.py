@@ -109,7 +109,7 @@ STABLE_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
 Series = namedtuple('Series', ['version', 'name', 'status'])
 
 
-class JujuSeries:
+class _JujuSeries:
 
     LIVING_STATUSES = ('DEVEL', 'SUPPORTED', 'LTS')
 
@@ -125,6 +125,9 @@ class JujuSeries:
 
     def get_version(self, name):
         return self.all[name].version
+
+
+juju_series = _JujuSeries()
 
 
 def parse_dsc(dsc_path, verbose=False):
@@ -276,7 +279,7 @@ def make_ubuntu_version(series, version, upatch=1):
         are updated and the package rebuilt.
     :return: An Ubuntu version string.
     """
-    release = JujuSeries().get_version(series)
+    release = juju_series.get_version(series)
     return UBUNTU_VERSION_TEMPLATE.format(
         version=version, release=release, upatch=upatch)
 
@@ -457,7 +460,7 @@ def get_args(argv=None):
     bin_parser.add_argument("arch", help="The dpkg architecture to build in.")
     args = parser.parse_args(argv[1:])
     if args.series == 'LIVING':
-        args.series = JujuSeries().get_living_names()
+        args.series = juju_series.get_living_names()
     return args
 
 
