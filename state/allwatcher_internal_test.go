@@ -42,17 +42,17 @@ var dottedConfig = `
 options:
   key.dotted: {default: My Key, description: Desc, type: string}
 `
-var _ = gc.Suite(&storeManagerStateSuite{})
+var _ = gc.Suite(&allWatcherStateSuite{})
 
-type storeManagerStateSuite struct {
+type allWatcherStateSuite struct {
 	internalStateSuite
 }
 
-func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
+func (s *allWatcherStateSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
 }
 
-func (s *storeManagerStateSuite) newState(c *gc.C) *State {
+func (s *allWatcherStateSuite) newState(c *gc.C) *State {
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": "newtestenv",
 		"uuid": utils.MustNewUUID().String(),
@@ -62,7 +62,7 @@ func (s *storeManagerStateSuite) newState(c *gc.C) *State {
 	return st
 }
 
-func (s *storeManagerStateSuite) Reset(c *gc.C) {
+func (s *allWatcherStateSuite) Reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
@@ -119,12 +119,12 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	c.FailNow()
 }
 
-func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
+func (s *allWatcherStateSuite) TestStateBackingGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c, s.state, 2)
 	s.checkGetAll(c, expectEntities)
 }
 
-func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
+func (s *allWatcherStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for the first environment with no errors.
 	expectEntities := s.setUpScenario(c, s.state, 2)
@@ -138,7 +138,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 	s.checkGetAll(c, expectEntities)
 }
 
-func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
+func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
 	err := b.GetAll(all)
@@ -153,7 +153,7 @@ func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoS
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // allWatcherStateBacking.GetAll.
-func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
+func (s *allWatcherStateSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
 	envUUID := st.EnvironUUID()
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
@@ -407,7 +407,7 @@ func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 type changeTestFunc func(c *gc.C, st *State) changeTestCase
 
 // performChangeTestCases runs a passed number of test cases for changes.
-func (s *storeManagerStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
+func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
 		test := changeTestFunc(c, s.state)
 
@@ -427,43 +427,43 @@ func (s *storeManagerStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs
 }
 
 // TestChangeAnnotations tests the changing of annotations.
-func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
 	testChangeAnnotations(c, s.performChangeTestCases)
 }
 
 // TestChangeMachines tests the changing of machines.
-func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeMachines(c *gc.C) {
 	testChangeMachines(c, s.performChangeTestCases)
 }
 
 // TestChangeRelations tests the changing of relations.
-func (s *storeManagerStateSuite) TestChangeRelations(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeRelations(c *gc.C) {
 	testChangeRelations(c, s.owner, s.performChangeTestCases)
 }
 
 // TestChangeServices tests the changing of services.
-func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeServices(c *gc.C) {
 	testChangeServices(c, s.owner, s.performChangeTestCases)
 }
 
 // TestChangeServicesConstraints tests the changing of the constraints of services.
-func (s *storeManagerStateSuite) TestChangeServicesConstraints(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeServicesConstraints(c *gc.C) {
 	testChangeServicesConstraints(c, s.owner, s.performChangeTestCases)
 }
 
 // TestChangeUnits tests the changing of units.
-func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 	testChangeUnits(c, s.owner, s.performChangeTestCases)
 }
 
 // TestChangeUnitsNonNilPorts tests the changing of unit parts returning
 // no nil values.
-func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
 // TestChangeActions tests the changing of actions.
-func (s *storeManagerStateSuite) TestChangeActions(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
@@ -487,7 +487,7 @@ func (s *storeManagerStateSuite) TestChangeActions(c *gc.C) {
 }
 
 // TestChangeBlocks tests the changing of blocks.
-func (s *storeManagerStateSuite) TestChangeBlocks(c *gc.C) {
+func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -568,7 +568,7 @@ func (s *storeManagerStateSuite) TestChangeBlocks(c *gc.C) {
 }
 
 // TestClosingPorts tests the correct reporting of closing ports.
-func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
+func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
 	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
@@ -667,7 +667,7 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 }
 
 // TestSettings tests the correct reporting of unset service settings.
-func (s *storeManagerStateSuite) TestSettings(c *gc.C) {
+func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
 	svc := AddTestingService(c, s.state, "dummy-service", AddTestingCharm(c, s.state, "dummy"), s.owner)
@@ -717,7 +717,7 @@ func (s *storeManagerStateSuite) TestSettings(c *gc.C) {
 // TestStateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
-func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
+func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	m0, err := s.state.AddMachine("trusty", JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
@@ -873,7 +873,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	}})
 }
 
-func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
+func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	for i, test := range []struct {
 		about        string
