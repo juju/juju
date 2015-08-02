@@ -76,11 +76,7 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHis
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
 	}
 	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
-		agentEntity := unit.Agent()
-		agent, ok := agentEntity.(*state.UnitAgent)
-		if !ok {
-			return api.UnitStatusHistory{}, errors.Errorf("cannot obtain agent for %q", args.Name)
-		}
+		agent := unit.Agent()
 		agentStatuses, err := agent.StatusHistory(size)
 		if err != nil {
 			return api.UnitStatusHistory{}, errors.Trace(err)
@@ -730,8 +726,8 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 	return
 }
 
-// makeStatusForEntity creates status information for machines, units.
-func makeStatusForEntity(agent *api.AgentStatus, getter state.StatusGetter) {
+// populateStatusFromGetter creates status information for machines, units.
+func populateStatusFromGetter(agent *api.AgentStatus, getter state.StatusGetter) {
 	statusInfo, err := getter.Status()
 	agent.Err = err
 	agent.Status = params.Status(statusInfo.Status)
@@ -749,7 +745,7 @@ func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.Age
 		out.Version = t.Version.Number.String()
 	}
 
-	makeStatusForEntity(&out, machine)
+	populateStatusFromGetter(&out, machine)
 	compat = out
 
 	if out.Err != nil {
@@ -795,15 +791,15 @@ func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.Age
 // processUnit retrieves version and status information for the given unit.
 func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentStatus) {
 	// First determine the agent status information.
-	unitAgent := unit.Agent().(*state.UnitAgent)
-	makeStatusForEntity(&agentStatus, unitAgent)
+	unitAgent := unit.Agent()
+	populateStatusFromGetter(&agentStatus, unitAgent)
 	agentStatus.Life = processLife(unit)
 	if t, err := unit.AgentTools(); err == nil {
 		agentStatus.Version = t.Version.Number.String()
 	}
 
 	// Second, determine the workload (unit) status.
-	makeStatusForEntity(&workloadStatus, unit)
+	populateStatusFromGetter(&workloadStatus, unit)
 	return
 }
 
@@ -816,13 +812,16 @@ func canBeLost(status *api.UnitStatus) bool {
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
-	// TODO(wallyworld) - use status history to see if start hook has run.
+	// TODO(fwereade/wallyworld): we should have an explicit place in the model
+	// to tell us when we've hit this point, instead of piggybacking on top of
+	// status and/or status history.
 	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
 	return isInstalled
 }
 
 // processUnitLost determines whether the given unit should be marked as lost.
-// TODO(wallyworld) - move this to state and the canBeLost() code can be simplified.
+// TODO(fwereade/wallyworld): this is also model-level code and should sit in
+// between state and this package.
 func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
 	if !canBeLost(status) {
 		// The status is allocating or installing - there's no point

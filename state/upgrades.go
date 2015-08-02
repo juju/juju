@@ -1583,6 +1583,64 @@ func AddMissingEnvUUIDOnStatuses(st *State) error {
 	return nil
 }
 
+// AddMissingServiceStatuses creates all service status documents that do
+// not already exist.
+func AddMissingServiceStatuses(st *State) error {
+	// TODO(fwereade): crazy, done for consistency.
+	now := nowToTheSecond()
+
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		services, err := envSt.AllServices()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve machines for environment %q", envUUID)
+		}
+		logger.Debugf("found %d services in environment %s", len(services), envUUID)
+
+		for _, service := range services {
+			_, err := service.Status()
+			if cause := errors.Cause(err); errors.IsNotFound(cause) {
+				logger.Debugf("service %s lacks status doc", service)
+				statusDoc := statusDoc{
+					EnvUUID:    envSt.EnvironUUID(),
+					Status:     StatusUnknown,
+					StatusInfo: MessageWaitForAgentInit,
+					Updated:    &now,
+					// This exists to preserve questionable unit-aggregation behaviour
+					// while we work out how to switch to an implementation that makes
+					// sense. It is also set in AddService.
+					NeverSet: true,
+				}
+				probablyUpdateStatusHistory(envSt, service.globalKey(), statusDoc)
+				err := envSt.runTransaction([]txn.Op{
+					createStatusOp(envSt, service.globalKey(), statusDoc),
+				})
+				if err != nil && err != txn.ErrAborted {
+					return err
+				}
+			} else if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // AddStorageAttachmentCount adds storageInstanceDoc.AttachmentCount and
 // sets the right number to it.
 //func AddStorageAttachmentCount(st *State) error {

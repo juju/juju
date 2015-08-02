@@ -230,6 +230,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
 		removeLeadershipSettingsOp(s.Tag().Id()),
+		removeStatusOp(s.st, s.globalKey()),
 	}
 	return ops
 }
@@ -704,6 +705,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
+		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    &now,
@@ -748,6 +750,13 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		}
 		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
+
+	// At the last moment we still have the statusDocs in scope, set the initial
+	// history entries. This is risky, and may lead to extra entries, but that's
+	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
+	// them cleanly.
+	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -1022,30 +1031,23 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 	update := setUnsetUpdate(sets, unsets)
 	buildTxn := func(_ int) ([]txn.Op, error) {
 
-		// First check leadership is still valid, and store the ops that will
-		// fail should it not remain so.
-		var prereqs []txn.Op
-		if err := token.Check(&prereqs); err != nil {
-			return nil, errors.Annotatef(err, "prerequisites failed")
-		}
-
-		// Then read the txn-revno of the settings doc, so as to create an
-		// assert that will protect us from overwriting more recent changes
-		// in the event of this transaction being missed and resumed late.
+		// Read the txn-revno of the settings doc, so as to create an assert
+		// that will protect us from overwriting more recent changes in the
+		// event of this transaction being missed and resumed late.
 		txnRevno, err := s.st.readTxnRevno(settingsC, docId)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "cannot check latest settings")
 		}
-		return append(prereqs, txn.Op{
+		return []txn.Op{{
 			C:      settingsC,
 			Id:     docId,
 			Assert: bson.D{{"txn-revno", txnRevno}},
 			Update: update,
-		}), nil
+		}}, nil
 	}
-	return s.st.run(buildTxn)
+	return s.st.run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
@@ -1225,70 +1227,46 @@ type settingsRefsDoc struct {
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (s *Service) Status() (StatusInfo, error) {
-	doc, err := getStatus(s.st, s.globalKey())
-	if errors.IsNotFound(err) {
-		logger.Debugf("no explicit status for service %s, looking up unit status", s.Name())
-		return s.deriveStatus()
+	statuses, closer := s.st.getCollection(statusesC)
+	defer closer()
+	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
+	if count, err := query.Count(); err != nil {
+		return StatusInfo{}, errors.Trace(err)
+	} else if count != 0 {
+		// This indicates that SetStatus has never been called on this service.
+		// This in turn implies the service status document is likely to be
+		// inaccurate, so we return aggregated unit statuses instead.
+		//
+		// TODO(fwereade): this is completely wrong and will produce bad results
+		// in not-very-challenging scenarios. The leader unit remains responsible
+		// for setting the service status in a timely way, *whether or not the
+		// charm's hooks exists or sets a service status*. This logic should be
+		// removed as soon as possible, and the responsibilities implemented in
+		// the right places rather than being applied at seeming random.
+		units, err := s.AllUnits()
+		if err != nil {
+			return StatusInfo{}, err
+		}
+		logger.Tracef("service %q has %d units", s.Name(), len(units))
+		if len(units) > 0 {
+			return s.deriveStatus(units)
+		}
 	}
-	if err != nil {
-		return StatusInfo{}, errors.Annotatef(err, "reading status for %q", s.Name())
-	}
-	return StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    doc.StatusData,
-		Since:   doc.Updated,
-	}, nil
+	return getStatus(s.st, s.globalKey(), "service")
 }
 
 // SetStatus sets the status for the service.
 func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	var err error
-
-	var oldDoc statusDoc
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := s.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-
-		oldDoc, err = getStatus(s.st, s.globalKey())
-		insert := false
-		if IsStatusNotFound(err) {
-			insert = true
-			logger.Debugf("there is no state for %q yet", s.globalKey())
-		} else if err != nil {
-			logger.Debugf("cannot get state for %q yet", s.globalKey())
-		}
-
-		doc, err := newServiceStatusDoc(status, info, data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if insert {
-			// TODO(perrito666) we need a leader assertion added to this
-			// Op starting in 1.25.
-			doc.statusDoc.EnvUUID = s.st.EnvironUUID()
-			return []txn.Op{createStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
-		}
-		return []txn.Op{updateStatusOp(s.st, s.globalKey(), doc.statusDoc)}, nil
+	if !ValidWorkloadStatus(status) {
+		return errors.Errorf("cannot set invalid status %q", status)
 	}
-	if err = s.st.run(buildTxn); err != nil {
-		return errors.Errorf("cannot set status of service %q to %q: %v", s, status, onAbort(err, ErrDead))
-	}
-
-	if oldDoc.Status != "" {
-		if err := updateStatusHistory(oldDoc, s.globalKey(), s.st); err != nil {
-			logger.Errorf("could not record status history before change to %q: %v", status, err)
-		}
-	}
-
-	return nil
+	return setStatus(s.st, setStatusParams{
+		badge:     "service",
+		globalKey: s.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.
@@ -1313,12 +1291,7 @@ func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, er
 
 }
 
-func (s *Service) deriveStatus() (StatusInfo, error) {
-	units, err := s.AllUnits()
-	if err != nil {
-		return StatusInfo{}, err
-	}
-	logger.Tracef("service %q has %d units", s.Name(), len(units))
+func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
 	var result StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
