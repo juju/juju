@@ -13,8 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -33,13 +31,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
 	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := lease.NewLeaseManager(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		m.Kill()
-		c.Assert(m.Wait(), jc.ErrorIsNil)
-	})
 }
 
 func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
@@ -164,7 +155,7 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
 	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
-	c.Check(err, gc.ErrorMatches, "this unit is not the leader")
+	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
@@ -193,7 +184,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Check(stat.Message, gc.Equals, message)
 
 	result, err := s.apiService.Status(s.wordpressUnit.Name())
-	c.Check(err, gc.ErrorMatches, "this unit is not the leader")
+	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
@@ -202,7 +193,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {
-	leadership := leadership.NewLeadershipManager(lease.Manager())
-	err := leadership.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
+	claimer := s.State.LeadershipClaimer()
+	err := claimer.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }

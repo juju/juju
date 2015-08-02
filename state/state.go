@@ -57,9 +57,6 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	// TODO(katco-): As state gets broken up, remove this.
-	*LeasePersistor
-
 	environTag names.EnvironTag
 	serverTag  names.EnvironTag
 	mongoInfo  *mongo.MongoInfo
@@ -183,7 +180,7 @@ func (st *State) start(serverTag names.EnvironTag) error {
 	}
 
 	logger.Infof("creating lease client as %s", clientId)
-	clock := lease.SystemClock{}
+	clock := GetClock()
 	leaseClient, err := lease.NewClient(lease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
