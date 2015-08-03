@@ -17,15 +17,15 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// allWatcherStateBacking implements allWatcherBacking by fetching
-// entities for a single environment from the State.
+// allWatcherStateBacking implements Backing by fetching entities for
+// a single environment from the State.
 type allWatcherStateBacking struct {
 	st               *State
 	collectionByName map[string]allWatcherStateCollection
 }
 
-// allEnvWatcherStateBacking implements allWatcherBacking by
-// fetching entities for all environments from the State.
+// allEnvWatcherStateBacking implements Backing by fetching entities
+// for all environments from the State.
 type allEnvWatcherStateBacking struct {
 	st               *State
 	collectionByName map[string]allWatcherStateCollection
@@ -974,31 +974,8 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	db, closer := b.st.newDB()
-	defer closer()
-
-	// TODO(rog) fetch collections concurrently?
-	for _, c := range b.collectionByName {
-		if c.subsidiary {
-			continue
-		}
-		col, closer := db.GetCollection(c.name)
-		defer closer()
-		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
-		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
-			return fmt.Errorf("cannot get all %s: %v", c.name, err)
-		}
-		infos := infoSlicePtr.Elem()
-		for i := 0; i < infos.Len(); i++ {
-			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			id := info.mongoId()
-			err := info.updated(b.st, all, id)
-			if err != nil {
-				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
-			}
-		}
-	}
-	return nil
+	err := loadAllWatcherEntities(b.st, b.collectionByName, all)
+	return errors.Trace(err)
 }
 
 // Changed updates the allWatcher's idea of the current state
@@ -1063,28 +1040,20 @@ func (b *allEnvWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	db, closer := b.st.newDB()
-	defer closer()
+	envs, err := b.st.AllEnvironments()
+	if err != nil {
+		return errors.Annotate(err, "error loading environments")
+	}
+	for _, env := range envs {
+		st, err := b.st.ForEnviron(env.EnvironTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer st.Close()
 
-	// TODO(rog) fetch collections concurrently?
-	for _, c := range b.collectionByName {
-		if c.subsidiary {
-			continue
-		}
-		col, closer := db.GetCollection(c.name)
-		defer closer()
-		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
-		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
-			return fmt.Errorf("cannot get all %s: %v", c.name, err)
-		}
-		infos := infoSlicePtr.Elem()
-		for i := 0; i < infos.Len(); i++ {
-			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			id := info.mongoId()
-			err := info.updated(b.st, all, id)
-			if err != nil {
-				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
-			}
+		err = loadAllWatcherEntities(st, b.collectionByName, all)
+		if err != nil {
+			return errors.Annotatef(err, "error loading entities for environment %v", env.UUID())
 		}
 	}
 	return nil
@@ -1113,4 +1082,34 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 		return err
 	}
 	return doc.updated(b.st, all, id)
+}
+
+func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
+	// Use a single new MongoDB connection for all the work here.
+	db, closer := st.newDB()
+	defer closer()
+
+	// TODO(rog) fetch collections concurrently?
+	for _, c := range collectionByName {
+		if c.subsidiary {
+			continue
+		}
+		col, closer := db.GetCollection(c.name)
+		defer closer()
+		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
+		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+			return errors.Errorf("cannot get all %s: %v", c.name, err)
+		}
+		infos := infoSlicePtr.Elem()
+		for i := 0; i < infos.Len(); i++ {
+			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
+			id := info.mongoId()
+			err := info.updated(st, all, id)
+			if err != nil {
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
+			}
+		}
+	}
+
+	return nil
 }
