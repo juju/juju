@@ -29,7 +29,6 @@ var (
 )
 
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
-// TODO(ericsnow) Move Info.Details.Status into Status here?
 
 // Status is the Juju-level status of a workload process.
 type Status struct {
@@ -206,6 +205,27 @@ type PluginStatus struct {
 func (s PluginStatus) Validate() error {
 	if s.State == "" {
 		return errors.NotValidf("State cannot be empty")
+	}
+	return nil
+}
+
+// CombinedStatus holds the status information for a process,
+// from all sources.
+type CombinedStatus struct {
+	// Status is the Juju-level status information.
+	Status Status
+	// PluginStatus is the plugin-defined status information.
+	PluginStatus PluginStatus
+}
+
+// Validate returns nil if this value is valid, and an error that satisfies
+// IsValid if it is not.
+func (s CombinedStatus) Validate() error {
+	if err := s.Status.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.PluginStatus.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

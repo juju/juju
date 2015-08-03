@@ -368,19 +368,14 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	res, err := a.SetProcessesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.info, jc.DeepEquals, process.Info{
-		Process: charm.Process{
-			Name: "fooID",
-		},
+	c.Check(st.id, gc.Equals, "fooID/bar")
+	c.Assert(st.status, jc.DeepEquals, process.CombinedStatus{
 		Status: process.Status{
 			State:   process.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
-			ID: "bar",
-			Status: process.PluginStatus{
-				State: "statusfoo",
-			},
+		PluginStatus: process.PluginStatus{
+			State: "statusfoo",
 		},
 	})
 
@@ -415,8 +410,9 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 
 type FakeState struct {
 	// inputs
-	id  string
-	ids []string
+	id     string
+	ids    []string
+	status process.CombinedStatus
 
 	// info is used as input and output
 	info process.Info
@@ -441,8 +437,9 @@ func (f *FakeState) ListDefinitions() ([]charm.Process, error) {
 	return f.defs, f.err
 }
 
-func (f *FakeState) SetStatus(info process.Info) error {
-	f.info = info
+func (f *FakeState) SetStatus(id string, status process.CombinedStatus) error {
+	f.id = id
+	f.status = status
 	return f.err
 }
 

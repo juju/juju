@@ -97,18 +97,18 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) SetStatus(info process.Info) (bool, error) {
-	s.AddCall("SetStatus", info)
+func (s *fakeProcsPersistence) SetStatus(id string, status process.CombinedStatus) (bool, error) {
+	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	proc, ok := s.procs[info.ID()]
+	proc, ok := s.procs[id]
 	if !ok {
 		return false, nil
 	}
-	proc.Status = info.Status
-	proc.Details.Status = info.Details.Status
+	proc.Status = status.Status
+	proc.Details.Status = status.PluginStatus
 	return true, nil
 }
 

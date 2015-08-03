@@ -71,16 +71,15 @@ func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(info process.Info) []txn.Op {
+func (pp Persistence) newSetRawStatusOps(id string, status process.CombinedStatus) []txn.Op {
+	id = pp.processID(id)
 	updates := bson.D{
-		{"state", info.Status.State},
-		{"failed", info.Status.Failed},
-		{"error", info.Status.Error},
-		{"status", info.Status.Message},
-		{"pluginstatus", info.Details.Status.State},
+		{"state", status.Status.State},
+		{"failed", status.Status.Failed},
+		{"error", status.Status.Error},
+		{"status", status.Status.Message},
+		{"pluginstatus", status.PluginStatus.State},
 	}
-
-	id := pp.processID(info.ID())
 	return []txn.Op{{
 		C:      workloadProcessesC,
 		Id:     id,

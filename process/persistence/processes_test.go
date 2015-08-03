@@ -95,25 +95,25 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func newStatusInfo(id, state, message, pluginStatus string) process.Info {
-	info := process.Info{
+func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
+	return process.CombinedStatus{
 		Status: process.Status{
 			State:   state,
 			Message: message,
 		},
+		PluginStatus: process.PluginStatus{
+			State: pluginStatus,
+		},
 	}
-	info.Name, info.Details.ID = process.ParseID(id)
-	info.Details.Status.State = pluginStatus
-	return info
 }
 
 func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
 	s.SetDocs(proc)
-	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "still running")
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(info)
+	okay, err := pp.SetStatus(proc.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -138,10 +138,10 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
-	info := newStatusInfo("procA/procA-xyz", process.StateRunning, "good to go", "still running")
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(info)
+	okay, err := pp.SetStatus("procA/procA-xyz", status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -169,10 +169,10 @@ func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.SetDocs(proc)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
-	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "still running")
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(info)
+	_, err := pp.SetStatus(proc.ID(), status)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

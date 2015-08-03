@@ -72,31 +72,31 @@ func (s *unitProcessesSuite) TestAddAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func newStatusInfo(id, state, message, pluginStatus string) process.Info {
-	info := process.Info{
+func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
+	return process.CombinedStatus{
 		Status: process.Status{
 			State:   state,
 			Message: message,
 		},
+		PluginStatus: process.PluginStatus{
+			State: pluginStatus,
+		},
 	}
-	info.Name, info.Details.ID = process.ParseID(id)
-	info.Details.Status.State = pluginStatus
-	return info
 }
 
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "okay")
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(info)
+	err := ps.SetStatus(proc.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
 	current := s.persist.procs[proc.ID()]
-	c.Check(current.Status, jc.DeepEquals, info.Status)
-	c.Check(current.Details.Status, jc.DeepEquals, info.Details.Status)
+	c.Check(current.Status, jc.DeepEquals, status.Status)
+	c.Check(current.Details.Status, jc.DeepEquals, status.PluginStatus)
 }
 
 func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
@@ -104,19 +104,19 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "okay")
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(info)
+	err := ps.SetStatus(proc.ID(), status)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	info := newStatusInfo("some-proc", process.StateRunning, "good to go", "okay")
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(info)
+	err := ps.SetStatus("some/proc", status)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

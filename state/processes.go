@@ -24,7 +24,7 @@ type UnitProcesses interface {
 	// must be set on the provided info: Name, Status, Details.ID, and
 	// Details.Status. If the process is not in state then the request
 	// will fail.
-	SetStatus(info process.Info) error
+	SetStatus(id string, status process.CombinedStatus) error
 	// List builds the list of workload processes registered for
 	// the given unit and IDs. If no IDs are provided then all
 	// registered processes for the unit are returned. In the case that
