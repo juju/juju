@@ -90,7 +90,7 @@ func Status2apiStatus(status process.Status) ProcessStatus {
 // a process.PluginStatus struct.
 func APIPluginStatus2PluginStatus(status PluginStatus) process.PluginStatus {
 	return process.PluginStatus{
-		Label: status.Label,
+		State: status.State,
 	}
 }
 
@@ -98,7 +98,7 @@ func APIPluginStatus2PluginStatus(status PluginStatus) process.PluginStatus {
 // into an API PluginStatus struct.
 func PluginStatus2apiPluginStatus(status process.PluginStatus) PluginStatus {
 	return PluginStatus{
-		Label: status.Label,
+		State: status.State,
 	}
 }
 

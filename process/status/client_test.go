@@ -45,7 +45,7 @@ func (*clientSuite) TestGood(c *gc.C) {
 			Details: api.ProcessDetails{
 				ID: "id",
 				Status: api.PluginStatus{
-					Label: "Running",
+					State: "Running",
 				},
 			},
 		},
@@ -65,7 +65,7 @@ func (*clientSuite) TestGood(c *gc.C) {
 			Status: cliStatus{
 				State:       process.StateRunning,
 				Info:        "okay",
-				PluginState: in[0].Details.Status.Label,
+				PluginState: in[0].Details.Status.State,
 			},
 		},
 	}

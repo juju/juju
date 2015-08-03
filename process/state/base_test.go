@@ -50,7 +50,7 @@ func (s *baseProcessesSuite) newProcesses(pType string, ids ...string) []process
 			Details: process.Details{
 				ID: pluginID,
 				Status: process.PluginStatus{
-					Label: "running",
+					State: "running",
 				},
 			},
 		})

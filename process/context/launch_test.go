@@ -54,7 +54,7 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 		return process.Details{
 			ID: "id",
 			Status: process.PluginStatus{
-				Label: "foo",
+				State: "foo",
 			},
 		}, nil
 	}

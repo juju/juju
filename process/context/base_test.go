@@ -42,7 +42,7 @@ func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
 		Details: process.Details{
 			ID: id,
 			Status: process.PluginStatus{
-				Label: status,
+				State: status,
 			},
 		},
 	}
@@ -201,7 +201,7 @@ func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 			Details: process.Details{
 				ID: pluginID,
 				Status: process.PluginStatus{
-					Label: "okay",
+					State: "okay",
 				},
 			},
 		}

@@ -153,7 +153,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -232,7 +232,7 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -290,7 +290,7 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -352,7 +352,7 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})

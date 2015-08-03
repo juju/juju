@@ -49,7 +49,7 @@ func (suite) TestRegisterProcess(c *gc.C) {
 			Details: api.ProcessDetails{
 				ID: "idfoo",
 				Status: api.PluginStatus{
-					Label: "running",
+					State: "running",
 				},
 			},
 		}},
@@ -99,7 +99,7 @@ func (suite) TestRegisterProcess(c *gc.C) {
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -140,7 +140,7 @@ func (suite) TestListProcessesOne(c *gc.C) {
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -184,7 +184,7 @@ func (suite) TestListProcessesOne(c *gc.C) {
 		Details: api.ProcessDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -233,7 +233,7 @@ func (suite) TestListProcessesAll(c *gc.C) {
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -275,7 +275,7 @@ func (suite) TestListProcessesAll(c *gc.C) {
 		Details: api.ProcessDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -361,7 +361,7 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 				Message: "okay",
 			},
 			PluginStatus: api.PluginStatus{
-				Label: "statusfoo",
+				State: "statusfoo",
 			},
 		}},
 	}
@@ -379,7 +379,7 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 		Details: process.Details{
 			ID: "bar",
 			Status: process.PluginStatus{
-				Label: "statusfoo",
+				State: "statusfoo",
 			},
 		},
 	})

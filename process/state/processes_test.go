@@ -80,7 +80,7 @@ func newStatusInfo(id, state, message, pluginStatus string) process.Info {
 		},
 	}
 	info.Name, info.Details.ID = process.ParseID(id)
-	info.Details.Status.Label = pluginStatus
+	info.Details.Status.State = pluginStatus
 	return info
 }
 

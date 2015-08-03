@@ -118,7 +118,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -155,7 +155,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -175,7 +175,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "still running",
+				State: "still running",
 			},
 		},
 	})
@@ -211,7 +211,7 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "still running",
+				State: "still running",
 			},
 		},
 	}})

@@ -27,7 +27,7 @@ const exitstatus1 = "exit status 1: "
 
 func (s *suite) TestLaunch(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo", "status": { "label" : "bar" } }`),
+		out: []byte(`{ "id" : "foo", "status": { "state" : "bar" } }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -39,7 +39,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 	c.Assert(pd, gc.Equals, process.Details{
 		ID: "foo",
 		Status: process.PluginStatus{
-			Label: "bar",
+			State: "bar",
 		},
 	})
 
@@ -105,7 +105,7 @@ func (s *suite) TestLaunchErr(c *gc.C) {
 
 func (s *suite) TestStatus(c *gc.C) {
 	f := &fakeRunner{
-		out: []byte(`{ "label" : "status!" }`),
+		out: []byte(`{ "state" : "status!" }`),
 	}
 	s.PatchValue(&runCmd, f.runCmd)
 
@@ -114,7 +114,7 @@ func (s *suite) TestStatus(c *gc.C) {
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, process.PluginStatus{
-		Label: "status!",
+		State: "status!",
 	})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
 	c.Assert(f.cmd.Path, gc.Equals, p.Executable)

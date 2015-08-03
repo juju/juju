@@ -77,7 +77,7 @@ func (pp Persistence) newSetRawStatusOps(info process.Info) []txn.Op {
 		{"failed", info.Status.Failed},
 		{"error", info.Status.Error},
 		{"status", info.Status.Message},
-		{"pluginstatus", info.Details.Status.Label},
+		{"pluginstatus", info.Details.Status.State},
 	}
 
 	id := pp.processID(info.ID())
@@ -133,7 +133,7 @@ func (d processDoc) info() process.Info {
 		Status:  d.status(),
 		Details: d.details(),
 	}
-	info.Details.Status.Label = d.PluginStatus
+	info.Details.Status.State = d.PluginStatus
 	return info
 }
 
@@ -194,7 +194,7 @@ func (d processDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
 		Status: process.PluginStatus{
-			Label: d.OriginalStatus,
+			State: d.OriginalStatus,
 		},
 	}
 }
@@ -233,9 +233,9 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 		Status: info.Status.Message,
 
 		PluginID:       info.Details.ID,
-		OriginalStatus: info.Details.Status.Label,
+		OriginalStatus: info.Details.Status.State,
 
-		PluginStatus: info.Details.Status.Label,
+		PluginStatus: info.Details.Status.State,
 	}
 }
 

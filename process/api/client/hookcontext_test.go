@@ -55,7 +55,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Details: api.ProcessDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
-				Label: "process status",
+				State: "process status",
 			},
 		},
 	}
@@ -170,7 +170,7 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 				Message: "okay",
 			},
 			PluginStatus: api.PluginStatus{
-				Label: "Running",
+				State: "Running",
 			},
 		})
 
@@ -183,7 +183,7 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 		Message: "okay",
 	}
 	pluginStatus := process.PluginStatus{
-		Label: "Running",
+		State: "Running",
 	}
 	err := pclient.SetProcessesStatus(status, pluginStatus, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)

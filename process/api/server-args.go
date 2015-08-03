@@ -174,7 +174,7 @@ type ProcessDetails struct {
 
 // PluginStatus represents the plugin-defined status for the process.
 type PluginStatus struct {
-	// Label represents the human-readable label returned by the plugin for
+	// State represents the human-readable label returned by the plugin for
 	// the process that represents the status of the workload process.
-	Label string
+	State string
 }

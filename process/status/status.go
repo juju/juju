@@ -54,7 +54,7 @@ func Format(b []byte) interface{} {
 			Status: cliStatus{
 				State:       status.State,
 				Info:        status.String(),
-				PluginState: info.Details.Status.Label,
+				PluginState: info.Details.Status.State,
 			},
 		}
 	}
