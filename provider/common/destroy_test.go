@@ -131,8 +131,8 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 		ListVolumesFunc: func() ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) []error {
-			return make([]error, len(ids))
+		DestroyVolumesFunc: func(ids []string) ([]error, error) {
+			return make([]error, len(ids)), nil
 		},
 	}
 	staticProvider := &dummy.StorageProvider{
@@ -169,12 +169,12 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 		ListVolumesFunc: func() ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) []error {
+		DestroyVolumesFunc: func(ids []string) ([]error, error) {
 			return []error{
 				nil,
 				errors.New("cannot destroy vol-1"),
 				errors.New("cannot destroy vol-2"),
-			}
+			}, nil
 		},
 	}
 
