@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -13,6 +13,10 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+// Space represents the state of a space.
+// A space is a security subdivision of a network. In practice, a space
+// is a collection of related subnets that have no firewalls between
+// each other, and that have the same ingress and egress policies.
 type Space struct {
 	st  *State
 	doc spaceDoc
@@ -43,13 +47,8 @@ func (s *Space) String() string {
 	return s.doc.Name
 }
 
-// GoString implements fmt.GoStringer.
-func (s *Space) GoString() string {
-	return s.String()
-}
-
 // AddSpace creates and returns a new space
-func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (newSpace *Space, err error) {
+func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
 
 	spaceID := st.docID(name)
@@ -59,7 +58,7 @@ func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (newSpa
 		Life:     Alive,
 		Name:     name,
 		Subnets:  subnets,
-		IsPublic: isPrivate,
+		IsPublic: isPublic,
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
@@ -74,31 +73,30 @@ func (st *State) AddSpace(name string, subnets []string, isPrivate bool) (newSpa
 		Insert: spaceDoc,
 	}}
 
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
+	if err = st.runTransaction(ops); err == txn.ErrAborted {
 		if _, err = st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
-	case nil:
-		return newSpace, nil
 	}
-	return nil, errors.Trace(err)
+	return newSpace, errors.Trace(err)
 }
 
+// Space returns a space from state that matches the provided name. An error
+// is returned if the space doesn't exist or if there was a problem accessing
+// its information.
 func (st *State) Space(name string) (*Space, error) {
 	spaces, closer := st.getCollection(spacesC)
 	defer closer()
 
-	doc := &spaceDoc{}
-	err := spaces.FindId(name).One(doc)
+	var doc spaceDoc
+	err := spaces.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("space %q", name)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get space %q", name)
 	}
-	return &Space{st, *doc}, nil
+	return &Space{st, doc}, nil
 }
 
 // EnsureDead sets the Life of the space to Dead, if it's Alive. It
@@ -136,13 +134,18 @@ func (s *Space) Remove() (err error) {
 		C:      spacesC,
 		Id:     s.doc.DocID,
 		Remove: true,
+		Assert: notDeadDoc,
 	}}
-	// TODO: if err == mgo.NotFound, return nil - see similar state Remove() methods.
-	return s.st.runTransaction(ops)
+
+	err = s.st.runTransaction(ops)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	return err
 }
 
-// Refresh refreshes the contents of the Space from the underlying
-// state. It an error that satisfies errors.IsNotFound if the Space has
+// Refresh: refreshes the contents of the Space from the underlying
+// state. It returns an error that satisfies errors.IsNotFound if the Space has
 // been removed.
 func (s *Space) Refresh() error {
 	spaces, closer := s.st.getCollection(spacesC)

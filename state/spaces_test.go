@@ -19,9 +19,10 @@ type SpacesSuite struct {
 
 var _ = gc.Suite(&SpacesSuite{})
 
-func (s *SpacesSuite) AddSubnets(c *gc.C, CIDRs []string) {
+func (s *SpacesSuite) addSubnets(c *gc.C, CIDRs []string) {
 	for i, cidr := range CIDRs {
 		ip, ipNet, err := net.ParseCIDR(cidr)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Generate the high IP address from the CIDR
 		// First create a copy of the low IP address
@@ -42,7 +43,6 @@ func (s *SpacesSuite) AddSubnets(c *gc.C, CIDRs []string) {
 			}
 		}
 
-		c.Assert(err, jc.ErrorIsNil)
 		providerId := fmt.Sprintf("ProviderId%d", i)
 		subnetInfo := state.SubnetInfo{
 			ProviderId:        providerId,
@@ -70,14 +70,13 @@ func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isP
 	c.Assert(space.Life(), gc.Equals, state.Alive)
 	c.Assert(strings.HasSuffix(space.ID(), name), jc.IsTrue)
 	c.Assert(space.String(), gc.Equals, name)
-	c.Assert(space.GoString(), gc.Equals, name)
 }
 
 func (s *SpacesSuite) TestAddSpace(c *gc.C) {
 	name := "my-space"
 	subnets := []string{"1.1.1.0/24"}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	space, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +94,7 @@ func (s *SpacesSuite) TestAddSpaceManySubnets(c *gc.C) {
 	name := "my-space"
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24", "4.1.1.0/24", "5.1.1.0/24"}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	space, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +122,7 @@ func (s *SpacesSuite) TestAddSpaceDuplicateSpace(c *gc.C) {
 	name := "my-space"
 	subnets := []string{"1.1.1.0/24"}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	space, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +150,7 @@ func (s *SpacesSuite) TestAddSpaceNoSubnets(c *gc.C) {
 	name := "my-space"
 	subnets := []string{}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, gc.ErrorMatches, "cannot add space \"my-space\": at least one subnet required")
@@ -162,7 +161,7 @@ func (s *SpacesSuite) TestAddSpaceInvalidName(c *gc.C) {
 	name := "-"
 	subnets := []string{"1.1.1.0/24"}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, gc.ErrorMatches, "cannot add space \"-\": invalid space name")
@@ -173,7 +172,7 @@ func (s *SpacesSuite) TestAddSpaceEmptyName(c *gc.C) {
 	name := ""
 	subnets := []string{"1.1.1.0/24"}
 	isPublic := false
-	s.AddSubnets(c, subnets)
+	s.addSubnets(c, subnets)
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, gc.ErrorMatches, "cannot add space \"\": invalid space name")

@@ -460,8 +460,6 @@ func WriteLogWithOplog(
 	return logs.Insert(doc)
 }
 
-type SpaceDoc spaceDoc
-
-func (s *Space) Doc() SpaceDoc {
-	return SpaceDoc(s.doc)
+func (s *Space) Doc() spaceDoc {
+	return s.doc
 }

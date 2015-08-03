@@ -91,7 +91,6 @@ func (s *Subnet) EnsureDead() (err error) {
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-		Assert: isAliveDoc,
 	}}
 	if err = s.st.runTransaction(ops); err != nil {
 		// Ignore ErrAborted if it happens, otherwise return err.
