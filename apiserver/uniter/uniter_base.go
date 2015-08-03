@@ -1550,12 +1550,15 @@ func leadershipSettingsAccessorFactory(
 	auth common.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
 	registerWatcher := func(serviceId string) (string, error) {
-		settingsWatcher := st.WatchLeadershipSettings(serviceId)
-		if _, ok := <-settingsWatcher.Changes(); ok {
-			return resources.Register(settingsWatcher), nil
+		service, err := st.Service(serviceId)
+		if err != nil {
+			return "", err
 		}
-
-		return "", watcher.EnsureErr(settingsWatcher)
+		w := service.WatchLeaderSettings()
+		if _, ok := <-w.Changes(); ok {
+			return resources.Register(w), nil
+		}
+		return "", watcher.EnsureErr(w)
 	}
 	getSettings := func(serviceId string) (map[string]string, error) {
 		service, err := st.Service(serviceId)

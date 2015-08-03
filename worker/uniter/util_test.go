@@ -1562,22 +1562,21 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	for key := range settings.Map() {
-		settings.Delete(key)
-	}
-	for key, value := range s {
-		settings.Set(key, value)
-	}
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
+}
+
+type successToken struct{}
+
+func (successToken) Check(interface{}) error {
+	return nil
 }
 
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
+	actual, err := ctx.svc.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }

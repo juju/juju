@@ -633,21 +633,14 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) setLeaderSetting(c *gc.C, key, value string) {
-	// s.wordpress is the service object
-	currentSettings, err := s.State.ReadLeadershipSettings(s.wordpress.Tag().Id())
+	err := s.wordpress.UpdateLeaderSettings(successToken{}, map[string]string{key: value})
 	c.Assert(err, jc.ErrorIsNil)
-	currentSettings.Update(map[string]interface{}{key: value})
-	_, err = currentSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	// This is how we would set LeadershipSettings if we are the Leader,
-	// but as we are not guaranteed to be leader and the API is properly
-	// running. But we just want to test them getting changed, we poke
-	// directly into state
-	/// err := s.uniter.LeadershipSettings.Merge(
-	///     s.wordpress.Tag().Id(),
-	///     map[string]string{key: value},
-	/// )
-	/// c.Assert(err, jc.ErrorIsNil)
+}
+
+type successToken struct{}
+
+func (successToken) Check(interface{}) error {
+	return nil
 }
 
 func (s *FilterSuite) TestLeaderSettingsEventsSendsChanges(c *gc.C) {
