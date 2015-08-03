@@ -5,6 +5,7 @@ package state
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -32,6 +33,10 @@ type environmentDoc struct {
 	Life       Life
 	Owner      string `bson:"owner"`
 	ServerUUID string `bson:"server-uuid"`
+
+	// AvailableVersion
+	LatestAvailableTools string    `bson:"latestavailabletools,omitempty"`
+	LatestToolCheck      time.Time `bson:"latesttoolcheck,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -211,6 +216,12 @@ func (e *Environment) Config() (*config.Config, error) {
 	}
 	defer envState.Close()
 	return envState.EnvironConfig()
+}
+
+// UpdateLatestToolsVersion looks up for the latest available version of
+// juju tools and updates environementDoc with it.
+func (e *Environment) UpdateLatestToolsVersion(string) error {
+	return nil
 }
 
 // globalKey returns the global database key for the environment.
