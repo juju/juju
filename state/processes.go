@@ -20,11 +20,11 @@ type UnitProcesses interface {
 	// already registered for the same (unit, proc name, plugin ID)
 	// then the request will fail. The unit must also be "alive".
 	Add(info process.Info) error
-	// SetStatus sets the raw status of a workload process. The process
-	// ID is in the format provided by process.Info.ID()
-	// ("<proc name>/<plugin ID>"). If the process is not in state then
-	// the request will fail.
-	SetStatus(id string, status process.PluginStatus) error
+	// SetStatus sets the status of a workload process. Only some fields
+	// must be set on the provided info: Name, Status, Details.ID, and
+	// Details.Status. If the process is not in state then the request
+	// will fail.
+	SetStatus(info process.Info) error
 	// List builds the list of workload processes registered for
 	// the given unit and IDs. If no IDs are provided then all
 	// registered processes for the unit are returned. In the case that

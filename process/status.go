@@ -30,6 +30,7 @@ var (
 )
 
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
+// TODO(ericsnow) Move Info.Details.Status into Status here?
 
 // Status is the Juju-level status of a workload process.
 type Status struct {

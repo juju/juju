@@ -28,7 +28,7 @@ type UnitProcesses interface {
 	// unit's metadata.
 	ListDefinitions() ([]charm.Process, error)
 	// Settatus sets the status for the process with the given id on the unit.
-	SetStatus(id string, status process.PluginStatus) error
+	SetStatus(info process.Info) error
 	// Remove removes the information for the process with the given id.
 	Remove(id string) error
 }
@@ -134,8 +134,11 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 		res := api.ProcessResult{
 			ID: arg.ID,
 		}
-		status := api.APIPluginStatus2PluginStatus(arg.PluginStatus)
-		err := a.State.SetStatus(arg.ID, status)
+		var info process.Info
+		info.Name, info.Details.ID = process.ParseID(arg.ID)
+		info.Status = api.APIStatus2Status(arg.Status)
+		info.Details.Status = api.APIPluginStatus2PluginStatus(arg.PluginStatus)
+		err := a.State.SetStatus(info)
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)

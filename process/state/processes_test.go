@@ -72,19 +72,31 @@ func (s *unitProcessesSuite) TestAddAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
+func newStatusInfo(id, state, message, pluginStatus string) process.Info {
+	info := process.Info{
+		Status: process.Status{
+			State:   state,
+			Message: message,
+		},
+	}
+	info.Name, info.Details.ID = process.ParseID(id)
+	info.Details.Status.Label = pluginStatus
+	return info
+}
+
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(proc.ID(), status)
+	err := ps.SetStatus(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
-	c.Check(s.persist.procs[proc.ID()].Details.Status, jc.DeepEquals, status)
+	current := s.persist.procs[proc.ID()]
+	c.Check(current.Status, jc.DeepEquals, info.Status)
+	c.Check(current.Details.Status, jc.DeepEquals, info.Details.Status)
 }
 
 func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
@@ -92,23 +104,19 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	info := newStatusInfo(proc.ID(), process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(proc.ID(), status)
+	err := ps.SetStatus(info)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	info := newStatusInfo("some-proc", process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus("some-proc", status)
+	err := ps.SetStatus(info)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -94,17 +94,18 @@ func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) SetStatus(id string, status process.PluginStatus) (bool, error) {
-	s.AddCall("SetStatus", id, status)
+func (s *fakeProcsPersistence) SetStatus(info process.Info) (bool, error) {
+	s.AddCall("SetStatus", info)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	proc, ok := s.procs[id]
+	proc, ok := s.procs[info.ID()]
 	if !ok {
 		return false, nil
 	}
-	proc.Details.Status = status
+	proc.Status = info.Status
+	proc.Details.Status = info.Details.Status
 	return true, nil
 }
 

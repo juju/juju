@@ -355,7 +355,7 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	a := HookContextAPI{st}
 	args := api.SetProcessesStatusArgs{
 		Args: []api.SetProcessStatusArg{{
-			ID: "fooID",
+			ID: "fooID/bar",
 			Status: api.ProcessStatus{
 				State:   process.StateRunning,
 				Message: "okay",
@@ -368,14 +368,25 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	res, err := a.SetProcessesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "fooID")
-	c.Assert(st.status, jc.DeepEquals, &process.PluginStatus{
-		Label: "statusfoo",
+	c.Assert(st.info, jc.DeepEquals, process.Info{
+		Process: charm.Process{
+			Name: "fooID",
+		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
+		Details: process.Details{
+			ID: "bar",
+			Status: process.PluginStatus{
+				Label: "statusfoo",
+			},
+		},
 	})
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
-			ID:    "fooID",
+			ID:    "fooID/bar",
 			Error: nil,
 		}},
 	}
@@ -386,16 +397,16 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := api.UnregisterProcessesArgs{
-		IDs: []string{"fooID"},
+		IDs: []string{"fooID/bar"},
 	}
 	res, err := a.UnregisterProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "fooID")
+	c.Assert(st.id, gc.Equals, "fooID/bar")
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
-			ID:    "fooID",
+			ID:    "fooID/bar",
 			Error: nil,
 		}},
 	}
@@ -404,9 +415,8 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 
 type FakeState struct {
 	// inputs
-	id     string
-	ids    []string
-	status *process.PluginStatus
+	id  string
+	ids []string
 
 	// info is used as input and output
 	info process.Info
@@ -431,9 +441,8 @@ func (f *FakeState) ListDefinitions() ([]charm.Process, error) {
 	return f.defs, f.err
 }
 
-func (f *FakeState) SetStatus(id string, status process.PluginStatus) error {
-	f.id = id
-	f.status = &status
+func (f *FakeState) SetStatus(info process.Info) error {
+	f.info = info
 	return f.err
 }
 

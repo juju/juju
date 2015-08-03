@@ -71,13 +71,21 @@ func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(id string, status process.PluginStatus) []txn.Op {
-	id = pp.processID(id)
+func (pp Persistence) newSetRawStatusOps(info process.Info) []txn.Op {
+	updates := bson.D{
+		{"state", info.Status.State},
+		{"failed", info.Status.Failed},
+		{"error", info.Status.Error},
+		{"status", info.Status.Message},
+		{"pluginstatus", info.Details.Status.Label},
+	}
+
+	id := pp.processID(info.ID())
 	return []txn.Op{{
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Label}}}},
+		Update: bson.D{{"$set", updates}},
 	}}
 }
 
@@ -108,6 +116,11 @@ type processDoc struct {
 	Volumes     []string          `bson:"volumes"`
 	EnvVars     map[string]string `bson:"envvars"`
 
+	State  string `bson:"state"`
+	Failed bool   `bson:"failed"`
+	Error  bool   `bson:"error"`
+	Status string `bson:"status"`
+
 	PluginID       string `bson:"pluginid"`
 	OriginalStatus string `bson:"origstatus"`
 
@@ -117,6 +130,7 @@ type processDoc struct {
 func (d processDoc) info() process.Info {
 	info := process.Info{
 		Process: d.definition(),
+		Status:  d.status(),
 		Details: d.details(),
 	}
 	info.Details.Status.Label = d.PluginStatus
@@ -167,6 +181,15 @@ func (d processDoc) definition() charm.Process {
 	return definition
 }
 
+func (d processDoc) status() process.Status {
+	return process.Status{
+		State:   d.State,
+		Failed:  d.Failed,
+		Error:   d.Error,
+		Message: d.Status,
+	}
+}
+
 func (d processDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
@@ -203,6 +226,11 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 		Ports:       ports,
 		Volumes:     volumes,
 		EnvVars:     definition.EnvVars,
+
+		State:  info.Status.State,
+		Failed: info.Status.Failed,
+		Error:  info.Status.Error,
+		Status: info.Status.Message,
 
 		PluginID:       info.Details.ID,
 		OriginalStatus: info.Details.Status.Label,
