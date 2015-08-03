@@ -17,12 +17,87 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// allWatcherStateBacking implements allWatcherBacking by
-// fetching entities from the State.
+// allWatcherStateBacking implements allWatcherBacking by fetching
+// entities for a single environment from the State.
 type allWatcherStateBacking struct {
-	st *State
-	// collections
+	st               *State
 	collectionByName map[string]allWatcherStateCollection
+}
+
+// allEnvWatcherStateBacking implements allWatcherBacking by
+// fetching entities for all environments from the State.
+type allEnvWatcherStateBacking struct {
+	st               *State
+	collectionByName map[string]allWatcherStateCollection
+}
+
+// allWatcherStateCollection holds information about a
+// collection watched by an allWatcher and the
+// type of value we use to store entity information
+// for that collection.
+type allWatcherStateCollection struct {
+	// name stores the name of the collection.
+	name string
+	// docType stores the type of document
+	// that we use for this collection.
+	docType reflect.Type
+	// subsidiary is true if the collection is used only
+	// to modify a primary entity.
+	subsidiary bool
+}
+
+// makeAllWatcherCollectionInfo returns a name indexed map of
+// allWatcherStateCollection instances for the collections specified.
+func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStateCollection {
+	seenTypes := make(map[reflect.Type]struct{})
+	collectionByName := make(map[string]allWatcherStateCollection)
+
+	for _, collName := range collNames {
+		collection := allWatcherStateCollection{name: collName}
+		switch collName {
+		case machinesC:
+			collection.docType = reflect.TypeOf(backingMachine{})
+		case unitsC:
+			collection.docType = reflect.TypeOf(backingUnit{})
+		case servicesC:
+			collection.docType = reflect.TypeOf(backingService{})
+		case actionsC:
+			collection.docType = reflect.TypeOf(backingAction{})
+		case relationsC:
+			collection.docType = reflect.TypeOf(backingRelation{})
+		case annotationsC:
+			collection.docType = reflect.TypeOf(backingAnnotation{})
+		case blocksC:
+			collection.docType = reflect.TypeOf(backingBlock{})
+		case statusesC:
+			collection.docType = reflect.TypeOf(backingStatus{})
+			collection.subsidiary = true
+		case constraintsC:
+			collection.docType = reflect.TypeOf(backingConstraints{})
+			collection.subsidiary = true
+		case settingsC:
+			collection.docType = reflect.TypeOf(backingSettings{})
+			collection.subsidiary = true
+		case openedPortsC:
+			collection.docType = reflect.TypeOf(backingOpenedPorts{})
+			collection.subsidiary = true
+		default:
+			panic(errors.Errorf("unknown collection %q", collName))
+		}
+
+		docType := collection.docType
+		if _, ok := seenTypes[docType]; ok {
+			panic(errors.Errorf("duplicate collection type %s", docType))
+		}
+		seenTypes[docType] = struct{}{}
+
+		if _, ok := collectionByName[collName]; ok {
+			panic(errors.Errorf("duplicate collection name %q", collName))
+		}
+		collectionByName[collName] = collection
+	}
+
+	return collectionByName
 }
 
 type backingMachine machineDoc
@@ -858,79 +933,24 @@ type backingEntityDoc interface {
 	mongoId() string
 }
 
-// allWatcherStateCollection holds information about a
-// collection watched by an allWatcher and the
-// type of value we use to store entity information
-// for that collection.
-type allWatcherStateCollection struct {
-	// name stores the name of the collection.
-	name string
-	// infoType stores the type of the info type
-	// that we use for this collection.
-	infoType reflect.Type
-	// subsidiary is true if the collection is used only
-	// to modify a primary entity.
-	subsidiary bool
-}
-
 func newAllWatcherStateBacking(st *State) Backing {
-	collectionByType := make(map[reflect.Type]allWatcherStateCollection)
-	b := &allWatcherStateBacking{
+	collections := makeAllWatcherCollectionInfo(
+		machinesC,
+		unitsC,
+		servicesC,
+		relationsC,
+		annotationsC,
+		statusesC,
+		constraintsC,
+		settingsC,
+		openedPortsC,
+		actionsC,
+		blocksC,
+	)
+	return &allWatcherStateBacking{
 		st:               st,
-		collectionByName: make(map[string]allWatcherStateCollection),
+		collectionByName: collections,
 	}
-
-	collections := []allWatcherStateCollection{{
-		name:     machinesC,
-		infoType: reflect.TypeOf(backingMachine{}),
-	}, {
-		name:     unitsC,
-		infoType: reflect.TypeOf(backingUnit{}),
-	}, {
-		name:     servicesC,
-		infoType: reflect.TypeOf(backingService{}),
-	}, {
-		name:     actionsC,
-		infoType: reflect.TypeOf(backingAction{}),
-	}, {
-		name:     relationsC,
-		infoType: reflect.TypeOf(backingRelation{}),
-	}, {
-		name:     annotationsC,
-		infoType: reflect.TypeOf(backingAnnotation{}),
-	}, {
-		name:     blocksC,
-		infoType: reflect.TypeOf(backingBlock{}),
-	}, {
-		name:       statusesC,
-		infoType:   reflect.TypeOf(backingStatus{}),
-		subsidiary: true,
-	}, {
-		name:       constraintsC,
-		infoType:   reflect.TypeOf(backingConstraints{}),
-		subsidiary: true,
-	}, {
-		name:       settingsC,
-		infoType:   reflect.TypeOf(backingSettings{}),
-		subsidiary: true,
-	}, {
-		name:       openedPortsC,
-		infoType:   reflect.TypeOf(backingOpenedPorts{}),
-		subsidiary: true,
-	}}
-	// Populate the collection maps from the above set of collections.
-	for _, c := range collections {
-		docType := c.infoType
-		if _, ok := collectionByType[docType]; ok {
-			panic(fmt.Errorf("duplicate collection type %s", docType))
-		}
-		collectionByType[docType] = c
-		if _, ok := b.collectionByName[c.name]; ok {
-			panic(fmt.Errorf("duplicate collection name %q", c.name))
-		}
-		b.collectionByName[c.name] = c
-	}
-	return b
 }
 
 func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
@@ -964,7 +984,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		}
 		col, closer := db.GetCollection(c.name)
 		defer closer()
-		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
+		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
 		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.name, err)
 		}
@@ -990,7 +1010,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	}
 	col, closer := b.st.getCollection(c.name)
 	defer closer()
-	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
+	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
 	id := b.st.localID(change.Id.(string))
 
@@ -998,6 +1018,92 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest
 	// in, such as settings changes to entities we don't care about.
+	err := col.FindId(id).One(doc)
+	if err == mgo.ErrNotFound {
+		doc.removed(b.st, all, id)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return doc.updated(b.st, all, id)
+}
+
+func newAllEnvWatcherStateBacking(st *State) Backing {
+	collections := makeAllWatcherCollectionInfo(
+		machinesC,
+		unitsC,
+		servicesC,
+		relationsC,
+		annotationsC,
+		statusesC,
+		constraintsC,
+		settingsC,
+		openedPortsC,
+	)
+	return &allEnvWatcherStateBacking{
+		st:               st,
+		collectionByName: collections,
+	}
+}
+
+// Watch watches all the collections.
+func (b *allEnvWatcherStateBacking) Watch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.WatchCollection(c.name, in)
+	}
+}
+
+// Unwatch unwatches all the collections.
+func (b *allEnvWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.UnwatchCollection(c.name, in)
+	}
+}
+
+// GetAll fetches all items that we want to watch from the state.
+func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
+	db, closer := b.st.newDB()
+	defer closer()
+
+	// TODO(rog) fetch collections concurrently?
+	for _, c := range b.collectionByName {
+		if c.subsidiary {
+			continue
+		}
+		col, closer := db.GetCollection(c.name)
+		defer closer()
+		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
+		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+			return fmt.Errorf("cannot get all %s: %v", c.name, err)
+		}
+		infos := infoSlicePtr.Elem()
+		for i := 0; i < infos.Len(); i++ {
+			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
+			id := info.mongoId()
+			err := info.updated(b.st, all, id)
+			if err != nil {
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
+			}
+		}
+	}
+	return nil
+}
+
+// Changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+	c, ok := b.collectionByName[change.C]
+	if !ok {
+		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
+	}
+	col, closer := b.st.getCollection(c.name)
+	defer closer()
+	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
+
+	id := b.st.localID(change.Id.(string))
+
+	// TODO - see TODOs in allWatcherStateBacking.Changed()
 	err := col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		doc.removed(b.st, all, id)
