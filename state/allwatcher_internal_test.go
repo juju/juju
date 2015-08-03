@@ -62,47 +62,10 @@ func (s *allWatcherBaseSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-var _ = gc.Suite(&allWatcherStateSuite{})
-
-type allWatcherStateSuite struct {
-	allWatcherBaseSuite
-}
-
-func (s *allWatcherStateSuite) TestStateBackingGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c, s.state, 2)
-	s.checkGetAll(c, expectEntities)
-}
-
-func (s *allWatcherStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
-	// Set up 2 environments and ensure that GetAll returns the
-	// entities for the first environment with no errors.
-	expectEntities := s.setUpScenario(c, s.state, 2)
-
-	// Use more units in the second env to ensure the number of
-	// entities will mismatch if environment filtering isn't in place.
-	otherState := s.newState(c)
-	defer otherState.Close()
-	s.setUpScenario(c, otherState, 4)
-
-	s.checkGetAll(c, expectEntities)
-}
-
-func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
-	b := newAllWatcherStateBacking(s.state)
-	all := newStore()
-	err := b.GetAll(all)
-	c.Assert(err, jc.ErrorIsNil)
-	var gotEntities entityInfoSlice = all.All()
-	sort.Sort(gotEntities)
-	sort.Sort(expectEntities)
-	substNilSinceTimeForEntities(c, gotEntities)
-	assertEntitiesEqual(c, gotEntities, expectEntities)
-}
-
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
-// allWatcherStateBacking.GetAll.
-func (s *allWatcherStateSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
+// all(Env)WatcherStateBacking.GetAll.
+func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
 	envUUID := st.EnvironUUID()
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
@@ -296,6 +259,43 @@ func (s *allWatcherStateSuite) setUpScenario(c *gc.C, st *State, units int) (ent
 		})
 	}
 	return
+}
+
+var _ = gc.Suite(&allWatcherStateSuite{})
+
+type allWatcherStateSuite struct {
+	allWatcherBaseSuite
+}
+
+func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
+	expectEntities := s.setUpScenario(c, s.state, 2)
+	s.checkGetAll(c, expectEntities)
+}
+
+func (s *allWatcherStateSuite) TestGetAllMultiEnv(c *gc.C) {
+	// Set up 2 environments and ensure that GetAll returns the
+	// entities for the first environment with no errors.
+	expectEntities := s.setUpScenario(c, s.state, 2)
+
+	// Use more units in the second env to ensure the number of
+	// entities will mismatch if environment filtering isn't in place.
+	otherState := s.newState(c)
+	defer otherState.Close()
+	s.setUpScenario(c, otherState, 4)
+
+	s.checkGetAll(c, expectEntities)
+}
+
+func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
+	b := newAllWatcherStateBacking(s.state)
+	all := newStore()
+	err := b.GetAll(all)
+	c.Assert(err, jc.ErrorIsNil)
+	var gotEntities entityInfoSlice = all.All()
+	sort.Sort(gotEntities)
+	sort.Sort(expectEntities)
+	substNilSinceTimeForEntities(c, gotEntities)
+	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
 func serviceCharmURL(svc *Service) *charm.URL {
@@ -1007,6 +1007,28 @@ func (s *allEnvWatcherStateSuite) TestChangeUnits(c *gc.C) {
 
 func (s *allEnvWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
+	// Set up 2 environments and ensure that GetAll returns the
+	// entities for both of them.
+	entities0 := s.setUpScenario(c, s.state, 2)
+
+	otherState := s.newState(c)
+	defer otherState.Close()
+	entities1 := s.setUpScenario(c, otherState, 4)
+
+	expectedEntities := append(entities0, entities1...)
+
+	b := newAllEnvWatcherStateBacking(s.state)
+	all := newStore()
+	err := b.GetAll(all)
+	c.Assert(err, jc.ErrorIsNil)
+	var gotEntities entityInfoSlice = all.All()
+	sort.Sort(gotEntities)
+	sort.Sort(expectedEntities)
+	substNilSinceTimeForEntities(c, gotEntities)
+	assertEntitiesEqual(c, gotEntities, expectedEntities)
 }
 
 // The testChange* funcs are extracted so the test cases can be used
