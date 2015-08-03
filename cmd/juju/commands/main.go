@@ -213,6 +213,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	if featureflag.Enabled(feature.JES) {
 		r.Register(system.NewSuperCommand())
 		r.RegisterSuperAlias("systems", "system", "list", nil)
+
+		// Add top level aliases of the same name as the subcommands.
 		r.RegisterSuperAlias("environments", "system", "environments", nil)
 		r.RegisterSuperAlias("login", "system", "login", nil)
 		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
