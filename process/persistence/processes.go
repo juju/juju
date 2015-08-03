@@ -23,7 +23,7 @@ var logger = loggo.GetLogger("juju.process.persistence")
 // in the business logic) with ops factories available from the
 // persistence layer.
 
-// TODO(ericsnow) Move PersistencBase to the components package?
+// TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
 // for workload processes.
