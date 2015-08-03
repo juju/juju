@@ -42,17 +42,12 @@ var dottedConfig = `
 options:
   key.dotted: {default: My Key, description: Desc, type: string}
 `
-var _ = gc.Suite(&allWatcherStateSuite{})
 
-type allWatcherStateSuite struct {
+type allWatcherBaseSuite struct {
 	internalStateSuite
 }
 
-func (s *allWatcherStateSuite) SetUpTest(c *gc.C) {
-	s.internalStateSuite.SetUpTest(c)
-}
-
-func (s *allWatcherStateSuite) newState(c *gc.C) *State {
+func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": "newtestenv",
 		"uuid": utils.MustNewUUID().String(),
@@ -62,61 +57,15 @@ func (s *allWatcherStateSuite) newState(c *gc.C) *State {
 	return st
 }
 
-func (s *allWatcherStateSuite) Reset(c *gc.C) {
+func (s *allWatcherBaseSuite) Reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
 
-func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
-	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
-	if !ok {
-		c.Logf(message)
-	}
-	return ok
-}
+var _ = gc.Suite(&allWatcherStateSuite{})
 
-func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
-	if jcDeepEqualsCheck(c, got, want) {
-		return
-	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
-	// Lets construct a decent output.
-	var errorOutput string
-	errorOutput = "\ngot: \n"
-	for _, e := range got {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
-	}
-	errorOutput += "expected: \n"
-	for _, e := range want {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
-	}
-
-	c.Errorf(errorOutput)
-
-	var firstDiffError string
-	if len(got) == len(want) {
-		for i := 0; i < len(got); i++ {
-			g := got[i]
-			w := want[i]
-			if !jcDeepEqualsCheck(c, g, w) {
-				firstDiffError += "\n"
-				firstDiffError += fmt.Sprintf("first difference at position %d", i)
-				firstDiffError += "got: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
-				firstDiffError += "expected: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
-				break
-			}
-		}
-		c.Errorf(firstDiffError)
-	}
-	c.FailNow()
+type allWatcherStateSuite struct {
+	allWatcherBaseSuite
 }
 
 func (s *allWatcherStateSuite) TestStateBackingGetAll(c *gc.C) {
@@ -426,43 +375,34 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 	}
 }
 
-// TestChangeAnnotations tests the changing of annotations.
 func (s *allWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
 	testChangeAnnotations(c, s.performChangeTestCases)
 }
 
-// TestChangeMachines tests the changing of machines.
 func (s *allWatcherStateSuite) TestChangeMachines(c *gc.C) {
 	testChangeMachines(c, s.performChangeTestCases)
 }
 
-// TestChangeRelations tests the changing of relations.
 func (s *allWatcherStateSuite) TestChangeRelations(c *gc.C) {
 	testChangeRelations(c, s.owner, s.performChangeTestCases)
 }
 
-// TestChangeServices tests the changing of services.
 func (s *allWatcherStateSuite) TestChangeServices(c *gc.C) {
 	testChangeServices(c, s.owner, s.performChangeTestCases)
 }
 
-// TestChangeServicesConstraints tests the changing of the constraints of services.
 func (s *allWatcherStateSuite) TestChangeServicesConstraints(c *gc.C) {
 	testChangeServicesConstraints(c, s.owner, s.performChangeTestCases)
 }
 
-// TestChangeUnits tests the changing of units.
 func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 	testChangeUnits(c, s.owner, s.performChangeTestCases)
 }
 
-// TestChangeUnitsNonNilPorts tests the changing of unit parts returning
-// no nil values.
 func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
-// TestChangeActions tests the changing of actions.
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -486,7 +426,6 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-// TestChangeBlocks tests the changing of blocks.
 func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -567,7 +506,6 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-// TestClosingPorts tests the correct reporting of closing ports.
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
@@ -666,7 +604,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	})
 }
 
-// TestSettings tests the correct reporting of unset service settings.
 func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
@@ -1017,6 +954,63 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 		s.Reset(c)
 	}
 }
+
+var _ = gc.Suite(&allEnvWatcherStateSuite{})
+
+type allEnvWatcherStateSuite struct {
+	allWatcherBaseSuite
+}
+
+// performChangeTestCases runs a passed number of test cases for changes.
+func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
+	for i, changeTestFunc := range changeTestFuncs {
+		test := changeTestFunc(c, s.state)
+
+		c.Logf("test %d. %s", i, test.about)
+		b := newAllEnvWatcherStateBacking(s.state)
+		all := newStore()
+		for _, info := range test.initialContents {
+			all.Update(info)
+		}
+		err := b.Changed(all, test.change)
+		c.Assert(err, jc.ErrorIsNil)
+		entities := all.All()
+		substNilSinceTimeForEntities(c, entities)
+		assertEntitiesEqual(c, entities, test.expectContents)
+		s.Reset(c)
+	}
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
+	testChangeAnnotations(c, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeMachines(c *gc.C) {
+	testChangeMachines(c, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeRelations(c *gc.C) {
+	testChangeRelations(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeServices(c *gc.C) {
+	testChangeServices(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeServicesConstraints(c *gc.C) {
+	testChangeServicesConstraints(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeUnits(c *gc.C) {
+	testChangeUnits(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
+	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+}
+
+// The testChange* funcs are extracted so the test cases can be used
+// to test both the allWatcher and allEnvWatcher.
 
 func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 	changeTestFuncs := []changeTestFunc{
@@ -2471,4 +2465,56 @@ func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 		Started:    a.Started(),
 		Completed:  a.Completed(),
 	}
+}
+
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
+	if !ok {
+		c.Logf(message)
+	}
+	return ok
+}
+
+func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
+	if len(got) == 0 {
+		got = nil
+	}
+	if len(want) == 0 {
+		want = nil
+	}
+	if jcDeepEqualsCheck(c, got, want) {
+		return
+	}
+	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	// Lets construct a decent output.
+	var errorOutput string
+	errorOutput = "\ngot: \n"
+	for _, e := range got {
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+	}
+	errorOutput += "expected: \n"
+	for _, e := range want {
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+	}
+
+	c.Errorf(errorOutput)
+
+	var firstDiffError string
+	if len(got) == len(want) {
+		for i := 0; i < len(got); i++ {
+			g := got[i]
+			w := want[i]
+			if !jcDeepEqualsCheck(c, g, w) {
+				firstDiffError += "\n"
+				firstDiffError += fmt.Sprintf("first difference at position %d", i)
+				firstDiffError += "got: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
+				firstDiffError += "expected: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
+				break
+			}
+		}
+		c.Errorf(firstDiffError)
+	}
+	c.FailNow()
 }
