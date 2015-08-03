@@ -20,7 +20,6 @@ const (
 
 var (
 	okayStates = set.NewStrings(
-		StateUndefined, // TODO(ericsnow) Drop from the set.
 		StateDefined,
 		StateStarting,
 		StateRunning,

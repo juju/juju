@@ -44,6 +44,9 @@ func (s *baseProcessesSuite) newProcesses(pType string, ids ...string) []process
 				Name: name,
 				Type: pType,
 			},
+			Status: process.Status{
+				State: process.StateRunning,
+			},
 			Details: process.Details{
 				ID: pluginID,
 				Status: process.PluginStatus{

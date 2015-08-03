@@ -426,8 +426,15 @@ func (s *statusSuite) TestResolveNotBlocked(c *gc.C) {
 }
 
 func (s *statusSuite) TestValidateOkay(c *gc.C) {
-	var status process.Status
+	status := process.Status{
+		Failed:  false,
+		Error:   false,
+		Message: "nothing wrong",
+	}
 	for _, state := range states {
+		if state == process.StateUndefined {
+			continue
+		}
 		c.Logf("checking %q", state)
 		status.State = state
 		err := status.Validate()
@@ -436,7 +443,24 @@ func (s *statusSuite) TestValidateOkay(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestValidateBadStatus(c *gc.C) {
+func (s *statusSuite) TestValidateNoMessage(c *gc.C) {
+	status := process.Status{
+		State:   process.StateRunning,
+		Message: "",
+	}
+	err := status.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *statusSuite) TestValidateUndefinedState(c *gc.C) {
+	var status process.Status
+	err := status.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *statusSuite) TestValidateBadState(c *gc.C) {
 	var status process.Status
 	status.State = "some bogus state"
 	err := status.Validate()
