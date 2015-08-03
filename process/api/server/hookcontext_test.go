@@ -42,9 +42,13 @@ func (suite) TestRegisterProcess(c *gc.C) {
 				}},
 				EnvVars: map[string]string{"envfoo": "bar"},
 			},
+			Status: api.ProcessStatus{
+				State:   process.StateRunning,
+				Message: "okay",
+			},
 			Details: api.ProcessDetails{
 				ID: "idfoo",
-				Status: api.ProcessStatus{
+				Status: api.PluginStatus{
 					Label: "running",
 				},
 			},
@@ -88,6 +92,10 @@ func (suite) TestRegisterProcess(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
@@ -124,6 +132,10 @@ func (suite) TestListProcessesOne(c *gc.C) {
 				},
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
+		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
 		},
 		Details: process.Details{
 			ID: "idfoo",
@@ -165,9 +177,13 @@ func (suite) TestListProcessesOne(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: api.ProcessStatus{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: api.ProcessDetails{
 			ID: "idfoo",
-			Status: api.ProcessStatus{
+			Status: api.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -210,6 +226,10 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
@@ -248,9 +268,13 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: api.ProcessStatus{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: api.ProcessDetails{
 			ID: "idfoo",
-			Status: api.ProcessStatus{
+			Status: api.PluginStatus{
 				Label: "running",
 			},
 		},
@@ -333,6 +357,10 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 		Args: []api.SetProcessStatusArg{{
 			ID: "fooID",
 			Status: api.ProcessStatus{
+				State:   process.StateRunning,
+				Message: "okay",
+			},
+			PluginStatus: api.PluginStatus{
 				Label: "statusfoo",
 			},
 		}},

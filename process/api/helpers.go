@@ -44,9 +44,10 @@ func Definition2api(d charm.Process) ProcessDefinition {
 func API2Proc(p Process) process.Info {
 	return process.Info{
 		Process: API2Definition(p.Definition),
+		Status:  APIStatus2Status(p.Status),
 		Details: process.Details{
 			ID:     p.Details.ID,
-			Status: APIStatus2Status(p.Details.Status),
+			Status: APIPluginStatus2PluginStatus(p.Details.Status),
 		},
 	}
 }
@@ -55,25 +56,48 @@ func API2Proc(p Process) process.Info {
 func Proc2api(p process.Info) Process {
 	return Process{
 		Definition: Definition2api(p.Process),
+		Status:     Status2apiStatus(p.Status),
 		Details: ProcessDetails{
 			ID:     p.Details.ID,
-			Status: Status2apiStatus(p.Details.Status),
+			Status: PluginStatus2apiPluginStatus(p.Details.Status),
 		},
 	}
 }
 
 // APIStatus2Status converts an API ProcessStatus struct into a
 // process.Status struct.
-func APIStatus2Status(status ProcessStatus) process.PluginStatus {
-	return process.PluginStatus{
-		Label: status.Label,
+func APIStatus2Status(status ProcessStatus) process.Status {
+	return process.Status{
+		State:   status.State,
+		Failed:  status.Failed,
+		Error:   status.Error,
+		Message: status.Message,
 	}
 }
 
 // Status2APIStatus converts a process.Status struct into an
 // API ProcessStatus struct.
-func Status2apiStatus(status process.PluginStatus) ProcessStatus {
+func Status2apiStatus(status process.Status) ProcessStatus {
 	return ProcessStatus{
+		State:   status.State,
+		Failed:  status.Failed,
+		Error:   status.Error,
+		Message: status.Message,
+	}
+}
+
+// APIPluginStatus2PluginStatus converts an API PluginStatus struct into
+// a process.PluginStatus struct.
+func APIPluginStatus2PluginStatus(status PluginStatus) process.PluginStatus {
+	return process.PluginStatus{
+		Label: status.Label,
+	}
+}
+
+// PluginStatus2APIPluginStatus converts a process.PluginStatus struct
+// into an API PluginStatus struct.
+func PluginStatus2apiPluginStatus(status process.PluginStatus) PluginStatus {
+	return PluginStatus{
 		Label: status.Label,
 	}
 }

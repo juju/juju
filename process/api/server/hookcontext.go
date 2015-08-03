@@ -134,7 +134,7 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 		res := api.ProcessResult{
 			ID: arg.ID,
 		}
-		status := api.APIStatus2Status(arg.Status)
+		status := api.APIPluginStatus2PluginStatus(arg.PluginStatus)
 		err := a.State.SetStatus(arg.ID, status)
 		if err != nil {
 			res.Error = common.ServerError(err)

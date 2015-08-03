@@ -6,6 +6,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
 	"github.com/juju/juju/process/api/client"
 )
@@ -47,9 +48,15 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 
 	s.process = api.Process{
 		Definition: s.definition,
+		Status: api.ProcessStatus{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: api.ProcessDetails{
-			ID:     "idfoo",
-			Status: api.ProcessStatus{Label: "process status"},
+			ID: "idfoo",
+			Status: api.PluginStatus{
+				Label: "process status",
+			},
 		},
 	}
 
@@ -156,14 +163,29 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 		c.Check(len(typedParams.Args), gc.Equals, 1)
 
 		arg := typedParams.Args[0]
-		c.Check(arg.ID, gc.Equals, "idfoo")
-		c.Check(arg.Status, gc.DeepEquals, api.ProcessStatus{Label: "Running"})
+		c.Check(arg, jc.DeepEquals, api.SetProcessStatusArg{
+			ID: "idfoo/bar",
+			Status: api.ProcessStatus{
+				State:   process.StateRunning,
+				Message: "okay",
+			},
+			PluginStatus: api.PluginStatus{
+				Label: "Running",
+			},
+		})
 
 		return nil
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	err := pclient.SetProcessesStatus("Running", "idfoo")
+	status := process.Status{
+		State:   process.StateRunning,
+		Message: "okay",
+	}
+	pluginStatus := process.PluginStatus{
+		Label: "Running",
+	}
+	err := pclient.SetProcessesStatus(status, pluginStatus, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)

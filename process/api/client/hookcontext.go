@@ -75,11 +75,14 @@ func (c HookContextClient) ListProcesses(ids ...string) ([]api.ListProcessResult
 }
 
 // SetProcessesStatus calls the SetProcessesStatus API server method.
-func (c HookContextClient) SetProcessesStatus(status string, ids ...string) error {
+func (c HookContextClient) SetProcessesStatus(status process.Status, pluginStatus process.PluginStatus, ids ...string) error {
 	statusArgs := make([]api.SetProcessStatusArg, len(ids))
 	for i, id := range ids {
-		procStatus := api.ProcessStatus{Label: status}
-		statusArgs[i] = api.SetProcessStatusArg{ID: id, Status: procStatus}
+		statusArgs[i] = api.SetProcessStatusArg{
+			ID:           id,
+			Status:       api.Status2apiStatus(status),
+			PluginStatus: api.PluginStatus2apiPluginStatus(pluginStatus),
+		}
 	}
 
 	args := api.SetProcessesStatusArgs{Args: statusArgs}
