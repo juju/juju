@@ -178,11 +178,7 @@ func (s *AddresserSuite) TestReleaseIPAddressesSuccess(c *gc.C) {
 	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress1 := addresser.NewIPAddress(api, tag1, params.Alive)
-	ipAddress2 := addresser.NewIPAddress(api, tag2, params.Dying)
-	ipAddress3 := addresser.NewIPAddress(api, tag3, params.Dead)
-
-	err := api.ReleaseIPAddresses(ipAddress1, ipAddress2, ipAddress3)
+	err := api.ReleaseIPAddresses(tag1, tag2, tag3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 1)
 }
@@ -193,8 +189,7 @@ func (s *AddresserSuite) TestReleaseIPAddressesClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "ReleaseIPAddresses", nil, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := api.ReleaseIPAddresses(ipAddress)
+	err := api.ReleaseIPAddresses(tag)
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -211,8 +206,7 @@ func (s *AddresserSuite) TestReleaseIPAddressesServerError(c *gc.C) {
 	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := api.ReleaseIPAddresses(ipAddress)
+	err := api.ReleaseIPAddresses(tag)
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -236,11 +230,7 @@ func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
 	apiCaller := successAPICaller(c, "Remove", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress1 := addresser.NewIPAddress(api, tag1, params.Alive)
-	ipAddress2 := addresser.NewIPAddress(api, tag2, params.Dying)
-	ipAddress3 := addresser.NewIPAddress(api, tag3, params.Dead)
-
-	err := api.Remove(ipAddress1, ipAddress2, ipAddress3)
+	err := api.Remove(tag1, tag2, tag3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 1)
 }
@@ -251,8 +241,7 @@ func (s *AddresserSuite) TestRemoveClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "Remove", nil, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := api.Remove(ipAddress)
+	err := api.Remove(tag)
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -269,8 +258,7 @@ func (s *AddresserSuite) TestRemoveServerError(c *gc.C) {
 	apiCaller := successAPICaller(c, "Remove", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := api.Remove(ipAddress)
+	err := api.Remove(tag)
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 }

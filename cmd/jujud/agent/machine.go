@@ -122,6 +122,7 @@ var (
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
+	newAddresser             = addresser.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	reportClosedMachineAPI   = func(io.Closer) {}
@@ -1153,9 +1154,6 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
-	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return addresser.NewWorker(apiSt.Addresser())
-	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
@@ -1177,6 +1175,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		return newCleaner(apiSt.Cleaner()), nil
+	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return newAddresser(apiSt.Addresser())
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506

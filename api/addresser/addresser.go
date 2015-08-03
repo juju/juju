@@ -67,13 +67,13 @@ func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
 }
 
 // ReleaseIPAddresses releases the given IP addresses.
-func (api *API) ReleaseIPAddresses(ipAddresses ...*IPAddress) error {
+func (api *API) ReleaseIPAddresses(tags ...names.IPAddressTag) error {
 	var results params.ErrorResults
 	args := params.Entities{
-		Entities: make([]params.Entity, len(ipAddresses)),
+		Entities: make([]params.Entity, len(tags)),
 	}
-	for i, ipAddress := range ipAddresses {
-		args.Entities[i].Tag = ipAddress.Tag().String()
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
 	}
 	if err := api.facade.FacadeCall("ReleaseIPAddresses", args, &results); err != nil {
 		return errors.Trace(err)
@@ -82,13 +82,13 @@ func (api *API) ReleaseIPAddresses(ipAddresses ...*IPAddress) error {
 }
 
 // Remove deletes the given IP addresses.
-func (api *API) Remove(ipAddresses ...*IPAddress) error {
+func (api *API) Remove(tags ...names.IPAddressTag) error {
 	var results params.ErrorResults
 	args := params.Entities{
-		Entities: make([]params.Entity, len(ipAddresses)),
+		Entities: make([]params.Entity, len(tags)),
 	}
-	for i, ipAddress := range ipAddresses {
-		args.Entities[i].Tag = ipAddress.Tag().String()
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
 	}
 	if err := api.facade.FacadeCall("Remove", args, &results); err != nil {
 		return errors.Trace(err)

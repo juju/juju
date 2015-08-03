@@ -244,9 +244,7 @@ func (mst *mockState) StartSync() {}
 type mockIPAddress struct {
 	addresser.StateIPAddress
 
-	mu   sync.Mutex
-	stub *testing.Stub
-
+	stub       *testing.Stub
 	st         *mockState
 	value      string
 	tag        names.Tag
@@ -261,9 +259,6 @@ var _ addresser.StateIPAddress = (*mockIPAddress)(nil)
 
 // Tag implements StateIPAddress.
 func (mip *mockIPAddress) Tag() names.Tag {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "Tag")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.tag
@@ -271,9 +266,6 @@ func (mip *mockIPAddress) Tag() names.Tag {
 
 // Life implements StateIPAddress.
 func (mip *mockIPAddress) Life() state.Life {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "Life")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.life
@@ -281,9 +273,6 @@ func (mip *mockIPAddress) Life() state.Life {
 
 // EnsureDead implements StateIPAddress.
 func (mip *mockIPAddress) EnsureDead() error {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "EnsureDead")
 	if err := mip.stub.NextErr(); err != nil {
 		return err
@@ -294,9 +283,6 @@ func (mip *mockIPAddress) EnsureDead() error {
 
 // Remove implements StateIPAddress.
 func (mip *mockIPAddress) Remove() error {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "Remove")
 	if err := mip.stub.NextErr(); err != nil {
 		return err
@@ -306,9 +292,6 @@ func (mip *mockIPAddress) Remove() error {
 
 // SubnetId implements StateIPAddress.
 func (mip *mockIPAddress) SubnetId() string {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "SubnetId")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.subnetId
@@ -316,9 +299,6 @@ func (mip *mockIPAddress) SubnetId() string {
 
 // InstanceId implements StateIPAddress.
 func (mip *mockIPAddress) InstanceId() instance.Id {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "InstanceId")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.instanceId
@@ -326,9 +306,6 @@ func (mip *mockIPAddress) InstanceId() instance.Id {
 
 // Address implements StateIPAddress.
 func (mip *mockIPAddress) Address() network.Address {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "Address")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.addr
@@ -336,9 +313,6 @@ func (mip *mockIPAddress) Address() network.Address {
 
 // MACAddress implements StateIPAddress.
 func (mip *mockIPAddress) MACAddress() string {
-	mip.mu.Lock()
-	defer mip.mu.Unlock()
-
 	mip.stub.MethodCall(mip, "MACAddress")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.macaddr

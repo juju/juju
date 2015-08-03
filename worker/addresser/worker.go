@@ -42,7 +42,7 @@ func (a *addresserHandler) TearDown() error {
 	return nil
 }
 
-// Handle is part of the StringsWorker interface.
+// Handle is part of the Worker interface.
 func (a *addresserHandler) Handle(watcherTags []string) error {
 	// Convert received tag strings into tags.
 	tags := make([]names.IPAddressTag, len(watcherTags))
@@ -65,7 +65,7 @@ func (a *addresserHandler) Handle(watcherTags []string) error {
 	for i, ipAddress := range ipAddresses {
 		tag := tags[i]
 		if ipAddress == nil {
-			logger.Tracef("IP address %v already has been removed; skipping", tag)
+			logger.Tracef("IP address %v already removed; skipping", tag)
 			continue
 		}
 		if ipAddress.Life() != params.Dead {
