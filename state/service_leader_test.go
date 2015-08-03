@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -136,6 +137,62 @@ func (s *ServiceLeaderSuite) TestWriteRemoved(c *gc.C) {
 	})
 	c.Check(err, gc.ErrorMatches, "service not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ServiceLeaderSuite) TestWatchInitialEvent(c *gc.C) {
+	w := s.service.WatchLeaderSettings()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+}
+
+func (s *ServiceLeaderSuite) TestWatchDetectChange(c *gc.C) {
+	w := s.service.WatchLeaderSettings()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+		"something": "changed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
+func (s *ServiceLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
+	w := s.service.WatchLeaderSettings()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+		"something": "changed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	err = s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+		"something": "changed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *ServiceLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
+	w := s.service.WatchLeaderSettings()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+		"something": "changed",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+		"very": "excitingly",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 }
 
 func (s *ServiceLeaderSuite) writeSettings(c *gc.C, update map[string]string) {

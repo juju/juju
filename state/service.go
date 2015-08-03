@@ -962,9 +962,6 @@ func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 
 // LeaderSettings returns a service's leader settings. If nothing has been set
 // yet, it will return an empty map; this is not an error.
-//
-// This method returns the correct type, and should be preferred over the
-// ReadLeadershipSettings method on State.
 func (s *Service) LeaderSettings() (map[string]string, error) {
 	// There's no compelling reason to have these methods on Service -- and
 	// thus require an extra db read to access them -- but it stops the State
@@ -994,10 +991,6 @@ func (s *Service) LeaderSettings() (map[string]string, error) {
 // UpdateLeaderSettings updates the service's leader settings with the supplied
 // values, but will fail (with a suitable error) if the supplied Token loses
 // validity. Empty values in the supplied map will be cleared in the database.
-//
-// This method makes use of the Tokens supplied by state's LeadershipChecker
-// to gate leadership, and should be preferred over the WriteLeadershipSettings
-// method on State.
 func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
 	// There's no compelling reason to have these methods on Service -- and
 	// thus require an extra db read to access them -- but it stops the State
@@ -1018,12 +1011,33 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 		}
 	}
 	update := setUnsetUpdate(sets, unsets)
+
+	isNullChange := func(rawMap map[string]interface{}) bool {
+		for key := range unsets {
+			if _, found := rawMap[key]; found {
+				return false
+			}
+		}
+		for key, value := range sets {
+			if current := rawMap[key]; current != value {
+				return false
+			}
+		}
+		return true
+	}
+
 	buildTxn := func(_ int) ([]txn.Op, error) {
-		txnRevno, err := s.st.readTxnRevno(settingsC, docId)
+		// Read the current document state so we can abort if there's
+		// no actual change; and the txn-revno so we can assert on it
+		// and prevent these settings from landing late.
+		rawMap, txnRevno, err := readSettingsDoc(s.st, docId)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
-			return nil, errors.Annotatef(err, "cannot check latest settings")
+			return nil, errors.Trace(err)
+		}
+		if isNullChange(rawMap) {
+			return nil, jujutxn.ErrNoOperations
 		}
 		return []txn.Op{{
 			C:      settingsC,
