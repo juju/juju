@@ -126,9 +126,8 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 
 	opsChan := dummyListen()
 
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.assertStop(c, w)
+	_, stop := s.newWorker(c)
+	defer stop()
 	s.waitForInitialDead(c)
 
 	op1 := waitForReleaseOp(c, opsChan)
@@ -156,9 +155,8 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.assertStop(c, w)
+	_, stop := s.newWorker(c)
+	defer stop()
 	s.waitForInitialDead(c)
 
 	// Add a new alive address.
@@ -177,9 +175,8 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.assertStop(c, w)
+	_, stop := s.newWorker(c)
+	defer stop()
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
@@ -205,9 +202,8 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 }
 
 func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.assertStop(c, w)
+	_, stop := s.newWorker(c)
+	defer stop()
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
@@ -259,9 +255,8 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
+	w, stop := s.newWorker(c)
+	defer stop()
 
 	// The worker should have died with an error.
 
@@ -289,4 +284,13 @@ func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 		_, err := s.State.IPAddress(rawAddr)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *workerSuite) newWorker(c *gc.C) (worker.Worker, func()) {
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	stop := func() {
+		worker.Stop(w)
+	}
+	return w, stop
 }

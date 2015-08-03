@@ -109,6 +109,8 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, tag
 	}
 	// Try to release it.
 	subnetId := network.Id(ipAddress.SubnetId())
+	// TODO(mue) 2015-08-03 Retry Logic will be moved into
+	// the providers in a follow-up.
 	for attempt := providercommon.ShortAttempt.Start(); attempt.Next(); {
 		if err = netEnv.ReleaseAddress(ipAddress.InstanceId(),
 			subnetId, ipAddress.Address(), ipAddress.MACAddress()); err == nil {
@@ -128,6 +130,7 @@ func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
 	if changes, ok := <-watch.Changes(); ok {
 		mappedChanges, err := watch.MapChanges(changes)
 		if err != nil {
+			watch.Stop()
 			return params.EntityWatchResult{}, errors.Trace(err)
 		}
 		id := api.resources.Register(watch)
