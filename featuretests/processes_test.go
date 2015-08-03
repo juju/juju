@@ -458,7 +458,7 @@ func initJuju(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env procsEnviron) ensureOSEnv(c *gc.C) {
+func (env *procsEnviron) ensureOSEnv(c *gc.C) {
 	if env.homedir == "" {
 		homedir, err := ioutil.TempDir("", "juju-test-"+env.name+"-")
 		c.Assert(err, jc.ErrorIsNil)
