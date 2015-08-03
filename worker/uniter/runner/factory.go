@@ -242,11 +242,6 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		return nil, errors.Trace(err)
 	}
 
-	err = f.state.ActionBegin(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	name := action.Name()
 	spec, ok := ch.Actions().ActionSpecs[name]
 	if !ok {

@@ -77,6 +77,63 @@ func (s *RunHookSuite) testPrepareHookError(
 	})
 }
 
+func (s *RunHookSuite) TestPrepareHookCtxCalled(c *gc.C) {
+	ctx := &MockContext{}
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook:       &MockPrepareHook{},
+		MockClearResolvedFlag: &MockNoArgs{},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+
+	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
+func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
+	ctx := &MockContext{}
+	ctx.SetErrors(errors.New("ctx prepare error"))
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook:       &MockPrepareHook{},
+		MockClearResolvedFlag: &MockNoArgs{},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+
+	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `ctx prepare error`)
+
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
 func (s *RunHookSuite) TestPrepareHookError_Run(c *gc.C) {
 	s.testPrepareHookError(c, (operation.Factory).NewRunHook, false, false)
 }

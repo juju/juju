@@ -570,6 +570,17 @@ func (ctx *HookContext) addJujuUnitsMetric() error {
 	return nil
 }
 
+// Prepare implements the Context interface.
+func (ctx *HookContext) Prepare() error {
+	if ctx.actionData != nil {
+		err := ctx.state.ActionBegin(ctx.actionData.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // Flush implements the Context interface.
 func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// A non-existant metricsRecorder simply means that metrics were disabled
