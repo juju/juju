@@ -63,7 +63,9 @@ func (*clientSuite) TestGood(c *gc.C) {
 			ID:   in[0].Details.ID,
 			Type: in[0].Definition.Type,
 			Status: cliStatus{
-				State: in[0].Details.Status.Label,
+				State:       process.StateRunning,
+				Info:        "okay",
+				PluginState: in[0].Details.Status.Label,
 			},
 		},
 	}
