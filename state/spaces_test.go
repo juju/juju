@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -60,6 +61,7 @@ func (s *SpacesSuite) addSubnets(c *gc.C, CIDRs []string) {
 func (s *SpacesSuite) assertNoSpace(c *gc.C, name string) {
 	_, err := s.State.Space(name)
 	c.Assert(err, gc.ErrorMatches, "space \""+name+"\" not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isPublic bool) {

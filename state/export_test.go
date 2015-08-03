@@ -200,6 +200,10 @@ func GetPasswordHash(e Authenticator) string {
 	return e.(hasGetPasswordHash).getPasswordHash()
 }
 
+func init() {
+	txnLogSize = txnLogSizeTests
+}
+
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
 func TxnRevno(st *State, collName string, id interface{}) (int64, error) {

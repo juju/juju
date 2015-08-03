@@ -161,7 +161,7 @@ func (s *Space) Refresh() error {
 	return nil
 }
 
-// Validate validates the space, checking the validity of its subnets.
+// validate validates the space, checking the validity of its subnets.
 func (s *Space) validate() error {
 	if !names.IsValidSpace(s.doc.Name) {
 		return errors.NewNotValid(nil, "invalid space name")
