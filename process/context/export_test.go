@@ -49,6 +49,8 @@ func GetCmdInfo(cmd cmd.Command) *process.Info {
 	switch cmd := cmd.(type) {
 	case *ProcRegistrationCommand:
 		return cmd.info
+	case *ProcLaunchCommand:
+		return cmd.info
 	default:
 		return nil
 	}

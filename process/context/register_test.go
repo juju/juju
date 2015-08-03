@@ -165,6 +165,7 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	def.Description = "foo"
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -181,6 +182,7 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	def.EnvVars = map[string]string{"foo": "baz"}
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -233,6 +235,7 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	def.Description = "foo"
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -248,6 +251,7 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 	def.EnvVars = map[string]string{"foo": "baz"}
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -315,6 +319,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.checkRun(c, "", "")
 
 	s.proc.Process = *s.registerCmd.UpdatedProcess
+	s.proc.Status.State = process.StateRunning
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "List",

@@ -144,6 +144,12 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Failed:  false,
+			Error:   false,
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
@@ -217,6 +223,12 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Failed:  false,
+			Error:   false,
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
@@ -268,6 +280,12 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 			EnvVars: map[string]string{
 				"IMPORTANT": "some value",
 			},
+		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Failed:  false,
+			Error:   false,
+			Message: "",
 		},
 		Details: process.Details{
 			ID: "xyz123",
@@ -324,6 +342,12 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 			EnvVars: map[string]string{
 				"IMPORTANT": "some value",
 			},
+		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Failed:  false,
+			Error:   false,
+			Message: "",
 		},
 		Details: process.Details{
 			ID: "xyz123",
