@@ -51,7 +51,6 @@ var (
 		&processesWorkerSuite{},
 		&processesCmdJujuSuite{},
 	}
-	alwaysCleanUp = true
 )
 
 type processesBaseSuite struct {
@@ -581,13 +580,21 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	return svc
 }
 
+// Set the to true to prevent the test local env from being cleaned up.
+var procsDoNotCleanUp = false
+
 func (env *procsEnviron) destroy(c *gc.C) {
-	if env.refCount > 0 {
-		env.refCount -= 1
-	}
-	if !alwaysCleanUp && (env.refCount != 0 || procsEnv == nil) {
+	if procsEnv == nil {
 		return
 	}
+	env.refCount -= 1
+	if env.refCount > 0 {
+		return
+	}
+	if procsDoNotCleanUp {
+		return
+	}
+
 	env.ensureOSEnv(c)
 	initJuju(c)
 	env.run(c, "destroy-environment", "--force")
