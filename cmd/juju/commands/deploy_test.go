@@ -665,12 +665,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	})
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
-	output := strings.Split(coretesting.Stderr(ctx), "\n")
-	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
-	c.Check(output[1], gc.Equals, "Current state server version does not support charm metering.")
-
+	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }

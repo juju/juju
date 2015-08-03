@@ -313,7 +313,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
 		// the user, but don't return an error.
-		ctx.Infof("Current state server version does not support charm metering.")
+		logger.Warningf("current state server version does not support charm metering")
 		return nil
 	}
 
