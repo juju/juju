@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -275,9 +277,10 @@ func (w *storageprovisioner) loop() error {
 		filesystemAttachments:             make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		machines:                          make(map[names.MachineTag]*machineWatcher),
 		machineChanges:                    machineChanges,
-		pendingVolumes:                    make(map[names.VolumeTag]storage.VolumeParams),
-		pendingVolumeAttachments:          make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
+		schedule:                          newSchedule(),
 		pendingVolumeBlockDevices:         make(set.Tags),
+		incompleteVolumeParams:            make(map[names.VolumeTag]storage.VolumeParams),
+		incompleteVolumeAttachmentParams:  make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
 		pendingFilesystems:                make(map[names.FilesystemTag]storage.FilesystemParams),
 		pendingFilesystemAttachments:      make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
 		pendingDyingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
@@ -355,6 +358,11 @@ func (w *storageprovisioner) loop() error {
 			if err := refreshMachine(&ctx, machineTag); err != nil {
 				return errors.Trace(err)
 			}
+		case <-ctx.schedule.next():
+			// Ready to pick something(s) off the pending queue.
+			if err := processSchedule(&ctx); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -362,15 +370,10 @@ func (w *storageprovisioner) loop() error {
 // processPending checks if the pending operations' prerequisites have
 // been met, and processes them if so.
 func processPending(ctx *context) error {
-	if err := processPendingVolumes(ctx); err != nil {
-		return errors.Annotate(err, "processing pending volumes")
-	}
-	if err := processPendingVolumeAttachments(ctx); err != nil {
-		return errors.Annotate(err, "processing pending volume attachments")
-	}
 	if err := processPendingVolumeBlockDevices(ctx); err != nil {
 		return errors.Annotate(err, "processing pending block devices")
 	}
+	// TODO(axw) below should be handled by processSchedule.
 	if err := processPendingFilesystems(ctx); err != nil {
 		return errors.Annotate(err, "processing pending filesystems")
 	}
@@ -379,6 +382,22 @@ func processPending(ctx *context) error {
 	}
 	if err := processPendingFilesystemAttachments(ctx); err != nil {
 		return errors.Annotate(err, "processing pending filesystem attachments")
+	}
+	return nil
+}
+
+// processSchedule executes scheduled operations.
+func processSchedule(ctx *context) error {
+	volumes, volumeAttachments := ctx.schedule.ready(time.Now())
+	if len(volumes) > 0 {
+		if err := createVolumes(ctx, volumes); err != nil {
+			return errors.Annotate(err, "creating volumes")
+		}
+	}
+	if len(volumeAttachments) > 0 {
+		if err := createVolumeAttachments(ctx, volumeAttachments); err != nil {
+			return errors.Annotate(err, "creating volume attachments")
+		}
 	}
 	return nil
 }
@@ -422,13 +441,15 @@ type context struct {
 	// their machine is known to have been provisioned.
 	machineChanges chan<- names.MachineTag
 
-	// pendingVolumes contains parameters for volumes that are yet to be
-	// created.
-	pendingVolumes map[names.VolumeTag]storage.VolumeParams
+	// schedule is the schedule of storage operations.
+	schedule *schedule
 
-	// pendingVolumeAttachments contains parameters for volume attachments
-	// that are yet to be created.
-	pendingVolumeAttachments map[params.MachineStorageId]storage.VolumeAttachmentParams
+	// incompleteVolumeParams contains incomplete parameters for volumes.
+	incompleteVolumeParams map[names.VolumeTag]storage.VolumeParams
+
+	// incompleteVolumeAttachmentParams contains incomplete parameters
+	// for volume attachments.
+	incompleteVolumeAttachmentParams map[params.MachineStorageId]storage.VolumeAttachmentParams
 
 	// pendingVolumeBlockDevices contains the tags of volumes about whose
 	// block devices we wish to enquire.

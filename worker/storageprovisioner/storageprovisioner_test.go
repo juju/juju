@@ -519,7 +519,7 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	args.volumes.volumesWatcher.changes <- []string{"1", "2"}
 
 	err = worker.Wait()
-	c.Assert(err, gc.ErrorMatches, `processing pending volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
+	c.Assert(err, gc.ErrorMatches, `creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
 func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
@@ -590,6 +590,30 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
+		return nil, errors.New("belly up")
+	}
+
+	args := &workerArgs{volumes: volumeAccessor}
+	worker := newStorageProvisioner(c, args)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	done := make(chan interface{})
+	go func() {
+		defer close(done)
+		err := worker.Wait()
+		c.Assert(err, gc.ErrorMatches, "creating volumes: publishing volumes to state: belly up")
+	}()
+
+	args.volumes.volumesWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, done, "waiting for worker to exit")
+}
+
+func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		return []params.ErrorResult{{Error: &params.Error{Message: "message", Code: "code"}}}, nil
 	}
 
@@ -602,12 +626,13 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 	go func() {
 		defer close(done)
 		err := worker.Wait()
-		c.Assert(err, gc.ErrorMatches, "processing pending volumes: publishing volume 1 to state: message")
+		c.Assert(err, jc.ErrorIsNil)
 	}()
+	defer worker.Kill()
 
 	args.volumes.volumesWatcher.changes <- []string{"1"}
 	args.environ.watcher.changes <- struct{}{}
-	waitChannel(c, done, "waiting for worker to exit")
+	assertNoEvent(c, done, "worker exited")
 }
 
 func (s *storageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
