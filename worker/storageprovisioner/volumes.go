@@ -200,7 +200,8 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 		for i, tag := range destroy {
 			if err := errorResults[i]; err != nil {
 				// TODO(axw) we should update the volume's status
-				// rather than returning an error here.
+				// rather than returning an error here, and attempt
+				// destroying again later.
 				return errors.Annotatef(err, "destroying %s", names.ReadableString(tag))
 			}
 			remove = append(remove, tag)

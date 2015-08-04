@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -248,7 +249,7 @@ func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.
 	if v.setVolumeAttachmentInfo != nil {
 		return v.setVolumeAttachmentInfo(volumeAttachments)
 	}
-	return nil, nil
+	return make([]params.ErrorResult, len(volumeAttachments)), nil
 }
 
 func newMockVolumeAccessor() *mockVolumeAccessor {
@@ -450,6 +451,7 @@ type dummyProvider struct {
 
 	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
 	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
 	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
 	destroyVolumesFunc    func([]string) ([]error, error)
@@ -491,6 +493,10 @@ func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
 func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+	if s.provider != nil && s.provider.createVolumesFunc != nil {
+		return s.provider.createVolumesFunc(params)
+	}
+
 	paramsCopy := make([]storage.VolumeParams, len(params))
 	copy(paramsCopy, params)
 	s.createVolumesArgs = append(s.createVolumesArgs, paramsCopy)
@@ -696,15 +702,30 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 	}
 }
 
-// noDelayClock exists for tests where we don't want to delay before progressing.
-type noDelayClock struct{}
-
-func (noDelayClock) Now() time.Time {
-	return time.Time{}
+type mockClock struct {
+	gitjujutesting.Stub
+	now       time.Time
+	nowFunc   func() time.Time
+	afterFunc func(time.Duration) <-chan time.Time
 }
 
-func (noDelayClock) After(time.Duration) <-chan time.Time {
+func (c *mockClock) Now() time.Time {
+	c.MethodCall(c, "Now")
+	if c.nowFunc != nil {
+		return c.nowFunc()
+	}
+	return c.now
+}
+
+func (c *mockClock) After(d time.Duration) <-chan time.Time {
+	c.MethodCall(c, "After", d)
+	if c.afterFunc != nil {
+		return c.afterFunc(d)
+	}
+	if d > 0 {
+		c.now = c.now.Add(d)
+	}
 	ch := make(chan time.Time, 1)
-	ch <- time.Time{}
+	ch <- c.now
 	return ch
 }

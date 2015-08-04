@@ -62,7 +62,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		&mockLifecycleManager{},
 		newMockEnvironAccessor(c),
 		newMockMachineAccessor(c),
-		noDelayClock{},
+		&mockClock{},
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -136,6 +136,44 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
+}
+
+func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
+	volumeInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return make([]params.ErrorResult, len(volumes)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+
+	var createVolumesCalls int
+	s.provider.createVolumesFunc = func(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+		createVolumesCalls++
+		if createVolumesCalls == 1 {
+			return []storage.CreateVolumesResult{{Error: errors.New("badness")}}, nil
+		}
+		return []storage.CreateVolumesResult{{
+			Volume: &storage.Volume{Tag: args[0].Tag},
+		}}, nil
+	}
+
+	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
+	c.Assert(createVolumesCalls, gc.Equals, 2)
 }
 
 func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
@@ -977,6 +1015,9 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.machines == nil {
 		args.machines = newMockMachineAccessor(c)
 	}
+	if args.clock == nil {
+		args.clock = &mockClock{}
+	}
 	return storageprovisioner.NewStorageProvisioner(
 		args.scope,
 		"storage-dir",
@@ -985,7 +1026,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.life,
 		args.environ,
 		args.machines,
-		noDelayClock{},
+		args.clock,
 	)
 }
 
@@ -996,6 +1037,7 @@ type workerArgs struct {
 	life        *mockLifecycleManager
 	environ     *mockEnvironAccessor
 	machines    *mockMachineAccessor
+	clock       storageprovisioner.Clock
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
