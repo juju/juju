@@ -423,12 +423,19 @@ func createVolumes(
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("creating volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
-		volumes, volumeAttachments, err := volumeSource.CreateVolumes(params)
+		results, err := volumeSource.CreateVolumes(params)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
-		allVolumes = append(allVolumes, volumes...)
-		allVolumeAttachments = append(allVolumeAttachments, volumeAttachments...)
+		for _, result := range results {
+			if result.Error != nil {
+				return nil, nil, errors.Annotatef(result.Error, "creating volumes from source %q", sourceName)
+			}
+			allVolumes = append(allVolumes, *result.Volume)
+			if result.VolumeAttachment != nil {
+				allVolumeAttachments = append(allVolumeAttachments, *result.VolumeAttachment)
+			}
+		}
 	}
 	return allVolumes, allVolumeAttachments, nil
 }
@@ -449,11 +456,16 @@ func createVolumeAttachments(
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("attaching volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
-		volumeAttachments, err := volumeSource.AttachVolumes(params)
+		results, err := volumeSource.AttachVolumes(params)
 		if err != nil {
 			return nil, errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
-		allVolumeAttachments = append(allVolumeAttachments, volumeAttachments...)
+		for _, result := range results {
+			if result.Error != nil {
+				return nil, errors.Annotatef(result.Error, "attaching volumes from source %q", sourceName)
+			}
+			allVolumeAttachments = append(allVolumeAttachments, *result.VolumeAttachment)
+		}
 	}
 	return allVolumeAttachments, nil
 }
@@ -500,7 +512,7 @@ func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var errs []error
+	var allErrs []error
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("destroying volumes from %q: %v", sourceName, params)
 		volumeSource := volumeSources[sourceName]
@@ -512,9 +524,13 @@ func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
 			}
 			volumeIds[i] = volume.VolumeId
 		}
-		errs = append(errs, volumeSource.DestroyVolumes(volumeIds)...)
+		errs, err := volumeSource.DestroyVolumes(volumeIds)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allErrs = append(allErrs, errs...)
 	}
-	return errs, nil
+	return allErrs, nil
 }
 
 // volumeParams obtains the specified volumes' parameters.
@@ -592,8 +608,14 @@ func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) e
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("detaching volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
-		if err := volumeSource.DetachVolumes(params); err != nil {
+		errs, err := volumeSource.DetachVolumes(params)
+		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
+		}
+		for _, err := range errs {
+			if err != nil {
+				return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
+			}
 		}
 	}
 	return nil
