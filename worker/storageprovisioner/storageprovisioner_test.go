@@ -62,6 +62,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		&mockLifecycleManager{},
 		newMockEnvironAccessor(c),
 		newMockMachineAccessor(c),
+		noDelayClock{},
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -984,6 +985,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.life,
 		args.environ,
 		args.machines,
+		noDelayClock{},
 	)
 }
 
@@ -1013,5 +1015,3 @@ func assertNoEvent(c *gc.C, ch <-chan interface{}, event string) {
 	case <-time.After(coretesting.ShortWait):
 	}
 }
-
-// TODO(wallyworld) - test destroying volumes when done

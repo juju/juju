@@ -18,14 +18,16 @@ import (
 //  - fast to add and remove items: O(log(n)); n is the total number of items
 //  - fast to identify/remove the next scheduled event: O(log(n))
 type schedule struct {
+	time                     Clock
 	items                    scheduleItems
 	pendingVolumes           map[names.VolumeTag]*pendingVolumeParams
 	pendingVolumeAttachments map[params.MachineStorageId]*pendingVolumeAttachmentParams
 }
 
 // newSchedule constructs a new schedule.
-func newSchedule() *schedule {
+func newSchedule(clock Clock) *schedule {
 	return &schedule{
+		time:                     clock,
 		pendingVolumes:           make(map[names.VolumeTag]*pendingVolumeParams),
 		pendingVolumeAttachments: make(map[params.MachineStorageId]*pendingVolumeAttachmentParams),
 	}
@@ -35,13 +37,15 @@ func newSchedule() *schedule {
 // has been reached. If there are no scheduled items, nil is returned.
 func (s *schedule) next() <-chan time.Time {
 	if len(s.items) > 0 {
-		return time.After(s.items[0].t.Sub(time.Now()))
+		return s.time.After(s.items[0].t.Sub(s.time.Now()))
 	}
 	return nil
 }
 
 // ready returns the parameters for pending operations that are scheduled at
-// or before "now", and removes them from the schedule.
+// or before "now", and removes them from the schedule. The resulting slices
+// are in order of time; items scheduled for the same time have no defined
+// order.
 func (s *schedule) ready(now time.Time) ([]storage.VolumeParams, []storage.VolumeAttachmentParams) {
 	var volumes []storage.VolumeParams
 	var volumeAttachments []storage.VolumeAttachmentParams
@@ -57,6 +61,8 @@ func (s *schedule) ready(now time.Time) ([]storage.VolumeParams, []storage.Volum
 				MachineTag:    pending.Machine.String(),
 				AttachmentTag: pending.Volume.String(),
 			})
+		default:
+			panic(errors.Errorf("unexpected type %T", pending))
 		}
 	}
 	return volumes, volumeAttachments

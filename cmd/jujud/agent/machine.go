@@ -782,7 +782,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		scope := agentConfig.Tag()
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, storageDir, api, api, api, api, api,
+			storageprovisioner.WallClock,
+		), nil
 	})
 
 	// Check if the network management is disabled.
@@ -1138,7 +1141,10 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(scope, "", api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, "", api, api, api, api, api,
+			storageprovisioner.WallClock,
+		), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil

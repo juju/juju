@@ -1430,6 +1430,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.Clock,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
@@ -1465,6 +1466,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
@@ -1848,6 +1850,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {

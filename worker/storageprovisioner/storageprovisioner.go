@@ -4,8 +4,6 @@
 package storageprovisioner
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -158,6 +156,7 @@ func NewStorageProvisioner(
 	l LifecycleManager,
 	e EnvironAccessor,
 	m MachineAccessor,
+	clock Clock,
 ) worker.Worker {
 	w := &storageprovisioner{
 		scope:       scope,
@@ -167,6 +166,7 @@ func NewStorageProvisioner(
 		life:        l,
 		environ:     e,
 		machines:    m,
+		clock:       clock,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -188,6 +188,7 @@ type storageprovisioner struct {
 	life        LifecycleManager
 	environ     EnvironAccessor
 	machines    MachineAccessor
+	clock       Clock
 }
 
 // Kill implements Worker.Kill().
@@ -270,6 +271,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAccessor:                w.filesystems,
 		life:                              w.life,
 		machineAccessor:                   w.machines,
+		time:                              w.clock,
 		volumes:                           make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:                 make(map[params.MachineStorageId]storage.VolumeAttachment),
 		volumeBlockDevices:                make(map[names.VolumeTag]storage.BlockDevice),
@@ -277,7 +279,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAttachments:             make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		machines:                          make(map[names.MachineTag]*machineWatcher),
 		machineChanges:                    machineChanges,
-		schedule:                          newSchedule(),
+		schedule:                          newSchedule(w.clock),
 		pendingVolumeBlockDevices:         make(set.Tags),
 		incompleteVolumeParams:            make(map[names.VolumeTag]storage.VolumeParams),
 		incompleteVolumeAttachmentParams:  make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
@@ -388,7 +390,7 @@ func processPending(ctx *context) error {
 
 // processSchedule executes scheduled operations.
 func processSchedule(ctx *context) error {
-	volumes, volumeAttachments := ctx.schedule.ready(time.Now())
+	volumes, volumeAttachments := ctx.schedule.ready(ctx.time.Now())
 	if len(volumes) > 0 {
 		if err := createVolumes(ctx, volumes); err != nil {
 			return errors.Annotate(err, "creating volumes")
@@ -416,6 +418,7 @@ type context struct {
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
 	machineAccessor    MachineAccessor
+	time               Clock
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume

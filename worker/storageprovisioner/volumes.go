@@ -4,8 +4,6 @@
 package storageprovisioner
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -126,7 +124,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 		ctx.incompleteVolumeParams[params.Tag] = params
 	} else {
 		delete(ctx.incompleteVolumeParams, params.Tag)
-		ctx.schedule.addVolume(params, time.Now())
+		ctx.schedule.addVolume(params, ctx.time.Now())
 	}
 }
 
@@ -150,7 +148,7 @@ func updatePendingVolumeAttachment(
 		watchMachine(ctx, params.Machine)
 	} else if params.VolumeId != "" {
 		delete(ctx.incompleteVolumeAttachmentParams, id)
-		ctx.schedule.addVolumeAttachment(params, time.Now())
+		ctx.schedule.addVolumeAttachment(params, ctx.time.Now())
 		return
 	}
 	ctx.incompleteVolumeAttachmentParams[id] = params
@@ -403,7 +401,7 @@ func createVolumes(ctx *context, volumeParams []storage.VolumeParams) error {
 				)
 				// Reschedule the volume creation.
 				// TODO(axw) exponential delay.
-				when := time.Now().Add(reattemptDelay)
+				when := ctx.time.Now().Add(reattemptDelay)
 				ctx.schedule.addVolume(volumeParams[i], when)
 				continue
 			}
@@ -470,7 +468,7 @@ func createVolumeAttachments(ctx *context, params []storage.VolumeAttachmentPara
 				logger.Errorf("attaching volume: %v", result.Error)
 				// Reschedule the volume attachment.
 				// TODO(axw) exponential delay.
-				when := time.Now().Add(reattemptDelay)
+				when := ctx.time.Now().Add(reattemptDelay)
 				ctx.schedule.addVolumeAttachment(params[i], when)
 				continue
 			}

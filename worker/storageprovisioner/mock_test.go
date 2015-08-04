@@ -6,6 +6,7 @@ package storageprovisioner_test
 import (
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -693,4 +694,17 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 		instanceIds: make(map[names.MachineTag]instance.Id),
 		watcher:     &mockNotifyWatcher{make(chan struct{}, 1)},
 	}
+}
+
+// noDelayClock exists for tests where we don't want to delay before progressing.
+type noDelayClock struct{}
+
+func (noDelayClock) Now() time.Time {
+	return time.Time{}
+}
+
+func (noDelayClock) After(time.Duration) <-chan time.Time {
+	ch := make(chan time.Time, 1)
+	ch <- time.Time{}
+	return ch
 }
