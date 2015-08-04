@@ -870,4 +870,5 @@ values:
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
 New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
 sc.exe failure 'jujud-machine-10' reset=5 actions=restart/1000
+sc.exe failureflag 'jujud-machine-10' 1
 Start-Service 'jujud-machine-10'`
