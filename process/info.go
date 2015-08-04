@@ -22,6 +22,9 @@ import (
 type Info struct {
 	charm.Process
 
+	// Status is the Juju-level status of the process.
+	Status Status
+
 	// Details is the information about the process which the plugin provided.
 	Details Details
 }
@@ -47,6 +50,10 @@ func ParseID(id string) (string, string) {
 // Validate checks the process info to ensure it is correct.
 func (info Info) Validate() error {
 	if err := info.Process.Validate(); err != nil {
+		return errors.NewNotValid(err, "")
+	}
+
+	if err := info.Status.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 

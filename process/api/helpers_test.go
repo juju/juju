@@ -35,10 +35,15 @@ func (suite) TestAPI2Proc(c *gc.C) {
 			}},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: ProcessStatus{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "okay",
+		},
 		Details: ProcessDetails{
 			ID: "idfoo",
-			Status: ProcessStatus{
-				Label: "process status",
+			Status: PluginStatus{
+				State: "process status",
 			},
 		},
 	}
@@ -76,10 +81,15 @@ func (suite) TestProc2API(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "process status",
+				State: "process status",
 			},
 		},
 	}

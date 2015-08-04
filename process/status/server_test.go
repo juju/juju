@@ -45,7 +45,7 @@ func (*serverSuite) TestGood(c *gc.C) {
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "process status",
+				State: "process status",
 			},
 		},
 	}}

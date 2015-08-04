@@ -95,15 +95,25 @@ func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
+func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
+	return process.CombinedStatus{
+		Status: process.Status{
+			State:   state,
+			Message: message,
+		},
+		PluginStatus: process.PluginStatus{
+			State: pluginStatus,
+		},
+	}
+}
+
 func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
 	s.SetDocs(proc)
-	newStatus := process.PluginStatus{
-		Label: "still running",
-	}
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+	okay, err := pp.SetStatus(proc.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -114,7 +124,12 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 			Id:     "proc#a-unit/0#procA/procA-xyz",
 			Assert: txn.DocExists,
 			Update: bson.D{
-				{"$set", bson.D{{"pluginstatus", "still running"}}},
+				{"$set", bson.D{
+					{"state", process.StateRunning},
+					{"blocker", ""},
+					{"status", "good to go"},
+					{"pluginstatus", "still running"},
+				}},
 			},
 		},
 	}})
@@ -122,12 +137,10 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 
 func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
-	newStatus := process.PluginStatus{
-		Label: "still running",
-	}
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("procA/procA-xyz", newStatus)
+	okay, err := pp.SetStatus("procA/procA-xyz", status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -138,7 +151,12 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 			Id:     "proc#a-unit/0#procA/procA-xyz",
 			Assert: txn.DocExists,
 			Update: bson.D{
-				{"$set", bson.D{{"pluginstatus", "still running"}}},
+				{"$set", bson.D{
+					{"state", process.StateRunning},
+					{"blocker", ""},
+					{"status", "good to go"},
+					{"pluginstatus", "still running"},
+				}},
 			},
 		},
 	}})
@@ -149,11 +167,10 @@ func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.SetDocs(proc)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
+	status := newStatusInfo(process.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus("procA/procA-xyz", process.PluginStatus{
-		Label: "still running",
-	})
+	_, err := pp.SetStatus(proc.ID(), status)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

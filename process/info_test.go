@@ -4,6 +4,7 @@
 package process_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -72,8 +73,9 @@ func (s *infoSuite) TestParseIDExtras(c *gc.C) {
 
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
+	info.Status.State = process.StateRunning
 	info.Details.ID = "my-proc"
-	info.Details.Status.Label = "running"
+	info.Details.Status.State = "running"
 	err := info.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
@@ -83,21 +85,31 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 	info := s.newInfo("a proc", "")
 	err := info.Validate()
 
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, ".*type: name is required")
+}
+
+func (s *infoSuite) TestValidateBadStatus(c *gc.C) {
+	info := s.newInfo("a proc", "docker")
+	err := info.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
+	info.Status.State = process.StateRunning
 	info.Details.ID = "my-proc"
 	err := info.Validate()
 
-	c.Check(err, gc.ErrorMatches, ".*Label cannot be empty.*")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, ".*State cannot be empty.*")
 }
 
 func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
 	info.Details.ID = "abc123"
-	info.Details.Status.Label = "running"
+	info.Details.Status.State = "running"
 	isRegistered := info.IsRegistered()
 
 	c.Check(isRegistered, jc.IsTrue)

@@ -111,10 +111,14 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -144,10 +148,14 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -156,8 +164,14 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(procs, jc.DeepEquals, []process.Info{info})
 
-	err = st.SetStatus("procA/xyz", process.PluginStatus{
-		Label: "still running",
+	err = st.SetStatus("procA/xyz", process.CombinedStatus{
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "still okay",
+		},
+		PluginStatus: process.PluginStatus{
+			State: "still running",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,10 +198,14 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "still okay",
+		},
 		Details: process.Details{
 			ID: "xyz",
 			Status: process.PluginStatus{
-				Label: "still running",
+				State: "still running",
 			},
 		},
 	}})

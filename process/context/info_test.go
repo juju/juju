@@ -30,7 +30,7 @@ var (
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -44,7 +44,7 @@ var (
 		Details: process.Details{
 			ID: "xyz456",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -56,7 +56,7 @@ var (
 		Details: process.Details{
 			ID: "xyz789",
 			Status: process.PluginStatus{
-				Label: "invalid",
+				State: "invalid",
 			},
 		},
 	}
@@ -162,10 +162,14 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    blocker: ""
+    message: ""
   details:
     id: xyz123
     status:
-      label: running
+      state: running
 `[1:]
 	s.checkRun(c, expected, "")
 	s.Stub.CheckCallNames(c, "Get")
@@ -191,10 +195,14 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    blocker: ""
+    message: ""
   details:
     id: xyz123
     status:
-      label: running
+      state: running
 myprocess1/xyz456:
   process:
     name: myprocess1
@@ -206,10 +214,14 @@ myprocess1/xyz456:
     ports: []
     volumes: []
     envvars: {}
+  status:
+    state: ""
+    blocker: ""
+    message: ""
   details:
     id: xyz456
     status:
-      label: running
+      state: running
 myprocess2/xyz789:
   process:
     name: myprocess2
@@ -221,10 +233,14 @@ myprocess2/xyz789:
     ports: []
     volumes: []
     envvars: {}
+  status:
+    state: ""
+    blocker: ""
+    message: ""
   details:
     id: xyz789
     status:
-      label: invalid
+      state: invalid
 `[1:]
 	s.checkRun(c, expected, "")
 	s.Stub.CheckCallNames(c, "List", "Get", "Get", "Get")
@@ -250,10 +266,14 @@ myprocess0/xyz123:
     volumes: []
     envvars:
       ENV_VAR: some value
+  status:
+    state: ""
+    blocker: ""
+    message: ""
   details:
     id: xyz123
     status:
-      label: running
+      state: running
 `[1:]
 	s.checkRun(c, expected, "")
 	s.Stub.CheckCallNames(c, "List", "Get")

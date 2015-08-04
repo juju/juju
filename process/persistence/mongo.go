@@ -71,13 +71,19 @@ func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(id string, status process.PluginStatus) []txn.Op {
+func (pp Persistence) newSetRawStatusOps(id string, status process.CombinedStatus) []txn.Op {
 	id = pp.processID(id)
+	updates := bson.D{
+		{"state", status.Status.State},
+		{"blocker", status.Status.Blocker},
+		{"status", status.Status.Message},
+		{"pluginstatus", status.PluginStatus.State},
+	}
 	return []txn.Op{{
 		C:      workloadProcessesC,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"pluginstatus", status.Label}}}},
+		Update: bson.D{{"$set", updates}},
 	}}
 }
 
@@ -108,6 +114,10 @@ type processDoc struct {
 	Volumes     []string          `bson:"volumes"`
 	EnvVars     map[string]string `bson:"envvars"`
 
+	State   string `bson:"state"`
+	Blocker string `bson:"blocker"`
+	Status  string `bson:"status"`
+
 	PluginID       string `bson:"pluginid"`
 	OriginalStatus string `bson:"origstatus"`
 
@@ -117,9 +127,10 @@ type processDoc struct {
 func (d processDoc) info() process.Info {
 	info := process.Info{
 		Process: d.definition(),
+		Status:  d.status(),
 		Details: d.details(),
 	}
-	info.Details.Status.Label = d.PluginStatus
+	info.Details.Status.State = d.PluginStatus
 	return info
 }
 
@@ -167,11 +178,19 @@ func (d processDoc) definition() charm.Process {
 	return definition
 }
 
+func (d processDoc) status() process.Status {
+	return process.Status{
+		State:   d.State,
+		Blocker: d.Blocker,
+		Message: d.Status,
+	}
+}
+
 func (d processDoc) details() process.Details {
 	return process.Details{
 		ID: d.PluginID,
 		Status: process.PluginStatus{
-			Label: d.OriginalStatus,
+			State: d.OriginalStatus,
 		},
 	}
 }
@@ -204,10 +223,14 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 		Volumes:     volumes,
 		EnvVars:     definition.EnvVars,
 
-		PluginID:       info.Details.ID,
-		OriginalStatus: info.Details.Status.Label,
+		State:   info.Status.State,
+		Blocker: info.Status.Blocker,
+		Status:  info.Status.Message,
 
-		PluginStatus: info.Details.Status.Label,
+		PluginID:       info.Details.ID,
+		OriginalStatus: info.Details.Status.State,
+
+		PluginStatus: info.Details.Status.State,
 	}
 }
 

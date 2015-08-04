@@ -25,6 +25,8 @@ the charm's metadata.yaml.
 `,
 }
 
+// TODO(ericsnow) Also support setting the juju-level status?
+
 // ProcRegistrationCommand implements the register command.
 type ProcRegistrationCommand struct {
 	registeringCommand

@@ -47,9 +47,9 @@ func (s *BaseSuite) NewDoc(proc process.Info) *processDoc {
 		Type: proc.Type,
 
 		PluginID:       proc.Details.ID,
-		OriginalStatus: proc.Details.Status.Label,
+		OriginalStatus: proc.Details.Status.State,
 
-		PluginStatus: proc.Details.Status.Label,
+		PluginStatus: proc.Details.Status.State,
 	}
 }
 
@@ -96,7 +96,7 @@ func (s *BaseSuite) NewProcesses(pType string, ids ...string) []process.Info {
 			Details: process.Details{
 				ID: pluginID,
 				Status: process.PluginStatus{
-					Label: "running",
+					State: "running",
 				},
 			},
 		})

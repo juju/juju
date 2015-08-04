@@ -82,8 +82,10 @@ type SetProcessesStatusArgs struct {
 type SetProcessStatusArg struct {
 	// ID is the ID of the process.
 	ID string
-	// status is the status of the process.
+	// Status is the status of the process.
 	Status ProcessStatus
+	// PluginStatus is the plugin-provided status of the process.
+	PluginStatus PluginStatus
 }
 
 // UnregisterProcessesArgs are the arguments for the UnregisterProcesses endpoint.
@@ -96,6 +98,8 @@ type UnregisterProcessesArgs struct {
 type Process struct {
 	// Process is information about the process itself.
 	Definition ProcessDefinition
+	// Status is the Juju-level status for the process.
+	Status ProcessStatus
 	// Details are the information returned from starting the process.
 	Details ProcessDetails
 }
@@ -145,17 +149,29 @@ type ProcessVolume struct {
 	Name string
 }
 
+// ProcessStatus represents the Juju-level status of the process.
+type ProcessStatus struct {
+	// State is the Juju-defined state the process is in.
+	State string
+	// Blocker identifies the kind of blocker preventing interaction
+	// with the process.
+	Blocker string
+	// Message is the human-readable information about the status of
+	// the process.
+	Message string
+}
+
 // ProcessDetails represents information about a process launched by a plugin.
 type ProcessDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string
 	// Status is the status of the process after launch.
-	Status ProcessStatus
+	Status PluginStatus
 }
 
-// ProcessStatus represents the data returned from the Status call.
-type ProcessStatus struct {
-	// Label represents the human-readable label returned by the plugin for
+// PluginStatus represents the plugin-defined status for the process.
+type PluginStatus struct {
+	// State represents the human-readable label returned by the plugin for
 	// the process that represents the status of the workload process.
-	Label string
+	State string
 }

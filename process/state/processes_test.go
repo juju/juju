@@ -72,19 +72,31 @@ func (s *unitProcessesSuite) TestAddAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
+func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
+	return process.CombinedStatus{
+		Status: process.Status{
+			State:   state,
+			Message: message,
+		},
+		PluginStatus: process.PluginStatus{
+			State: pluginStatus,
+		},
+	}
+}
+
 func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
 	err := ps.SetStatus(proc.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
-	c.Check(s.persist.procs[proc.ID()].Details.Status, jc.DeepEquals, status)
+	current := s.persist.procs[proc.ID()]
+	c.Check(current.Status, jc.DeepEquals, status.Status)
+	c.Check(current.Details.Status, jc.DeepEquals, status.PluginStatus)
 }
 
 func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
@@ -92,9 +104,7 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	proc := s.newProcesses("docker", "procA")[0]
 	s.persist.setProcesses(&proc)
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
 	err := ps.SetStatus(proc.ID(), status)
@@ -103,12 +113,10 @@ func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
 }
 
 func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := process.PluginStatus{
-		Label: "okay",
-	}
+	status := newStatusInfo(process.StateRunning, "good to go", "okay")
 
 	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus("some-proc", status)
+	err := ps.SetStatus("some/proc", status)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

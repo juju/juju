@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api"
 )
 
@@ -37,10 +38,14 @@ func (*clientSuite) TestGood(c *gc.C) {
 				Volumes:     []api.ProcessVolume{{ExternalMount: "ext", InternalMount: "int", Mode: "rw", Name: "foo"}},
 				EnvVars:     map[string]string{"baz": "baz"},
 			},
+			Status: api.ProcessStatus{
+				State:   process.StateRunning,
+				Message: "okay",
+			},
 			Details: api.ProcessDetails{
 				ID: "id",
-				Status: api.ProcessStatus{
-					Label: "Running",
+				Status: api.PluginStatus{
+					State: "Running",
 				},
 			},
 		},
@@ -58,7 +63,9 @@ func (*clientSuite) TestGood(c *gc.C) {
 			ID:   in[0].Details.ID,
 			Type: in[0].Definition.Type,
 			Status: cliStatus{
-				State: in[0].Details.Status.Label,
+				State:       process.StateRunning,
+				Info:        "okay",
+				PluginState: in[0].Details.Status.State,
 			},
 		},
 	}

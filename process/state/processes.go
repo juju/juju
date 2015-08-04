@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.process.state")
 // The persistence methods needed for workload processes in state.
 type processesPersistence interface {
 	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.PluginStatus) (bool, error)
+	SetStatus(id string, status process.CombinedStatus) (bool, error)
 	List(ids ...string) ([]process.Info, []string, error)
 	ListAll() ([]process.Info, error)
 	Remove(id string) (bool, error)
@@ -69,8 +69,12 @@ func (ps UnitProcesses) Add(info process.Info) error {
 
 // SetStatus updates the raw status for the identified process to the
 // provided value.
-func (ps UnitProcesses) SetStatus(id string, status process.PluginStatus) error {
-	logger.Tracef("setting status for %q to %#v", id, status)
+func (ps UnitProcesses) SetStatus(id string, status process.CombinedStatus) error {
+	logger.Tracef("setting status for %q", id)
+	if err := status.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)

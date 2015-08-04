@@ -90,6 +90,9 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 	}
 	c.Details = procDetails
 
+	// TODO(ericsnow) Register the proc even if it fails?
+	//  (e.g. set a status with a "failed" state)
+
 	if err := c.register(ctx); err != nil {
 		return errors.Trace(err)
 	}

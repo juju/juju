@@ -144,10 +144,15 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -217,10 +222,15 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -269,10 +279,15 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})
@@ -325,10 +340,15 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "",
+		},
 		Details: process.Details{
 			ID: "xyz123",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}})

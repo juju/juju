@@ -35,12 +35,12 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 func (s *registerSuite) init(c *gc.C, name, id, status string) {
 	err := s.registerCmd.Init([]string{
 		name,
-		`{"id":"` + id + `", "status":{"label":"` + status + `"}}`,
+		`{"id":"` + id + `", "status":{"state":"` + status + `"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.details = process.Details{
 		ID:     id,
-		Status: process.PluginStatus{Label: status},
+		Status: process.PluginStatus{State: status},
 	}
 }
 
@@ -79,14 +79,14 @@ the charm's metadata.yaml.
 func (s *registerSuite) TestInitAllArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":{"label":"okay"}}`,
+		`{"id":"abc123", "status":{"state":"okay"}}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.registerCmd.Name, gc.Equals, s.proc.Name)
 	c.Check(s.registerCmd.Details, jc.DeepEquals, process.Details{
 		ID:     "abc123",
-		Status: process.PluginStatus{Label: "okay"},
+		Status: process.PluginStatus{State: "okay"},
 	})
 }
 
@@ -101,7 +101,7 @@ func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 func (s *registerSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":{"label":"okay"}}`,
+		`{"id":"abc123", "status":{"state":"okay"}}`,
 		"other",
 	})
 
@@ -129,7 +129,7 @@ func (s *registerSuite) TestInitEmptyID(c *gc.C) {
 func (s *registerSuite) TestInitMissingDetailsID(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"status":{"label":"okay"}}`,
+		`{"status":{"state":"okay"}}`,
 	})
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -147,7 +147,7 @@ func (s *registerSuite) TestInitMissingDetailsStatus(c *gc.C) {
 func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 	err := s.registerCmd.Init([]string{
 		s.proc.Name,
-		`{"id":"abc123", "status":{"label":"okay"}`,
+		`{"id":"abc123", "status":{"state":"okay"}`,
 	})
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "unexpected end of JSON input")
@@ -165,6 +165,7 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	def.Description = "foo"
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -181,6 +182,7 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	def.EnvVars = map[string]string{"foo": "baz"}
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -233,6 +235,7 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	def.Description = "foo"
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -248,6 +251,7 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 	def.EnvVars = map[string]string{"foo": "baz"}
 	s.checkRunInfo(c, *s.proc, process.Info{
 		Process: def,
+		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
 	})
 }
@@ -315,6 +319,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.checkRun(c, "", "")
 
 	s.proc.Process = *s.registerCmd.UpdatedProcess
+	s.proc.Status.State = process.StateRunning
 	s.proc.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "List",

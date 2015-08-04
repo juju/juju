@@ -31,7 +31,9 @@ type cliDetails struct {
 }
 
 type cliStatus struct {
-	State string `json:"state" yaml:"state"`
+	State       string `json:"Juju state" yaml:"Juju state"`
+	Info        string `json:"info" yaml:"info"`
+	PluginState string `json:"plugin state" yaml:"plugin state"`
 }
 
 // Format converts the object returned from the API for our component
@@ -43,13 +45,16 @@ func Format(b []byte) interface{} {
 		return fmt.Errorf("error loading type returned from api: %s", err)
 	}
 
-	result := map[string]cliDetails{}
+	result := make(map[string]cliDetails, len(infos))
 	for _, info := range infos {
+		status := api.APIStatus2Status(info.Status)
 		result[info.Definition.Name] = cliDetails{
 			ID:   info.Details.ID,
 			Type: info.Definition.Type,
 			Status: cliStatus{
-				State: info.Details.Status.Label,
+				State:       status.State,
+				Info:        status.String(),
+				PluginState: info.Details.Status.State,
 			},
 		}
 	}

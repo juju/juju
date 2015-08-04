@@ -42,10 +42,14 @@ func (suite) TestRegisterProcess(c *gc.C) {
 				}},
 				EnvVars: map[string]string{"envfoo": "bar"},
 			},
+			Status: api.ProcessStatus{
+				State:   process.StateRunning,
+				Message: "okay",
+			},
 			Details: api.ProcessDetails{
 				ID: "idfoo",
-				Status: api.ProcessStatus{
-					Label: "running",
+				Status: api.PluginStatus{
+					State: "running",
 				},
 			},
 		}},
@@ -88,10 +92,14 @@ func (suite) TestRegisterProcess(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -125,10 +133,14 @@ func (suite) TestListProcessesOne(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -165,10 +177,14 @@ func (suite) TestListProcessesOne(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: api.ProcessStatus{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: api.ProcessDetails{
 			ID: "idfoo",
-			Status: api.ProcessStatus{
-				Label: "running",
+			Status: api.PluginStatus{
+				State: "running",
 			},
 		},
 	}
@@ -210,10 +226,14 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: process.Details{
 			ID: "idfoo",
 			Status: process.PluginStatus{
-				Label: "running",
+				State: "running",
 			},
 		},
 	}
@@ -248,10 +268,14 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
+		Status: api.ProcessStatus{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
 		Details: api.ProcessDetails{
 			ID: "idfoo",
-			Status: api.ProcessStatus{
-				Label: "running",
+			Status: api.PluginStatus{
+				State: "running",
 			},
 		},
 	}
@@ -331,23 +355,33 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	a := HookContextAPI{st}
 	args := api.SetProcessesStatusArgs{
 		Args: []api.SetProcessStatusArg{{
-			ID: "fooID",
+			ID: "fooID/bar",
 			Status: api.ProcessStatus{
-				Label: "statusfoo",
+				State:   process.StateRunning,
+				Message: "okay",
+			},
+			PluginStatus: api.PluginStatus{
+				State: "statusfoo",
 			},
 		}},
 	}
 	res, err := a.SetProcessesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "fooID")
-	c.Assert(st.status, jc.DeepEquals, &process.PluginStatus{
-		Label: "statusfoo",
+	c.Check(st.id, gc.Equals, "fooID/bar")
+	c.Assert(st.status, jc.DeepEquals, process.CombinedStatus{
+		Status: process.Status{
+			State:   process.StateRunning,
+			Message: "okay",
+		},
+		PluginStatus: process.PluginStatus{
+			State: "statusfoo",
+		},
 	})
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
-			ID:    "fooID",
+			ID:    "fooID/bar",
 			Error: nil,
 		}},
 	}
@@ -358,16 +392,16 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := api.UnregisterProcessesArgs{
-		IDs: []string{"fooID"},
+		IDs: []string{"fooID/bar"},
 	}
 	res, err := a.UnregisterProcesses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "fooID")
+	c.Assert(st.id, gc.Equals, "fooID/bar")
 
 	expected := api.ProcessResults{
 		Results: []api.ProcessResult{{
-			ID:    "fooID",
+			ID:    "fooID/bar",
 			Error: nil,
 		}},
 	}
@@ -378,7 +412,7 @@ type FakeState struct {
 	// inputs
 	id     string
 	ids    []string
-	status *process.PluginStatus
+	status process.CombinedStatus
 
 	// info is used as input and output
 	info process.Info
@@ -403,9 +437,9 @@ func (f *FakeState) ListDefinitions() ([]charm.Process, error) {
 	return f.defs, f.err
 }
 
-func (f *FakeState) SetStatus(id string, status process.PluginStatus) error {
+func (f *FakeState) SetStatus(id string, status process.CombinedStatus) error {
 	f.id = id
-	f.status = &status
+	f.status = status
 	return f.err
 }
 

@@ -17,9 +17,13 @@ import (
 
 var logger = loggo.GetLogger("juju.process.persistence")
 
+// TODO(ericsnow) Store status in the status collection?
+
 // TODO(ericsnow) Implement persistence using a TXN abstraction (used
 // in the business logic) with ops factories available from the
 // persistence layer.
+
+// TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
 // for workload processes.
@@ -78,7 +82,9 @@ func (pp Persistence) Insert(info process.Info) (bool, error) {
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The process is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id string, status process.PluginStatus) (bool, error) {
+func (pp Persistence) SetStatus(id string, status process.CombinedStatus) (bool, error) {
+	logger.Tracef("setting status for %q", id)
+
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?

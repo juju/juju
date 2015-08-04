@@ -34,7 +34,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
-	return &process.Info{
+	info := &process.Info{
 		Process: charm.Process{
 			Name: name,
 			Type: ptype,
@@ -42,10 +42,16 @@ func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
 		Details: process.Details{
 			ID: id,
 			Status: process.PluginStatus{
-				Label: status,
+				State: status,
 			},
 		},
 	}
+	if status != "" {
+		info.Status = process.Status{
+			State: process.StateRunning,
+		}
+	}
+	return info
 }
 
 func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInfo) {
@@ -189,10 +195,13 @@ func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 				Name: name,
 				Type: "myplugin",
 			},
+			Status: process.Status{
+				State: process.StateRunning,
+			},
 			Details: process.Details{
 				ID: pluginID,
 				Status: process.PluginStatus{
-					Label: "okay",
+					State: "okay",
 				},
 			},
 		}

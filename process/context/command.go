@@ -233,6 +233,9 @@ func (c *baseCommand) idsForName(name string) ([]string, error) {
 type registeringCommand struct {
 	baseCommand
 
+	// Status is the juju-level status to set for the process.
+	Status process.Status
+
 	// Details is the launch details returned from the process plugin.
 	Details process.Details
 
@@ -287,6 +290,11 @@ func (c *registeringCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	c.Status = process.Status{
+		State: process.StateRunning,
+		// TODO(ericsnow) Set a default Message?
+	}
+
 	return nil
 }
 
@@ -299,6 +307,7 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	info.Status = c.Status
 	info.Details = c.Details
 
 	logger.Tracef("registering %#v", info)
