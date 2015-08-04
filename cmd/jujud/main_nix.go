@@ -10,5 +10,5 @@ import (
 )
 
 func main() {
-	Main(os.Args)
+	MainWrapper(os.Args)
 }
