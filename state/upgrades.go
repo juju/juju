@@ -1549,8 +1549,7 @@ func ChangeStatusUpdatedType(st *State) error {
 
 func changeIdsFromSeqToAuto(st *State) (err error) {
 	var (
-		docs           []bson.M
-		updatedIdsDocs []bson.M
+		docs []bson.M
 	)
 	rawColl, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
@@ -1577,7 +1576,6 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 		_, err := strconv.ParseInt(id, 10, 64)
 		if err == nil {
 			delete(doc, "_id")
-			updatedIdsDocs = append(updatedIdsDocs, doc)
 			if err := writeableColl.Insert(doc); err != nil {
 				return errors.Annotate(err, "cannot insert replacement doc without sequential id")
 			}
