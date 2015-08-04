@@ -3109,10 +3109,10 @@ func (s *upgradesSuite) TestAddMissingServiceStatuses(c *gc.C) {
 	history, closer := s.state.getRawCollection(statusesHistoryC)
 	defer closer()
 
-	checkHistoryInserted := func(envUUID, entityid string) {
+	checkHistoryInserted := func(envUUID, globalkey string) {
 		var doc statusDoc
 		err = history.Find(bson.D{{
-			"entityid", entityid,
+			"globalkey", globalkey,
 		}, {
 			"env-uuid", envUUID,
 		}}).One(&doc)
@@ -3121,9 +3121,225 @@ func (s *upgradesSuite) TestAddMissingServiceStatuses(c *gc.C) {
 	}
 	checkHistoryInserted(uuid0, "s#bar")
 
-	// TODO(fwereade): lp:1479289
-	// This doesn't work because we use sequence and can't prefix and int _id
-	// with the env-uuid, and thus end up with duplicate key errors when
-	// inserting history across multiple environments.
-	//checkHistoryInserted(uuid1, "s#ping")
+	checkHistoryInserted(uuid1, "s#ping")
+}
+
+func (s *upgradesSuite) TestChangeIdsFromSeqToAuto(c *gc.C) {
+	// Crate a new environment
+	uuid0 := utils.MustNewUUID().String()
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	err := environments.Insert(
+		bson.D{
+			{"_id", uuid0},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert basic test data
+	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
+	defer closer()
+	err = sHistory.Insert(
+		bson.D{
+			{"_id", "1"},
+			{"env-uuid", uuid0},
+			{"status", "status 1"},
+		},
+		bson.D{
+			{"_id", "2"},
+			{"env-uuid", uuid0},
+			{"status", "status 2"},
+		},
+		bson.D{
+			{"_id", "3"},
+			{"env-uuid", uuid0},
+			{"status", "status 3"},
+		},
+		bson.D{
+			{"_id", "4"},
+			{"env-uuid", uuid0},
+			{"status", "status 4"},
+		},
+		bson.D{
+			{"_id", "this is not a seq number"},
+			{"env-uuid", uuid0},
+			{"status", "status not sequence"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assert that the ids are in fact ints.
+	for i := 1; i < 5; i++ {
+		logger.Infof("checking that id %d is correctly in status history", i)
+		n, err := sHistory.FindId(fmt.Sprintf("%d", i)).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
+	}
+
+	// Get State for a particular env simulating runForAllEnvStates
+	envSt, err := s.state.ForEnviron(names.NewEnvironTag(uuid0))
+	defer envSt.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = changeIdsFromSeqToAuto(envSt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assert that there are no more int ids.
+	for i := 1; i < 5; i++ {
+		logger.Infof("checking that id %d is no longer in status history", i)
+		n, err := sHistory.FindId(fmt.Sprintf("%d", i)).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+	}
+	// assert that the non int id was left untouched.
+	var doc bson.M
+	err = sHistory.FindId("this is not a seq number").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	status := doc["status"].(string)
+	c.Assert(status, gc.Equals, "status not sequence")
+
+	// assert that the statuses left are correct.
+	var docs []bson.M
+	err = sHistory.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, 5)
+	statuses := make([]string, len(docs))
+	for i, d := range docs {
+		statuses[i] = d["status"].(string)
+	}
+
+	c.Assert(statuses, jc.SameContents, []string{"status 1", "status 2", "status 3", "status 4", "status not sequence"})
+}
+
+func (s *upgradesSuite) TestChangeUpdatedFromTimeToInt64(c *gc.C) {
+	uuid0 := utils.MustNewUUID().String()
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	err := environments.Insert(
+		bson.D{
+			{"_id", uuid0},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
+	defer closer()
+	epoch := time.Unix(0, 0).UTC()
+	// lets create a time with fine precission to check its left
+	// untouched.
+	nanoTime := epoch.Add(3 * time.Hour).Add(4 * time.Nanosecond).UTC().UnixNano()
+	err = sHistory.Insert(
+		bson.D{
+			{"_id", uuid0 + ":0"},
+			{"env-uuid", uuid0},
+			{"updated", epoch.Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid0 + ":1"},
+			{"env-uuid", uuid0},
+			{"updated", epoch.Add(1 * time.Hour).Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid0 + ":2"},
+			{"env-uuid", uuid0},
+			{"updated", epoch.Add(2 * time.Hour).Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid0 + ":3"},
+			{"env-uuid", uuid0},
+			{"updated", nanoTime},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get State for a particular env simulating runForAllEnvStates
+	envSt, err := s.state.ForEnviron(names.NewEnvironTag(uuid0))
+	defer envSt.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = changeUpdatedType(envSt, statusesHistoryC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var doc bson.M
+	for i := 0; i < 3; i++ {
+		logger.Debugf("checking entry %d", i)
+		err := sHistory.FindId(fmt.Sprintf("%s:%d", uuid0, i)).One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+
+		logger.Debugf("checking doc: %v", doc)
+		updatedTime, ok := doc["updated"].(int64)
+		c.Assert(ok, jc.IsTrue)
+		// time stored in mongo native format will have lost precission
+		c.Assert(updatedTime, gc.Equals, epoch.Add(time.Duration(i)*time.Hour).UTC().UnixNano())
+	}
+	sHistory.FindId(fmt.Sprintf("%s:3", uuid0)).One(&doc)
+	updatedTime, ok := doc["updated"].(int64)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(updatedTime, gc.Equals, nanoTime)
+}
+
+func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
+	uuid0 := utils.MustNewUUID().String()
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	err := environments.Insert(
+		bson.D{
+			{"_id", uuid0},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	err = sHistory.Insert(
+		bson.D{
+			{"_id", uuid0 + ":0"},
+			{"env-uuid", uuid0},
+			{"entityid", "global0"},
+		},
+		bson.D{
+			{"_id", uuid0 + ":1"},
+			{"env-uuid", uuid0},
+			{"entityid", "global1"},
+		},
+		bson.D{
+			{"_id", uuid0 + ":2"},
+			{"env-uuid", uuid0},
+			{"globalkey", "global2"},
+		},
+		bson.D{
+			{"_id", uuid0 + ":3"},
+			{"env-uuid", uuid0},
+			{"globalkey", "global3"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get State for a particular env simulating runForAllEnvStates
+	envSt, err := s.state.ForEnviron(names.NewEnvironTag(uuid0))
+	defer envSt.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var docs []bson.M
+	err = sHistory.Find(bson.D{{
+		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
+	c.Assert(docs, gc.HasLen, 2)
+
+	changeStatusHistoryEntityId(envSt)
+
+	err = sHistory.Find(bson.D{{
+		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
+	c.Assert(docs, gc.HasLen, 0)
+
+	var doc bson.M
+	for i := 0; i < 4; i++ {
+		logger.Debugf("checking global key %d", i)
+		logger.Debugf("doc has: %v", doc)
+		err := sHistory.FindId(fmt.Sprintf("%s:%d", uuid0, i)).One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		globalKey, ok := doc["globalkey"].(string)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(globalKey, gc.Equals, fmt.Sprintf("global%d", i))
+	}
 }

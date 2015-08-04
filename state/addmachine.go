@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -466,13 +467,10 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		Insert: mdoc,
 	}
 
-	// TODO(fwereade) this nowToTheSecond thing is crazy, and done only for
-	// consistency -- we should be storing timestamps properly.
-	now := nowToTheSecond()
 	statusDoc := statusDoc{
 		Status:  StatusPending,
 		EnvUUID: st.EnvironUUID(),
-		Updated: &now,
+		Updated: time.Now().UnixNano(),
 	}
 	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{

@@ -297,7 +297,7 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "entityid"},
+				Key: []string{"env-uuid", "globalkey"},
 			}},
 		},
 
