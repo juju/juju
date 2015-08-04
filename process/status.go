@@ -18,14 +18,12 @@ const (
 	StateStopped   = "stopped"
 )
 
-var (
-	okayStates = set.NewStrings(
-		StateDefined,
-		StateStarting,
-		StateRunning,
-		StateStopping,
-		StateStopped,
-	)
+var okayStates = set.NewStrings(
+	StateDefined,
+	StateStarting,
+	StateRunning,
+	StateStopping,
+	StateStopped,
 )
 
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
