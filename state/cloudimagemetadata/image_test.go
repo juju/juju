@@ -46,33 +46,19 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
-	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
-	s.assertSaveMetadataWithDefaults(c, "stream", "series", "arch")
-	s.assertSaveMetadata(c, "stream", "region-test", "series",
-		"arch", "virtual-type-test",
-		"root-storage-type-test", "root-storage-size-test")
-}
-
-func (s *cloudImageMetadataSuite) assertSaveMetadataWithDefaults(c *gc.C, stream, series, arch string) {
-	s.assertSaveMetadata(c, stream, "region", series, arch, "virtType", "rootType", "rootSize")
-}
-
-func (s *cloudImageMetadataSuite) assertSaveMetadata(c *gc.C, stream, region, series, arch, virtType, rootStorageType, rootStorageSize string) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:          stream,
-		Region:          region,
-		Series:          series,
-		Arch:            arch,
-		VirtualType:     virtType,
-		RootStorageType: rootStorageType,
-		RootStorageSize: rootStorageSize}
+		Stream:          "stream",
+		Region:          "region-test",
+		Series:          "series",
+		Arch:            "arch",
+		VirtualType:     "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: "rootStorageSize-test"}
 
 	added := cloudimagemetadata.Metadata{attrs, "1"}
 	s.assertRecordMetadata(c, added)
 	s.assertMetadataRecorded(c, attrs, added)
+
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
@@ -133,7 +119,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataNoUpdates(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
@@ -143,10 +129,14 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoUpdates(c *gc.C) {
 	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 
 	s.assertRecordMetadata(c, metadata0)
-	// is a no op
-	s.assertRecordMetadata(c, metadata1)
-
 	s.assertMetadataRecorded(c, attrs, metadata0)
+	s.assertRecordMetadata(c, metadata1)
+	s.assertMetadataRecorded(c, attrs, metadata1)
+
+	metadata2 := cloudimagemetadata.Metadata{attrs, "12"}
+
+	s.assertRecordMetadata(c, metadata2)
+	s.assertMetadataRecorded(c, attrs, metadata2)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
