@@ -164,19 +164,13 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(procs, jc.DeepEquals, []process.Info{info})
 
-	err = st.SetStatus(process.Info{
-		Process: charm.Process{
-			Name: "procA",
-		},
+	err = st.SetStatus("procA/xyz", process.CombinedStatus{
 		Status: process.Status{
 			State:   process.StateRunning,
 			Message: "still okay",
 		},
-		Details: process.Details{
-			ID: "xyz",
-			Status: process.PluginStatus{
-				State: "still running",
-			},
+		PluginStatus: process.PluginStatus{
+			State: "still running",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
