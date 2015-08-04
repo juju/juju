@@ -189,3 +189,7 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 		Error: "calling CreateSpaces with zero subnets is not valid"}
 	s.checkAddSpaces(c, p)
 }
+
+func (s *SpacesSuite) TestList(c *gc.C) {
+
+}

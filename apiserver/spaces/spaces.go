@@ -92,3 +92,13 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	}
 	return nil
 }
+
+func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
+	results := params.SpaceListResults{}
+	spaces, err := api.baking.AllSpaces()
+	if err != nil {
+		results.Error = common.ServerError(err)
+		return results, errors.Annotate(err, "cannot list spaces")
+	}
+	return results, nil
+}
