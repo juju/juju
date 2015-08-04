@@ -146,8 +146,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 		},
 		Status: process.Status{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "",
 		},
 		Details: process.Details{
@@ -225,8 +224,7 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 		},
 		Status: process.Status{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "",
 		},
 		Details: process.Details{
@@ -283,8 +281,7 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 		},
 		Status: process.Status{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "",
 		},
 		Details: process.Details{
@@ -345,8 +342,7 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 		},
 		Status: process.Status{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "",
 		},
 		Details: process.Details{

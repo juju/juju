@@ -153,12 +153,9 @@ type ProcessVolume struct {
 type ProcessStatus struct {
 	// State is the Juju-defined state the process is in.
 	State string
-	// Failed indicates that Juju could not interact with the plugin
-	// for the process.
-	Failed bool
-	// Error indicates that the plugin for the process reported that the
-	// process has an error.
-	Error bool
+	// Blocker identifies the kind of blocker preventing interaction
+	// with the process.
+	Blocker string
 	// Message is the human-readable information about the status of
 	// the process.
 	Message string

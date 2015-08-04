@@ -69,8 +69,7 @@ func Proc2api(p process.Info) Process {
 func APIStatus2Status(status ProcessStatus) process.Status {
 	return process.Status{
 		State:   status.State,
-		Failed:  status.Failed,
-		Error:   status.Error,
+		Blocker: status.Blocker,
 		Message: status.Message,
 	}
 }
@@ -80,8 +79,7 @@ func APIStatus2Status(status ProcessStatus) process.Status {
 func Status2apiStatus(status process.Status) ProcessStatus {
 	return ProcessStatus{
 		State:   status.State,
-		Failed:  status.Failed,
-		Error:   status.Error,
+		Blocker: status.Blocker,
 		Message: status.Message,
 	}
 }

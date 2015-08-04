@@ -44,15 +44,14 @@ func (s *statusSuite) newStatus(state string) process.Status {
 	}
 }
 
-func (s *statusSuite) checkStatus(c *gc.C, status process.Status, state, msg string, failed, err bool) {
+func (s *statusSuite) checkStatus(c *gc.C, status process.Status, state, msg, blocker string) {
 	c.Check(status.State, gc.Equals, state)
-	c.Check(status.Failed, gc.Equals, failed)
-	c.Check(status.Error, gc.Equals, err)
+	c.Check(status.Blocker, gc.Equals, blocker)
 	c.Check(status.Message, gc.Equals, msg)
 }
 
 func (s *statusSuite) checkStatusOkay(c *gc.C, status process.Status, state, msg string) {
-	s.checkStatus(c, status, state, msg, false, false)
+	s.checkStatus(c, status, state, msg, "")
 }
 
 func (s *statusSuite) TestStringOkay(c *gc.C) {
@@ -74,14 +73,25 @@ func (s *statusSuite) TestStringNoMessage(c *gc.C) {
 		status.State = state
 		str := status.String()
 
-		c.Check(str, gc.Equals, "<no message>")
+		c.Check(str, gc.Equals, "")
 	}
+}
+
+func (s *statusSuite) TestStringBlockerNoMessage(c *gc.C) {
+	status := process.Status{
+		State:   process.StateRunning,
+		Blocker: process.BlockerFailed,
+		Message: "",
+	}
+	str := status.String()
+
+	c.Check(str, gc.Equals, "(failed) <no message>")
 }
 
 func (s *statusSuite) TestStringFailed(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Failed:  true,
+		Blocker: process.BlockerFailed,
 		Message: "uh-oh",
 	}
 	str := status.String()
@@ -92,24 +102,12 @@ func (s *statusSuite) TestStringFailed(c *gc.C) {
 func (s *statusSuite) TestStringError(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Error:   true,
+		Blocker: process.BlockerError,
 		Message: "uh-oh",
 	}
 	str := status.String()
 
 	c.Check(str, gc.Equals, "(error) uh-oh")
-}
-
-func (s *statusSuite) TestStringFailedAndError(c *gc.C) {
-	status := process.Status{
-		State:   process.StateRunning,
-		Failed:  true,
-		Error:   true,
-		Message: "uh-oh",
-	}
-	str := status.String()
-
-	c.Check(str, gc.Equals, "(failed) uh-oh")
 }
 
 func (s *statusSuite) TestIsBlockedFalse(c *gc.C) {
@@ -119,26 +117,9 @@ func (s *statusSuite) TestIsBlockedFalse(c *gc.C) {
 	c.Check(blocked, jc.IsFalse)
 }
 
-func (s *statusSuite) TestIsBlockedErrorOnly(c *gc.C) {
+func (s *statusSuite) TestIsBlockedTrue(c *gc.C) {
 	status := s.newStatus(process.StateRunning)
-	status.Error = true
-	blocked := status.IsBlocked()
-
-	c.Check(blocked, jc.IsTrue)
-}
-
-func (s *statusSuite) TestIsBlockedFailedOnly(c *gc.C) {
-	status := s.newStatus(process.StateRunning)
-	status.Failed = true
-	blocked := status.IsBlocked()
-
-	c.Check(blocked, jc.IsTrue)
-}
-
-func (s *statusSuite) TestIsBlockedErrorAndFailed(c *gc.C) {
-	status := s.newStatus(process.StateRunning)
-	status.Error = true
-	status.Failed = true
+	status.Blocker = process.BlockerFailed
 	blocked := status.IsBlocked()
 
 	c.Check(blocked, jc.IsTrue)
@@ -206,37 +187,14 @@ func (s *statusSuite) TestAdvanceFinal(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestAdvanceFailed(c *gc.C) {
+func (s *statusSuite) TestAdvanceBlocker(c *gc.C) {
 	for _, state := range states {
 		c.Logf("checking %q", state)
 		status := s.newStatus(state)
-		status.Failed = true
+		status.Blocker = process.BlockerFailed
 		err := status.Advance("")
 
-		c.Check(err, gc.ErrorMatches, `cannot advance from a failed state`)
-	}
-}
-
-func (s *statusSuite) TestAdvanceError(c *gc.C) {
-	for _, state := range states {
-		c.Logf("checking %q", state)
-		status := s.newStatus(state)
-		status.Error = true
-		err := status.Advance("")
-
-		c.Check(err, gc.ErrorMatches, `cannot advance from an error state`)
-	}
-}
-
-func (s *statusSuite) TestAdvanceErrorAndFailed(c *gc.C) {
-	for _, state := range states {
-		c.Logf("checking %q", state)
-		status := s.newStatus(state)
-		status.Failed = true
-		status.Error = true
-		err := status.Advance("")
-
-		c.Check(err, gc.ErrorMatches, `cannot advance from a failed state`)
+		c.Check(err, gc.ErrorMatches, `cannot advance state \(failed\)`)
 	}
 }
 
@@ -246,7 +204,7 @@ func (s *statusSuite) TestSetFailedOkay(c *gc.C) {
 	err := status.SetFailed("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", true, false)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerFailed)
 }
 
 func (s *statusSuite) TestSetFailedDefaultMessage(c *gc.C) {
@@ -256,7 +214,7 @@ func (s *statusSuite) TestSetFailedDefaultMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := "problem while interacting with workload process"
-	s.checkStatus(c, status, process.StateRunning, msg, true, false)
+	s.checkStatus(c, status, process.StateRunning, msg, process.BlockerFailed)
 }
 
 func (s *statusSuite) TestSetFailedAlreadyFailed(c *gc.C) {
@@ -267,21 +225,21 @@ func (s *statusSuite) TestSetFailedAlreadyFailed(c *gc.C) {
 	err = status.SetFailed("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", true, false)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerFailed)
 }
 
 func (s *statusSuite) TestSetFailedAlreadyError(c *gc.C) {
 	status := s.newStatus(process.StateRunning)
-	status.Error = true
+	status.Blocker = process.BlockerError
 	err := status.SetFailed("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", true, true)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerFailed)
 }
 
 func (s *statusSuite) TestSetFailedBadState(c *gc.C) {
 	status := process.Status{
-		Failed:  false,
+		Blocker: "",
 		Message: "good to go",
 	}
 	test := func(state, msg string) {
@@ -306,11 +264,7 @@ func (s *statusSuite) TestSetErrorOkay(c *gc.C) {
 	err := status.SetError("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(status.State, gc.Equals, process.StateRunning)
-	c.Check(status.Failed, jc.IsFalse)
-	c.Check(status.Error, jc.IsTrue)
-	c.Check(status.Message, gc.Equals, "uh-oh")
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", false, true)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerError)
 }
 
 func (s *statusSuite) TestSetErrorDefaultMessage(c *gc.C) {
@@ -320,7 +274,7 @@ func (s *statusSuite) TestSetErrorDefaultMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := "the workload process has an error"
-	s.checkStatus(c, status, process.StateRunning, msg, false, true)
+	s.checkStatus(c, status, process.StateRunning, msg, process.BlockerError)
 }
 
 func (s *statusSuite) TestSetErrorAlreadyError(c *gc.C) {
@@ -331,17 +285,17 @@ func (s *statusSuite) TestSetErrorAlreadyError(c *gc.C) {
 	err = status.SetError("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", false, true)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerError)
 }
 
 func (s *statusSuite) TestSetErrorAlreadyFailed(c *gc.C) {
 	status := s.newStatus(process.StateRunning)
-	status.Failed = true
+	status.Blocker = process.BlockerFailed
 	status.Message = "good to go"
 	err := status.SetError("uh-oh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatus(c, status, process.StateRunning, "uh-oh", true, true)
+	s.checkStatus(c, status, process.StateRunning, "uh-oh", process.BlockerError)
 }
 
 func (s *statusSuite) TestSetErrorBadState(c *gc.C) {
@@ -354,7 +308,7 @@ func (s *statusSuite) TestSetErrorBadState(c *gc.C) {
 func (s *statusSuite) TestResolveErrorOkay(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Error:   true,
+		Blocker: process.BlockerError,
 		Message: "uh-oh",
 	}
 	err := status.Resolve("good to go")
@@ -366,19 +320,19 @@ func (s *statusSuite) TestResolveErrorOkay(c *gc.C) {
 func (s *statusSuite) TestResolveErrorDefaultMessage(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Error:   true,
+		Blocker: process.BlockerError,
 		Message: "uh-oh",
 	}
 	err := status.Resolve("")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatusOkay(c, status, process.StateRunning, "error resolved")
+	s.checkStatusOkay(c, status, process.StateRunning, `resolved blocker "error"`)
 }
 
 func (s *statusSuite) TestResolveFailedOkay(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Failed:  true,
+		Blocker: process.BlockerFailed,
 		Message: "uh-oh",
 	}
 	err := status.Resolve("good to go")
@@ -390,33 +344,19 @@ func (s *statusSuite) TestResolveFailedOkay(c *gc.C) {
 func (s *statusSuite) TestResolveFailedDefaultMessage(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Failed:  true,
+		Blocker: process.BlockerFailed,
 		Message: "uh-oh",
 	}
 	err := status.Resolve("")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStatusOkay(c, status, process.StateRunning, "failure resolved")
-}
-
-func (s *statusSuite) TestResolveErrorAndFailed(c *gc.C) {
-	status := process.Status{
-		State:   process.StateRunning,
-		Failed:  true,
-		Error:   true,
-		Message: "uh-oh",
-	}
-	err := status.Resolve("")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkStatusOkay(c, status, process.StateRunning, "failure resolved")
+	s.checkStatusOkay(c, status, process.StateRunning, `resolved blocker "failed"`)
 }
 
 func (s *statusSuite) TestResolveNotBlocked(c *gc.C) {
 	status := process.Status{
 		State:   process.StateRunning,
-		Failed:  false,
-		Error:   false,
+		Blocker: "",
 		Message: "nothing wrong",
 	}
 	err := status.Resolve("good to go")
@@ -427,8 +367,7 @@ func (s *statusSuite) TestResolveNotBlocked(c *gc.C) {
 
 func (s *statusSuite) TestValidateOkay(c *gc.C) {
 	status := process.Status{
-		Failed:  false,
-		Error:   false,
+		Blocker: "",
 		Message: "nothing wrong",
 	}
 	for _, state := range states {
@@ -470,7 +409,7 @@ func (s *statusSuite) TestValidateBadState(c *gc.C) {
 
 func (s *statusSuite) TestValidateFailedBadState(c *gc.C) {
 	var status process.Status
-	status.Failed = true
+	status.Blocker = process.BlockerFailed
 	test := func(state string) {
 		c.Logf("checking %q", state)
 		status.State = state
@@ -494,7 +433,7 @@ func (s *statusSuite) TestValidateFailedOkay(c *gc.C) {
 	}
 
 	var status process.Status
-	status.Failed = true
+	status.Blocker = process.BlockerFailed
 	for _, state := range okay {
 		c.Logf("checking %q", state)
 		status.State = state
@@ -506,7 +445,7 @@ func (s *statusSuite) TestValidateFailedOkay(c *gc.C) {
 
 func (s *statusSuite) TestValidateErrorBadState(c *gc.C) {
 	var status process.Status
-	status.Error = true
+	status.Blocker = process.BlockerError
 	for _, state := range states {
 		if state == process.StateRunning {
 			continue
@@ -521,8 +460,8 @@ func (s *statusSuite) TestValidateErrorBadState(c *gc.C) {
 
 func (s *statusSuite) TestValidateErrorOkay(c *gc.C) {
 	status := process.Status{
-		State: process.StateRunning,
-		Error: true,
+		State:   process.StateRunning,
+		Blocker: process.BlockerError,
 	}
 	err := status.Validate()
 

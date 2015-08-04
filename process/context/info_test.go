@@ -164,8 +164,7 @@ myprocess0/xyz123:
       ENV_VAR: some value
   status:
     state: ""
-    failed: false
-    error: false
+    blocker: ""
     message: ""
   details:
     id: xyz123
@@ -198,8 +197,7 @@ myprocess0/xyz123:
       ENV_VAR: some value
   status:
     state: ""
-    failed: false
-    error: false
+    blocker: ""
     message: ""
   details:
     id: xyz123
@@ -218,8 +216,7 @@ myprocess1/xyz456:
     envvars: {}
   status:
     state: ""
-    failed: false
-    error: false
+    blocker: ""
     message: ""
   details:
     id: xyz456
@@ -238,8 +235,7 @@ myprocess2/xyz789:
     envvars: {}
   status:
     state: ""
-    failed: false
-    error: false
+    blocker: ""
     message: ""
   details:
     id: xyz789
@@ -272,8 +268,7 @@ myprocess0/xyz123:
       ENV_VAR: some value
   status:
     state: ""
-    failed: false
-    error: false
+    blocker: ""
     message: ""
   details:
     id: xyz123

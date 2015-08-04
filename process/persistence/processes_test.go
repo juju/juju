@@ -126,8 +126,7 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 			Update: bson.D{
 				{"$set", bson.D{
 					{"state", process.StateRunning},
-					{"failed", false},
-					{"error", false},
+					{"blocker", ""},
 					{"status", "good to go"},
 					{"pluginstatus", "still running"},
 				}},
@@ -154,8 +153,7 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 			Update: bson.D{
 				{"$set", bson.D{
 					{"state", process.StateRunning},
-					{"failed", false},
-					{"error", false},
+					{"blocker", ""},
 					{"status", "good to go"},
 					{"pluginstatus", "still running"},
 				}},

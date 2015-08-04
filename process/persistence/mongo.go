@@ -75,8 +75,7 @@ func (pp Persistence) newSetRawStatusOps(id string, status process.CombinedStatu
 	id = pp.processID(id)
 	updates := bson.D{
 		{"state", status.Status.State},
-		{"failed", status.Status.Failed},
-		{"error", status.Status.Error},
+		{"blocker", status.Status.Blocker},
 		{"status", status.Status.Message},
 		{"pluginstatus", status.PluginStatus.State},
 	}
@@ -115,10 +114,9 @@ type processDoc struct {
 	Volumes     []string          `bson:"volumes"`
 	EnvVars     map[string]string `bson:"envvars"`
 
-	State  string `bson:"state"`
-	Failed bool   `bson:"failed"`
-	Error  bool   `bson:"error"`
-	Status string `bson:"status"`
+	State   string `bson:"state"`
+	Blocker string `bson:"blocker"`
+	Status  string `bson:"status"`
 
 	PluginID       string `bson:"pluginid"`
 	OriginalStatus string `bson:"origstatus"`
@@ -183,8 +181,7 @@ func (d processDoc) definition() charm.Process {
 func (d processDoc) status() process.Status {
 	return process.Status{
 		State:   d.State,
-		Failed:  d.Failed,
-		Error:   d.Error,
+		Blocker: d.Blocker,
 		Message: d.Status,
 	}
 }
@@ -226,10 +223,9 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 		Volumes:     volumes,
 		EnvVars:     definition.EnvVars,
 
-		State:  info.Status.State,
-		Failed: info.Status.Failed,
-		Error:  info.Status.Error,
-		Status: info.Status.Message,
+		State:   info.Status.State,
+		Blocker: info.Status.Blocker,
+		Status:  info.Status.Message,
 
 		PluginID:       info.Details.ID,
 		OriginalStatus: info.Details.Status.State,

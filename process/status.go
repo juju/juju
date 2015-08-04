@@ -4,6 +4,8 @@
 package process
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 )
@@ -26,18 +28,26 @@ var okayStates = set.NewStrings(
 	StateStopped,
 )
 
+// The different kinds of status blockers.
+const (
+	NotBlocked = ""
+	// BlockerError indicates that the plugin reported a problem with
+	// the workload process.
+	BlockerError = "error"
+	// BlockerFailed indicates that Juju got a failure while trying
+	// to interact with the process (via its plugin).
+	BlockerFailed = "failed"
+)
+
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
 
 // Status is the Juju-level status of a workload process.
 type Status struct {
 	// State is which state the process is in relative to Juju.
 	State string
-	// Failed identifies whether or not Juju got a failure while trying
-	// to interact with the process (via its plugin).
-	Failed bool
-	// Error indicates that the plugin reported a problem with the
-	// workload process.
-	Error bool
+	// Blocker identifies the kind of blocker preventing interaction
+	// with the process.
+	Blocker string
 	// Message is a human-readable message describing the current status
 	// of the process, why it is in the current state, or what Juju is
 	// doing right now relative to the process. There may be no message.
@@ -47,14 +57,11 @@ type Status struct {
 // String returns a string representing the status of the process.
 func (s Status) String() string {
 	message := s.Message
-	if message == "" {
-		message = "<no message>"
-	}
-	if s.Failed {
-		return "(failed) " + message
-	}
-	if s.Error {
-		return "(error) " + message
+	if s.IsBlocked() {
+		if message == "" {
+			message = "<no message>"
+		}
+		return fmt.Sprintf("(%s) %s", s.Blocker, message)
 	}
 	return message
 }
@@ -62,18 +69,16 @@ func (s Status) String() string {
 // IsBlocked indicates whether or not the workload process may proceed
 // to the next state.
 func (s *Status) IsBlocked() bool {
-	return s.Failed || s.Error
+	return s.Blocker != NotBlocked
 }
 
 // Advance updates the state of the Status to the next appropriate one.
 // If a message is provided, it is set. Otherwise the current message
 // will be cleared.
 func (s *Status) Advance(message string) error {
-	if s.Failed {
-		return errors.Errorf("cannot advance from a failed state")
-	}
-	if s.Error {
-		return errors.Errorf("cannot advance from an error state")
+	if s.IsBlocked() {
+		reason := s.Blocker
+		return errors.Errorf("cannot advance state (" + reason + ")")
 	}
 	switch s.State {
 	case StateUndefined:
@@ -96,9 +101,9 @@ func (s *Status) Advance(message string) error {
 }
 
 // SetFailed records that Juju encountered a problem when trying to
-// interact with the process. If Status.Failed is already true then the
-// message is updated. If the process is in an initial or final state
-// then an error is returned.
+// interact with the process. If Status.Blocker is already failed then
+// the message is updated. If the process is in an initial or final
+// state then an error is returned.
 func (s *Status) SetFailed(message string) error {
 	switch s.State {
 	case StateUndefined:
@@ -112,7 +117,7 @@ func (s *Status) SetFailed(message string) error {
 	if message == "" {
 		message = "problem while interacting with workload process"
 	}
-	s.Failed = true
+	s.Blocker = BlockerFailed
 	s.Message = message
 	return nil
 }
@@ -133,7 +138,7 @@ func (s *Status) SetError(message string) error {
 	if message == "" {
 		message = "the workload process has an error"
 	}
-	s.Error = true
+	s.Blocker = BlockerError
 	s.Message = message
 	return nil
 }
@@ -149,20 +154,13 @@ func (s *Status) Resolve(message string) error {
 		return errors.Errorf("not in an error or failed state")
 	}
 
-	var defaultMessage string
-	if s.Failed {
-		defaultMessage = "failure resolved"
-	} else if s.Error {
-		defaultMessage = "error resolved"
-	}
-
+	defaultMessage := fmt.Sprintf("resolved blocker %q", s.Blocker)
 	if message == "" {
 		// TODO(ericsnow) Add in the current message?
 		message = defaultMessage
 	}
 
-	s.Error = false
-	s.Failed = false
+	s.Blocker = NotBlocked
 	s.Message = message
 	return nil
 }
@@ -172,7 +170,9 @@ func (s Status) Validate() error {
 	if !okayStates.Contains(s.State) {
 		return errors.NotValidf("Status.State (%q)", s.State)
 	}
-	if s.Failed {
+
+	switch s.Blocker {
+	case BlockerFailed:
 		switch s.State {
 		case StateUndefined:
 			return errors.NotValidf("failure in an initial state")
@@ -181,8 +181,7 @@ func (s Status) Validate() error {
 		case StateStopped:
 			return errors.NotValidf("failure in a final state")
 		}
-	}
-	if s.Error {
+	case BlockerError:
 		if s.State != StateRunning {
 			return errors.NotValidf("error outside running state")
 		}

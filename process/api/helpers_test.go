@@ -37,8 +37,7 @@ func (suite) TestAPI2Proc(c *gc.C) {
 		},
 		Status: ProcessStatus{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "okay",
 		},
 		Details: ProcessDetails{
@@ -84,8 +83,7 @@ func (suite) TestProc2API(c *gc.C) {
 		},
 		Status: process.Status{
 			State:   process.StateRunning,
-			Failed:  false,
-			Error:   false,
+			Blocker: "",
 			Message: "okay",
 		},
 		Details: process.Details{
