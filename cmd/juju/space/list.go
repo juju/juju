@@ -27,9 +27,8 @@ const listCommandDoc = `
 Displays all defined spaces. If --short is not given both spaces and
 their subnets are displayed, otherwise just a list of spaces. The
 --format argument has the same semantics as in other CLI commands -
-"yaml" is the default. The --output argument always exists when
---format is supported, and allows to redirect the command output to a
-file. `
+"yaml" is the default. The --output argument allows the command
+output to be redirected to a file. `
 
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
