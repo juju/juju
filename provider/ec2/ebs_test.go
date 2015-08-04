@@ -499,7 +499,7 @@ func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.Not(gc.HasLen), 0)
 	for _, result := range results {
-		c.Assert(errors.Cause(result.Error), gc.ErrorMatches, "cannot attach to non-running instance i-3")
+		c.Check(errors.Cause(result.Error), gc.ErrorMatches, "cannot attach to non-running instance i-3")
 	}
 }
 

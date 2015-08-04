@@ -256,10 +256,12 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 
 	instances := make(instanceCache)
 	if instanceIds.Size() > 1 {
-		// We ignore the error, because we don't want an invalid
-		// InstanceId reference from one VolumeParams to prevent
-		// the creation of another volume.
-		_ = instances.update(v.ec2, instanceIds.Values()...)
+		if err := instances.update(v.ec2, instanceIds.Values()...); err != nil {
+			logger.Debugf("querying running instances: %v", err)
+			// We ignore the error, because we don't want an invalid
+			// InstanceId reference from one VolumeParams to prevent
+			// the creation of another volume.
+		}
 	}
 
 	for i, p := range params {
@@ -471,15 +473,16 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 				}
 			}
 		}
-		if len(args) > 0 {
-			results, err := v.DetachVolumes(args)
+		if len(args) == 0 {
+			return false, nil
+		}
+		results, err := v.DetachVolumes(args)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		for _, err := range results {
 			if err != nil {
 				return false, errors.Trace(err)
-			}
-			for _, err := range results {
-				if err != nil {
-					return false, errors.Trace(err)
-				}
 			}
 		}
 		return false, nil
@@ -548,10 +551,12 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	}
 	instances := make(instanceCache)
 	if instIds.Size() > 1 {
-		// We ignore the error, because we don't want an invalid
-		// InstanceId reference from one VolumeParams to prevent
-		// the creation of another volume.
-		_ = instances.update(v.ec2, instIds.Values()...)
+		if err := instances.update(v.ec2, instIds.Values()...); err != nil {
+			logger.Debugf("querying running instances: %v", err)
+			// We ignore the error, because we don't want an invalid
+			// InstanceId reference from one VolumeParams to prevent
+			// the creation of another volume.
+		}
 	}
 
 	results := make([]storage.AttachVolumesResult, len(attachParams))

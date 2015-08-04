@@ -2,8 +2,9 @@ package dummy
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/testing"
+
+	"github.com/juju/juju/storage"
 )
 
 // VolumeSource is an implementation of storage.VolumeSource, suitable for
@@ -20,8 +21,6 @@ type VolumeSource struct {
 	AttachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
 	DetachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]error, error)
 }
-
-var _ storage.VolumeSource = (*VolumeSource)(nil)
 
 // CreateVolumes is defined on storage.VolumeSource.
 func (s *VolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
