@@ -674,25 +674,6 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 	}, nil
 }
 
-func volumeAttachmentFromParams(in params.VolumeAttachment) (storage.VolumeAttachment, error) {
-	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
-	if err != nil {
-		return storage.VolumeAttachment{}, errors.Trace(err)
-	}
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
-	if err != nil {
-		return storage.VolumeAttachment{}, errors.Trace(err)
-	}
-	return storage.VolumeAttachment{
-		volumeTag,
-		machineTag,
-		storage.VolumeAttachmentInfo{
-			in.Info.DeviceName,
-			in.Info.ReadOnly,
-		},
-	}, nil
-}
-
 func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error) {
 	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
 	if err != nil {
