@@ -85,6 +85,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
+	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 }
@@ -98,6 +99,11 @@ func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
+	// createRootDisks is used to decide whether or not
+	// the ec2test server will create root disks for
+	// instances.
+	createRootDisks bool
+
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
 	config *s3test.Config
@@ -109,6 +115,7 @@ func (srv *localServer) startServer(c *gc.C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
+	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.s3srv, err = s3test.NewServer(srv.config)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
@@ -175,6 +182,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.BaseSuite.SetUpSuite(c)
+	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
@@ -694,23 +702,10 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSourcesContains(c, params.Sources, "cloud local storage")
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
-}
-
-func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
-	found := false
-	for i, s := range sources {
-		c.Logf("datasource %d: %+v", i, s)
-		if s.Description() == expected {
-			found = true
-			break
-		}
-	}
-	c.Assert(found, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -970,6 +965,34 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		{"Name", "juju-sample-machine-0"},
 		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 		{"juju-is-state", "true"},
+	})
+}
+
+func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	ec2conn := ec2.EnvironEC2(env)
+	resp, err := ec2conn.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.Volumes, gc.Not(gc.HasLen), 0)
+
+	var found *amzec2.Volume
+	for _, vol := range resp.Volumes {
+		if len(vol.Tags) != 0 {
+			found = &vol
+			break
+		}
+	}
+	c.Assert(found, gc.NotNil)
+	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "juju-sample-machine-0-root"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 	})
 }
 

@@ -54,15 +54,17 @@ func (f *metricFile) Close() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() {
-		err := os.Remove(f.Name())
-		if err != nil {
-			logger.Errorf("failed to remove temporary file %q: %v", f.Name(), err)
-		}
-	}()
-	err = os.Link(f.Name(), f.finalName)
+	ok, err := utils.MoveFile(f.Name(), f.finalName)
 	if err != nil {
-		return errors.Trace(err)
+		// ok can be true even when there is an error completing the move, on
+		// platforms that implement it in multiple steps that can fail
+		// separately. POSIX for example, uses link(2) to claim the new
+		// location atomically, followed by an unlink(2) to release the old
+		// location.
+		if !ok {
+			return errors.Trace(err)
+		}
+		logger.Errorf("failed to remove temporary file %q: %v", f.Name(), err)
 	}
 	return nil
 }
@@ -163,12 +165,19 @@ func (m *JSONMetricRecorder) Close() error {
 
 // AddMetric implements the MetricsRecorder interface.
 func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	if _, ok := m.validMetrics[key]; !ok {
-		return errors.Errorf("invalid metric key: %v", key)
+	if !m.IsDeclaredMetric(key) {
+		return errors.Errorf("metric key %q not declared by the charm", key)
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+}
+
+// IsDeclaredMetric returns true if the metric recorder is permitted to store this metric.
+// Returns false if the uniter using this recorder doesn't define this metric.
+func (m *JSONMetricRecorder) IsDeclaredMetric(key string) bool {
+	_, ok := m.validMetrics[key]
+	return ok
 }
 
 func (m *JSONMetricRecorder) open() error {

@@ -41,7 +41,7 @@ func (m *Manager) Leader(sid, uid string) (bool, error) {
 	return tok.Id == uid, nil
 }
 
-// ClaimLeadership implements the LeadershipManager interface.
+// ClaimLeadership is part of the Claimer interface.
 func (m *Manager) ClaimLeadership(sid, uid string, duration time.Duration) error {
 
 	_, err := m.leaseMgr.ClaimLease(leadershipNamespace(sid), uid, duration)
@@ -56,12 +56,13 @@ func (m *Manager) ClaimLeadership(sid, uid string, duration time.Duration) error
 	return err
 }
 
-// ReleaseLeadership implements the LeadershipManager interface.
+// ReleaseLeadership releases leadership. It's deprecated and only still exists
+// for the comvennience of certainn tests.
 func (m *Manager) ReleaseLeadership(sid, uid string) error {
 	return m.leaseMgr.ReleaseLease(leadershipNamespace(sid), uid)
 }
 
-// BlockUntilLeadershipReleased implements the LeadershipManager interface.
+// BlockUntilLeadershipReleased is part of the Claimer interface.
 func (m *Manager) BlockUntilLeadershipReleased(serviceId string) error {
 	notifier, err := m.leaseMgr.LeaseReleasedNotifier(leadershipNamespace(serviceId))
 	if err != nil {

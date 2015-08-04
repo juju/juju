@@ -1046,3 +1046,14 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 	}
 	return results, nil
 }
+
+// DestroyEnvironment will try to destroy the current environment.
+// If there is a block on destruction, this method will return an error.
+func (c *Client) DestroyEnvironment() (err error) {
+	if err := c.check.DestroyAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+
+	environTag := c.api.state.EnvironTag()
+	return errors.Trace(common.DestroyEnvironment(c.api.state, environTag))
+}

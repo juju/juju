@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type envManagerSuite struct {
+type envManagerBaseSuite struct {
 	jujutesting.JujuConnSuite
 
 	envmanager *environmentmanager.EnvironmentManagerAPI
@@ -36,9 +36,7 @@ type envManagerSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&envManagerSuite{})
-
-func (s *envManagerSuite) SetUpTest(c *gc.C) {
+func (s *envManagerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -49,6 +47,19 @@ func (s *envManagerSuite) SetUpTest(c *gc.C) {
 
 	loggo.GetLogger("juju.apiserver.environmentmanager").SetLogLevel(loggo.TRACE)
 }
+
+func (s *envManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authoriser.Tag = user
+	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.envmanager = envmanager
+}
+
+type envManagerSuite struct {
+	envManagerBaseSuite
+}
+
+var _ = gc.Suite(&envManagerSuite{})
 
 func (s *envManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
@@ -85,13 +96,6 @@ func (s *envManagerSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver
 	return params
 }
 
-func (s *envManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
-	s.authoriser.Tag = user
-	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	s.envmanager = envmanager
-}
-
 func (s *envManagerSuite) TestUserCanCreateEnvironment(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	s.setAPIUser(c, owner)
@@ -108,6 +112,17 @@ func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.OwnerTag, gc.Equals, owner.String())
 	c.Assert(env.Name, gc.Equals, "test-env")
+	// Make sure that the environment created does actually have the correct
+	// owner, and that owner is actually allowed to use the environment.
+	newState, err := s.State.ForEnviron(names.NewEnvironTag(env.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer newState.Close()
+
+	newEnv, err := newState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newEnv.Owner(), gc.Equals, owner)
+	_, err = newState.EnvironmentUser(owner)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *gc.C) {
@@ -300,7 +315,17 @@ func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+}
+
+func (s *envManagerSuite) TestListEnvironmentsForSelfLocalUser(c *gc.C) {
+	// When the user's credentials cache stores the simple name, but the
+	// api server converts it to a fully qualified name.
+	user := names.NewUserTag("local-user")
+	s.setAPIUser(c, names.NewUserTag("local-user@local"))
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
@@ -314,10 +339,10 @@ func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
 	s.setAPIUser(c, user)
 	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 1)
+	c.Assert(result.UserEnvironments, gc.HasLen, 1)
 	expected, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEnvironmentMatches(c, result.Environments[0], expected)
+	s.checkEnvironmentMatches(c, result.UserEnvironments[0].Environment, expected)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
@@ -326,7 +351,7 @@ func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
 	other := names.NewUserTag("external@remote")
 	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Environments, gc.HasLen, 0)
+	c.Assert(result.UserEnvironments, gc.HasLen, 0)
 }
 
 func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {

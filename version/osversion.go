@@ -53,13 +53,15 @@ func readOSRelease() (map[string]string, error) {
 		}
 		values[c[0]] = strings.Trim(c[1], "\t '\"")
 	}
-	_, ok := values["ID"]
+	id, ok := values["ID"]
 	if !ok {
 		return values, errors.New("OS release file is missing ID")
 	}
-	_, ok = values["VERSION_ID"]
-	if !ok {
-		return values, errors.New("OS release file is missing VERSION_ID")
+	if _, ok := values["VERSION_ID"]; !ok {
+		values["VERSION_ID"], ok = defaultVersionIDs[id]
+		if !ok {
+			return values, errors.New("OS release file is missing VERSION_ID")
+		}
 	}
 	return values, nil
 }
@@ -82,6 +84,8 @@ func readSeries() (string, error) {
 	switch values["ID"] {
 	case strings.ToLower(Ubuntu.String()):
 		return getValue(ubuntuSeries, values["VERSION_ID"])
+	case strings.ToLower(Arch.String()):
+		return getValue(archSeries, values["VERSION_ID"])
 	case strings.ToLower(CentOS.String()):
 		codename := fmt.Sprintf("%s%s", values["ID"], values["VERSION_ID"])
 		return getValue(centosSeries, codename)

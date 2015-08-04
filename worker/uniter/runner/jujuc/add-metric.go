@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"gopkg.in/juju/charm.v5"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
@@ -59,6 +61,9 @@ func (c *AddMetricCommand) Init(args []string) error {
 // Run adds metrics to the hook context.
 func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
+		if charm.IsBuiltinMetric(metric.Key) {
+			return errors.Errorf("%v uses a reserved prefix", metric.Key)
+		}
 		err := c.ctx.AddMetric(metric.Key, metric.Value, metric.Time)
 		if err != nil {
 			return errors.Annotate(err, "cannot record metric")

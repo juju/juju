@@ -34,7 +34,9 @@ func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *stat
 		message := fmt.Sprintf("bogus message number %d", i)
 		c.Logf("fill status history, attempt: %d", i)
 		updated := begin.Add(time.Duration(i) + time.Second)
-		statusDoc := state.StatusDoc{Status: state.StatusActive,
+		statusDoc := state.StatusDoc{
+			EnvUUID:    st.EnvironUUID(),
+			Status:     state.StatusActive,
 			StatusInfo: message,
 			Updated:    &updated}
 		sdoc := state.NewStatusDoc(statusDoc)
@@ -663,6 +665,11 @@ func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+
+	h, err = state.StatusHistory(10, globalKey, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(h, gc.HasLen, 2)
 
 	err = s.unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
 	c.Assert(err, jc.ErrorIsNil)

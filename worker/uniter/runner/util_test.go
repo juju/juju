@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -264,7 +265,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 }
 
 func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics) *runner.HookContext {
+	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics, paths RealPaths) *runner.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -280,7 +281,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), paths)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -356,6 +357,18 @@ type storageContextAccessor struct {
 	storage map[names.StorageTag]*contextStorage
 }
 
+func (s *storageContextAccessor) StorageTags() []names.StorageTag {
+	tags := set.NewTags()
+	for tag := range s.storage {
+		tags.Add(tag)
+	}
+	storageTags := make([]names.StorageTag, len(tags))
+	for i, tag := range tags.SortedValues() {
+		storageTags[i] = tag.(names.StorageTag)
+	}
+	return storageTags
+}
+
 func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
 	storage, ok := s.storage[tag]
 	return storage, ok
@@ -428,6 +441,11 @@ type StubMetricsRecorder struct {
 func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) error {
 	s.AddCall("AddMetric", key, value, created)
 	return nil
+}
+
+func (mr *StubMetricsRecorder) IsDeclaredMetric(key string) bool {
+	mr.MethodCall(mr, "IsDeclaredMetric", key)
+	return true
 }
 
 // Close implements the MetricsRecorder interface.

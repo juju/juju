@@ -85,8 +85,8 @@ func (s *InterfaceSuite) TestAddingMetricsWhenNotEnabledFails(c *gc.C) {
 
 func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {
 	uuid := utils.MustNewUUID()
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
-	cleanup := runner.PatchMetricsRecorder(ctx, StubMetricsRecorder{&s.stub})
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), NewRealPaths(c))
+	cleanup := runner.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
 	defer cleanup()
 
 	now := time.Now()
@@ -278,7 +278,7 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(actionData.ActionFailed, jc.IsTrue)
+	c.Check(actionData.Failed, jc.IsTrue)
 }
 
 // TestSetActionMessage ensures SetActionMessage works properly.

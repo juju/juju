@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/ec2"
@@ -82,6 +84,7 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 
 func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
@@ -120,6 +123,9 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 				InstanceId: instance.Id(instanceId),
 			},
 		},
+		ResourceTags: map[string]string{
+			tags.JujuEnv: s.TestConfig["uuid"].(string),
+		},
 	}, {
 		Tag:      volume1,
 		Size:     20 * 1000,
@@ -131,6 +137,9 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			AttachmentParams: storage.AttachmentParams{
 				InstanceId: instance.Id(instanceId),
 			},
+		},
+		ResourceTags: map[string]string{
+			tags.JujuEnv: "something-else",
 		},
 	}, {
 		Tag:      volume2,
@@ -246,9 +255,11 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-env-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 		{"Name", "juju-sample-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-env-uuid", "something-else"},
 		{"Name", "juju-sample-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
@@ -299,11 +310,25 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	}
 }
 
-func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
+func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	err := vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
+	errs := vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	sortBySize(ec2Vols.Volumes)
+	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
+}
+
+func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	errs := vs.DestroyVolumes([]string{"vol-0"})
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 
@@ -329,6 +354,17 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 		Size:     20480,
 		VolumeId: "vol-1",
 	}})
+}
+
+func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.assertCreateVolumes(c, vs, "")
+
+	// Only one volume created by assertCreateVolumes has
+	// the env-uuid tag with the expected value.
+	volIds, err := vs.ListVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volIds, jc.SameContents, []string{"vol-0"})
 }
 
 func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {

@@ -36,6 +36,7 @@ type meterStatus struct {
 // MetricsRecorder is used to store metrics supplied by the add-metric command.
 type MetricsRecorder interface {
 	AddMetric(key, value string, created time.Time) error
+	IsDeclaredMetric(key string) bool
 	Close() error
 }
 
@@ -328,6 +329,10 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
+func (ctx *HookContext) StorageTags() []names.StorageTag {
+	return ctx.storage.StorageTags()
+}
+
 func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
@@ -402,7 +407,7 @@ func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
 		return "", errors.New("not running an action")
 	}
-	return ctx.actionData.ActionName, nil
+	return ctx.actionData.Name, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
@@ -410,7 +415,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
-	return ctx.actionData.ActionParams, nil
+	return ctx.actionData.Params, nil
 }
 
 // SetActionMessage sets a message for the Action, usually an error message.
@@ -427,7 +432,7 @@ func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
-	ctx.actionData.ActionFailed = true
+	ctx.actionData.Failed = true
 	return nil
 }
 
@@ -464,7 +469,7 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
-// AddMetrics adds metrics to the hook context.
+// AddMetric adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	if ctx.metricsRecorder == nil || ctx.definedMetrics == nil {
 		return errors.New("metrics disabled")
@@ -520,9 +525,9 @@ func (context *HookContext) HookVars(paths Paths) []string {
 	}
 	if context.actionData != nil {
 		vars = append(vars,
-			"JUJU_ACTION_NAME="+context.actionData.ActionName,
-			"JUJU_ACTION_UUID="+context.actionData.ActionTag.Id(),
-			"JUJU_ACTION_TAG="+context.actionData.ActionTag.String(),
+			"JUJU_ACTION_NAME="+context.actionData.Name,
+			"JUJU_ACTION_UUID="+context.actionData.Tag.Id(),
+			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
 	return append(vars, osDependentEnvVars(paths)...)
@@ -553,12 +558,28 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
-// FlushContext implements the Context interface.
-func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
+// addJujuUnitsMetric adds the juju-units built in metric if it
+// is defined for this context.
+func (ctx *HookContext) addJujuUnitsMetric() error {
+	if ctx.metricsRecorder.IsDeclaredMetric("juju-units") {
+		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now().UTC())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// Flush implements the Context interface.
+func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// A non-existant metricsRecorder simply means that metrics were disabled
 	// for this hook run.
 	if ctx.metricsRecorder != nil {
-		err := ctx.metricsRecorder.Close()
+		err := ctx.addJujuUnitsMetric()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = ctx.metricsRecorder.Close()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -656,9 +677,9 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
-	tag := ctx.actionData.ActionTag
+	tag := ctx.actionData.Tag
 	status := params.ActionCompleted
-	if ctx.actionData.ActionFailed {
+	if ctx.actionData.Failed {
 		status = params.ActionFailed
 	}
 
