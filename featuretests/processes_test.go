@@ -36,72 +36,40 @@ func initProcessesSuites() {
 		panic(err)
 	}
 
-	// TODO(ericsnow) The suite are temporarily disabled while we figure out
-	// how to manage our use of the local provider.
-	//for _, suite := range procsSuites {
-	//	gc.Suite(suite)
-	//}
+	gc.Suite(&processesSuite{})
 }
 
 var (
-	repoDir     = testcharms.Repo.Path()
-	procsEnv    *procsEnviron
-	procsSuites = []interface{}{
-		&processesHookContextSuite{},
-		&processesWorkerSuite{},
-		&processesCmdJujuSuite{},
-	}
+	repoDir = testcharms.Repo.Path()
 )
 
-type processesBaseSuite struct {
+type processesSuite struct {
 	env *procsEnviron
 }
 
-func (s *processesBaseSuite) SetUpSuite(c *gc.C) {
-	// TODO(ericsnow) Run in a test-only local provider
-	//  (see https://github.com/juju/docs/issues/35).
-	env := newProcsEnv(c, "local", "local", len(procsSuites))
+func (s *processesSuite) SetUpSuite(c *gc.C) {
+	env := newProcsEnv(c, "local", "local")
 	env.bootstrap(c)
 	s.env = env
 }
 
-func (s *processesBaseSuite) TearDownSuite(c *gc.C) {
+func (s *processesSuite) TearDownSuite(c *gc.C) {
 	if s.env != nil {
 		s.env.destroy(c)
 	}
 }
 
-func (s *processesBaseSuite) SetUpTest(c *gc.C) {
+func (s *processesSuite) SetUpTest(c *gc.C) {
 }
 
-func (s *processesBaseSuite) TearDownTest(c *gc.C) {
+func (s *processesSuite) TearDownTest(c *gc.C) {
 	if c.Failed() {
 		s.env.markFailure(c, s)
 	}
 	// TODO(ericsnow) Destroy all started services (if not failed).
 }
 
-type processesHookContextSuite struct {
-	processesBaseSuite
-}
-
-func (s *processesHookContextSuite) SetUpSuite(c *gc.C) {
-	s.processesBaseSuite.SetUpSuite(c)
-}
-
-func (s *processesHookContextSuite) TearDownSuite(c *gc.C) {
-	s.processesBaseSuite.TearDownSuite(c)
-}
-
-func (s *processesHookContextSuite) SetUpTest(c *gc.C) {
-	s.processesBaseSuite.SetUpTest(c)
-}
-
-func (s *processesHookContextSuite) TearDownTest(c *gc.C) {
-	s.processesBaseSuite.TearDownTest(c)
-}
-
-func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
+func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 	// start: info, launch, info
 	// config-changed: info, set-status, info
 	// stop: info, destroy, info
@@ -180,7 +148,7 @@ func (s *processesHookContextSuite) TestHookLifecycle(c *gc.C) {
 // TODO(ericsnow) Add a test specifically for each supported plugin
 // (e.g. docker)?
 
-func (s *processesHookContextSuite) TestRegister(c *gc.C) {
+func (s *processesSuite) TestHookContextRegister(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "register-service")
 
 	args := map[string]interface{}{
@@ -237,7 +205,7 @@ func (s *processesHookContextSuite) TestRegister(c *gc.C) {
 	}})
 }
 
-func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
+func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "launch-service")
 
 	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
@@ -294,7 +262,7 @@ func (s *processesHookContextSuite) TestLaunch(c *gc.C) {
 	}})
 }
 
-func (s *processesHookContextSuite) TestInfo(c *gc.C) {
+func (s *processesSuite) TestHookContextInfo(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "info-service")
 	unit := svc.deploy(c, "myproc", "xyz123", "running")
 
@@ -355,101 +323,57 @@ func (s *processesHookContextSuite) TestInfo(c *gc.C) {
 	}})
 }
 
-func (s *processesHookContextSuite) TestSetStatus(c *gc.C) {
+func (s *processesSuite) TestHookContextSetStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesHookContextSuite) TestUnregister(c *gc.C) {
+func (s *processesSuite) TestHookContextUnregister(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesHookContextSuite) TestDestroy(c *gc.C) {
+func (s *processesSuite) TestHookContextDestroy(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-type processesWorkerSuite struct {
-	processesBaseSuite
-}
-
-func (s *processesWorkerSuite) SetUpSuite(c *gc.C) {
-	s.processesBaseSuite.SetUpSuite(c)
-}
-
-func (s *processesWorkerSuite) TearDownSuite(c *gc.C) {
-	s.processesBaseSuite.TearDownSuite(c)
-}
-
-func (s *processesWorkerSuite) SetUpTest(c *gc.C) {
-	s.processesBaseSuite.SetUpTest(c)
-}
-
-func (s *processesWorkerSuite) TearDownTest(c *gc.C) {
-	s.processesBaseSuite.TearDownTest(c)
-}
-
-func (s *processesWorkerSuite) TestSetStatus(c *gc.C) {
+func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesWorkerSuite) TestCleanUp(c *gc.C) {
+func (s *processesSuite) TestWorkerCleanUp(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-type processesCmdJujuSuite struct {
-	processesBaseSuite
-}
-
-func (s *processesCmdJujuSuite) SetUpSuite(c *gc.C) {
-	s.processesBaseSuite.SetUpSuite(c)
-}
-
-func (s *processesCmdJujuSuite) TearDownSuite(c *gc.C) {
-	s.processesBaseSuite.TearDownSuite(c)
-}
-
-func (s *processesCmdJujuSuite) SetUpTest(c *gc.C) {
-	s.processesBaseSuite.SetUpTest(c)
-}
-
-func (s *processesCmdJujuSuite) TearDownTest(c *gc.C) {
-	s.processesBaseSuite.TearDownTest(c)
-}
-
-func (s *processesCmdJujuSuite) TestStatus(c *gc.C) {
+func (s *processesSuite) TestCmdJujuStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
 type procsEnviron struct {
-	name     string
-	envType  string
-	machine  string
-	refCount int
-	homedir  string
+	name         string
+	envType      string
+	machine      string
+	homedir      string
+	bootstrapped bool
+	failed       bool
 }
 
-func newProcsEnv(c *gc.C, envName, envType string, suiteCount int) *procsEnviron {
+func newProcsEnv(c *gc.C, envName, envType string) *procsEnviron {
 	if envType != "local" {
 		panic("not supported")
 	}
-	if procsEnv != nil {
-		c.Assert(procsEnv.name, gc.Equals, envName)
-		return procsEnv
-	}
 	return &procsEnviron{
-		name:     envName,
-		envType:  envType,
-		refCount: suiteCount,
+		name:    envName,
+		envType: envType,
 	}
 }
 
 func (env *procsEnviron) markFailure(c *gc.C, s interface{}) {
-	env.refCount = -1
+	env.failed = true
 }
 
 func initJuju(c *gc.C) {
@@ -542,16 +466,16 @@ func lookUpCommand(cmd string) cmd.Command {
 }
 
 func (env *procsEnviron) bootstrap(c *gc.C) {
-	if procsEnv != nil {
-		c.Assert(env, gc.Equals, procsEnv)
+	if env.bootstrapped {
 		return
 	}
-	procsEnv = env
-
+	// Run in a test-only local provider
+	//  (see https://github.com/juju/docs/issues/35).
 	env.ensureOSEnv(c)
 	initJuju(c)
 
 	env.run(c, "bootstrap")
+	env.bootstrapped = true
 	env.run(c, "environment set", "logging-config=<root>=DEBUG")
 }
 
@@ -584,25 +508,19 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 var procsDoNotCleanUp = false
 
 func (env *procsEnviron) destroy(c *gc.C) {
-	if procsEnv == nil {
-		return
-	}
-	env.refCount -= 1
-	if env.refCount > 0 {
-		return
-	}
 	if procsDoNotCleanUp {
 		return
 	}
-
-	env.ensureOSEnv(c)
-	initJuju(c)
-	env.run(c, "destroy-environment", "--force")
+	if env.bootstrapped {
+		env.ensureOSEnv(c)
+		initJuju(c)
+		env.run(c, "destroy-environment", "--force")
+		env.bootstrapped = false
+	}
 	if env.homedir != "" {
 		err := os.RemoveAll(env.homedir)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	procsEnv = nil
 }
 
 type procsService struct {
