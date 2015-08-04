@@ -15,8 +15,12 @@ import (
 //
 // TODO(dimitern): Once the state backing is implemented, remove this
 // and just use *state.Subnet.
-type BackingSubnet interface {
-	// no methods needed yet.
+type BackingSubnet struct {
+	CIDR       string
+	ProviderId string
+	Zones      []string
+	Status     string
+	Type       string
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the

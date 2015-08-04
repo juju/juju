@@ -100,5 +100,25 @@ func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
 		results.Error = common.ServerError(err)
 		return results, errors.Annotate(err, "cannot list spaces")
 	}
+	for _, space := range spaces {
+		result := params.SpaceListResult{}
+		result.Name = space.Name()
+		subnets, err := space.Subnets()
+		if err != nil {
+			results.Error = common.ServerError(err)
+			return results, errors.Annotate(err, "cannot list spaces")
+		}
+		for _, subnet := range subnets {
+			result.Subnets = append(result.Subnets,
+				params.SubnetInfo{
+					CIDR:       subnet.CIDR,
+					ProviderId: subnet.ProviderId,
+					Zones:      subnet.Zones,
+					Status:     subnet.Status,
+					Type:       subnet.Type,
+				})
+		}
+		results.Results = append(results.Results, result)
+	}
 	return results, nil
 }
