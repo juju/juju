@@ -68,7 +68,9 @@ func getEndpoint(location string) string {
 //
 // For tests, however, unsigned data is more convenient.  They can override
 // this setting.
-var signedImageDataOnly = true
+// TODO: make it possible to use only signed image data, but be able to specify
+// a key that was used to signed it in the environment config
+var signedImageDataOnly = false
 
 // findMatchingImages queries simplestreams for OS images that match the given
 // requirements.

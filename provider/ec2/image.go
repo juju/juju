@@ -13,7 +13,9 @@ import (
 
 // signedImageDataOnly is defined here to allow tests to override the content.
 // If true, only inline PGP signed image metadata will be used.
-var signedImageDataOnly = true
+// TODO: make it possible to use only signed image data, but be able to specify
+// a key that was used to signed it in the environment config
+var signedImageDataOnly = false
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
