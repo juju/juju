@@ -95,7 +95,7 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 
 func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
 	results := params.SpaceListResults{}
-	spaces, err := api.baking.AllSpaces()
+	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		results.Error = common.ServerError(err)
 		return results, errors.Annotate(err, "cannot list spaces")
