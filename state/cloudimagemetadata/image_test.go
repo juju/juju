@@ -119,7 +119,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
@@ -129,14 +129,23 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdates(c *gc.C) {
 	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 
 	s.assertRecordMetadata(c, metadata0)
+	s.assertRecordMetadata(c, metadata1)
+	s.assertMetadataRecorded(c, attrs, metadata1)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, "1"}
+	metadata1 := cloudimagemetadata.Metadata{attrs, "12"}
+
+	s.assertRecordMetadata(c, metadata0)
 	s.assertMetadataRecorded(c, attrs, metadata0)
 	s.assertRecordMetadata(c, metadata1)
 	s.assertMetadataRecorded(c, attrs, metadata1)
-
-	metadata2 := cloudimagemetadata.Metadata{attrs, "12"}
-
-	s.assertRecordMetadata(c, metadata2)
-	s.assertMetadataRecorded(c, attrs, metadata2)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
