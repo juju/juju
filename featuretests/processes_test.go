@@ -45,6 +45,7 @@ var (
 
 type processesSuite struct {
 	env *procsEnviron
+	svc *procsService
 }
 
 func (s *processesSuite) SetUpSuite(c *gc.C) {
@@ -65,8 +66,11 @@ func (s *processesSuite) SetUpTest(c *gc.C) {
 func (s *processesSuite) TearDownTest(c *gc.C) {
 	if c.Failed() {
 		s.env.markFailure(c, s)
+	} else {
+		if s.svc != nil {
+			s.svc.destroy(c)
+		}
 	}
-	// TODO(ericsnow) Destroy all started services (if not failed).
 }
 
 func (s *processesSuite) TestHookLifecycle(c *gc.C) {
@@ -75,6 +79,7 @@ func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 	// stop: info, destroy, info
 
 	svc := s.env.addService(c, "proc-hooks", "a-service")
+	s.svc = svc
 
 	// Add/start the unit.
 
@@ -150,6 +155,7 @@ func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 
 func (s *processesSuite) TestHookContextRegister(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "register-service")
+	s.svc = svc
 
 	args := map[string]interface{}{
 		"name":   "myproc",
@@ -207,6 +213,7 @@ func (s *processesSuite) TestHookContextRegister(c *gc.C) {
 
 func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "launch-service")
+	s.svc = svc
 
 	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
 
@@ -264,6 +271,7 @@ func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
 
 func (s *processesSuite) TestHookContextInfo(c *gc.C) {
 	svc := s.env.addService(c, "proc-actions", "info-service")
+	s.svc = svc
 	unit := svc.deploy(c, "myproc", "xyz123", "running")
 
 	unit.checkState(c, nil)
@@ -463,6 +471,8 @@ func lookUpCommand(cmd string) cmd.Command {
 		return envcmd.Wrap(&service.SetCommand{})
 	case "service add-unit":
 		return envcmd.Wrap(&service.AddUnitCommand{})
+	case "destroy-service":
+		return envcmd.Wrap(&commands.RemoveServiceCommand{})
 	case "destroy-unit":
 		return envcmd.Wrap(&commands.RemoveUnitCommand{})
 	case "action do":
@@ -583,6 +593,13 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 
 	u.waitForStatus(c, "started", "pending")
 	return u
+}
+
+func (svc *procsService) destroy(c *gc.C) {
+	if procsDoNotCleanUp {
+		return
+	}
+	svc.env.run(c, "destroy-service", svc.name)
 }
 
 type procsUnit struct {
