@@ -6,11 +6,15 @@ package newtoolsversionchecker
 import (
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.networktoolsversionchecker")
 
 type EnvironmentCapable interface {
 	Environment() (*state.Environment, error)
@@ -43,13 +47,21 @@ type toolsVersionWorker struct {
 }
 
 func (w *toolsVersionWorker) loop(stopCh <-chan struct{}) error {
+	// Ideally this should be run once then wait the given interval.
+	// this avoids the user having an empty newest version for w.params.CheckInterval
+	// which is intended to be large.
+	checkInterval := time.Second * 1
 	for {
 		select {
 		case <-stopCh:
 			return tomb.ErrDying
-		case <-time.After(w.params.CheckInterval):
-			return updateToolsAvailability(w.st, w.findTools, w.envVersionUpdate)
+		case <-time.After(checkInterval):
+			logger.Debugf("checking for new tools availability")
+			err := updateToolsAvailability(w.st, w.findTools, w.envVersionUpdate)
+			if err != nil {
+				return errors.Annotate(err, "cannot fetch new tools information")
+			}
 		}
-
+		checkInterval = w.params.CheckInterval
 	}
 }

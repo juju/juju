@@ -12,10 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
-	//"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	//"github.com/juju/juju/storage/provider"
-	//"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -104,7 +101,7 @@ func (s *UpdaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&envConfig, fakeEnvConfig)
 
-	fakeToolFinder := func(_ environs.Environ, _ int, m_ int, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ coretools.Filter) (coretools.List, error) {
 		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		return coretools.List{&t}, nil

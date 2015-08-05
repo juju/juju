@@ -194,8 +194,14 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		}
 	}
 
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot get environment")
+	}
+
 	return api.Status{
 		EnvironmentName: cfg.Name(),
+		Version:         env.LatestToolsVersion(),
 		Machines:        processMachines(context.machines),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),

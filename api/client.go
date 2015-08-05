@@ -50,14 +50,16 @@ type NetworksSpecification struct {
 
 // AgentStatus holds status info about a machine or unit agent.
 type AgentStatus struct {
-	Status  params.Status
-	Info    string
-	Data    map[string]interface{}
-	Since   *time.Time
-	Kind    params.HistoryKind
-	Version string
-	Life    string
-	Err     error
+	Status             params.Status
+	Info               string
+	Data               map[string]interface{}
+	Since              *time.Time
+	Kind               params.HistoryKind
+	Version            string
+	AvailableVersion   string
+	LastAvailableCheck *time.Time
+	Life               string
+	Err                error
 }
 
 // MachineStatus holds status info about a machine.
@@ -160,6 +162,7 @@ type NetworkStatus struct {
 // Status holds information about the status of a juju environment.
 type Status struct {
 	EnvironmentName string
+	Version         string
 	Machines        map[string]MachineStatus
 	Services        map[string]ServiceStatus
 	Networks        map[string]NetworkStatus

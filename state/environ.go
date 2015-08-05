@@ -35,8 +35,8 @@ type environmentDoc struct {
 	ServerUUID string `bson:"server-uuid"`
 
 	// AvailableVersion
-	LatestAvailableTools string    `bson:"latestavailabletools,omitempty"`
-	LatestToolCheck      time.Time `bson:"latesttoolcheck,omitempty"`
+	LatestAvailableTools string     `bson:"latestavailabletools,omitempty"`
+	LatestToolCheck      *time.Time `bson:"latesttoolcheck,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -220,8 +220,24 @@ func (e *Environment) Config() (*config.Config, error) {
 
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates environementDoc with it.
-func (e *Environment) UpdateLatestToolsVersion(string) error {
-	return nil
+func (e *Environment) UpdateLatestToolsVersion(ver string) error {
+	now := time.Now()
+	// TODO(perrito666): I need to assert here that there isn't a newer
+	// version in place.
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     e.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"latestavailabletools", ver}, {"latesttoolcheck", &now}}}},
+	}}
+	err := e.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return e.Refresh()
+}
+
+func (e *Environment) LatestToolsVersion() string {
+	return e.doc.LatestAvailableTools
 }
 
 // globalKey returns the global database key for the environment.

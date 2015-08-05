@@ -11,8 +11,13 @@ func NewForTests(st EnvironmentCapable, params *VersionCheckerParams, f toolFind
 	w := &toolsVersionWorker{
 		st:               st,
 		params:           params,
-		findTools:        findTools,
-		envVersionUpdate: envVersionUpdate,
+		findTools:        f,
+		envVersionUpdate: e,
 	}
 	return worker.NewSimpleWorker(w.loop)
 }
+
+var (
+	NewEnvirons = &newEnvirons
+	EnvConfig   = &envConfig
+)

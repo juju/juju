@@ -80,6 +80,7 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
+	"github.com/juju/juju/worker/newtoolsversionchecker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -1046,6 +1047,15 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
+			})
+
+			a.startWorkerAfterUpgrade(singularRunner, "newtoolsversionchecker", func() (worker.Worker, error) {
+				// twice a day seems a decent enough amount of time to check for
+				// new versions.
+				checkerParams := newtoolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Hour * 6,
+				}
+				return newtoolsversionchecker.New(st, &checkerParams), nil
 			})
 
 		case state.JobManageStateDeprecated:

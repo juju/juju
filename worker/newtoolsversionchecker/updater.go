@@ -21,10 +21,6 @@ var (
 type toolFinder func(environs.Environ, int, int, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Environment, version.Number) error
 
-func envVersionUpdate(env *state.Environment, ver version.Number) error {
-	return env.UpdateLatestToolsVersion(ver.String())
-}
-
 var newEnvirons = environs.New
 
 func checkToolsAvailability(cfg *config.Config, find toolFinder) (version.Number, error) {
@@ -50,6 +46,10 @@ var envConfig = func(e *state.Environment) (*config.Config, error) {
 	return e.Config()
 }
 
+func envVersionUpdate(env *state.Environment, ver version.Number) error {
+	return env.UpdateLatestToolsVersion(ver.String())
+}
+
 func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envVersionUpdater) error {
 	env, err := st.Environment()
 	if err != nil {
@@ -63,5 +63,6 @@ func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envV
 	if err != nil {
 		return errors.Annotate(err, "cannot get latest version")
 	}
+	logger.Debugf("found new tools %q", ver)
 	return update(env, ver)
 }
