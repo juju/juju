@@ -467,8 +467,11 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about:           "annotation is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{Tag: "machine-0"}},
+				about: "annotation is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
+					EnvUUID: st.EnvironUUID(),
+					Tag:     "machine-0",
+				}},
 				change: watcher.Change{
 					C:  "annotations",
 					Id: st.docID("m#0"),
@@ -506,7 +509,8 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 			return changeTestCase{
 				about: "annotation is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
-					Tag: "machine-0",
+					EnvUUID: st.EnvironUUID(),
+					Tag:     "machine-0",
 					Annotations: map[string]string{
 						"arble":  "baz",
 						"foo":    "bar",
@@ -632,8 +636,11 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about:           "machine is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{Id: "1"}},
+				about: "machine is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+					EnvUUID: st.EnvironUUID(),
+					Id:      "1",
+				}},
 				change: watcher.Change{
 					C:  "machines",
 					Id: st.docID("1"),
@@ -1284,10 +1291,12 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				about: "unit info is updated if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						Name: "wordpress/0",
+						EnvUUID: st.EnvironUUID(),
+						Name:    "wordpress/0",
 					},
 					&multiwatcher.MachineInfo{
-						Id: "0",
+						EnvUUID: st.EnvironUUID(),
+						Id:      "0",
 					},
 				},
 				change: watcher.Change{
@@ -1296,12 +1305,14 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
+						EnvUUID:    st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Ports:      []network.Port{{"tcp", 4242}},
 						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
 					},
 					&multiwatcher.MachineInfo{
-						Id: "0",
+						EnvUUID: st.EnvironUUID(),
+						Id:      "0",
 					},
 				}}
 		},
@@ -2395,12 +2406,10 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	if id0.Kind != id1.Kind {
 		return id0.Kind < id1.Kind
 	}
-	switch id := id0.Id.(type) {
-	case string:
-		return id < id1.Id.(string)
-	default:
+	if id0.EnvUUID != id1.EnvUUID {
+		return id0.EnvUUID < id1.EnvUUID
 	}
-	panic("unexpected entity id type")
+	return id0.Id < id1.Id
 }
 
 func checkDeltasEqual(c *gc.C, d0, d1 []multiwatcher.Delta) {

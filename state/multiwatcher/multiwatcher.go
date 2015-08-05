@@ -32,8 +32,9 @@ type EntityInfo interface {
 }
 
 type EntityId struct {
-	Kind string
-	Id   interface{}
+	Kind    string
+	EnvUUID string
+	Id      string
 }
 
 // Delta holds details of a change to the environment.
@@ -140,8 +141,9 @@ type MachineInfo struct {
 
 func (i *MachineInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "machine",
-		Id:   i.Id,
+		Kind:    "machine",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
@@ -170,8 +172,9 @@ type ServiceInfo struct {
 
 func (i *ServiceInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "service",
-		Id:   i.Name,
+		Kind:    "service",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Name,
 	}
 }
 
@@ -198,8 +201,9 @@ type UnitInfo struct {
 
 func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "unit",
-		Id:   i.Name,
+		Kind:    "unit",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Name,
 	}
 }
 
@@ -219,8 +223,9 @@ type ActionInfo struct {
 
 func (i *ActionInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "action",
-		Id:   i.Id,
+		Kind:    "action",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
@@ -233,8 +238,9 @@ type RelationInfo struct {
 
 func (i *RelationInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "relation",
-		Id:   i.Key,
+		Kind:    "relation",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Key,
 	}
 }
 
@@ -246,8 +252,9 @@ type AnnotationInfo struct {
 
 func (i *AnnotationInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "annotation",
-		Id:   i.Tag,
+		Kind:    "annotation",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Tag,
 	}
 }
 
@@ -298,8 +305,9 @@ type BlockInfo struct {
 // EntityId returns block id.
 func (i *BlockInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "block",
-		Id:   i.Id,
+		Kind:    "block",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
