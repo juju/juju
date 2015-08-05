@@ -78,6 +78,7 @@ func (s *processesBaseSuite) TearDownTest(c *gc.C) {
 	if c.Failed() {
 		s.env.markFailure(c, s)
 	}
+	// TODO(ericsnow) Destroy all started services (if not failed).
 }
 
 type processesHookContextSuite struct {
