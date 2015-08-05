@@ -1575,6 +1575,7 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 		}
 		_, err := strconv.ParseInt(id, 10, 64)
 		if err == nil {
+			// _id will be automatically added by mongo upon insert.
 			delete(doc, "_id")
 			if err := writeableColl.Insert(doc); err != nil {
 				return errors.Annotate(err, "cannot insert replacement doc without sequential id")
@@ -1592,7 +1593,6 @@ func changeUpdatedType(st *State, collection string) error {
 	var docs []bson.M
 	coll, closer := st.getCollection(collection)
 	defer closer()
-
 	err := coll.Find(nil).All(&docs)
 	if errors.IsNotFound(err) {
 		return nil
@@ -1603,17 +1603,20 @@ func changeUpdatedType(st *State, collection string) error {
 
 	wColl := coll.Writeable()
 	for _, doc := range docs {
-		id := doc["_id"].(string)
+		_, okString := doc["_id"].(string)
+		_, okOid := doc["_id"].(bson.ObjectId)
+		if !okString && !okOid {
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+		id := doc["_id"]
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
-			if err := wColl.UpdateId(id, bson.M{"updated": updated.UTC().UnixNano()}); err != nil {
-				return errors.Annotatef(err, "cannot change %q updated from time to int64", id)
+			if err := wColl.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"updated": updated.UTC().UnixNano()}}); err != nil {
+				return errors.Annotatef(err, "cannot change %v updated from time to int64", doc["_id"])
 			}
-
 		}
 	}
 	return nil
-
 }
 
 // ChangeStatusHistoryEntityId renames entityId field to globalkey.
@@ -1635,15 +1638,17 @@ func changeStatusHistoryEntityId(st *State) error {
 		return errors.Annotate(err, "cannot get entity ids")
 	}
 	for _, doc := range docs {
-		id, ok := doc["_id"].(string)
-		if !ok {
+		_, okString := doc["_id"].(string)
+		_, okOid := doc["_id"].(bson.ObjectId)
+		if !okString && !okOid {
 			return errors.Errorf("unexpected id: %v", doc["_id"])
 		}
+		id := doc["_id"]
 		entityId, ok := doc["entityid"].(string)
 		if !ok {
 			return errors.Errorf("unexpected entity id: %v", doc["entityid"])
 		}
-		err := statusHistory.UpdateId(id, bson.M{
+		err := statusHistory.Update(bson.M{"_id": id}, bson.M{
 			"$set":   bson.M{"globalkey": entityId},
 			"$unset": bson.M{"entityid": nil}})
 		if err != nil {
