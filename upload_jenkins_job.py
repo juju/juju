@@ -143,16 +143,15 @@ class S3:
         self.bucket = bucket
 
     @classmethod
-    def factory(cls):
-        directory = '/comp-test'
+    def factory(cls, bucket, directory):
         access_key, secret_key = get_s3_access()
         conn = S3Connection(access_key, secret_key)
-        bucket = conn.get_bucket('juju-qa-data')
+        bucket = conn.get_bucket(bucket)
         return cls(directory, access_key, secret_key, conn, bucket)
 
     def store(self, filename, data, headers=None):
         """
-        Stores an object in S3
+        Stores an object in S3.
         :param filename: filename of the object
         :param data: The content to be stored in S3
         :rtype: bool
@@ -168,7 +167,7 @@ class S3:
 
 class HUploader:
     """
-    Uploads the result of Heterogeneous Control test to S3
+    Uploads the result of a Jenkins job to S3.
     """
 
     def __init__(self, s3, jenkins_build):
@@ -176,17 +175,18 @@ class HUploader:
         self.jenkins_build = jenkins_build
 
     @classmethod
-    def factory(cls, credentials, build_number=None):
+    def factory(cls, credentials, jenkins_job, build_number, bucket,
+                directory):
         """
         Creates HUploader.
         :param credentials: Jenkins credential
         :param build_number: Jenkins build number
         :rtype: HUploader
         """
-        s3 = S3.factory()
+        s3 = S3.factory(bucket, directory)
         build_number = int(build_number) if build_number else build_number
         jenkins_build = JenkinsBuild.factory(
-            credentials=credentials, job_name='compatibility-control',
+            credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
         return cls(s3, jenkins_build)
 
@@ -281,21 +281,27 @@ def get_s3_access():
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    add_credential_args(parser)
+    parser.add_argument('jenkins_job', help="Jenkins job name.")
     parser.add_argument(
-        '-b', '--build-number', type=int, default=None,
+        'build_number', type=int, default=None,
         help="Specify build number to upload")
+    parser.add_argument('s3_bucket', help="S3 bucket name to store files.")
+    parser.add_argument(
+        's3_directory',
+        help="Directory under the bucket name to store files.")
     parser.add_argument(
         '-a', '--all', action='store_true', default=False,
         help="Upload all test results")
     parser.add_argument(
         '-l', '--latest', action='store_true', default=False,
         help="Upload the latest test result.")
+    add_credential_args(parser)
     args = parser.parse_args()
     cred = get_credentials(args)
 
     uploader = HUploader.factory(
-        credentials=cred, build_number=args.build_number)
+        cred, args.jenkins_job, args.build_number, args.s3_bucket,
+        args.s3_directory)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         sys.exit(uploader.upload())
