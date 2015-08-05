@@ -178,7 +178,7 @@ type imagesMetadataDoc struct {
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 
-	// RootStorageSize contains size of root storage.
+	// RootStorageSize contains size of root storage in MB.
 	RootStorageSize uint64 `bson:"root_storage_size"`
 
 	// DateCreated is the date/time when this doc was created
