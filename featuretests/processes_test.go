@@ -41,6 +41,10 @@ func initProcessesSuites() {
 	if err != nil {
 		panic(err)
 	}
+	// TODO(ericsnow) Why is it necessary to check for root?
+	if u.Username == "root" {
+		return
+	}
 	userInfo = u
 	gc.Suite(&processesSuite{})
 }
