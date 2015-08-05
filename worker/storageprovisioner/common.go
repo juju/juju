@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"path/filepath"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -15,10 +14,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/registry"
 )
-
-// reattemptDelay is the amount of time to wait
-// before reattempting a failed operation.
-const reattemptDelay = 1 * time.Minute
 
 // storageEntityLife queries the lifecycle state of each specified
 // storage entity (volume or filesystem), and then partitions the
