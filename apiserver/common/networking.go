@@ -14,7 +14,8 @@ import (
 // stored persistently.
 //
 // TODO(dimitern): Once the state backing is implemented, remove this
-// and just use *state.Subnet.
+// and just use *state.Subnet. state.Subnet will need to grow a reference count
+// field and Status method.
 type BackingSubnet interface {
 	CIDR() (string, error)
 	VLANTag() (int, error)

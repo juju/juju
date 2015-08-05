@@ -47,7 +47,7 @@ type Subnet struct {
 	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
 
 	// Status returns the status of the subnet, whether it is in use, not
-	// in use or dead.
+	// in use or terminating.
 	Status string `json:"Status,omitempty"`
 }
 

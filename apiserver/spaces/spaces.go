@@ -93,6 +93,7 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
+// ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.SpaceListResults, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
 	spaces, err := api.backing.AllSpaces()
