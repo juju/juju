@@ -152,7 +152,7 @@ func timeBeforeOrEqual(timeBefore, timeOther time.Time) bool {
 }
 
 func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := time.Now()
 	err := s.agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.agent.Status()

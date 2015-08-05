@@ -48,6 +48,27 @@ func stateStepsFor124() []Step {
 				return migrateCharmStorage(context.State(), context.AgentConfig())
 			},
 		},
+		&upgradeStep{
+			description: "change entityid field on status history to globalkey",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusHistoryEntityId(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "change updated field on statushistory from time to int",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusHistoryUpdatedType(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "change updated field on status from time to int",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusUpdatedType(context.State())
+			},
+		},
 	}
 }
 

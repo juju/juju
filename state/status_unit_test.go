@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -109,7 +111,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := time.Now()
 	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.unit.Status()

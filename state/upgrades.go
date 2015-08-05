@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1583,11 +1584,36 @@ func AddMissingEnvUUIDOnStatuses(st *State) error {
 	return nil
 }
 
+// runForAllEnvStates will run runner function for every env passing a state
+// for that env.
+func runForAllEnvStates(st *State, runner func(st *State) error) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+		if err := runner(envSt); err != nil {
+			return errors.Annotatef(err, "environment UUID %q", envUUID)
+		}
+	}
+	return nil
+}
+
 // AddMissingServiceStatuses creates all service status documents that do
 // not already exist.
 func AddMissingServiceStatuses(st *State) error {
-	// TODO(fwereade): crazy, done for consistency.
-	now := nowToTheSecond()
+	now := time.Now()
 
 	environments, closer := st.getCollection(environmentsC)
 	defer closer()
@@ -1620,7 +1646,7 @@ func AddMissingServiceStatuses(st *State) error {
 					EnvUUID:    envSt.EnvironUUID(),
 					Status:     StatusUnknown,
 					StatusInfo: MessageWaitForAgentInit,
-					Updated:    &now,
+					Updated:    now.UnixNano(),
 					// This exists to preserve questionable unit-aggregation behaviour
 					// while we work out how to switch to an implementation that makes
 					// sense. It is also set in AddService.
@@ -1636,38 +1662,6 @@ func AddMissingServiceStatuses(st *State) error {
 			} else if err != nil {
 				return err
 			}
-		}
-	}
-	return nil
-}
-
-// AddStorageAttachmentCount adds storageInstanceDoc.AttachmentCount and
-// sets the right number to it.
-//func AddStorageAttachmentCount(st *State) error {
-//	return addAttachmentCount(st, storageInstancesC)
-//}
-
-// runForAllEnvStates will run runner function for every env passing a state
-// for that env.
-func runForAllEnvStates(st *State, runner func(st *State) error) error {
-	environments, closer := st.getCollection(environmentsC)
-	defer closer()
-
-	var envDocs []bson.M
-	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
-	if err != nil {
-		return errors.Annotate(err, "failed to read environments")
-	}
-
-	for _, envDoc := range envDocs {
-		envUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
-		if err != nil {
-			return errors.Annotatef(err, "failed to open environment %q", envUUID)
-		}
-		defer envSt.Close()
-		if err := runner(envSt); err != nil {
-			return errors.Annotatef(err, "environment UUID %q", envUUID)
 		}
 	}
 	return nil
@@ -1839,4 +1833,136 @@ func addBindingToFilesystems(st *State) error {
 // AddBindingToFilesystems adds the binding field to filesystemDoc and populates it.
 func AddBindingToFilesystems(st *State) error {
 	return runForAllEnvStates(st, addBindingToFilesystems)
+}
+
+// ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
+// whose updated attribute is a time and converts them to int64.
+func ChangeStatusHistoryUpdatedType(st *State) error {
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
+	run := func(st *State) error { return changeUpdatedType(st, statusesHistoryC) }
+	return runForAllEnvStates(st, run)
+}
+
+// ChangeStatusUpdatedType seeks for statusDoc records
+// whose updated attribute is a time and converts them to int64.
+func ChangeStatusUpdatedType(st *State) error {
+	run := func(st *State) error { return changeUpdatedType(st, statusesC) }
+	return runForAllEnvStates(st, run)
+}
+
+func changeIdsFromSeqToAuto(st *State) (err error) {
+	var (
+		docs []bson.M
+	)
+	rawColl, closer := st.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	coll, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+
+	// Filtering is done by hand because the ids we are trying to modify
+	// do not have uuid.
+	err = rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
+	}
+
+	writeableColl := coll.Writeable()
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			if _, isObjectId := doc["_id"].(bson.ObjectId); isObjectId {
+				continue
+			}
+
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+		_, err := strconv.ParseInt(id, 10, 64)
+		if err == nil {
+			// _id will be automatically added by mongo upon insert.
+			delete(doc, "_id")
+			if err := writeableColl.Insert(doc); err != nil {
+				return errors.Annotate(err, "cannot insert replacement doc without sequential id")
+			}
+			if err := rawColl.Remove(bson.M{"_id": id}); err != nil {
+				return errors.Annotatef(err, "cannot migrate %q ids from sequences, current id is: %s", statusesHistoryC, id)
+			}
+		}
+	}
+	return nil
+
+}
+
+func changeUpdatedType(st *State, collection string) error {
+	var docs []bson.M
+	coll, closer := st.getCollection(collection)
+	defer closer()
+	err := coll.Find(nil).All(&docs)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot find all docs for collection %q", collection)
+	}
+
+	wColl := coll.Writeable()
+	for _, doc := range docs {
+		_, okString := doc["_id"].(string)
+		_, okOid := doc["_id"].(bson.ObjectId)
+		if !okString && !okOid {
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+		id := doc["_id"]
+		updated, ok := doc["updated"].(time.Time)
+		if ok {
+			if err := wColl.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"updated": updated.UTC().UnixNano()}}); err != nil {
+				return errors.Annotatef(err, "cannot change %v updated from time to int64", id)
+			}
+		}
+	}
+	return nil
+}
+
+// ChangeStatusHistoryEntityId renames entityId field to globalkey.
+func ChangeStatusHistoryEntityId(st *State) error {
+	return runForAllEnvStates(st, changeStatusHistoryEntityId)
+}
+
+func changeStatusHistoryEntityId(st *State) error {
+	statusHistory, closer := st.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	var docs []bson.M
+	err := statusHistory.Find(bson.D{{
+		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "cannot get entity ids")
+	}
+	for _, doc := range docs {
+		_, okString := doc["_id"].(string)
+		_, okOid := doc["_id"].(bson.ObjectId)
+		if !okString && !okOid {
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+		id := doc["_id"]
+		entityId, ok := doc["entityid"].(string)
+		if !ok {
+			return errors.Errorf("unexpected entity id: %v", doc["entityid"])
+		}
+		err := statusHistory.Update(bson.M{"_id": id}, bson.M{
+			"$set":   bson.M{"globalkey": entityId},
+			"$unset": bson.M{"entityid": nil}})
+		if err != nil {
+			return errors.Annotatef(err, "cannot update %q entityid to globalkey", id)
+		}
+	}
+	return nil
 }
