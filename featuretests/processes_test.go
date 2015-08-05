@@ -48,7 +48,7 @@ type processesSuite struct {
 }
 
 func (s *processesSuite) SetUpSuite(c *gc.C) {
-	env := newProcsEnv(c, "local", "<local>")
+	env := newProcsEnv(c, "", "<local>")
 	env.bootstrap(c)
 	s.env = env
 }
@@ -371,6 +371,9 @@ func newProcsEnv(c *gc.C, envName, envType string) *procsEnviron {
 		if envType != "local" {
 			panic("not supported")
 		}
+	}
+	if envName == "" {
+		envName = envType
 	}
 	return &procsEnviron{
 		name:     envName,
