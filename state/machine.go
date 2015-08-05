@@ -1455,39 +1455,38 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (StatusInfo, error) {
-	doc, err := getStatus(m.st, m.globalKey())
-	if err != nil {
-		return StatusInfo{}, err
-	}
-	return StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    doc.StatusData,
-		Since:   doc.Updated,
-	}, nil
+	return getStatus(m.st, m.globalKey(), "machine")
 }
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	// If a machine is not yet provisioned, we allow its status
-	// to be set back to pending (when a retry is to occur).
-	_, err := m.InstanceId()
-	allowPending := errors.IsNotProvisioned(err)
-	doc, err := newMachineStatusDoc(status, info, data, allowPending)
-	if err != nil {
-		return err
+	switch status {
+	case StatusStarted, StatusStopped:
+	case StatusError:
+		if info == "" {
+			return errors.Errorf("cannot set status %q without info", status)
+		}
+	case StatusPending:
+		// If a machine is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		_, err := m.InstanceId()
+		allowPending := errors.IsNotProvisioned(err)
+		if allowPending {
+			break
+		}
+		fallthrough
+	case StatusDown:
+		return errors.Errorf("cannot set status %q", status)
+	default:
+		return errors.Errorf("cannot set invalid status %q", status)
 	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-	},
-		updateStatusOp(m.st, m.globalKey(), doc.statusDoc),
-	}
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
-	}
-	return nil
+	return setStatus(m.st, setStatusParams{
+		badge:     "machine",
+		globalKey: m.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -34,66 +33,47 @@ const (
 
 var (
 	logger = loggo.GetLogger("juju.apiserver.leadership")
-	// Begin injection-chain so we can instantiate leadership
-	// services. Exposed as variables so we can change the
-	// implementation for testing purposes.
-	leaseMgr  = lease.Manager()
-	leaderMgr = leadership.NewLeadershipManager(leaseMgr)
 )
 
 func init() {
-
 	common.RegisterStandardFacade(
 		FacadeName,
 		1,
-		NewLeadershipServiceFn(leaderMgr),
+		NewLeadershipServiceFacade,
 	)
 }
 
-// NewLeadershipServiceFn returns a function which can construct a
-// LeadershipService when passed a state, resources, and authorizer.
-// This function signature conforms to Juju's required API server
-// signature.
-func NewLeadershipServiceFn(
-	claimer leadership.Claimer,
-) func(*state.State, *common.Resources, common.Authorizer) (LeadershipService, error) {
-	return func(
-		state *state.State,
-		resources *common.Resources,
-		authorizer common.Authorizer,
-	) (LeadershipService, error) {
-		return NewLeadershipService(state, resources, authorizer, claimer)
-	}
+// NewLeadershipServiceFacade constructs a new LeadershipService and presents
+// a signature that can be used with RegisterStandardFacade.
+func NewLeadershipServiceFacade(
+	state *state.State, resources *common.Resources, authorizer common.Authorizer,
+) (LeadershipService, error) {
+	return NewLeadershipService(state.LeadershipClaimer(), authorizer)
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	state *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-	claimer leadership.Claimer,
+	claimer leadership.Claimer, authorizer common.Authorizer,
 ) (LeadershipService, error) {
 
 	if !authorizer.AuthUnitAgent() {
-		return nil, common.ErrPerm
+		return nil, errors.Unauthorizedf("permission denied")
 	}
 
 	return &leadershipService{
-		state:      state,
-		authorizer: authorizer,
 		claimer:    claimer,
+		authorizer: authorizer,
 	}, nil
 }
 
 // leadershipService implements the LeadershipService interface and
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
-	state      *state.State
-	authorizer common.Authorizer
 	claimer    leadership.Claimer
+	authorizer common.Authorizer
 }
 
-// ClaimLeadership implements the LeadershipService interface.
+// ClaimLeadership is part of the LeadershipService interface.
 func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
 	results := make([]params.ErrorResult, len(args.Params))
@@ -113,8 +93,8 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
-		// claim leadership for themselves.
-		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
+		// claim leadership for themselves, for their own service.
+		if !m.authorizer.AuthOwner(unitTag) || !m.authMember(serviceTag) {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -130,7 +110,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
 func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (params.ErrorResult, error) {
-	if !m.authorizer.AuthUnitAgent() {
+	if !m.authMember(serviceTag) {
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
@@ -138,6 +118,20 @@ func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.Servic
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
+}
+
+func (m *leadershipService) authMember(serviceTag names.ServiceTag) bool {
+	ownerTag := m.authorizer.GetAuthTag()
+	unitTag, ok := ownerTag.(names.UnitTag)
+	if !ok {
+		return false
+	}
+	unitId := unitTag.Id()
+	requireServiceId, err := names.UnitService(unitId)
+	if err != nil {
+		return false
+	}
+	return serviceTag.Id() == requireServiceId
 }
 
 // parseServiceAndUnitTags takes in string representations of service

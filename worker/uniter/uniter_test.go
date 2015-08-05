@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
@@ -44,6 +45,8 @@ type UniterSuite struct {
 }
 
 var _ = gc.Suite(&UniterSuite{})
+
+var leaseClock *coretesting.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -66,6 +69,16 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
+
+	zone, err := time.LoadLocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
+	leaseClock = coretesting.NewClock(now)
+	oldGetClock := state.GetClock
+	state.GetClock = func() lease.Clock {
+		return leaseClock
+	}
+	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
@@ -2090,7 +2103,7 @@ func (s *UniterSuite) TestLeadership(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
-	s.PatchValue(uniter.LeadershipGuarantee, coretesting.ShortWait)
+	s.PatchValue(uniter.LeadershipGuarantee, 2*coretesting.ShortWait)
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			// NOTE: this is a strange and ugly test, intended to detect what

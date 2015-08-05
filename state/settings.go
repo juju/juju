@@ -271,10 +271,6 @@ func (st *State) ReadSettings(key string) (*Settings, error) {
 	return readSettings(st, key)
 }
 
-func (st *State) ReadLeadershipSettings(serviceId string) (*Settings, error) {
-	return readSettings(st, leadershipSettingsDocId(serviceId))
-}
-
 // readSettings returns the Settings for key.
 func readSettings(st *State, key string) (*Settings, error) {
 	s := newSettings(st, key)

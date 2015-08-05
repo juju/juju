@@ -1376,6 +1376,13 @@ func (s *Service) Watch() NotifyWatcher {
 	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
 }
 
+// WatchLeaderSettings returns a watcher for observing changed to a service's
+// leader settings.
+func (s *Service) WatchLeaderSettings() NotifyWatcher {
+	docId := s.st.docID(leadershipSettingsDocId(s.Name()))
+	return newEntityWatcher(s.st, settingsC, docId)
+}
+
 // Watch returns a watcher for observing changes to a unit.
 func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
@@ -2574,76 +2581,6 @@ func (w *rebootWatcher) loop() error {
 		case out <- struct{}{}:
 			out = nil
 
-		}
-	}
-}
-
-// WatchLeadershipSettings returns a LeadershipSettingsWatcher for
-// watching -- wait for it -- leadership settings.
-func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWatcher {
-	return NewLeadershipSettingsWatcher(st, leadershipSettingsDocId(serviceId))
-}
-
-// NewLeadershipSettingsWatcher returns a new
-// LeadershipSettingsWatcher.
-func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
-
-	w := &LeadershipSettingsWatcher{
-		commonWatcher: commonWatcher{st: state},
-		out:           make(chan struct{}),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop(key))
-	}()
-	return w
-}
-
-// LeadershipSettingsWatcher provides a type that can watch settings
-// for a provided key.
-type LeadershipSettingsWatcher struct {
-	commonWatcher
-
-	out chan struct{}
-}
-
-var _ NotifyWatcher = (*LeadershipSettingsWatcher)(nil)
-
-// Changes implements NotifyWatcher.
-func (w *LeadershipSettingsWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *LeadershipSettingsWatcher) loop(key string) (err error) {
-	ch := make(chan watcher.Change)
-	revno := int64(-1)
-	settings, err := readSettings(w.st, key)
-	if err == nil {
-		revno = settings.txnRevno
-	} else if !errors.IsNotFound(err) {
-		return err
-	}
-	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
-	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
-	out := w.out
-	if revno == -1 {
-		out = nil
-	}
-	for {
-		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-ch:
-			settings, err = readSettings(w.st, key)
-			if err != nil {
-				return err
-			}
-			out = w.out
-		case out <- struct{}{}:
-			out = nil
 		}
 	}
 }

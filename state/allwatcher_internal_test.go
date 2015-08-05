@@ -856,6 +856,11 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						Life:     multiwatcher.Life("alive"),
 						MinUnits: 42,
 						Config:   charm.Settings{},
+						Status: multiwatcher.StatusInfo{
+							Current: "unknown",
+							Message: "Waiting for agent initialization to finish",
+							Data:    map[string]interface{}{},
+						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {

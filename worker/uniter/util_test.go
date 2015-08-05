@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -83,7 +82,7 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
-	leader                 *leadership.Manager
+	leaderClaimer          leadership.Claimer
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -127,14 +126,6 @@ func (ctx *context) setExpectedError(err string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	lease, err := lease.NewLeaseManager(ctx.st)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		lease.Kill()
-		c.Assert(lease.Wait(), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -162,7 +153,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.api, err = st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
-	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
+	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -482,7 +473,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	uniterParams := uniter.UniterParams{
 		St:                ctx.api,
 		UnitTag:           tag,
-		LeadershipClaimer: ctx.leader,
+		LeadershipClaimer: ctx.leaderClaimer,
 		DataDir:           ctx.dataDir,
 		HookLock:          lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
@@ -1534,17 +1525,18 @@ func (forceMinion) step(c *gc.C, ctx *context) {
 	// TODO(fwereade): this is designed to work when the uniter is still running,
 	// which is... unexpected, because the uniter's running a tracker that will
 	// do its best to maintain leadership. But... it's possible for us to make it
-	// resign by going via the lease manager directly, and we can be confident
+	// resign by manipulating the lease clock directly, and we can be confident
 	// that the uniter's tracker *will* see the problem when it fails to renew.
 	// This lets us test the uniter's behaviour under bizarre/adverse conditions
 	// (in addition to working just fine when the uniter's not running).
 	for i := 0; i < 3; i++ {
 		c.Logf("deposing local unit (attempt %d)", i)
-		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		leaseClock.Advance(61 * time.Second)
+		time.Sleep(coretesting.ShortWait)
 		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), otherLeader, time.Minute)
 		if err == nil {
+			ctx.s.BackingState.StartSync()
 			return
 		} else if errors.Cause(err) != leadership.ErrClaimDenied {
 			c.Assert(err, jc.ErrorIsNil)
@@ -1557,11 +1549,12 @@ type forceLeader struct{}
 
 func (forceLeader) step(c *gc.C, ctx *context) {
 	c.Logf("deposing other unit")
-	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
-	c.Assert(err, jc.ErrorIsNil)
+	leaseClock.Advance(61 * time.Second)
+	time.Sleep(coretesting.ShortWait)
 	c.Logf("promoting local unit")
-	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	err := ctx.leaderClaimer.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
 }
 
 type setLeaderSettings map[string]string
@@ -1569,22 +1562,21 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	for key := range settings.Map() {
-		settings.Delete(key)
-	}
-	for key, value := range s {
-		settings.Set(key, value)
-	}
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
+}
+
+type successToken struct{}
+
+func (successToken) Check(interface{}) error {
+	return nil
 }
 
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
+	actual, err := ctx.svc.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }

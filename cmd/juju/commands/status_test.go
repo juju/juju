@@ -213,14 +213,22 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"service-status": M{},
-		"charm":          "cs:quantal/dummy-1",
-		"exposed":        false,
+		"service-status": M{
+			"current": "unknown",
+			"message": "Waiting for agent initialization to finish",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"charm":   "cs:quantal/dummy-1",
+		"exposed": false,
 	}
 	exposedService = M{
-		"service-status": M{},
-		"charm":          "cs:quantal/dummy-1",
-		"exposed":        true,
+		"service-status": M{
+			"current": "unknown",
+			"message": "Waiting for agent initialization to finish",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"charm":   "cs:quantal/dummy-1",
+		"exposed": true,
 	}
 )
 
@@ -357,18 +365,26 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"networks-service": M{
-						"service-status": M{},
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
 						"networks": M{
 							"enabled":  L{"net1", "net2"},
 							"disabled": L{"foo", "bar", "no", "good"},
 						},
 					},
 					"no-networks-service": M{
-						"service-status": M{},
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
 						"networks": M{
 							"disabled": L{"mynet"},
 						},

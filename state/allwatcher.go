@@ -45,12 +45,12 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated machine status.
-		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
+		statusInfo, err := getStatus(st, machineGlobalKey(m.Id), "machine")
 		if err != nil {
 			return err
 		}
-		info.Status = multiwatcher.Status(sdoc.Status)
-		info.StatusInfo = sdoc.StatusInfo
+		info.Status = multiwatcher.Status(statusInfo.Status)
+		info.StatusInfo = statusInfo.Message
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
@@ -495,11 +495,11 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo := *info
 		// Get the unit's current recorded status from state.
 		// It's needed to reset the unit status when a unit comes off error.
-		sdoc, err := getStatus(st, unitGlobalKey(newInfo.Name))
+		statusInfo, err := getStatus(st, unitGlobalKey(newInfo.Name), "unit")
 		if err != nil {
 			return err
 		}
-		if err := s.updatedUnitStatus(st, store, id, sdoc, &newInfo); err != nil {
+		if err := s.updatedUnitStatus(st, store, id, statusInfo, &newInfo); err != nil {
 			return err
 		}
 		info0 = &newInfo
@@ -523,7 +523,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 	return nil
 }
 
-func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus statusDoc, newInfo *multiwatcher.UnitInfo) error {
+func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus StatusInfo, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
@@ -539,8 +539,8 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
 			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
-			newInfo.WorkloadStatus.Message = unitStatus.StatusInfo
-			newInfo.WorkloadStatus.Data = unitStatus.StatusData
+			newInfo.WorkloadStatus.Message = unitStatus.Message
+			newInfo.WorkloadStatus.Data = unitStatus.Data
 			newInfo.WorkloadStatus.Since = s.Updated
 		}
 	}
