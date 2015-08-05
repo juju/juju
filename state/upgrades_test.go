@@ -3892,7 +3892,8 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
 	c.Assert(docs, gc.HasLen, 4)
 
-	ChangeStatusHistoryEntityId(s.state)
+	err = ChangeStatusHistoryEntityId(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = sHistory.Find(bson.D{{
 		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
