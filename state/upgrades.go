@@ -1571,6 +1571,10 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 	for _, doc := range docs {
 		id, ok := doc["_id"].(string)
 		if !ok {
+			if _, isObjectId := doc["_id"].(bson.ObjectId); isObjectId {
+				continue
+			}
+
 			return errors.Errorf("unexpected id: %v", doc["_id"])
 		}
 		_, err := strconv.ParseInt(id, 10, 64)
