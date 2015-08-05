@@ -37,11 +37,17 @@ func initProcessesSuites() {
 		panic(err)
 	}
 
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	userInfo = u
 	gc.Suite(&processesSuite{})
 }
 
 var (
-	repoDir = testcharms.Repo.Path()
+	repoDir  = testcharms.Repo.Path()
+	userInfo *user.User
 )
 
 type processesSuite struct {
@@ -410,8 +416,6 @@ func (env *procsEnviron) ensureOSEnv(c *gc.C) {
 			env.writeConfig(c)
 			homedir = tempHomedir
 		} else {
-			userInfo, err := user.Current()
-			c.Assert(err, jc.ErrorIsNil)
 			homedir = userInfo.HomeDir
 		}
 	}
