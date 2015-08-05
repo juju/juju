@@ -94,13 +94,14 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 }
 
 // FindMetadata implements Storage.FindMetadata.
+// Results are sorted by date created.
 func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
 	coll, closer := s.getCollection(s.collection)
 	defer closer()
 
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
-	if err := coll.Find(searchCriteria).All(&docs); err != nil {
+	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(docs) == 0 {
@@ -182,7 +183,7 @@ type imagesMetadataDoc struct {
 	RootStorageSize string `bson:"root_storage_size,omitempty"`
 
 	// DateCreated is the date/time when this doc was created
-	DateCreated time.Time `bson:"datecreated"`
+	DateCreated time.Time `bson:"date_created"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
