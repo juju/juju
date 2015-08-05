@@ -93,12 +93,12 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
-func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
-	results := params.SpaceListResults{}
+func (api *spacesAPI) ListSpaces() (results params.SpaceListResults, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		results.Error = common.ServerError(err)
-		return results, errors.Annotate(err, "cannot list spaces")
+		return results, err
 	}
 	for _, space := range spaces {
 		result := params.SpaceListResult{}
@@ -106,33 +106,33 @@ func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
 		subnets, err := space.Subnets()
 		if err != nil {
 			results.Error = common.ServerError(err)
-			return results, errors.Annotate(err, "cannot list spaces")
+			return results, err
 		}
 		for _, subnet := range subnets {
 			cidr, err := subnet.CIDR()
 			if err != nil {
 				results.Error = common.ServerError(err)
-				return results, errors.Annotate(err, "cannot list spaces")
+				return results, err
 			}
 			vlantag, err := subnet.VLANTag()
 			if err != nil {
 				results.Error = common.ServerError(err)
-				return results, errors.Annotate(err, "cannot list spaces")
+				return results, err
 			}
 			providerid, err := subnet.ProviderId()
 			if err != nil {
 				results.Error = common.ServerError(err)
-				return results, errors.Annotate(err, "cannot list spaces")
+				return results, err
 			}
 			zones, err := subnet.AvailabilityZones()
 			if err != nil {
 				results.Error = common.ServerError(err)
-				return results, errors.Annotate(err, "cannot list spaces")
+				return results, err
 			}
 			status, err := subnet.Status()
 			if err != nil {
 				results.Error = common.ServerError(err)
-				return results, errors.Annotate(err, "cannot list spaces")
+				return results, err
 			}
 
 			result.Subnets = append(result.Subnets,
