@@ -24,20 +24,25 @@ class LPCopyPackagesTestCase(TestCase):
         self.assertFalse(args.dry_run)
 
     def test_get_args_with_credentials(self):
-        args = get_args(['-c', 'my.creds', '1.2.3', 'proposed'])
+        args = get_args(['-c', '~/my.creds', '1.2.3', 'proposed'])
         self.assertEqual('1.2.3', args.version)
         self.assertEqual('proposed', args.to_archive_name)
-        self.assertEqual(os.path.expanduser('my.creds'), args.credentials)
+        self.assertEqual(os.path.expanduser('~/my.creds'), args.credentials)
         self.assertFalse(args.dry_run)
 
     def test_main(self):
+        lp = Mock()
         with patch('lp_copy_packages.copy_packages', autospec=True,
                    return_value=0) as cp_mock:
-            return_code = main(['1.2.3', 'proposed'])
+            # Cannot autospec staticmethods.
+            with patch.object(Launchpad, 'login_with',
+                              return_value=lp) as lw_mock:
+                return_code = main(['-c', 'my.creds', '1.2.3', 'proposed'])
         self.assertEqual(0, return_code)
-        args, kwargs = cp_mock.call_args
-        self.assertIsInstance(args[0], Launchpad)
-        self.assertEqual(('1.2.3', 'proposed', False), args[1:])
+        cp_mock.assert_called_with(lp, '1.2.3', 'proposed', False)
+        lw_mock.assert_called_with(
+            'lp-copy-packages', service_root='https://api.launchpad.net',
+            version='devel', credentials_file='my.creds')
 
     def test_get_archives_devel(self):
         from_team_mock = Mock(getPPAByName=Mock())

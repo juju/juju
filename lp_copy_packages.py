@@ -95,7 +95,7 @@ def main(argv=None):
     args = get_args(argv)
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
-        version='devel')
+        version='devel', credentials_file=args.credentials)
     ret_code = copy_packages(
         lp, args.version, args.to_archive_name, args.dry_run)
     return ret_code
