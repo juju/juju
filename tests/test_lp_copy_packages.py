@@ -1,7 +1,11 @@
-from mock import patch
+from mock import (
+    Mock,
+    patch
+)
 from unittest import TestCase
 
 from lp_copy_packages import (
+    get_archives,
     get_args,
     Launchpad,
     main,
@@ -24,3 +28,14 @@ class LPCopyPackagesTestCase(TestCase):
         args, kwargs = cp_mock.call_args
         self.assertIsInstance(args[0], Launchpad)
         self.assertEqual(('1.2.3', 'proposed', False), args[1:])
+
+    def test_get_archives(self):
+        from_team_mock = Mock(getPPAByName=Mock())
+        to_team_mock = Mock(getPPAByName=Mock())
+        lp = Mock()
+        lp.people = {'juju-packaging': from_team_mock, 'juju': to_team_mock}
+        from_archive, to_archive = get_archives(lp, 'proposed')
+        self.assertIsInstance(from_archive, Mock)
+        self.assertIsInstance(to_archive, Mock)
+        from_team_mock.getPPAByName.assert_called_with(name='stable')
+        to_team_mock.getPPAByName.assert_called_with(name='proposed')
