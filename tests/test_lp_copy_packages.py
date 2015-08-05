@@ -29,13 +29,31 @@ class LPCopyPackagesTestCase(TestCase):
         self.assertIsInstance(args[0], Launchpad)
         self.assertEqual(('1.2.3', 'proposed', False), args[1:])
 
-    def test_get_archives(self):
+    def test_get_archives_devel(self):
+        from_team_mock = Mock(getPPAByName=Mock())
+        to_team_mock = Mock(getPPAByName=Mock())
+        lp = Mock()
+        lp.people = {'juju-packaging': from_team_mock, 'juju': to_team_mock}
+        # juju-packaging devel to juju devel
+        from_archive, to_archive = get_archives(lp, 'devel')
+        self.assertIsInstance(from_archive, Mock)
+        self.assertIsInstance(to_archive, Mock)
+        from_team_mock.getPPAByName.assert_called_with(name='devel')
+        to_team_mock.getPPAByName.assert_called_with(name='devel')
+
+    def test_get_archives_proposed(self):
         from_team_mock = Mock(getPPAByName=Mock())
         to_team_mock = Mock(getPPAByName=Mock())
         lp = Mock()
         lp.people = {'juju-packaging': from_team_mock, 'juju': to_team_mock}
         from_archive, to_archive = get_archives(lp, 'proposed')
-        self.assertIsInstance(from_archive, Mock)
-        self.assertIsInstance(to_archive, Mock)
         from_team_mock.getPPAByName.assert_called_with(name='stable')
         to_team_mock.getPPAByName.assert_called_with(name='proposed')
+
+    def test_get_archives_stable(self):
+        from_team_mock = Mock(getPPAByName=Mock())
+        lp = Mock()
+        lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
+        from_archive, to_archive = get_archives(lp, 'stable')
+        from_team_mock.getPPAByName.assert_called_with_any(name='proposed')
+        from_team_mock.getPPAByName.assert_called_with(name='stable')
