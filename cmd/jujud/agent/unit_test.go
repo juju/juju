@@ -21,7 +21,6 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -252,7 +252,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	s.RunTestOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }
 
-func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
+func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd apicaller.Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -262,7 +262,7 @@ func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd
 
 	// Check that it starts initially and changes the password
 	assertOpen := func(conf agent.Config) {
-		st, gotEnt, err := OpenAPIState(conf, agentCmd)
+		st, gotEnt, err := apicaller.OpenAPIState(conf, agentCmd)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
@@ -285,7 +285,7 @@ func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
-	_, _, err := OpenAPIState(conf, nil)
+	_, _, err := apicaller.OpenAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -305,7 +305,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
+	_, _, err = apicaller.OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -323,7 +323,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 
 func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.PatchValue(&rsyslog.NewRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})

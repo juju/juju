@@ -32,7 +32,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.Stub = testing.Stub{}
 	s.manifold = leadership.Manifold(leadership.ManifoldConfig{
 		AgentName:           "agent-name",
-		ApiCallerName:       "api-caller-name",
+		APICallerName:       "api-caller-name",
 		LeadershipGuarantee: 123456 * time.Millisecond,
 	})
 }

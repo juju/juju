@@ -6,9 +6,9 @@ package agent
 import (
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
@@ -17,20 +17,17 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+<<<<<<< HEAD
 	"github.com/juju/juju/api/leadership"
+=======
+	"github.com/juju/juju/cmd/jujud/agent/unit"
+>>>>>>> dropped filter manifold (not a shared resource); added uniter manifold; uniter now gets leadership tracker as a resource from manifold, does not create its own; moved APIOpen funcs from cmd/jujud/agent to worker/agent; s/Api/API/ in some field names for consistency
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apiaddressupdater"
-	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/rsyslog"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 var (
@@ -138,6 +135,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 }
 
 func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
+<<<<<<< HEAD
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	hookLock, err := cmdutil.HookExecutionLock(dataDir)
@@ -179,8 +177,17 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		if err != nil {
 			logger.Warningf("unable to save environment uuid: %v", err)
 			// Not really fatal, just annoying.
+=======
+	manifolds := unit.Manifolds(a, a.bufferedLogs)
+	engine := dependency.NewEngine(cmdutil.IsFatal, 3*time.Second, 10*time.Millisecond)
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+>>>>>>> dropped filter manifold (not a shared resource); added uniter manifold; uniter now gets leadership tracker as a resource from manifold, does not create its own; moved APIOpen funcs from cmd/jujud/agent to worker/agent; s/Api/API/ in some field names for consistency
 		}
+		return nil, err
 	}
+<<<<<<< HEAD
 
 	unitTag, err := names.ParseUnitTag(entity.Tag())
 	if err != nil {
@@ -240,6 +247,9 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		})
 	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
+=======
+	return engine, nil
+>>>>>>> dropped filter manifold (not a shared resource); added uniter manifold; uniter now gets leadership tracker as a resource from manifold, does not create its own; moved APIOpen funcs from cmd/jujud/agent to worker/agent; s/Api/API/ in some field names for consistency
 }
 
 func (a *UnitAgent) Tag() names.Tag {

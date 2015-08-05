@@ -4,9 +4,12 @@
 package rsyslog
 
 import (
+	"github.com/juju/utils/featureflag"
+
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -29,6 +32,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // package factory function -- as part of the manifold -- and all tests should
 // thus be routed through it.
 var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+
+	if featureflag.Enabled(feature.DisableRsyslog) {
+		logger.Warningf("rsyslog config manifold disabled by feature flag")
+		return nil, dependency.ErrMissing
+	}
+
 	agentConfig := agent.CurrentConfig()
 	tag := agentConfig.Tag()
 	namespace := agentConfig.Value(coreagent.Namespace)
