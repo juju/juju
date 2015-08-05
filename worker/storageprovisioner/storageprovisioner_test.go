@@ -150,11 +150,11 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 	// mockFunc's After will progress the current time by the specified
 	// duration and signal the channel immediately.
 	clock := &mockClock{}
+	var createVolumeTimes []time.Time
 
-	var createVolumesCalls int
 	s.provider.createVolumesFunc = func(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
-		createVolumesCalls++
-		if createVolumesCalls == 1 {
+		createVolumeTimes = append(createVolumeTimes, clock.Now())
+		if len(createVolumeTimes) < 10 {
 			return []storage.CreateVolumesResult{{Error: errors.New("badness")}}, nil
 		}
 		return []storage.CreateVolumesResult{{
@@ -173,7 +173,95 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
-	c.Assert(createVolumesCalls, gc.Equals, 2)
+	c.Assert(createVolumeTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(createVolumeTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(createVolumeTimes)-1)
+	for i := range createVolumeTimes[1:] {
+		delays[i] = createVolumeTimes[i+1].Sub(createVolumeTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+}
+
+func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
+	volumeInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return make([]params.ErrorResult, len(volumes)), nil
+	}
+	volumeAttachmentInfoSet := make(chan interface{})
+	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+		defer close(volumeAttachmentInfoSet)
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var attachVolumeTimes []time.Time
+
+	s.provider.attachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+		attachVolumeTimes = append(attachVolumeTimes, clock.Now())
+		if len(attachVolumeTimes) < 10 {
+			return []storage.AttachVolumesResult{{Error: errors.New("badness")}}, nil
+		}
+		return []storage.AttachVolumesResult{{
+			VolumeAttachment: &storage.VolumeAttachment{
+				args[0].Volume,
+				args[0].Machine,
+				storage.VolumeAttachmentInfo{
+					DeviceName: "/dev/sda1",
+				},
+			},
+		}}, nil
+	}
+
+	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
+	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
+	c.Assert(attachVolumeTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(attachVolumeTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(attachVolumeTimes)-1)
+	for i := range attachVolumeTimes[1:] {
+		delays[i] = attachVolumeTimes[i+1].Sub(attachVolumeTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
 }
 
 func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {

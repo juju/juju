@@ -452,6 +452,7 @@ type dummyProvider struct {
 	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
 	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
 	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
 	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
 	destroyVolumesFunc    func([]string) ([]error, error)
@@ -526,7 +527,11 @@ func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 }
 
 // AttachVolumes attaches volumes to machines.
-func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	if s.provider != nil && s.provider.attachVolumesFunc != nil {
+		return s.provider.attachVolumesFunc(params)
+	}
+
 	results := make([]storage.AttachVolumesResult, len(params))
 	for i, p := range params {
 		if p.VolumeId == "" {

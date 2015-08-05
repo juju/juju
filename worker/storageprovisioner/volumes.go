@@ -124,7 +124,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 		ctx.incompleteVolumeParams[params.Tag] = params
 	} else {
 		delete(ctx.incompleteVolumeParams, params.Tag)
-		ctx.schedule.addVolume(params, ctx.time.Now())
+		scheduleOperations(ctx, &createVolumeOp{args: params})
 	}
 }
 
@@ -132,7 +132,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 // incomplete set and/or the schedule if it exists there.
 func removePendingVolume(ctx *context, tag names.VolumeTag) {
 	delete(ctx.incompleteVolumeParams, tag)
-	ctx.schedule.removeVolume(tag)
+	ctx.schedule.Remove(tag)
 }
 
 // updatePendingVolumeAttachment adds the given volume attachment params to
@@ -148,7 +148,7 @@ func updatePendingVolumeAttachment(
 		watchMachine(ctx, params.Machine)
 	} else if params.VolumeId != "" {
 		delete(ctx.incompleteVolumeAttachmentParams, id)
-		ctx.schedule.addVolumeAttachment(params, ctx.time.Now())
+		scheduleOperations(ctx, &attachVolumeOp{args: params})
 		return
 	}
 	ctx.incompleteVolumeAttachmentParams[id] = params
@@ -159,7 +159,7 @@ func updatePendingVolumeAttachment(
 // there.
 func removePendingVolumeAttachment(ctx *context, id params.MachineStorageId) {
 	delete(ctx.incompleteVolumeAttachmentParams, id)
-	ctx.schedule.removeVolumeAttachment(id)
+	ctx.schedule.Remove(id)
 }
 
 // processDeadVolumes processes the VolumeResults for Dead volumes,
@@ -376,13 +376,18 @@ func volumeAttachmentParams(
 }
 
 // createVolumes creates volumes with the specified parameters.
-func createVolumes(ctx *context, volumeParams []storage.VolumeParams) error {
+func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error {
+	volumeParams := make([]storage.VolumeParams, 0, len(ops))
+	for _, op := range ops {
+		volumeParams = append(volumeParams, op.args)
+	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
 		ctx.environConfig, ctx.storageDir, volumeParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var reschedule []scheduleOp
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	for sourceName, volumeParams := range paramsBySource {
@@ -401,9 +406,7 @@ func createVolumes(ctx *context, volumeParams []storage.VolumeParams) error {
 					result.Error,
 				)
 				// Reschedule the volume creation.
-				// TODO(axw) exponential delay.
-				when := ctx.time.Now().Add(reattemptDelay)
-				ctx.schedule.addVolume(volumeParams[i], when)
+				reschedule = append(reschedule, ops[volumeParams[i].Tag])
 				continue
 			}
 			volumes = append(volumes, *result.Volume)
@@ -411,6 +414,9 @@ func createVolumes(ctx *context, volumeParams []storage.VolumeParams) error {
 				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 			}
 		}
+	}
+	if len(reschedule) > 0 {
+		scheduleOperations(ctx, reschedule...)
 	}
 	if len(volumes) == 0 {
 		return nil
@@ -448,33 +454,44 @@ func createVolumes(ctx *context, volumeParams []storage.VolumeParams) error {
 }
 
 // createVolumeAttachments creates volume attachments with the specified parameters.
-func createVolumeAttachments(ctx *context, params []storage.VolumeAttachmentParams) error {
+func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp) error {
+	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
+	for _, op := range ops {
+		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
+	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, params,
+		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var reschedule []scheduleOp
 	var volumeAttachments []storage.VolumeAttachment
-	for sourceName, params := range paramsBySource {
-		logger.Debugf("attaching volumes: %+v", params)
+	for sourceName, volumeAttachmentParams := range paramsBySource {
+		logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
-		results, err := volumeSource.AttachVolumes(params)
+		results, err := volumeSource.AttachVolumes(volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
 		for i, result := range results {
 			if result.Error != nil {
+				p := volumeAttachmentParams[i]
 				// TODO(axw) record the error in the volume's status.
 				logger.Errorf("attaching volume: %v", result.Error)
 				// Reschedule the volume attachment.
-				// TODO(axw) exponential delay.
-				when := ctx.time.Now().Add(reattemptDelay)
-				ctx.schedule.addVolumeAttachment(params[i], when)
+				id := params.MachineStorageId{
+					MachineTag:    p.Machine.String(),
+					AttachmentTag: p.Volume.String(),
+				}
+				reschedule = append(reschedule, ops[id])
 				continue
 			}
 			volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 		}
+	}
+	if len(reschedule) > 0 {
+		scheduleOperations(ctx, reschedule...)
 	}
 	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
 		return errors.Trace(err)
@@ -777,4 +794,25 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 		Volume:   volumeTag,
 		VolumeId: in.VolumeId,
 	}, nil
+}
+
+type createVolumeOp struct {
+	exponentialBackoff
+	args storage.VolumeParams
+}
+
+func (op *createVolumeOp) key() interface{} {
+	return op.args.Tag
+}
+
+type attachVolumeOp struct {
+	exponentialBackoff
+	args storage.VolumeAttachmentParams
+}
+
+func (op *attachVolumeOp) key() interface{} {
+	return params.MachineStorageId{
+		MachineTag:    op.args.Machine.String(),
+		AttachmentTag: op.args.Volume.String(),
+	}
 }

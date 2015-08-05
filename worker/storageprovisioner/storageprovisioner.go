@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 
 var logger = loggo.GetLogger("juju.worker.storageprovisioner")
@@ -279,7 +280,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAttachments:             make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		machines:                          make(map[names.MachineTag]*machineWatcher),
 		machineChanges:                    machineChanges,
-		schedule:                          newSchedule(w.clock),
+		schedule:                          schedule.NewSchedule(w.clock),
 		pendingVolumeBlockDevices:         make(set.Tags),
 		incompleteVolumeParams:            make(map[names.VolumeTag]storage.VolumeParams),
 		incompleteVolumeAttachmentParams:  make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
@@ -360,7 +361,7 @@ func (w *storageprovisioner) loop() error {
 			if err := refreshMachine(&ctx, machineTag); err != nil {
 				return errors.Trace(err)
 			}
-		case <-ctx.schedule.next():
+		case <-ctx.schedule.Next():
 			// Ready to pick something(s) off the pending queue.
 			if err := processSchedule(&ctx); err != nil {
 				return errors.Trace(err)
@@ -390,14 +391,26 @@ func processPending(ctx *context) error {
 
 // processSchedule executes scheduled operations.
 func processSchedule(ctx *context) error {
-	volumes, volumeAttachments := ctx.schedule.ready(ctx.time.Now())
-	if len(volumes) > 0 {
-		if err := createVolumes(ctx, volumes); err != nil {
+	ready := ctx.schedule.Ready(ctx.time.Now())
+	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
+	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
+	for _, item := range ready {
+		op := item.(scheduleOp)
+		key := op.key()
+		switch op := op.(type) {
+		case *createVolumeOp:
+			createVolumeOps[key.(names.VolumeTag)] = op
+		case *attachVolumeOp:
+			attachVolumeOps[key.(params.MachineStorageId)] = op
+		}
+	}
+	if len(createVolumeOps) > 0 {
+		if err := createVolumes(ctx, createVolumeOps); err != nil {
 			return errors.Annotate(err, "creating volumes")
 		}
 	}
-	if len(volumeAttachments) > 0 {
-		if err := createVolumeAttachments(ctx, volumeAttachments); err != nil {
+	if len(attachVolumeOps) > 0 {
+		if err := createVolumeAttachments(ctx, attachVolumeOps); err != nil {
 			return errors.Annotate(err, "creating volume attachments")
 		}
 	}
@@ -445,7 +458,7 @@ type context struct {
 	machineChanges chan<- names.MachineTag
 
 	// schedule is the schedule of storage operations.
-	schedule *schedule
+	schedule *schedule.Schedule
 
 	// incompleteVolumeParams contains incomplete parameters for volumes.
 	incompleteVolumeParams map[names.VolumeTag]storage.VolumeParams
