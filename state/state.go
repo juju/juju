@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1111,8 +1112,6 @@ func (st *State) AddService(
 	}
 	svc := newService(st, svcDoc)
 
-	// TODO(fwereade): crazy, done for consistency.
-	now := nowToTheSecond()
 	statusDoc := statusDoc{
 		EnvUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
@@ -1120,7 +1119,7 @@ func (st *State) AddService(
 		// behaviour.
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
-		Updated:    &now,
+		Updated:    time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.

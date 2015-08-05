@@ -29,6 +29,9 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 		"add block device documents for existing machines",
 		"add instance id field to IP addresses",
 		"migrate charm archives into environment storage",
+		"change entityid field on status history to globalkey",
+		"change updated field on statushistory from time to int",
+		"change updated field on status from time to int",
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
