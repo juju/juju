@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import os
 import sys
 
 from launchpadlib.launchpad import Launchpad
@@ -77,11 +78,17 @@ def get_args(argv=None):
     parser.add_argument(
         '--dry-run', action="store_true", default=False,
         help='Explain what will happen without making changes')
+    parser.add_argument(
+        "-c", "--credentials", default=None,
+        help="Launchpad credentials file.")
     parser.add_argument('version', help='The package version like 1.20.8')
     parser.add_argument(
         'to_archive_name',
         help='The archive to copy the source and binary packages to.')
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.credentials:
+        args.credentials = os.path.expanduser(args.credentials)
+    return args
 
 
 def main(argv=None):

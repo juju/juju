@@ -2,6 +2,7 @@ from mock import (
     Mock,
     patch
 )
+import os
 from unittest import TestCase
 
 from lp_copy_packages import (
@@ -19,6 +20,14 @@ class LPCopyPackagesTestCase(TestCase):
         args = get_args(['1.2.3', 'proposed'])
         self.assertEqual('1.2.3', args.version)
         self.assertEqual('proposed', args.to_archive_name)
+        self.assertIsNone(args.credentials)
+        self.assertFalse(args.dry_run)
+
+    def test_get_args_with_credentials(self):
+        args = get_args(['-c', 'my.creds', '1.2.3', 'proposed'])
+        self.assertEqual('1.2.3', args.version)
+        self.assertEqual('proposed', args.to_archive_name)
+        self.assertEqual(os.path.expanduser('my.creds'), args.credentials)
         self.assertFalse(args.dry_run)
 
     def test_main(self):
