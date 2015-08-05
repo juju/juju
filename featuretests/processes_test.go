@@ -52,6 +52,8 @@ func initProcessesSuites() {
 var (
 	repoDir  = testcharms.Repo.Path()
 	userInfo *user.User
+	// Set this to true to prevent the test env from being cleaned up.
+	procsDoNotCleanUp = false
 )
 
 type processesSuite struct {
@@ -540,9 +542,6 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	}
 	return svc
 }
-
-// Set the to true to prevent the test local env from being cleaned up.
-var procsDoNotCleanUp = false
 
 func (env *procsEnviron) destroy(c *gc.C) {
 	if procsDoNotCleanUp {
