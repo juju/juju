@@ -52,8 +52,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtType-test",
-		RootStorageType: "rootStorageType-test",
-		RootStorageSize: "rootStorageSize-test"}
+		RootStorageType: "rootStorageType-test"}
 
 	added := cloudimagemetadata.Metadata{attrs, "1"}
 	s.assertRecordMetadata(c, added)
@@ -76,8 +75,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType",
-		RootStorageSize: "rootStorageSize"}
+		RootStorageType: "rootStorageType"}
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 	s.assertRecordMetadata(c, m)
 
@@ -98,8 +96,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType",
-		RootStorageSize: "rootStorageSize"}
+		RootStorageType: "rootStorageType"}
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 
@@ -146,9 +143,17 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 	s.assertMetadataRecorded(c, attrs, metadata0)
 	s.assertRecordMetadata(c, metadata1)
 	s.assertMetadataRecorded(c, attrs, metadata1)
+
+	all, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
+		metadata1,
+	})
+
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
@@ -157,21 +162,55 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataConcurrently(c *gc.C) {
 	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 	metadata1.Stream = "scream"
+
+	s.assertConcurrentSave(c,
+		metadata0, // add this one
+		metadata1, // add this one
+		metadata0, // verify it's in the list
+		metadata1, // verify it's in the list
+	)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
+	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
+
+	// TODO (anastasiamac 2015-08-5)
+	// There should be only 1 image metadata for an attribute set, not 2 as currently.
+	s.assertConcurrentSave(c,
+		metadata0, // add this one
+		metadata1, // overwrite it with this one
+		metadata1, // verify only the last one is in the list
+	)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
+
+	s.assertConcurrentSave(c,
+		metadata0, // add this one
+		metadata0, // add it again
+		metadata0, // varify only one is in the list
+	)
+}
+
+func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metadata1 cloudimagemetadata.Metadata, expected ...cloudimagemetadata.Metadata) {
 	addMetadata := func() {
 		s.assertRecordMetadata(c, metadata0)
 	}
-
 	defer txntesting.SetBeforeHooks(c, s.runner, addMetadata).Check()
-
 	s.assertRecordMetadata(c, metadata1)
-
-	all, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 2)
-	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
-		metadata0,
-		metadata1,
-	})
+	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, expected...)
 }
 
 func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemetadata.Metadata) {
@@ -182,6 +221,5 @@ func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemeta
 func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
 	metadata, err := s.storage.FindMetadata(criteria)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(metadata, jc.SameContents, expected)
 }

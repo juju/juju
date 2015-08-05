@@ -59,16 +59,18 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *gc.C) {
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaWithStorageSize(c *gc.C) {
+	// There should be no size in criteria. In this case, criteria must be empty.
 	s.assertSearchCriteriaBuilt(c,
-		cloudimagemetadata.MetadataAttributes{RootStorageSize: "rootstorage-value"},
-		bson.D{{"root_storage_size", "rootstorage-value"}})
+		cloudimagemetadata.MetadataAttributes{RootStorageSize: 0},
+		nil)
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
+	// There should not be any size mentioned in criteria.
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataAttributes{
 			RootStorageType: "rootstorage-value",
-			RootStorageSize: "rootstorage-value",
+			RootStorageSize: 0,
 			Series:          "series-value",
 			Stream:          "stream-value",
 			Region:          "region-value",
@@ -77,7 +79,6 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 		},
 		bson.D{
 			{"root_storage_type", "rootstorage-value"},
-			{"root_storage_size", "rootstorage-value"},
 			{"series", "series-value"},
 			{"stream", "stream-value"},
 			{"region", "region-value"},

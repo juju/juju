@@ -141,9 +141,8 @@ func buildSearchClauses(criteria MetadataAttributes) bson.D {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
 	}
 
-	if criteria.RootStorageSize != "" {
-		all = append(all, bson.DocElem{"root_storage_size", criteria.RootStorageSize})
-	}
+	// Size is not a discriminating attribute for cloud image metadata.
+	// It is not included in search criteria.
 
 	if len(all.Map()) == 0 {
 		return nil
@@ -179,8 +178,8 @@ type imagesMetadataDoc struct {
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 
-	// RootStorageSize contains size of root storage, for e.g. "30GB", "8GB".
-	RootStorageSize string `bson:"root_storage_size,omitempty"`
+	// RootStorageSize contains size of root storage.
+	RootStorageSize uint64 `bson:"root_storage_size"`
 
 	// DateCreated is the date/time when this doc was created
 	DateCreated time.Time `bson:"date_created"`
