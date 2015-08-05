@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -400,14 +401,22 @@ func initJuju(c *gc.C) {
 }
 
 func (env *procsEnviron) ensureOSEnv(c *gc.C) {
-	if env.homedir == "" {
-		homedir, err := ioutil.TempDir("", "juju-test-"+env.name+"-")
-		c.Assert(err, jc.ErrorIsNil)
-		env.homedir = homedir
-		env.writeConfig(c)
+	homedir := env.homedir
+	if homedir == "" {
+		if env.isolated {
+			tempHomedir, err := ioutil.TempDir("", "juju-test-"+env.name+"-")
+			c.Assert(err, jc.ErrorIsNil)
+			env.homedir = tempHomedir
+			env.writeConfig(c)
+			homedir = tempHomedir
+		} else {
+			userInfo, err := user.Current()
+			c.Assert(err, jc.ErrorIsNil)
+			homedir = userInfo.HomeDir
+		}
 	}
 
-	err := os.Setenv("JUJU_HOME", filepath.Join(env.homedir, ".juju"))
+	err := os.Setenv("JUJU_HOME", filepath.Join(homedir, ".juju"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -428,6 +437,8 @@ func (env procsEnviron) writeConfig(c *gc.C) {
 }
 
 func (env procsEnviron) localConfig() map[string]interface{} {
+	// Run in a test-only local provider
+	//  (see https://github.com/juju/docs/issues/35).
 	return map[string]interface{}{
 		"type":         "local",
 		"root-dir":     env.homedir,
@@ -489,12 +500,8 @@ func (env *procsEnviron) bootstrap(c *gc.C) {
 	if env.bootstrapped {
 		return
 	}
-	if env.isolated {
-		// Run in a test-only local provider
-		//  (see https://github.com/juju/docs/issues/35).
-		env.ensureOSEnv(c)
-		initJuju(c)
-	}
+	env.ensureOSEnv(c)
+	initJuju(c)
 
 	env.run(c, "bootstrap")
 	env.bootstrapped = true
@@ -534,10 +541,8 @@ func (env *procsEnviron) destroy(c *gc.C) {
 		return
 	}
 	if env.bootstrapped {
-		if env.isolated {
-			env.ensureOSEnv(c)
-			initJuju(c)
-		}
+		env.ensureOSEnv(c)
+		initJuju(c)
 		env.run(c, "destroy-environment", "--force")
 		env.bootstrapped = false
 	}
