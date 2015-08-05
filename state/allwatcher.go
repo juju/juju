@@ -508,7 +508,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo.Status.Current = multiwatcher.Status(s.Status)
 		newInfo.Status.Message = s.StatusInfo
 		newInfo.Status.Data = s.StatusData
-		newInfo.Status.Since = s.Updated
+		newInfo.Status.Since = unixNanoToTime(s.Updated)
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
@@ -529,19 +529,19 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.WorkloadStatus.Message = s.StatusInfo
 		newInfo.WorkloadStatus.Data = s.StatusData
-		newInfo.WorkloadStatus.Since = s.Updated
+		newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 	} else {
 		newInfo.AgentStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
-		newInfo.AgentStatus.Since = s.Updated
+		newInfo.AgentStatus.Since = unixNanoToTime(s.Updated)
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
 			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
 			newInfo.WorkloadStatus.Message = unitStatus.Message
 			newInfo.WorkloadStatus.Data = unitStatus.Data
-			newInfo.WorkloadStatus.Since = s.Updated
+			newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 		}
 	}
 

@@ -701,14 +701,14 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
-		Updated: &now,
+		Updated: now.UnixNano(),
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
-		Updated:    &now,
+		Updated:    now.UnixNano(),
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{

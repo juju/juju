@@ -26,9 +26,9 @@ type statusDoc struct {
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
-	// Updated might not be present on statuses dating from older versions
-	// of juju. Do not dereference without checking.
-	Updated *time.Time `bson:"updated"`
+	// Updated used to be a *time.Time that was not present on statuses dating
+	// from older versions of juju so this might be 0 for those cases.
+	Updated int64 `bson:"updated"`
 
 	// TODO(fwereade/wallyworld): lp:1479278
 	// NeverSet is a short-term hack to work around a misfeature in service
@@ -37,6 +37,11 @@ type statusDoc struct {
 	// reading them, if NeverSet is still true, we aggregate status from the
 	// units instead.
 	NeverSet bool `bson:"neverset"`
+}
+
+func unixNanoToTime(i int64) *time.Time {
+	t := time.Unix(0, i)
+	return &t
 }
 
 // mapKeys returns a copy of the supplied map, with all nested map[string]interface{}
@@ -84,7 +89,7 @@ func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
 		Status:  doc.Status,
 		Message: doc.StatusInfo,
 		Data:    unescapeKeys(doc.StatusData),
-		Since:   doc.Updated,
+		Since:   unixNanoToTime(doc.Updated),
 	}, nil
 }
 
@@ -119,17 +124,14 @@ func setStatus(st *State, params setStatusParams) (err error) {
 
 	// TODO(fwereade): this can/should probably be recording the time the
 	// status was *set*, not the time it happened to arrive in state.
-	// And we shouldn't be throwing away accuracy here -- neither to the
-	// second right here *or* by serializing into mongo as a time.Time,
-	// which also discards precision.
 	// We should almost certainly be accepting StatusInfo in the exposed
 	// SetStatus methods, for symetry with the Status methods.
-	now := nowToTheSecond()
+	now := time.Now().UnixNano()
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
 		StatusData: escapeKeys(params.rawData),
-		Updated:    &now,
+		Updated:    now,
 	}
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
 
@@ -187,30 +189,20 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 }
 
 type historicalStatusDoc struct {
-	Id         int                    `bson:"_id"`
 	EnvUUID    string                 `bson:"env-uuid"`
-	EntityId   string                 `bson:"entityid"`
+	GlobalKey  string                 `bson:"globalkey"`
 	Status     Status                 `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
 	// Updated might not be present on statuses copied by old versions of juju
 	// from yet older versions of juju. Do not dereference without checking.
-	Updated *time.Time `bson:"updated"`
+	// Updated *time.Time `bson:"updated"`
+	Updated int64 `bson:"updated"`
 }
 
 func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
-	// TODO(fwereade): we do NOT need every single status-history operation
-	// to write to the same document in mongodb. If you need to order them,
-	// use a time representation that does not discard precision, like an
-	// int64 holding the time's UnixNanoseconds.
-	id, err := st.sequence("statushistory")
-	if err != nil {
-		logger.Errorf("failed to generate id for status history: %v", err)
-		return
-	}
 	historyDoc := &historicalStatusDoc{
-		Id: id,
 		// We can't guarantee that the statusDoc we're dealing with has the
 		// env-uuid filled in; and envStateCollection does not trap inserts.
 		// Good to be explicit; better to fix leaky abstraction.
@@ -219,7 +211,7 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 		StatusInfo: doc.StatusInfo,
 		StatusData: doc.StatusData, // coming from a statusDoc, already escaped
 		Updated:    doc.Updated,
-		EntityId:   globalKey,
+		GlobalKey:  globalKey,
 	}
 	history, closer := st.getCollection(statusesHistoryC)
 	defer closer()
@@ -234,8 +226,8 @@ func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) 
 	defer closer()
 
 	var docs []historicalStatusDoc
-	query := statusHistory.Find(bson.D{{"entityid", globalKey}})
-	err := query.Sort("-_id").Limit(size).All(&docs)
+	query := statusHistory.Find(bson.D{{"globalkey", globalKey}})
+	err := query.Sort("-updated").Limit(size).All(&docs)
 	if err == mgo.ErrNotFound {
 		return []StatusInfo{}, errors.NotFoundf("status history")
 	} else if err != nil {
@@ -248,7 +240,7 @@ func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) 
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
 			Data:    unescapeKeys(doc.StatusData),
-			Since:   doc.Updated,
+			Since:   unixNanoToTime(doc.Updated),
 		}
 	}
 	return results, nil
@@ -285,8 +277,8 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 			continue
 		}
 		_, err = historyW.RemoveAll(bson.D{
-			{"entityid", globalKey},
-			{"_id", bson.M{"$lt": keepUpTo}},
+			{"globalkey", globalKey},
+			{"updated", bson.M{"$lt": keepUpTo}},
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -297,26 +289,26 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 
 // getOldestTimeToKeep returns the create time for the oldest
 // status log to be kept.
-func getOldestTimeToKeep(coll mongo.Collection, globalKey string, size int) (int, bool, error) {
+func getOldestTimeToKeep(coll mongo.Collection, globalKey string, size int) (int64, bool, error) {
 	result := historicalStatusDoc{}
-	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Skip(size - 1).One(&result)
+	err := coll.Find(bson.D{{"globalkey", globalKey}}).Sort("-updated").Skip(size - 1).One(&result)
 	if err == mgo.ErrNotFound {
 		return -1, false, nil
 	}
 	if err != nil {
 		return -1, false, errors.Trace(err)
 	}
-	return result.Id, true, nil
+	return result.Updated, true, nil
 
 }
 
 // getEntitiesWithStatuses returns the ids for all entities that
 // have history entries
 func getEntitiesWithStatuses(coll mongo.Collection) ([]string, error) {
-	var entityKeys []string
-	err := coll.Find(nil).Distinct("entityid", &entityKeys)
+	var globalKeys []string
+	err := coll.Find(nil).Distinct("globalkey", &globalKeys)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return entityKeys, nil
+	return globalKeys, nil
 }
