@@ -461,10 +461,20 @@ type context struct {
 	schedule *schedule.Schedule
 
 	// incompleteVolumeParams contains incomplete parameters for volumes.
+	//
+	// Volume parameters are incomplete when they lack information about
+	// the initial attachment. Once the initial attachment information is
+	// available, the parameters are removed from this map and a volume
+	// creation operation is scheduled.
 	incompleteVolumeParams map[names.VolumeTag]storage.VolumeParams
 
 	// incompleteVolumeAttachmentParams contains incomplete parameters
-	// for volume attachments.
+	// for volume attachments
+	//
+	// Volume attachment parameters are incomplete when they lack
+	// information about the associated volume or machine. Once this
+	// information is available, the parameters are removed from this
+	// map and a volume attachment operation is scheduled.
 	incompleteVolumeAttachmentParams map[params.MachineStorageId]storage.VolumeAttachmentParams
 
 	// pendingVolumeBlockDevices contains the tags of volumes about whose

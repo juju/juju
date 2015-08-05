@@ -746,16 +746,17 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(
 
 	args := &workerArgs{volumes: volumeAccessor}
 	worker := newStorageProvisioner(c, args)
-	defer worker.Wait()
+	defer func() {
+		err := worker.Wait()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 	defer worker.Kill()
 
 	done := make(chan interface{})
 	go func() {
 		defer close(done)
-		err := worker.Wait()
-		c.Assert(err, jc.ErrorIsNil)
+		worker.Wait()
 	}()
-	defer worker.Kill()
 
 	args.volumes.volumesWatcher.changes <- []string{"1"}
 	args.environ.watcher.changes <- struct{}{}
