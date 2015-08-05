@@ -8,10 +8,14 @@ import sys
 
 from launchpadlib.launchpad import Launchpad
 
-
+# Juju devel versions
 DEVEL = 'devel'
+# Juju supported versions
 PROPOSED = 'proposed'
 STABLE = 'stable'
+# Ubuntu supported versions
+PROPOSED_1_22 = '1.22-proposed'
+SUPPORTED_1_22 = '1.22'
 
 
 def get_archives(lp, to_archive_name):
@@ -27,6 +31,8 @@ def get_archives(lp, to_archive_name):
     4. Built stable packages can be copied to the public proposed PPA.
     5. After evaluation, the stable packages in public proposed can be copied
        to the public stable PPA.
+    The Supported Ubuntu versions have a similar path for the version:
+    juju-packaging/<version> -> juju/<version>-proposed -> juju/<version>
     """
     to_team_name = 'juju'
     if to_archive_name == DEVEL:
@@ -37,6 +43,13 @@ def get_archives(lp, to_archive_name):
         from_team_name = 'juju-packaging'
     elif to_archive_name == STABLE:
         from_archive_name = PROPOSED
+        from_team_name = 'juju'
+    # Ubuntu supported builds.
+    elif to_archive_name == PROPOSED_1_22:
+        from_archive_name = SUPPORTED_1_22
+        from_team_name = 'juju-packaging'
+    elif to_archive_name == SUPPORTED_1_22:
+        from_archive_name = PROPOSED_1_22
         from_team_name = 'juju'
     else:
         raise ValueError('{} is not a valid archive'.format(to_archive_name))
