@@ -109,13 +109,39 @@ func (api *spacesAPI) ListSpaces() (params.SpaceListResults, error) {
 			return results, errors.Annotate(err, "cannot list spaces")
 		}
 		for _, subnet := range subnets {
+			cidr, err := subnet.CIDR()
+			if err != nil {
+				results.Error = common.ServerError(err)
+				return results, errors.Annotate(err, "cannot list spaces")
+			}
+			vlantag, err := subnet.VLANTag()
+			if err != nil {
+				results.Error = common.ServerError(err)
+				return results, errors.Annotate(err, "cannot list spaces")
+			}
+			providerid, err := subnet.ProviderId()
+			if err != nil {
+				results.Error = common.ServerError(err)
+				return results, errors.Annotate(err, "cannot list spaces")
+			}
+			zones, err := subnet.AvailabilityZones()
+			if err != nil {
+				results.Error = common.ServerError(err)
+				return results, errors.Annotate(err, "cannot list spaces")
+			}
+			status, err := subnet.Status()
+			if err != nil {
+				results.Error = common.ServerError(err)
+				return results, errors.Annotate(err, "cannot list spaces")
+			}
+
 			result.Subnets = append(result.Subnets,
-				params.SubnetInfo{
-					CIDR:       subnet.CIDR,
-					ProviderId: subnet.ProviderId,
-					Zones:      subnet.Zones,
-					Status:     subnet.Status,
-					Type:       subnet.Type,
+				params.Subnet{
+					CIDR:       cidr,
+					VLANTag:    vlantag,
+					ProviderId: providerid,
+					Zones:      zones,
+					Status:     status,
 				})
 		}
 		results.Results = append(results.Results, result)

@@ -11,13 +11,5 @@ type SpaceListResults struct {
 
 type SpaceListResult struct {
 	Name    string
-	Subnets []SubnetInfo
-}
-
-type SubnetInfo struct {
-	CIDR       string
-	Type       string
-	ProviderId string
-	Zones      []string
-	Status     string
+	Subnets []Subnet
 }

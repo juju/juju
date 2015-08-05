@@ -45,6 +45,10 @@ type Subnet struct {
 	// StaticRangeHighIP (if available) is the higher bound of the
 	// subnet's static IP allocation range.
 	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
+
+	// Status returns the status of the subnet, whether it is in use, not
+	// in use or dead.
+	Status string `json:"Status,omitempty"`
 }
 
 // Network describes a single network available on an instance.
