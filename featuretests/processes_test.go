@@ -419,7 +419,12 @@ func (env *procsEnviron) ensureOSEnv(c *gc.C) {
 			tempHomedir, err := ioutil.TempDir("", "juju-test-"+env.name+"-")
 			c.Assert(err, jc.ErrorIsNil)
 			env.homedir = tempHomedir
-			env.writeConfig(c)
+
+			rootdir := filepath.Join(env.homedir, "rootdir")
+			err = os.MkdirAll(filepath.Dir(rootdir), 0755)
+			c.Assert(err, jc.ErrorIsNil)
+
+			env.writeConfig(c, rootdir)
 			homedir = tempHomedir
 		} else {
 			homedir = userInfo.HomeDir
@@ -430,10 +435,10 @@ func (env *procsEnviron) ensureOSEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env procsEnviron) writeConfig(c *gc.C) {
+func (env procsEnviron) writeConfig(c *gc.C, rootdir string) {
 	config := map[string]interface{}{
 		"environments": map[string]interface{}{
-			env.name: env.localConfig(),
+			env.name: env.localConfig(rootdir),
 		},
 	}
 	data, err := goyaml.Marshal(config)
@@ -446,12 +451,12 @@ func (env procsEnviron) writeConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env procsEnviron) localConfig() map[string]interface{} {
+func (env procsEnviron) localConfig(rootdir string) map[string]interface{} {
 	// Run in a test-only local provider
 	//  (see https://github.com/juju/docs/issues/35).
 	return map[string]interface{}{
 		"type":         "local",
-		"root-dir":     env.homedir,
+		"root-dir":     rootdir,
 		"api-port":     17071,
 		"state-port":   37018,
 		"storage-port": 8041,
