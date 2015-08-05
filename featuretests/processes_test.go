@@ -48,7 +48,7 @@ type processesSuite struct {
 }
 
 func (s *processesSuite) SetUpSuite(c *gc.C) {
-	env := newProcsEnv(c, "local", "local")
+	env := newProcsEnv(c, "local", "<local>")
 	env.bootstrap(c)
 	s.env = env
 }
@@ -357,18 +357,25 @@ type procsEnviron struct {
 	name         string
 	envType      string
 	machine      string
+	isolated     bool
 	homedir      string
 	bootstrapped bool
 	failed       bool
 }
 
 func newProcsEnv(c *gc.C, envName, envType string) *procsEnviron {
-	if envType != "local" {
-		panic("not supported")
+	isolated := false
+	if strings.HasPrefix(envType, "<") && strings.HasSuffix(envType, ">") {
+		envType = envType[1 : len(envType)-1]
+		isolated = true
+		if envType != "local" {
+			panic("not supported")
+		}
 	}
 	return &procsEnviron{
-		name:    envName,
-		envType: envType,
+		name:     envName,
+		envType:  envType,
+		isolated: isolated,
 	}
 }
 
@@ -469,10 +476,12 @@ func (env *procsEnviron) bootstrap(c *gc.C) {
 	if env.bootstrapped {
 		return
 	}
-	// Run in a test-only local provider
-	//  (see https://github.com/juju/docs/issues/35).
-	env.ensureOSEnv(c)
-	initJuju(c)
+	if env.isolated {
+		// Run in a test-only local provider
+		//  (see https://github.com/juju/docs/issues/35).
+		env.ensureOSEnv(c)
+		initJuju(c)
+	}
 
 	env.run(c, "bootstrap")
 	env.bootstrapped = true
@@ -512,8 +521,10 @@ func (env *procsEnviron) destroy(c *gc.C) {
 		return
 	}
 	if env.bootstrapped {
-		env.ensureOSEnv(c)
-		initJuju(c)
+		if env.isolated {
+			env.ensureOSEnv(c)
+			initJuju(c)
+		}
 		env.run(c, "destroy-environment", "--force")
 		env.bootstrapped = false
 	}
