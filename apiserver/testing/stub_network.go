@@ -249,6 +249,26 @@ func (f *FakeSubnet) GoString() string {
 	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
 }
 
+func (f *FakeSubnet) Status() (string, error) {
+	return "in-use", nil
+}
+
+func (f *FakeSubnet) CIDR() (string, error) {
+	return f.info.CIDR, nil
+}
+
+func (f *FakeSubnet) AvailabilityZones() ([]string, error) {
+	return f.info.AvailabilityZones, nil
+}
+
+func (f *FakeSubnet) ProviderId() (string, error) {
+	return f.info.ProviderId, nil
+}
+
+func (f *FakeSubnet) VLANTag() (int, error) {
+	return f.info.VLANTag, nil
+}
+
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
