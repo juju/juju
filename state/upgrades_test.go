@@ -3255,25 +3255,25 @@ func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 		},
 		bson.D{
 			{"_id", "3"},
-			{"test_id", "6"},
+			{"test_id", "3"},
 			{"env-uuid", uuid1},
-			{"updated", epoch.Add(2 * time.Hour).Add(2 * time.Nanosecond)},
+			{"updated", epoch.Add(3 * time.Hour).Add(2 * time.Nanosecond)},
 		},
 		bson.D{
 			{"_id", "4"},
 			{"test_id", "4"},
 			{"env-uuid", uuid1},
-			{"updated", epoch.Add(2 * time.Nanosecond)},
+			{"updated", epoch.Add(4 * time.Hour).Add(2 * time.Nanosecond)},
 		},
 		bson.D{
 			{"_id", "5"},
 			{"test_id", "5"},
 			{"env-uuid", uuid1},
-			{"updated", epoch.Add(1 * time.Hour).Add(2 * time.Nanosecond)},
+			{"updated", epoch.Add(5 * time.Hour).Add(2 * time.Nanosecond)},
 		},
 		bson.D{
 			{"_id", "6"},
-			{"test_id", "3"},
+			{"test_id", "6"},
 			{"env-uuid", uuid0},
 			{"updated", nanoTime},
 		},
@@ -3317,10 +3317,10 @@ func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 	c.Assert(newId, gc.Not(gc.Equals), "6")
 
 	sHistory.Find(bson.M{"test_id": "7"}).One(&doc)
-	updatedTime, ok := doc["updated"].(int64)
+	updatedTime, ok = doc["updated"].(int64)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(updatedTime, gc.Equals, nanoTime)
-	newId, ok := doc["_id"].(bson.ObjectId)
+	newId, ok = doc["_id"].(bson.ObjectId)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(newId, gc.Not(gc.Equals), "7")
 
@@ -3328,6 +3328,7 @@ func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 
 func (s *upgradesSuite) TestChangeStatusUpdatedFromTimeToInt64(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
+	uuid1 := s.makeEnvironment(c)
 	statuses, closer := s.state.getRawCollection(statusesC)
 	defer closer()
 	epoch := time.Unix(0, 0).UTC()
@@ -3337,22 +3338,50 @@ func (s *upgradesSuite) TestChangeStatusUpdatedFromTimeToInt64(c *gc.C) {
 	err := statuses.Insert(
 		bson.D{
 			{"_id", uuid0 + ":0"},
+			{"test_id", "0"},
 			{"env-uuid", uuid0},
 			{"updated", epoch.Add(2 * time.Nanosecond)},
 		},
 		bson.D{
 			{"_id", uuid0 + ":1"},
+			{"test_id", "1"},
 			{"env-uuid", uuid0},
 			{"updated", epoch.Add(1 * time.Hour).Add(2 * time.Nanosecond)},
 		},
 		bson.D{
 			{"_id", uuid0 + ":2"},
+			{"test_id", "2"},
 			{"env-uuid", uuid0},
 			{"updated", epoch.Add(2 * time.Hour).Add(2 * time.Nanosecond)},
 		},
 		bson.D{
-			{"_id", uuid0 + ":3"},
+			{"_id", uuid1 + ":3"},
+			{"test_id", "3"},
+			{"env-uuid", uuid1},
+			{"updated", epoch.Add(3 * time.Hour).Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid1 + ":4"},
+			{"test_id", "4"},
+			{"env-uuid", uuid1},
+			{"updated", epoch.Add(4 * time.Hour).Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid1 + ":5"},
+			{"test_id", "5"},
+			{"env-uuid", uuid1},
+			{"updated", epoch.Add(5 * time.Hour).Add(2 * time.Nanosecond)},
+		},
+		bson.D{
+			{"_id", uuid0 + ":6"},
+			{"test_id", "6"},
 			{"env-uuid", uuid0},
+			{"updated", nanoTime},
+		},
+		bson.D{
+			{"_id", uuid1 + ":7"},
+			{"test_id", "7"},
+			{"env-uuid", uuid1},
 			{"updated", nanoTime},
 		},
 	)
@@ -3362,9 +3391,9 @@ func (s *upgradesSuite) TestChangeStatusUpdatedFromTimeToInt64(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var doc bson.M
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 6; i++ {
 		logger.Debugf("checking entry %d", i)
-		err := statuses.FindId(fmt.Sprintf("%s:%d", uuid0, i)).One(&doc)
+		err := statuses.Find(bson.M{"test_id": fmt.Sprintf("%d", i)}).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 
 		logger.Debugf("checking doc: %v", doc)
@@ -3373,14 +3402,20 @@ func (s *upgradesSuite) TestChangeStatusUpdatedFromTimeToInt64(c *gc.C) {
 		// time stored in mongo native format will have lost precision
 		c.Assert(updatedTime, gc.Equals, epoch.Add(time.Duration(i)*time.Hour).UTC().UnixNano())
 	}
-	statuses.FindId(fmt.Sprintf("%s:3", uuid0)).One(&doc)
+	statuses.Find(bson.M{"test_id": "6"}).One(&doc)
 	updatedTime, ok := doc["updated"].(int64)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(updatedTime, gc.Equals, nanoTime)
+
+	statuses.Find(bson.M{"test_id": "7"}).One(&doc)
+	updatedTime, ok = doc["updated"].(int64)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(updatedTime, gc.Equals, nanoTime)
 }
 
 func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
+	uuid1 := s.makeEnvironment(c)
 	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -3405,13 +3440,33 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 			{"env-uuid", uuid0},
 			{"globalkey", "global3"},
 		},
+		bson.D{
+			{"_id", uuid1 + ":4"},
+			{"env-uuid", uuid1},
+			{"entityid", "global4"},
+		},
+		bson.D{
+			{"_id", uuid1 + ":5"},
+			{"env-uuid", uuid1},
+			{"entityid", "global5"},
+		},
+		bson.D{
+			{"_id", uuid1 + ":6"},
+			{"env-uuid", uuid1},
+			{"globalkey", "global6"},
+		},
+		bson.D{
+			{"_id", uuid1 + ":7"},
+			{"env-uuid", uuid1},
+			{"globalkey", "global7"},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var docs []bson.M
 	err = sHistory.Find(bson.D{{
 		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
-	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs, gc.HasLen, 4)
 
 	ChangeStatusHistoryEntityId(s.state)
 
@@ -3420,10 +3475,14 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 0)
 
 	var doc bson.M
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
+		u := uuid0
+		if i > 3 {
+			u = uuid1
+		}
 		logger.Debugf("checking global key %d", i)
 		logger.Debugf("doc has: %v", doc)
-		err := sHistory.FindId(fmt.Sprintf("%s:%d", uuid0, i)).One(&doc)
+		err := sHistory.FindId(fmt.Sprintf("%s:%d", u, i)).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		globalKey, ok := doc["globalkey"].(string)
 		c.Assert(ok, jc.IsTrue)

@@ -1612,7 +1612,7 @@ func changeUpdatedType(st *State, collection string) error {
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
 			if err := wColl.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"updated": updated.UTC().UnixNano()}}); err != nil {
-				return errors.Annotatef(err, "cannot change %v updated from time to int64", doc["_id"])
+				return errors.Annotatef(err, "cannot change %v updated from time to int64", id)
 			}
 		}
 	}
