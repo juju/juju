@@ -35,7 +35,6 @@ class LPCopyPackagesTestCase(TestCase):
         to_team_mock = Mock(getPPAByName=Mock())
         lp = Mock()
         lp.people = {'juju-packaging': from_team_mock, 'juju': to_team_mock}
-        # juju-packaging devel to juju devel
         from_archive, to_archive = get_archives(lp, 'devel')
         self.assertIsInstance(from_archive, Mock)
         self.assertIsInstance(to_archive, Mock)
