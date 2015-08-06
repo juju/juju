@@ -193,7 +193,6 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	spaces, err := s.facade.ListSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces.Error, gc.IsNil)
 	expected := []params.Space{
 		params.Space{
 			Name: "default",
