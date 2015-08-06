@@ -78,23 +78,23 @@ def listing_to_files(listing):
     return agents
 
 
-def is_new_version(version, source_path, config, verbose=False):
+def is_new_version(source_path, config, verbose=False):
     """Return True when the version is new, else False.
 
     :raises: ValueError if the version exists and is different.
     :return: True when the version is new, else False.
     """
     source_agent = os.path.basename(source_path)
-    os_name = get_source_agent_os(source_agent)
-    agent_glob = '%s/%s' % (S3_CONTAINER, source_agent)
+    agent_path = '%s/%s' % (S3_CONTAINER, source_agent)
     existing_versions = run(
-        ['ls', agent_glob], config=config, verbose=verbose)
+        ['ls', agent_path], config=config, verbose=verbose)
     if verbose:
-        print('Checking that %s does not already exist.' % version)
+        print('Checking that %s does not already exist.' % source_path)
     if existing_versions:
         raise ValueError(
             '%s already exists. Agents cannot be overwritten.' %
             existing_versions)
+    return True
 
 
 def add_agents(args):
@@ -115,7 +115,7 @@ def add_agents(args):
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
-    if not is_new_version(version, source_path, config=args.config,
+    if not is_new_version(source_path, config=args.config,
                           verbose=args.verbose):
         if args.verbose:
             print('Exiting early because %s is in the archive' % version)
