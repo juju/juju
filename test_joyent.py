@@ -82,8 +82,7 @@ class ClientTestCase(TestCase):
                     with patch.object(client, 'request_deletion',
                                       autospec=True) as rd_mock:
                         client.delete_old_machines(1, 'foo@bar')
-        lm_mock.assert_any_call(None)
-        lm_mock.assert_call_any('id')
+        lm_mock.assert_called_once_with()
         lmt_mock.assert_called_once_with('id')
         drm_mock.assert_called_once_with('id')
         self.assertEqual(0, rd_mock.call_count)
