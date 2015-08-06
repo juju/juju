@@ -72,6 +72,29 @@ class LPCopyPackagesTestCase(TestCase):
         from_team_mock.getPPAByName.assert_called_with_any(name='proposed')
         from_team_mock.getPPAByName.assert_called_with(name='stable')
 
+    def test_get_archives_ubuntu_proposed(self):
+        from_team_mock = Mock(getPPAByName=Mock())
+        lp = Mock()
+        lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
+        from_archive, to_archive = get_archives(lp, '1.22')
+        from_team_mock.getPPAByName.assert_called_with_any(
+            name='1.22-proposed')
+        from_team_mock.getPPAByName.assert_called_with(name='1.22')
+
+    def test_get_archives_ubuntu_supported(self):
+        from_team_mock = Mock(getPPAByName=Mock())
+        lp = Mock()
+        lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
+        from_archive, to_archive = get_archives(lp, '1.22')
+        from_team_mock.getPPAByName.assert_called_with_any(
+            name='1.22-proposed')
+        from_team_mock.getPPAByName.assert_called_with(name='1.22')
+
+    def test_get_archives_unknown_destination_error(self):
+        lp = Mock()
+        with self.assertRaises(ValueError):
+            get_archives(lp, '1.7')
+
     def test_copy_packages(self):
         lp = Mock()
         from_archive = Mock(getPublishedSources=Mock())
