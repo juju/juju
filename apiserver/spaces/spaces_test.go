@@ -190,6 +190,14 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 	s.checkAddSpaces(c, p)
 }
 
-func (s *SpacesSuite) TestList(c *gc.C) {
-
+func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
+	spaces, err := s.facade.ListSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces.Error, gc.IsNil)
+	expected := []params.SpaceListResult{
+		params.SpaceListResult{Name: "default"},
+		params.SpaceListResult{Name: "dmz"},
+		params.SpaceListResult{Name: "private"},
+	}
+	c.Assert(spaces.Results, jc.DeepEquals, expected)
 }

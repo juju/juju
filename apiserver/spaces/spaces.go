@@ -22,6 +22,7 @@ func init() {
 // API defines the methods the Spaces API facade implements.
 type API interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
+	ListSpaces() (params.SpaceListResults, error)
 }
 
 // spacesAPI implements the API interface.
