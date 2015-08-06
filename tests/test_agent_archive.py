@@ -8,6 +8,7 @@ from agent_archive import (
     get_agents,
     get_source_agent_os,
     get_source_agent_version,
+    is_new_version,
     listing_to_files,
     main,
 )
@@ -118,6 +119,22 @@ class AgentArchive(TestCase):
                 's3://juju-qa-data/agent-archive/%s' % agent)
         agents = listing_to_files('\n'.join(listing))
         self.assertEqual(expected_agents, agents)
+
+    def test_is_new_version(self):
+        agent = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
+        with patch('agent_archive.run', return_value='') as mock:
+            result = is_new_version(
+                'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
+        self.assertTrue(result)
+        mock.assert_called_with(['ls', agent], config='config', verbose=False)
+
+    def test_is_new_version_mutation_error(self):
+        agent = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
+        with patch('agent_archive.run', return_value=agent) as mock:
+            with self.assertRaises(ValueError):
+                is_new_version(
+                    'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
+        mock.assert_called_with(['ls', agent], config='config', verbose=False)
 
     def test_add_agent_with_bad_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-trusty-amd64.tgz')
