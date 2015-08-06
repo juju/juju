@@ -126,7 +126,8 @@ class AgentArchive(TestCase):
             result = is_new_version(
                 'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
         self.assertTrue(result)
-        mock.assert_called_with(['ls', agent], config='config', verbose=False)
+        mock.assert_called_with(
+            ['ls', '--list-md5', agent], config='config', verbose=False)
 
     def test_is_new_version_mutation_error(self):
         agent = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
@@ -135,7 +136,8 @@ class AgentArchive(TestCase):
                 is_new_version(
                     'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
         self.assertIn('Agents cannot be overwritten', str(e.exception))
-        mock.assert_called_with(['ls', agent], config='config', verbose=False)
+        mock.assert_called_with(
+            ['ls', '--list-md5', agent], config='config', verbose=False)
 
     def test_add_agent_with_bad_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-trusty-amd64.tgz')

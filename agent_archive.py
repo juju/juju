@@ -87,7 +87,7 @@ def is_new_version(source_path, config, verbose=False):
     source_agent = os.path.basename(source_path)
     agent_path = '%s/%s' % (S3_CONTAINER, source_agent)
     existing_versions = run(
-        ['ls', agent_path], config=config, verbose=verbose)
+        ['ls', '--list-md5', agent_path], config=config, verbose=verbose)
     if verbose:
         print('Checking that %s does not already exist.' % source_path)
     if existing_versions:
