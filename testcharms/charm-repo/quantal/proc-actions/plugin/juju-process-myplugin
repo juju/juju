@@ -31,10 +31,10 @@ class Row(namedtuple('Row', FIELDS)):
         return '	'.join(row)
 
     def dump_details(self):
-        return '{"id":"%s", "status":{"label":"%s"}}' % (self.id, self.status)
+        return '{"id":"%s", "status":%s}' % (self.id, self.dump_status())
 
     def dump_status(self):
-        return '{"label":%s}' % (self.status,)
+        return '{"state":"%s"}' % (self.status,)
 
 
 class _DataFile:
