@@ -54,12 +54,8 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 	})
 	_, st, err := s.state.NewEnvironment(cfg, s.owner)
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
-}
-
-func (s *allWatcherBaseSuite) Reset(c *gc.C) {
-	s.TearDownTest(c)
-	s.SetUpTest(c)
 }
 
 // setUpScenario adds some entities to the state so that
@@ -267,6 +263,11 @@ type allWatcherStateSuite struct {
 	allWatcherBaseSuite
 }
 
+func (s *allWatcherStateSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
+}
+
 func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c, s.state, 2)
 	s.checkGetAll(c, expectEntities)
@@ -279,9 +280,7 @@ func (s *allWatcherStateSuite) TestGetAllMultiEnv(c *gc.C) {
 
 	// Use more units in the second env to ensure the number of
 	// entities will mismatch if environment filtering isn't in place.
-	otherState := s.newState(c)
-	defer otherState.Close()
-	s.setUpScenario(c, otherState, 4)
+	s.setUpScenario(c, s.newState(c), 4)
 
 	s.checkGetAll(c, expectEntities)
 }
@@ -941,7 +940,6 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				otherW.AssertNoChange()
 			}
 			otherState := s.newState(c)
-			defer otherState.Close()
 
 			w1 := newTestWatcher(s.state, c)
 			defer w1.Stop()
@@ -959,25 +957,70 @@ var _ = gc.Suite(&allEnvWatcherStateSuite{})
 
 type allEnvWatcherStateSuite struct {
 	allWatcherBaseSuite
+	state1 *State
+}
+
+func (s *allEnvWatcherStateSuite) SetUpTest(c *gc.C) {
+	s.allWatcherBaseSuite.SetUpTest(c)
+	s.state1 = s.newState(c)
+}
+
+func (s *allEnvWatcherStateSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
 func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
-		test := changeTestFunc(c, s.state)
+		func() { // in aid of per-loop defers
+			defer s.Reset(c)
 
-		c.Logf("test %d. %s", i, test.about)
-		b := newAllEnvWatcherStateBacking(s.state)
-		all := newStore()
-		for _, info := range test.initialContents {
-			all.Update(info)
-		}
-		err := b.Changed(all, test.change)
-		c.Assert(err, jc.ErrorIsNil)
-		entities := all.All()
-		substNilSinceTimeForEntities(c, entities)
-		assertEntitiesEqual(c, entities, test.expectContents)
-		s.Reset(c)
+			test0 := changeTestFunc(c, s.state)
+
+			c.Logf("test %d. %s", i, test0.about)
+			b := newAllEnvWatcherStateBacking(s.state)
+			defer b.Release()
+			all := newStore()
+
+			// Do updates and check for first env.
+			for _, info := range test0.initialContents {
+				all.Update(info)
+			}
+			err := b.Changed(all, test0.change)
+			c.Assert(err, jc.ErrorIsNil)
+			var entities entityInfoSlice = all.All()
+			substNilSinceTimeForEntities(c, entities)
+			assertEntitiesEqual(c, entities, test0.expectContents)
+
+			// Now do the same updates for a second env.
+			test1 := changeTestFunc(c, s.state1)
+			for _, info := range test1.initialContents {
+				all.Update(info)
+			}
+			err = b.Changed(all, test1.change)
+			c.Assert(err, jc.ErrorIsNil)
+			entities = all.All()
+
+			// substNilSinceTimeForEntities gets upset if it sees non-nil
+			// times - which the entities for the first env will have - so
+			// build a list of the entities for the second env.
+			newEntities := make([]multiwatcher.EntityInfo, 0)
+			for _, entity := range entities {
+				if entity.EntityId().EnvUUID == s.state1.EnvironUUID() {
+					newEntities = append(newEntities, entity)
+				}
+			}
+			substNilSinceTimeForEntities(c, newEntities)
+
+			// Expected to see entities for both envs.
+			var expectedEntities entityInfoSlice = append(
+				test0.expectContents,
+				test1.expectContents...)
+			sort.Sort(entities)
+			sort.Sort(expectedEntities)
+			assertEntitiesEqual(c, entities, expectedEntities)
+		}()
 	}
 }
 
@@ -1014,9 +1057,7 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 	// entities for both of them.
 	entities0 := s.setUpScenario(c, s.state, 2)
 
-	otherState := s.newState(c)
-	defer otherState.Close()
-	entities1 := s.setUpScenario(c, otherState, 4)
+	entities1 := s.setUpScenario(c, s.state1, 4)
 
 	expectedEntities := append(entities0, entities1...)
 
@@ -1170,7 +1211,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("trusty", JobManageEnviron)
+			m, err := st.AddMachine("trusty", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1200,13 +1241,11 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						StatusInfo:               "another failure",
 						Life:                     multiwatcher.Life("alive"),
 						Series:                   "trusty",
-						Jobs:                     []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+						Jobs:                     []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
 						SupportedContainersKnown: true,
-						HasVote:                  false,
-						WantsVote:                true,
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {

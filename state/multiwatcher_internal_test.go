@@ -883,6 +883,10 @@ func (b *storeManagerTestBacking) GetAll(all *multiwatcherStore) error {
 	return nil
 }
 
+func (b *storeManagerTestBacking) Release() error {
+	return nil
+}
+
 func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
