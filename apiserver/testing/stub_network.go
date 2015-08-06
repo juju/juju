@@ -16,6 +16,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 )
 
 type StubNetwork struct {
@@ -117,7 +118,19 @@ func (f *FakeSpace) Name() string {
 }
 
 func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
-	return
+	outputSubnets := []common.BackingSubnet{}
+	for _, subnetId := range f.SubnetIds {
+		providerId := "provider-" + subnetId
+
+		backing := common.BackingSubnetInfo{
+			CIDR:       subnetId,
+			SpaceName:  f.SpaceName,
+			ProviderId: providerId,
+		}
+		outputSubnets = append(outputSubnets, &FakeSubnet{info: backing})
+	}
+
+	return outputSubnets, nil
 }
 
 func (f *FakeSpace) ProviderId() (netID network.Id) {
@@ -250,7 +263,7 @@ func (f *FakeSubnet) GoString() string {
 }
 
 func (f *FakeSubnet) Status() (string, error) {
-	return "in-use", nil
+	return f.info.Status, nil
 }
 
 func (f *FakeSubnet) CIDR() (string, error) {
@@ -384,7 +397,18 @@ func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	return sb.Spaces, nil
+
+	// Filter duplicates.
+	seen := set.Strings{}
+	output := []common.BackingSpace{}
+	for _, space := range sb.Spaces {
+		if seen.Contains(space.Name()) {
+			continue
+		}
+		seen.Add(space.Name())
+		output = append(output, space)
+	}
+	return output, nil
 }
 
 func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.BackingSubnet, error) {

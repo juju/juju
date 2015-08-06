@@ -14,8 +14,7 @@ import (
 // stored persistently.
 //
 // TODO(dimitern): Once the state backing is implemented, remove this
-// and just use *state.Subnet. state.Subnet will need to grow a reference count
-// field and Status method.
+// and just use *state.Subnet.
 type BackingSubnet interface {
 	CIDR() (string, error)
 	VLANTag() (int, error)
@@ -35,6 +34,7 @@ type BackingSubnet interface {
 //   subnet docs. Also change state.Subnet.AvailabilityZone to
 // * add subnetDoc.SpaceName - no upgrade step needed, as it will only
 //   be used for new space-aware subnets.
+// * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
 //   empty for MAAS as zones are orthogonal to networks).
@@ -65,6 +65,10 @@ type BackingSubnetInfo struct {
 	// SpaceName holds the juju network space this subnet is
 	// associated with. Can be empty if not supported.
 	SpaceName string
+
+	// Status holds the status of the subnet. Normally this will be
+	// calculated from the reference count and Life of a subnet.
+	Status string
 }
 
 // BackingSpace defines the methods supported by a Space entity stored
