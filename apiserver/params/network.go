@@ -45,6 +45,10 @@ type Subnet struct {
 	// StaticRangeHighIP (if available) is the higher bound of the
 	// subnet's static IP allocation range.
 	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
+
+	// Status returns the status of the subnet, whether it is in use, not
+	// in use or terminating.
+	Status string `json:"Status,omitempty"`
 }
 
 // Network describes a single network available on an instance.
@@ -520,4 +524,15 @@ type CreateSpaceParams struct {
 	SubnetTags []string `json:"SubnetTags"`
 	SpaceTag   string   `json:"SpaceTag"`
 	Public     bool     `json:"Public"`
+}
+
+// ListSpacesResults holds the list of all available spaces.
+type ListSpacesResults struct {
+	Results []Space `json:"Results"`
+}
+
+// Space holds the information about a single space and its associated subnets.
+type Space struct {
+	Name    string   `json:"Name"`
+	Subnets []Subnet `json:"Subnets"`
 }

@@ -189,3 +189,63 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 		Error: "calling CreateSpaces with zero subnets is not valid"}
 	s.checkAddSpaces(c, p)
 }
+
+func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
+	spaces, err := s.facade.ListSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []params.Space{
+		params.Space{
+			Name: "default",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.0.0/24",
+					ProviderId: "provider-192.168.0.0/24",
+					Zones:      []string{"foo"},
+					Status:     "in-use",
+				},
+				params.Subnet{
+					CIDR:       "192.168.3.0/24",
+					ProviderId: "provider-192.168.3.0/24",
+					VLANTag:    23,
+					Zones:      []string{"bar", "bam"},
+				},
+			},
+		},
+		params.Space{
+			Name: "dmz",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.1.0/24",
+					ProviderId: "provider-192.168.1.0/24",
+					VLANTag:    23,
+					Zones:      []string{"bar", "bam"},
+				},
+			},
+		},
+		params.Space{
+			Name: "private",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.2.0/24",
+					ProviderId: "provider-192.168.2.0/24",
+					Zones:      []string{"foo"},
+					Status:     "in-use",
+				},
+			},
+		},
+	}
+	c.Assert(spaces.Results, jc.DeepEquals, expected)
+}
+
+func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
+	boom := errors.New("boom")
+	apiservertesting.BackingInstance.SetErrors(boom)
+	_, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+}
+
+func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
+	apiservertesting.BackingInstance.SetSpaceSubnetsFail()
+	_, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+}

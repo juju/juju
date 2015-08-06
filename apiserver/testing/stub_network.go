@@ -1,8 +1,11 @@
 package testing
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +19,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 )
 
 type StubNetwork struct {
@@ -105,9 +109,10 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 
 // FakeSpace implements common.BackingSpace for testing.
 type FakeSpace struct {
-	SpaceName string
-	SubnetIds []string
-	Public    bool
+	SpaceName   string
+	SubnetIds   []string
+	Public      bool
+	SubnetsFail bool
 }
 
 var _ common.BackingSpace = (*FakeSpace)(nil)
@@ -117,7 +122,41 @@ func (f *FakeSpace) Name() string {
 }
 
 func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
-	return
+	outputSubnets := []common.BackingSubnet{}
+	if f.SubnetsFail {
+		return outputSubnets, errors.New("boom")
+	}
+	for _, subnetId := range f.SubnetIds {
+		providerId := "provider-" + subnetId
+
+		// Pick the third element of the IP address and use this to
+		// decide how we construct the Subnet. It provides variation of
+		// test data.
+		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
+		if err != nil {
+			return outputSubnets, err
+		}
+		vlantag := 0
+		zones := []string{"foo"}
+		status := "in-use"
+		if first%2 == 1 {
+			vlantag = 23
+			zones = []string{"bar", "bam"}
+			status = ""
+		}
+
+		backing := common.BackingSubnetInfo{
+			CIDR:              subnetId,
+			SpaceName:         f.SpaceName,
+			ProviderId:        providerId,
+			VLANTag:           vlantag,
+			AvailabilityZones: zones,
+			Status:            status,
+		}
+		outputSubnets = append(outputSubnets, &FakeSubnet{info: backing})
+	}
+
+	return outputSubnets, nil
 }
 
 func (f *FakeSpace) ProviderId() (netID network.Id) {
@@ -249,6 +288,26 @@ func (f *FakeSubnet) GoString() string {
 	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
 }
 
+func (f *FakeSubnet) Status() string {
+	return f.info.Status
+}
+
+func (f *FakeSubnet) CIDR() string {
+	return f.info.CIDR
+}
+
+func (f *FakeSubnet) AvailabilityZones() []string {
+	return f.info.AvailabilityZones
+}
+
+func (f *FakeSubnet) ProviderId() string {
+	return f.info.ProviderId
+}
+
+func (f *FakeSubnet) VLANTag() int {
+	return f.info.VLANTag
+}
+
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
@@ -299,10 +358,12 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 	sb.Spaces = []common.BackingSpace{}
 	if withSpaces {
+		// Note that full subnet data is generated from the SubnetIds in
+		// FakeSpace.Subnets().
 		sb.Spaces = []common.BackingSpace{
 			&FakeSpace{
 				SpaceName: "default",
-				SubnetIds: []string{"192.168.0.0/24"}},
+				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"}},
 			&FakeSpace{
 				SpaceName: "dmz",
 				SubnetIds: []string{"192.168.1.0/24"}},
@@ -359,12 +420,35 @@ func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZ
 	return sb.NextErr()
 }
 
+func (sb *StubBacking) SetSpaceSubnetsFail() {
+	for i := range sb.Spaces {
+		backingSpace := sb.Spaces[i]
+		fakeSpace, ok := backingSpace.(*FakeSpace)
+		if !ok {
+			panic("can't cast to a FakeSpace")
+		}
+		fakeSpace.SubnetsFail = true
+		sb.Spaces[i] = fakeSpace
+	}
+}
+
 func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {
 	sb.MethodCall(sb, "AllSpaces")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	return sb.Spaces, nil
+
+	// Filter duplicates.
+	seen := set.Strings{}
+	output := []common.BackingSpace{}
+	for _, space := range sb.Spaces {
+		if seen.Contains(space.Name()) {
+			continue
+		}
+		seen.Add(space.Name())
+		output = append(output, space)
+	}
+	return output, nil
 }
 
 func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.BackingSubnet, error) {
