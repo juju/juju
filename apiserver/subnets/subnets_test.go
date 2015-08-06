@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -74,9 +75,16 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 
 // AssertAllSpacesResult makes it easier to verify AllSpaces results.
 func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []common.BackingSpace) {
-	results := make([]params.SpaceResult, len(expected))
-	for i, space := range expected {
-		results[i].Tag = names.NewSpaceTag(space.Name()).String()
+	seen := set.Strings{}
+	results := []params.SpaceResult{}
+	for _, space := range expected {
+		if seen.Contains(space.Name()) {
+			continue
+		}
+		seen.Add(space.Name())
+		result := params.SpaceResult{}
+		result.Tag = names.NewSpaceTag(space.Name()).String()
+		results = append(results, result)
 	}
 	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
 }
