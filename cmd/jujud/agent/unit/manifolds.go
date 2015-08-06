@@ -20,19 +20,33 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
+// ManifoldsConfig allows specialisation of the result of Manifolds.
+type ManifoldsConfig struct {
+
+	// Agent contains the agent that will be wrapped and made available to
+	// its dependencies via a dependency.Engine.
+	Agent agent.Agent
+
+	// LogSource will be read from by the logsender component.
+	LogSource logsender.LogRecordCh
+
+	// LeadershipGuarantee controls the behaviour of the leadership tracker.
+	LeadershipGuarantee time.Duration
+}
+
 // Manifolds returns a set of co-configured manifolds covering the various
 // responsibilities of a standalone unit agent. It also accepts the logSource
 // argument because we haven't figured out how to thread all the logging bits
 // through a dependency engine yet.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(a agent.Agent, logSource logsender.LogRecordCh) dependency.Manifolds {
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	return dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		// (Currently, that is "all manifolds", but consider a shared clock.)
-		AgentName: agent.Manifold(a),
+		AgentName: agent.Manifold(config.Agent),
 
 		// The machine lock manifold is a thin concurrent wrapper around an
 		// FSLock in an agreed location. We expect it to be replaced with an
@@ -55,7 +69,7 @@ func Manifolds(a agent.Agent, logSource logsender.LogRecordCh) dependency.Manifo
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			AgentName: AgentName,
-			LogSource: logSource,
+			LogSource: config.LogSource,
 		}),
 
 		// The rsyslog config updater is a leaf worker that causes rsyslog
@@ -97,7 +111,8 @@ func Manifolds(a agent.Agent, logSource logsender.LogRecordCh) dependency.Manifo
 		// recognised by the unit agent, causing other workers to be stopped
 		// and the agent to be restarted running the new tools. We should only
 		// need one of these in a consolidated agent, but we'll need to be
-		// careful about the interactions with the upgrade-steps worker.
+		// careful about behavioural differences, and interactions with the
+		// upgrade-steps worker.
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,
@@ -110,7 +125,7 @@ func Manifolds(a agent.Agent, logSource logsender.LogRecordCh) dependency.Manifo
 		LeadershipTrackerName: leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           AgentName,
 			APICallerName:       APICallerName,
-			LeadershipGuarantee: 30 * time.Second,
+			LeadershipGuarantee: config.LeadershipGuarantee,
 		}),
 
 		// The uniter installs charms; manages the unit's presence in its

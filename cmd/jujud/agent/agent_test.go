@@ -134,36 +134,6 @@ func (s *AgentSuite) PrimeStateAgent(
 	return conf, agentTools
 }
 
-func (s *AgentSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd apicaller.Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	conf.SetPassword("")
-	err = conf.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that it starts initially and changes the password
-	assertOpen := func(conf agent.Config) {
-		st, gotEnt, err := apicaller.OpenAPIState(conf, agentCmd)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, gc.NotNil)
-		st.Close()
-		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
-	}
-	assertOpen(conf)
-
-	// Check that the initial password is no longer valid.
-	err = ent.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ent.PasswordValid(initialPassword), jc.IsFalse)
-
-	// Read the configuration and check that we can connect with it.
-	conf, err = agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, gc.IsNil)
-	// Check we can open the API with the new configuration.
-	assertOpen(conf)
-}
-
 // writeStateAgentConfig creates and writes a state agent config.
 func writeStateAgentConfig(
 	c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag,

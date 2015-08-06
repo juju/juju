@@ -88,6 +88,10 @@ func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
 	c.Assert(called, gc.Equals, apicaller.CheckProvisionedStrategy.Min+1)
 }
 
+func (s *apiOpenSuite) TestOpenAPIStateRewritesInitialPassword(c *gc.C) {
+	c.Fatalf("not done")
+}
+
 type fakeAPIOpenConfig struct {
 	agent.Config
 }

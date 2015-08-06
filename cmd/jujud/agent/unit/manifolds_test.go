@@ -18,7 +18,9 @@ type ManifoldsSuite struct {
 var _ = gc.Suite(&ManifoldsSuite{})
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds := unit.Manifolds(fakeAgent{}, nil)
+	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+		Agent: fakeAgent{},
+	})
 
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
@@ -27,21 +29,25 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
-	manifolds := unit.Manifolds(fakeAgent{}, nil)
+	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+		Agent: fakeAgent{},
+	})
 	count := len(manifolds)
 
-	// Because we've already got outgoing links stored conveniently, we check
-	// that the transpose of the graph is acyclic instead. Should be same.
+	// Set of vars for depth-first topological sort of manifolds. (Note that,
+	// because we've already got outgoing links stored conveniently, we're
+	// actually checking the transpose of the dependency graph. Cycles will
+	// still be cycles in either direction, though.)
 	done := make(map[string]bool)
 	doing := make(map[string]bool)
 	sorted := make([]string, 0, count)
 
-	// This _ hack to allow recursion feels less irritating that having to pull
-	// out a whole type to embody this algroithm. Alternatives appreciated.
+	// Stupid _-suffix malarkey allows recursion. Seems cleaner to keep these
+	// considerations inside this func than to embody the algorithm in a type.
 	visit := func(node string) {}
 	visit_ := func(node string) {
 		if doing[node] {
-			c.Fatalf("cycle detected at %q", node)
+			c.Fatalf("cycle detected at %q (considering: %v)", node, doing)
 		}
 		if !done[node] {
 			doing[node] = true
@@ -55,11 +61,12 @@ func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
 	}
 	visit = visit_
 
+	// Actually sort them, or fail if we find a cycle.
 	for node := range manifolds {
 		visit(node)
 	}
-	c.Logf("sorted: %v", sorted)
-	c.Check(sorted, gc.HasLen, count)
+	c.Logf("got: %v", sorted)
+	c.Check(sorted, gc.HasLen, count) // Final sanity check.
 }
 
 type fakeAgent struct {

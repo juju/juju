@@ -249,10 +249,10 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	s.RunTestOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
-}
+	var ent state.AgentEntity = unit
+	var agentCmd apicaller.Agent
+	initialPassword := initialUnitPassword
 
-func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd apicaller.Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 

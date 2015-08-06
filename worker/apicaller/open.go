@@ -122,6 +122,7 @@ func openAPIStateUsingInfo(info *api.Info, a Agent, oldPassword string) (*api.St
 		usedOldPassword = true
 		st, err = openAPIForAgent(info, api.DialOpts{})
 	}
+
 	// The provisioner may take some time to record the agent's
 	// machine instance ID, so wait until it does so.
 	if params.IsCodeNotProvisioned(err) {
