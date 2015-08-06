@@ -109,9 +109,10 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 
 // FakeSpace implements common.BackingSpace for testing.
 type FakeSpace struct {
-	SpaceName string
-	SubnetIds []string
-	Public    bool
+	SpaceName   string
+	SubnetIds   []string
+	Public      bool
+	SubnetsFail bool
 }
 
 var _ common.BackingSpace = (*FakeSpace)(nil)
@@ -122,7 +123,7 @@ func (f *FakeSpace) Name() string {
 
 func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
 	outputSubnets := []common.BackingSubnet{}
-	if f.SpaceName == "diediedie" {
+	if f.SubnetsFail {
 		return outputSubnets, errors.New("boom")
 	}
 	for _, subnetId := range f.SubnetIds {
@@ -357,6 +358,8 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 	sb.Spaces = []common.BackingSpace{}
 	if withSpaces {
+		// Note that full subnet data is generated from the SubnetIds in
+		// FakeSpace.Subnets().
 		sb.Spaces = []common.BackingSpace{
 			&FakeSpace{
 				SpaceName: "default",
@@ -415,6 +418,18 @@ func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, e
 func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
 	sb.MethodCall(sb, "SetAvailabilityZones", zones)
 	return sb.NextErr()
+}
+
+func (sb *StubBacking) SetSpaceSubnetsFail() {
+	for i := range sb.Spaces {
+		backingSpace := sb.Spaces[i]
+		fakeSpace, ok := backingSpace.(*FakeSpace)
+		if !ok {
+			panic("can't cast to a FakeSpace")
+		}
+		fakeSpace.SubnetsFail = true
+		sb.Spaces[i] = fakeSpace
+	}
 }
 
 func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {

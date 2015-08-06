@@ -246,10 +246,7 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "diediedie",
-		Subnets: []string{"10.0.0.0/24"}}
-	s.checkAddSpaces(c, p)
+	apiservertesting.BackingInstance.SetSpaceSubnetsFail()
 	_, err := s.facade.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
 }
