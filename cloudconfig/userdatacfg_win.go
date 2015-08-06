@@ -44,6 +44,9 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 	w.conf.AddScripts(
 		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
+		// Some providers create a baseDir before this step, but we need to
+		// make sure it exists before applying icacls
+		fmt.Sprintf(`mkdir -Force "%s"`, renderer.FromSlash(baseDir)),
 		fmt.Sprintf(`icacls "%s" /grant "jujud:(OI)(CI)(F)" /T`, renderer.FromSlash(baseDir)),
 		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
