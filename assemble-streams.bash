@@ -26,7 +26,7 @@ ALL_ARCHIVES="$UBUNTU_ARCH $ARM_ARCH"
 if [[ -f $JUJU_DIR/buildarchrc ]]; then
     source $JUJU_DIR/buildarchrc
     echo "Adding the build archives to list of archives to search."
-    ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
+    ALL_ARCHIVES="$BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH $BUILD_SUPPORTED_ARCH"
 else
     echo "Only public archives will be searched."
 fi
