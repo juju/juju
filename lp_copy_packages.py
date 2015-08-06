@@ -13,7 +13,7 @@ PROPOSED = 'proposed'
 STABLE = 'stable'
 
 
-def get_archives(to_archive_name):
+def get_archives(lp, to_archive_name):
     """Return the archives used in the copy.
 
     The build archives are private and owned by a different team than the
@@ -48,7 +48,7 @@ def get_archives(to_archive_name):
 
 def copy_packages(lp, version, to_archive_name, dry_run=False):
     """Copy the juju-core source and binary packages to and archive."""
-    from_archive, to_archive = get_archives(to_archive_name)
+    from_archive, to_archive = get_archives(lp, to_archive_name)
     package_histories = from_archive.getPublishedSources(
         source_name='juju-core', status='Published')
     package_histories = [
@@ -71,7 +71,7 @@ def copy_packages(lp, version, to_archive_name, dry_run=False):
     return 0
 
 
-def get_argument_parser():
+def get_args(argv=None):
     """Return the option parser for this program."""
     parser = ArgumentParser('Copy juju-core from one archive to another')
     parser.add_argument(
@@ -81,15 +81,18 @@ def get_argument_parser():
     parser.add_argument(
         'to_archive_name',
         help='The archive to copy the source and binary packages to.')
-    return parser
+    return parser.parse_args(argv)
 
 
-if __name__ == '__main__':
-    parser = get_argument_parser()
-    args = parser.parse_args()
+def main(argv=None):
+    args = get_args(argv)
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
     ret_code = copy_packages(
         lp, args.version, args.to_archive_name, args.dry_run)
-    sys.exit(ret_code)
+    return ret_code
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

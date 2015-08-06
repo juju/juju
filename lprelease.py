@@ -215,7 +215,7 @@ def get_args(argv=None):
         help="The defer unfinished bugs to the next milestone.")
     parser.add_argument(
         "-f", "--files", action="append", default=[],
-        help="Launchpad credentials file.")
+        help="Launchpad downloadable file.")
     parser.add_argument(
         "-g", "--gpgcmd", default='gpg',
         help="Path to an alternate gpg cmd.")
