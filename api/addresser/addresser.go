@@ -6,7 +6,6 @@ package addresser
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -37,48 +36,13 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-// IPAddresses retrieves the IP addresses with the given tags.
-func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
-	var results params.LifeResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
-	}
-	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
-	}
-	if err := api.facade.FacadeCall("Life", args, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(tags) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
-	}
-	var err error
-	ipAddresses := make([]*IPAddress, len(tags))
-	for i, result := range results.Results {
-		if result.Error != nil {
-			logger.Warningf("error retieving IP address %v: %v", tags[i], result.Error)
-			ipAddresses[i] = nil
-			err = common.ErrPartialResults
-		} else {
-			ipAddresses[i] = &IPAddress{api.facade, tags[i], result.Life}
-		}
-	}
-	return ipAddresses, err
-}
-
-// Remove deletes the given IP addresses.
-func (api *API) Remove(ipAddresses ...*IPAddress) error {
-	var results params.ErrorResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(ipAddresses)),
-	}
-	for i, ipAddress := range ipAddresses {
-		args.Entities[i].Tag = ipAddress.Tag().String()
-	}
-	if err := api.facade.FacadeCall("Remove", args, &results); err != nil {
+// CleanupIPAddresses releases and removes the dead IP addresses.
+func (api *API) CleanupIPAddresses() error {
+	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, nil); err != nil {
+		// TODO(mue) Does tracing make sense here?
 		return errors.Trace(err)
 	}
-	return results.Combine()
+	return nil
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher

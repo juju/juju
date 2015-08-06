@@ -3,14 +3,6 @@
 
 package addresser
 
-import (
-	"github.com/juju/names"
-
-	"github.com/juju/juju/apiserver/params"
-)
-
-func NewIPAddress(api *API, tag names.IPAddressTag, life params.Life) *IPAddress {
-	return &IPAddress{api.facade, tag, life}
-}
+import ()
 
 var NewEntityWatcher = &newEntityWatcher

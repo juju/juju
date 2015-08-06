@@ -4,12 +4,15 @@
 package addresser
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -23,8 +26,6 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
 	*common.EnvironWatcher
-	*common.LifeGetter
-	*common.Remover
 
 	st         StateInterface
 	resources  *common.Resources
@@ -42,20 +43,76 @@ func NewAddresserAPI(
 		// Addresser must run as environment manager.
 		return nil, common.ErrPerm
 	}
-	getAuthFunc := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return isEnvironManager
-		}, nil
-	}
 	sti := getState(st)
 	return &AddresserAPI{
 		EnvironWatcher: common.NewEnvironWatcher(sti, resources, authorizer),
-		LifeGetter:     common.NewLifeGetter(sti, getAuthFunc),
-		Remover:        common.NewRemover(sti, false, getAuthFunc),
 		st:             sti,
 		resources:      resources,
 		authorizer:     authorizer,
 	}, nil
+}
+
+// CleanupIPAddresses releases and removes the dead IP addresses.
+func (api *AddresserAPI) CleanupIPAddresses() error {
+	// Create an environment to verify networking support.
+	config, err := api.st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := environs.New(config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		return errors.NotSupportedf("IP address deallocation")
+	}
+	// Retrieve dead addresses, release and remove them.
+	logger.Debugf("retrieving dead IP addresses")
+	ipAddresses, err := api.st.DeadIPAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var retryIPAddresses []StateIPAddress
+	for _, ipAddress := range ipAddresses {
+		logger.Debugf("releasing dead IP address %q", ipAddress.Value())
+		err := api.releaseIPAddress(netEnv, ipAddress)
+		if err != nil {
+			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddress.Value(), err)
+			retryIPAddresses = append(retryIPAddresses, ipAddress)
+			continue
+		}
+		logger.Debugf("removing released IP address %q", ipAddress.Value())
+		err = ipAddress.Remove()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if len(retryIPAddresses) > 0 {
+		values := make([]string, len(retryIPAddresses))
+		for i, ipAddress := range retryIPAddresses {
+			values[i] = ipAddress.Value()
+		}
+		return errors.Errorf("some addresses not released (will retry): %v", strings.Join(values, " / "))
+	}
+	return nil
+}
+
+// releaseIPAddress releases one IP address.
+func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipAddress StateIPAddress) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q", ipAddress.Value())
+	logger.Tracef("attempting to release dead IP address %q", ipAddress.Value())
+	// Final check if IP address is really dead.
+	if ipAddress.Life() != state.Dead {
+		return errors.New("IP address not dead")
+	}
+	// Now release the IP address.
+	subnetId := network.Id(ipAddress.SubnetId())
+	err = netEnv.ReleaseAddress(ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // WatchIPAddresses observes changes to the IP addresses.
