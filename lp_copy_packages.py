@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import os
 import sys
 
 from launchpadlib.launchpad import Launchpad
@@ -77,6 +78,9 @@ def get_args(argv=None):
     parser.add_argument(
         '--dry-run', action="store_true", default=False,
         help='Explain what will happen without making changes')
+    parser.add_argument(
+        "-c", "--credentials", default=None, type=os.path.expanduser,
+        help="Launchpad credentials file.")
     parser.add_argument('version', help='The package version like 1.20.8')
     parser.add_argument(
         'to_archive_name',
@@ -88,7 +92,7 @@ def main(argv=None):
     args = get_args(argv)
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
-        version='devel')
+        version='devel', credentials_file=args.credentials)
     ret_code = copy_packages(
         lp, args.version, args.to_archive_name, args.dry_run)
     return ret_code
