@@ -13,6 +13,8 @@ from agent_archive import (
     main,
 )
 
+from utils import temp_dir
+
 
 class FakeArgs:
 
@@ -129,15 +131,30 @@ class AgentArchive(TestCase):
         mock.assert_called_with(
             ['ls', '--list-md5', agent], config='config', verbose=False)
 
-    def test_is_new_version_mutation_error(self):
-        agent = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
-        with patch('agent_archive.run', return_value=agent) as mock:
-            with self.assertRaises(ValueError) as e:
-                is_new_version(
-                    'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
-        self.assertIn('Agents cannot be overwritten', str(e.exception))
-        mock.assert_called_with(
-            ['ls', '--list-md5', agent], config='config', verbose=False)
+    def test_is_new_version_idential(self):
+        listing = (
+            '2015-05-27 14:16   8292541   b33aed8f3134996703dc39f9a7c95783  '
+            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz')
+        with temp_dir() as base:
+            local_agent = os.path.join(base, 'juju-1.21.0-win2012-amd64.tgz')
+            with open(local_agent, 'w') as f:
+                f.write('agent')
+            with patch('agent_archive.run', return_value=listing):
+                result = is_new_version(local_agent, 'config')
+        self.assertFalse(result)
+
+    def test_is_new_version_not_identical_error(self):
+        listing = (
+            '2015-05-27 14:16   8292541   69988f8072c3839fa2a364d80a652f3f  '
+            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz')
+        with temp_dir() as base:
+            local_agent = os.path.join(base, 'juju-1.21.0-win2012-amd64.tgz')
+            with open(local_agent, 'w') as f:
+                f.write('agent')
+            with patch('agent_archive.run', return_value=listing):
+                with self.assertRaises(ValueError) as e:
+                    is_new_version(local_agent, 'config')
+        self.assertIn('Agents cannot be changed', str(e.exception))
 
     def test_add_agent_with_bad_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-trusty-amd64.tgz')
