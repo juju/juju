@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import hashlib
 import os
 import re
 import subprocess
@@ -78,6 +79,34 @@ def listing_to_files(listing):
     return agents
 
 
+def is_new_version(source_path, config, verbose=False):
+    """Return True when the version is new, else False.
+
+    :raises: ValueError if the version exists and is different.
+    :return: True when the version is new, else False.
+    """
+    if verbose:
+        print('Checking that %s does not already exist.' % source_path)
+    source_agent = os.path.basename(source_path)
+    agent_path = '%s/%s' % (S3_CONTAINER, source_agent)
+    existing_version = run(
+        ['ls', '--list-md5', agent_path], config=config, verbose=verbose)
+    if not existing_version:
+        return True
+    remote_hash = existing_version.strip().split()[3]
+    md5 = hashlib.md5()
+    with open(source_path, mode='rb') as local_file:
+        md5.update(local_file.read())
+    local_hash = str(md5.hexdigest())
+    if remote_hash != local_hash:
+        raise ValueError(
+            '%s already exists. Agents cannot be changed to %s.' %
+            (existing_version, local_hash))
+    if verbose:
+        print('This exact agent is archived. No need to upload.')
+    return False
+
+
 def add_agents(args):
     """Upload agents to the S3 agent-archive location.
 
@@ -95,25 +124,20 @@ def add_agents(args):
     if source_agent not in agent_versions:
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
-    os_name = get_source_agent_os(source_agent)
-    agent_glob = '%s/juju-%s-%s*' % (S3_CONTAINER, version, os_name)
-    existing_versions = run(
-        ['ls', agent_glob], config=args.config, verbose=args.verbose)
-    if args.verbose:
-        print('Checking that %s does not already exist.' % version)
-    if existing_versions:
-        raise ValueError(
-            '%s already exists. Agents cannot be overwritten.' %
-            existing_versions)
+    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
+    if not is_new_version(source_path, args.config, verbose=args.verbose):
+        if args.verbose:
+            print("Nothing to do.")
+        return
     # The fastest way to put the files in place is to upload the source_agent
     # then use the s3cmd cp to make remote versions.
-    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
     if args.verbose:
         print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
     remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
+    os_name = get_source_agent_os(source_agent)
     agent_versions = [a for a in agent_versions if os_name in a]
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
