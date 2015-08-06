@@ -528,12 +528,11 @@ type CreateSpaceParams struct {
 
 // ListSpacesResults holds the list of all available spaces.
 type ListSpacesResults struct {
-	Results []Space
-	Error   *Error
+	Results []Space `json:"Results"`
 }
 
 // Space holds the information about a single space and its associated subnets.
 type Space struct {
-	Name    string
-	Subnets []Subnet
+	Name    string   `json:"Name"`
+	Subnets []Subnet `json:"Subnets"`
 }
