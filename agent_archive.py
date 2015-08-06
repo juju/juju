@@ -127,8 +127,8 @@ def add_agents(args):
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
     if not is_new_version(source_path, args.config, verbose=args.verbose):
         if args.verbose:
-            print('Exiting early because %s is in the archive' % version)
-        pass
+            print("Nothing to do.")
+        return
     # The fastest way to put the files in place is to upload the source_agent
     # then use the s3cmd cp to make remote versions.
     if args.verbose:
