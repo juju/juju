@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
@@ -28,6 +29,7 @@ type allWatcherStateBacking struct {
 // for all environments from the State.
 type allEnvWatcherStateBacking struct {
 	st               *State
+	stPool           *statePool
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -1006,6 +1008,12 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	return doc.updated(b.st, all, id)
 }
 
+// Release implements the Backing interface.
+func (b *allWatcherStateBacking) Release() error {
+	// allWatcherStateBacking doesn't need to release anything.
+	return nil
+}
+
 func newAllEnvWatcherStateBacking(st *State) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		machinesC,
@@ -1020,6 +1028,7 @@ func newAllEnvWatcherStateBacking(st *State) Backing {
 	)
 	return &allEnvWatcherStateBacking{
 		st:               st,
+		stPool:           newStatePool(st),
 		collectionByName: collections,
 	}
 }
@@ -1066,22 +1075,37 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
-	col, closer := b.st.getCollection(c.name)
+
+	envUUID, id, ok := splitDocID(change.Id.(string))
+	if !ok {
+		return errors.Errorf("unknown id format: %v", change.Id.(string))
+	}
+
+	st, err := b.stPool.get(envUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	col, closer := st.getCollection(c.name)
 	defer closer()
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
-	id := b.st.localID(change.Id.(string))
-
 	// TODO - see TODOs in allWatcherStateBacking.Changed()
-	err := col.FindId(id).One(doc)
+	err = col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		doc.removed(b.st, all, id)
+		doc.removed(st, all, id)
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	return doc.updated(b.st, all, id)
+	return doc.updated(st, all, id)
+}
+
+// Release implements the Backing interface.
+func (b *allEnvWatcherStateBacking) Release() error {
+	err := b.stPool.closeAll()
+	return errors.Trace(err)
 }
 
 func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
@@ -1112,4 +1136,46 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 	}
 
 	return nil
+}
+
+// newStatePool returns a new statePool instance.
+func newStatePool(ssSt *State) *statePool {
+	return &statePool{
+		ssSt: ssSt,
+		pool: make(map[string]*State),
+	}
+}
+
+// statePool is a simple cache of State instances for multiple environments.
+type statePool struct {
+	ssSt *State
+	pool map[string]*State
+}
+
+// get returns a State for a given environment from the pool, creating
+// one if required.
+func (p *statePool) get(envUUID string) (*State, error) {
+	st, ok := p.pool[envUUID]
+	if ok {
+		return st, nil
+	}
+
+	st, err := p.ssSt.ForEnviron(names.NewEnvironTag(envUUID))
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to create state for environment %v", envUUID)
+	}
+	p.pool[envUUID] = st
+	return st, nil
+}
+
+// closeAll closes all State instances in the pool.
+func (p *statePool) closeAll() error {
+	var lastErr error
+	for _, st := range p.pool {
+		err := st.Close()
+		if err != nil {
+			lastErr = err
+		}
+	}
+	return errors.Annotate(lastErr, "at least one error closing a state")
 }
