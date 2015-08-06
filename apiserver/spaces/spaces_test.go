@@ -204,6 +204,12 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 					Zones:      []string{"foo"},
 					Status:     "in-use",
 				},
+				params.Subnet{
+					CIDR:       "192.168.3.0/24",
+					ProviderId: "provider-192.168.3.0/24",
+					VLANTag:    23,
+					Zones:      []string{"bar", "bam"},
+				},
 			},
 		},
 		params.SpaceListResult{

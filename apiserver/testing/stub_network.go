@@ -356,7 +356,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		sb.Spaces = []common.BackingSpace{
 			&FakeSpace{
 				SpaceName: "default",
-				SubnetIds: []string{"192.168.0.0/24"}},
+				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"}},
 			&FakeSpace{
 				SpaceName: "dmz",
 				SubnetIds: []string{"192.168.1.0/24"}},
