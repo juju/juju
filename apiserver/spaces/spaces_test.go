@@ -245,3 +245,13 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
 	c.Assert(spaces.Error.Error(), gc.Equals, "boom")
 }
+
+func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:    "diediedie",
+		Subnets: []string{"10.0.0.0/24"}}
+	s.checkAddSpaces(c, p)
+	spaces, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+	c.Assert(spaces.Error.Error(), gc.Equals, "boom")
+}

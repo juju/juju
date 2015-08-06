@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -121,6 +122,9 @@ func (f *FakeSpace) Name() string {
 
 func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
 	outputSubnets := []common.BackingSubnet{}
+	if f.SpaceName == "diediedie" {
+		return outputSubnets, errors.New("boom")
+	}
 	for _, subnetId := range f.SubnetIds {
 		providerId := "provider-" + subnetId
 
