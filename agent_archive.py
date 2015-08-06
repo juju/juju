@@ -78,12 +78,15 @@ def listing_to_files(listing):
     return agents
 
 
-def is_new_version(version, agent_glob, config, verbose=False):
+def is_new_version(version, source_path, config, verbose=False):
     """Return True when the version is new, else False.
 
     :raises: ValueError if the version exists and is different.
     :return: True when the version is new, else False.
     """
+    source_agent = os.path.basename(source_path)
+    os_name = get_source_agent_os(source_agent)
+    agent_glob = '%s/juju-%s-%s*' % (S3_CONTAINER, version, os_name)
     existing_versions = run(
         ['ls', agent_glob], config=config, verbose=verbose)
     if verbose:
@@ -111,22 +114,21 @@ def add_agents(args):
     if source_agent not in agent_versions:
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
-    os_name = get_source_agent_os(source_agent)
-    agent_glob = '%s/juju-%s-%s*' % (S3_CONTAINER, version, os_name)
-    if not is_new_version(version, agent_glob, config=args.config,
+    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
+    if not is_new_version(version, source_path, config=args.config,
                           verbose=args.verbose):
         if args.verbose:
             print('Exiting early because %s is in the archive' % version)
         pass
     # The fastest way to put the files in place is to upload the source_agent
     # then use the s3cmd cp to make remote versions.
-    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
     if args.verbose:
         print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
     remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
+    os_name = get_source_agent_os(source_agent)
     agent_versions = [a for a in agent_versions if os_name in a]
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
