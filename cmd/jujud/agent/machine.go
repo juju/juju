@@ -61,7 +61,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -123,7 +122,6 @@ var (
 	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
-	reportClosedMachineAPI   = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -333,16 +331,7 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	apiStateUpgrader APIStateUpgrader
-
 	loopDeviceManager looputil.LoopDeviceManager
-}
-
-func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
-	if a.apiStateUpgrader != nil {
-		return a.apiStateUpgrader
-	}
-	return st.Upgrader()
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -658,9 +647,16 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	reportOpenedAPI(st)
 
 	defer func() {
+		// TODO(fwereade): this is not properly tested. Old tests were evil
+		// (dependent on injecting an error in a patched-out upgrader API
+		// that shouldn't even be used at this level)... so I just deleted
+		// them. Not a major worry: this whole method will become redundant
+		// when we switch to the dependency engine (and specifically use
+		// worker/apicaller to connect).
 		if err != nil {
-			st.Close()
-			reportClosedMachineAPI(st)
+			if err := st.Close(); err != nil {
+				logger.Errorf("while closing API: %v", err)
+			}
 		}
 	}()
 
@@ -682,14 +678,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 			agentConfig = a.CurrentConfig()
 			break
 		}
-	}
-
-	// Before starting any workers, ensure we record the Juju version this machine
-	// agent is running.
-	currentTools := &coretools.Tools{Version: version.Current}
-	apiStateUpgrader := a.getUpgrader(st)
-	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
 	runner := newConnRunner(st)

@@ -5,7 +5,6 @@ package agent
 
 import (
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -396,39 +394,6 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
-}
-
-func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
-	_, unit, _, _ := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	a.apiStateUpgrader = &unitAgentUpgrader{}
-
-	closedAPI := make(chan io.Closer, 1)
-	s.AgentSuite.PatchValue(&reportClosedUnitAPI, func(st io.Closer) {
-		select {
-		case closedAPI <- st:
-			close(closedAPI)
-		default:
-		}
-	})
-
-	worker, err := a.APIWorkers()
-
-	select {
-	case closed := <-closedAPI:
-		c.Assert(closed, gc.NotNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("API not opened")
-	}
-
-	c.Assert(worker, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
-}
-
-type unitAgentUpgrader struct{}
-
-func (u *unitAgentUpgrader) SetVersion(s string, v version.Binary) error {
-	return errors.New("test failure")
 }
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
