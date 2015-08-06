@@ -31,7 +31,7 @@ class LPCopyPackagesTestCase(TestCase):
         self.assertFalse(args.dry_run)
 
     def test_main(self):
-        lp = Mock()
+        lp = object()
         with patch('lp_copy_packages.copy_packages', autospec=True,
                    return_value=0) as cp_mock:
             # Cannot autospec staticmethods.
