@@ -115,8 +115,7 @@ def add_agents(args):
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
-    if not is_new_version(source_path, config=args.config,
-                          verbose=args.verbose):
+    if not is_new_version(source_path, args.config, verbose=args.verbose):
         if args.verbose:
             print('Exiting early because %s is in the archive' % version)
         pass

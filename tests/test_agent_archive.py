@@ -131,9 +131,10 @@ class AgentArchive(TestCase):
     def test_is_new_version_mutation_error(self):
         agent = 's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'
         with patch('agent_archive.run', return_value=agent) as mock:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as e:
                 is_new_version(
                     'juju-1.21.0-win2012-amd64.tgz', 'config', verbose=False)
+        self.assertIn('Agents cannot be overwritten', str(e.exception))
         mock.assert_called_with(['ls', agent], config='config', verbose=False)
 
     def test_add_agent_with_bad_source_raises_error(self):
@@ -154,42 +155,38 @@ class AgentArchive(TestCase):
 
     def test_add_agent_with_existing_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
-        output = (
-            's3://juju-qa-data/agent-archive/juju-1.21.0-win2012r2-amd64.tgz')
-        with patch('agent_archive.run', return_value=output) as mock:
-            with self.assertRaises(ValueError) as e:
+        with patch('agent_archive.is_new_version',
+                   side_effect=ValueError) as nv_mock:
+            with self.assertRaises(ValueError):
                 add_agents(cmd_args)
-        self.assertIn('Agents cannot be overwritten', str(e.exception))
-        mock.assert_called_with(
-            ['ls',
-             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
-            config=None, verbose=False)
+        agent_path = os.path.abspath(cmd_args.source_agent)
+        nv_mock.assert_called_with(agent_path, None, verbose=False)
 
     def test_add_agent_puts_and_copies_win(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
         with patch('agent_archive.run', return_value='') as mock:
-            add_agents(cmd_args)
-        self.assertEqual(8, mock.call_count)
+            with patch('agent_archive.is_new_version', autopec=True,
+                       return_value=True) as nv_mock:
+                add_agents(cmd_args)
+        nv_mock.assert_called_with(
+            os.path.abspath('juju-1.21.0-win2012-amd64.tgz'),
+            None, verbose=False)
+        self.assertEqual(7, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
-        self.assertEqual(
-            (['ls',
-              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
-             ), args)
-        output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
             ['put', agent_path,
              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
             args[0])
         # The remaining calls after the put is a fast cp to the other names.
-        output, args, kwargs = mock.mock_calls[2]
+        output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
             ['cp',
              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz',
              's3://juju-qa-data/agent-archive/'
              'juju-1.21.0-win2012hvr2-amd64.tgz'],
             args[0])
-        output, args, kwargs = mock.mock_calls[7]
+        output, args, kwargs = mock.mock_calls[6]
         self.assertEqual(
             ['cp',
              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz',
@@ -199,19 +196,17 @@ class AgentArchive(TestCase):
     def test_add_agent_puts_centos(self):
         cmd_args = FakeArgs(source_agent='juju-1.24.0-centos7-amd64.tgz')
         with patch('agent_archive.run', return_value='') as mock:
-            add_agents(cmd_args)
-        self.assertEqual(2, mock.call_count)
-        output, args, kwargs = mock.mock_calls[0]
-        self.assertEqual(
-            (['ls',
-              's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'],
-             ), args)
-        output, args, kwargs = mock.mock_calls[1]
+            with patch('agent_archive.is_new_version', autopec=True,
+                       return_value=True) as nv_mock:
+                add_agents(cmd_args)
         agent_path = os.path.abspath(cmd_args.source_agent)
-        self.assertEqual(
+        nv_mock.assert_called_with(agent_path, None, verbose=False)
+        self.assertEqual(1, mock.call_count)
+        agent_path = os.path.abspath(cmd_args.source_agent)
+        mock.assert_called_with(
             ['put', agent_path,
              's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'],
-            args[0])
+            config=None, verbose=False, dry_run=False)
 
     def test_get_agent(self):
         cmd_args = FakeArgs(version='1.21.0', destination='./')
