@@ -192,7 +192,8 @@ class DumpEnvLogsTestCase(TestCase):
                                autospec=True) as crl_mock:
                         with patch('deploy_stack.archive_logs',
                                    autospec=True) as al_mock:
-                            env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+                            env = SimpleEnvironment('foo',
+                                                    {'type': 'nonlocal'})
                             client = EnvJujuClient(env, '1.234-76', None)
                             dump_env_logs(client, '10.10.0.1', artifacts_dir)
             al_mock.assert_called_once_with(artifacts_dir)
@@ -221,7 +222,8 @@ class DumpEnvLogsTestCase(TestCase):
                                autospec=True) as crl_mock:
                         with patch('deploy_stack.archive_logs',
                                    autospec=True) as al_mock:
-                            env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+                            env = SimpleEnvironment('foo',
+                                                    {'type': 'nonlocal'})
                             client = EnvJujuClient(env, '1.234-76', None)
                             dump_env_logs(client, '10.10.0.1', artifacts_dir)
             al_mock.assert_called_once_with(artifacts_dir)
@@ -308,7 +310,7 @@ class DumpEnvLogsTestCase(TestCase):
                 with patch('deploy_stack.lxc_template_glob',
                            os.path.join(juju_home_dir, "*.log")):
                     with patch('subprocess.check_call', autospec=True,
-                               side_effect=err) as cc_mock:
+                               side_effect=err):
                         copy_local_logs(env, '/destination/dir')
         self.assertEqual(
             ["WARNING Could not retrieve local logs: Command 'cp' returned"
