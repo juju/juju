@@ -257,6 +257,13 @@ type mockIPAddress struct {
 
 var _ addresser.StateIPAddress = (*mockIPAddress)(nil)
 
+// Value implements StateIPAddress.
+func (mip *mockIPAddress) Value() string {
+	mip.stub.MethodCall(mip, "Value")
+	mip.stub.NextErr() // Consume the unused error.
+	return "public:" + mip.value
+}
+
 // Tag implements StateIPAddress.
 func (mip *mockIPAddress) Tag() names.Tag {
 	mip.stub.MethodCall(mip, "Tag")

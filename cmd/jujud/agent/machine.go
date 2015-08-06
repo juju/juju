@@ -1176,9 +1176,20 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		return newCleaner(apiSt.Cleaner()), nil
 	})
-	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return newAddresser(apiSt.Addresser())
-	})
+
+	// Addresser Worker needs a networking environment. Check
+	// first before starting the worker.
+	isNetEnv, err := getNetworkingEnvironment(apiSt)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot check metworking environment")
+	}
+	if isNetEnv {
+		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+			return newAddresser(apiSt.Addresser())
+		})
+	} else {
+		logger.Debugf("not starting addresser worker, don't having a networking environment")
+	}
 
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
@@ -1197,6 +1208,19 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 
 	return runner, nil
+}
+
+func getNetworkingEnvironment(apiSt *api.State) (bool, error) {
+	envConfig, err := apiSt.Environment().EnvironConfig()
+	if err != nil {
+		return false, errors.Annotate(err, "cannot read environment config")
+	}
+	env, err := environs.New(config)
+	if err != nil {
+		return false, errors.Annotate(err, "cannot get environment")
+	}
+	_, ok := environs.SupportsNetworking(env)
+	return ok, nil
 }
 
 var getFirewallMode = _getFirewallMode

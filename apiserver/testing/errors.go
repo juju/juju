@@ -39,6 +39,13 @@ func NotAssignedError(unitName string) *params.Error {
 	}
 }
 
+func TryAgainError(what string) *params.Error {
+	return &params.Error{
+		Message: fmt.Sprintf("cannot %s; try again", what),
+		Code:    params.CodeTryAgain,
+	}
+}
+
 func AlreadyExistsError(what string) *params.Error {
 	return &params.Error{
 		Message: fmt.Sprintf("%s already exists", what),

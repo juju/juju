@@ -4,6 +4,8 @@
 package addresser
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -67,7 +69,7 @@ func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
 }
 
 // ReleaseIPAddresses releases the given IP addresses.
-func (api *API) ReleaseIPAddresses(tags ...names.IPAddressTag) error {
+func (api *API) ReleaseIPAddresses(tags ...names.IPAddressTag) ([]names.IPAddressTag, error) {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -76,9 +78,29 @@ func (api *API) ReleaseIPAddresses(tags ...names.IPAddressTag) error {
 		args.Entities[i].Tag = tag.String()
 	}
 	if err := api.facade.FacadeCall("ReleaseIPAddresses", args, &results); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return results.Combine()
+	if len(results.Results) != len(tags) {
+		return nil, errors.Errorf("expected %d results, got %d", len(tags), len(results.Results))
+	}
+	// Separate retryable errors from permanent ones.
+	var retry []names.IPAddressTag
+	var errMsgs []string
+	for i, result := range results.Results {
+		err := result.Error
+		if err != nil {
+			if params.IsCodeTryAgain(err) {
+				retry = append(retry, tags[i])
+			} else {
+				errMsgs = append(errMsgs, err.Error())
+			}
+		}
+	}
+	var err error
+	if len(errMsgs) > 0 {
+		err = errors.Errorf("cannot release IP address(es): %s", strings.Join(errMsgs, "\n"))
+	}
+	return retry, err
 }
 
 // Remove deletes the given IP addresses.
@@ -93,7 +115,21 @@ func (api *API) Remove(tags ...names.IPAddressTag) error {
 	if err := api.facade.FacadeCall("Remove", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	return results.Combine()
+	if len(results.Results) != len(tags) {
+		return errors.Errorf("expected %d results, got %d", len(tags), len(results.Results))
+	}
+	// Filter IsCodeNotFound errors, they don't harm.
+	var errMsgs []string
+	for _, result := range results.Results {
+		err := result.Error
+		if err != nil && !params.IsCodeNotFound(err) {
+			errMsgs = append(errMsgs, err.Error())
+		}
+	}
+	if len(errMsgs) > 0 {
+		return errors.Errorf("cannot remove IP address(es): %s", strings.Join(errMsgs, "\n"))
+	}
+	return nil
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher

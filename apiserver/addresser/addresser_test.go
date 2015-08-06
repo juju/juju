@@ -129,19 +129,18 @@ func (s *AddresserSuite) TestReleaseIPAddresses(c *gc.C) {
 	result, err := s.api.ReleaseIPAddresses(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result.Results), gc.Equals, 2)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `.*: cannot release IP address .*: is not dead`)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "try again")
 	c.Assert(result.Results[1].Error, gc.IsNil)
 }
 
 func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"}},
+		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-7777-0123456789ab"}},
 	}
 	result, err := s.api.Remove(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result.Results), gc.Equals, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-
 }
 
 func (s *AddresserSuite) TestRemoveFail(c *gc.C) {

@@ -178,8 +178,9 @@ func (s *AddresserSuite) TestReleaseIPAddressesSuccess(c *gc.C) {
 	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	err := api.ReleaseIPAddresses(tag1, tag2, tag3)
+	retry, err := api.ReleaseIPAddresses(tag1, tag2, tag3)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(retry), gc.Equals, 0)
 	c.Assert(called, gc.Equals, 1)
 }
 
@@ -189,25 +190,67 @@ func (s *AddresserSuite) TestReleaseIPAddressesClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "ReleaseIPAddresses", nil, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	err := api.ReleaseIPAddresses(tag)
+	retry, err := api.ReleaseIPAddresses(tag)
 	c.Assert(err, gc.ErrorMatches, "client error!")
+	c.Assert(len(retry), gc.Equals, 0)
 	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *AddresserSuite) TestReleaseIPAddressesServerError(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+	tag3 := names.NewIPAddressTag("33333333-0000-0000-0000-000000000000")
+
 	var called int
-	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+			{Tag: tag3.String()},
+		},
 	}
 	results := params.ErrorResults{
-		Results: []params.ErrorResult{{apiservertesting.ServerError("server boom!")}},
+		Results: []params.ErrorResult{
+			{nil},
+			{nil},
+			{apiservertesting.ServerError("server boom!")},
+		},
 	}
 	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	err := api.ReleaseIPAddresses(tag)
-	c.Assert(err, gc.ErrorMatches, "server boom!")
+	retry, err := api.ReleaseIPAddresses(tag1, tag2, tag3)
+	c.Assert(err, gc.ErrorMatches, `cannot release IP address\(es\): server boom!`)
+	c.Assert(len(retry), gc.Equals, 0)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *AddresserSuite) TestReleaseIPAddressesServerRetry(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+	tag3 := names.NewIPAddressTag("33333333-0000-0000-0000-000000000000")
+
+	var called int
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+			{Tag: tag3.String()},
+		},
+	}
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.TryAgainError("release IP address")},
+			{apiservertesting.TryAgainError("release IP address")},
+		},
+	}
+	apiCaller := successAPICaller(c, "ReleaseIPAddresses", args, results, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	retry, err := api.ReleaseIPAddresses(tag1, tag2, tag3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(retry), gc.Equals, 2)
 	c.Assert(called, gc.Equals, 1)
 }
 
@@ -259,7 +302,7 @@ func (s *AddresserSuite) TestRemoveServerError(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 
 	err := api.Remove(tag)
-	c.Assert(err, gc.ErrorMatches, "server boom!")
+	c.Assert(err, gc.ErrorMatches, `cannot remove IP address\(es\): server boom!`)
 	c.Assert(called, gc.Equals, 1)
 }
 

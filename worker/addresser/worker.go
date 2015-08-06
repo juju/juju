@@ -4,9 +4,12 @@
 package addresser
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	apiaddresser "github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/common"
@@ -61,27 +64,56 @@ func (a *addresserHandler) Handle(watcherTags []string) error {
 		}
 		return errors.Trace(err)
 	}
-	toBeReleased := []*apiaddresser.IPAddress{}
+	toBeReleased := []names.IPAddressTag{}
 	for i, ipAddress := range ipAddresses {
 		tag := tags[i]
 		if ipAddress == nil {
-			logger.Tracef("IP address %v already removed; skipping", tag)
+			logger.Debugf("IP address %v already removed; skipping", tag)
 			continue
 		}
 		if ipAddress.Life() != params.Dead {
 			logger.Tracef("IP address %v is not dead (life %q); skipping", tag, ipAddress.Life())
 			continue
 		}
-		toBeReleased = append(toBeReleased, ipAddress)
+		toBeReleased = append(toBeReleased, tag)
 	}
 	// Release the IP addresses.
-	if err := a.api.ReleaseIPAddresses(toBeReleased...); err != nil {
-		return errors.Annotate(err, "cannot release all IP addresses")
+	retry, err := a.api.ReleaseIPAddresses(toBeReleased...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(retry) > 0 {
+		var tags []string
+		for _, tag := range retry {
+			tags = append(tags, tag.String())
+		}
+		logger.Debugf("%d IP addresses not released (will retry): %v", len(retry), strings.Join(tags, "\n"))
 	}
 	// Finally remove the released ones.
-	if err := a.api.Remove(toBeReleased...); err != nil {
+	toBeRemoved := tagDifference(toBeReleased, retry)
+	if err := a.api.Remove(toBeRemoved...); err != nil {
 		return errors.Annotate(err, "cannot remove all released IP addresses")
 	}
-	logger.Tracef("removed released IP addresses")
+	logger.Tracef("released and removed dead IP addresses: %+v", toBeRemoved)
 	return nil
+}
+
+// tagDifference returns to be released tags minus those where the releasing
+// failed. Those are the ones for removal. Sadly this is needed as the typed
+// tag slices cannot be used directly for set. *sigh*
+func tagDifference(releasedTags, retryTags []names.IPAddressTag) []names.IPAddressTag {
+	releasedSet := set.NewTags()
+	for _, releasedTag := range releasedTags {
+		releasedSet.Add(releasedTag)
+	}
+	retrySet := set.NewTags()
+	for _, retryTag := range retryTags {
+		retrySet.Add(retryTag)
+	}
+	removeSet := releasedSet.Difference(retrySet)
+	removeTags := []names.IPAddressTag{}
+	for _, removeTag := range removeSet.Values() {
+		removeTags = append(removeTags, removeTag.(names.IPAddressTag))
+	}
+	return removeTags
 }
