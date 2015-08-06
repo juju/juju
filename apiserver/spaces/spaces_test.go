@@ -194,8 +194,8 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	spaces, err := s.facade.ListSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces.Error, gc.IsNil)
-	expected := []params.SpaceListResult{
-		params.SpaceListResult{
+	expected := []params.Space{
+		params.Space{
 			Name: "default",
 			Subnets: []params.Subnet{
 				params.Subnet{
@@ -212,7 +212,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 				},
 			},
 		},
-		params.SpaceListResult{
+		params.Space{
 			Name: "dmz",
 			Subnets: []params.Subnet{
 				params.Subnet{
@@ -223,7 +223,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 				},
 			},
 		},
-		params.SpaceListResult{
+		params.Space{
 			Name: "private",
 			Subnets: []params.Subnet{
 				params.Subnet{
@@ -241,9 +241,8 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 	boom := errors.New("boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
-	spaces, err := s.facade.ListSpaces()
+	_, err := s.facade.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
-	c.Assert(spaces.Error.Error(), gc.Equals, "boom")
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
@@ -251,7 +250,6 @@ func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 		Name:    "diediedie",
 		Subnets: []string{"10.0.0.0/24"}}
 	s.checkAddSpaces(c, p)
-	spaces, err := s.facade.ListSpaces()
+	_, err := s.facade.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
-	c.Assert(spaces.Error.Error(), gc.Equals, "boom")
 }

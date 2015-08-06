@@ -22,7 +22,7 @@ func init() {
 // API defines the methods the Spaces API facade implements.
 type API interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
-	ListSpaces() (params.SpaceListResults, error)
+	ListSpaces() (params.ListSpacesResults, error)
 }
 
 // spacesAPI implements the API interface.
@@ -95,19 +95,17 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
-func (api *spacesAPI) ListSpaces() (results params.SpaceListResults, err error) {
+func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
-		results.Error = common.ServerError(err)
 		return results, err
 	}
 	for _, space := range spaces {
-		result := params.SpaceListResult{}
+		result := params.Space{}
 		result.Name = space.Name()
 		subnets, err := space.Subnets()
 		if err != nil {
-			results.Error = common.ServerError(err)
 			return results, err
 		}
 		for _, subnet := range subnets {
@@ -118,6 +116,8 @@ func (api *spacesAPI) ListSpaces() (results params.SpaceListResults, err error) 
 			status := subnet.Status()
 
 			result.Subnets = append(result.Subnets,
+				// TODO(mfoord): a subnet.GetParams() method would be
+				// nice.
 				params.Subnet{
 					CIDR:       cidr,
 					VLANTag:    vlantag,

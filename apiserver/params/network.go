@@ -525,3 +525,15 @@ type CreateSpaceParams struct {
 	SpaceTag   string   `json:"SpaceTag"`
 	Public     bool     `json:"Public"`
 }
+
+// ListSpacesResults holds the list of all available spaces.
+type ListSpacesResults struct {
+	Results []Space
+	Error   *Error
+}
+
+// Space holds the information about a single space and its associated subnets.
+type Space struct {
+	Name    string
+	Subnets []Subnet
+}
