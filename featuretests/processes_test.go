@@ -46,7 +46,9 @@ func initProcessesSuites() {
 		return
 	}
 	userInfo = u
-	gc.Suite(&processesSuite{})
+	// TODO(ericsnow) Re-enable once we get the local provider cleaning
+	// up properly.
+	//gc.Suite(&processesSuite{})
 }
 
 var (
