@@ -195,9 +195,39 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces.Error, gc.IsNil)
 	expected := []params.SpaceListResult{
-		params.SpaceListResult{Name: "default"},
-		params.SpaceListResult{Name: "dmz"},
-		params.SpaceListResult{Name: "private"},
+		params.SpaceListResult{
+			Name: "default",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.0.0/24",
+					ProviderId: "provider-192.168.0.0/24",
+					Zones:      []string{"foo"},
+					Status:     "in-use",
+				},
+			},
+		},
+		params.SpaceListResult{
+			Name: "dmz",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.1.0/24",
+					ProviderId: "provider-192.168.1.0/24",
+					VLANTag:    23,
+					Zones:      []string{"bar", "bam"},
+				},
+			},
+		},
+		params.SpaceListResult{
+			Name: "private",
+			Subnets: []params.Subnet{
+				params.Subnet{
+					CIDR:       "192.168.2.0/24",
+					ProviderId: "provider-192.168.2.0/24",
+					Zones:      []string{"foo"},
+					Status:     "in-use",
+				},
+			},
+		},
 	}
 	c.Assert(spaces.Results, jc.DeepEquals, expected)
 }

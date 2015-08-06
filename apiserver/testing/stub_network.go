@@ -3,6 +3,8 @@ package testing
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 
 	gc "gopkg.in/check.v1"
 
@@ -122,10 +124,29 @@ func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
 	for _, subnetId := range f.SubnetIds {
 		providerId := "provider-" + subnetId
 
+		// Pick the third element of the IP address and use this to
+		// decide how we construct the Subnet. It provides variation of
+		// test data.
+		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
+		if err != nil {
+			return outputSubnets, err
+		}
+		vlantag := 0
+		zones := []string{"foo"}
+		status := "in-use"
+		if first%2 == 1 {
+			vlantag = 23
+			zones = []string{"bar", "bam"}
+			status = ""
+		}
+
 		backing := common.BackingSubnetInfo{
-			CIDR:       subnetId,
-			SpaceName:  f.SpaceName,
-			ProviderId: providerId,
+			CIDR:              subnetId,
+			SpaceName:         f.SpaceName,
+			ProviderId:        providerId,
+			VLANTag:           vlantag,
+			AvailabilityZones: zones,
+			Status:            status,
 		}
 		outputSubnets = append(outputSubnets, &FakeSubnet{info: backing})
 	}
@@ -262,24 +283,24 @@ func (f *FakeSubnet) GoString() string {
 	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
 }
 
-func (f *FakeSubnet) Status() (string, error) {
-	return f.info.Status, nil
+func (f *FakeSubnet) Status() string {
+	return f.info.Status
 }
 
-func (f *FakeSubnet) CIDR() (string, error) {
-	return f.info.CIDR, nil
+func (f *FakeSubnet) CIDR() string {
+	return f.info.CIDR
 }
 
-func (f *FakeSubnet) AvailabilityZones() ([]string, error) {
-	return f.info.AvailabilityZones, nil
+func (f *FakeSubnet) AvailabilityZones() []string {
+	return f.info.AvailabilityZones
 }
 
-func (f *FakeSubnet) ProviderId() (string, error) {
-	return f.info.ProviderId, nil
+func (f *FakeSubnet) ProviderId() string {
+	return f.info.ProviderId
 }
 
-func (f *FakeSubnet) VLANTag() (int, error) {
-	return f.info.VLANTag, nil
+func (f *FakeSubnet) VLANTag() int {
+	return f.info.VLANTag
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.

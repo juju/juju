@@ -111,31 +111,11 @@ func (api *spacesAPI) ListSpaces() (results params.SpaceListResults, err error) 
 			return results, err
 		}
 		for _, subnet := range subnets {
-			cidr, err := subnet.CIDR()
-			if err != nil {
-				results.Error = common.ServerError(err)
-				return results, err
-			}
-			vlantag, err := subnet.VLANTag()
-			if err != nil {
-				results.Error = common.ServerError(err)
-				return results, err
-			}
-			providerid, err := subnet.ProviderId()
-			if err != nil {
-				results.Error = common.ServerError(err)
-				return results, err
-			}
-			zones, err := subnet.AvailabilityZones()
-			if err != nil {
-				results.Error = common.ServerError(err)
-				return results, err
-			}
-			status, err := subnet.Status()
-			if err != nil {
-				results.Error = common.ServerError(err)
-				return results, err
-			}
+			cidr := subnet.CIDR()
+			vlantag := subnet.VLANTag()
+			providerid := subnet.ProviderId()
+			zones := subnet.AvailabilityZones()
+			status := subnet.Status()
 
 			result.Subnets = append(result.Subnets,
 				params.Subnet{
