@@ -33,7 +33,7 @@ fi
 
 
 usage() {
-    options="[-t TEST_DEBS_DIR]"
+    options="[-t TEST_DEBS_DIR] [-k JUJU_CLIENTS_DIR]"
     echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
     echo "  PURPOSE: testing, weekly, devel, proposed, released"
@@ -370,8 +370,14 @@ extract_new_juju() {
     if [[ $juju_core == "" ]]; then
         juju_core=$(echo "$juju_cores" | head -1)
     fi
-    dpkg-deb -x $juju_core $JUJU_PATH/
-    JUJU_EXEC=$(find $JUJU_PATH -name 'juju' | grep bin/juju)
+    if [[ -n $KEEP ]]; then
+        CLIENT_BASE=$KEEP
+        cp $juju_core $CLIENT_BASE/
+    else
+        CLIENT_BASE=$JUJU_PATH
+    fi
+    dpkg-deb -x $juju_core $CLIENT_BASE/$RELEASE/
+    JUJU_EXEC=$(find $CLIENT_BASE/$RELEASE -name 'juju' | grep bin/juju)
     JUJU_BIN_PATH=$(dirname $JUJU_EXEC)
 }
 
@@ -664,7 +670,8 @@ IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
 INIT_VERSION="1.24."
 RESIGN="false"
-while getopts "r:s:t:i:na" o; do
+KEEP=""
+while getopts "r:s:t:k:i:na" o; do
     case "${o}" in
         r)
             REMOVE_RELEASE=${OPTARG}
@@ -679,6 +686,11 @@ while getopts "r:s:t:i:na" o; do
             [[ -d $TEST_DEBS_DIR ]] || usage
             IS_LOCAL="true"
             echo "Assembling testing tools from $TEST_DEBS_DIR"
+            ;;
+        k)
+            KEEP=${OPTARG}
+            [[ -d $KEEP ]] || usage
+            echo "A local copy of the juju client will be add to $KEEP"
             ;;
         i)
             INIT_VERSION=${OPTARG}
