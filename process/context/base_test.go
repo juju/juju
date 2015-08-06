@@ -24,7 +24,7 @@ func init() {
 
 type baseSuite struct {
 	jujuctesting.ContextSuite
-	proc *process.Info
+	proc process.Info
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -33,8 +33,8 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.proc = s.newProc("proc A", "docker", "", "")
 }
 
-func (s *baseSuite) newProc(name, ptype, id, status string) *process.Info {
-	info := &process.Info{
+func (s *baseSuite) newProc(name, ptype, id, status string) process.Info {
+	info := process.Info{
 		Process: charm.Process{
 			Name: name,
 			Type: ptype,
@@ -59,7 +59,7 @@ func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInf
 	return &stubHookContext{ctx}, info
 }
 
-func checkProcs(c *gc.C, procs, expected []*process.Info) {
+func checkProcs(c *gc.C, procs, expected []process.Info) {
 	if !c.Check(procs, gc.HasLen, len(expected)) {
 		return
 	}
@@ -96,27 +96,29 @@ func (c stubHookContext) Component(name string) (context.Component, error) {
 
 type stubContextComponent struct {
 	stub        *testing.Stub
-	procs       map[string]*process.Info
+	procs       map[string]process.Info
 	definitions map[string]charm.Process
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	return &stubContextComponent{
 		stub:        stub,
-		procs:       make(map[string]*process.Info),
+		procs:       make(map[string]process.Info),
 		definitions: make(map[string]charm.Process),
 	}
 }
 
-func (c *stubContextComponent) Get(id string) (*process.Info, error) {
+func (c *stubContextComponent) Get(id string) (process.Info, error) {
+	var proc process.Info
+
 	c.stub.AddCall("Get", id)
 	if err := c.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return proc, errors.Trace(err)
 	}
 
 	info, ok := c.procs[id]
 	if !ok {
-		return nil, errors.NotFoundf(id)
+		return proc, errors.NotFoundf(id)
 	}
 	return info, nil
 }
@@ -140,7 +142,7 @@ func (c *stubContextComponent) Set(info process.Info) error {
 		return errors.Trace(err)
 	}
 
-	c.procs[info.ID()] = &info
+	c.procs[info.ID()] = info
 	return nil
 }
 
@@ -168,20 +170,20 @@ func (c *stubContextComponent) Flush() error {
 
 type stubAPIClient struct {
 	stub        *testing.Stub
-	procs       map[string]*process.Info
+	procs       map[string]process.Info
 	definitions map[string]charm.Process
 }
 
 func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	return &stubAPIClient{
 		stub:        stub,
-		procs:       make(map[string]*process.Info),
+		procs:       make(map[string]process.Info),
 		definitions: make(map[string]charm.Process),
 	}
 }
 
-func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
-	var procs []*process.Info
+func (c *stubAPIClient) setNew(ids ...string) []process.Info {
+	var procs []process.Info
 	for _, id := range ids {
 		name, pluginID := process.ParseID(id)
 		if name == "" {
@@ -190,7 +192,7 @@ func (c *stubAPIClient) setNew(ids ...string) []*process.Info {
 		if pluginID == "" {
 			panic("missing id")
 		}
-		proc := &process.Info{
+		proc := process.Info{
 			Process: charm.Process{
 				Name: name,
 				Type: "myplugin",
@@ -224,44 +226,39 @@ func (c *stubAPIClient) AllDefinitions() ([]charm.Process, error) {
 	return definitions, nil
 }
 
-func (c *stubAPIClient) List() ([]string, error) {
-	c.stub.AddCall("List")
+func (c *stubAPIClient) ListProcesses(ids ...string) ([]process.Info, error) {
+	c.stub.AddCall("ListProcesses", ids)
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var procs []process.Info
+	if ids == nil {
+		for _, proc := range c.procs {
+			procs = append(procs, proc)
+		}
+	} else {
+		for _, id := range ids {
+			proc, ok := c.procs[id]
+			if !ok {
+				return nil, errors.NotFoundf("proc %q", id)
+			}
+			procs = append(procs, proc)
+		}
+	}
+	return procs, nil
+}
+
+func (c *stubAPIClient) RegisterProcesses(procs ...process.Info) ([]string, error) {
+	c.stub.AddCall("RegisterProcesses", procs)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var ids []string
-	for k := range c.procs {
-		ids = append(ids, k)
-	}
-	return ids, nil
-}
-
-func (c *stubAPIClient) Get(ids ...string) ([]*process.Info, error) {
-	c.stub.AddCall("Get", ids)
-	if err := c.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var procs []*process.Info
-	for _, id := range ids {
-		proc, ok := c.procs[id]
-		if !ok {
-			return nil, errors.NotFoundf("proc %q", id)
-		}
-		procs = append(procs, proc)
-	}
-	return procs, nil
-}
-
-func (c *stubAPIClient) Set(procs ...*process.Info) error {
-	c.stub.AddCall("Set", procs)
-	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, proc := range procs {
 		c.procs[proc.Name] = proc
+		ids = append(ids, proc.ID())
 	}
-	return nil
+	return ids, nil
 }

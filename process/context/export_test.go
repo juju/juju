@@ -19,27 +19,15 @@ func SetComponent(cmd cmd.Command, compCtx Component) {
 	// TODO(ericsnow) Add ProcLaunchCommand here.
 }
 
-func AddProc(ctx *Context, id string, original *process.Info) {
-	var proc *process.Info
-	if original != nil {
-		if id != original.ID() {
-			panic("ID mismatch")
-		}
-		info := *original
-		proc = &info
-	}
+func AddProc(ctx *Context, id string, info process.Info) {
 	if _, ok := ctx.processes[id]; !ok {
-		ctx.processes[id] = proc
+		ctx.processes[id] = info
 	} else {
-		if proc == nil {
-			panic("update can't be nil")
-		}
-		info := *proc
-		ctx.updates[info.ID()] = &info
+		ctx.updates[info.ID()] = info
 	}
 }
 
-func AddProcs(ctx *Context, procs ...*process.Info) {
+func AddProcs(ctx *Context, procs ...process.Info) {
 	for _, proc := range procs {
 		AddProc(ctx, proc.Name, proc)
 	}

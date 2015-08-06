@@ -72,7 +72,7 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
 	cmd, err := context.NewProcLaunchCommand(findPlugin, nil, s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,7 +113,7 @@ func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
 	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)

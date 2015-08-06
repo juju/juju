@@ -155,7 +155,7 @@ func (s *registerSuite) TestInitBadJSON(c *gc.C) {
 
 func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = "notFoo"
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{
 		"description:foo",
 	}
@@ -163,7 +163,7 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 
 	def := s.proc.Process.Copy()
 	def.Description = "foo"
-	s.checkRunInfo(c, *s.proc, process.Info{
+	s.checkRunInfo(c, s.proc, process.Info{
 		Process: def,
 		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
@@ -172,7 +172,7 @@ func (s *registerSuite) TestOverridesWithoutSubfield(c *gc.C) {
 
 func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 	s.proc.Process.EnvVars = map[string]string{"foo": "bar"}
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{
 		"env/foo:baz",
 	}
@@ -180,7 +180,7 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 
 	def := s.proc.Process.Copy()
 	def.EnvVars = map[string]string{"foo": "baz"}
-	s.checkRunInfo(c, *s.proc, process.Info{
+	s.checkRunInfo(c, s.proc, process.Info{
 		Process: def,
 		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
@@ -188,7 +188,7 @@ func (s *registerSuite) TestOverridesWithSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{
 		":value",
 	}
@@ -200,7 +200,7 @@ func (s *registerSuite) TestOverridesMissingField(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingValue(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{
 		"field:",
 	}
@@ -212,7 +212,7 @@ func (s *registerSuite) TestOverridesMissingValue(c *gc.C) {
 }
 
 func (s *registerSuite) TestOverridesMissingColon(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{
 		"fieldvalue",
 	}
@@ -225,7 +225,7 @@ func (s *registerSuite) TestOverridesMissingColon(c *gc.C) {
 
 func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 	s.proc.Process.Description = ""
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Additions = []string{
 		"description:foo",
 	}
@@ -233,7 +233,7 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 
 	def := s.proc.Process.Copy()
 	def.Description = "foo"
-	s.checkRunInfo(c, *s.proc, process.Info{
+	s.checkRunInfo(c, s.proc, process.Info{
 		Process: def,
 		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
@@ -241,7 +241,7 @@ func (s *registerSuite) TestAdditionsWithoutSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Additions = []string{
 		"env/foo:baz",
 	}
@@ -249,7 +249,7 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 
 	def := s.proc.Process.Copy()
 	def.EnvVars = map[string]string{"foo": "baz"}
-	s.checkRunInfo(c, *s.proc, process.Info{
+	s.checkRunInfo(c, s.proc, process.Info{
 		Process: def,
 		Status:  process.Status{State: process.StateRunning},
 		Details: s.details,
@@ -257,7 +257,7 @@ func (s *registerSuite) TestAdditionsWithSubfield(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Additions = []string{
 		":value",
 	}
@@ -269,7 +269,7 @@ func (s *registerSuite) TestAdditionsMissingField(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionsMissingValue(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Additions = []string{
 		"field:",
 	}
@@ -281,7 +281,7 @@ func (s *registerSuite) TestAdditionsMissingValue(c *gc.C) {
 }
 
 func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Additions = []string{
 		"fieldvalue",
 	}
@@ -293,7 +293,7 @@ func (s *registerSuite) TestAdditionMissingColon(c *gc.C) {
 }
 
 func (s *registerSuite) TestRunOkay(c *gc.C) {
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.init(c, s.proc.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
@@ -312,7 +312,7 @@ func (s *registerSuite) TestRunAlreadyRegistered(c *gc.C) {
 
 func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 	s.proc.Process.Description = "bar"
-	s.setMetadata(*s.proc)
+	s.setMetadata(s.proc)
 	s.registerCmd.Overrides = []string{"description:foo"}
 	s.init(c, s.proc.Name, "abc123", "running")
 
@@ -327,7 +327,7 @@ func (s *registerSuite) TestRunUpdatedProcess(c *gc.C) {
 		FuncName: "ListDefinitions",
 	}, {
 		FuncName: "Set",
-		Args:     []interface{}{*s.proc},
+		Args:     []interface{}{s.proc},
 	}, {
 		FuncName: "Flush",
 		Args:     nil,
