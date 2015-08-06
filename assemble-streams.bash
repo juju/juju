@@ -7,10 +7,6 @@
 
 set -eu
 
-# lftp segfaults working with two sets of packages.
-# This value can be set to the patch number of the package we need.
-PATCH="1"
-
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
 
@@ -179,7 +175,7 @@ retrieve_packages() {
         for archive in $ALL_ARCHIVES; do
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
-            lftp -c mirror -I "juju-core_${RELEASE}*.$PATCH~juj*.deb" $archive;
+            lftp -c mirror -I "juju-core_${RELEASE}*.$UPATCH~juj*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             found=$(find $DEST_DEBS/juju-core/ -name "*deb")
@@ -664,6 +660,9 @@ cleanup() {
 
 
 # Parse options and args.
+# lftp segfaults working with two sets of packages.
+# This value can be set to the ubuntu patch number of the package we need.
+UPATCH="1"
 REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
@@ -671,7 +670,7 @@ GET_RELEASED_TOOL="true"
 INIT_VERSION="1.24."
 RESIGN="false"
 KEEP=""
-while getopts "r:s:t:k:i:na" o; do
+while getopts "r:s:t:k:u:i:na" o; do
     case "${o}" in
         r)
             REMOVE_RELEASE=${OPTARG}
@@ -691,6 +690,10 @@ while getopts "r:s:t:k:i:na" o; do
             KEEP=${OPTARG}
             [[ -d $KEEP ]] || usage
             echo "A local copy of the juju client will be add to $KEEP"
+            ;;
+        u)
+            UPATCH=${OPTARG}
+            echo "Looking for packages at ubuntu patch level $UPATCH"
             ;;
         i)
             INIT_VERSION=${OPTARG}
