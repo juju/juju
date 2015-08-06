@@ -1414,7 +1414,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return createDocID(st.EnvironUUID(), localID)
+	return ensureEnvUUID(st.EnvironUUID(), localID)
 }
 
 // localID returns the local id value by stripping
@@ -1440,9 +1440,9 @@ func (st *State) strictLocalID(ID string) (string, error) {
 	return localID, nil
 }
 
-// createDocID returns an environment UUID prefixed document ID. The
+// ensureEnvUUID returns an environment UUID prefixed document ID. The
 // prefix is only added if it isn't already there.
-func createDocID(envUUID, id string) string {
+func ensureEnvUUID(envUUID, id string) string {
 	prefix := envUUID + ":"
 	if strings.HasPrefix(id, prefix) {
 		return id
