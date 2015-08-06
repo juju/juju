@@ -237,3 +237,11 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	}
 	c.Assert(spaces.Results, jc.DeepEquals, expected)
 }
+
+func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
+	boom := errors.New("boom")
+	apiservertesting.BackingInstance.SetErrors(boom)
+	spaces, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+	c.Assert(spaces.Error.Error(), gc.Equals, "boom")
+}
