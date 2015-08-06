@@ -86,7 +86,7 @@ def is_new_version(version, source_path, config, verbose=False):
     """
     source_agent = os.path.basename(source_path)
     os_name = get_source_agent_os(source_agent)
-    agent_glob = '%s/juju-%s-%s*' % (S3_CONTAINER, version, os_name)
+    agent_glob = '%s/%s' % (S3_CONTAINER, source_agent)
     existing_versions = run(
         ['ls', agent_glob], config=config, verbose=verbose)
     if verbose:

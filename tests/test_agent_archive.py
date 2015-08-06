@@ -143,11 +143,10 @@ class AgentArchive(TestCase):
             with self.assertRaises(ValueError) as e:
                 add_agents(cmd_args)
         self.assertIn('Agents cannot be overwritten', str(e.exception))
-        args, kwargs = mock.call_args
-        self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0-win*'], ),
-            args)
-        self.assertIs(None, kwargs['config'])
+        mock.assert_called_with(
+            ['ls',
+             's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
+            config=None, verbose=False)
 
     def test_add_agent_puts_and_copies_win(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
@@ -156,8 +155,9 @@ class AgentArchive(TestCase):
         self.assertEqual(8, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.21.0-win*'], ),
-            args)
+            (['ls',
+              's3://juju-qa-data/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
+             ), args)
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
@@ -186,8 +186,9 @@ class AgentArchive(TestCase):
         self.assertEqual(2, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            (['ls', 's3://juju-qa-data/agent-archive/juju-1.24.0-centos*'], ),
-            args)
+            (['ls',
+              's3://juju-qa-data/agent-archive/juju-1.24.0-centos7-amd64.tgz'],
+             ), args)
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
