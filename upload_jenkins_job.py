@@ -180,7 +180,10 @@ class HUploader:
         """
         Creates HUploader.
         :param credentials: Jenkins credential
+        :param jenkins_job: Jenkins job name
         :param build_number: Jenkins build number
+        :param bucket: S3 bucket name
+        :param directory: S3 directory name
         :rtype: HUploader
         """
         s3 = S3.factory(bucket, directory)
@@ -279,7 +282,7 @@ def get_s3_access():
     return access_key, secret_key
 
 
-if __name__ == '__main__':
+def get_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument('jenkins_job', help="Jenkins job name.")
     parser.add_argument(
@@ -296,7 +299,11 @@ if __name__ == '__main__':
         '-l', '--latest', action='store_true', default=False,
         help="Upload the latest test result.")
     add_credential_args(parser)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = get_args(argv)
     cred = get_credentials(args)
 
     uploader = HUploader.factory(
@@ -304,10 +311,13 @@ if __name__ == '__main__':
         args.s3_directory)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
-        sys.exit(uploader.upload())
+        uploader.upload()
     elif args.all:
         print('Uploading all test results.')
-        sys.exit(uploader.upload_all_test_results())
+        uploader.upload_all_test_results()
     elif args.latest:
         print('Uploading the latest test result.')
-        sys.exit(uploader.upload_last_completed_test_result())
+        uploader.upload_last_completed_test_result()
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
