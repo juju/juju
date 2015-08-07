@@ -144,11 +144,12 @@ def dump_env_logs(client, bootstrap_host, artifacts_dir, jenv_path=None):
             remote = remote_machines[machine_id]
             if not _can_run_ssh() and not remote.is_windows():
                 logging.info("No ssh, skipping logs for machine-%s using %r",
-                    machine_id, remote)
+                             machine_id, remote)
                 continue
             logging.info("Retrieving logs for machine-%s using %r", machine_id,
                          remote)
-            machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
+            machine_dir = os.path.join(artifacts_dir,
+                                       "machine-%s" % machine_id)
             os.mkdir(machine_dir)
             copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
@@ -389,14 +390,12 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
         using streams.
     """
     created_machines = False
-    bootstrap_id = None
     running_domains = dict()
     try:
         if client.env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, temp_env_name)
             created_machines = True
             bootstrap_host = instances[0][1]
-            bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
         if client.env.config['type'] == 'maas' and machines:
             for machine in machines:
