@@ -112,9 +112,6 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the user tag of the service owner.
-	serviceOwner names.UserTag
-
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
