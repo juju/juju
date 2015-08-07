@@ -56,3 +56,10 @@ func (api *API) CreateSpace(name string, subnetIds []string, public bool) (param
 	err := api.facade.FacadeCall("CreateSpaces", params, &response)
 	return response, err
 }
+
+// ListSpaces lists all available spaces and their associated subnets.
+func (api *API) ListSpaces() (params.ListSpacesResults, error) {
+	var response params.ListSpacesResults
+	err := api.facade.FacadeCall("ListSpaces", nil, &response)
+	return response, err
+}
