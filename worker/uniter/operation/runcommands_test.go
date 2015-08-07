@@ -42,8 +42,13 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
+	ctx := &MockContext{}
 	runnerFactory := &MockRunnerFactory{
-		MockNewCommandRunner: &MockNewCommandRunner{},
+		MockNewCommandRunner: &MockNewCommandRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
 		RunnerFactory: runnerFactory,
@@ -60,6 +65,30 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 		RemoteUnitName:  "foo/456",
 		ForceRemoteUnit: true,
 	})
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
+func (s *RunCommandsSuite) TestPrepareCtxError(c *gc.C) {
+	ctx := &MockContext{}
+	ctx.SetErrors(errors.New("ctx prepare error"))
+	runnerFactory := &MockRunnerFactory{
+		MockNewCommandRunner: &MockNewCommandRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.ErrorMatches, "ctx prepare error")
+	c.Assert(newState, gc.IsNil)
+	ctx.CheckCall(c, 0, "Prepare")
 }
 
 func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
