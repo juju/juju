@@ -148,9 +148,16 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	return code, nil
 }
 
+// This function exists to preserve test functionality.
+// On windows we need to catch the return code from main for
+// service functionality purposes, but on unix we can just os.Exit
+func MainWrapper(args []string) {
+	os.Exit(Main(args))
+}
+
 // Main is not redundant with main(), because it provides an entry point
 // for testing with arbitrary command line arguments.
-func Main(args []string) {
+func Main(args []string) int {
 	defer func() {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
@@ -180,7 +187,7 @@ func Main(args []string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
-	os.Exit(code)
+	return code
 }
 
 type writerFactory struct{}
