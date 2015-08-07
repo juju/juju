@@ -290,6 +290,82 @@ func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }
 
+func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
+	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
+
+	expect, expectOK := s.unit.PrivateAddress()
+	actual, actualOK := ctx.PrivateAddress()
+	c.Assert(actual, gc.Equals, expect)
+	c.Assert(actualOK, gc.Equals, expectOK)
+
+	expect, expectOK = s.unit.PublicAddress()
+	actual, actualOK = ctx.PublicAddress()
+	c.Assert(actual, gc.Equals, expect)
+	c.Assert(actualOK, gc.Equals, expectOK)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	name, uuid := runner.ContextEnvInfo(ctx)
+	c.Assert(name, gc.Equals, env.Name())
+	c.Assert(uuid, gc.Equals, env.UUID())
+
+	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
+
+	r, found := ctx.Relation(0)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(r.Name(), gc.Equals, "db")
+	c.Assert(r.FakeId(), gc.Equals, "db:0")
+
+	r, found = ctx.Relation(1)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(r.Name(), gc.Equals, "db")
+	c.Assert(r.FakeId(), gc.Equals, "db:1")
+}
+
+func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "not running an action")
+}
+
+func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx runner.Context) {
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
+	storageAttachment, ok := ctx.HookStorage()
+	c.Assert(storageAttachment, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx runner.Context, id string, attachment storage.StorageAttachmentInfo) {
+	fromCache, ok := ctx.HookStorage()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(fromCache, gc.NotNil)
+	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
+	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
+	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
+}
+
+func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
+	actualRemoteUnit, _ := ctx.RemoteUnitName()
+	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
+	rel, found := ctx.HookRelation()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(rel.Id(), gc.Equals, relId)
+	return rel.(*runner.ContextRelation)
+}
+
+func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx runner.Context) {
+	rel, found := ctx.HookRelation()
+	c.Assert(rel, gc.IsNil)
+	c.Assert(found, jc.IsFalse)
+}
+
 // hookSpec supports makeCharm.
 type hookSpec struct {
 	// dir is the directory to create the hook in.
