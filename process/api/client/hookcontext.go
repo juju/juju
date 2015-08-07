@@ -66,6 +66,9 @@ func (c HookContextClient) RegisterProcesses(processes ...process.Info) ([]strin
 
 	ids := make([]string, len(result.Results))
 	for i, r := range result.Results {
+		if r.Error != nil {
+			return nil, errors.Errorf(r.Error.GoString())
+		}
 		ids[i] = r.ID
 	}
 	return ids, nil
@@ -86,6 +89,9 @@ func (c HookContextClient) ListProcesses(ids ...string) ([]process.Info, error) 
 		if presult.NotFound {
 			notFound = append(notFound, presult.ID)
 			continue
+		}
+		if presult.Error != nil {
+			return procs, errors.Errorf(presult.Error.GoString())
 		}
 		pp := api.API2Proc(presult.Info)
 		procs[i] = pp

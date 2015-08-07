@@ -150,7 +150,7 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 	c.Check(numStubCalls, gc.Equals, 1)
 
 	proc := api.API2Proc(s.process)
-	c.Check(processes[0], gc.DeepEquals, &proc)
+	c.Check(processes[0], gc.DeepEquals, proc)
 }
 
 func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {

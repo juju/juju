@@ -120,7 +120,6 @@ func mergeProcMaps(procs, updates map[string]process.Info) map[string]process.In
 		result[k] = v
 	}
 	for k, v := range updates {
-		logger.Debugf("updates: %s, %v\n", k, v)
 		result[k] = v
 	}
 	return result
@@ -180,6 +179,8 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 	}
 	return definitions, nil
 }
+
+// TODO(ericsnow) The context machinery is not actually using this yet.
 
 // Flush implements jujuc.ContextComponent. In this case that means all
 // added and updated process.Info in the hook context are pushed to

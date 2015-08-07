@@ -108,19 +108,17 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	}
 }
 
-func (c *stubContextComponent) Get(id string) (process.Info, error) {
-	var proc process.Info
-
+func (c *stubContextComponent) Get(id string) (*process.Info, error) {
 	c.stub.AddCall("Get", id)
 	if err := c.stub.NextErr(); err != nil {
-		return proc, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	info, ok := c.procs[id]
 	if !ok {
-		return proc, errors.NotFoundf(id)
+		return nil, errors.NotFoundf(id)
 	}
-	return info, nil
+	return &info, nil
 }
 
 func (c *stubContextComponent) List() ([]string, error) {

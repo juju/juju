@@ -62,15 +62,11 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 
 	c.Assert(procs, gc.HasLen, 2)
 
+	// Map ordering is indeterminate, so this if-else is needed.
 	if procs[0].Name == "A" {
-		c.Logf("procs:\t %s, %s\n", procs[0], procs[1])
-		c.Logf("expected:\t%s, %s\n", expected[0], expected[1])
 		c.Check(procs[0], jc.DeepEquals, expected[0])
 		c.Check(procs[1], jc.DeepEquals, expected[1])
 	} else {
-		c.Logf("procs:\t %s, %s\n", procs[0], procs[1])
-		c.Logf("expected:\t %s, %s\n", expected[0], expected[1])
-
 		c.Check(procs[0], jc.DeepEquals, expected[1])
 		c.Check(procs[1], jc.DeepEquals, expected[0])
 	}
@@ -243,34 +239,7 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	info, err := ctx.Get("A/spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
-	s.Stub.CheckCallNames(c)
-}
-
-func (s *contextSuite) TestGetAPIPull(c *gc.C) {
-	procs := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := procs[0]
-
-	ctx := s.newContext(c, procs[1])
-	context.AddProc(ctx, "A/spam", s.apiClient.procs["A/spam"])
-
-	info, err := ctx.Get("A/spam")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, expected)
-	s.Stub.CheckCallNames(c)
-}
-
-func (s *contextSuite) TestGetAPINoPull(c *gc.C) {
-	procs := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := procs[0]
-
-	ctx := s.newContext(c, procs...)
-
-	info, err := ctx.Get("A/spam")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(*info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -278,13 +247,17 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 	procs := s.apiClient.setNew("A/spam", "B/eggs")
 	expected := procs[0]
 
+	unexpected := expected
+	unexpected.Details.ID = "C"
+
 	ctx := s.newContext(c, procs[1])
+	context.AddProc(ctx, "A/spam", unexpected)
 	context.AddProc(ctx, "A/spam", expected)
 
 	info, err := ctx.Get("A/spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(*info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
