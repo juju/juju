@@ -6,9 +6,13 @@ package addresser_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	coretesting "github.com/juju/juju/testing"
+
+	// gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	// gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
+
 }

@@ -117,10 +117,10 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 
 // WatchIPAddresses observes changes to the IP addresses.
 func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
-	watch := &ipAddressesWatcher{api.st.WatchIPAddresses()}
+	watch := &ipAddressesWatcher{api.st.WatchIPAddresses(), api.st}
 
 	if changes, ok := <-watch.Changes(); ok {
-		mappedChanges, err := watch.MapChanges(api.st, changes)
+		mappedChanges, err := watch.MapChanges(changes)
 		if err != nil {
 			return params.EntityWatchResult{}, errors.Trace(err)
 		}

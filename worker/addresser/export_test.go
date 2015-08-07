@@ -3,6 +3,3 @@
 
 package addresser
 
-var (
-	NewWorkerWithReleaser = newWorkerWithReleaser
-)
