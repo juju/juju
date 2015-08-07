@@ -20,7 +20,7 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName           string
-	ApiCallerName       string
+	APICallerName       string
 	LeadershipGuarantee time.Duration
 }
 
@@ -30,7 +30,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiCallerName,
+			config.APICallerName,
 		},
 		Start:  startFunc(config),
 		Output: outputFunc,
@@ -46,7 +46,7 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 			return nil, err
 		}
 		var apiCaller base.APICaller
-		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
+		if err := getResource(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return newManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)

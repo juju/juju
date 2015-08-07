@@ -9,7 +9,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 )
@@ -29,7 +28,7 @@ type Connection interface {
 // this component without using a real API connection).
 var openConnection = func(agent agent.Agent) (Connection, error) {
 	currentConfig := agent.CurrentConfig()
-	st, _, err := jujudagent.OpenAPIState(currentConfig, agent)
+	st, _, err := OpenAPIState(currentConfig, agent)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

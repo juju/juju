@@ -32,7 +32,7 @@ func (s *AgentApiManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &dummyWorker{}
 	s.manifold = util.AgentApiManifold(util.AgentApiManifoldConfig{
 		AgentName:     "agent-name",
-		ApiCallerName: "api-caller-name",
+		APICallerName: "api-caller-name",
 	}, s.newWorker)
 }
 

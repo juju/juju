@@ -95,7 +95,7 @@ func syslogUser() string {
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
-func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
+var NewRsyslogConfigWorker = func(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
 	if version.Current.OS == version.Windows && mode == RsyslogModeAccumulate {
 		return worker.NewNoOpWorker(), nil
 	}
