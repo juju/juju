@@ -160,12 +160,12 @@ class S3:
             return False
         path = os.path.join(self.dir, filename)
         key = self.bucket.new_key(path)
-        # This will store the data in s3://juju-qa-data/comp-test/
+        # This will store the data.
         key.set_contents_from_string(data, headers=headers)
         return True
 
 
-class HUploader:
+class S3Uploader:
     """
     Uploads the result of a Jenkins job to S3.
     """
@@ -178,13 +178,13 @@ class HUploader:
     def factory(cls, credentials, jenkins_job, build_number, bucket,
                 directory):
         """
-        Creates HUploader.
+        Creates S3Uploader.
         :param credentials: Jenkins credential
         :param jenkins_job: Jenkins job name
         :param build_number: Jenkins build number
         :param bucket: S3 bucket name
         :param directory: S3 directory name
-        :rtype: HUploader
+        :rtype: S3Uploader
         """
         s3 = S3.factory(bucket, directory)
         build_number = int(build_number) if build_number else build_number
@@ -194,9 +194,8 @@ class HUploader:
         return cls(s3, jenkins_build)
 
     def upload(self):
-        """
-        Uploads the Heterogeneous Control test results to S3. Uploads the
-        test results, console logs and artifacts.
+        """Uploads Jenkins job results, console logs and artifacts to S3.
+
         :return: None
         """
         self.upload_test_results()
@@ -286,27 +285,32 @@ def get_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument('jenkins_job', help="Jenkins job name.")
     parser.add_argument(
-        'build_number', type=int, default=None,
-        help="Specify build number to upload")
+        'build_number', default=None,
+        help="Build to upload, can be a number, 'all' or 'latest'.")
     parser.add_argument('s3_bucket', help="S3 bucket name to store files.")
     parser.add_argument(
         's3_directory',
         help="Directory under the bucket name to store files.")
-    parser.add_argument(
-        '-a', '--all', action='store_true', default=False,
-        help="Upload all test results")
-    parser.add_argument(
-        '-l', '--latest', action='store_true', default=False,
-        help="Upload the latest test result.")
     add_credential_args(parser)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    args.all = False
+    args.latest = False
+    if args.build_number == 'all':
+        args.all = True
+        args.build_number = None
+    if args.build_number == 'latest':
+        args.latest = True
+        args.build_number = None
+    if args.build_number:
+        args.build_number = int(args.build_number)
+    return args
 
 
 def main(argv=None):
     args = get_args(argv)
     cred = get_credentials(args)
 
-    uploader = HUploader.factory(
+    uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
         args.s3_directory)
     if args.build_number:
@@ -317,6 +321,7 @@ def main(argv=None):
         uploader.upload_all_test_results()
     elif args.latest:
         print('Uploading the latest test result.')
+        print('WARNING: latest can be a moving target.')
         uploader.upload_last_completed_test_result()
 
 if __name__ == '__main__':

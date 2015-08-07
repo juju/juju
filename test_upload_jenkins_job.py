@@ -13,7 +13,7 @@ from jujuci import (
 from upload_jenkins_job import (
     get_args,
     get_s3_access,
-    HUploader,
+    S3Uploader,
     JenkinsBuild,
     S3,
 )
@@ -189,16 +189,16 @@ class TestS3(TestCase):
             assert_called_once_with('fake data', headers=None))
 
 
-class TestHUploader(TestCase):
+class TestS3Uploader(TestCase):
 
     def test_factory(self):
         credentials = fake_credentials()
         with patch('upload_jenkins_job.S3', autospec=True) as s_mock:
             with patch('upload_jenkins_job.JenkinsBuild',
                        autospec=True) as j_mock:
-                h = HUploader.factory(credentials, JOB_NAME, BUILD_NUM, BUCKET,
-                                      DIRECTORY)
-                self.assertIs(type(h), HUploader)
+                h = S3Uploader.factory(credentials, JOB_NAME, BUILD_NUM,
+                                       BUCKET, DIRECTORY)
+                self.assertIs(type(h), S3Uploader)
                 self.assertEqual((BUCKET, DIRECTORY), s_mock.mock_calls[0][1])
                 self.assertEqual(credentials,
                                  j_mock.mock_calls[0][2]['credentials'])
@@ -216,7 +216,7 @@ class TestHUploader(TestCase):
         jenkins_mock.get_console_text.return_value = "console text"
         jenkins_mock._create_filename.return_value = filename
         jenkins_mock.artifacts.return_value = fake_artifacts(2)
-        h = HUploader(s3_mock, jenkins_mock)
+        h = S3Uploader(s3_mock, jenkins_mock)
         h.upload()
         self.assertEqual(s3_mock.store.mock_calls, [
             call(filename, json.dumps({"build_info": "1200"}),
@@ -231,7 +231,7 @@ class TestHUploader(TestCase):
         jenkins_mock = MagicMock()
         jenkins_mock.get_last_completed_build_number.return_value = 3
         jenkins_mock.get_build_info.return_value = BUILD_INFO
-        h = HUploader(s3_mock, jenkins_mock)
+        h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_all_test_results()
         self.assertEqual(jenkins_mock.set_build_number.mock_calls,
                          [call(1), call(2), call(3)])
@@ -243,7 +243,7 @@ class TestHUploader(TestCase):
         jenkins_mock = MagicMock()
         jenkins_mock.get_build_info.return_value = BUILD_INFO
         jenkins_mock.get_build_number.return_value = BUILD_NUM
-        h = HUploader(s3_mock, jenkins_mock)
+        h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_test_results()
         s3_mock.store.assert_called_once_with(
             filename, json.dumps(jenkins_mock.get_build_info.return_value),
@@ -256,7 +256,7 @@ class TestHUploader(TestCase):
         jenkins_mock = MagicMock()
         jenkins_mock.get_build_number.return_value = BUILD_NUM
         jenkins_mock.get_console_text.return_value = "log text"
-        h = HUploader(s3_mock, jenkins_mock)
+        h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_console_log()
         s3_mock.store.assert_called_once_with(
             filename, 'log text', headers=headers)
@@ -269,7 +269,7 @@ class TestHUploader(TestCase):
         jenkins_mock = MagicMock()
         jenkins_mock.get_build_number.return_value = BUILD_NUM
         jenkins_mock.artifacts.return_value = fake_artifacts(4)
-        h = HUploader(s3_mock, jenkins_mock)
+        h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_artifacts()
         calls = [call(filename, 'artifact data 1', headers=headers),
                  call(filename, 'artifact data 2', headers=headers),
@@ -281,7 +281,7 @@ class TestHUploader(TestCase):
         credentials = fake_credentials()
         build_info = {"number": 9988, 'building': False}
         j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
-        uploader = HUploader(None, j)
+        uploader = S3Uploader(None, j)
         with patch('upload_jenkins_job.os.getenv',
                    return_value=9988, autospec=True) as g_mock:
             with patch('upload_jenkins_job.get_build_data', autospec=True,
@@ -296,7 +296,7 @@ class TestHUploader(TestCase):
 
     def test_upload_by_build_number_no_build_number(self):
         jenkins_mock = MagicMock()
-        h = HUploader(None, jenkins_mock)
+        h = S3Uploader(None, jenkins_mock)
         with patch('upload_jenkins_job.os.getenv',
                    return_value=None, autospec=True):
             with self.assertRaisesRegexp(
@@ -307,7 +307,7 @@ class TestHUploader(TestCase):
         credentials = fake_credentials()
         build_info = {"number": 9988, 'building': True}
         j = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
-        uploader = HUploader(None, j)
+        uploader = S3Uploader(None, j)
         with patch('upload_jenkins_job.get_build_data', autospec=True,
                    return_value=build_info) as gbd_mock:
             with self.assertRaisesRegexp(
@@ -323,7 +323,7 @@ class TestHUploader(TestCase):
         build_info = {"number": BUILD_NUM, 'building': True}
         build_info_done = {"number": BUILD_NUM, 'building': False}
         jb = JenkinsBuild(credentials, JOB_NAME, JENKINS_URL, BUILD_INFO)
-        uploader = HUploader(None, jb)
+        uploader = S3Uploader(None, jb)
         with patch('upload_jenkins_job.get_build_data', autospec=True,
                    side_effect=[build_info, build_info, build_info_done]) as m:
             with patch.object(uploader, 'upload', autospec=True) as u_mock:
@@ -343,7 +343,7 @@ class TestHUploader(TestCase):
         cred = Credentials('joe', 'password')
         jenkins_build = JenkinsBuild(cred, None, None, build_info)
         s3_mock = MagicMock()
-        h = HUploader(s3_mock, jenkins_build)
+        h = S3Uploader(s3_mock, jenkins_build)
         with patch("upload_jenkins_job.get_job_data", autospec=True,
                    return_value=last_build) as gjd_mock:
             with patch("upload_jenkins_job.get_build_data", autospec=True,
@@ -380,6 +380,28 @@ class OtherTests(TestCase):
         self.assertEqual(DIRECTORY, args.s3_directory)
         self.assertFalse(args.all)
         self.assertFalse(args.latest)
+        self.assertIsNone(args.user)
+        self.assertIsNone(args.password)
+
+    def test_get_args_all(self):
+        args = get_args([JOB_NAME, 'all', BUCKET, DIRECTORY])
+        self.assertEqual(JOB_NAME, args.jenkins_job)
+        self.assertIsNone(args.build_number)
+        self.assertEqual(BUCKET, args.s3_bucket)
+        self.assertEqual(DIRECTORY, args.s3_directory)
+        self.assertTrue(args.all)
+        self.assertFalse(args.latest)
+        self.assertIsNone(args.user)
+        self.assertIsNone(args.password)
+
+    def test_get_args_latest(self):
+        args = get_args([JOB_NAME, 'latest', BUCKET, DIRECTORY])
+        self.assertEqual(JOB_NAME, args.jenkins_job)
+        self.assertIsNone(args.build_number)
+        self.assertEqual(BUCKET, args.s3_bucket)
+        self.assertEqual(DIRECTORY, args.s3_directory)
+        self.assertFalse(args.all)
+        self.assertTrue(args.latest)
         self.assertIsNone(args.user)
         self.assertIsNone(args.password)
 
