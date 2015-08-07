@@ -123,3 +123,17 @@ func (s *SpacesSuite) TestCreateSpaceFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bang")
 	c.Assert(results, gc.DeepEquals, args.Results)
 }
+
+func (s *SpacesSuite) TestListSpaces(c *gc.C) {
+	expectResults := params.ListSpacesResults{}
+	args := apitesting.CheckArgs{
+		Facade:  "Spaces",
+		Method:  "ListSpaces",
+		Results: expectResults,
+	}
+	s.init(c, &args, nil)
+	results, err := s.api.ListSpaces()
+	c.Assert(s.called, gc.Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, expectResults)
+}
