@@ -299,7 +299,8 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 
 func (srv *Server) run(lis net.Listener) {
 	defer srv.tomb.Done()
-	defer srv.wg.Wait() // wait for any outstanding requests to complete.
+	defer srv.wg.Wait()              // wait for any outstanding requests to complete.
+	defer srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 	srv.wg.Add(1)
 	go func() {
 		err := srv.mongoPinger()
