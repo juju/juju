@@ -10,5 +10,7 @@ env=testing-osx-client1
 ~/Bin/juju destroy-environment --force -y $env || true
 tar -xf $TARFILE -C $WORKSPACE
 mkdir artifacts
-deploy_job.py testing-osx-client-base $WORKSPACE/juju-bin/juju artifacts $env
-  
+deploy_job.py testing-osx-client-base $WORKSPACE/juju-bin/juju artifacts $env \
+    --series trusty
+# The host experiences connection issues with AWS, retry destroy just in case.
+~/Bin/juju destroy-environment --force -y $env || true
