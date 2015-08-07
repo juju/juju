@@ -63,6 +63,10 @@ func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envV
 	if err != nil {
 		return errors.Annotate(err, "cannot get latest version")
 	}
-	logger.Debugf("found new tools %q", ver)
+	if ver == version.Zero {
+		logger.Debugf("toos lookup returned version Zero, this should only happen during bootstrap.")
+		return nil
+	}
+	logger.Debugf("the newest available version found is: %q", ver)
 	return update(env, ver)
 }

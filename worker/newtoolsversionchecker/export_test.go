@@ -14,7 +14,7 @@ func NewForTests(st EnvironmentCapable, params *VersionCheckerParams, f toolFind
 		findTools:        f,
 		envVersionUpdate: e,
 	}
-	return worker.NewSimpleWorker(w.loop)
+	return worker.NewPeriodicWorker(w.doCheck, params.CheckInterval)
 }
 
 var (
