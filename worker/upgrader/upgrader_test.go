@@ -89,8 +89,6 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 }
 
 func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
-	err := s.machine.SetAgentVersion(version.Current)
-	c.Assert(err, jc.ErrorIsNil)
 	return upgrader.NewAgentUpgrader(
 		s.state.Upgrader(),
 		agentConfig(s.machine.Tag(), s.DataDir()),
