@@ -4,8 +4,6 @@
 package addresser
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -89,11 +87,7 @@ func (api *AddresserAPI) CleanupIPAddresses() error {
 		}
 	}
 	if len(retryIPAddresses) > 0 {
-		values := make([]string, len(retryIPAddresses))
-		for i, ipAddress := range retryIPAddresses {
-			values[i] = ipAddress.Value()
-		}
-		return errors.Errorf("some addresses not released (will retry): %v", strings.Join(values, " / "))
+		return common.ErrTryAgain
 	}
 	return nil
 }

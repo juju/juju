@@ -102,17 +102,6 @@ func (s *AddresserSuite) TestCleanupIPAddressesClientError(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *AddresserSuite) TestCleanupIPAddressesServerError(c *gc.C) {
-//	var called int
-//	result := apiservertesting.ServerError("server failure!")
-//	apiCaller := successAPICaller(c, "CleanupIPAddresses", nil, result, &called)
-//	api := addresser.NewAPI(apiCaller)
-//
-//	err := api.CleanupIPAddresses()
-//	c.Assert(err, gc.ErrorMatches, "server error!")
-//	c.Assert(called, gc.Equals, 1)
-}
-
 func (s *AddresserSuite) TestWatchIPAddressesSuccess(c *gc.C) {
 	var numFacadeCalls int
 	var numWatcherCalls int

@@ -200,6 +200,37 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
+	_, stop := s.newWorker(c)
+	defer stop()
+	s.waitForInitialDead(c)
+
+	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+
+	ipAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ipAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The address should stay in state.
+	ipAddr, err = s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
+
+	// Makre ReleaseAddress work again, it must be cleaned up then.
+	s.AssertConfigParameterUpdated(c, "broken", "")
+
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		_, err := s.State.IPAddress("0.1.2.3")
+		if errors.IsNotFound(err) {
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("IP address not removed")
+		}
+	}
+}
+
 func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	_, stop := s.newWorker(c)
 	defer stop()
@@ -342,8 +373,7 @@ func (s *workerDisabledSuite) newWorker(c *gc.C) (worker.Worker, func()) {
 	return w, stop
 }
 
-// TODO(mue) Currently disabled, test does not break worker!
-// var _ = gc.Suite(&workerDiesSuite{})
+var _ = gc.Suite(&workerDiesSuite{})
 
 type workerDiesSuite struct {
 	testing.JujuConnSuite
@@ -354,35 +384,6 @@ type workerDiesSuite struct {
 }
 
 func (s *workerDiesSuite) TestErrorKillsWorker(c *gc.C) {
-	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
-	w, stop := s.newWorker(c)
-	defer stop()
-
-	// The worker should have died with an error.
-	stopErr := make(chan error)
-	go func() {
-		w.Wait()
-		stopErr <- worker.Stop(w)
-	}()
-
-	select {
-	case err := <-stopErr:
-		// Combined error of two release errors.
-		msg := "cannot release all IP addresses: " +
-			"cannot remove entity .*: still alive\n" +
-			"cannot remove entity .*: still alive"
-		c.Assert(err, gc.ErrorMatches, msg)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("worker did not stop as expected")
-	}
-
-	// As we failed to release addresses they should not have been removed
-	// from state.
-	for _, digit := range []int{3, 4, 5, 6} {
-		rawAddr := fmt.Sprintf("0.1.2.%d", digit)
-		_, err := s.State.IPAddress(rawAddr)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }
 
 func (s *workerDiesSuite) newWorker(c *gc.C) (worker.Worker, func()) {

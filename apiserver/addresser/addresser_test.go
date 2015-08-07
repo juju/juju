@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -131,85 +129,4 @@ func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
-}
-
-// DummyAddressSuite tests the Addresser server API using
-// state and dummy provider for
-type DummyAddresserSuite struct {
-	testing.JujuConnSuite
-
-	api        *addresser.AddresserAPI
-	authoriser apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-
-	machine *state.Machine
-}
-
-var _ = gc.Suite(&DummyAddresserSuite{})
-
-func (s *DummyAddresserSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
-	s.AssertConfigParameterUpdated(c, "broken", "")
-
-	// Add a test machine an its IP addresses.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	s.machine = machine
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewAddress("0.1.2.3")
-	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-
-	// Create API.
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
-	}
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
-
-	s.api, err = addresser.NewAddresserAPI(nil, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *DummyAddresserSuite) TestCleanupIPAddresses(c *gc.C) {
-	// Check dead addresses and IP life first.
-	dead, err := s.State.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 0)
-	addr, err := s.State.IPAddress("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Life(), gc.Equals, state.Alive)
-
-	// Now cleanup, it has nothing to do.
-	err = s.api.CleanupIPAddresses()
-	c.Assert(err, gc.IsNil)
-
-	dead, err = s.State.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 0)
-
-	// Remove machine, address will be dead then.
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	dead, err = s.State.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 1)
-
-	// Final cleanup, address will be removed.
-	err = s.api.CleanupIPAddresses()
-	c.Assert(err, gc.IsNil)
-
-	dead, err = s.State.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 0)
-
 }
