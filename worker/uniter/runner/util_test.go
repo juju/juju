@@ -258,8 +258,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		env.Name(), relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
+		env.Name(), relid, remote, relctxs, apiAddrs,
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
+		NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -280,8 +281,9 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	}
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), paths)
+		"test-env-name", relid, remote, relctxs, apiAddrs,
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
+		paths)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -292,7 +294,6 @@ func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 
 func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
 	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()
