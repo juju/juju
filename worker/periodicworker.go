@@ -21,26 +21,42 @@ type periodicWorker struct {
 	newTimer NewTimerFunc
 }
 
+// PeriodicWorkerCall represents the callable to be passed
+// to the periodic worker to be run every elapsed period.
 type PeriodicWorkerCall func(stop <-chan struct{}) error
 
+// PeriodicTimer is an interface for the timer that periodicworker
+// will use to handle the calls.
 type PeriodicTimer interface {
+	// Reset changes the timer to expire after duration d.
+	// It returns true if the timer had been active, false
+	// if the timer had expired or been stopped.
 	Reset(time.Duration) bool
+	// C returns the channel used to signal expiration of
+	// the timer duration.
 	C() <-chan time.Time
 }
+
+// NewTimerFunc is a constructor used to obtain the instance
+// of PeriodicTimer periodicWorker uses on its loop.
 type NewTimerFunc func(time.Duration) PeriodicTimer
 
+// Timer implements PeriodicTimer.
 type Timer struct {
 	timer *time.Timer
 }
 
+// Reset implements PeriodicTimer.
 func (t *Timer) Reset(d time.Duration) bool {
 	return t.timer.Reset(d)
 }
 
+// C implements PeriodicTimer.
 func (t *Timer) C() <-chan time.Time {
 	return t.timer.C
 }
 
+// NewTimer is the default implementation of NewTimerFunc.
 func NewTimer(d time.Duration) PeriodicTimer {
 	return &Timer{time.NewTimer(d)}
 }
