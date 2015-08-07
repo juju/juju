@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"io"
 	"runtime"
 
 	"github.com/juju/cmd"
@@ -18,12 +17,10 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -37,8 +34,7 @@ import (
 )
 
 var (
-	agentLogger         = loggo.GetLogger("juju.jujud")
-	reportClosedUnitAPI = func(io.Closer) {}
+	agentLogger = loggo.GetLogger("juju.jujud")
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -46,13 +42,12 @@ type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	UnitName         string
-	runner           worker.Runner
-	bufferedLogs     logsender.LogRecordCh
-	setupLogging     func(agent.Config) error
-	logToStdErr      bool
-	ctx              *cmd.Context
-	apiStateUpgrader APIStateUpgrader
+	UnitName     string
+	runner       worker.Runner
+	bufferedLogs logsender.LogRecordCh
+	setupLogging func(agent.Config) error
+	logToStdErr  bool
+	ctx          *cmd.Context
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -69,13 +64,6 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAge
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		bufferedLogs:                     bufferedLogs,
 	}
-}
-
-func (a *UnitAgent) getUpgrader(st *api.State) APIStateUpgrader {
-	if a.apiStateUpgrader != nil {
-		return a.apiStateUpgrader
-	}
-	return st.Upgrader()
 }
 
 // Info returns usage information for the command.
@@ -160,10 +148,21 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	if err != nil {
 		return nil, err
 	}
-	unitTag, err := names.ParseUnitTag(entity.Tag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	defer func() {
+		// TODO(fwereade): this is not properly tested. Old tests were both
+		// incomplete (missing a fail case) and evil (dependent on injecting
+		// an error in a patched-out upgrader API that shouldn't even be
+		// used at this level)... so I just deleted them. Not a major worry:
+		// this whole method will become redundant once we switch to the
+		// dependency engine (and specifically use worker/apicaller to
+		// connect).
+		if err != nil {
+			if err := st.Close(); err != nil {
+				logger.Errorf("while closing API: %v", err)
+			}
+		}
+	}()
+
 	// Ensure that the environment uuid is stored in the agent config.
 	// Luckily the API has it recorded for us after we connect.
 	if agentConfig.Environment().Id() == "" {
@@ -183,21 +182,10 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		}
 	}
 
-	defer func() {
-		if err != nil {
-			st.Close()
-			reportClosedUnitAPI(st)
-		}
-	}()
-
-	// Before starting any workers, ensure we record the Juju version this unit
-	// agent is running.
-	currentTools := &tools.Tools{Version: version.Current}
-	apiStateUpgrader := a.getUpgrader(st)
-	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set unit agent version")
+	unitTag, err := names.ParseUnitTag(entity.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
 	// start proxyupdater first to ensure proxy settings are correct

@@ -1751,40 +1751,6 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
-func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	a.apiStateUpgrader = &machineAgentUpgrader{}
-
-	closedAPI := make(chan io.Closer, 1)
-	s.AgentSuite.PatchValue(&reportClosedMachineAPI, func(st io.Closer) {
-		select {
-		case closedAPI <- st:
-			close(closedAPI)
-		default:
-		}
-	})
-
-	worker, err := a.APIWorker()
-
-	select {
-	case closed := <-closedAPI:
-		c.Assert(closed, gc.NotNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("API not opened")
-	}
-
-	c.Assert(worker, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
-	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
-}
-
-type machineAgentUpgrader struct{}
-
-func (m *machineAgentUpgrader) SetVersion(s string, v version.Binary) error {
-	return errors.New("test failure")
-}
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	_, closer := s.setUpNewEnvironment(c)
