@@ -20,8 +20,13 @@ var (
 	PreferFastLXC           = preferFastLXC
 	InitProcessCgroupFile   = &initProcessCgroupFile
 	RuntimeGOOS             = &runtimeGOOS
+	WriteWgetTmpFile        = &writeWgetTmpFile
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {
 	return mgr.(*containerManager).createWithClone
+}
+
+func WgetEnvironment(caCert []byte) ([]string, func(), error) {
+	return wgetEnvironment(caCert)
 }
