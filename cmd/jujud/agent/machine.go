@@ -1210,7 +1210,7 @@ func getNetworkingEnvironment(apiSt *api.State) (bool, error) {
 	if err != nil {
 		return false, errors.Annotate(err, "cannot read environment config")
 	}
-	env, err := environs.New(config)
+	env, err := environs.New(envConfig)
 	if err != nil {
 		return false, errors.Annotate(err, "cannot get environment")
 	}

@@ -372,25 +372,3 @@ func (s *workerDisabledSuite) newWorker(c *gc.C) (worker.Worker, func()) {
 	}
 	return w, stop
 }
-
-var _ = gc.Suite(&workerDiesSuite{})
-
-type workerDiesSuite struct {
-	testing.JujuConnSuite
-	machine *state.Machine
-
-	apiSt *api.State
-	api   *apiaddresser.API
-}
-
-func (s *workerDiesSuite) TestErrorKillsWorker(c *gc.C) {
-}
-
-func (s *workerDiesSuite) newWorker(c *gc.C) (worker.Worker, func()) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	stop := func() {
-		worker.Stop(w)
-	}
-	return w, stop
-}
