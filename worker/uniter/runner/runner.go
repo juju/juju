@@ -42,9 +42,11 @@ type Context interface {
 	HookVars(paths Paths) []string
 	ActionData() (*ActionData, error)
 	SetProcess(process *os.Process)
-	Flush(badge string, failure error) error
 	HasExecutionSetUnitStatus() bool
 	ResetExecutionSetUnitStatus()
+
+	Prepare() error
+	Flush(badge string, failure error) error
 }
 
 // Paths exposes the paths needed by Runner.
@@ -97,6 +99,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 		WorkingDir:  runner.paths.GetCharmDir(),
 		Environment: env,
 	}
+
 	err = command.Run()
 	if err != nil {
 		return nil, err

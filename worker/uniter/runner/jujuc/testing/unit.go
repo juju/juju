@@ -11,7 +11,6 @@ import (
 // Unit holds the values for the hook context.
 type Unit struct {
 	Name           string
-	OwnerTag       string
 	ConfigSettings charm.Settings
 }
 
@@ -27,14 +26,6 @@ func (c *ContextUnit) UnitName() string {
 	c.stub.NextErr()
 
 	return c.info.Name
-}
-
-// OwnerTag implements jujuc.ContextUnit.
-func (c *ContextUnit) OwnerTag() string {
-	c.stub.AddCall("OwnerTag")
-	c.stub.NextErr()
-
-	return c.info.OwnerTag
 }
 
 // ConfigSettings implements jujuc.ContextUnit.

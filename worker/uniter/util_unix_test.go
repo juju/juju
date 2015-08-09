@@ -105,7 +105,6 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 	testFile := func(name string) string {
 		return filepath.Join(testDir, name)
 	}
-	adminTag := s.AdminUserTag(c)
 	echoUnitNameToFile := func(name string) string {
 		return echoUnitNameToFileHelper(testDir, name)
 	}
@@ -120,13 +119,12 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			"run commands: jujuc commands",
 			quickStartRelation{},
 			runCommands{
-				fmt.Sprintf("owner-get tag > %s", testFile("jujuc.output")),
 				fmt.Sprintf("unit-get private-address >> %s", testFile("jujuc.output")),
 				fmt.Sprintf("unit-get public-address >> %s", testFile("jujuc.output")),
 			},
 			verifyFile{
 				testFile("jujuc.output"),
-				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
+				"private.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
 			"run commands: jujuc environment",

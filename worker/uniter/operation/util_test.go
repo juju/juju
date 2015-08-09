@@ -5,6 +5,7 @@ package operation_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
@@ -294,6 +295,7 @@ func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (ru
 
 type MockContext struct {
 	runner.Context
+	testing.Stub
 	actionData      *runner.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo
@@ -322,6 +324,11 @@ func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
 
 func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return &mock.status, nil
+}
+
+func (mock *MockContext) Prepare() error {
+	mock.MethodCall(mock, "Prepare")
+	return mock.NextErr()
 }
 
 type MockRunAction struct {
@@ -427,6 +434,7 @@ func NewRunCommandsRunnerFactory(runResponse *utilexec.ExecResponse, runErr erro
 		MockNewCommandRunner: &MockNewCommandRunner{
 			runner: &MockRunner{
 				MockRunCommands: &MockRunCommands{response: runResponse, err: runErr},
+				context:         &MockContext{},
 			},
 		},
 	}

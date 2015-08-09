@@ -172,6 +172,10 @@ func (ctx *MockContext) SetProcess(process *os.Process) {
 	ctx.expectPid = process.Pid
 }
 
+func (ctx *MockContext) Prepare() error {
+	return nil
+}
+
 func (ctx *MockContext) Flush(badge string, failure error) error {
 	ctx.flushBadge = badge
 	ctx.flushFailure = failure

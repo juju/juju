@@ -99,6 +99,49 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
+func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
+	ctx := &MockContext{actionData: &runner.ActionData{Name: "some-action-name"}}
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, gc.NotNil)
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
+func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
+	ctx := &MockContext{actionData: &runner.ActionData{Name: "some-action-name"}}
+	ctx.SetErrors(errors.New("ctx prepare error"))
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.ErrorMatches, `ctx prepare error`)
+	c.Assert(newState, gc.IsNil)
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := operation.NewFactory(operation.FactoryParams{

@@ -28,8 +28,7 @@ type Connection interface {
 // openConnection exists to be patched out in export_test.go (and let us test
 // this component without using a real API connection).
 var openConnection = func(agent agent.Agent) (Connection, error) {
-	currentConfig := agent.CurrentConfig()
-	st, _, err := jujudagent.OpenAPIState(currentConfig, agent)
+	st, _, err := jujudagent.OpenAPIState(agent)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

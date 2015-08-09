@@ -112,9 +112,6 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the user tag of the service owner.
-	serviceOwner names.UserTag
-
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
@@ -383,10 +380,6 @@ func (ctx *HookContext) OpenedPorts() []network.PortRange {
 	return unitRanges
 }
 
-func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner.String()
-}
-
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
@@ -563,6 +556,17 @@ func (ctx *HookContext) handleReboot(err *error) {
 func (ctx *HookContext) addJujuUnitsMetric() error {
 	if ctx.metricsRecorder.IsDeclaredMetric("juju-units") {
 		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now().UTC())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// Prepare implements the Context interface.
+func (ctx *HookContext) Prepare() error {
+	if ctx.actionData != nil {
+		err := ctx.state.ActionBegin(ctx.actionData.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
