@@ -194,7 +194,7 @@ type Config interface {
 	Environment() names.EnvironTag
 }
 
-type ConfigSetterOnly interface {
+type configSetterOnly interface {
 	// Clone returns a copy of the configuration that
 	// is unaffected by subsequent calls to the Set*
 	// methods
@@ -254,12 +254,12 @@ type ConfigWriter interface {
 
 type ConfigSetter interface {
 	Config
-	ConfigSetterOnly
+	configSetterOnly
 }
 
 type ConfigSetterWriter interface {
 	Config
-	ConfigSetterOnly
+	configSetterOnly
 	ConfigWriter
 }
 

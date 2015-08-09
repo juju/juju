@@ -96,15 +96,21 @@ func OpenAPIState(a agent.Agent) (_ *api.State, _ *apiagent.Entity, err error) {
 		}
 
 		// Reconnect to the API with the new password.
-		st.Close()
+		if err := st.Close(); err != nil {
+			logger.Errorf("while closing API connection with old password: %v", err)
+		}
 		info.Password = newPassword
+
+		// NOTE(fwereade): this is where we rebind st. If you accidentally make
+		// it a local variable you will break this func in a subtle and currently-
+		// untested way.
 		st, err = apiOpen(info, api.DialOpts{})
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	return st, entity, err
+	return st, entity, nil
 }
 
 func setAgentPassword(newPw, oldPw string, a agent.Agent, entity *apiagent.Entity) error {
