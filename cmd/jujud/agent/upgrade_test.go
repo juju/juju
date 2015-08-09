@@ -1001,7 +1001,7 @@ type MachineStatusCall struct {
 	Info   string
 }
 
-func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status params.Status, info string) error {
+func (a *fakeUpgradingMachineAgent) setMachineStatus(_ api.Connection, status params.Status, info string) error {
 	// Record setMachineStatus calls for later inspection.
 	a.MachineStatusCalls = append(a.MachineStatusCalls, MachineStatusCall{status, info})
 	return nil

@@ -34,7 +34,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 		replaceErr error
 	}
 	var apiError error
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, apiError
 	})
 	errReplacePairs := []replaceErrors{{
@@ -61,7 +61,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 func (s *OpenAPIStateSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
 	s.PatchValue(&checkProvisionedStrategy.Min, 5)
 	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		called++
 		if called == checkProvisionedStrategy.Min-1 {
 			return nil, &params.Error{Code: params.CodeUnauthorized}
@@ -76,7 +76,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
 func (s *OpenAPIStateSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
 	s.PatchValue(&checkProvisionedStrategy.Min, 5)
 	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		called++
 		return nil, &params.Error{Code: params.CodeNotProvisioned}
 	})

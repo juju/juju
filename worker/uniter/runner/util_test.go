@@ -109,7 +109,7 @@ type HookContextSuite struct {
 	relunits map[int]*state.RelationUnit
 	storage  *storageContextAccessor
 
-	st             *api.State
+	st             api.Connection
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
 	meteredApiUnit *uniter.Unit
@@ -475,7 +475,7 @@ type BlockHelper struct {
 
 // NewBlockHelper creates a block switch used in testing
 // to manage desired juju blocks.
-func NewBlockHelper(st *api.State) BlockHelper {
+func NewBlockHelper(st api.Connection) BlockHelper {
 	return BlockHelper{
 		blockClient: block.NewClient(st),
 	}

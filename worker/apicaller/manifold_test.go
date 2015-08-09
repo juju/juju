@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -54,7 +55,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		stub:   &testing.Stub{},
 		broken: make(chan struct{}),
 	}
-	s.PatchValue(apicaller.OpenConnection, func(agent agent.Agent) (apicaller.Connection, error) {
+	s.PatchValue(apicaller.OpenConnection, func(agent agent.Agent) (api.Connection, error) {
 		s.AddCall("openConnection", agent)
 		if err := s.NextErr(); err != nil {
 			return nil, err

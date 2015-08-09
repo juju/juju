@@ -10,10 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
-	"github.com/juju/juju/worker/apicaller"
 )
 
 type mockAgent struct {
@@ -52,7 +52,7 @@ func (mock *mockSetter) Migrate(params coreagent.MigrateParams) error {
 
 type mockConn struct {
 	stub *testing.Stub
-	apicaller.Connection
+	api.Connection
 	broken chan struct{}
 }
 
