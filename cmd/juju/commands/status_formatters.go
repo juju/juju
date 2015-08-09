@@ -24,6 +24,36 @@ import (
 // Subordinates will be indented 2 spaces and listed under their
 // superiors.
 func FormatOneline(value interface{}) ([]byte, error) {
+	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
+		fmt.Fprintf(out, format,
+			uName,
+			u.PublicAddress,
+			u.AgentState,
+		)
+	})
+}
+
+// FormatOnelineV2 returns a brief list of units and their subordinates.
+// Subordinates will be indented 2 spaces and listed under their
+// superiors. This format works with version 2 of the CLI.
+func FormatOnelineV2(value interface{}) ([]byte, error) {
+	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
+		status := fmt.Sprintf(
+			"agent:%s, workload:%s",
+			u.AgentStatusInfo.Current,
+			u.WorkloadStatusInfo.Current,
+		)
+		fmt.Fprintf(out, format,
+			uName,
+			u.PublicAddress,
+			status,
+		)
+	})
+}
+
+type onelinePrintf func(out *bytes.Buffer, format, uName string, u unitStatus, level int)
+
+func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
@@ -35,12 +65,8 @@ func FormatOneline(value interface{}) ([]byte, error) {
 		if len(u.OpenedPorts) > 0 {
 			fmtPorts = fmt.Sprintf(" %s", strings.Join(u.OpenedPorts, ", "))
 		}
-		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)%v"),
-			uName,
-			u.PublicAddress,
-			u.AgentState,
-			fmtPorts,
-		)
+		format := indent("\n", level*2, "- %s: %s (%v)"+fmtPorts)
+		printf(&out, format, uName, u, level)
 	}
 
 	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
