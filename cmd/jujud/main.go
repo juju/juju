@@ -134,11 +134,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the seperate concerns; the
-	// AgentConf should be split up to follow suite.
+	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf, agentConf, logCh,
-		looputil.NewLoopDeviceManager(),
+		agentConf, logCh, looputil.NewLoopDeviceManager(),
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 

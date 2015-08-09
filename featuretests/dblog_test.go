@@ -96,7 +96,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	agentConf.ReadConfig(m.Tag().String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logsCh, nil)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, nil)
 	a := machineAgentFactory(m.Id())
 
 	// Ensure there's no logs to begin with.

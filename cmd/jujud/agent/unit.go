@@ -138,13 +138,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 }
 
 func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
-	agentConfig := a.CurrentConfig()
-	dataDir := agentConfig.DataDir()
-	hookLock, err := cmdutil.HookExecutionLock(dataDir)
-	if err != nil {
-		return nil, err
-	}
-	st, entity, err := OpenAPIState(agentConfig, a)
+	st, entity, err := OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +156,13 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			}
 		}
 	}()
+
+	agentConfig := a.CurrentConfig()
+	dataDir := agentConfig.DataDir()
+	hookLock, err := cmdutil.HookExecutionLock(dataDir)
+	if err != nil {
+		return nil, err
+	}
 
 	// Ensure that the environment uuid is stored in the agent config.
 	// Luckily the API has it recorded for us after we connect.
@@ -228,11 +229,14 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
+		// XXX(fwereade): this is not a uniter, and should therefore not be
+		// using the uniter facade.
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
+		addressUpdater := agent.APIHostPortsSetter{a}
+		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, addressUpdater), nil
 	})
 	if !featureflag.Enabled(feature.DisableRsyslog) {
 		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
