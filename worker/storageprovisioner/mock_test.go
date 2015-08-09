@@ -242,7 +242,10 @@ func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageI
 }
 
 func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
-	return v.setVolumeInfo(volumes)
+	if v.setVolumeInfo != nil {
+		return v.setVolumeInfo(volumes)
+	}
+	return make([]params.ErrorResult, len(volumes)), nil
 }
 
 func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {

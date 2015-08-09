@@ -527,6 +527,7 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 			AttachmentTag: volumeAttachments[i].Volume.String(),
 		}
 		ctx.volumeAttachments[id] = volumeAttachments[i]
+		removePendingVolumeAttachment(ctx, id)
 	}
 	return nil
 }
