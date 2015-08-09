@@ -12,7 +12,7 @@ import (
 // Context provides the dependencies used when executing upgrade steps.
 type Context interface {
 	// APIState returns an API connection to state.
-	APIState() *api.State
+	APIState() api.Connection
 
 	// State returns a connection to state. This will be non-nil
 	// only in the context of a state server.
@@ -32,7 +32,7 @@ type Context interface {
 }
 
 // NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.ConfigSetter, api *api.State, st *state.State) Context {
+func NewContext(agentConfig agent.ConfigSetter, api api.Connection, st *state.State) Context {
 	return &upgradeContext{
 		agentConfig: agentConfig,
 		api:         api,
@@ -43,14 +43,14 @@ func NewContext(agentConfig agent.ConfigSetter, api *api.State, st *state.State)
 // upgradeContext is a default Context implementation.
 type upgradeContext struct {
 	agentConfig agent.ConfigSetter
-	api         *api.State
+	api         api.Connection
 	st          *state.State
 }
 
 // APIState is defined on the Context interface.
 //
 // This will panic if called on a Context returned by StateContext.
-func (c *upgradeContext) APIState() *api.State {
+func (c *upgradeContext) APIState() api.Connection {
 	if c.api == nil {
 		panic("API not available from this context")
 	}

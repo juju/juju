@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -16,18 +16,9 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.apicaller")
 
-// Connection includes the relevant features of a *api.State, and exists primarily
-// so that we can patch out the openConnection function in tests (and not have to
-// return a real *State).
-type Connection interface {
-	base.APICaller
-	Broken() <-chan struct{}
-	Close() error
-}
-
 // openConnection exists to be patched out in export_test.go (and let us test
 // this component without using a real API connection).
-var openConnection = func(agent agent.Agent) (Connection, error) {
+var openConnection = func(agent agent.Agent) (api.Connection, error) {
 	st, _, err := jujudagent.OpenAPIState(agent)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -39,7 +30,7 @@ var openConnection = func(agent agent.Agent) (Connection, error) {
 // connection, and provides access to a base.APICaller via its manifold's Output
 // func. If the worker is killed, the connection will be closed; and if the
 // connection is broken, the worker will be killed.
-func newApiConnWorker(conn Connection) (worker.Worker, error) {
+func newApiConnWorker(conn api.Connection) (worker.Worker, error) {
 	w := &apiConnWorker{conn: conn}
 	go func() {
 		defer w.tomb.Done()
@@ -50,7 +41,7 @@ func newApiConnWorker(conn Connection) (worker.Worker, error) {
 
 type apiConnWorker struct {
 	tomb tomb.Tomb
-	conn Connection
+	conn api.Connection
 }
 
 // Kill is part of the worker.Worker interface.

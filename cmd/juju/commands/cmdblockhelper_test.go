@@ -20,7 +20,7 @@ type CmdBlockHelper struct {
 
 // NewCmdBlockHelper creates a block switch used in testing
 // to manage desired juju blocks.
-func NewCmdBlockHelper(st *api.State) CmdBlockHelper {
+func NewCmdBlockHelper(st api.Connection) CmdBlockHelper {
 	return CmdBlockHelper{
 		blockClient: block.NewClient(st),
 	}

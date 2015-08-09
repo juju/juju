@@ -354,7 +354,7 @@ type metricCredentialsAPI interface {
 
 type metricsCredentialsAPIImpl struct {
 	api   *apiservice.Client
-	state *api.State
+	state api.Connection
 }
 
 // SetMetricCredentials sets the credentials on the service.
@@ -375,6 +375,6 @@ func (s *metricsCredentialsAPIImpl) Close() error {
 	return nil
 }
 
-var getMetricCredentialsAPI = func(state *api.State) (metricCredentialsAPI, error) {
+var getMetricCredentialsAPI = func(state api.Connection) (metricCredentialsAPI, error) {
 	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
 }

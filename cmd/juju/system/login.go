@@ -19,19 +19,15 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// APIOpenFunc defines a function that opens the api connection
-// and returns the defined interface.
-type APIOpenFunc func(*api.Info, api.DialOpts) (APIConnection, error)
-
 // GetUserManagerFunc defines a function that takes an api connection
 // and returns the (locally defined) UserManager interface.
-type GetUserManagerFunc func(conn APIConnection) (UserManager, error)
+type GetUserManagerFunc func(conn api.Connection) (UserManager, error)
 
 // LoginCommand logs in to a Juju system and caches the connection
 // information.
 type LoginCommand struct {
 	cmd.CommandBase
-	apiOpen        APIOpenFunc
+	apiOpen        api.OpenFunc
 	getUserManager GetUserManagerFunc
 	// TODO (thumper): when we support local cert definitions
 	// allow the use to specify the user and server address.
@@ -174,7 +170,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(envcmd.SetCurrentSystem(ctx, c.Name))
 }
 
-func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState APIConnection) (configstore.EnvironInfo, error) {
+func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -219,7 +215,7 @@ func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 	return serverInfo, nil
 }
 
-func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn APIConnection, userTag names.UserTag, serverInfo configstore.EnvironInfo) error {
+func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, userTag names.UserTag, serverInfo configstore.EnvironInfo) error {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Annotate(err, "failed to generate random password")
@@ -242,16 +238,7 @@ func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn APIConnection, user
 	return nil
 }
 
-// APIConnection defines the calls that the Login command makes to the api
-// client. It is returned by a helper function that is overridden in tests.
-type APIConnection interface {
-	Close() error
-	Addr() string
-	APIHostPorts() [][]network.HostPort
-	ServerTag() (names.EnvironTag, error)
-}
-
-func apiOpen(info *api.Info, opts api.DialOpts) (APIConnection, error) {
+func apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	return api.Open(info, opts)
 }
 
@@ -262,9 +249,6 @@ type UserManager interface {
 	SetPassword(username, password string) error
 }
 
-func getUserManager(conn APIConnection) (UserManager, error) {
-	if apiState, ok := conn.(*api.State); ok {
-		return usermanager.NewClient(apiState), nil
-	}
-	return nil, errors.Errorf("expected real api connection, got %T", conn)
+func getUserManager(conn api.Connection) (UserManager, error) {
+	return usermanager.NewClient(conn), nil
 }

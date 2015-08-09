@@ -28,20 +28,8 @@ var (
 	providerConnectDelay = 2 * time.Second
 )
 
-// apiState provides a subset of api.State's public
-// interface, defined here so it can be mocked.
-type apiState interface {
-	Addr() string
-	Close() error
-	APIHostPorts() [][]network.HostPort
-	EnvironTag() (names.EnvironTag, error)
-	ServerTag() (names.EnvironTag, error)
-}
-
-type apiOpenFunc func(*api.Info, api.DialOpts) (apiState, error)
-
 type apiStateCachedInfo struct {
-	apiState
+	api.Connection
 	// If cachedInfo is non-nil, it indicates that the info has been
 	// newly retrieved, and should be cached in the config store.
 	cachedInfo *api.Info
@@ -52,7 +40,7 @@ var errAborted = fmt.Errorf("aborted")
 // NewAPIState creates an api.State object from an Environ
 // This is almost certainly the wrong thing to do as it assumes
 // the old admin password (stored as admin-secret in the config).
-func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
+func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.DialOpts) (api.Connection, error) {
 	info, err := environAPIInfo(environ, user)
 	if err != nil {
 		return nil, err
@@ -79,15 +67,13 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 // NewAPIFromName returns an api.State connected to the API Server for
 // the named environment. If envName is "", the default environment will
 // be used.
-func NewAPIFromName(envName string) (*api.State, error) {
+func NewAPIFromName(envName string) (api.Connection, error) {
 	return newAPIClient(envName)
 }
 
-func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
-	return api.Open(info, opts)
-}
+var defaultAPIOpen = api.Open
 
-func newAPIClient(envName string) (*api.State, error) {
+func newAPIClient(envName string) (api.Connection, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -96,7 +82,7 @@ func newAPIClient(envName string) (*api.State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.(*api.State), nil
+	return st, nil
 }
 
 // serverAddress returns the given string address:port as network.HostPort.
@@ -111,7 +97,7 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 
 // newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenFunc) (apiState, error) {
+func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc) (api.Connection, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -192,7 +178,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		return nil, err
 	}
 
-	st := val0.(apiState)
+	st := val0.(api.Connection)
 	addrConnectedTo, err := serverAddress(st.Addr())
 	if err != nil {
 		return nil, err
@@ -203,7 +189,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	// servers didn't return their HostPort information on Login, and we
 	// still want to cache our connection information to them.
 	if cachedInfo, ok := st.(apiStateCachedInfo); ok {
-		st = cachedInfo.apiState
+		st = cachedInfo.Connection
 		if cachedInfo.cachedInfo != nil && info != nil {
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
@@ -272,7 +258,7 @@ func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}) (apiState, error) {
+func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-chan struct{}) (api.Connection, error) {
 	endpoint := info.APIEndpoint()
 	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
@@ -302,7 +288,7 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-ch
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag) (apiState, error) {
+func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -362,7 +348,7 @@ func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, er
 // cacheAPIInfo updates the local environment settings (.jenv file)
 // with the provided apiInfo, assuming we've just successfully
 // connected to the API server.
-func cacheAPIInfo(st apiState, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
+func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
 	var environUUID string
 	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {

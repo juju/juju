@@ -40,7 +40,7 @@ type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 
 	machine              *state.Machine
-	state                *api.State
+	state                api.Connection
 	oldRetryAfter        func() <-chan time.Time
 	confVersion          version.Number
 	upgradeRunning       bool
