@@ -24,6 +24,12 @@ func NewEventHandler(events chan []process.Event) *EventHandler {
 	return eh
 }
 
+// RegisterHandler adds a handler to the list of handlers used when new
+// events are processed.
+func (eh *EventHandler) RegisterHandler(handler func([]process.Event) error) {
+	eh.handlers = append(eh.handlers, handler)
+}
+
 // AddEvents adds events to the list of events to be handled.
 func (eh *EventHandler) AddEvents(events ...process.Event) {
 	eh.events <- events
@@ -34,33 +40,27 @@ func (eh *EventHandler) NewWorker() (worker.Worker, error) {
 	return worker.NewSimpleWorker(eh.loop), nil
 }
 
-func (eh *EventHandler) next() (bool, error) {
-	events, closed := <-eh.events
-	if closed {
-		return true, nil
-	}
-
+func (eh *EventHandler) handle(events []process.Event) error {
 	for _, handleEvents := range eh.handlers {
 		if err := handleEvents(events); err != nil {
-			return false, errors.Trace(err)
+			return errors.Trace(err)
 		}
 	}
-	return false, nil
+	return nil
 }
 
 func (eh *EventHandler) loop(stopCh <-chan struct{}) error {
-	for {
+	done := false
+	for !done {
 		select {
 		case <-stopCh:
-			break
-		default:
-		}
-		done, err := eh.next()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if done {
-			break
+			done = true
+		case events, alive := <-eh.events:
+			if !alive {
+				done = true
+			} else if err := eh.handle(events); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil

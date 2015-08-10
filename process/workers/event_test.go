@@ -19,11 +19,22 @@ type eventHandlerSuite struct {
 var _ = gc.Suite(&eventHandlerSuite{})
 
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
-	events := make(chan []process.Event)
-	eh := workers.NewEventHandler(events)
+	eventsCh := make(chan []process.Event)
+	defer close(eventsCh)
+	eh := workers.NewEventHandler(eventsCh)
 
 	// TODO(ericsnow) This test is rather weak.
 	c.Check(eh, gc.NotNil)
+}
+
+func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
+	eventsCh := make(chan []process.Event)
+	defer close(eventsCh)
+	eh := workers.NewEventHandler(eventsCh)
+	handler := func([]process.Event) error { return nil }
+	eh.RegisterHandler(handler)
+
+	// TODO(ericsnow) Check something here.
 }
 
 func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
@@ -50,15 +61,26 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 	}}
 	eventsCh := make(chan []process.Event)
 	eh := workers.NewEventHandler(eventsCh)
+	var handled [][]process.Event
+	handler := func(events []process.Event) error {
+		handled = append(handled, events)
+		return nil
+	}
+	eh.RegisterHandler(handler)
 	w, err := eh.NewWorker()
 	c.Assert(err, jc.ErrorIsNil)
 
 	eh.AddEvents(events...)
-	close(eventsCh)
 
 	w.Kill()
 	err = w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
+	close(eventsCh)
 
-	// TODO(ericsnow) Check the handled events (once able to add handlers).
+	var unhandled [][]process.Event
+	for event := range eventsCh {
+		unhandled = append(unhandled, event)
+	}
+	c.Check(unhandled, gc.HasLen, 0)
+	c.Check(handled, jc.DeepEquals, [][]process.Event{events})
 }
