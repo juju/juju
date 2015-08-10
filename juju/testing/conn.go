@@ -74,7 +74,7 @@ type JujuConnSuite struct {
 	State        *state.State
 	Environ      environs.Environ
 	APIState     api.Connection
-	apiStates    []api.Connection // additional api.States to close on teardown
+	apiStates    []api.Connection // additional api.Connections to close on teardown
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.

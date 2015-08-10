@@ -38,7 +38,6 @@ import (
 // can be used to make a connection to it.
 type Info struct {
 
-	// -------
 	// This block of fields is sufficient to connect:
 
 	// Addrs holds the addresses of the state servers.
@@ -52,7 +51,6 @@ type Info struct {
 	// trying to connect to.
 	EnvironTag names.EnvironTag
 
-	// -------
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
 
@@ -73,6 +71,7 @@ type Info struct {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {
+
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
@@ -104,20 +103,17 @@ type OpenFunc func(*Info, DialOpts) (Connection, error)
 // smaller and more relevant interfaces (and dropping some of them too).
 type Connection interface {
 
-	// ====================
 	// This first block of methods is pretty close to a sane Connection interface.
 	Close() error
 	Broken() <-chan struct{}
 	Addr() string
 	APIHostPorts() [][]network.HostPort
 
-	// ====================
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
 	Login(name, password, nonce string) error
 	ServerVersion() (version.Number, bool)
 
-	// ====================
 	// These are either part of base.APICaller or look like they probably should
 	// be (ServerTag in particular). It's fine and good for Connection to be an
 	// APICaller.
@@ -126,14 +122,12 @@ type Connection interface {
 	EnvironTag() (names.EnvironTag, error)
 	ServerTag() (names.EnvironTag, error)
 
-	// ====================
 	// These HTTP methods should probably be separated out somehow.
 	NewHTTPClient() *http.Client
 	NewHTTPRequest(method, path string) (*http.Request, error)
 	SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error)
 	SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error)
 
-	// ====================
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
 
