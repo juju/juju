@@ -69,3 +69,55 @@ func (*resourcepathSuite) TestPathFromAttributes(c *gc.C) {
 		}
 	}
 }
+
+func (*resourcepathSuite) TestAttributesFromPath(c *gc.C) {
+	for i, test := range []struct {
+		path     string
+		expected charmresources.ResourceAttributes
+		err      string
+	}{{
+		path: "",
+		err:  `invalid resource path ""`,
+	}, {
+		path: "/blob/org/bar/u/foo/base-path",
+		err:  "both user and org cannot be specified together",
+	}, {
+		path: "/blob/u/foo/org/bar/base-path", // u and org out-of-order
+		err:  `invalid resource path "/blob/u/foo/org/bar/base-path"`,
+	}, {
+		path:     "/blob/base-path",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path"},
+	}, {
+		path:     "/blob/c/test/base-path",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path", Stream: "test"},
+	}, {
+		path:     "/blob/s/trusty/base-path",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path", Series: "trusty"},
+	}, {
+		path:     "/blob/base-path/1.2.3",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path", Revision: "1.2.3"},
+	}, {
+		path:     "/zip/base-path",
+		expected: charmresources.ResourceAttributes{Type: "zip", PathName: "base-path"},
+	}, {
+		path:     "/blob/u/fred/base-path",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path", User: "fred"},
+	}, {
+		path:     "/blob/org/acme/base-path",
+		expected: charmresources.ResourceAttributes{Type: "blob", PathName: "base-path", Org: "acme"},
+	}, {
+		path: "/blob/u/fred/c/test/s/trusty/base-path/1.2.3",
+		expected: charmresources.ResourceAttributes{
+			Type: "blob", PathName: "base-path", User: "fred", Stream: "test", Series: "trusty", Revision: "1.2.3",
+		},
+	}} {
+		c.Logf("test %d", i)
+		attrs, err := charmresources.ParseResourcePath(test.path)
+		if test.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(attrs, jc.DeepEquals, test.expected)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+	}
+}
