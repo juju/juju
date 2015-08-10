@@ -36,12 +36,13 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
-	LxcRestartDir    = "/etc/lxc/auto"
-	LxcObjectFactory = golxc.Factory()
-	runtimeGOOS      = runtime.GOOS
-	writeWgetTmpFile = ioutil.WriteFile
+	defaultTemplate       = "ubuntu-cloud"
+	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
+	LxcRestartDir         = "/etc/lxc/auto"
+	LxcObjectFactory      = golxc.Factory()
+	initProcessCgroupFile = "/proc/1/cgroup"
+	runtimeGOOS           = runtime.GOOS
+	writeWgetTmpFile      = ioutil.WriteFile
 )
 
 const (
