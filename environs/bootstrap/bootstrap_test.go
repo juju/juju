@@ -128,7 +128,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -147,7 +147,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -293,6 +293,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	currentVersion.Minor = clientMinor
 	currentVersion.Series = "trusty"
 	currentVersion.Arch = "amd64"
+	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -305,8 +306,14 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary("10.11.12-trusty-amd64"),
 		version.MustParseBinary("10.11.13-trusty-amd64"),
+		version.MustParseBinary("10.11-beta1-trusty-amd64"),
 	}
-	_, err := envtesting.UploadFakeToolsVersions(env.storage, "released", "released", toolsBinaries...)
+	stream := "released"
+	if toolsVersion != nil && toolsVersion.Tag != "" {
+		stream = "testing"
+		currentVersion.Tag = toolsVersion.Tag
+	}
+	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -325,6 +332,19 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *gc.C) {
 		Major: 10,
 		Minor: 11,
 		Patch: 12,
+	})
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecificVersionWithTag(c *gc.C) {
+	toolsVersion := version.MustParse("10.11-beta1")
+	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapCount, gc.Equals, 1)
+	c.Assert(vers, gc.DeepEquals, version.Number{
+		Major: 10,
+		Minor: 11,
+		Patch: 1,
+		Tag:   "beta",
 	})
 }
 

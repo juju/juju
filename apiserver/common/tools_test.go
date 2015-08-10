@@ -157,9 +157,10 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		SHA256:  "feedface",
 	}}
 
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (coretools.List, error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (coretools.List, error) {
 		c.Assert(major, gc.Equals, 123)
 		c.Assert(minor, gc.Equals, 456)
+		c.Assert(stream, gc.Equals, "released")
 		c.Assert(filter.Series, gc.Equals, "win81")
 		c.Assert(filter.Arch, gc.Equals, "alpha")
 		return envtoolsList, nil
@@ -185,7 +186,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(s.State, s.State, sprintfURLGetter("%s"))
@@ -196,23 +197,37 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 
 func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{
-		metadata: []toolstorage.Metadata{{Version: version.Current}},
+		metadata: []toolstorage.Metadata{
+			{Version: version.MustParseBinary("1.22-beta1-trusty-amd64")},
+			{Version: version.MustParseBinary("1.22.0-trusty-amd64")},
+		},
 	}
-	s.testFindToolsExact(c, mockToolsStorage, true)
+	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64"))
+	s.testFindToolsExact(c, mockToolsStorage, true, true)
+	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64"))
+	s.testFindToolsExact(c, mockToolsStorage, true, false)
 }
 
 func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{}
-	s.testFindToolsExact(c, mockToolsStorage, false)
+	s.PatchValue(&version.Current.Number, version.MustParse("1.22-beta1"))
+	s.testFindToolsExact(c, mockToolsStorage, false, true)
+	s.PatchValue(&version.Current.Number, version.MustParse("1.22.0"))
+	s.testFindToolsExact(c, mockToolsStorage, false, false)
 }
 
-func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool) {
+func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool, develVersion bool) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, version.Current.Number)
 		c.Assert(filter.Series, gc.Equals, version.Current.Series)
 		c.Assert(filter.Arch, gc.Equals, version.Current.Arch)
+		if develVersion {
+			c.Assert(stream, gc.Equals, "testing")
+		} else {
+			c.Assert(stream, gc.Equals, "released")
+		}
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(s.State, t, sprintfURLGetter("tools:%s"))
@@ -235,7 +250,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 
 func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})
