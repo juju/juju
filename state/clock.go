@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/utils/clock"
 )
 
 // GetClock exists to allow us to patch out time-handling; specifically
@@ -15,6 +15,6 @@ import (
 // This is *clearly* a bad idea, and we should be injecting the dependency
 // explicitly -- and using an injected clock across the codebase -- but,
 // time pressure.
-var GetClock = func() lease.Clock {
-	return lease.SystemClock{}
+var GetClock = func() clock.Clock {
+	return clock.WallClock
 }

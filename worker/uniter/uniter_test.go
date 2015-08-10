@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
@@ -75,7 +75,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
 	leaseClock = coretesting.NewClock(now)
 	oldGetClock := state.GetClock
-	state.GetClock = func() lease.Clock {
+	state.GetClock = func() clock.Clock {
 		return leaseClock
 	}
 	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
