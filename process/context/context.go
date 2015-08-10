@@ -58,24 +58,26 @@ var _ Component = (*Context)(nil)
 // Context is the workload process portion of the hook context.
 type Context struct {
 	api       APIClient
-	addEvents func(...process.Event)
 	plugin    process.Plugin
 	processes map[string]process.Info
 	updates   map[string]process.Info
 	removes   map[string]struct{}
 
-	findPlugin func(string) (process.Plugin, error)
+	addEvents func(...process.Event)
+	// FindPlugin is the function used to find the plugin for the given
+	// plugin name.
+	FindPlugin func(pluginName string) (process.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
 func NewContext(api APIClient, addEvents func(...process.Event)) *Context {
 	return &Context{
 		api:       api,
-		addEvents: addEvents,
 		processes: make(map[string]process.Info),
 		updates:   make(map[string]process.Info),
 		removes:   make(map[string]struct{}),
-		findPlugin: func(ptype string) (process.Plugin, error) {
+		addEvents: addEvents,
+		FindPlugin: func(ptype string) (process.Plugin, error) {
 			return plugin.Find(ptype)
 		},
 	}
@@ -123,7 +125,7 @@ func (c *Context) Plugin(info *process.Info) (process.Plugin, error) {
 		return c.plugin, nil
 	}
 
-	plugin, err := c.findPlugin(info.Type)
+	plugin, err := c.FindPlugin(info.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -233,12 +235,14 @@ func (c *Context) Flush() error {
 
 	var events []process.Event
 	if len(c.updates) > 0 {
-
 		var updates []process.Info
 		for _, info := range c.updates {
 			updates = append(updates, info)
-			// TODO(ericsnow) Pass in the plugin.
-			var plugin process.Plugin
+
+			plugin, err := c.Plugin(&info)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			events = append(events, process.Event{
 				Kind:   process.EventKindTracked,
 				ID:     info.ID(),
@@ -256,10 +260,14 @@ func (c *Context) Flush() error {
 	if len(c.removes) > 0 {
 		removes := make([]string, 0, len(c.removes))
 		for id := range c.removes {
+			info := c.processes[id]
 			removes = append(removes, id)
 			delete(c.processes, id)
-			// TODO(ericsnow) Pass in the plugin.
-			var plugin process.Plugin
+
+			plugin, err := c.Plugin(&info)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			events = append(events, process.Event{
 				Kind:   process.EventKindUntracked,
 				ID:     id,
