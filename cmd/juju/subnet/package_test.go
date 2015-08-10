@@ -117,10 +117,10 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 		cmdInfo = s.command.Info()
 		expected = "(?sm).*^usage: juju subnet " +
 			regexp.QuoteMeta(cmdInfo.Name) +
-			` \[options\] ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
+			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju subnet " +
-			regexp.QuoteMeta(cmdInfo.Args) + ".+"
+		expected = "(?sm).*^usage: juju subnet" +
+			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)

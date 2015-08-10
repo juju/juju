@@ -139,15 +139,14 @@ func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
 	cmdInfo := s.superCmd.Info()
 	var expected string
 	if s.command != nil {
-		// Subcommands embed EnvCommandBase and have an extra
-		// "[options]" prepended before the args.
+		// Subcommands embed EnvCommandBase
 		cmdInfo = s.command.Info()
 		expected = "(?sm).*^usage: juju space " +
 			regexp.QuoteMeta(cmdInfo.Name) +
-			` \[options\] ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
+			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju space " +
-			regexp.QuoteMeta(cmdInfo.Args) + ".+"
+		expected = "(?sm).*^usage: juju space" +
+			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)
