@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/feature"
@@ -40,7 +41,7 @@ var (
 	reportClosedUnitAPI = func(io.Closer) {}
 )
 
-type unitAgentWorkerFactory func(unit string) func() (worker.Worker, error)
+type unitAgentWorkerFactory func(unit string, caller base.APICaller) (func() (worker.Worker, error), error)
 
 var (
 	unitAgentWorkerNames []string
@@ -216,11 +217,14 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
-	workers := a.apiWorkers(runner, st, agentConfig, &uniter.UniterParams{
+	workers, err := a.apiWorkers(runner, st, agentConfig, &uniter.UniterParams{
 		UnitTag:  unitTag,
 		DataDir:  dataDir,
 		HookLock: hookLock,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := workers.Start(runner); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -228,7 +232,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
-func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig agent.Config, uniterArgs *uniter.UniterParams) worker.Workers {
+func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig agent.Config, uniterArgs *uniter.UniterParams) (worker.Workers, error) {
 	workers := worker.NewWorkers()
 
 	// start proxyupdater first to ensure proxy settings are correct
@@ -286,11 +290,14 @@ func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig 
 
 	for _, name := range unitAgentWorkerNames {
 		newWorkerFunc := unitAgentWorkerFuncs[name]
-		newWorker := newWorkerFunc(a.UnitName)
+		newWorker, err := newWorkerFunc(a.UnitName, st)
+		if err != nil {
+			return workers, errors.Trace(err)
+		}
 		workers.Add(name, newWorker)
 	}
 
-	return workers
+	return workers, nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {

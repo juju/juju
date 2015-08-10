@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/base"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -104,26 +105,43 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	return a
 }
 
-func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
-	var called []string
-	var units []string
-	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
-		units = append(units, unit)
-		return func() (worker.Worker, error) {
-			called = append(called, "newWorker")
-			return nil, nil
-		}
+func (s *UnitSuite) newWorkerFunc(unit string, caller base.APICaller) (func() (worker.Worker, error), error) {
+	s.stub.AddCall("newWorkerFunc", unit, caller)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	err := RegisterUnitAgentWorker("spam", newWorkerFunc)
+
+	return func() (worker.Worker, error) {
+		s.stub.AddCall("newWorker")
+		if err := s.stub.NextErr(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		loop := func(<-chan struct{}) error {
+			s.stub.AddCall("loop")
+			if err := s.stub.NextErr(); err != nil {
+				return errors.Trace(err)
+			}
+
+			return nil
+		}
+		return worker.NewSimpleWorker(loop), nil
+	}, nil
+}
+
+func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
+	err := RegisterUnitAgentWorker("spam", s.newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(unitAgentWorkerNames, jc.DeepEquals, []string{"spam"})
+
 	// We can't compare functions so we jump through hoops instead.
 	c.Check(unitAgentWorkerFuncs, gc.HasLen, 1)
 	registered := unitAgentWorkerFuncs["spam"]
-	registered("a-service/0")()
-	c.Check(called, jc.DeepEquals, []string{"newWorker"})
-	c.Check(units, jc.DeepEquals, []string{"a-service/0"})
+	newWorker, err := registered("a-service/0", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	newWorker()
+	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
@@ -456,21 +474,15 @@ func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 }
 
 func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
-	var units []string
-	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
-		units = append(units, unit)
-		return func() (worker.Worker, error) {
-			return worker.NewSimpleWorker(func(<-chan struct{}) error { return nil }), nil
-		}
-	}
-	err := RegisterUnitAgentWorker("spam", newWorkerFunc)
+	err := RegisterUnitAgentWorker("spam", s.newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
-	err = RegisterUnitAgentWorker("eggs", newWorkerFunc)
+	err = RegisterUnitAgentWorker("eggs", s.newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	a := NewUnitAgent(nil, nil)
 	a.UnitName = "a-service/0"
-	workers := a.apiWorkers(nil, nil, nil, nil)
+	workers, err := a.apiWorkers(nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	ids := workers.IDs()
 
 	expected := []string{
@@ -484,7 +496,9 @@ func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
 		"eggs",
 	}
 	c.Check(ids, jc.DeepEquals, expected)
-	c.Check(units, jc.DeepEquals, []string{"a-service/0", "a-service/0"})
+	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorkerFunc")
+	c.Check(s.stub.Calls()[0].Args[0], gc.Equals, "a-service/0")
+	c.Check(s.stub.Calls()[1].Args[0], gc.Equals, "a-service/0")
 }
 
 type unitAgentUpgrader struct{}

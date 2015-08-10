@@ -161,7 +161,7 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 	// Add to-be-registered handlers here.
 	}
 
-	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
+	newWorkerFunc := func(unit string, caller base.APICaller) (func() (worker.Worker, error), error) {
 		// At this point no workload process workers are running for the unit.
 		if unitHandler, ok := unitEventHandlers[unit]; ok {
 			// The worker must have restarted.
@@ -175,15 +175,38 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 		}
 		unitEventHandlers[unit] = unitHandler
 
-		// TODO(ericsnow) Pull all existing from State (via API) and add
-		// an event for each.
+		// Pull all existing from State (via API) and add an event for each.
+		apiClient := c.newHookContextAPIClient(caller)
+		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		procs, err := apiClient.ListProcesses()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var plugins []process.Plugin
+		for _, proc := range procs {
+			plugin, err := hctx.Plugin(&proc)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			plugins = append(plugins, plugin)
+		}
+		for i, proc := range procs {
+			unitHandler.AddEvents(process.Event{
+				Kind:   process.EventKindTracked,
+				ID:     proc.ID(),
+				Plugin: plugins[i],
+			})
+		}
 
 		// TODO(ericsnow) Handlers need ability to start or stop workers.
 		// TODO(ericsnow) Handlers need ability to make API calls.
 
 		// TODO(ericsnow) Start a state watcher?
 
-		return unitHandler.NewWorker
+		return unitHandler.NewWorker, nil
 	}
 	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
 	if err != nil {
