@@ -40,6 +40,21 @@ var (
 	reportClosedUnitAPI = func(io.Closer) {}
 )
 
+var (
+	unitAgentWorkerNames []string
+	unitAgentWorkerFuncs = make(map[string]func() (worker.Worker, error))
+)
+
+// RegisterUnitAgentWorker adds the worker to the list of workers to start.
+func RegisterUnitAgentWorker(name string, newWorker func() (worker.Worker, error)) error {
+	if _, ok := unitAgentWorkerFuncs[name]; ok {
+		return errors.Errorf("worker %q already registered", name)
+	}
+	unitAgentWorkerFuncs[name] = newWorker
+	unitAgentWorkerNames = append(unitAgentWorkerNames, name)
+	return nil
+}
+
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
@@ -250,6 +265,12 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 		})
 	}
+
+	for _, name := range unitAgentWorkerNames {
+		newWorker := unitAgentWorkerFuncs[name]
+		runner.StartWorker(name, newWorker)
+	}
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
