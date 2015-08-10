@@ -12,7 +12,7 @@ import (
 // Some (hopefully growing number of) manifolds completely depend on an API
 // connection; this type configures them.
 type ApiManifoldConfig struct {
-	ApiCallerName string
+	APICallerName string
 }
 
 // ApiStartFunc encapsulates the behaviour that varies among ApiManifolds.
@@ -23,11 +23,11 @@ type ApiStartFunc func(base.APICaller) (worker.Worker, error)
 func ApiManifold(config ApiManifoldConfig, start ApiStartFunc) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ApiCallerName,
+			config.APICallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			var apiCaller base.APICaller
-			if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
+			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			return start(apiCaller)

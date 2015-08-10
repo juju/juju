@@ -5,41 +5,27 @@ package agent
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// Agent is the interface exposed to workers that depend upon an agent's
-// representation in its dependency.Engine.
-// TODO(fwereade) this could *surely* be cleaned up, I'm not at all convinced
-// these all need to go together: in particular, can't we accomplish the same
-// function as SetAPIHostPorts with ChangeConfig?
-type Agent interface {
-	Tag() names.Tag
-	CurrentConfig() agent.Config
-	ChangeConfig(agent.ConfigMutator) error
-	SetAPIHostPorts([][]network.HostPort) error
-}
-
 // Manifold returns a manifold that starts a worker proxying the supplied Agent
 // for use by other workers.
-func Manifold(agent Agent) dependency.Manifold {
+func Manifold(a agent.Agent) dependency.Manifold {
 	return dependency.Manifold{
-		Start:  startFunc(agent),
+		Start:  startFunc(a),
 		Output: outputFunc,
 	}
 }
 
 // startFunc returns a StartFunc that starts a worker holding a reference to
 // the supplied Agent.
-func startFunc(agent Agent) dependency.StartFunc {
+func startFunc(a agent.Agent) dependency.StartFunc {
 	return func(_ dependency.GetResourceFunc) (worker.Worker, error) {
-		w := &agentWorker{agent: agent}
+		w := &agentWorker{agent: a}
 		go func() {
 			defer w.tomb.Done()
 			<-w.tomb.Dying()
@@ -51,7 +37,7 @@ func startFunc(agent Agent) dependency.StartFunc {
 // outputFunc extracts an Agent from its *agentWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*agentWorker)
-	outPointer, _ := out.(*Agent)
+	outPointer, _ := out.(*agent.Agent)
 	if inWorker == nil || outPointer == nil {
 		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 	}
@@ -63,7 +49,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 // accessible via the manifold's Output.
 type agentWorker struct {
 	tomb  tomb.Tomb
-	agent Agent
+	agent agent.Agent
 }
 
 // Kill is part of the worker.Worker interface.
