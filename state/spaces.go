@@ -99,6 +99,23 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
+// AllSpaces returns all spaces from state.
+func (st *State) AllSpaces() ([]*Space, error) {
+	spacesCollection, closer := st.getCollection(spacesC)
+	defer closer()
+
+	docs := []spaceDoc{}
+	var spaces []*Space
+	err := spacesCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all spaces")
+	}
+	for _, doc := range docs {
+		spaces = append(spaces, &Space{st: st, doc: doc})
+	}
+	return spaces, nil
+}
+
 // EnsureDead sets the Life of the space to Dead, if it's Alive. It
 // does nothing otherwise.
 func (s *Space) EnsureDead() (err error) {
