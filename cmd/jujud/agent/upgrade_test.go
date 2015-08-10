@@ -912,7 +912,7 @@ func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	defer apiState.Close()
 
 	// this call should always work
-	var result api.Status
+	var result params.Status
 	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
 	c.Assert(err, jc.ErrorIsNil)
 

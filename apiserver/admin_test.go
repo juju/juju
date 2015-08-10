@@ -597,7 +597,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	checker := func(c *gc.C, loginErr error, st api.Connection) {
 		c.Assert(loginErr, gc.IsNil)
 
-		var statusResult api.Status
+		var statusResult params.Status
 		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
