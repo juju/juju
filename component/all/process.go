@@ -15,6 +15,7 @@ import (
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
+	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api/client"
 	"github.com/juju/juju/process/api/server"
@@ -22,7 +23,9 @@ import (
 	"github.com/juju/juju/process/plugin"
 	procstate "github.com/juju/juju/process/state"
 	"github.com/juju/juju/process/status"
+	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -30,8 +33,9 @@ import (
 type workloadProcesses struct{}
 
 func (c workloadProcesses) registerForServer() error {
-	c.registerHookContext()
 	c.registerState()
+	c.registerWorkers()
+	c.registerHookContext()
 	c.registerUnitStatus()
 	return nil
 }
@@ -137,6 +141,22 @@ func (workloadProcesses) registerHookContextCommands() {
 		}
 		return cmd
 	})
+}
+
+func (c workloadProcesses) registerWorkers() {
+	handlers := []func([]process.Event) error{}
+
+	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
+		watcher := workers.NewWatcher()
+		for _, handler := range handlers {
+			watcher.Handlers.RegisterHandler(handler)
+		}
+		return watcher.NewWorker
+	}
+	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (workloadProcesses) registerState() {
