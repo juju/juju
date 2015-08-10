@@ -530,17 +530,24 @@ func (env *localEnviron) Destroy() error {
 	}
 	// Stop the mongo database and machine agent. We log any errors but
 	// do not fail, so that remaining "destroy" steps will still happen.
-	err = mongoRemoveService(env.config.namespace())
-	if err != nil && !errors.IsNotFound(err) {
-		logger.Errorf("while stopping mongod: %v", err)
-	}
-	svc, err := discoverService(env.machineAgentServiceName())
-	if err == nil {
-		if err := svc.Stop(); err != nil {
-			logger.Errorf("while stopping machine agent: %v", err)
+	//
+	// We run through twice, since this races with the agent's teardown.
+	// We only log errors on the second time through, since if an error
+	// occurred, we sould expect it to be due to the service no longer
+	// existing.
+	for i := 0; i < 2; i++ {
+		err = mongoRemoveService(env.config.namespace())
+		if err != nil && !errors.IsNotFound(err) && i > 0 {
+			logger.Errorf("while stopping mongod: %v", err)
 		}
-		if err := svc.Remove(); err != nil {
-			logger.Errorf("while disabling machine agent: %v", err)
+		svc, err := discoverService(env.machineAgentServiceName())
+		if err == nil {
+			if err := svc.Stop(); err != nil && i > 0 {
+				logger.Errorf("while stopping machine agent: %v", err)
+			}
+			if err := svc.Remove(); err != nil && i > 0 {
+				logger.Errorf("while disabling machine agent: %v", err)
+			}
 		}
 	}
 
