@@ -46,7 +46,6 @@ type toolsVersionWorker struct {
 }
 
 func (w *toolsVersionWorker) doCheck(stopCh <-chan struct{}) error {
-	logger.Debugf("checking for new tools availability")
 	err := updateToolsAvailability(w.st, w.findTools, w.envVersionUpdate)
 	if err != nil {
 		return errors.Annotate(err, "cannot fetch new tools information")

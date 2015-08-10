@@ -165,6 +165,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
+	if fs.AvailableVersion != "" {
+		p("\n[Extras]")
+		p("TOOLS-UPGRADE-AVAILABLE")
+		p(fs.AvailableVersion)
+	}
+	tw.Flush()
+
 	return out.Bytes(), nil
 }
 

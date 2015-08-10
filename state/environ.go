@@ -35,8 +35,8 @@ type environmentDoc struct {
 	ServerUUID string `bson:"server-uuid"`
 
 	// AvailableVersion
-	LatestAvailableTools string     `bson:"latestavailabletools,omitempty"`
-	LatestToolCheck      *time.Time `bson:"latesttoolcheck,omitempty"`
+	LatestAvailableTools string     `bson:"available-tools,omitempty"`
+	LatestToolCheck      *time.Time `bson:"latest-tools-check,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.

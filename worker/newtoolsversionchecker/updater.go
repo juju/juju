@@ -38,6 +38,8 @@ func checkToolsAvailability(cfg *config.Config, find toolFinder) (version.Number
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "canot find available tools")
 	}
+	// Newest also returns a list of the items in this list matching with the
+	// newest version.
 	newest, _ := vers.Newest()
 	return newest, nil
 }
@@ -67,6 +69,5 @@ func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envV
 		logger.Debugf("toos lookup returned version Zero, this should only happen during bootstrap.")
 		return nil
 	}
-	logger.Debugf("the newest available version found is: %q", ver)
 	return update(env, ver)
 }

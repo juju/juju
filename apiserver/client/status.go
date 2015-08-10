@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -193,20 +194,49 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 			context.machines[status] = filteredList
 		}
 	}
-
-	env, err := c.api.state.Environment()
+	newToolsVersion, err := c.newToolsVersionAvailable()
 	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot get environment")
+		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
 	}
 
 	return api.Status{
 		EnvironmentName: cfg.Name(),
-		Version:         env.LatestToolsVersion(),
+		Version:         newToolsVersion,
 		Machines:        processMachines(context.machines),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),
 		Relations:       context.processRelations(),
 	}, nil
+}
+
+// newToolsVersionAvailable will return a string representing a tools
+// version only if the latest check is newer than current tools.
+func (c *Client) newToolsVersionAvailable() (string, error) {
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get environment")
+	}
+
+	latestVersion := env.LatestToolsVersion()
+	if latestVersion == "" {
+		return "", nil
+	}
+	v, err := version.Parse(env.LatestToolsVersion())
+	if err != nil {
+		errors.Annotatef(err, "the stored newest available version for juju tools %q is invalid", latestVersion)
+	}
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain current environ config")
+	}
+	oldV, ok := envConfig.AgentVersion()
+	if !ok {
+		return "", nil
+	}
+	if oldV.Compare(v) < 0 {
+		return latestVersion, nil
+	}
+	return "", nil
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16

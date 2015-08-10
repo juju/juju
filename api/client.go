@@ -50,16 +50,14 @@ type NetworksSpecification struct {
 
 // AgentStatus holds status info about a machine or unit agent.
 type AgentStatus struct {
-	Status             params.Status
-	Info               string
-	Data               map[string]interface{}
-	Since              *time.Time
-	Kind               params.HistoryKind
-	Version            string
-	AvailableVersion   string
-	LastAvailableCheck *time.Time
-	Life               string
-	Err                error
+	Status  params.Status
+	Info    string
+	Data    map[string]interface{}
+	Since   *time.Time
+	Kind    params.HistoryKind
+	Version string
+	Life    string
+	Err     error
 }
 
 // MachineStatus holds status info about a machine.

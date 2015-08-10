@@ -4,7 +4,6 @@
 package newtoolsversionchecker_test
 
 import (
-	//stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"

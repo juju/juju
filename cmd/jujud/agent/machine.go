@@ -1050,8 +1050,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "newtoolsversionchecker", func() (worker.Worker, error) {
-				// twice a day seems a decent enough amount of time to check for
-				// new versions.
+				// 4 times a day seems a decent enough amount of checks.
 				checkerParams := newtoolsversionchecker.VersionCheckerParams{
 					CheckInterval: time.Hour * 6,
 				}
