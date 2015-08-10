@@ -40,17 +40,19 @@ var (
 	reportClosedUnitAPI = func(io.Closer) {}
 )
 
+type unitAgentWorkerFactory func(unit string) func() (worker.Worker, error)
+
 var (
 	unitAgentWorkerNames []string
-	unitAgentWorkerFuncs = make(map[string]func() (worker.Worker, error))
+	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
 )
 
 // RegisterUnitAgentWorker adds the worker to the list of workers to start.
-func RegisterUnitAgentWorker(name string, newWorker func() (worker.Worker, error)) error {
+func RegisterUnitAgentWorker(name string, newWorkerFunc unitAgentWorkerFactory) error {
 	if _, ok := unitAgentWorkerFuncs[name]; ok {
 		return errors.Errorf("worker %q already registered", name)
 	}
-	unitAgentWorkerFuncs[name] = newWorker
+	unitAgentWorkerFuncs[name] = newWorkerFunc
 	unitAgentWorkerNames = append(unitAgentWorkerNames, name)
 	return nil
 }
@@ -283,7 +285,8 @@ func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig 
 	}
 
 	for _, name := range unitAgentWorkerNames {
-		newWorker := unitAgentWorkerFuncs[name]
+		newWorkerFunc := unitAgentWorkerFuncs[name]
+		newWorker := newWorkerFunc(a.UnitName)
 		workers.Add(name, newWorker)
 	}
 

@@ -65,7 +65,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
 	unitAgentWorkerNames = nil
-	unitAgentWorkerFuncs = make(map[string]func() (worker.Worker, error))
+	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
 
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
@@ -106,19 +106,24 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 
 func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
 	var called []string
-	newWorker := func() (worker.Worker, error) {
-		called = append(called, "newWorker")
-		return nil, nil
+	var units []string
+	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
+		units = append(units, unit)
+		return func() (worker.Worker, error) {
+			called = append(called, "newWorker")
+			return nil, nil
+		}
 	}
-	err := RegisterUnitAgentWorker("spam", newWorker)
+	err := RegisterUnitAgentWorker("spam", newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(unitAgentWorkerNames, jc.DeepEquals, []string{"spam"})
 	// We can't compare functions so we jump through hoops instead.
 	c.Check(unitAgentWorkerFuncs, gc.HasLen, 1)
 	registered := unitAgentWorkerFuncs["spam"]
-	registered()
+	registered("a-service/0")()
 	c.Check(called, jc.DeepEquals, []string{"newWorker"})
+	c.Check(units, jc.DeepEquals, []string{"a-service/0"})
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
@@ -451,15 +456,20 @@ func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 }
 
 func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
-	newWorker := func() (worker.Worker, error) {
-		return worker.NewSimpleWorker(func(<-chan struct{}) error { return nil }), nil
+	var units []string
+	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
+		units = append(units, unit)
+		return func() (worker.Worker, error) {
+			return worker.NewSimpleWorker(func(<-chan struct{}) error { return nil }), nil
+		}
 	}
-	err := RegisterUnitAgentWorker("spam", newWorker)
+	err := RegisterUnitAgentWorker("spam", newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
-	err = RegisterUnitAgentWorker("eggs", newWorker)
+	err = RegisterUnitAgentWorker("eggs", newWorkerFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	a := NewUnitAgent(nil, nil)
+	a.UnitName = "a-service/0"
 	workers := a.apiWorkers(nil, nil, nil, nil)
 	ids := workers.IDs()
 
@@ -474,6 +484,7 @@ func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
 		"eggs",
 	}
 	c.Check(ids, jc.DeepEquals, expected)
+	c.Check(units, jc.DeepEquals, []string{"a-service/0", "a-service/0"})
 }
 
 type unitAgentUpgrader struct{}
