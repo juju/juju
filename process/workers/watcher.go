@@ -19,8 +19,8 @@ type Watcher struct {
 func NewWatcher() *Watcher {
 	events := make(chan []process.Event) // TODO(ericsnow) Set a size?
 	w := &Watcher{
+		Handler: NewEventHandler(events),
 		events:  events,
-		handler: NewEventHandler(events),
 	}
 	return w
 }
@@ -31,7 +31,7 @@ func (w *Watcher) Close() {
 }
 
 // NewWorker wraps the Watcher in a worker.
-func (w *Watcher) NewWorker() worker.Worker {
+func (w *Watcher) NewWorker() (worker.Worker, Error) {
 	defer w.Close()
 	return w.Handler.NewWorker()
 }
