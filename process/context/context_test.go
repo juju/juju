@@ -329,7 +329,7 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "RegisterProcesses")
+	s.Stub.CheckCallNames(c, "RegisterProcesses", "addEvents")
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
@@ -352,7 +352,7 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 
 func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	info := s.newProc("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	err := ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 	before, err := ctx.Processes()
@@ -361,7 +361,7 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	ctx.Untrack(info.ID())
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "RegisterProcesses", "Untrack")
+	s.apiClient.stub.CheckCallNames(c, "RegisterProcesses", "Untrack", "addEvents")
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -372,7 +372,7 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
 	info := s.newProc("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	err := ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 	before, err := ctx.Processes()
