@@ -17,11 +17,16 @@ type EventHandler struct {
 }
 
 // NewEventHandler wraps a new EventHandler around the provided channel.
-func NewEventHandler(events chan []process.Event) *EventHandler {
+func NewEventHandler() *EventHandler {
 	eh := &EventHandler{
-		events: events,
+		events: make(chan []process.Event), // TODO(ericsnow) Set a size?
 	}
 	return eh
+}
+
+// Close cleans up the handler's resources.
+func (eh *EventHandler) Close() {
+	close(eh.events)
 }
 
 // RegisterHandler adds a handler to the list of handlers used when new

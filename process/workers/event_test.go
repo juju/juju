@@ -19,18 +19,16 @@ type eventHandlerSuite struct {
 var _ = gc.Suite(&eventHandlerSuite{})
 
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
-	eventsCh := make(chan []process.Event)
-	defer close(eventsCh)
-	eh := workers.NewEventHandler(eventsCh)
+	eh := workers.NewEventHandler()
+	defer eh.Close()
 
 	// TODO(ericsnow) This test is rather weak.
 	c.Check(eh, gc.NotNil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
-	eventsCh := make(chan []process.Event)
-	defer close(eventsCh)
-	eh := workers.NewEventHandler(eventsCh)
+	eh := workers.NewEventHandler()
+	defer eh.Close()
 	handler := func([]process.Event) error { return nil }
 	eh.RegisterHandler(handler)
 
@@ -42,13 +40,15 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	eventsCh := make(chan []process.Event, 2)
-	eh := workers.NewEventHandler(eventsCh)
-	eh.AddEvents(events...)
-	close(eventsCh)
+	//eventsCh := make(chan []process.Event, 2)
+	eh := workers.NewEventHandler()
+	go func() {
+		eh.AddEvents(events...)
+		eh.Close()
+	}()
 
 	var got [][]process.Event
-	for event := range eventsCh {
+	for event := range workers.ExposeChannel(eh) {
 		got = append(got, event)
 	}
 	c.Check(got, jc.DeepEquals, [][]process.Event{events})
@@ -59,8 +59,7 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	eventsCh := make(chan []process.Event)
-	eh := workers.NewEventHandler(eventsCh)
+	eh := workers.NewEventHandler()
 	var handled [][]process.Event
 	handler := func(events []process.Event) error {
 		handled = append(handled, events)
@@ -75,10 +74,10 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 	w.Kill()
 	err = w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
-	close(eventsCh)
+	eh.Close()
 
 	var unhandled [][]process.Event
-	for event := range eventsCh {
+	for event := range workers.ExposeChannel(eh) {
 		unhandled = append(unhandled, event)
 	}
 	c.Check(unhandled, gc.HasLen, 0)

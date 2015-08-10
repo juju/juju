@@ -143,20 +143,43 @@ func (workloadProcesses) registerHookContextCommands() {
 	})
 }
 
-func (c workloadProcesses) registerWorkers() {
-	handlers := []func([]process.Event) error{}
+func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandler {
+	unitEventHandlers := make(map[string]*workers.EventHandler)
+
+	handlerFuncs := []func([]process.Event) error{
+	// Add to-be-registered handlers here.
+	}
 
 	newWorkerFunc := func(unit string) func() (worker.Worker, error) {
-		watcher := workers.NewWatcher()
-		for _, handler := range handlers {
-			watcher.Handlers.RegisterHandler(handler)
+		// At this point no workload process workers are running for the unit.
+		if unitHandler, ok := unitEventHandlers[unit]; ok {
+			// The worker must have restarted.
+			// TODO(ericsnow) Could cause panics?
+			unitHandler.Close()
 		}
-		return watcher.NewWorker
+
+		unitHandler := workers.NewEventHandler()
+		for _, handlerFunc := range handlerFuncs {
+			unitHandler.RegisterHandler(handlerFunc)
+		}
+		unitEventHandlers[unit] = unitHandler
+
+		// TODO(ericsnow) Pull all existing from State (via API) and add
+		// an event for each.
+
+		// TODO(ericsnow) Handlers need ability to start or stop workers.
+		// TODO(ericsnow) Handlers need ability to make API calls.
+
+		// TODO(ericsnow) Start a state watcher?
+
+		return unitHandler.NewWorker
 	}
 	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
 	if err != nil {
 		panic(err)
 	}
+
+	return unitEventHandlers
 }
 
 func (workloadProcesses) registerState() {
