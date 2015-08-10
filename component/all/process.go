@@ -157,11 +157,11 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 	}
 	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
-	handlerFuncs := []func([]process.Event) error{
+	handlerFuncs := []func([]process.Event, context.APIClient, workers.Runner) error{
 	// Add to-be-registered handlers here.
 	}
 
-	newWorkerFunc := func(unit string, caller base.APICaller) (func() (worker.Worker, error), error) {
+	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
 		// At this point no workload process workers are running for the unit.
 		if unitHandler, ok := unitEventHandlers[unit]; ok {
 			// The worker must have restarted.
@@ -169,27 +169,24 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 			unitHandler.Close()
 		}
 
-		unitHandler := workers.NewEventHandlers()
+		apiClient := c.newHookContextAPIClient(caller)
+
+		unitHandler := workers.NewEventHandlers(apiClient, runner)
 		for _, handlerFunc := range handlerFuncs {
 			unitHandler.RegisterHandler(handlerFunc)
 		}
 		unitEventHandlers[unit] = unitHandler
 
-		apiClient := c.newHookContextAPIClient(caller)
+		// Pull all existing from State (via API) and add an event for each.
 		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		// Pull all existing from State (via API) and add an event for each.
 		events, err := c.initialEvents(hctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		unitHandler.AddEvents(events...)
-
-		// TODO(ericsnow) Handlers need ability to start or stop workers.
-		// TODO(ericsnow) Handlers need ability to make API calls.
 
 		// TODO(ericsnow) Start a state watcher?
 

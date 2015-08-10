@@ -105,8 +105,8 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	return a
 }
 
-func (s *UnitSuite) newWorkerFunc(unit string, caller base.APICaller) (func() (worker.Worker, error), error) {
-	s.stub.AddCall("newWorkerFunc", unit, caller)
+func (s *UnitSuite) newWorkerFunc(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
+	s.stub.AddCall("newWorkerFunc", unit, caller, runner)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -138,7 +138,7 @@ func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
 	// We can't compare functions so we jump through hoops instead.
 	c.Check(unitAgentWorkerFuncs, gc.HasLen, 1)
 	registered := unitAgentWorkerFuncs["spam"]
-	newWorker, err := registered("a-service/0", nil)
+	newWorker, err := registered("a-service/0", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	newWorker()
 	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")

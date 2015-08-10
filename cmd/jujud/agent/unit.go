@@ -41,7 +41,7 @@ var (
 	reportClosedUnitAPI = func(io.Closer) {}
 )
 
-type unitAgentWorkerFactory func(unit string, caller base.APICaller) (func() (worker.Worker, error), error)
+type unitAgentWorkerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
 
 var (
 	unitAgentWorkerNames []string
@@ -290,7 +290,7 @@ func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig 
 
 	for _, name := range unitAgentWorkerNames {
 		newWorkerFunc := unitAgentWorkerFuncs[name]
-		newWorker, err := newWorkerFunc(a.UnitName, st)
+		newWorker, err := newWorkerFunc(a.UnitName, st, runner)
 		if err != nil {
 			return workers, errors.Trace(err)
 		}
