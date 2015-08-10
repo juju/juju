@@ -50,8 +50,7 @@ func (c workloadProcesses) registerHookContext(handlers map[string]*workers.Even
 	}
 
 	runner.RegisterComponentFunc(process.ComponentName,
-		func(caller base.APICaller) (jujuc.ContextComponent, error) {
-			var unit string // TODO(ericsnow) Pass in an arg?
+		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
 			var addEvents func(...process.Event)
 			if unitEventHandler, ok := handlers[unit]; ok {
 				addEvents = unitEventHandler.AddEvents
